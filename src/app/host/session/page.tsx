@@ -48,7 +48,7 @@ export default function SessionPage() {
   }, [])
 
   useEffect(() => {
-    if (phase === 'loading' || phase === 'error') return
+    if (!quiz) return   // wait until session is confirmed loaded
     const socket = io()
     socketRef.current = socket
 
@@ -71,7 +71,7 @@ export default function SessionPage() {
     })
 
     return () => { socket.disconnect() }
-  }, [phase])
+  }, [quiz])
 
   function createSession() {
     if (!quiz) return
@@ -221,13 +221,12 @@ export default function SessionPage() {
               {currentQuestion.options?.map((opt, i) => {
                 const votes = optionCounts[i] ?? 0
                 const pct = participants.length > 0 ? (votes / participants.length) * 100 : 0
-                const barColors = ['bg-pink-500', 'bg-orange-500', 'bg-blue-600', 'bg-green-600']
                 return (
                   <div
                     key={i}
                     className={`rounded-xl overflow-hidden ${
                       String(i) === currentQuestion.correctAnswer
-                        ? 'ring-2 ring-lime-400'
+                        ? 'ring-2 ring-lime-400 bg-lime-400/10'
                         : 'bg-zinc-800'
                     }`}
                   >
@@ -243,7 +242,7 @@ export default function SessionPage() {
                     {/* Live vote bar */}
                     <div className="h-1.5 bg-zinc-700">
                       <div
-                        className={`h-full transition-all duration-500 ${barColors[i]}`}
+                        className={`h-full transition-all duration-500 ${OPTION_COLORS[i]}`}
                         style={{ width: `${pct}%` }}
                       />
                     </div>
