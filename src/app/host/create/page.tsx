@@ -201,8 +201,8 @@ export default function CreateQuizPage() {
   const [translateError, setTranslateError] = useState('')
   const [translatedTo, setTranslatedTo] = useState<string | null>(null)
 
-  // AI generated flag (controls display in AI tabs — prevents blank card from Manual tab)
-  const [aiGenerated, setAiGenerated] = useState(false)
+  // Per-tab generated flag (prevents cross-tab card bleed)
+  const [generatedOnTab, setGeneratedOnTab] = useState<Tab | null>(null)
 
   // Drag-to-reorder ref
   const dragIndex = useRef<number | null>(null)
@@ -221,10 +221,10 @@ export default function CreateQuizPage() {
     setQuestions(prev => prev.filter((_, i) => i !== index))
   }
 
-  function setGeneratedQuestions(raw: Question[]) {
+  function setGeneratedQuestions(raw: Question[], forTab: Tab) {
     const withIds = raw.map(q => ({ ...q, id: crypto.randomUUID() }))
     setQuestions(withIds)
-    setAiGenerated(true)
+    setGeneratedOnTab(forTab)
   }
 
   // ── AI Topic generate ───────────────────────────────────────────────────────
@@ -241,7 +241,7 @@ export default function CreateQuizPage() {
       })
       const data = await res.json()
       if (!res.ok) { setAiError(data.error ?? 'Generation failed'); return }
-      setGeneratedQuestions(data)
+      setGeneratedQuestions(data, 'aitopic')
     } catch {
       setAiError('Network error. Try again.')
     } finally {
@@ -263,7 +263,7 @@ export default function CreateQuizPage() {
       })
       const data = await res.json()
       if (!res.ok) { setUrlError(data.error ?? 'Generation failed'); return }
-      setGeneratedQuestions(data)
+      setGeneratedQuestions(data, 'aiurl')
     } catch {
       setUrlError('Network error. Try again.')
     } finally {
@@ -288,7 +288,7 @@ export default function CreateQuizPage() {
       })
       const data = await res.json()
       if (!res.ok) { setDocError(data.error ?? 'Generation failed'); return }
-      setGeneratedQuestions(data)
+      setGeneratedQuestions(data, 'aidoc')
     } catch {
       setDocError('Network error. Try again.')
     } finally {
@@ -473,7 +473,7 @@ export default function CreateQuizPage() {
             >
               {aiLoading ? 'Generating...' : '✨ Generate Questions'}
             </button>
-            {aiGenerated && (
+            {generatedOnTab === 'aitopic' && (
               <div className="space-y-4 mt-2">
                 <p className="text-xs text-zinc-500">Generated — edit before saving:</p>
                 {questions.map((q, i) => (
@@ -505,7 +505,7 @@ export default function CreateQuizPage() {
             >
               {urlLoading ? 'Fetching & Generating...' : '🔗 Fetch & Generate'}
             </button>
-            {aiGenerated && (
+            {generatedOnTab === 'aiurl' && (
               <div className="space-y-4 mt-2">
                 <p className="text-xs text-zinc-500">Generated — edit before saving:</p>
                 {questions.map((q, i) => (
@@ -537,7 +537,7 @@ export default function CreateQuizPage() {
             >
               {docLoading ? 'Reading & Generating...' : '📄 Generate from Document'}
             </button>
-            {aiGenerated && (
+            {generatedOnTab === 'aidoc' && (
               <div className="space-y-4 mt-2">
                 <p className="text-xs text-zinc-500">Generated — edit before saving:</p>
                 {questions.map((q, i) => (
