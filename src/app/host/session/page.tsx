@@ -3,13 +3,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { io, Socket } from 'socket.io-client'
+import QRCode from 'react-qr-code'
+import { Avatar } from '@/components/Avatar'
+import { SessionReport } from '@/components/SessionReport'
 import { getActiveSession, clearActiveSession } from '@/lib/quiz-storage'
-import type { Quiz } from '@/lib/quiz-types'
+import type { Quiz, QuestionStat } from '@/lib/quiz-types'
 
 type Phase = 'loading' | 'error' | 'idle' | 'lobby' | 'question' | 'ended'
 
 interface LeaderboardEntry {
   name: string
+  archetype: string
   score: number
 }
 
@@ -29,7 +33,11 @@ export default function SessionPage() {
   const [phase, setPhase] = useState<Phase>('loading')
   const [quiz, setQuiz] = useState<Quiz | null>(null)
   const [gameCode, setGameCode] = useState('')
-  const [participants, setParticipants] = useState<string[]>([])
+  const [participants, setParticipants] = useState<Map<string, string>>(new Map())
+  // key = displayName, value = archetype
+  const [practiceMode, setPracticeMode] = useState(false)
+  const [explanation, setExplanation] = useState<string | null>(null)
+  const [questionStats, setQuestionStats] = useState<QuestionStat[]>([])
   const [questionIndex, setQuestionIndex] = useState(0)
   const [answered, setAnswered] = useState(0)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
@@ -52,12 +60,12 @@ export default function SessionPage() {
     const socket = io()
     socketRef.current = socket
 
-    socket.on('participant_joined', ({ name }: { name: string }) => {
-      setParticipants(prev => [...prev, name])
+    socket.on('participant_joined', ({ name, archetype }: { name: string; archetype: string; count: number }) => {
+      setParticipants(prev => new Map(prev).set(name, archetype))
     })
 
     socket.on('participant_left', ({ name }: { name: string }) => {
-      setParticipants(prev => prev.filter(n => n !== name))
+      setParticipants(prev => { const next = new Map(prev); next.delete(name); return next })
     })
 
     socket.on('answer_received', ({ count, optionCounts: counts }: { count: number; optionCounts?: number[] }) => {
@@ -65,8 +73,16 @@ export default function SessionPage() {
       if (counts) setOptionCounts(counts)
     })
 
-    socket.on('session_end', ({ leaderboard }: { leaderboard: LeaderboardEntry[] }) => {
-      setLeaderboard(leaderboard)
+    socket.on('question_ended', ({ explanation: exp }: { correctAnswer: string; explanation: string | null }) => {
+      setExplanation(exp)
+    })
+
+    socket.on('session_ended', ({ leaderboard: lb, questionStats: qs }: {
+      leaderboard: LeaderboardEntry[];
+      questionStats: QuestionStat[];
+    }) => {
+      setLeaderboard(lb)
+      setQuestionStats(qs ?? [])
       setPhase('ended')
     })
 
@@ -75,7 +91,7 @@ export default function SessionPage() {
 
   function createSession() {
     if (!quiz) return
-    socketRef.current?.emit('create_session', { quizData: quiz }, (res: { success: boolean; gameCode: string }) => {
+    socketRef.current?.emit('create_session', { quizData: quiz, practiceMode }, (res: { success: boolean; gameCode: string }) => {
       if (res.success) {
         setGameCode(res.gameCode)
         setPhase('lobby')
@@ -93,6 +109,7 @@ export default function SessionPage() {
 
   function nextQuestion() {
     if (!quiz) return
+    setExplanation(null)
     const nextIndex = questionIndex + 1
     if (nextIndex >= quiz.questions.length) {
       socketRef.current?.emit('end_session', { gameCode })
@@ -110,14 +127,14 @@ export default function SessionPage() {
   }
 
   if (phase === 'loading') {
-    return <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center">Loading...</div>
+    return <div className="min-h-screen bg-white flex items-center justify-center text-gray-500">Loading...</div>
   }
 
   if (phase === 'error') {
     return (
-      <div className="min-h-screen bg-zinc-950 text-white flex flex-col items-center justify-center gap-4">
-        <p className="text-zinc-400">No active quiz session found.</p>
-        <button onClick={() => router.push('/host')} className="px-6 py-3 bg-lime-400 text-zinc-950 font-bold rounded-xl">
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4">
+        <p className="text-gray-500">No active quiz session found.</p>
+        <button onClick={() => router.push('/host')} className="px-6 py-3 bg-lime-400 text-black font-bold rounded-xl">
           Back to Library
         </button>
       </div>
@@ -125,181 +142,216 @@ export default function SessionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
-      <header className="border-b border-zinc-800 px-6 py-4 flex items-center justify-between">
-        <span className="text-xl font-bold">
-          Quizo<span className="text-lime-400">tic</span>
-          <span className="ml-2 text-xs font-normal text-zinc-500 uppercase tracking-widest">Host</span>
-        </span>
-        {phase !== 'idle' && (
-          <span className="text-sm text-zinc-400">
-            {participants.length} participant{participants.length !== 1 ? 's' : ''}
-          </span>
-        )}
-      </header>
+    <div className="min-h-screen text-gray-900">
 
-      <main className="max-w-2xl mx-auto px-4 py-10">
+      {/* IDLE */}
+      {phase === 'idle' && quiz && (
+        <div className="p-4 max-w-2xl mx-auto py-8 space-y-4">
+          <h1 className="text-3xl font-black text-gray-900 mb-1">{quiz.title}</h1>
+          <p className="text-gray-500 text-sm">{quiz.questions.length} question{quiz.questions.length !== 1 ? 's' : ''}</p>
 
-        {/* IDLE — waiting to create session */}
-        {phase === 'idle' && quiz && (
-          <div className="space-y-8">
+          {/* Question preview */}
+          <div className="space-y-2">
+            {quiz.questions.map((q, i) => (
+              <div key={q.id} className="bg-white rounded-xl border border-gray-200 p-3 flex items-center gap-3 shadow-sm">
+                <span className="text-xs font-bold text-gray-400 w-5 flex-shrink-0">{i + 1}</span>
+                <p className="text-sm text-gray-700 truncate">{q.text}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Practice Mode toggle */}
+          <div className="flex items-center justify-between bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
             <div>
-              <h1 className="text-3xl font-bold mb-1">{quiz.title}</h1>
-              <p className="text-zinc-400">{quiz.questions.length} question{quiz.questions.length !== 1 ? 's' : ''}</p>
+              <p className="font-bold text-gray-900 text-sm">Practice Mode</p>
+              <p className="text-gray-500 text-xs mt-0.5">Hides leaderboard from participants</p>
             </div>
-            <div className="bg-zinc-900 rounded-xl p-5 border border-zinc-800 space-y-2">
-              {quiz.questions.map((q, i) => (
-                <div key={q.id} className="flex gap-3 text-sm text-zinc-400">
-                  <span className="text-zinc-600">{i + 1}.</span>
-                  <span>{q.text}</span>
-                </div>
-              ))}
-            </div>
-            <button onClick={createSession} className="w-full py-4 bg-lime-400 text-zinc-950 font-bold text-lg rounded-xl hover:bg-lime-300 transition-colors">
-              Create Session
+            <button
+              onClick={() => setPracticeMode(p => !p)}
+              className={`w-12 h-6 rounded-full transition-colors relative ${practiceMode ? 'bg-indigo-600' : 'bg-gray-200'}`}
+            >
+              <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${practiceMode ? 'translate-x-6' : 'translate-x-0.5'}`} />
             </button>
           </div>
-        )}
 
-        {/* LOBBY */}
-        {phase === 'lobby' && (
-          <div className="space-y-8 text-center">
-            <div>
-              <p className="text-zinc-400 mb-2">Share this code with participants</p>
-              <p className="text-xs text-zinc-500 mb-4">Go to <span className="text-lime-400">quizotic.net</span> and enter code:</p>
-              <div className="inline-block bg-zinc-900 border border-zinc-700 rounded-2xl px-10 py-6">
-                <span className="text-6xl font-bold tracking-[0.3em] text-lime-400">
-                  {gameCode.slice(0, 3)} {gameCode.slice(3)}
-                </span>
+          <button
+            onClick={createSession}
+            className="w-full bg-lime-400 text-black font-black rounded-2xl py-4 text-base hover:bg-lime-300 transition-colors"
+          >
+            Create Session
+          </button>
+        </div>
+      )}
+
+      {/* LOBBY */}
+      {phase === 'lobby' && (
+        <div className="p-4 max-w-2xl mx-auto py-8 space-y-4">
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-xl font-black text-gray-900">Quizo<span className="text-lime-400">tic</span></h1>
+            <span className="bg-lime-50 border border-lime-200 text-lime-700 text-xs font-bold px-3 py-1 rounded-full">
+              ● LIVE · {participants.size} players
+            </span>
+          </div>
+
+          {/* Game code + QR code */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+            <div className="flex gap-4 items-center">
+              <div className="flex-1 text-center">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Game Code</p>
+                <p className="text-indigo-600 text-5xl font-black tracking-[0.3em]">{gameCode}</p>
+                <p className="text-gray-400 text-xs mt-2">quizotic.net</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Scan to Join</p>
+                <div className="bg-white rounded-2xl p-3 border border-gray-200">
+                  <QRCode
+                    value={`https://quizotic.net?code=${gameCode}`}
+                    size={120}
+                    bgColor="#ffffff"
+                    fgColor="#4f46e5"
+                  />
+                </div>
               </div>
             </div>
-            <div className="bg-zinc-900 rounded-xl p-5 border border-zinc-800 text-left">
-              <p className="text-sm text-zinc-500 mb-3">
-                {participants.length === 0 ? 'Waiting for participants...' : `${participants.length} joined:`}
-              </p>
-              {participants.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {participants.map((name, i) => (
-                    <span key={i} className="px-3 py-1 bg-zinc-800 rounded-full text-sm">{name}</span>
-                  ))}
-                </div>
-              )}
-            </div>
-            <button
-              onClick={startQuiz}
-              disabled={participants.length === 0}
-              className="w-full py-4 bg-lime-400 text-zinc-950 font-bold text-lg rounded-xl hover:bg-lime-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              {participants.length === 0 ? 'Waiting for players...' : 'Start Quiz →'}
-            </button>
           </div>
-        )}
 
-        {/* QUESTION */}
-        {phase === 'question' && currentQuestion && quiz && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-zinc-500">Question {questionIndex + 1} of {quiz.questions.length}</span>
-              <span className="text-sm px-3 py-1 bg-zinc-800 rounded-full">
-                <span className="text-lime-400 font-bold">{answered}</span>
-                <span className="text-zinc-500"> / {participants.length} answered</span>
-              </span>
-            </div>
-
-            <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-lime-400 rounded-full transition-all duration-300"
-                style={{ width: participants.length > 0 ? `${(answered / participants.length) * 100}%` : '0%' }}
-              />
-            </div>
-
-            <div className="bg-zinc-900 rounded-xl p-6 border-t-4 border-lime-400">
-              <p className="text-xl font-semibold leading-snug">{currentQuestion.text}</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              {currentQuestion.options?.map((opt, i) => {
-                const votes = optionCounts[i] ?? 0
-                const pct = participants.length > 0 ? (votes / participants.length) * 100 : 0
-                return (
-                  <div
-                    key={i}
-                    className={`rounded-xl overflow-hidden ${
-                      String(i) === currentQuestion.correctAnswer
-                        ? 'ring-2 ring-lime-400 bg-lime-400/10'
-                        : 'bg-zinc-800'
-                    }`}
-                  >
-                    <div className="p-4 flex items-center gap-3">
-                      <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ${OPTION_COLORS[i]}`}>
-                        {OPTION_LABELS[i]}
-                      </span>
-                      <span className="text-sm flex-1">{opt}</span>
-                      {String(i) === currentQuestion.correctAnswer && (
-                        <span className="text-lime-400 text-xs font-bold">✓</span>
-                      )}
-                    </div>
-                    {/* Live vote bar */}
-                    <div className="h-1.5 bg-zinc-700">
-                      <div
-                        className={`h-full transition-all duration-500 ${OPTION_COLORS[i]}`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
+          {/* Avatar grid */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">
+              {participants.size === 0 ? 'Waiting for participants...' : `${participants.size} joined`}
+            </p>
+            <div className="flex flex-wrap gap-3">
+              {Array.from(participants.entries()).map(([pName, pArchetype]) => (
+                <div key={pName} className="flex flex-col items-center gap-1">
+                  <div className="ring-2 ring-indigo-100 rounded-full overflow-hidden">
+                    <Avatar archetype={pArchetype} size={48} />
                   </div>
-                )
-              })}
-            </div>
-
-            <button
-              onClick={nextQuestion}
-              className={`w-full py-4 font-bold text-lg rounded-xl transition-colors ${
-                answered === participants.length && participants.length > 0
-                  ? 'bg-lime-400 text-zinc-950 hover:bg-lime-300 animate-pulse'
-                  : 'bg-lime-400 text-zinc-950 hover:bg-lime-300'
-              }`}
-            >
-              {questionIndex + 1 >= (quiz?.questions.length ?? 0) ? 'End Quiz' : 'Next Question →'}
-            </button>
-          </div>
-        )}
-
-        {/* ENDED */}
-        {phase === 'ended' && (
-          <div className="space-y-6">
-            <div className="text-center">
-              <p className="text-sm text-zinc-500 uppercase tracking-widest mb-1">Quiz Complete</p>
-              <h1 className="text-3xl font-bold">{quiz?.title}</h1>
-            </div>
-            <div className="space-y-3">
-              {leaderboard.map((entry, i) => (
-                <div
-                  key={i}
-                  className={`flex items-center gap-4 rounded-xl px-5 py-4 ${
-                    i === 0 ? 'bg-lime-400 text-zinc-950'
-                    : i === 1 ? 'bg-zinc-300 text-zinc-950'
-                    : i === 2 ? 'bg-amber-700 text-white'
-                    : 'bg-zinc-800 text-white'
-                  }`}
-                >
-                  <span className="text-2xl font-black w-8 text-center">
-                    {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
-                  </span>
-                  <span className="font-semibold flex-1">{entry.name}</span>
-                  <span className="font-bold tabular-nums">{entry.score.toLocaleString()} pts</span>
+                  <p className="text-xs text-gray-700 font-semibold max-w-[56px] truncate text-center">{pName}</p>
+                  <p className="text-xs text-gray-400 max-w-[56px] truncate text-center">{pArchetype}</p>
                 </div>
               ))}
             </div>
-            <button
-              onClick={goBackToLibrary}
-              className="w-full py-3 border border-zinc-700 text-zinc-300 rounded-xl hover:border-zinc-500 transition-colors"
-            >
-              Back to Library
-            </button>
           </div>
-        )}
 
-      </main>
+          <button
+            onClick={startQuiz}
+            disabled={participants.size === 0}
+            className="w-full bg-lime-400 text-black font-black rounded-2xl py-4 text-base hover:bg-lime-300 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+          >
+            {participants.size === 0 ? 'Waiting for players...' : 'Start Quiz →'}
+          </button>
+        </div>
+      )}
+
+      {/* QUESTION */}
+      {phase === 'question' && currentQuestion && quiz && (
+        <div className="p-4 max-w-2xl mx-auto py-8 space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-500 font-medium">Q{questionIndex + 1} / {quiz.questions.length}</span>
+            <span className="bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-full px-3 py-1 text-sm font-bold">
+              {answered} / {participants.size} answered
+            </span>
+          </div>
+
+          {/* Progress bar */}
+          <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-lime-400 rounded-full transition-all duration-300"
+              style={{ width: participants.size > 0 ? `${(answered / participants.size) * 100}%` : '0%' }}
+            />
+          </div>
+
+          {/* Question card */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 border-t-4 border-t-lime-400 p-6">
+            <p className="text-xl font-semibold leading-snug text-gray-900">{currentQuestion.text}</p>
+          </div>
+
+          {/* Options with live vote bars */}
+          <div className="grid grid-cols-2 gap-3">
+            {currentQuestion.options?.map((opt, i) => {
+              const votes = optionCounts[i] ?? 0
+              const pct = participants.size > 0 ? (votes / participants.size) * 100 : 0
+              const isCorrect = String(i) === currentQuestion.correctAnswer
+              return (
+                <div
+                  key={i}
+                  className={`rounded-xl overflow-hidden border ${isCorrect ? 'ring-2 ring-lime-400 border-lime-300 bg-lime-50' : 'bg-white border-gray-200'}`}
+                >
+                  <div className="p-4 flex items-center gap-3">
+                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ${OPTION_COLORS[i]}`}>
+                      {OPTION_LABELS[i]}
+                    </span>
+                    <span className="text-sm flex-1 text-gray-800">{opt}</span>
+                    {isCorrect && <span className="text-lime-600 text-xs font-bold">✓</span>}
+                  </div>
+                  <div className="h-1.5 bg-gray-100">
+                    <div
+                      className={`h-full transition-all duration-500 ${OPTION_COLORS[i]}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Explanation (shown after question_ended event) */}
+          {explanation && (
+            <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-sm text-indigo-800">
+              <span className="font-bold text-indigo-600">Explanation: </span>{explanation}
+            </div>
+          )}
+
+          <button
+            onClick={nextQuestion}
+            className={`w-full py-4 bg-lime-400 text-black font-black text-lg rounded-2xl hover:bg-lime-300 transition-colors ${
+              answered === participants.size && participants.size > 0 ? 'animate-pulse' : ''
+            }`}
+          >
+            {questionIndex + 1 >= quiz.questions.length ? 'End Quiz' : 'Next Question →'}
+          </button>
+        </div>
+      )}
+
+      {/* ENDED */}
+      {phase === 'ended' && (
+        <div className="p-4 max-w-2xl mx-auto py-8 space-y-4">
+          <h2 className="text-2xl font-black text-gray-900">Session Complete</h2>
+
+          {/* Leaderboard — always shown to host */}
+          <div className="space-y-2">
+            {leaderboard.map((entry, i) => {
+              const podiumClass = i === 0
+                ? 'bg-lime-400 text-black'
+                : i === 1 ? 'bg-gray-200 text-black'
+                : i === 2 ? 'bg-amber-200 text-amber-900'
+                : 'bg-white border border-gray-200 text-gray-700'
+              return (
+                <div key={i} className={`flex items-center gap-3 rounded-2xl p-3 ${podiumClass}`}>
+                  <span className="font-black w-5 text-center text-sm">{i + 1}</span>
+                  <Avatar archetype={entry.archetype ?? ''} size={40} />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold truncate text-sm">{entry.name}</p>
+                    <p className="text-xs opacity-60 truncate">{entry.archetype}</p>
+                  </div>
+                  <span className="font-black tabular-nums text-sm">{entry.score.toLocaleString()}</span>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Session Report */}
+          <SessionReport questionStats={questionStats} />
+
+          <button
+            onClick={goBackToLibrary}
+            className="mt-2 w-full border border-gray-300 text-gray-600 rounded-xl py-3 hover:border-gray-400 transition-colors font-semibold"
+          >
+            Back to Library
+          </button>
+        </div>
+      )}
+
     </div>
   )
 }
