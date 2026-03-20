@@ -174,7 +174,7 @@ function QuestionCard({
           placeholder="Why is this the correct answer? (max ~300 chars)"
           rows={2}
           maxLength={350}
-          className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400 resize-none"
+          className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-lime-400 resize-none"
         />
       </div>
 
@@ -184,7 +184,7 @@ function QuestionCard({
         <select
           value={question.bloomsLevel ?? ''}
           onChange={e => onChange({ ...question, bloomsLevel: (e.target.value as BloomsLevel) || undefined })}
-          className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
+          className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-lime-400"
         >
           <option value="">— not tagged —</option>
           <option value="remember">Remember</option>
