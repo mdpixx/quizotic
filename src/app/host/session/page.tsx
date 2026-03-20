@@ -13,7 +13,7 @@ type Phase = 'loading' | 'error' | 'idle' | 'lobby' | 'question' | 'ended'
 
 interface LeaderboardEntry {
   name: string
-  archetype: string
+  archetype?: string
   score: number
 }
 
