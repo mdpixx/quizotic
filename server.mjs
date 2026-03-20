@@ -1,15 +1,15 @@
 import { createServer } from 'http'
 import next from 'next'
 import { Server } from 'socket.io'
+import { assignArchetype } from './src/lib/archetypes.mjs'
 
 const port = parseInt(process.env.PORT || '3000', 10)
 const dev = process.env.NODE_ENV !== 'production'
 const app = next({ dev })
 const handle = app.getRequestHandler()
 
-// In-memory session store (replace with DB in Phase 3)
+// In-memory session store (replace with DB in a future phase)
 const sessions = new Map()
-// sessions[gameCode] = { hostSocketId, quizData, currentQuestion, participants, status }
 
 function generateGameCode() {
   return Math.floor(100000 + Math.random() * 900000).toString()
@@ -34,8 +34,7 @@ app.prepare().then(() => {
 
     // ─── HOST EVENTS ───────────────────────────────────────────────
 
-    // Host creates a session and gets a game code
-    socket.on('create_session', ({ quizData }, callback) => {
+    socket.on('create_session', ({ quizData, practiceMode }, callback) => {
       let gameCode = generateGameCode()
       while (sessions.has(gameCode)) gameCode = generateGameCode()
 
@@ -43,8 +42,9 @@ app.prepare().then(() => {
         hostSocketId: socket.id,
         quizData,
         currentQuestionIndex: -1,
-        participants: new Map(), // socketId → { name, score, answers }
+        participants: new Map(), // socketId → { name, archetype, score, answers }
         status: 'lobby',
+        practiceMode: practiceMode ?? false,
       })
 
       socket.join(`session:${gameCode}`)
@@ -53,7 +53,6 @@ app.prepare().then(() => {
       callback({ success: true, gameCode })
     })
 
-    // Host starts the quiz (first question)
     socket.on('start_quiz', ({ gameCode }) => {
       const session = sessions.get(gameCode)
       if (!session || session.hostSocketId !== socket.id) return
@@ -71,7 +70,6 @@ app.prepare().then(() => {
       console.log(`[session] started: ${gameCode}`)
     })
 
-    // Host advances to next question
     socket.on('next_question', ({ gameCode }) => {
       const session = sessions.get(gameCode)
       if (!session || session.hostSocketId !== socket.id) return
@@ -80,13 +78,19 @@ app.prepare().then(() => {
       const { currentQuestionIndex, quizData } = session
 
       if (currentQuestionIndex >= quizData.questions.length) {
-        // Quiz over
-        const leaderboard = buildLeaderboard(session)
+        // Quiz over — this path is dead code: the host client emits end_session
+        // on the last question instead of next_question. Kept for safety.
+        emitQuestionEnded(io, gameCode, session, currentQuestionIndex - 1)
+        const leaderboard = buildLeaderboard(session.participants)
+        const questionStats = buildQuestionStats(session)
         session.status = 'ended'
-        io.to(`session:${gameCode}`).emit('session_end', { leaderboard })
+        socket.emit('session_ended', { leaderboard, practiceMode: session.practiceMode, questionStats })
+        socket.to(`session:${gameCode}`).emit('session_ended', { leaderboard, practiceMode: session.practiceMode })
         console.log(`[session] ended: ${gameCode}`)
         return
       }
+
+      emitQuestionEnded(io, gameCode, session, currentQuestionIndex - 1)
 
       const question = sanitizeQuestion(quizData.questions[currentQuestionIndex])
       io.to(`session:${gameCode}`).emit('question_show', {
@@ -96,20 +100,24 @@ app.prepare().then(() => {
       })
     })
 
-    // Host ends session early
     socket.on('end_session', ({ gameCode }) => {
       const session = sessions.get(gameCode)
       if (!session || session.hostSocketId !== socket.id) return
 
-      const leaderboard = buildLeaderboard(session)
+      emitQuestionEnded(io, gameCode, session, session.currentQuestionIndex)
+
+      const leaderboard = buildLeaderboard(session.participants)
+      const questionStats = buildQuestionStats(session)
       session.status = 'ended'
-      io.to(`session:${gameCode}`).emit('session_end', { leaderboard })
+      // Host gets full data including questionStats
+      socket.emit('session_ended', { leaderboard, practiceMode: session.practiceMode, questionStats })
+      // Participants only get leaderboard + practiceMode flag
+      socket.to(`session:${gameCode}`).emit('session_ended', { leaderboard, practiceMode: session.practiceMode })
       console.log(`[session] force-ended: ${gameCode}`)
     })
 
     // ─── PARTICIPANT EVENTS ─────────────────────────────────────────
 
-    // Participant joins a session
     socket.on('join_session', ({ gameCode, displayName }, callback) => {
       const session = sessions.get(gameCode)
 
@@ -122,28 +130,29 @@ app.prepare().then(() => {
         return
       }
 
-      const participant = { name: displayName, score: 0, answers: [] }
+      const archetype = assignArchetype()
+      const participant = { name: displayName, archetype, score: 0, answers: [] }
       session.participants.set(socket.id, participant)
       socket.join(`session:${gameCode}`)
 
-      // Tell participant join succeeded + send current state
       callback({
         success: true,
         status: session.status,
         quizTitle: session.quizData.title,
+        archetype,
+        practiceMode: session.practiceMode,
       })
 
-      // Tell host a new participant joined
       io.to(`host:${gameCode}`).emit('participant_joined', {
         name: displayName,
+        archetype,
         count: session.participants.size,
       })
 
-      console.log(`[session] ${displayName} joined ${gameCode}`)
+      console.log(`[session] ${displayName} (${archetype}) joined ${gameCode}`)
     })
 
-    // Participant submits an answer
-    socket.on('submit_answer', ({ gameCode, answer, timeMs }) => {
+    socket.on('submit_answer', ({ gameCode, answer, timeMs, confidence }) => {
       const session = sessions.get(gameCode)
       if (!session || session.status !== 'active') return
 
@@ -153,19 +162,16 @@ app.prepare().then(() => {
       const qi = session.currentQuestionIndex
       const question = session.quizData.questions[qi]
 
-      // Prevent double-submitting same question
       if (participant.answers[qi] !== undefined) return
 
       const isCorrect = checkAnswer(question, answer)
       const points = isCorrect ? calcPoints(question.points || 1000, timeMs, question.timerSeconds || 20) : 0
 
-      participant.answers[qi] = { answer, isCorrect, points, timeMs }
+      participant.answers[qi] = { answer, isCorrect, points, timeMs, confidence: confidence ?? 'unsure' }
       participant.score += points
 
-      // Confirm to participant
       socket.emit('answer_confirmed', { isCorrect, points, totalScore: participant.score })
 
-      // Tell host an answer came in
       const numOptions = question.options?.length ?? 4
       io.to(`host:${gameCode}`).emit('answer_received', {
         count: countAnswers(session, qi),
@@ -177,14 +183,12 @@ app.prepare().then(() => {
     // ─── DISCONNECT ─────────────────────────────────────────────────
 
     socket.on('disconnect', () => {
-      // Clean up any sessions this socket hosted
       for (const [code, session] of sessions.entries()) {
         if (session.hostSocketId === socket.id) {
           io.to(`session:${code}`).emit('host_disconnected')
           sessions.delete(code)
           console.log(`[session] deleted (host left): ${code}`)
         }
-        // Remove participant
         if (session.participants.has(socket.id)) {
           const name = session.participants.get(socket.id).name
           session.participants.delete(socket.id)
@@ -205,7 +209,6 @@ app.prepare().then(() => {
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
-// Strip correct answers before sending to participants
 function sanitizeQuestion(q) {
   const { correctAnswer, ...safe } = q
   return safe
@@ -220,7 +223,6 @@ function checkAnswer(question, answer) {
     const given = [...answer].sort().join(',')
     return correct === given
   }
-  // Polls, word clouds, open-ended, rating, ranking — no correct answer
   return false
 }
 
@@ -251,8 +253,49 @@ function countAnswersByOption(session, questionIndex, numOptions) {
   return counts
 }
 
-function buildLeaderboard(session) {
-  return Array.from(session.participants.values())
-    .map(p => ({ name: p.name, score: p.score }))
+// Updated: takes participants Map directly; callers pass session.participants
+function buildLeaderboard(participants) {
+  return Array.from(participants.values())
     .sort((a, b) => b.score - a.score)
+    .map(p => ({ name: p.name, archetype: p.archetype, score: p.score }))
+}
+
+// Emit question_ended to the whole room (reveal moment — correctAnswer intentionally exposed)
+function emitQuestionEnded(io, gameCode, session, questionIndex) {
+  const q = session.quizData.questions[questionIndex]
+  if (!q) return
+  io.to(`session:${gameCode}`).emit('question_ended', {
+    correctAnswer: q.correctAnswer,
+    explanation: q.explanation ?? null,
+  })
+}
+
+// Compute per-question stats from participant answers for the session report
+function buildQuestionStats(session) {
+  const ps = Array.from(session.participants.values())
+  return session.quizData.questions.map((q, i) => {
+    const answered = ps.filter(p => p.answers[i] !== undefined)
+    const total = answered.length
+    if (total === 0) {
+      return {
+        index: i, text: q.text, correctPct: 0, confidenceGrid: null,
+        bloomsLevel: q.bloomsLevel ?? null, explanation: q.explanation ?? null,
+      }
+    }
+
+    const correct       = answered.filter(p => p.answers[i].answer === q.correctAnswer).length
+    const sureCorrect   = answered.filter(p => p.answers[i].confidence === 'sure'   && p.answers[i].answer === q.correctAnswer).length
+    const sureWrong     = answered.filter(p => p.answers[i].confidence === 'sure'   && p.answers[i].answer !== q.correctAnswer).length
+    const unsureCorrect = answered.filter(p => p.answers[i].confidence === 'unsure' && p.answers[i].answer === q.correctAnswer).length
+    const unsureWrong   = answered.filter(p => p.answers[i].confidence === 'unsure' && p.answers[i].answer !== q.correctAnswer).length
+
+    return {
+      index: i,
+      text: q.text,
+      correctPct: Math.round((correct / total) * 100),
+      confidenceGrid: { sureCorrect, sureWrong, unsureCorrect, unsureWrong },
+      bloomsLevel: q.bloomsLevel ?? null,
+      explanation: q.explanation ?? null,
+    }
+  })
 }
