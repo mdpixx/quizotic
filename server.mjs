@@ -283,11 +283,11 @@ function buildQuestionStats(session) {
       }
     }
 
-    const correct       = answered.filter(p => p.answers[i].answer === q.correctAnswer).length
-    const sureCorrect   = answered.filter(p => p.answers[i].confidence === 'sure'   && p.answers[i].answer === q.correctAnswer).length
-    const sureWrong     = answered.filter(p => p.answers[i].confidence === 'sure'   && p.answers[i].answer !== q.correctAnswer).length
-    const unsureCorrect = answered.filter(p => p.answers[i].confidence === 'unsure' && p.answers[i].answer === q.correctAnswer).length
-    const unsureWrong   = answered.filter(p => p.answers[i].confidence === 'unsure' && p.answers[i].answer !== q.correctAnswer).length
+    const correct       = answered.filter(p => checkAnswer(q, p.answers[i].answer)).length
+    const sureCorrect   = answered.filter(p => p.answers[i].confidence === 'sure'   && checkAnswer(q, p.answers[i].answer)).length
+    const sureWrong     = answered.filter(p => p.answers[i].confidence === 'sure'   && !checkAnswer(q, p.answers[i].answer)).length
+    const unsureCorrect = answered.filter(p => p.answers[i].confidence === 'unsure' && checkAnswer(q, p.answers[i].answer)).length
+    const unsureWrong   = answered.filter(p => p.answers[i].confidence === 'unsure' && !checkAnswer(q, p.answers[i].answer)).length
 
     return {
       index: i,
