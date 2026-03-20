@@ -309,7 +309,7 @@ QR foreground is indigo (`#4f46e5`) to match the game code typography — visual
 - Game code: `text-indigo-600 text-6xl font-black tracking-[0.3em]`
 - QR code + game code in 2-column white card, side by side
 - QR foreground: indigo `#4f46e5`
-- Avatar grid: participant avatars (48px) with `ring-2 ring-indigo-100`, pop in with `scale-0 → scale-100` transition as `participant_joined` events arrive. Name + archetype `text-xs text-gray-400` below each.
+- Avatar grid: participant avatars (48px) with `ring-2 ring-indigo-100`, pop in with `scale-0 → scale-100` transition as `participant_joined` events arrive. Name + archetype `text-xs text-gray-500` below each.
 - Host tracks `Map<name, archetype>` — `participant_left` removes by name
 - "Start Quiz →": `bg-lime-400 text-black font-black rounded-2xl`, `opacity-40 pointer-events-none` until ≥1 participant
 
