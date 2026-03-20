@@ -419,7 +419,7 @@ export default function CreateQuizPage() {
               onClick={() => setTab(t.id)}
               className={`px-4 py-3 text-sm font-medium transition-colors ${
                 tab === t.id
-                  ? 'border-b-2 border-lime-400 text-lime-400'
+                  ? 'border-b-2 border-lime-400 text-gray-900'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >

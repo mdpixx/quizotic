@@ -16,8 +16,8 @@ function buildUserPrompt(text: string, questionCount: number, difficulty: string
 Return a JSON array. Each item must have exactly this shape:
 {
   "type": "mcq",
-  "text": "Question text here",
-  "options": ["Option A", "Option B", "Option C", "Option D"],
+  "text": "Who was the first Prime Minister of India?",
+  "options": ["Mahatma Gandhi", "Jawaharlal Nehru", "Sardar Patel", "B.R. Ambedkar"],
   "correctAnswer": "1",
   "timerSeconds": 20,
   "points": 1000
@@ -28,6 +28,7 @@ Rules:
 - "timerSeconds" must be one of: 10, 15, 20, 30, 60
 - "points" must be one of: 500, 1000, 2000
 - All questions must be MCQ with exactly 4 options
+- Each option must be a complete, meaningful answer — never blank, never a placeholder like "Option A"
 - Return nothing except the JSON array
 
 Content:
@@ -55,8 +56,10 @@ function validateQuestions(data: unknown): boolean {
     if (typeof q !== 'object' || q === null) return false
     const item = q as Record<string, unknown>
     return (
-      typeof item.text === 'string' &&
+      typeof item.text === 'string' && item.text.trim().length > 0 &&
       Array.isArray(item.options) &&
+      item.options.length >= 2 &&
+      (item.options as unknown[]).every((o: unknown) => typeof o === 'string' && (o as string).trim().length > 0) &&
       typeof item.correctAnswer === 'string' &&
       typeof item.timerSeconds === 'number' &&
       typeof item.points === 'number'
