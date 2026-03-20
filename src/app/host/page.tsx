@@ -28,75 +28,73 @@ export default function HostLibraryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
-      <header className="border-b border-zinc-800 px-6 py-4 flex items-center justify-between">
-        <span className="text-xl font-bold">
+    <div className="min-h-screen p-4">
+      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-10 -mx-4 px-4 mb-6 py-3 flex items-center justify-between">
+        <span className="text-xl font-bold text-gray-900">
           Quizo<span className="text-lime-400">tic</span>
-          <span className="ml-2 text-xs font-normal text-zinc-500 uppercase tracking-widest">Host</span>
         </span>
         <button
           onClick={() => router.push('/host/create')}
-          className="px-4 py-2 bg-lime-400 text-zinc-950 font-bold rounded-lg hover:bg-lime-300 transition-colors text-sm"
+          className="bg-lime-400 text-black font-bold rounded-xl px-4 py-2 text-sm hover:bg-lime-300 transition-colors"
         >
-          + Create New Quiz
+          + New Quiz
         </button>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-10">
+      <main className="max-w-2xl mx-auto">
         {quizzes.length === 0 ? (
           <div className="text-center space-y-4 py-20">
             <p className="text-4xl">📋</p>
-            <h2 className="text-xl font-semibold">No quizzes yet</h2>
-            <p className="text-zinc-400 text-sm">Create your first quiz to get started.</p>
+            <h2 className="text-xl font-semibold text-gray-900">No quizzes yet</h2>
+            <p className="text-gray-400 text-sm">Create your first quiz to get started.</p>
             <button
               onClick={() => router.push('/host/create')}
-              className="px-6 py-3 bg-lime-400 text-zinc-950 font-bold rounded-xl hover:bg-lime-300 transition-colors"
+              className="px-6 py-3 bg-lime-400 text-black font-bold rounded-xl hover:bg-lime-300 transition-colors"
             >
               Create Quiz
             </button>
           </div>
         ) : (
-          <div className="space-y-6">
-            <h1 className="text-2xl font-bold">My Quizzes</h1>
-            <div className="space-y-3">
-              {quizzes.map(quiz => (
-                <div
-                  key={quiz.id}
-                  onClick={() => setSelected(quiz.id === selected ? null : quiz.id)}
-                  className={`rounded-xl p-5 border cursor-pointer transition-all ${
-                    selected === quiz.id
-                      ? 'border-lime-400 bg-lime-400/5'
-                      : 'border-zinc-800 bg-zinc-900 hover:border-zinc-600'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold truncate">{quiz.title}</h3>
-                      <p className="text-sm text-zinc-500 mt-0.5">
-                        {quiz.questions.length} question{quiz.questions.length !== 1 ? 's' : ''}
-                        {quiz.subject && ` · ${quiz.subject}`}
-                        {quiz.language && quiz.language !== 'English' && ` · ${quiz.language}`}
-                      </p>
-                    </div>
-                    <button
-                      onClick={e => { e.stopPropagation(); handleDelete(quiz.id) }}
-                      className="text-zinc-600 hover:text-red-400 transition-colors text-xs px-2 py-1 flex-shrink-0"
-                    >
-                      Delete
-                    </button>
+          <div className="space-y-3">
+            {quizzes.map(quiz => (
+              <div
+                key={quiz.id}
+                onClick={() => setSelected(quiz.id === selected ? null : quiz.id)}
+                className={`bg-white rounded-2xl shadow-sm border p-5 hover:shadow-md transition-shadow cursor-pointer flex items-center justify-between gap-4 ${
+                  selected === quiz.id
+                    ? 'border-indigo-400 shadow-[0_0_0_3px_rgba(99,102,241,0.1)]'
+                    : 'border-gray-200'
+                }`}
+              >
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="rounded-xl bg-indigo-50 w-10 h-10 flex items-center justify-center text-xl flex-shrink-0">
+                    📋
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-gray-900 font-bold truncate">{quiz.title}</h3>
+                    <p className="text-gray-400 text-xs mt-0.5">
+                      {quiz.questions.length} question{quiz.questions.length !== 1 ? 's' : ''}
+                      {quiz.subject && ` · ${quiz.subject}`}
+                      {quiz.language && quiz.language !== 'English' && ` · ${quiz.language}`}
+                    </p>
                   </div>
                 </div>
-              ))}
-            </div>
-
-            {selected && (
-              <button
-                onClick={handleStartSession}
-                className="w-full py-4 bg-lime-400 text-zinc-950 font-bold text-lg rounded-xl hover:bg-lime-300 transition-colors"
-              >
-                Start Session →
-              </button>
-            )}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={e => { e.stopPropagation(); handleDelete(quiz.id) }}
+                    className="text-gray-400 hover:text-red-400 transition-colors text-xs px-2 py-1"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    onClick={e => { e.stopPropagation(); setActiveSession(quiz); router.push('/host/session') }}
+                    className="bg-lime-400 text-black font-bold rounded-xl px-4 py-2 text-sm hover:bg-lime-300 transition-colors"
+                  >
+                    Start →
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </main>
