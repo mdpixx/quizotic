@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { saveQuiz } from '@/lib/quiz-storage'
-import type { Question, QuestionType } from '@/lib/quiz-types'
+import type { Question, QuestionType, BloomsLevel } from '@/lib/quiz-types'
 
 type Tab = 'manual' | 'aitopic' | 'aiurl' | 'aidoc'
 
@@ -74,19 +74,19 @@ function QuestionCard({
   }
 
   return (
-    <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-5 space-y-4">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Q{index + 1}</span>
-        <button onClick={onDelete} className="text-xs text-zinc-600 hover:text-red-400 transition-colors">Remove</button>
+        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Q{index + 1}</span>
+        <button onClick={onDelete} className="text-xs text-gray-400 hover:text-red-500 transition-colors">Remove</button>
       </div>
 
       {/* Type */}
       <div>
-        <label className="text-xs text-zinc-500 mb-1 block">Question Type</label>
+        <label className="text-xs text-gray-500 mb-1 block">Question Type</label>
         <select
           value={question.type}
           onChange={e => handleTypeChange(e.target.value as QuestionType)}
-          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-lime-400"
+          className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-lime-400"
         >
           {QUESTION_TYPES.map(t => (
             <option key={t.value} value={t.value}>{t.label}</option>
@@ -96,20 +96,20 @@ function QuestionCard({
 
       {/* Question text */}
       <div>
-        <label className="text-xs text-zinc-500 mb-1 block">Question</label>
+        <label className="text-xs text-gray-500 mb-1 block">Question</label>
         <textarea
           value={question.text}
           onChange={e => onChange({ ...question, text: e.target.value })}
           placeholder="Enter your question..."
           rows={2}
-          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-lime-400 resize-none"
+          className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-lime-400 resize-none"
         />
       </div>
 
       {/* Options */}
       {question.options && question.type !== 'rating' && question.type !== 'ranking' && (
         <div>
-          <label className="text-xs text-zinc-500 mb-1 block">
+          <label className="text-xs text-gray-500 mb-1 block">
             Options{hasCorrectAnswer(question.type) ? ' — click letter to mark correct' : ''}
           </label>
           <div className="space-y-2">
@@ -122,8 +122,8 @@ function QuestionCard({
                   className={`w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center text-xs font-bold transition-all ${
                     question.correctAnswer === String(i)
                       ? 'bg-lime-400 text-zinc-950'
-                      : 'bg-zinc-700 text-zinc-400'
-                  } ${hasCorrectAnswer(question.type) ? 'cursor-pointer hover:bg-zinc-600' : 'cursor-default'}`}
+                      : 'bg-gray-200 text-gray-500'
+                  } ${hasCorrectAnswer(question.type) ? 'cursor-pointer hover:bg-gray-300' : 'cursor-default'}`}
                 >
                   {String.fromCharCode(65 + i)}
                 </button>
@@ -133,7 +133,7 @@ function QuestionCard({
                   onChange={e => handleOptionChange(i, e.target.value)}
                   placeholder={`Option ${String.fromCharCode(65 + i)}`}
                   disabled={question.type === 'truefalse'}
-                  className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-lime-400 disabled:opacity-50"
+                  className="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-lime-400 disabled:opacity-50"
                 />
               </div>
             ))}
@@ -144,25 +144,56 @@ function QuestionCard({
       {/* Timer + Points */}
       <div className="flex gap-4">
         <div className="flex-1">
-          <label className="text-xs text-zinc-500 mb-1 block">Timer</label>
+          <label className="text-xs text-gray-500 mb-1 block">Timer</label>
           <select
             value={question.timerSeconds}
             onChange={e => onChange({ ...question, timerSeconds: Number(e.target.value) as Question['timerSeconds'] })}
-            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-lime-400"
+            className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-lime-400"
           >
             {TIMER_OPTIONS.map(t => <option key={t} value={t}>{t}s</option>)}
           </select>
         </div>
         <div className="flex-1">
-          <label className="text-xs text-zinc-500 mb-1 block">Points</label>
+          <label className="text-xs text-gray-500 mb-1 block">Points</label>
           <select
             value={question.points}
             onChange={e => onChange({ ...question, points: Number(e.target.value) as Question['points'] })}
-            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-lime-400"
+            className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-lime-400"
           >
             {POINTS_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
+      </div>
+
+      {/* Explanation */}
+      <div>
+        <label className="text-xs text-gray-500 mb-1 block">Explanation (optional — shown after answer reveal)</label>
+        <textarea
+          value={question.explanation ?? ''}
+          onChange={e => onChange({ ...question, explanation: e.target.value || undefined })}
+          placeholder="Why is this the correct answer? (max ~300 chars)"
+          rows={2}
+          maxLength={350}
+          className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400 resize-none"
+        />
+      </div>
+
+      {/* Bloom's Level */}
+      <div>
+        <label className="text-xs text-gray-500 mb-1 block">Bloom's Level (optional)</label>
+        <select
+          value={question.bloomsLevel ?? ''}
+          onChange={e => onChange({ ...question, bloomsLevel: (e.target.value as BloomsLevel) || undefined })}
+          className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
+        >
+          <option value="">— not tagged —</option>
+          <option value="remember">Remember</option>
+          <option value="understand">Understand</option>
+          <option value="apply">Apply</option>
+          <option value="analyse">Analyse</option>
+          <option value="evaluate">Evaluate</option>
+          <option value="create">Create</option>
+        </select>
       </div>
     </div>
   )
@@ -349,13 +380,13 @@ export default function CreateQuizPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
-      <header className="border-b border-zinc-800 px-6 py-4 flex items-center justify-between">
+    <div className="min-h-screen bg-white text-gray-900">
+      <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-b border-gray-200 px-6 py-4 flex items-center justify-between">
         <span className="text-xl font-bold">
           Quizo<span className="text-lime-400">tic</span>
-          <span className="ml-2 text-xs font-normal text-zinc-500 uppercase tracking-widest">Create Quiz</span>
+          <span className="ml-2 text-xs font-normal text-gray-500 uppercase tracking-widest">Create Quiz</span>
         </span>
-        <button onClick={() => router.push('/host')} className="text-sm text-zinc-400 hover:text-white transition-colors">
+        <button onClick={() => router.push('/host')} className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
           ← Library
         </button>
       </header>
@@ -369,19 +400,19 @@ export default function CreateQuizPage() {
             placeholder="Quiz title *"
             value={title}
             onChange={e => setTitle(e.target.value)}
-            className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-lg font-semibold focus:outline-none focus:border-lime-400"
+            className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-lg font-semibold focus:outline-none focus:border-lime-400"
           />
           <input
             type="text"
             placeholder="Subject / tag (optional)"
             value={subject}
             onChange={e => setSubject(e.target.value)}
-            className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-lime-400"
+            className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-lime-400"
           />
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-zinc-800">
+        <div className="flex border-b border-gray-200">
           {tabs.map(t => (
             <button
               key={t.id}
@@ -389,7 +420,7 @@ export default function CreateQuizPage() {
               className={`px-4 py-3 text-sm font-medium transition-colors ${
                 tab === t.id
                   ? 'border-b-2 border-lime-400 text-lime-400'
-                  : 'text-zinc-500 hover:text-zinc-300'
+                  : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               {t.label}
@@ -427,7 +458,7 @@ export default function CreateQuizPage() {
             ))}
             <button
               onClick={addQuestion}
-              className="w-full py-3 border border-dashed border-zinc-700 text-zinc-400 rounded-xl hover:border-lime-400 hover:text-lime-400 transition-colors text-sm"
+              className="w-full py-3 border border-dashed border-gray-300 text-gray-400 rounded-xl hover:border-lime-400 hover:text-lime-400 transition-colors text-sm"
             >
               + Add Question
             </button>
@@ -438,27 +469,27 @@ export default function CreateQuizPage() {
         {tab === 'aitopic' && (
           <div className="space-y-4">
             <div>
-              <label className="text-xs text-zinc-500 mb-1 block">Topic</label>
+              <label className="text-xs text-gray-500 mb-1 block">Topic</label>
               <input
                 type="text"
                 placeholder='e.g. "Indian Independence Movement"'
                 value={aiTopic}
                 onChange={e => setAiTopic(e.target.value)}
-                className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-lime-400"
+                className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-lime-400"
               />
             </div>
             <div className="flex gap-4">
               <div className="flex-1">
-                <label className="text-xs text-zinc-500 mb-1 block">Questions</label>
-                <select value={aiCount} onChange={e => setAiCount(Number(e.target.value))} className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-lime-400">
+                <label className="text-xs text-gray-500 mb-1 block">Questions</label>
+                <select value={aiCount} onChange={e => setAiCount(Number(e.target.value))} className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-lime-400">
                   <option value={5}>5</option>
                   <option value={8}>8</option>
                   <option value={10}>10</option>
                 </select>
               </div>
               <div className="flex-1">
-                <label className="text-xs text-zinc-500 mb-1 block">Difficulty</label>
-                <select value={aiDifficulty} onChange={e => setAiDifficulty(e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-lime-400">
+                <label className="text-xs text-gray-500 mb-1 block">Difficulty</label>
+                <select value={aiDifficulty} onChange={e => setAiDifficulty(e.target.value)} className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-lime-400">
                   <option value="easy">Easy</option>
                   <option value="medium">Medium</option>
                   <option value="hard">Hard</option>
@@ -475,7 +506,7 @@ export default function CreateQuizPage() {
             </button>
             {generatedOnTab === 'aitopic' && (
               <div className="space-y-4 mt-2">
-                <p className="text-xs text-zinc-500">Generated — edit before saving:</p>
+                <p className="text-xs text-gray-500">Generated — edit before saving:</p>
                 {questions.map((q, i) => (
                   <QuestionCard key={q.id} question={q} index={i} onChange={u => updateQuestion(i, u)} onDelete={() => removeQuestion(i)} />
                 ))}
@@ -488,13 +519,13 @@ export default function CreateQuizPage() {
         {tab === 'aiurl' && (
           <div className="space-y-4">
             <div>
-              <label className="text-xs text-zinc-500 mb-1 block">URL (must start with https://)</label>
+              <label className="text-xs text-gray-500 mb-1 block">URL (must start with https://)</label>
               <input
                 type="url"
                 placeholder="https://example.com/article"
                 value={aiUrl}
                 onChange={e => setAiUrl(e.target.value)}
-                className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-lime-400"
+                className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-lime-400"
               />
             </div>
             {urlError && <p className="text-red-400 text-sm">{urlError}</p>}
@@ -507,7 +538,7 @@ export default function CreateQuizPage() {
             </button>
             {generatedOnTab === 'aiurl' && (
               <div className="space-y-4 mt-2">
-                <p className="text-xs text-zinc-500">Generated — edit before saving:</p>
+                <p className="text-xs text-gray-500">Generated — edit before saving:</p>
                 {questions.map((q, i) => (
                   <QuestionCard key={q.id} question={q} index={i} onChange={u => updateQuestion(i, u)} onDelete={() => removeQuestion(i)} />
                 ))}
@@ -520,14 +551,14 @@ export default function CreateQuizPage() {
         {tab === 'aidoc' && (
           <div className="space-y-4">
             <div>
-              <label className="text-xs text-zinc-500 mb-1 block">Upload PDF or DOCX (max 5MB)</label>
+              <label className="text-xs text-gray-500 mb-1 block">Upload PDF or DOCX (max 5MB)</label>
               <input
                 type="file"
                 accept=".pdf,.docx"
                 onChange={e => setDocFile(e.target.files?.[0] ?? null)}
-                className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-lime-400 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-zinc-700 file:text-zinc-300 file:text-sm"
+                className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-lime-400 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-600 file:text-sm"
               />
-              {docFile && <p className="text-xs text-zinc-500 mt-1">{docFile.name} ({(docFile.size / 1024 / 1024).toFixed(2)} MB)</p>}
+              {docFile && <p className="text-xs text-gray-500 mt-1">{docFile.name} ({(docFile.size / 1024 / 1024).toFixed(2)} MB)</p>}
             </div>
             {docError && <p className="text-red-400 text-sm">{docError}</p>}
             <button
@@ -539,7 +570,7 @@ export default function CreateQuizPage() {
             </button>
             {generatedOnTab === 'aidoc' && (
               <div className="space-y-4 mt-2">
-                <p className="text-xs text-zinc-500">Generated — edit before saving:</p>
+                <p className="text-xs text-gray-500">Generated — edit before saving:</p>
                 {questions.map((q, i) => (
                   <QuestionCard key={q.id} question={q} index={i} onChange={u => updateQuestion(i, u)} onDelete={() => removeQuestion(i)} />
                 ))}
@@ -549,20 +580,20 @@ export default function CreateQuizPage() {
         )}
 
         {/* ── Translate Section (all tabs) ── */}
-        <div className="border-t border-zinc-800 pt-6 space-y-3">
-          <p className="text-sm font-medium text-zinc-300">Translate Quiz (optional)</p>
+        <div className="border-t border-gray-100 pt-6 space-y-3">
+          <p className="text-sm font-medium text-gray-700">Translate Quiz (optional)</p>
           <div className="flex gap-3">
             <select
               value={translateLang}
               onChange={e => setTranslateLang(e.target.value)}
-              className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-lime-400"
+              className="flex-1 bg-white border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-lime-400"
             >
               {INDIAN_LANGUAGES.map(lang => <option key={lang} value={lang}>{lang}</option>)}
             </select>
             <button
               onClick={handleTranslate}
               disabled={translateLoading}
-              className="px-6 py-3 bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-xl hover:border-lime-400 hover:text-lime-400 transition-colors text-sm disabled:opacity-50"
+              className="px-6 py-3 bg-gray-100 border border-gray-300 text-gray-700 rounded-xl hover:border-lime-400 hover:text-lime-400 transition-colors text-sm disabled:opacity-50"
             >
               {translateLoading ? 'Translating...' : 'Translate'}
             </button>
@@ -571,7 +602,7 @@ export default function CreateQuizPage() {
         </div>
 
         {/* ── Save ── */}
-        <div className="border-t border-zinc-800 pt-6 space-y-3">
+        <div className="border-t border-gray-100 pt-6 space-y-3">
           {saveError && <p className="text-red-400 text-sm">{saveError}</p>}
           <button
             onClick={handleSave}
