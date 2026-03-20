@@ -23,9 +23,9 @@ interface LeaderboardEntry {
 }
 
 const OPTION_COLORS = [
-  'bg-red-500 active:bg-red-400',
-  'bg-blue-500 active:bg-blue-400',
-  'bg-amber-500 active:bg-amber-400',
+  'bg-pink-500 active:bg-pink-400',
+  'bg-orange-500 active:bg-orange-400',
+  'bg-blue-600 active:bg-blue-500',
   'bg-green-600 active:bg-green-500',
 ]
 
@@ -257,7 +257,7 @@ export default function JoinPage() {
             </div>
 
             {/* Question text */}
-            <div className="bg-zinc-900 rounded-xl p-5 border border-zinc-800 flex-1 flex items-center justify-center">
+            <div className="bg-zinc-900 rounded-xl p-5 border border-zinc-800 border-t-4 border-t-lime-400 flex-1 flex items-center justify-center">
               <p className="text-lg font-semibold text-center leading-snug">{question.text}</p>
             </div>
 
@@ -276,8 +276,12 @@ export default function JoinPage() {
                       : 'active:scale-95'
                   } ${OPTION_COLORS[i]}`}
                 >
-                  <span className="text-xs font-bold opacity-70 block mb-1">{OPTION_LABELS[i]}</span>
-                  <span className="text-sm font-medium leading-snug">{opt}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="w-8 h-8 rounded-full bg-white/25 flex items-center justify-center text-sm font-black shrink-0">
+                      {OPTION_LABELS[i]}
+                    </span>
+                    <span className="text-sm font-medium leading-snug">{opt}</span>
+                  </div>
                 </button>
               ))}
             </div>
@@ -299,8 +303,8 @@ export default function JoinPage() {
         {/* ── ANSWERED ── */}
         {phase === 'answered' && (
           <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
-            <div className={`w-24 h-24 rounded-full flex items-center justify-center text-5xl ${
-              isCorrect ? 'bg-green-500/10' : 'bg-red-500/10'
+            <div className={`w-28 h-28 rounded-full flex items-center justify-center text-6xl ${
+              isCorrect ? 'bg-green-500/20 border-2 border-green-500/40' : 'bg-red-500/20 border-2 border-red-500/40'
             }`}>
               {isCorrect ? '✓' : '✗'}
             </div>
@@ -309,7 +313,7 @@ export default function JoinPage() {
               <p className={`text-3xl font-black ${isCorrect ? 'text-green-400' : 'text-red-400'}`}>
                 {isCorrect ? 'Correct!' : 'Wrong!'}
               </p>
-              <p className="text-zinc-400 mt-1 text-sm">
+              <p className={`text-zinc-400 mt-1 text-sm animate-bounce`}>
                 {isCorrect ? `+${pointsEarned.toLocaleString()} points` : 'No points this round'}
               </p>
             </div>
