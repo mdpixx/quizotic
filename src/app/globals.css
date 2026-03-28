@@ -1,26 +1,80 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* ── Cosmic Quest brand colors ─────────────────────────────────────── */
+  --color-bg:           #FAFAFE;   /* pearl cosmic white */
+  --color-primary:      #7C3AED;   /* electric violet */
+  --color-primary-dark: #6D28D9;
+  --color-secondary:    #EC4899;   /* cosmic pink */
+  --color-gold:         #F59E0B;   /* stars / leaderboard / points */
+  --color-gold-dark:    #D97706;
+  --color-dark:         #1E1B4B;   /* deep cosmic navy */
+  --color-surface:      #F3EEFF;   /* soft violet tint */
+  --color-border:       #E9E2FF;   /* light violet border */
+
+  /* Text */
+  --color-text-primary:   #1E1B4B;
+  --color-text-secondary: #4B5563;
+  --color-text-muted:     #6B7280;
+  --color-text-subtle:    #9CA3AF;
+
+  /* Dark mode (join / game pages) */
+  --color-dark-bg:      #0D0B1E;
+
+  /* Fonts */
+  --font-heading: var(--font-nunito), 'Nunito', sans-serif;
+  --font-body:    var(--font-dmsans), 'DM Sans', sans-serif;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-text-primary);
+  --font-sans: var(--font-body);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+}
+
+@media print {
+  /* Hide everything except the session report */
+  body > * { display: none !important; }
+  body > * > * { display: none !important; }
+
+  /* Show only the report container */
+  #session-report {
+    display: block !important;
+    margin: 0;
+    padding: 24px 32px;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background: white !important;
+  }
+
+  /* Make the host session page's ended section printable */
+  body {
+    background: white;
+    font-size: 12px;
+  }
+
+  /* Ensure all text is dark for print */
+  #session-report * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Remove rounded corners on print */
+  #session-report .rounded-xl,
+  #session-report .rounded-2xl {
+    border-radius: 4px !important;
+  }
+
+  /* Page setup */
+  @page {
+    margin: 16mm 20mm;
+    size: A4 portrait;
+  }
 }

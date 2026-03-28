@@ -69,12 +69,87 @@ function ConfidenceGridDisplay({ grid }: { grid: NonNullable<QuestionStat['confi
   )
 }
 
-export function SessionReport({ questionStats }: { questionStats: QuestionStat[] }) {
+interface SessionReportProps {
+  questionStats: QuestionStat[]
+  quizTitle?: string
+  participantCount?: number
+  sessionDate?: string
+}
+
+export function SessionReport({ questionStats, quizTitle, participantCount, sessionDate }: SessionReportProps) {
   if (!questionStats || questionStats.length === 0) return null
 
+  const avgAccuracy = questionStats.length > 0
+    ? Math.round(questionStats.reduce((s, q) => s + q.correctPct, 0) / questionStats.length)
+    : 0
+
+  const weakQuestions = questionStats.filter(q => q.correctPct < 50)
+  const strongQuestions = questionStats.filter(q => q.correctPct >= 80)
+
+  function handlePrint() {
+    window.print()
+  }
+
   return (
-    <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
-      <p className="text-xl font-black text-gray-900 mb-4">Session Report</p>
+    <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-200 p-5 print:rounded-none print:shadow-none print:border-0 print:p-0" id="session-report">
+
+      {/* Print-only header */}
+      <div className="hidden print:block mb-6 pb-4 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-2xl font-black text-gray-900">{quizTitle || 'Session Report'}</p>
+            <p className="text-sm text-gray-500 mt-1">{sessionDate || new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-gray-500">Powered by</p>
+            <p className="text-lg font-black text-gray-900">Quizotic</p>
+          </div>
+        </div>
+        {/* Summary row */}
+        <div className="flex gap-6 mt-4">
+          {participantCount !== undefined && (
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-wide">Participants</p>
+              <p className="text-2xl font-black text-gray-900">{participantCount}</p>
+            </div>
+          )}
+          <div>
+            <p className="text-xs text-gray-500 uppercase tracking-wide">Avg Accuracy</p>
+            <p className="text-2xl font-black text-gray-900">{avgAccuracy}%</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 uppercase tracking-wide">Questions</p>
+            <p className="text-2xl font-black text-gray-900">{questionStats.length}</p>
+          </div>
+          {weakQuestions.length > 0 && (
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-wide">Needs Review</p>
+              <p className="text-2xl font-black text-red-500">{weakQuestions.length}</p>
+            </div>
+          )}
+          {strongQuestions.length > 0 && (
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-wide">Strong</p>
+              <p className="text-2xl font-black text-green-600">{strongQuestions.length}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Screen header */}
+      <div className="flex items-center justify-between mb-4 print:hidden">
+        <p className="text-xl font-black text-gray-900">Session Report</p>
+        <button
+          onClick={handlePrint}
+          className="flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-xl border-2 transition-all hover:border-violet-400 hover:text-violet-600 hover:bg-violet-50"
+          style={{ borderColor: '#E9E2FF', color: '#7C3AED' }}
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+          </svg>
+          Download Report
+        </button>
+      </div>
 
       <BloomsDistribution stats={questionStats} />
 

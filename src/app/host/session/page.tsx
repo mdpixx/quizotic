@@ -7,7 +7,7 @@ import QRCode from 'react-qr-code'
 import { Avatar } from '@/components/Avatar'
 import { SessionReport } from '@/components/SessionReport'
 import { getActiveSession, clearActiveSession } from '@/lib/quiz-storage'
-import type { Quiz, QuestionStat } from '@/lib/quiz-types'
+import type { Quiz, QuestionStat, SessionMode } from '@/lib/quiz-types'
 
 type Phase = 'loading' | 'error' | 'idle' | 'lobby' | 'question' | 'ended'
 
@@ -29,18 +29,24 @@ const OPTION_LABELS = ['A', 'B', 'C', 'D']
 export default function SessionPage() {
   const router = useRouter()
   const socketRef = useRef<Socket | null>(null)
+  const sessionStartTimeRef = useRef<number>(0)
 
   const [phase, setPhase] = useState<Phase>('loading')
   const [quiz, setQuiz] = useState<Quiz | null>(null)
   const [gameCode, setGameCode] = useState('')
   const [participants, setParticipants] = useState<Map<string, string>>(new Map())
   // key = displayName, value = archetype
-  const [practiceMode, setPracticeMode] = useState(false)
+  const [sessionMode, setSessionMode] = useState<SessionMode>('competitive')
+  const [anonymousMode, setAnonymousMode] = useState(false)
   const [explanation, setExplanation] = useState<string | null>(null)
   const [questionStats, setQuestionStats] = useState<QuestionStat[]>([])
   const [questionIndex, setQuestionIndex] = useState(0)
   const [answered, setAnswered] = useState(0)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
+  const [followups, setFollowups] = useState<{ label: string; code: string }[]>([])
+  const [followupLoading, setFollowupLoading] = useState(false)
+  const [followupError, setFollowupError] = useState('')
+  const [copiedCode, setCopiedCode] = useState<string | null>(null)
   const [optionCounts, setOptionCounts] = useState<number[]>([])
 
   const currentQuestion = quiz?.questions[questionIndex] ?? null
@@ -77,13 +83,35 @@ export default function SessionPage() {
       setExplanation(exp)
     })
 
-    socket.on('session_ended', ({ leaderboard: lb, questionStats: qs }: {
+    socket.on('session_ended', ({ leaderboard: lb, questionStats: qs, sessionMode: sm }: {
       leaderboard: LeaderboardEntry[];
       questionStats: QuestionStat[];
+      sessionMode: SessionMode;
     }) => {
+      if (sm) setSessionMode(sm)
       setLeaderboard(lb)
       setQuestionStats(qs ?? [])
       setPhase('ended')
+
+      // Save session record for analytics
+      if (quiz && lb.length > 0) {
+        const maxScore = lb[0].score || 1
+        const avgScore = Math.round(lb.reduce((s, p) => s + (p.score / maxScore * 100), 0) / lb.length)
+        const duration = Math.round((Date.now() - sessionStartTimeRef.current) / 1000)
+        const record = {
+          id: crypto.randomUUID(),
+          quizId: quiz.id,
+          quizTitle: quiz.title,
+          date: new Date().toISOString(),
+          playerCount: lb.length,
+          avgScore,
+          duration,
+        }
+        try {
+          const existing = JSON.parse(localStorage.getItem('quizotic_sessions') || '[]')
+          localStorage.setItem('quizotic_sessions', JSON.stringify([record, ...existing]))
+        } catch {}
+      }
     })
 
     return () => { socket.disconnect() }
@@ -91,7 +119,7 @@ export default function SessionPage() {
 
   function createSession() {
     if (!quiz) return
-    socketRef.current?.emit('create_session', { quizData: quiz, practiceMode }, (res: { success: boolean; gameCode: string }) => {
+    socketRef.current?.emit('create_session', { quizData: quiz, sessionMode, anonymousMode }, (res: { success: boolean; gameCode: string }) => {
       if (res.success) {
         setGameCode(res.gameCode)
         setPhase('lobby')
@@ -100,6 +128,7 @@ export default function SessionPage() {
   }
 
   function startQuiz() {
+    sessionStartTimeRef.current = Date.now()
     socketRef.current?.emit('start_quiz', { gameCode })
     setAnswered(0)
     setOptionCounts([])
@@ -119,6 +148,29 @@ export default function SessionPage() {
       setAnswered(0)
       setOptionCounts([])
     }
+  }
+
+  function generateFollowups() {
+    setFollowupLoading(true)
+    setFollowupError('')
+    socketRef.current?.emit('generate_followup', { gameCode }, (res: {
+      success: boolean; error?: string; followups?: { label: string; code: string }[]
+    }) => {
+      setFollowupLoading(false)
+      if (!res.success) {
+        setFollowupError(res.error ?? 'Could not generate follow-ups.')
+      } else {
+        setFollowups(res.followups ?? [])
+      }
+    })
+  }
+
+  function copyFollowupLink(code: string) {
+    const url = `${window.location.origin}/join?followup=${code}`
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedCode(code)
+      setTimeout(() => setCopiedCode(null), 2000)
+    })
   }
 
   function goBackToLibrary() {
@@ -160,23 +212,61 @@ export default function SessionPage() {
             ))}
           </div>
 
-          {/* Practice Mode toggle */}
-          <div className="flex items-center justify-between bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+          {/* Session Mode selector */}
+          <div>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Session Mode</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setSessionMode('competitive')}
+                className={`rounded-2xl p-4 border-2 text-left transition-all ${
+                  sessionMode === 'competitive'
+                    ? 'border-violet-500 bg-violet-50 shadow-sm'
+                    : 'border-gray-200 bg-white'
+                }`}
+              >
+                <svg className="w-6 h-6 mb-2" viewBox="0 0 24 24" fill="none" stroke={sessionMode === 'competitive' ? '#7C3AED' : '#9CA3AF'} strokeWidth="2">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" strokeLinejoin="round"/>
+                </svg>
+                <p className={`font-bold text-sm ${sessionMode === 'competitive' ? 'text-violet-700' : 'text-gray-900'}`}>Competitive</p>
+                <p className="text-xs text-gray-500 mt-0.5 leading-tight">Live leaderboard, speed scoring</p>
+              </button>
+              <button
+                onClick={() => setSessionMode('reflection')}
+                className={`rounded-2xl p-4 border-2 text-left transition-all ${
+                  sessionMode === 'reflection'
+                    ? 'border-violet-500 bg-violet-50 shadow-sm'
+                    : 'border-gray-200 bg-white'
+                }`}
+              >
+                <svg className="w-6 h-6 mb-2" viewBox="0 0 24 24" fill="none" stroke={sessionMode === 'reflection' ? '#7C3AED' : '#9CA3AF'} strokeWidth="2">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" strokeLinejoin="round"/>
+                </svg>
+                <p className={`font-bold text-sm ${sessionMode === 'reflection' ? 'text-violet-700' : 'text-gray-900'}`}>Reflection</p>
+                <p className="text-xs text-gray-500 mt-0.5 leading-tight">Calmer pace, results at end</p>
+              </button>
+            </div>
+          </div>
+
+          {/* Anonymous mode toggle */}
+          <div className="flex items-center justify-between bg-white rounded-xl border p-4 shadow-sm"
+            style={{ borderColor: '#E9E2FF' }}>
             <div>
-              <p className="font-bold text-gray-900 text-sm">Practice Mode</p>
-              <p className="text-gray-500 text-xs mt-0.5">Hides leaderboard from participants</p>
+              <p className="font-bold text-sm" style={{ color: '#1E1B4B' }}>Anonymous Mode</p>
+              <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Hides participant names — shows archetypes only</p>
             </div>
             <button
-              onClick={() => setPracticeMode(p => !p)}
-              className={`w-12 h-6 rounded-full transition-colors relative ${practiceMode ? 'bg-indigo-600' : 'bg-gray-200'}`}
+              onClick={() => setAnonymousMode(m => !m)}
+              className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0"
+              style={{ background: anonymousMode ? '#7C3AED' : '#E5E7EB' }}
             >
-              <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${practiceMode ? 'translate-x-6' : 'translate-x-0.5'}`} />
+              <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${anonymousMode ? 'translate-x-6' : 'translate-x-0.5'}`} />
             </button>
           </div>
 
           <button
             onClick={createSession}
-            className="w-full bg-lime-400 text-black font-black rounded-2xl py-4 text-base hover:bg-lime-300 transition-colors"
+            className="w-full font-black rounded-2xl py-4 text-base transition-all hover:opacity-90"
+            style={{ background: 'linear-gradient(135deg,#7C3AED,#EC4899)', color: '#fff', fontFamily: 'var(--font-heading)' }}
           >
             Create Session
           </button>
@@ -188,9 +278,18 @@ export default function SessionPage() {
         <div className="p-4 max-w-2xl mx-auto py-8 space-y-4">
           <div className="flex items-center justify-between mb-2">
             <h1 className="text-xl font-black text-gray-900">Quizo<span className="text-lime-400">tic</span></h1>
-            <span className="bg-lime-50 border border-lime-200 text-lime-700 text-xs font-bold px-3 py-1 rounded-full">
-              ● LIVE · {participants.size} players
-            </span>
+            <div className="flex items-center gap-2">
+              <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
+                sessionMode === 'reflection'
+                  ? 'bg-violet-50 border-violet-200 text-violet-700'
+                  : 'bg-lime-50 border-lime-200 text-lime-700'
+              }`}>
+                {sessionMode === 'reflection' ? 'Reflection' : 'Competitive'}
+              </span>
+              <span className="bg-lime-50 border border-lime-200 text-lime-700 text-xs font-bold px-3 py-1 rounded-full">
+                ● {participants.size} players
+              </span>
+            </div>
           </div>
 
           {/* Game code + QR code */}
@@ -261,8 +360,19 @@ export default function SessionPage() {
             />
           </div>
 
+          {/* Case scenario card (shown for 'case' type) */}
+          {currentQuestion.type === 'case' && currentQuestion.scenarioText && (
+            <div className="rounded-2xl p-5 border" style={{ background: '#1E1B4B', borderColor: '#3730A3' }}>
+              <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#A78BFA' }}>Scenario</p>
+              <p className="text-base leading-relaxed" style={{ color: '#E9E2FF' }}>{currentQuestion.scenarioText}</p>
+              {currentQuestion.supportingDetail && (
+                <p className="mt-3 font-bold text-sm" style={{ color: '#FDE68A' }}>{currentQuestion.supportingDetail}</p>
+              )}
+            </div>
+          )}
+
           {/* Question card */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 border-t-4 border-t-lime-400 p-6">
+          <div className={`bg-white rounded-2xl shadow-sm border p-6 ${currentQuestion.type === 'case' ? 'border-violet-200 border-t-4 border-t-violet-500' : 'border-gray-200 border-t-4 border-t-lime-400'}`}>
             <p className="text-xl font-semibold leading-snug text-gray-900">{currentQuestion.text}</p>
           </div>
 
@@ -272,17 +382,19 @@ export default function SessionPage() {
               const votes = optionCounts[i] ?? 0
               const pct = participants.size > 0 ? (votes / participants.size) * 100 : 0
               const isCorrect = String(i) === currentQuestion.correctAnswer
+              const isCaseType = currentQuestion.type === 'case' || currentQuestion.type === 'poll'
               return (
                 <div
                   key={i}
-                  className={`rounded-xl overflow-hidden border ${isCorrect ? 'ring-2 ring-lime-400 border-lime-300 bg-lime-50' : 'bg-white border-gray-200'}`}
+                  className={`rounded-xl overflow-hidden border ${!isCaseType && isCorrect ? 'ring-2 ring-lime-400 border-lime-300 bg-lime-50' : 'bg-white border-gray-200'}`}
                 >
                   <div className="p-4 flex items-center gap-3">
                     <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ${OPTION_COLORS[i]}`}>
                       {OPTION_LABELS[i]}
                     </span>
                     <span className="text-sm flex-1 text-gray-800">{opt}</span>
-                    {isCorrect && <span className="text-lime-600 text-xs font-bold">✓</span>}
+                    <span className="text-xs font-semibold text-gray-400">{votes}</span>
+                    {!isCaseType && isCorrect && <span className="text-lime-600 text-xs font-bold">✓</span>}
                   </div>
                   <div className="h-1.5 bg-gray-100">
                     <div
@@ -295,10 +407,13 @@ export default function SessionPage() {
             })}
           </div>
 
-          {/* Explanation (shown after question_ended event) */}
+          {/* Explanation / Debrief (shown after question_ended event) */}
           {explanation && (
-            <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-sm text-indigo-800">
-              <span className="font-bold text-indigo-600">Explanation: </span>{explanation}
+            <div className={`rounded-xl p-4 text-sm ${currentQuestion.type === 'case' ? 'bg-violet-50 border border-violet-200 text-violet-900' : 'bg-indigo-50 border border-indigo-100 text-indigo-800'}`}>
+              <span className={`font-bold ${currentQuestion.type === 'case' ? 'text-violet-600' : 'text-indigo-600'}`}>
+                {currentQuestion.type === 'case' ? 'Expert View: ' : 'Explanation: '}
+              </span>
+              {explanation}
             </div>
           )}
 
@@ -341,7 +456,60 @@ export default function SessionPage() {
           </div>
 
           {/* Session Report */}
-          <SessionReport questionStats={questionStats} />
+          <SessionReport
+            questionStats={questionStats}
+            quizTitle={quiz?.title}
+            participantCount={leaderboard.length}
+            sessionDate={new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
+          />
+
+          {/* Spaced Follow-up Series */}
+          <div className="rounded-2xl border p-5" style={{ borderColor: '#E9E2FF', background: '#F3EEFF' }}>
+            <p className="text-sm font-black mb-0.5" style={{ fontFamily: 'var(--font-heading)', color: '#1E1B4B' }}>
+              Lock in the learning
+            </p>
+            <p className="text-xs mb-4" style={{ color: '#6B7280' }}>
+              Spaced follow-ups bring knowledge back at Day 1, Day 7, and Day 30. Share links with participants.
+            </p>
+
+            {followups.length === 0 ? (
+              <div>
+                <button
+                  onClick={generateFollowups}
+                  disabled={followupLoading}
+                  className="w-full py-3 rounded-xl text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg,#7C3AED,#EC4899)', color: '#fff', fontFamily: 'var(--font-heading)' }}
+                >
+                  {followupLoading ? 'Generating…' : 'Create Follow-up Series'}
+                </button>
+                {followupError && <p className="text-red-500 text-xs mt-2">{followupError}</p>}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {followups.map(fu => (
+                  <div key={fu.code}
+                    className="flex items-center justify-between gap-3 bg-white rounded-xl px-4 py-3 border"
+                    style={{ borderColor: '#E9E2FF' }}>
+                    <div>
+                      <p className="text-sm font-bold" style={{ color: '#1E1B4B' }}>{fu.label}</p>
+                      <p className="text-xs font-mono" style={{ color: '#7C3AED' }}>{fu.code}</p>
+                    </div>
+                    <button
+                      onClick={() => copyFollowupLink(fu.code)}
+                      className="text-xs font-bold px-3 py-1.5 rounded-lg border-2 transition-all"
+                      style={{
+                        borderColor: copiedCode === fu.code ? '#7C3AED' : '#E9E2FF',
+                        color: copiedCode === fu.code ? '#7C3AED' : '#6B7280',
+                        background: copiedCode === fu.code ? '#F3EEFF' : '#fff',
+                      }}
+                    >
+                      {copiedCode === fu.code ? 'Copied!' : 'Copy link'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           <button
             onClick={goBackToLibrary}

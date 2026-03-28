@@ -11,6 +11,10 @@ const handle = app.getRequestHandler()
 // In-memory session store (replace with DB in a future phase)
 const sessions = new Map()
 
+// Follow-up quiz store — keyed by unique 8-char code
+// { questions, quizTitle, label, createdAt }
+const followupSessions = new Map()
+
 function generateGameCode() {
   return Math.floor(100000 + Math.random() * 900000).toString()
 }
@@ -34,7 +38,7 @@ app.prepare().then(() => {
 
     // ─── HOST EVENTS ───────────────────────────────────────────────
 
-    socket.on('create_session', ({ quizData, practiceMode }, callback) => {
+    socket.on('create_session', ({ quizData, sessionMode, anonymousMode }, callback) => {
       let gameCode = generateGameCode()
       while (sessions.has(gameCode)) gameCode = generateGameCode()
 
@@ -44,7 +48,8 @@ app.prepare().then(() => {
         currentQuestionIndex: -1,
         participants: new Map(), // socketId → { name, archetype, score, answers }
         status: 'lobby',
-        practiceMode: practiceMode ?? false,
+        sessionMode: sessionMode ?? 'competitive',
+        anonymousMode: anonymousMode ?? false,
       })
 
       socket.join(`session:${gameCode}`)
@@ -84,8 +89,8 @@ app.prepare().then(() => {
         const leaderboard = buildLeaderboard(session.participants)
         const questionStats = buildQuestionStats(session)
         session.status = 'ended'
-        socket.emit('session_ended', { leaderboard, practiceMode: session.practiceMode, questionStats })
-        socket.to(`session:${gameCode}`).emit('session_ended', { leaderboard, practiceMode: session.practiceMode })
+        socket.emit('session_ended', { leaderboard, sessionMode: session.sessionMode, questionStats })
+        socket.to(`session:${gameCode}`).emit('session_ended', { leaderboard, sessionMode: session.sessionMode })
         console.log(`[session] ended: ${gameCode}`)
         return
       }
@@ -110,10 +115,61 @@ app.prepare().then(() => {
       const questionStats = buildQuestionStats(session)
       session.status = 'ended'
       // Host gets full data including questionStats
-      socket.emit('session_ended', { leaderboard, practiceMode: session.practiceMode, questionStats })
-      // Participants only get leaderboard + practiceMode flag
-      socket.to(`session:${gameCode}`).emit('session_ended', { leaderboard, practiceMode: session.practiceMode })
+      socket.emit('session_ended', { leaderboard, sessionMode: session.sessionMode, questionStats })
+      // Participants only get leaderboard + sessionMode flag
+      socket.to(`session:${gameCode}`).emit('session_ended', { leaderboard, sessionMode: session.sessionMode })
       console.log(`[session] force-ended: ${gameCode}`)
+    })
+
+    // ─── FOLLOW-UP EVENTS ───────────────────────────────────────────
+
+    socket.on('generate_followup', ({ gameCode }, callback) => {
+      const session = sessions.get(gameCode)
+      if (!session || session.hostSocketId !== socket.id) {
+        callback({ success: false, error: 'Session not found.' })
+        return
+      }
+
+      // Sample up to 5 scoreable questions from the session
+      const scoreable = session.quizData.questions.filter(
+        q => q.type === 'mcq' || q.type === 'truefalse'
+      )
+      if (scoreable.length === 0) {
+        callback({ success: false, error: 'No scoreable questions in this session.' })
+        return
+      }
+      const sampled = [...scoreable].sort(() => Math.random() - 0.5).slice(0, 5)
+
+      const LABELS = ['Day 1 Follow-up', 'Day 7 Follow-up', 'Day 30 Follow-up']
+      const followups = LABELS.map(label => {
+        let code
+        do { code = Math.random().toString(36).substr(2, 8).toUpperCase() }
+        while (followupSessions.has(code))
+        followupSessions.set(code, {
+          questions: sampled,
+          quizTitle: session.quizData.title,
+          label,
+          createdAt: Date.now(),
+        })
+        return { label, code }
+      })
+
+      console.log(`[followup] generated 3 follow-ups for session ${gameCode}`)
+      callback({ success: true, followups })
+    })
+
+    socket.on('join_followup', ({ code }, callback) => {
+      const followup = followupSessions.get(code)
+      if (!followup) {
+        callback({ success: false, error: 'Follow-up not found or expired.' })
+        return
+      }
+      callback({
+        success: true,
+        questions: followup.questions,
+        quizTitle: followup.quizTitle,
+        label: followup.label,
+      })
     })
 
     // ─── PARTICIPANT EVENTS ─────────────────────────────────────────
@@ -131,7 +187,9 @@ app.prepare().then(() => {
       }
 
       const archetype = assignArchetype()
-      const participant = { name: displayName, archetype, score: 0, answers: [] }
+      // In anonymous mode, store archetype only (not the display name)
+      const storedName = session.anonymousMode ? archetype : displayName
+      const participant = { name: storedName, archetype, score: 0, answers: [] }
       session.participants.set(socket.id, participant)
       socket.join(`session:${gameCode}`)
 
@@ -140,11 +198,12 @@ app.prepare().then(() => {
         status: session.status,
         quizTitle: session.quizData.title,
         archetype,
-        practiceMode: session.practiceMode,
+        sessionMode: session.sessionMode,
+        anonymousMode: session.anonymousMode,
       })
 
       io.to(`host:${gameCode}`).emit('participant_joined', {
-        name: displayName,
+        name: storedName,
         archetype,
         count: session.participants.size,
       })
