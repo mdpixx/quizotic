@@ -1,0 +1,48 @@
+// This is your Prisma schema file
+// Learn more about it at https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Quiz {
+  id        String   @id @default(cuid())
+  title     String
+  subject   String?
+  language  String?
+  questions Json     // array of Question objects
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions Session[]
+}
+
+model Presentation {
+  id        String   @id @default(cuid())
+  title     String
+  slides    Json     // array of Slide objects
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions Session[]
+}
+
+model Session {
+  id             String        @id @default(cuid())
+  code           String        @unique // 6-digit room code
+  type           String        // 'quiz' | 'presentation'
+  quizId         String?
+  presentationId String?
+  status         String        @default("waiting") // 'waiting' | 'active' | 'ended'
+  results        Json?         // aggregate per-slide/question results
+  participantCount Int         @default(0)
+  createdAt      DateTime      @default(now())
+  endedAt        DateTime?
+
+  quiz         Quiz?         @relation(fields: [quizId], references: [id])
+  presentation Presentation? @relation(fields: [presentationId], references: [id])
+}

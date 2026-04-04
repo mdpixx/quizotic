@@ -8,6 +8,7 @@ import { Avatar } from '@/components/Avatar'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Phase = 'form' | 'connecting' | 'lobby' | 'question' | 'answered' | 'ended' | 'selfpaced' | 'selfpaced-done'
+  | 'presenter-lobby' | 'presenter-voting' | 'presenter-voted'
 
 interface Question {
   id: string
@@ -46,8 +47,17 @@ function JoinPageInner() {
   const answerTimeRef = useRef<number>(0)
 
   const followupParam = searchParams.get('followup')
+  const modeParam = searchParams.get('mode') // 'presenter' for presenter sessions
   const [phase, setPhase] = useState<Phase>(followupParam ? 'connecting' : 'form')
   const [code, setCode] = useState(searchParams.get('code') ?? '')
+
+  // Presenter mode state
+  const [presenterTitle, setPresenterTitle] = useState('')
+  const [presenterSlideIndex, setPresenterSlideIndex] = useState(0)
+  const [presenterTotalSlides, setPresenterTotalSlides] = useState(0)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [presenterCurrentSlide, setPresenterCurrentSlide] = useState<any>(null)
+  const [presenterVoted, setPresenterVoted] = useState(false)
   const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [quizTitle, setQuizTitle] = useState('')
@@ -138,6 +148,23 @@ function JoinPageInner() {
       setPhase('form')
     })
 
+    // Presenter mode events
+    socket.on('presenter_slide_changed', ({ slideIndex, total }: { slideIndex: number; total: number }) => {
+      setPresenterSlideIndex(slideIndex)
+      setPresenterTotalSlides(total)
+      setPresenterVoted(false)
+      setPhase('presenter-voting')
+    })
+
+    socket.on('presenter_response_confirmed', () => {
+      setPresenterVoted(true)
+      setPhase('presenter-voted')
+    })
+
+    socket.on('presenter_ended', () => {
+      setPhase('form')
+    })
+
     // Auto-join follow-up session if ?followup= param is present
     if (followupParam) {
       followupCodeRef.current = followupParam
@@ -173,6 +200,34 @@ function JoinPageInner() {
 
     gameCodeRef.current = code.trim()
     displayNameRef.current = name.trim()
+
+    // Route to presenter join if mode=presenter
+    if (modeParam === 'presenter') {
+      socketRef.current?.emit('join_presenter_session', {
+        gameCode: code.trim(),
+        displayName: name.trim(),
+      }, (res: {
+        success: boolean; error?: string;
+        presentationTitle?: string;
+        currentSlideIndex?: number;
+        totalSlides?: number;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        currentSlide?: any;
+      }) => {
+        if (!res.success) {
+          setError(res.error ?? 'Could not join. Try again.')
+          setPhase('form')
+          return
+        }
+        setPresenterTitle(res.presentationTitle ?? '')
+        setPresenterSlideIndex(res.currentSlideIndex ?? 0)
+        setPresenterTotalSlides(res.totalSlides ?? 0)
+        setPresenterCurrentSlide(res.currentSlide ?? null)
+        setPresenterVoted(false)
+        setPhase('presenter-lobby')
+      })
+      return
+    }
 
     socketRef.current?.emit('join_session', {
       gameCode: code.trim(),
@@ -685,6 +740,197 @@ function JoinPageInner() {
         >
           Back to Home
         </button>
+      </div>
+    )
+  }
+
+  // ─── Presenter Lobby ───────────────────────────────────────────────────────
+  if (phase === 'presenter-lobby') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 gap-6"
+        style={{ background: '#FDFBFF' }}>
+        <div className="text-center space-y-2">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+            style={{ background: 'linear-gradient(135deg,#7C3AED,#DB2777)' }}>
+            <span className="text-2xl">🎯</span>
+          </div>
+          <h1 className="text-2xl font-black" style={{ color: '#1A0A2E' }}>{presenterTitle}</h1>
+          <p className="text-sm" style={{ color: '#6B7280' }}>
+            Waiting for the presenter to start...
+          </p>
+        </div>
+        <div className="flex gap-2 items-center">
+          <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#7C3AED' }} />
+          <span className="text-sm font-semibold" style={{ color: '#7C3AED' }}>Connected</span>
+        </div>
+      </div>
+    )
+  }
+
+  // ─── Presenter Voting ──────────────────────────────────────────────────────
+  if (phase === 'presenter-voting' && presenterCurrentSlide) {
+    const slide = presenterCurrentSlide
+    const bgDark = '#0a0a1a'
+    const textLight = 'white'
+
+    function submitVote(response: string | number) {
+      socketRef.current?.emit('submit_presenter_response', {
+        gameCode: gameCodeRef.current,
+        slideIndex: presenterSlideIndex,
+        response,
+      })
+    }
+
+    const OPTION_COLORS_P = ['#7C3AED','#DB2777','#0891B2','#16A34A','#EA580C']
+
+    return (
+      <div className="min-h-screen flex flex-col p-4 gap-4" style={{ background: bgDark }}>
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold opacity-40" style={{ color: textLight }}>
+            Slide {presenterSlideIndex + 1} / {presenterTotalSlides}
+          </span>
+          <span className="text-xs font-semibold" style={{ color: '#A78BFA' }}>{presenterTitle}</span>
+        </div>
+
+        {/* Question */}
+        <h2 className="text-xl font-black leading-snug" style={{ color: textLight }}>
+          {slide.question || slide.heading || slide.title || ''}
+        </h2>
+
+        {/* Vote area by type */}
+        <div className="flex-1 flex flex-col justify-center gap-3">
+          {(slide.type === 'multiple_choice' || slide.type === 'quick_fire' || slide.type === 'image_choice') && (
+            (slide.options as string[]).map((opt: string, i: number) => (
+              <button key={i} onClick={() => submitVote(i)}
+                className="w-full py-4 rounded-2xl text-left px-5 text-base font-bold transition-all active:scale-[0.98]"
+                style={{ background: OPTION_COLORS_P[i % OPTION_COLORS_P.length], color: '#fff' }}>
+                <span className="w-7 h-7 rounded-lg inline-flex items-center justify-center text-sm mr-3 font-black"
+                  style={{ background: 'rgba(255,255,255,0.2)' }}>
+                  {['A','B','C','D','E'][i]}
+                </span>
+                {opt || `Option ${i+1}`}
+              </button>
+            ))
+          )}
+
+          {slide.type === 'word_duel' && (
+            <div className="grid grid-cols-2 gap-3">
+              {[slide.optionA, slide.optionB].map((opt: string, i: number) => (
+                <button key={i} onClick={() => submitVote(i)}
+                  className="py-6 rounded-2xl text-center text-lg font-black transition-all active:scale-[0.97]"
+                  style={{ background: i === 0 ? '#2563EB' : '#DC2626', color: '#fff' }}>
+                  {opt || (i === 0 ? 'Side A' : 'Side B')}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {(slide.type === 'live_race' || slide.type === 'ranking') && (
+            (slide.options || slide.items || []).map((opt: string, i: number) => (
+              <button key={i} onClick={() => submitVote(i)}
+                className="w-full py-4 rounded-2xl text-left px-5 text-base font-bold transition-all active:scale-[0.98]"
+                style={{ background: OPTION_COLORS_P[i % OPTION_COLORS_P.length], color: '#fff' }}>
+                {opt || `Option ${i+1}`}
+              </button>
+            ))
+          )}
+
+          {(slide.type === 'word_cloud' || slide.type === 'open_text') && (
+            <div className="space-y-3">
+              <input
+                type="text"
+                placeholder={slide.type === 'word_cloud' ? 'Type a word...' : 'Type your response...'}
+                id="presenter-text-input"
+                className="w-full rounded-xl px-4 py-3 text-base outline-none focus:ring-2 focus:ring-violet-400"
+                style={{ background: 'rgba(255,255,255,0.08)', border: '1.5px solid rgba(255,255,255,0.15)', color: '#fff' }}
+              />
+              <button
+                onClick={() => {
+                  const input = document.getElementById('presenter-text-input') as HTMLInputElement
+                  if (input?.value.trim()) submitVote(input.value.trim())
+                }}
+                className="w-full py-4 rounded-2xl text-base font-black"
+                style={{ background: 'linear-gradient(135deg,#7C3AED,#DB2777)', color: '#fff' }}>
+                Submit →
+              </button>
+            </div>
+          )}
+
+          {slide.type === 'rating_scale' && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-xs opacity-50" style={{ color: textLight }}>
+                <span>{slide.minLabel}</span>
+                <span>{slide.maxLabel}</span>
+              </div>
+              <div className="flex gap-2 justify-center flex-wrap">
+                {Array.from({ length: slide.maxRating || 5 }, (_, i) => i + 1).map(n => (
+                  <button key={n} onClick={() => submitVote(n)}
+                    className="w-12 h-12 rounded-xl text-lg font-black transition-all active:scale-[0.94]"
+                    style={{ background: 'rgba(124,58,237,0.3)', color: '#A78BFA', border: '1.5px solid rgba(124,58,237,0.5)' }}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {slide.type === 'scale_100' && (
+            <div className="space-y-4">
+              <input type="range" min={0} max={100} defaultValue={50}
+                id="scale-100-input"
+                className="w-full accent-violet-600" />
+              <div className="flex justify-between text-xs opacity-50" style={{ color: textLight }}>
+                <span>0 · {slide.minLabel}</span>
+                <span>{slide.maxLabel} · 100</span>
+              </div>
+              <button
+                onClick={() => {
+                  const input = document.getElementById('scale-100-input') as HTMLInputElement
+                  submitVote(Number(input?.value ?? 50))
+                }}
+                className="w-full py-4 rounded-2xl text-base font-black"
+                style={{ background: 'linear-gradient(135deg,#7C3AED,#DB2777)', color: '#fff' }}>
+                Submit
+              </button>
+            </div>
+          )}
+
+          {slide.type === 'emoji_pulse' && (
+            <div className="grid grid-cols-2 gap-3">
+              {(slide.emojis as string[]).map((em: string) => (
+                <button key={em} onClick={() => submitVote(em)}
+                  className="py-6 rounded-2xl text-4xl transition-all active:scale-[0.95]"
+                  style={{ background: 'rgba(255,255,255,0.07)', border: '1.5px solid rgba(255,255,255,0.12)' }}>
+                  {em}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // ─── Presenter Voted (waiting for next slide) ──────────────────────────────
+  if (phase === 'presenter-voted') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-5 p-6"
+        style={{ background: '#0a0a1a' }}>
+        <div className="w-16 h-16 rounded-full flex items-center justify-center"
+          style={{ background: 'linear-gradient(135deg,#7C3AED,#DB2777)' }}>
+          <span className="text-2xl">✓</span>
+        </div>
+        <div className="text-center space-y-1">
+          <p className="text-xl font-black" style={{ color: 'white' }}>Vote counted!</p>
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            Waiting for the presenter to move to the next slide...
+          </p>
+        </div>
+        <div className="flex gap-2 items-center">
+          <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#A78BFA' }} />
+          <span className="text-xs" style={{ color: '#A78BFA' }}>Slide {presenterSlideIndex + 1} of {presenterTotalSlides}</span>
+        </div>
       </div>
     )
   }

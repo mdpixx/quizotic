@@ -1,29 +1,81 @@
 @import "tailwindcss";
 
 :root {
-  /* ── Cosmic Quest brand colors ─────────────────────────────────────── */
-  --color-bg:           #FAFAFE;   /* pearl cosmic white */
+  /* ── Option D — Light theme (default) ────────────────────────────── */
+  --color-bg:           #FDFBFF;   /* near-white with violet tint */
   --color-primary:      #7C3AED;   /* electric violet */
   --color-primary-dark: #6D28D9;
-  --color-secondary:    #EC4899;   /* cosmic pink */
+  --color-secondary:    #DB2777;   /* rose */
   --color-gold:         #F59E0B;   /* stars / leaderboard / points */
   --color-gold-dark:    #D97706;
-  --color-dark:         #1E1B4B;   /* deep cosmic navy */
-  --color-surface:      #F3EEFF;   /* soft violet tint */
-  --color-border:       #E9E2FF;   /* light violet border */
+  --color-dark:         #1A0A2E;   /* deep indigo-black */
+  --color-surface:      #FFFFFF;
+  --color-surface-tint: #F3EEFF;   /* soft violet tint */
+  --color-border:       rgba(124,58,237,0.15);
+
+  /* Brand gradient */
+  --brand-gradient: linear-gradient(135deg, #7C3AED, #DB2777);
 
   /* Text */
-  --color-text-primary:   #1E1B4B;
-  --color-text-secondary: #4B5563;
+  --color-text-primary:   #1A0A2E;
+  --color-text-secondary: #6B4FA0;
   --color-text-muted:     #6B7280;
   --color-text-subtle:    #9CA3AF;
 
-  /* Dark mode (join / game pages) */
-  --color-dark-bg:      #0D0B1E;
+  /* Game / participant page dark bg */
+  --color-dark-bg:      #0A0A1A;
 
   /* Fonts */
-  --font-heading: var(--font-nunito), 'Nunito', sans-serif;
-  --font-body:    var(--font-dmsans), 'DM Sans', sans-serif;
+  --font-heading: var(--font-fredoka), 'Fredoka', sans-serif;
+  --font-body:    var(--font-nunito), 'Nunito', sans-serif;
+}
+
+/* ── Option C — Dark mode toggle ────────────────────────────────────── */
+[data-theme="dark"] {
+  --color-bg:           #0A1628;
+  --color-primary:      #F59E0B;   /* saffron */
+  --color-primary-dark: #D97706;
+  --color-secondary:    #EF4444;   /* red */
+  --color-dark:         #F8FAFC;
+  --color-surface:      #1E2D45;
+  --color-surface-tint: #162035;
+  --color-border:       rgba(245,158,11,0.2);
+  --brand-gradient:     linear-gradient(135deg, #F59E0B, #EF4444);
+  --color-text-primary:   #F8FAFC;
+  --color-text-secondary: #94A3B8;
+  --color-text-muted:     #64748B;
+  --color-text-subtle:    #475569;
+}
+
+/* ── Animation keyframes ─────────────────────────────────────────────────── */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.08; transform: scale(0.8); }
+  50%       { opacity: 0.65; transform: scale(1.15); }
+}
+
+@keyframes drift {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-9px); }
+}
+
+@keyframes sparkle-burst {
+  0%, 100% { opacity: 0.15; transform: scale(0.9) rotate(0deg); }
+  50%       { opacity: 0.80; transform: scale(1.2) rotate(20deg); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 4px 20px rgba(124,58,237,0.30); }
+  50%       { box-shadow: 0 6px 32px rgba(124,58,237,0.55); }
+}
+
+@keyframes orb-drift {
+  0%, 100% { transform: translate(0, 0); }
+  50%       { transform: translate(20px, -15px); }
+}
+
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
 }
 
 @theme inline {

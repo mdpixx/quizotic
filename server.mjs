@@ -121,6 +121,141 @@ app.prepare().then(() => {
       console.log(`[session] force-ended: ${gameCode}`)
     })
 
+    // ─── PRESENTER MODE EVENTS ─────────────────────────────────────
+
+    socket.on('create_presenter_session', ({ presentationData }, callback) => {
+      let gameCode = generateGameCode()
+      while (sessions.has(gameCode)) gameCode = generateGameCode()
+
+      sessions.set(gameCode, {
+        hostSocketId: socket.id,
+        type: 'presenter',
+        presentationData,
+        currentSlideIndex: 0,
+        participants: new Map(), // socketId → { name, archetype }
+        status: 'active',
+        // Per-slide aggregates keyed by slideIndex
+        aggregates: {},
+      })
+
+      socket.join(`session:${gameCode}`)
+      socket.join(`host:${gameCode}`)
+      console.log(`[presenter] created: ${gameCode}`)
+      callback({ success: true, gameCode })
+    })
+
+    socket.on('presenter_next_slide', ({ gameCode, slideIndex }) => {
+      const session = sessions.get(gameCode)
+      if (!session || session.hostSocketId !== socket.id || session.type !== 'presenter') return
+
+      session.currentSlideIndex = slideIndex
+      if (!session.aggregates[slideIndex]) {
+        session.aggregates[slideIndex] = { total: 0, counts: [], words: {}, scores: [], emojis: {} }
+      }
+
+      io.to(`session:${gameCode}`).emit('presenter_slide_changed', {
+        slideIndex,
+        total: session.presentationData.slides.length,
+      })
+      console.log(`[presenter] ${gameCode} → slide ${slideIndex}`)
+    })
+
+    socket.on('presenter_prev_slide', ({ gameCode, slideIndex }) => {
+      const session = sessions.get(gameCode)
+      if (!session || session.hostSocketId !== socket.id || session.type !== 'presenter') return
+
+      session.currentSlideIndex = slideIndex
+      io.to(`session:${gameCode}`).emit('presenter_slide_changed', {
+        slideIndex,
+        total: session.presentationData.slides.length,
+      })
+    })
+
+    socket.on('submit_presenter_response', ({ gameCode, slideIndex, response }) => {
+      const session = sessions.get(gameCode)
+      if (!session || session.type !== 'presenter') return
+
+      const participant = session.participants.get(socket.id)
+      if (!participant) return
+
+      // Prevent double-voting per slide per participant
+      if (participant.votedSlides?.[slideIndex]) return
+      if (!participant.votedSlides) participant.votedSlides = {}
+      participant.votedSlides[slideIndex] = true
+
+      // Initialize aggregate for this slide
+      if (!session.aggregates[slideIndex]) {
+        session.aggregates[slideIndex] = { total: 0, counts: [], words: {}, scores: [], emojis: {} }
+      }
+      const agg = session.aggregates[slideIndex]
+      agg.total++
+
+      // Accumulate based on response type
+      const slide = session.presentationData.slides[slideIndex]
+      if (slide?.type === 'word_cloud' || slide?.type === 'open_text') {
+        const word = String(response).trim().toLowerCase()
+        if (word) agg.words[word] = (agg.words[word] || 0) + 1
+      } else if (slide?.type === 'rating_scale' || slide?.type === 'scale_100') {
+        agg.scores.push(Number(response))
+      } else if (slide?.type === 'emoji_pulse') {
+        const em = String(response)
+        agg.emojis[em] = (agg.emojis[em] || 0) + 1
+      } else {
+        // All bar-chart types: multiple_choice, word_duel, live_race, ranking, image_choice, quick_fire
+        const idx = Number(response)
+        while (agg.counts.length <= idx) agg.counts.push(0)
+        agg.counts[idx]++
+      }
+
+      socket.emit('presenter_response_confirmed')
+      io.to(`host:${gameCode}`).emit('presenter_aggregate_updated', agg)
+    })
+
+    socket.on('end_presenter_session', ({ gameCode }) => {
+      const session = sessions.get(gameCode)
+      if (!session || session.hostSocketId !== socket.id || session.type !== 'presenter') return
+
+      session.status = 'ended'
+      io.to(`session:${gameCode}`).emit('presenter_ended')
+      sessions.delete(gameCode)
+      console.log(`[presenter] ended: ${gameCode}`)
+    })
+
+    socket.on('join_presenter_session', ({ gameCode, displayName }, callback) => {
+      const session = sessions.get(gameCode)
+      if (!session || session.type !== 'presenter') {
+        callback({ success: false, error: 'Presenter session not found.' })
+        return
+      }
+      if (session.status === 'ended') {
+        callback({ success: false, error: 'Session has ended.' })
+        return
+      }
+
+      const participant = {
+        name: displayName,
+        archetype: '',
+        votedSlides: {},
+      }
+      session.participants.set(socket.id, participant)
+      socket.join(`session:${gameCode}`)
+
+      const currentSlide = session.presentationData.slides[session.currentSlideIndex]
+
+      callback({
+        success: true,
+        presentationTitle: session.presentationData.title,
+        currentSlideIndex: session.currentSlideIndex,
+        totalSlides: session.presentationData.slides.length,
+        currentSlide,
+      })
+
+      io.to(`host:${gameCode}`).emit('presenter_participant_joined', {
+        count: session.participants.size,
+      })
+      console.log(`[presenter] ${displayName} joined ${gameCode}`)
+    })
+
     // ─── FOLLOW-UP EVENTS ───────────────────────────────────────────
 
     socket.on('generate_followup', ({ gameCode }, callback) => {
@@ -251,10 +386,11 @@ app.prepare().then(() => {
         if (session.participants.has(socket.id)) {
           const name = session.participants.get(socket.id).name
           session.participants.delete(socket.id)
-          io.to(`host:${code}`).emit('participant_left', {
-            name,
-            count: session.participants.size,
-          })
+          if (session.type === 'presenter') {
+            io.to(`host:${code}`).emit('presenter_participant_left', { count: session.participants.size })
+          } else {
+            io.to(`host:${code}`).emit('participant_left', { name, count: session.participants.size })
+          }
         }
       }
       console.log(`[socket] disconnected: ${socket.id}`)

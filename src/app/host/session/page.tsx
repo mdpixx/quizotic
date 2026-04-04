@@ -304,7 +304,7 @@ export default function SessionPage() {
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Scan to Join</p>
                 <div className="bg-white rounded-2xl p-3 border border-gray-200">
                   <QRCode
-                    value={`https://quizotic.net?code=${gameCode}`}
+                    value={`${typeof window !== 'undefined' ? window.location.origin : ''}/join?code=${gameCode}`}
                     size={120}
                     bgColor="#ffffff"
                     fgColor="#4f46e5"

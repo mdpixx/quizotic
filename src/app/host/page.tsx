@@ -230,9 +230,9 @@ export default function HostDashboardPage() {
                 bg: 'linear-gradient(135deg,#7C3AED,#EC4899)', titleColor: '#fff', descColor: 'rgba(255,255,255,0.75)',
               },
               {
-                icon: '⊞', title: 'Browse Templates', desc: '8 ready-made templates — edit to fit your content',
-                action: () => router.push('/host/templates'),
-                bg: '#F3EEFF', titleColor: '#1E1B4B', descColor: '#6B7280',
+                icon: '▶', title: 'Create Presentation', desc: 'Mentimeter-style live slides with audience polls',
+                action: () => router.push('/host/present/create'),
+                bg: 'linear-gradient(135deg,#F3EEFF,#FFF0FA)', titleColor: '#7C3AED', descColor: '#9CA3AF',
               },
               {
                 icon: '✏', title: 'Blank quiz', desc: 'Start from scratch with your own questions',
@@ -528,12 +528,20 @@ export default function HostDashboardPage() {
             ))}
           </nav>
 
-          <button
-            onClick={() => router.push('/host/create')}
-            className="text-sm font-bold px-5 py-2 rounded-full transition-all hover:scale-[1.03]"
-            style={{ background: 'linear-gradient(135deg,#7C3AED,#EC4899)', color: '#fff', fontFamily: 'var(--font-heading)' }}>
-            + New Quiz
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => router.push('/host/present/create')}
+              className="text-sm font-bold px-4 py-2 rounded-full transition-all hover:scale-[1.03] border"
+              style={{ border: '2px solid #7C3AED', color: '#7C3AED', background: 'transparent', fontFamily: 'var(--font-heading)' }}>
+              + Present
+            </button>
+            <button
+              onClick={() => router.push('/host/create')}
+              className="text-sm font-bold px-5 py-2 rounded-full transition-all hover:scale-[1.03]"
+              style={{ background: 'linear-gradient(135deg,#7C3AED,#EC4899)', color: '#fff', fontFamily: 'var(--font-heading)' }}>
+              + New Quiz
+            </button>
+          </div>
         </div>
 
         {/* Mobile tabs */}

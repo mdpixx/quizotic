@@ -1,0 +1,226 @@
+export type SlideType =
+  // Interactive — audience votes
+  | 'multiple_choice'
+  | 'open_text'
+  | 'word_cloud'
+  | 'rating_scale'
+  | 'ranking'
+  | 'image_choice'
+  | 'scale_100'
+  // Spatial / Visual
+  | 'pinpoint'
+  | 'grid_2x2'
+  | 'wheel'
+  // Energy Moments
+  | 'word_duel'
+  | 'live_race'
+  | 'emoji_pulse'
+  | 'quick_fire'
+  // Content — no audience input
+  | 'title'
+  | 'bullets'
+  | 'quote'
+  | 'video'
+
+export const SLIDE_TYPE_META: Record<SlideType, {
+  label: string
+  category: 'interactive' | 'spatial' | 'energy' | 'content'
+  color: string
+  bg: string
+  hasAudienceInput: boolean
+}> = {
+  multiple_choice: { label: 'Multiple Choice',  category: 'interactive', color: '#2563EB', bg: '#EFF6FF', hasAudienceInput: true },
+  open_text:       { label: 'Open Text',         category: 'interactive', color: '#7C3AED', bg: '#F3EEFF', hasAudienceInput: true },
+  word_cloud:      { label: 'Word Cloud',        category: 'interactive', color: '#DB2777', bg: '#FFF0FA', hasAudienceInput: true },
+  rating_scale:    { label: 'Rating Scale',      category: 'interactive', color: '#EA580C', bg: '#FFF7ED', hasAudienceInput: true },
+  ranking:         { label: 'Ranking',           category: 'interactive', color: '#4F46E5', bg: '#EEF2FF', hasAudienceInput: true },
+  image_choice:    { label: 'Image Choice',      category: 'interactive', color: '#0891B2', bg: '#ECFEFF', hasAudienceInput: true },
+  scale_100:       { label: '100-Point Scale',   category: 'interactive', color: '#16A34A', bg: '#F0FDF4', hasAudienceInput: true },
+  pinpoint:        { label: 'Pinpoint',          category: 'spatial',     color: '#9333EA', bg: '#FAF5FF', hasAudienceInput: true },
+  grid_2x2:        { label: '2×2 Grid',          category: 'spatial',     color: '#0D9488', bg: '#F0FDFA', hasAudienceInput: true },
+  wheel:           { label: 'Wheel of Names',    category: 'spatial',     color: '#F59E0B', bg: '#FFFBEB', hasAudienceInput: false },
+  word_duel:       { label: 'Word Duel',         category: 'energy',      color: '#DC2626', bg: '#FEF2F2', hasAudienceInput: true },
+  live_race:       { label: 'Live Race',         category: 'energy',      color: '#B45309', bg: '#FFFBEB', hasAudienceInput: true },
+  emoji_pulse:     { label: 'Emoji Pulse',       category: 'energy',      color: '#7C3AED', bg: '#F3EEFF', hasAudienceInput: true },
+  quick_fire:      { label: 'Quick Fire',        category: 'energy',      color: '#EF4444', bg: '#FFF1F2', hasAudienceInput: true },
+  title:           { label: 'Title Slide',       category: 'content',     color: '#1E1B4B', bg: '#F8F7FF', hasAudienceInput: false },
+  bullets:         { label: 'Bullet Points',     category: 'content',     color: '#374151', bg: '#F9FAFB', hasAudienceInput: false },
+  quote:           { label: 'Quote',             category: 'content',     color: '#6B7280', bg: '#F3F4F6', hasAudienceInput: false },
+  video:           { label: 'Video',             category: 'content',     color: '#1D4ED8', bg: '#EFF6FF', hasAudienceInput: false },
+}
+
+export const SLIDE_CATEGORIES = [
+  { id: 'interactive' as const, label: 'Interactive', color: '#7C3AED' },
+  { id: 'spatial'     as const, label: 'Spatial',     color: '#0891B2' },
+  { id: 'energy'      as const, label: 'Energy',      color: '#DC2626' },
+  { id: 'content'     as const, label: 'Content',     color: '#374151' },
+]
+
+// ─── Slide data shapes ────────────────────────────────────────────────────────
+
+interface SlideBase {
+  id: string
+  type: SlideType
+}
+
+export interface MultipleChoiceSlide extends SlideBase {
+  type: 'multiple_choice'
+  question: string
+  options: string[]
+  showCorrect: boolean
+  correctIndex?: number
+}
+
+export interface OpenTextSlide extends SlideBase {
+  type: 'open_text'
+  question: string
+  maxChars: number
+}
+
+export interface WordCloudSlide extends SlideBase {
+  type: 'word_cloud'
+  question: string
+  maxWords: number
+}
+
+export interface RatingScaleSlide extends SlideBase {
+  type: 'rating_scale'
+  question: string
+  minLabel: string
+  maxLabel: string
+  maxRating: 5 | 7 | 10
+}
+
+export interface RankingSlide extends SlideBase {
+  type: 'ranking'
+  question: string
+  items: string[]
+}
+
+export interface ImageChoiceSlide extends SlideBase {
+  type: 'image_choice'
+  question: string
+  options: string[]   // option labels (images handled separately)
+}
+
+export interface Scale100Slide extends SlideBase {
+  type: 'scale_100'
+  question: string
+  minLabel: string
+  maxLabel: string
+}
+
+export interface PinpointSlide extends SlideBase {
+  type: 'pinpoint'
+  question: string
+  imageUrl?: string
+}
+
+export interface Grid2x2Slide extends SlideBase {
+  type: 'grid_2x2'
+  question: string
+  xLabel: string
+  yLabel: string
+  xMin: string
+  xMax: string
+  yMin: string
+  yMax: string
+}
+
+export interface WheelSlide extends SlideBase {
+  type: 'wheel'
+  title: string
+  names: string[]
+}
+
+export interface WordDuelSlide extends SlideBase {
+  type: 'word_duel'
+  question: string
+  optionA: string
+  optionB: string
+}
+
+export interface LiveRaceSlide extends SlideBase {
+  type: 'live_race'
+  question: string
+  options: string[]
+}
+
+export interface EmojiPulseSlide extends SlideBase {
+  type: 'emoji_pulse'
+  question: string
+  emojis: string[]
+}
+
+export interface QuickFireSlide extends SlideBase {
+  type: 'quick_fire'
+  question: string
+  options: string[]
+  durationSeconds: number
+}
+
+export interface TitleSlide extends SlideBase {
+  type: 'title'
+  heading: string
+  subheading: string
+  bgColor: string
+}
+
+export interface BulletsSlide extends SlideBase {
+  type: 'bullets'
+  heading: string
+  bullets: string[]
+}
+
+export interface QuoteSlide extends SlideBase {
+  type: 'quote'
+  quote: string
+  attribution: string
+}
+
+export interface VideoSlide extends SlideBase {
+  type: 'video'
+  url: string
+  caption: string
+}
+
+export type Slide =
+  | MultipleChoiceSlide | OpenTextSlide | WordCloudSlide | RatingScaleSlide
+  | RankingSlide | ImageChoiceSlide | Scale100Slide | PinpointSlide
+  | Grid2x2Slide | WheelSlide | WordDuelSlide | LiveRaceSlide
+  | EmojiPulseSlide | QuickFireSlide | TitleSlide | BulletsSlide
+  | QuoteSlide | VideoSlide
+
+export interface Presentation {
+  id: string
+  title: string
+  slides: Slide[]
+  createdAt: string
+  updatedAt: string
+}
+
+// ─── Default slide factories ──────────────────────────────────────────────────
+
+export function makeSlide(type: SlideType): Slide {
+  const id = crypto.randomUUID()
+  switch (type) {
+    case 'multiple_choice': return { id, type, question: '', options: ['', '', '', ''], showCorrect: false }
+    case 'open_text':       return { id, type, question: '', maxChars: 200 }
+    case 'word_cloud':      return { id, type, question: '', maxWords: 1 }
+    case 'rating_scale':    return { id, type, question: '', minLabel: 'Not at all', maxLabel: 'Extremely', maxRating: 5 }
+    case 'ranking':         return { id, type, question: '', items: ['', '', ''] }
+    case 'image_choice':    return { id, type, question: '', options: ['', '', '', ''] }
+    case 'scale_100':       return { id, type, question: '', minLabel: 'Disagree', maxLabel: 'Agree' }
+    case 'pinpoint':        return { id, type, question: '' }
+    case 'grid_2x2':        return { id, type, question: '', xLabel: 'X Axis', yLabel: 'Y Axis', xMin: 'Low', xMax: 'High', yMin: 'Low', yMax: 'High' }
+    case 'wheel':           return { id, type, title: 'Pick a winner', names: ['', '', ''] }
+    case 'word_duel':       return { id, type, question: '', optionA: '', optionB: '' }
+    case 'live_race':       return { id, type, question: '', options: ['', '', ''] }
+    case 'emoji_pulse':     return { id, type, question: '', emojis: ['❤️', '😂', '🔥', '😮'] }
+    case 'quick_fire':      return { id, type, question: '', options: ['', '', '', ''], durationSeconds: 5 }
+    case 'title':           return { id, type, heading: '', subheading: '', bgColor: '#7C3AED' }
+    case 'bullets':         return { id, type, heading: '', bullets: ['', '', ''] }
+    case 'quote':           return { id, type, quote: '', attribution: '' }
+    case 'video':           return { id, type, url: '', caption: '' }
+  }
+}
