@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ['pdf-parse', 'mammoth', 'openai'],
+  serverExternalPackages: ['pdf-parse', 'mammoth', 'openai', '@aws-sdk/client-s3'],
   async headers() {
     return [
       {

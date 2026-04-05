@@ -12,11 +12,22 @@ import { playTick, playCorrect, playWrong, playStreak } from '@/lib/sounds'
 type Phase = 'form' | 'connecting' | 'lobby' | 'question' | 'answered' | 'ended' | 'selfpaced' | 'selfpaced-done'
   | 'presenter-lobby' | 'presenter-voting' | 'presenter-voted'
 
+type QuestionOption = string | { text: string; imageUrl?: string }
+
+function getOptText(opt: QuestionOption): string {
+  return typeof opt === 'string' ? opt : opt.text
+}
+
+function getOptImage(opt: QuestionOption): string | undefined {
+  return typeof opt === 'string' ? undefined : opt.imageUrl
+}
+
 interface Question {
   id: string
   type: string
   text: string
-  options?: string[]
+  imageUrl?: string       // question context image (CDN URL)
+  options?: QuestionOption[]
   timerSeconds: number
   points: number
   index: number
@@ -722,6 +733,9 @@ function JoinPageInner() {
             )}
           </div>
           <p className="font-bold text-2xl leading-snug" style={{ color: 'var(--color-dark)' }}>{question.text}</p>
+          {question.imageUrl && (
+            <img src={question.imageUrl} alt="" className="mt-3 rounded-xl max-h-48 w-full object-contain" loading="lazy" />
+          )}
         </div>
 
         {/* Answer options / text input */}
@@ -750,6 +764,8 @@ function JoinPageInner() {
             {question.options?.map((opt, idx) => {
               const isSelected = selectedAnswer === String(idx)
               const isDisabled = selectedAnswer !== null
+              const optText = getOptText(opt)
+              const optImage = getOptImage(opt)
               return (
                 <button
                   key={idx}
@@ -760,11 +776,14 @@ function JoinPageInner() {
                     ${isDisabled && !isSelected ? 'opacity-50 pointer-events-none' : ''}
                   `}
                 >
+                  {optImage && (
+                    <img src={optImage} alt="" className="w-full h-20 object-cover rounded-xl mb-2" loading="lazy" />
+                  )}
                   <span className="w-10 h-10 rounded-full bg-white/25 flex items-center justify-center font-black text-lg mb-2 mx-auto">
-                    {question.type === 'rating' ? opt : OPTION_LABELS[idx]}
+                    {question.type === 'rating' ? optText : OPTION_LABELS[idx]}
                   </span>
                   {question.type !== 'rating' && (
-                    <span className="text-lg font-semibold leading-snug">{opt}</span>
+                    <span className="text-lg font-semibold leading-snug">{optText}</span>
                   )}
                 </button>
               )
@@ -968,6 +987,9 @@ function JoinPageInner() {
         {/* Question */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-4 border-t-4 border-t-blue-500">
           <p className="font-bold text-2xl leading-snug" style={{ color: 'var(--color-dark)' }}>{q.text}</p>
+          {q.imageUrl && (
+            <img src={q.imageUrl} alt="" className="mt-3 rounded-xl max-h-48 w-full object-contain" loading="lazy" />
+          )}
         </div>
 
         {/* Options */}
@@ -976,6 +998,8 @@ function JoinPageInner() {
             const isSelected = spSelected === String(idx)
             const isCorrectOpt = spShowAnswer && String(idx) === String(q.correctAnswer)
             const isWrongOpt = spShowAnswer && isSelected && !isCorrectOpt
+            const optText = getOptText(opt)
+            const optImage = getOptImage(opt)
             let bg = OPTION_GRADIENTS[idx]
             if (spShowAnswer) {
               if (isCorrectOpt) bg = 'bg-gradient-to-br from-green-600 to-green-500'
@@ -993,10 +1017,13 @@ function JoinPageInner() {
                 `}
                 style={spShowAnswer && !isCorrectOpt && !isWrongOpt ? { color: '#6B7280' } : {}}
               >
+                {optImage && (
+                  <img src={optImage} alt="" className="w-full h-16 object-cover rounded-xl mb-2" loading="lazy" />
+                )}
                 <span className="w-10 h-10 rounded-full bg-white/25 flex items-center justify-center font-black text-lg mb-2">
                   {OPTION_LABELS[idx]}
                 </span>
-                <span className="text-lg font-semibold leading-snug">{opt}</span>
+                <span className="text-lg font-semibold leading-snug">{optText}</span>
               </button>
             )
           })}

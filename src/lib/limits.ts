@@ -7,6 +7,7 @@ export const PLAN_LIMITS = {
     maxSavedPresentations: 3,
     maxSlidesPerPresentation: 10,
     maxSessionHistory: 3,
+    maxImageUploads: 20,     // image uploads per month
     pdfExport: false,
     csvExport: false,
     spacedRetrieval: false,
@@ -20,6 +21,7 @@ export const PLAN_LIMITS = {
     maxSavedPresentations: Infinity,
     maxSlidesPerPresentation: Infinity,
     maxSessionHistory: 50,
+    maxImageUploads: 500,    // image uploads per month
     pdfExport: true,
     csvExport: true,
     spacedRetrieval: true,

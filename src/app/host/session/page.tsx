@@ -9,6 +9,7 @@ import { Podium } from '@/components/Podium'
 import { SessionReport } from '@/components/SessionReport'
 import { getActiveSession, clearActiveSession } from '@/lib/quiz-storage'
 import type { Quiz, QuestionStat, SessionMode } from '@/lib/quiz-types'
+import { getOptionText, getOptionImage } from '@/lib/quiz-types'
 
 type Phase = 'loading' | 'error' | 'idle' | 'lobby' | 'question' | 'ended'
 
@@ -442,6 +443,9 @@ export default function SessionPage() {
           {/* Question card */}
           <div className={`bg-white rounded-2xl shadow-sm border p-8 ${currentQuestion.type === 'case' ? 'border-blue-200 border-t-4 border-t-blue-500' : 'border-gray-200 border-t-4 border-t-amber-400'}`}>
             <p className="text-3xl font-bold leading-snug" style={{ color: 'var(--color-dark)' }}>{currentQuestion.text}</p>
+            {currentQuestion.imageUrl && (
+              <img src={currentQuestion.imageUrl} alt="" className="mt-4 rounded-xl max-h-64 w-full object-contain" loading="lazy" />
+            )}
           </div>
 
           {/* Options with live vote bars */}
@@ -451,16 +455,21 @@ export default function SessionPage() {
               const pct = participants.size > 0 ? (votes / participants.size) * 100 : 0
               const isCorrect = String(i) === currentQuestion.correctAnswer
               const isCaseType = currentQuestion.type === 'case' || currentQuestion.type === 'poll'
+              const optText = getOptionText(opt)
+              const optImage = getOptionImage(opt)
               return (
                 <div
                   key={i}
                   className={`rounded-xl overflow-hidden border ${!isCaseType && isCorrect ? 'ring-2 ring-green-400 border-green-300 bg-green-50' : 'bg-white border-gray-200'}`}
                 >
+                  {optImage && (
+                    <img src={optImage} alt="" className="w-full h-32 object-cover" loading="lazy" />
+                  )}
                   <div className="p-5 flex items-center gap-3">
                     <span className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold text-white flex-shrink-0 ${OPTION_COLORS[i]}`}>
                       {OPTION_LABELS[i]}
                     </span>
-                    <span className="text-xl flex-1 text-gray-800 font-medium">{opt}</span>
+                    <span className="text-xl flex-1 text-gray-800 font-medium">{optText}</span>
                     <span className="text-lg font-bold text-gray-400">{votes}</span>
                     {!isCaseType && isCorrect && <span className="text-green-600 text-lg font-bold">✓</span>}
                   </div>

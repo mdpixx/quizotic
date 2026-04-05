@@ -12,11 +12,28 @@ export type QuestionType =
 // All six levels of Anderson & Krathwohl's revised Bloom's Taxonomy (2001)
 export type BloomsLevel = 'remember' | 'understand' | 'apply' | 'analyse' | 'evaluate' | 'create'
 
+// Option can be a plain string (backward compat) or an object with optional image
+export interface OptionItem {
+  text: string
+  imageUrl?: string         // CDN URL for image-based answer option
+}
+
+export type QuestionOption = string | OptionItem
+
+export function getOptionText(opt: QuestionOption): string {
+  return typeof opt === 'string' ? opt : opt.text
+}
+
+export function getOptionImage(opt: QuestionOption): string | undefined {
+  return typeof opt === 'string' ? undefined : opt.imageUrl
+}
+
 export interface Question {
   id: string
   type: QuestionType
   text: string
-  options?: string[]        // undefined for openended/wordcloud/qa
+  imageUrl?: string         // question context image (CDN URL)
+  options?: QuestionOption[] // undefined for openended/wordcloud/qa
   correctAnswer?: string    // string index "0"/"1"/"2"/"3"; undefined for poll/openended/etc
   timerSeconds: 10 | 15 | 20 | 30 | 60
   points: 500 | 1000 | 2000

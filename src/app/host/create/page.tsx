@@ -3,7 +3,9 @@
 import React, { useState, useRef, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { saveQuiz, loadQuizzes } from '@/lib/quiz-storage'
-import type { Question, QuestionType, BloomsLevel, Quiz } from '@/lib/quiz-types'
+import type { Question, QuestionType, BloomsLevel, Quiz, QuestionOption } from '@/lib/quiz-types'
+import { getOptionText, getOptionImage } from '@/lib/quiz-types'
+import { ImageUpload } from '@/components/ImageUpload'
 
 type Tab = 'manual' | 'aitopic' | 'aiurl' | 'aidoc' | 'library'
 
@@ -200,7 +202,24 @@ function QuestionCard({
 
   function handleOptionChange(i: number, value: string) {
     const options = [...(question.options ?? [])]
-    options[i] = value
+    const existing = options[i]
+    // Preserve imageUrl if option already has one
+    const existingImage = getOptionImage(existing ?? '')
+    options[i] = existingImage ? { text: value, imageUrl: existingImage } : value
+    onChange({ ...question, options })
+  }
+
+  function handleOptionImageUpload(i: number, imageUrl: string) {
+    const options = [...(question.options ?? [])]
+    const text = getOptionText(options[i] ?? '')
+    options[i] = { text, imageUrl }
+    onChange({ ...question, options })
+  }
+
+  function handleOptionImageRemove(i: number) {
+    const options = [...(question.options ?? [])]
+    const text = getOptionText(options[i] ?? '')
+    options[i] = text
     onChange({ ...question, options })
   }
 
@@ -300,6 +319,14 @@ function QuestionCard({
         />
       </div>
 
+      {/* Question Image */}
+      <ImageUpload
+        imageUrl={question.imageUrl}
+        onUpload={url => onChange({ ...question, imageUrl: url })}
+        onRemove={() => onChange({ ...question, imageUrl: undefined })}
+        variant="question"
+      />
+
       {/* Options */}
       {question.options && question.type !== 'rating' && question.type !== 'ranking' && (
         <div>
@@ -324,14 +351,30 @@ function QuestionCard({
                 >
                   {String.fromCharCode(65 + i)}
                 </button>
+                {getOptionImage(opt) && (
+                  <ImageUpload
+                    imageUrl={getOptionImage(opt)}
+                    onUpload={url => handleOptionImageUpload(i, url)}
+                    onRemove={() => handleOptionImageRemove(i)}
+                    variant="option"
+                  />
+                )}
                 <input
                   type="text"
-                  value={opt}
+                  value={getOptionText(opt)}
                   onChange={e => handleOptionChange(i, e.target.value)}
                   placeholder={`Option ${String.fromCharCode(65 + i)}`}
                   disabled={question.type === 'truefalse'}
                   className="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-violet-400/30 disabled:opacity-50"
                 />
+                {!getOptionImage(opt) && question.type !== 'truefalse' && (
+                  <ImageUpload
+                    imageUrl={undefined}
+                    onUpload={url => handleOptionImageUpload(i, url)}
+                    onRemove={() => handleOptionImageRemove(i)}
+                    variant="option"
+                  />
+                )}
               </div>
             ))}
           </div>
@@ -363,7 +406,7 @@ function QuestionCard({
                 </span>
                 <input
                   type="text"
-                  value={item}
+                  value={getOptionText(item)}
                   onChange={e => handleOptionChange(i, e.target.value)}
                   placeholder={`Item ${i + 1}`}
                   className="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30"
