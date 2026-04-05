@@ -174,6 +174,7 @@ app.prepare().then(() => {
       session.status = 'active'
       session.currentQuestionIndex = 0
       const question = sanitizeQuestion(session.quizData.questions[0])
+      session.questionStartedAt = Date.now()
 
       io.to(`session:${gameCode}`).emit('question_show', {
         question,
@@ -228,6 +229,7 @@ app.prepare().then(() => {
 
       emitQuestionEnded(io, gameCode, session, currentQuestionIndex - 1)
 
+      session.questionStartedAt = Date.now()
       const question = sanitizeQuestion(quizData.questions[currentQuestionIndex])
       io.to(`session:${gameCode}`).emit('question_show', {
         question,
@@ -598,6 +600,16 @@ app.prepare().then(() => {
       const question = session.quizData.questions[qi]
 
       if (participant.answers[qi] !== undefined) return
+
+      // Enforce timer: reject answers after timer + 2s grace period
+      if (session.questionStartedAt) {
+        const elapsed = Date.now() - session.questionStartedAt
+        const deadline = (question.timerSeconds || 20) * 1000 + 2000
+        if (elapsed > deadline) {
+          socket.emit('answer_confirmed', { isCorrect: false, points: 0, totalScore: participant.score, late: true })
+          return
+        }
+      }
 
       const isCorrect = checkAnswer(question, answer)
       const points = isCorrect ? calcPoints(question.points || 1000, timeMs, question.timerSeconds || 20) : 0

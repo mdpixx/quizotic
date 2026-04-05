@@ -467,7 +467,7 @@ function JoinPageInner() {
   }
 
   function handleAnswerTap(idx: number) {
-    if (selectedAnswer !== null || pendingAnswer !== null) return
+    if (selectedAnswer !== null || pendingAnswer !== null || timeLeft <= 0) return
     setSelectedAnswer(String(idx))
     setPendingAnswer(idx)
   }
@@ -485,7 +485,7 @@ function JoinPageInner() {
   }
 
   function submitTextAnswer() {
-    if (!textAnswer.trim() || selectedAnswer !== null) return
+    if (!textAnswer.trim() || selectedAnswer !== null || timeLeft <= 0) return
     setSelectedAnswer('text')
     const timeMs = Date.now() - answerTimeRef.current
     socketRef.current?.emit('submit_answer', {
@@ -763,7 +763,7 @@ function JoinPageInner() {
           <div className={`gap-3 flex-1 ${question.type === 'rating' && question.options?.length === 5 ? 'grid grid-cols-5' : 'grid grid-cols-2'}`}>
             {question.options?.map((opt, idx) => {
               const isSelected = selectedAnswer === String(idx)
-              const isDisabled = selectedAnswer !== null
+              const isDisabled = selectedAnswer !== null || timeLeft <= 0
               const optText = getOptText(opt)
               const optImage = getOptImage(opt)
               return (

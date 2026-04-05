@@ -49,8 +49,8 @@ function buildUserPrompt(text: string, questionCount: number, difficulty: string
   const examples: string[] = []
 
   if (mcq > 0) {
-    typeInstructions += `\n- ${mcq} MCQ questions: type "mcq", exactly 4 options, "correctAnswer" is a string index ("0","1","2","3")`
-    examples.push(`{"type":"mcq","text":"Who discovered gravity?","options":["Einstein","Newton","Galileo","Kepler"],"correctAnswer":"1","timerSeconds":20,"points":1000}`)
+    typeInstructions += `\n- ${mcq} MCQ questions: type "mcq", exactly 4 options, "correctAnswer" is a string index ("0","1","2","3"). IMPORTANT: Vary the correct answer position randomly across questions — do NOT always put the correct answer in the same position.`
+    examples.push(`{"type":"mcq","text":"Who discovered gravity?","options":["Newton","Einstein","Galileo","Kepler"],"correctAnswer":"0","timerSeconds":20,"points":1000}`)
   }
   if (tf > 0) {
     typeInstructions += `\n- ${tf} True/False questions: type "truefalse", options must be exactly ["True","False"], "correctAnswer" is "0" (True) or "1" (False)`
@@ -279,6 +279,25 @@ export async function POST(req: NextRequest) {
 
     if (!validateQuestions(questions)) {
       return NextResponse.json({ error: 'Generation failed' }, { status: 500 })
+    }
+
+    // Shuffle MCQ options so the correct answer isn't always in the same position
+    for (const q of questions as Record<string, unknown>[]) {
+      if ((q.type === 'mcq' || (!q.type && Array.isArray(q.options) && typeof q.correctAnswer === 'string')) &&
+          Array.isArray(q.options) && typeof q.correctAnswer === 'string') {
+        const opts = q.options as string[]
+        const correctIdx = parseInt(q.correctAnswer, 10)
+        if (correctIdx >= 0 && correctIdx < opts.length) {
+          const correctText = opts[correctIdx]
+          // Fisher-Yates shuffle
+          for (let i = opts.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [opts[i], opts[j]] = [opts[j], opts[i]]
+          }
+          // Update correctAnswer to new position
+          q.correctAnswer = String(opts.indexOf(correctText))
+        }
+      }
     }
 
     // Log usage
