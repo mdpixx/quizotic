@@ -7,9 +7,10 @@ RUN npm ci
 
 COPY . .
 
+ARG CACHEBUST=1
 RUN npx prisma generate
 RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npm run build
 
 EXPOSE 4000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node server.mjs"]
+CMD ["node", "server.mjs"]
