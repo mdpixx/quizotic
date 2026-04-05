@@ -17,10 +17,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
-    Resend({
-      apiKey: process.env.RESEND_API_KEY!,
-      from: process.env.EMAIL_FROM ?? 'Quizotic <noreply@quizotic.live>',
-    }),
+    ...(process.env.RESEND_API_KEY
+      ? [Resend({
+          apiKey: process.env.RESEND_API_KEY,
+          from: process.env.EMAIL_FROM ?? 'Quizotic <noreply@quizotic.live>',
+        })]
+      : []),
   ],
   callbacks: {
     async jwt({ token, user }) {
