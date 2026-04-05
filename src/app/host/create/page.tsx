@@ -921,7 +921,7 @@ function CreateQuizPageInner() {
         </button>
         <div className="h-5 w-px bg-gray-200" />
         <span className="text-xl font-bold">
-          Quizo<span style={{ color: 'var(--color-primary)' }}>tic</span><span className="text-[10px] font-bold tracking-wide ml-0.5" style={{ color: '#9CA3AF', verticalAlign: 'super' }}>.live</span>
+          Quizo<span style={{ color: 'var(--color-primary)' }}>tic</span><span className="text-[10px] font-bold tracking-wide ml-0.5 animate-pulse" style={{ color: '#22C55E', verticalAlign: 'super' }}>.live</span>
           <span className="ml-2 text-xs font-normal text-gray-500 uppercase tracking-widest">Create Quiz</span>
         </span>
       </header>

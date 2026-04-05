@@ -41,7 +41,7 @@ export function HostNav() {
             Q
           </div>
           <span className="text-lg font-black tracking-tight" style={{ fontFamily: 'var(--font-heading)', color: '#1B2559' }}>
-            Quizo<span style={{ color: '#4361EE' }}>tic</span><span className="text-[10px] font-bold tracking-wide ml-0.5" style={{ color: '#9CA3AF', verticalAlign: 'super' }}>.live</span>
+            Quizo<span style={{ color: '#4361EE' }}>tic</span><span className="text-[10px] font-bold tracking-wide ml-0.5 animate-pulse" style={{ color: '#22C55E', verticalAlign: 'super' }}>.live</span>
           </span>
         </Link>
 
