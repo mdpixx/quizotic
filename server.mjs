@@ -418,7 +418,7 @@ app.prepare().then(() => {
       console.log(`[presenter] ended: ${gameCode}`)
     })
 
-    socket.on('join_presenter_session', ({ gameCode, displayName }, callback) => {
+    socket.on('join_presenter_session', async ({ gameCode, displayName }, callback) => {
       const session = sessions.get(gameCode)
       if (!session || session.type !== 'presenter') {
         callback({ success: false, error: 'Presenter session not found.' })
