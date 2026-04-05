@@ -42,6 +42,8 @@ export default function SessionPage() {
   const [anonymousMode, setAnonymousMode] = useState(false)
   const [teamMode, setTeamMode] = useState(false)
   const [teamCount, setTeamCount] = useState(2)
+  const [socketConnected, setSocketConnected] = useState(false)
+  const [sessionError, setSessionError] = useState('')
   const [explanation, setExplanation] = useState<string | null>(null)
   const [questionStats, setQuestionStats] = useState<QuestionStat[]>([])
   const [questionIndex, setQuestionIndex] = useState(0)
@@ -70,6 +72,20 @@ export default function SessionPage() {
     if (!quiz) return   // wait until session is confirmed loaded
     const socket = io()
     socketRef.current = socket
+
+    socket.on('connect', () => {
+      setSocketConnected(true)
+      setSessionError('')
+    })
+
+    socket.on('disconnect', () => {
+      setSocketConnected(false)
+    })
+
+    socket.on('connect_error', () => {
+      setSocketConnected(false)
+      setSessionError('Connection failed. Check your network.')
+    })
 
     socket.on('participant_joined', ({ name, archetype, team }: { name: string; archetype: string; count: number; team?: { index: number; name: string; color: string } | null }) => {
       setParticipants(prev => new Map(prev).set(name, { archetype, team }))
@@ -126,6 +142,13 @@ export default function SessionPage() {
 
   async function createSession() {
     if (!quiz) return
+    setSessionError('')
+
+    // Check socket is connected before proceeding
+    if (!socketRef.current?.connected) {
+      setSessionError('Not connected to server. Please wait or refresh the page.')
+      return
+    }
 
     // Ensure quiz is persisted to DB before creating session (so GameSession.quizId is valid)
     try {
@@ -148,17 +171,32 @@ export default function SessionPage() {
       // DB save failed — proceed anyway, session will work but quizId may be orphaned
     }
 
-    socketRef.current?.emit('create_session', { quizData: quiz, sessionMode, anonymousMode, teamMode, teamCount }, (res: { success: boolean; gameCode: string }) => {
+    // Timeout: if server doesn't respond within 8 seconds, show error
+    const timeout = setTimeout(() => {
+      if (phase === 'idle') {
+        setSessionError('Server not responding. Please try again.')
+      }
+    }, 8000)
+
+    socketRef.current.emit('create_session', { quizData: quiz, sessionMode, anonymousMode, teamMode, teamCount }, (res: { success: boolean; gameCode: string; error?: string }) => {
+      clearTimeout(timeout)
       if (res.success) {
         setGameCode(res.gameCode)
         setPhase('lobby')
+      } else {
+        setSessionError(res.error ?? 'Failed to create session. Please try again.')
       }
     })
   }
 
   function startQuiz() {
+    if (!socketRef.current?.connected) {
+      setSessionError('Connection lost. Please refresh the page.')
+      return
+    }
+    setSessionError('')
     sessionStartTimeRef.current = Date.now()
-    socketRef.current?.emit('start_quiz', { gameCode })
+    socketRef.current.emit('start_quiz', { gameCode })
     setAnswered(0)
     setOptionCounts([])
     setQuestionIndex(0)
@@ -328,12 +366,19 @@ export default function SessionPage() {
             )}
           </div>
 
+          {sessionError && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 text-sm font-medium">
+              {sessionError}
+            </div>
+          )}
+
           <button
             onClick={createSession}
-            className="w-full font-black rounded-2xl py-5 text-xl transition-all hover:opacity-90"
+            disabled={!socketConnected}
+            className="w-full font-black rounded-2xl py-5 text-xl transition-all hover:opacity-90 disabled:opacity-50"
             style={{ background: 'var(--brand-gradient)', color: '#fff', fontFamily: 'var(--font-heading)' }}
           >
-            Create Session
+            {socketConnected ? 'Create Session' : 'Connecting...'}
           </button>
         </div>
       )}
@@ -401,12 +446,24 @@ export default function SessionPage() {
             </div>
           </div>
 
+          {!socketConnected && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 text-sm font-medium">
+              Connection lost. Reconnecting...
+            </div>
+          )}
+
+          {sessionError && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 text-sm font-medium">
+              {sessionError}
+            </div>
+          )}
+
           <button
             onClick={startQuiz}
-            disabled={participants.size === 0}
+            disabled={participants.size === 0 || !socketConnected}
             className="w-full bg-amber-400 text-black font-black rounded-2xl py-5 text-xl hover:bg-amber-300 disabled:opacity-40 disabled:pointer-events-none transition-colors"
           >
-            {participants.size === 0 ? 'Waiting for players...' : 'Start Quiz'}
+            {!socketConnected ? 'Reconnecting...' : participants.size === 0 ? 'Waiting for players...' : 'Start Quiz'}
           </button>
         </div>
       )}

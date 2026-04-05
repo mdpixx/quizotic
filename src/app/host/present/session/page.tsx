@@ -749,15 +749,28 @@ export default function PresentSessionPage() {
       setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toast.id)), 2500)
       return
     }
+    const timeout = setTimeout(() => {
+      if (phase === 'idle') {
+        const toast: Toast = { id: Date.now().toString(), message: 'Server not responding. Please try again.' }
+        setToasts(prev => [...prev.slice(-2), toast])
+        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toast.id)), 3000)
+      }
+    }, 8000)
+
     socket.emit('create_presenter_session',
       { presentationData: presentation },
-      (res: { success: boolean; gameCode: string }) => {
+      (res: { success: boolean; gameCode: string; error?: string }) => {
+        clearTimeout(timeout)
         if (res.success) {
           sessionStartTimeRef.current = Date.now()
           setGameCode(res.gameCode)
           setPhase('live')
           setSlideIndex(0)
           setAggregate({ total: 0 })
+        } else {
+          const toast: Toast = { id: Date.now().toString(), message: res.error ?? 'Failed to create session.' }
+          setToasts(prev => [...prev.slice(-2), toast])
+          setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toast.id)), 3000)
         }
       }
     )
