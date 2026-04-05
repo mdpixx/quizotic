@@ -1,3 +1,5 @@
+import { redirect } from 'next/navigation'
+import { auth } from '@/lib/auth'
 import { StickyNav } from '@/components/landing/StickyNav'
 import { Hero } from '@/components/landing/Hero'
 import { ProductShowcase } from '@/components/landing/ProductShowcase'
@@ -10,7 +12,10 @@ import { UseCases } from '@/components/landing/UseCases'
 import { CTASection } from '@/components/landing/CTASection'
 import { Footer } from '@/components/landing/Footer'
 
-export default function Home() {
+export default async function Home() {
+  const session = await auth()
+  if (session?.user) redirect('/host')
+
   return (
     <>
       <StickyNav />

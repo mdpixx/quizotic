@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
+import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { motion } from 'framer-motion'
 import { loadQuizzes, deleteQuiz, setActiveSession } from '@/lib/quiz-storage'
 import type { Quiz } from '@/lib/quiz-types'
 
@@ -138,6 +140,7 @@ type Tab = 'dashboard' | 'quizzes' | 'presentations' | 'analytics'
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function HostDashboardPage() {
   const router = useRouter()
+  const { data: session } = useSession()
   const [tab, setTab] = useState<Tab>('dashboard')
   const [quizzes, setQuizzes] = useState<Quiz[]>([])
   const [sessions, setSessions] = useState<SessionRecord[]>([])
@@ -843,14 +846,9 @@ export default function HostDashboardPage() {
 
   return (
     <div className="min-h-screen" style={{ background: '#FAFAFE', fontFamily: 'var(--font-body)' }}>
-      {/* Header */}
-      <header className="sticky top-0 z-10 border-b"
-        style={{ background: 'rgba(250,250,254,0.95)', backdropFilter: 'blur(8px)', borderColor: '#DBEAFE' }}>
-        <div className="max-w-[1100px] mx-auto px-6 h-16 flex items-center justify-between">
-          <a href="/" className="text-xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#1E1B4B' }}>
-            Quizo<span style={{ color: 'var(--color-primary)' }}>tic</span>
-          </a>
-
+      {/* Sub-header: tabs + actions */}
+      <div className="border-b" style={{ background: '#FAFAFE', borderColor: '#DBEAFE' }}>
+        <div className="max-w-[1100px] mx-auto px-6 flex items-center justify-between h-12">
           {/* Tab navigation */}
           <nav className="hidden md:flex items-center gap-1">
             {TABS.map(t => (
@@ -868,13 +866,13 @@ export default function HostDashboardPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => router.push('/host/present/create')}
-              className="text-sm font-bold px-5 py-2.5 rounded-xl transition-all hover:scale-[1.02]"
+              className="text-sm font-bold px-5 py-2 rounded-xl transition-all hover:scale-[1.02]"
               style={{ border: '2px solid var(--color-primary)', color: 'var(--color-primary)', background: 'transparent', fontFamily: 'var(--font-heading)' }}>
               + Present
             </button>
             <button
               onClick={() => router.push('/host/create')}
-              className="text-sm font-bold px-5 py-2.5 rounded-xl transition-all hover:scale-[1.02]"
+              className="text-sm font-bold px-5 py-2 rounded-xl transition-all hover:scale-[1.02]"
               style={{ background: 'var(--brand-gradient)', color: '#fff', fontFamily: 'var(--font-heading)' }}>
               + New Quiz
             </button>
@@ -894,22 +892,40 @@ export default function HostDashboardPage() {
             </button>
           ))}
         </div>
-      </header>
+      </div>
 
       {/* Main content */}
       <main className="max-w-[1100px] mx-auto px-6 py-8">
-        {/* Tab title */}
+        {/* Tab title with personalized greeting */}
         <div className="mb-7">
-          <h1 className="text-2xl font-black lowercase" style={{ fontFamily: 'var(--font-heading)', color: '#1E1B4B' }}>
-            {tab === 'dashboard' && 'dashboard'}
-            {tab === 'quizzes' && `my quizzes (${quizzes.length})`}
-            {tab === 'presentations' && `presentations (${presentations.length})`}
-            {tab === 'analytics' && 'analytics'}
-          </h1>
-          {tab === 'dashboard' && (
-            <p className="text-sm mt-1" style={{ color: '#a8a29e' }}>
-              {quizzes.length === 0 ? 'Welcome to Quizotic.' : 'Welcome back.'} Here&apos;s your quiz activity at a glance.
-            </p>
+          {tab === 'dashboard' ? (
+            <>
+              <h1 className="text-2xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#1E1B4B' }}>
+                {session?.user?.name ? (
+                  <>
+                    Hey, {session.user.name.split(' ')[0]}
+                    <motion.span
+                      className="inline-block ml-2"
+                      animate={{ rotate: [0, 14, -8, 14, -4, 10, 0] }}
+                      transition={{ duration: 1.8, delay: 0.5, ease: 'easeInOut' }}
+                    >
+                      👋
+                    </motion.span>
+                  </>
+                ) : (
+                  'Dashboard'
+                )}
+              </h1>
+              <p className="text-sm mt-1" style={{ color: '#a8a29e' }}>
+                {quizzes.length === 0 ? 'Welcome to Quizotic!' : 'Welcome back!'} Here&apos;s your quiz activity at a glance.
+              </p>
+            </>
+          ) : (
+            <h1 className="text-2xl font-black lowercase" style={{ fontFamily: 'var(--font-heading)', color: '#1E1B4B' }}>
+              {tab === 'quizzes' && `my quizzes (${quizzes.length})`}
+              {tab === 'presentations' && `presentations (${presentations.length})`}
+              {tab === 'analytics' && 'analytics'}
+            </h1>
           )}
         </div>
 
