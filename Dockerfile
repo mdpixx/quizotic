@@ -7,7 +7,9 @@ RUN npm ci
 
 COPY . .
 
-ARG CACHEBUST=1
+ARG NEXT_PUBLIC_POSTHOG_KEY
+ARG NEXT_PUBLIC_POSTHOG_HOST
+
 RUN npx prisma generate
 RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npm run build
 
