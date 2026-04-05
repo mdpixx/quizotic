@@ -2,18 +2,90 @@ import { createServer } from 'http'
 import next from 'next'
 import { Server } from 'socket.io'
 import { assignArchetype } from './src/lib/archetypes.mjs'
+import pg from 'pg'
+import { parse as parseCookie } from 'cookie'
+
+// ─── Startup env var validation ────────────────────────────────
+if (process.env.NODE_ENV === 'production') {
+  const REQUIRED = ['DATABASE_URL', 'NEXTAUTH_SECRET', 'OPENROUTER_API_KEY']
+  for (const key of REQUIRED) {
+    if (!process.env[key]) {
+      console.error(`[FATAL] Missing required env var: ${key}`)
+      process.exit(1)
+    }
+  }
+}
 
 const port = parseInt(process.env.PORT || '3000', 10)
 const dev = process.env.NODE_ENV !== 'production'
 const app = next({ dev })
 const handle = app.getRequestHandler()
 
-// In-memory session store (replace with DB in a future phase)
+// ─── Database pool for session persistence ─────────────────────
+let dbPool = null
+if (process.env.DATABASE_URL) {
+  dbPool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 5 })
+}
+
+async function persistGameSession({ code, type, quizId, presentationId, userId, hostName, status, participantCount, results }) {
+  if (!dbPool) return
+  try {
+    await dbPool.query(
+      `INSERT INTO "GameSession" (id, code, type, "quizId", "presentationId", "userId", "hostName", status, "participantCount", results, "createdAt", "endedAt")
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, now(), now())`,
+      [code, type, quizId || null, presentationId || null, userId || null, hostName || null, status, participantCount, JSON.stringify(results)]
+    )
+    console.log(`[db] persisted ${type} session: ${code}`)
+  } catch (err) {
+    console.error('[db] session persist failed:', err.message)
+  }
+}
+
+async function getHostPlan(userId) {
+  if (!dbPool || !userId) return 'free'
+  try {
+    const result = await dbPool.query(
+      `SELECT plan, status, "currentPeriodEnd" FROM "Subscription" WHERE "userId" = $1 LIMIT 1`,
+      [userId]
+    )
+    const sub = result.rows[0]
+    if (!sub) return 'free'
+    if (sub.status === 'active' && sub.currentPeriodEnd > new Date()) return 'pro'
+    return 'free'
+  } catch { return 'free' }
+}
+
+// ─── Socket.io auth: verify NextAuth JWT from cookie ──────────
+async function getSocketUserId(socket) {
+  try {
+    const secret = process.env.NEXTAUTH_SECRET
+    if (!secret) return null
+    const rawCookie = socket.handshake.headers.cookie
+    if (!rawCookie) return null
+    const cookies = parseCookie(rawCookie)
+    const token = cookies['authjs.session-token'] || cookies['__Secure-authjs.session-token']
+    if (!token) return null
+    const { decode } = await import('@auth/core/jwt')
+    const decoded = await decode({ token, secret, salt: 'authjs.session-token' })
+    return decoded?.userId || decoded?.sub || null
+  } catch { return null }
+}
+
+// In-memory session store
 const sessions = new Map()
+const MAX_CONCURRENT_SESSIONS = 500
 
 // Follow-up quiz store — keyed by unique 8-char code
 // { questions, quizTitle, label, createdAt }
 const followupSessions = new Map()
+
+// Clean up expired followup sessions every hour (30-day TTL)
+setInterval(() => {
+  const cutoff = Date.now() - 30 * 24 * 3600 * 1000
+  for (const [k, v] of followupSessions) {
+    if (v.createdAt < cutoff) followupSessions.delete(k)
+  }
+}, 3600_000)
 
 function generateGameCode() {
   return Math.floor(100000 + Math.random() * 900000).toString()
@@ -33,28 +105,50 @@ app.prepare().then(() => {
     },
   })
 
+  // Verify auth on socket connection — attach userId to socket.data
+  io.use(async (socket, next) => {
+    socket.data.userId = await getSocketUserId(socket)
+    next()
+  })
+
   io.on('connection', (socket) => {
-    console.log(`[socket] connected: ${socket.id}`)
+    console.log(`[socket] connected: ${socket.id} (user: ${socket.data.userId ?? 'anonymous'})`)
 
     // ─── HOST EVENTS ───────────────────────────────────────────────
 
-    socket.on('create_session', ({ quizData, sessionMode, anonymousMode }, callback) => {
+    socket.on('create_session', ({ quizData, sessionMode, anonymousMode, teamMode, teamCount }, callback) => {
+      if (sessions.size >= MAX_CONCURRENT_SESSIONS) {
+        callback({ success: false, error: 'Server capacity reached. Try again in a few minutes.' })
+        return
+      }
       let gameCode = generateGameCode()
       while (sessions.has(gameCode)) gameCode = generateGameCode()
+
+      const teamNames = ['Red', 'Blue', 'Green', 'Yellow', 'Purple', 'Orange']
+      const teamColors = ['#EF4444', '#3B82F6', '#16A34A', '#EAB308', '#7C3AED', '#F97316']
+      const numTeams = Math.min(Math.max(teamCount ?? 2, 2), 6)
 
       sessions.set(gameCode, {
         hostSocketId: socket.id,
         quizData,
         currentQuestionIndex: -1,
-        participants: new Map(), // socketId → { name, archetype, score, answers }
+        participants: new Map(), // socketId → { name, archetype, score, answers, team }
         status: 'lobby',
         sessionMode: sessionMode ?? 'competitive',
         anonymousMode: anonymousMode ?? false,
+        teamMode: teamMode ?? false,
+        teamCount: numTeams,
+        teamNames: teamNames.slice(0, numTeams),
+        teamColors: teamColors.slice(0, numTeams),
+        teamJoinCounter: 0,
+        userId: socket.data.userId || null,
+        hostPlan: null,
+        startedAt: Date.now(),
       })
 
       socket.join(`session:${gameCode}`)
       socket.join(`host:${gameCode}`)
-      console.log(`[session] created: ${gameCode}`)
+      console.log(`[session] created: ${gameCode}${teamMode ? ` (teams: ${numTeams})` : ''}`)
       callback({ success: true, gameCode })
     })
 
@@ -87,11 +181,33 @@ app.prepare().then(() => {
         // on the last question instead of next_question. Kept for safety.
         emitQuestionEnded(io, gameCode, session, currentQuestionIndex - 1)
         const leaderboard = buildLeaderboard(session.participants)
+        const teamLeaderboard = buildTeamLeaderboard(session)
         const questionStats = buildQuestionStats(session)
         session.status = 'ended'
-        socket.emit('session_ended', { leaderboard, sessionMode: session.sessionMode, questionStats })
-        socket.to(`session:${gameCode}`).emit('session_ended', { leaderboard, sessionMode: session.sessionMode })
+        socket.emit('session_ended', { leaderboard, teamLeaderboard, sessionMode: session.sessionMode, questionStats })
+        socket.to(`session:${gameCode}`).emit('session_ended', { leaderboard, teamLeaderboard, sessionMode: session.sessionMode })
         console.log(`[session] ended: ${gameCode}`)
+
+        // Persist to DB (fire-and-forget)
+        persistGameSession({
+          code: gameCode,
+          type: 'quiz',
+          quizId: session.quizData.id || null,
+          presentationId: null,
+          userId: session.userId,
+          hostName: null,
+          status: 'ended',
+          participantCount: session.participants.size,
+          results: {
+            leaderboard,
+            teamLeaderboard,
+            questionStats,
+            quizTitle: session.quizData.title,
+            questionCount: session.quizData.questions.length,
+            duration: Math.round((Date.now() - (session.startedAt || Date.now())) / 1000),
+          },
+        })
+        setTimeout(() => sessions.delete(gameCode), 5 * 60 * 1000)
         return
       }
 
@@ -112,18 +228,46 @@ app.prepare().then(() => {
       emitQuestionEnded(io, gameCode, session, session.currentQuestionIndex)
 
       const leaderboard = buildLeaderboard(session.participants)
+      const teamLeaderboard = buildTeamLeaderboard(session)
       const questionStats = buildQuestionStats(session)
       session.status = 'ended'
       // Host gets full data including questionStats
-      socket.emit('session_ended', { leaderboard, sessionMode: session.sessionMode, questionStats })
-      // Participants only get leaderboard + sessionMode flag
-      socket.to(`session:${gameCode}`).emit('session_ended', { leaderboard, sessionMode: session.sessionMode })
+      socket.emit('session_ended', { leaderboard, teamLeaderboard, sessionMode: session.sessionMode, questionStats })
+      // Participants only get leaderboard + sessionMode flag + team leaderboard
+      socket.to(`session:${gameCode}`).emit('session_ended', { leaderboard, teamLeaderboard, sessionMode: session.sessionMode })
       console.log(`[session] force-ended: ${gameCode}`)
+
+      // Persist to DB (fire-and-forget)
+      persistGameSession({
+        code: gameCode,
+        type: 'quiz',
+        quizId: session.quizData.id || null,
+        presentationId: null,
+        userId: session.userId,
+        hostName: null,
+        status: 'ended',
+        participantCount: session.participants.size,
+        results: {
+          leaderboard,
+          teamLeaderboard,
+          questionStats,
+          quizTitle: session.quizData.title,
+          questionCount: session.quizData.questions.length,
+          duration: Math.round((Date.now() - (session.startedAt || Date.now())) / 1000),
+        },
+      })
+
+      // Clean up session after grace period
+      setTimeout(() => sessions.delete(gameCode), 5 * 60 * 1000)
     })
 
     // ─── PRESENTER MODE EVENTS ─────────────────────────────────────
 
     socket.on('create_presenter_session', ({ presentationData }, callback) => {
+      if (sessions.size >= MAX_CONCURRENT_SESSIONS) {
+        callback({ success: false, error: 'Server capacity reached. Try again in a few minutes.' })
+        return
+      }
       let gameCode = generateGameCode()
       while (sessions.has(gameCode)) gameCode = generateGameCode()
 
@@ -136,6 +280,8 @@ app.prepare().then(() => {
         status: 'active',
         // Per-slide aggregates keyed by slideIndex
         aggregates: {},
+        userId: socket.data.userId || null,
+        startedAt: Date.now(),
       })
 
       socket.join(`session:${gameCode}`)
@@ -150,12 +296,13 @@ app.prepare().then(() => {
 
       session.currentSlideIndex = slideIndex
       if (!session.aggregates[slideIndex]) {
-        session.aggregates[slideIndex] = { total: 0, counts: [], words: {}, scores: [], emojis: {} }
+        session.aggregates[slideIndex] = { total: 0, counts: [], words: {}, scores: [], emojis: {}, pins: [] }
       }
 
       io.to(`session:${gameCode}`).emit('presenter_slide_changed', {
         slideIndex,
         total: session.presentationData.slides.length,
+        slide: session.presentationData.slides[slideIndex],
       })
       console.log(`[presenter] ${gameCode} → slide ${slideIndex}`)
     })
@@ -168,6 +315,7 @@ app.prepare().then(() => {
       io.to(`session:${gameCode}`).emit('presenter_slide_changed', {
         slideIndex,
         total: session.presentationData.slides.length,
+        slide: session.presentationData.slides[slideIndex],
       })
     })
 
@@ -185,7 +333,7 @@ app.prepare().then(() => {
 
       // Initialize aggregate for this slide
       if (!session.aggregates[slideIndex]) {
-        session.aggregates[slideIndex] = { total: 0, counts: [], words: {}, scores: [], emojis: {} }
+        session.aggregates[slideIndex] = { total: 0, counts: [], words: {}, scores: [], emojis: {}, pins: [] }
       }
       const agg = session.aggregates[slideIndex]
       agg.total++
@@ -193,13 +341,16 @@ app.prepare().then(() => {
       // Accumulate based on response type
       const slide = session.presentationData.slides[slideIndex]
       if (slide?.type === 'word_cloud' || slide?.type === 'open_text') {
-        const word = String(response).trim().toLowerCase()
+        const word = String(response).trim().toLowerCase().slice(0, 100)
         if (word) agg.words[word] = (agg.words[word] || 0) + 1
       } else if (slide?.type === 'rating_scale' || slide?.type === 'scale_100') {
         agg.scores.push(Number(response))
       } else if (slide?.type === 'emoji_pulse') {
         const em = String(response)
         agg.emojis[em] = (agg.emojis[em] || 0) + 1
+      } else if (slide?.type === 'pinpoint' || slide?.type === 'grid_2x2') {
+        const pin = typeof response === 'object' ? response : {}
+        agg.pins.push({ x: Number(pin.x) || 0, y: Number(pin.y) || 0 })
       } else {
         // All bar-chart types: multiple_choice, word_duel, live_race, ranking, image_choice, quick_fire
         const idx = Number(response)
@@ -216,7 +367,34 @@ app.prepare().then(() => {
       if (!session || session.hostSocketId !== socket.id || session.type !== 'presenter') return
 
       session.status = 'ended'
+
+      // Send aggregates to host before cleanup so client can persist analytics
+      socket.emit('presenter_session_summary', {
+        aggregates: session.aggregates,
+        participantCount: session.participants.size,
+        slides: session.presentationData.slides,
+      })
+
       io.to(`session:${gameCode}`).emit('presenter_ended')
+
+      // Persist to DB (fire-and-forget)
+      persistGameSession({
+        code: gameCode,
+        type: 'presentation',
+        quizId: null,
+        presentationId: session.presentationData.id || null,
+        userId: session.userId,
+        hostName: null,
+        status: 'ended',
+        participantCount: session.participants.size,
+        results: {
+          aggregates: session.aggregates,
+          presentationTitle: session.presentationData.title,
+          slideCount: session.presentationData.slides.length,
+          duration: Math.round((Date.now() - (session.startedAt || Date.now())) / 1000),
+        },
+      })
+
       sessions.delete(gameCode)
       console.log(`[presenter] ended: ${gameCode}`)
     })
@@ -233,7 +411,7 @@ app.prepare().then(() => {
       }
 
       const participant = {
-        name: displayName,
+        name: String(displayName ?? '').slice(0, 30).trim() || 'Anonymous',
         archetype: '',
         votedSlides: {},
       }
@@ -258,10 +436,19 @@ app.prepare().then(() => {
 
     // ─── FOLLOW-UP EVENTS ───────────────────────────────────────────
 
-    socket.on('generate_followup', ({ gameCode }, callback) => {
+    socket.on('generate_followup', async ({ gameCode }, callback) => {
       const session = sessions.get(gameCode)
       if (!session || session.hostSocketId !== socket.id) {
         callback({ success: false, error: 'Session not found.' })
+        return
+      }
+
+      // Pro-only feature — use cached plan
+      if (session.hostPlan === null) {
+        session.hostPlan = await getHostPlan(session.userId)
+      }
+      if (session.hostPlan !== 'pro') {
+        callback({ success: false, error: 'Spaced retrieval follow-ups are a Pro feature. Upgrade to access.' })
         return
       }
 
@@ -309,7 +496,7 @@ app.prepare().then(() => {
 
     // ─── PARTICIPANT EVENTS ─────────────────────────────────────────
 
-    socket.on('join_session', ({ gameCode, displayName }, callback) => {
+    socket.on('join_session', async ({ gameCode, displayName }, callback) => {
       const session = sessions.get(gameCode)
 
       if (!session) {
@@ -321,10 +508,32 @@ app.prepare().then(() => {
         return
       }
 
+      // Participant limit check — cache plan on first join
+      if (session.hostPlan === null) {
+        session.hostPlan = await getHostPlan(session.userId)
+      }
+      const hostPlan = session.hostPlan
+      const maxParticipants = hostPlan === 'pro' ? Infinity : 10
+      if (session.participants.size >= maxParticipants) {
+        callback({ success: false, error: 'This session is full (max 10 participants). The host can upgrade to Pro for unlimited participants.' })
+        return
+      }
+
       const archetype = assignArchetype()
+      // Truncate display name server-side for safety
+      const safeName = String(displayName ?? '').slice(0, 30).trim() || 'Anonymous'
       // In anonymous mode, store archetype only (not the display name)
-      const storedName = session.anonymousMode ? archetype : displayName
-      const participant = { name: storedName, archetype, score: 0, answers: [] }
+      const storedName = session.anonymousMode ? archetype : safeName
+
+      // Team assignment (round-robin)
+      let team = null
+      if (session.teamMode) {
+        const teamIndex = session.teamJoinCounter % session.teamCount
+        team = { index: teamIndex, name: session.teamNames[teamIndex], color: session.teamColors[teamIndex] }
+        session.teamJoinCounter++
+      }
+
+      const participant = { name: storedName, archetype, score: 0, answers: [], team }
       session.participants.set(socket.id, participant)
       socket.join(`session:${gameCode}`)
 
@@ -335,15 +544,18 @@ app.prepare().then(() => {
         archetype,
         sessionMode: session.sessionMode,
         anonymousMode: session.anonymousMode,
+        team,
+        showBranding: hostPlan !== 'pro',
       })
 
       io.to(`host:${gameCode}`).emit('participant_joined', {
         name: storedName,
         archetype,
         count: session.participants.size,
+        team,
       })
 
-      console.log(`[session] ${displayName} (${archetype}) joined ${gameCode}`)
+      console.log(`[session] ${displayName} (${archetype}${team ? `, Team ${team.name}` : ''}) joined ${gameCode}`)
     })
 
     socket.on('submit_answer', ({ gameCode, answer, timeMs, confidence }) => {
@@ -452,7 +664,23 @@ function countAnswersByOption(session, questionIndex, numOptions) {
 function buildLeaderboard(participants) {
   return Array.from(participants.values())
     .sort((a, b) => b.score - a.score)
-    .map(p => ({ name: p.name, archetype: p.archetype, score: p.score }))
+    .map(p => ({ name: p.name, archetype: p.archetype, score: p.score, team: p.team ?? null }))
+}
+
+function buildTeamLeaderboard(session) {
+  if (!session.teamMode) return null
+  const teamScores = new Map()
+  for (const p of session.participants.values()) {
+    if (!p.team) continue
+    const key = p.team.index
+    if (!teamScores.has(key)) {
+      teamScores.set(key, { name: p.team.name, color: p.team.color, score: 0, members: 0 })
+    }
+    const ts = teamScores.get(key)
+    ts.score += p.score
+    ts.members++
+  }
+  return Array.from(teamScores.values()).sort((a, b) => b.score - a.score)
 }
 
 // Emit question_ended to the whole room (reveal moment — correctAnswer intentionally exposed)
@@ -478,11 +706,16 @@ function buildQuestionStats(session) {
       }
     }
 
-    const correct       = answered.filter(p => checkAnswer(q, p.answers[i].answer)).length
-    const sureCorrect   = answered.filter(p => p.answers[i].confidence === 'sure'   && checkAnswer(q, p.answers[i].answer)).length
-    const sureWrong     = answered.filter(p => p.answers[i].confidence === 'sure'   && !checkAnswer(q, p.answers[i].answer)).length
-    const unsureCorrect = answered.filter(p => p.answers[i].confidence === 'unsure' && checkAnswer(q, p.answers[i].answer)).length
-    const unsureWrong   = answered.filter(p => p.answers[i].confidence === 'unsure' && !checkAnswer(q, p.answers[i].answer)).length
+    let correct = 0, sureCorrect = 0, sureWrong = 0, unsureCorrect = 0, unsureWrong = 0
+    for (const p of answered) {
+      const ic = checkAnswer(q, p.answers[i].answer)
+      const sure = p.answers[i].confidence === 'sure'
+      if (ic) correct++
+      if (sure && ic) sureCorrect++
+      if (sure && !ic) sureWrong++
+      if (!sure && ic) unsureCorrect++
+      if (!sure && !ic) unsureWrong++
+    }
 
     return {
       index: i,

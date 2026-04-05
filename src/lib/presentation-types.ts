@@ -30,8 +30,8 @@ export const SLIDE_TYPE_META: Record<SlideType, {
   hasAudienceInput: boolean
 }> = {
   multiple_choice: { label: 'Multiple Choice',  category: 'interactive', color: '#2563EB', bg: '#EFF6FF', hasAudienceInput: true },
-  open_text:       { label: 'Open Text',         category: 'interactive', color: '#7C3AED', bg: '#F3EEFF', hasAudienceInput: true },
-  word_cloud:      { label: 'Word Cloud',        category: 'interactive', color: '#DB2777', bg: '#FFF0FA', hasAudienceInput: true },
+  open_text:       { label: 'Open Text',         category: 'interactive', color: '#4361EE', bg: '#F0F4FF', hasAudienceInput: true },
+  word_cloud:      { label: 'Word Cloud',        category: 'interactive', color: '#FF6B6B', bg: '#FFF5F5', hasAudienceInput: true },
   rating_scale:    { label: 'Rating Scale',      category: 'interactive', color: '#EA580C', bg: '#FFF7ED', hasAudienceInput: true },
   ranking:         { label: 'Ranking',           category: 'interactive', color: '#4F46E5', bg: '#EEF2FF', hasAudienceInput: true },
   image_choice:    { label: 'Image Choice',      category: 'interactive', color: '#0891B2', bg: '#ECFEFF', hasAudienceInput: true },
@@ -41,7 +41,7 @@ export const SLIDE_TYPE_META: Record<SlideType, {
   wheel:           { label: 'Wheel of Names',    category: 'spatial',     color: '#F59E0B', bg: '#FFFBEB', hasAudienceInput: false },
   word_duel:       { label: 'Word Duel',         category: 'energy',      color: '#DC2626', bg: '#FEF2F2', hasAudienceInput: true },
   live_race:       { label: 'Live Race',         category: 'energy',      color: '#B45309', bg: '#FFFBEB', hasAudienceInput: true },
-  emoji_pulse:     { label: 'Emoji Pulse',       category: 'energy',      color: '#7C3AED', bg: '#F3EEFF', hasAudienceInput: true },
+  emoji_pulse:     { label: 'Emoji Pulse',       category: 'energy',      color: '#4361EE', bg: '#F0F4FF', hasAudienceInput: true },
   quick_fire:      { label: 'Quick Fire',        category: 'energy',      color: '#EF4444', bg: '#FFF1F2', hasAudienceInput: true },
   title:           { label: 'Title Slide',       category: 'content',     color: '#1E1B4B', bg: '#F8F7FF', hasAudienceInput: false },
   bullets:         { label: 'Bullet Points',     category: 'content',     color: '#374151', bg: '#F9FAFB', hasAudienceInput: false },
@@ -50,7 +50,7 @@ export const SLIDE_TYPE_META: Record<SlideType, {
 }
 
 export const SLIDE_CATEGORIES = [
-  { id: 'interactive' as const, label: 'Interactive', color: '#7C3AED' },
+  { id: 'interactive' as const, label: 'Interactive', color: '#4361EE' },
   { id: 'spatial'     as const, label: 'Spatial',     color: '#0891B2' },
   { id: 'energy'      as const, label: 'Energy',      color: '#DC2626' },
   { id: 'content'     as const, label: 'Content',     color: '#374151' },
@@ -218,7 +218,7 @@ export function makeSlide(type: SlideType): Slide {
     case 'live_race':       return { id, type, question: '', options: ['', '', ''] }
     case 'emoji_pulse':     return { id, type, question: '', emojis: ['❤️', '😂', '🔥', '😮'] }
     case 'quick_fire':      return { id, type, question: '', options: ['', '', '', ''], durationSeconds: 5 }
-    case 'title':           return { id, type, heading: '', subheading: '', bgColor: '#7C3AED' }
+    case 'title':           return { id, type, heading: '', subheading: '', bgColor: '#4361EE' }
     case 'bullets':         return { id, type, heading: '', bullets: ['', '', ''] }
     case 'quote':           return { id, type, quote: '', attribution: '' }
     case 'video':           return { id, type, url: '', caption: '' }

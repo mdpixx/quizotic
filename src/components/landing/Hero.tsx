@@ -3,259 +3,137 @@
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 24 },
-  visible: (i: number) => ({
-    opacity: 1, y: 0,
-    transition: { duration: 0.6, delay: i * 0.12, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
-  }),
-}
-
-// ─── Star field data ──────────────────────────────────────────────────────────
-const STARS = [
-  // Sparkle bursts (sparkle-burst animation — rotate + scale)
-  { char: '✦', top: '8%',  left: '5%',  size: 28, color: 'rgba(124,58,237,0.55)',  anim: 'sparkle-burst', dur: '4.2s', delay: '0s' },
-  { char: '✦', top: '18%', right: '8%', size: 36, color: 'rgba(236,72,153,0.55)',  anim: 'sparkle-burst', dur: '5s',   delay: '1.2s' },
-  { char: '✦', top: '62%', left: '7%',  size: 22, color: 'rgba(245,158,11,0.60)',  anim: 'sparkle-burst', dur: '4.6s', delay: '2.5s' },
-  { char: '✦', top: '80%', right: '6%', size: 30, color: 'rgba(124,58,237,0.50)',  anim: 'sparkle-burst', dur: '5.5s', delay: '0.8s' },
-
-  // Filled stars (twinkle + drift)
-  { char: '★', top: '14%', right: '18%', size: 20, color: 'rgba(245,158,11,0.50)',  anim: 'twinkle', dur: '3.8s', delay: '0.3s',  drift: true, driftDur: '6s', driftDelay: '0s' },
-  { char: '★', top: '35%', left: '3%',   size: 14, color: 'rgba(124,58,237,0.35)', anim: 'twinkle', dur: '4.5s', delay: '1.5s',  drift: true, driftDur: '7s', driftDelay: '1s' },
-  { char: '★', top: '55%', right: '3%',  size: 18, color: 'rgba(236,72,153,0.40)', anim: 'twinkle', dur: '5.2s', delay: '0.7s',  drift: true, driftDur: '8s', driftDelay: '2s' },
-  { char: '★', top: '72%', left: '12%',  size: 12, color: 'rgba(245,158,11,0.45)', anim: 'twinkle', dur: '3.5s', delay: '2.1s',  drift: true, driftDur: '6.5s', driftDelay: '0.5s' },
-  { char: '★', top: '88%', right: '15%', size: 16, color: 'rgba(124,58,237,0.30)', anim: 'twinkle', dur: '4.8s', delay: '1.8s',  drift: true, driftDur: '7.5s', driftDelay: '1.5s' },
-  { char: '★', top: '28%', left: '18%',  size: 10, color: 'rgba(236,72,153,0.35)', anim: 'twinkle', dur: '6s',   delay: '3s',    drift: true, driftDur: '9s', driftDelay: '3s' },
-
-  // Small dots (pure twinkle, no drift — for texture)
-  { char: '·', top: '10%', left: '22%',  size: 44, color: 'rgba(124,58,237,0.25)', anim: 'twinkle', dur: '5s',   delay: '0.5s' },
-  { char: '·', top: '45%', right: '20%', size: 44, color: 'rgba(245,158,11,0.22)', anim: 'twinkle', dur: '4.2s', delay: '2s' },
-  { char: '·', top: '65%', left: '28%',  size: 38, color: 'rgba(236,72,153,0.20)', anim: 'twinkle', dur: '3.8s', delay: '1.1s' },
-  { char: '·', top: '85%', left: '35%',  size: 44, color: 'rgba(124,58,237,0.18)', anim: 'twinkle', dur: '6.5s', delay: '0s' },
-  { char: '·', top: '22%', right: '30%', size: 32, color: 'rgba(245,158,11,0.28)', anim: 'twinkle', dur: '4.8s', delay: '3.5s' },
-
-  // Extra small sparkles for richness
-  { char: '✦', top: '48%', left: '2%',   size: 12, color: 'rgba(245,158,11,0.40)', anim: 'twinkle', dur: '3.2s', delay: '1.8s' },
-  { char: '✦', top: '32%', right: '2%',  size: 10, color: 'rgba(124,58,237,0.35)', anim: 'twinkle', dur: '4s',   delay: '2.8s' },
-  { char: '✦', top: '92%', left: '20%',  size: 14, color: 'rgba(236,72,153,0.38)', anim: 'twinkle', dur: '5.5s', delay: '0.4s' },
-  { char: '★', top: '96%', right: '28%', size: 10, color: 'rgba(245,158,11,0.35)', anim: 'twinkle', dur: '4.4s', delay: '1.3s' },
-  { char: '✦', top: '5%',  left: '45%',  size: 16, color: 'rgba(124,58,237,0.28)', anim: 'twinkle', dur: '5.8s', delay: '2.2s' },
-  { char: '★', top: '75%', right: '22%', size: 11, color: 'rgba(236,72,153,0.30)', anim: 'twinkle', dur: '3.6s', delay: '4s' },
-  { char: '✦', top: '58%', left: '40%',  size: 9,  color: 'rgba(245,158,11,0.35)', anim: 'twinkle', dur: '4.7s', delay: '0.9s' },
-] as const
-
-function AnimatedStarField() {
+function QuizMockup() {
   return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden>
-      {STARS.map((s, i) => {
-        const pos: Record<string, string> = {}
-        if ('top' in s)    pos.top    = s.top
-        if ('left' in s)   pos.left   = s.left
-        if ('right' in s)  pos.right  = s.right
-        if ('bottom' in s) pos.bottom = (s as { bottom: string }).bottom
-
-        const hasDrift = 'drift' in s && s.drift
-        const animationValue = hasDrift
-          ? `${s.anim} ${'dur' in s ? s.dur : '4s'} ${'delay' in s ? s.delay : '0s'} ease-in-out infinite, drift ${'driftDur' in s ? (s as {driftDur: string}).driftDur : '7s'} ${'driftDelay' in s ? (s as {driftDelay: string}).driftDelay : '0s'} ease-in-out infinite`
-          : `${s.anim} ${'dur' in s ? s.dur : '4s'} ${'delay' in s ? s.delay : '0s'} ease-in-out infinite`
-
-        return (
-          <span
-            key={i}
-            style={{
-              position: 'absolute',
-              ...pos,
-              color: s.color,
-              fontSize: s.size,
-              lineHeight: 1,
-              animation: animationValue,
-            }}
-          >
-            {s.char}
-          </span>
-        )
-      })}
-    </div>
-  )
-}
-
-function PlayerJoinedNotification() {
-  return (
-    <motion.div
-      animate={{ y: [-4, 4, -4] }}
-      transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut', delay: 1.5 }}
-      className="absolute -top-2 -right-8 z-10 rounded-2xl px-4 py-3 w-48 shadow-xl"
-      style={{ background: '#F3EEFF', border: '1.5px solid #C4B5FD' }}>
-      <div className="flex items-center gap-1.5 mb-2">
-        <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#7C3AED' }} />
-        <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#7C3AED', fontFamily: 'var(--font-heading)' }}>
-          live now
+    <div className="rounded-2xl overflow-hidden shadow-2xl border" style={{ background: '#fff', borderColor: '#DBEAFE' }}>
+      <div className="flex items-center gap-1.5 px-3 py-2" style={{ background: '#F8FAFC' }}>
+        <span className="w-2.5 h-2.5 rounded-full bg-red-300" />
+        <span className="w-2.5 h-2.5 rounded-full bg-amber-300" />
+        <span className="w-2.5 h-2.5 rounded-full bg-green-300" />
+        <span className="ml-3 text-[10px] font-mono text-gray-400">quizotic.live/host/session</span>
+      </div>
+      <div className="p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black text-white" style={{ background: 'var(--brand-gradient)' }}>Q</div>
+            <span className="text-xs font-bold" style={{ color: '#1B2559' }}>Science Quiz</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#F0F4FF', color: '#4361EE' }}>Q 3/10</span>
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black" style={{ background: '#FEF2F2', color: '#EF4444' }}>12</div>
+          </div>
+        </div>
+        <p className="text-sm font-bold leading-snug" style={{ color: '#1B2559' }}>
+          Which planet in our solar system has the most moons?
         </p>
-      </div>
-      <div className="flex items-center gap-1 mb-2">
-        {(['#fbbf24', '#A78BFA', '#60a5fa', '#f472b6'] as string[]).map((c, i) => (
-          <div key={i} className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-            style={{ background: c, fontFamily: 'var(--font-heading)' }}>
-            {['A', 'R', 'P', 'D'][i]}
-          </div>
-        ))}
-        <span className="text-[10px] font-semibold ml-1" style={{ color: '#7C3AED' }}>+8</span>
-      </div>
-      <p className="text-[11px] font-semibold" style={{ color: '#5B21B6', fontFamily: 'var(--font-heading)' }}>Priya just joined! ✦</p>
-    </motion.div>
-  )
-}
-
-function FloatingQuizCard() {
-  return (
-    <motion.div
-      animate={{ y: [-5, 5, -5] }}
-      transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-      className="rounded-3xl p-7 w-[340px] shadow-2xl relative z-20"
-      style={{ background: '#fff', boxShadow: '0 20px 60px rgba(124,58,237,0.12)', border: '1.5px solid #E9E2FF' }}>
-
-      {/* Header row: live indicator + streak */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full" style={{ background: '#7C3AED' }} />
-          <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: '#7C3AED', fontFamily: 'var(--font-heading)' }}>
-            Live — Round 2 of 5
-          </span>
+        <div className="space-y-2">
+          {[
+            { letter: 'A', text: 'Jupiter', votes: 8, color: '#3B82F6', pct: 35 },
+            { letter: 'B', text: 'Saturn', votes: 14, color: '#4361EE', pct: 58, correct: true },
+            { letter: 'C', text: 'Neptune', votes: 1, color: '#FF6B6B', pct: 4 },
+            { letter: 'D', text: 'Uranus', votes: 1, color: '#FFD166', pct: 3 },
+          ].map(opt => (
+            <div key={opt.letter} className="relative rounded-lg overflow-hidden" style={{ background: '#F8FAFC' }}>
+              <div className="absolute inset-y-0 left-0 rounded-lg" style={{ width: `${opt.pct}%`, background: opt.correct ? '#4361EE' : '#E2E8F0', opacity: opt.correct ? 0.15 : 0.5 }} />
+              <div className="relative flex items-center justify-between px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center text-white" style={{ background: opt.color }}>{opt.letter}</span>
+                  <span className={`text-xs font-semibold ${opt.correct ? 'text-blue-700' : 'text-gray-600'}`}>{opt.text} {opt.correct && '✓'}</span>
+                </div>
+                <span className="text-[10px] font-bold text-gray-400">{opt.votes}</span>
+              </div>
+            </div>
+          ))}
         </div>
-        <div className="flex items-center gap-1 rounded-full px-2.5 py-1"
-          style={{ background: 'linear-gradient(135deg, #FF6B35, #F59E0B)', boxShadow: '0 2px 8px rgba(245,158,11,0.35)' }}>
-          <span style={{ fontSize: 12 }}>🔥</span>
-          <span className="text-[11px] font-bold text-white" style={{ fontFamily: 'var(--font-heading)' }}>5 streak</span>
+        <div className="flex items-center gap-3 pt-1">
+          {['🏆 Sarah 840', '🥈 Kai 720', '🥉 Priya 680'].map((entry, i) => (
+            <span key={i} className="text-[10px] font-bold" style={{ color: i === 0 ? '#F59E0B' : '#9CA3AF' }}>{entry}</span>
+          ))}
         </div>
       </div>
-
-      <p className="text-base font-extrabold mb-5 leading-snug"
-        style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-dark)', fontSize: 17 }}>
-        Which planet has the most moons in our solar system?
-      </p>
-
-      <div className="flex flex-col gap-2">
-        {[
-          { letter: 'A', text: 'Jupiter',    bg: '#F3EEFF',   color: '#4C1D95',  border: '1.5px solid #C4B5FD', shine: false },
-          { letter: 'B', text: 'Saturn ✓ ★', bg: 'linear-gradient(135deg,#7C3AED,#EC4899)', color: '#fff', border: 'none', shine: true },
-          { letter: 'C', text: 'Uranus',     bg: '#F9FAFB',   color: 'var(--color-text-muted)', border: '1.5px solid #F3F4F6', shine: false },
-          { letter: 'D', text: 'Neptune',    bg: '#F9FAFB',   color: 'var(--color-text-muted)', border: '1.5px solid #F3F4F6', shine: false },
-        ].map(opt => (
-          <div key={opt.letter} className="relative flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium overflow-hidden"
-            style={{ background: opt.bg, color: opt.color, border: opt.border }}>
-            {opt.shine && (
-              <div className="absolute inset-0 pointer-events-none"
-                style={{
-                  background: 'linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.18) 50%, transparent 60%)',
-                  animation: 'shimmer 2.8s ease-in-out infinite',
-                }} />
-            )}
-            <span className="font-black text-[15px] relative z-10" style={{ fontFamily: 'var(--font-heading)' }}>
-              {opt.letter}
-            </span>
-            <span className="relative z-10">{opt.text}</span>
-          </div>
-        ))}
-      </div>
-    </motion.div>
-  )
-}
-
-function ScorePill() {
-  return (
-    <motion.div
-      animate={{ y: [-4, 4, -4] }}
-      transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
-      className="absolute bottom-16 -left-8 z-10 flex items-center gap-3 rounded-full px-4 py-2.5 shadow-lg"
-      style={{ background: '#fff', boxShadow: '0 8px 30px rgba(124,58,237,0.14)', border: '1.5px solid #E9E2FF' }}>
-      <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
-        style={{ background: 'linear-gradient(135deg,#7C3AED,#EC4899)', color: '#fff' }}>
-        ★
-      </div>
-      <div>
-        <p className="text-xs font-bold" style={{ color: 'var(--color-dark)', fontFamily: 'var(--font-heading)' }}>Rohan — 1st place</p>
-        <p className="text-[11px] font-semibold" style={{ color: '#F59E0B' }}>+960 pts this round</p>
-      </div>
-    </motion.div>
+    </div>
   )
 }
 
 export function Hero() {
   return (
-    <section className="relative min-h-[92vh] flex items-center overflow-hidden"
-      style={{ background: 'var(--color-bg)' }}>
-      <AnimatedStarField />
+    <section className="relative pt-28 pb-16 md:pt-36 md:pb-24 overflow-hidden" style={{ background: '#FFFBF5' }}>
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full opacity-[0.06]" style={{ background: 'radial-gradient(circle, #4361EE 0%, transparent 70%)' }} />
+        <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full opacity-[0.04]" style={{ background: 'radial-gradient(circle, #FF6B6B 0%, transparent 70%)' }} />
+      </div>
 
-      <div className="max-w-[1280px] mx-auto w-full px-6 md:px-12 flex flex-col lg:flex-row items-center gap-12 lg:gap-8 py-16 lg:py-0">
-        {/* Left — copy */}
-        <div className="flex-1 max-w-[560px] relative z-10">
-          <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={0}
-            className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 mb-6 text-[13px] font-bold"
-            style={{
-              background: 'var(--color-surface)',
-              border: '1.5px solid var(--color-border)',
-              backgroundImage: 'linear-gradient(90deg, #7C3AED, #EC4899)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              fontFamily: 'var(--font-heading)',
-            }}>
-            ✦ live quiz platform
+      <div className="max-w-[1280px] mx-auto px-6 md:px-12 relative">
+        <div className="grid md:grid-cols-2 gap-12 md:gap-16 items-center">
+          <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-6" style={{ background: '#F0F4FF', border: '1px solid #DBEAFE' }}>
+              <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#4361EE' }} />
+              <span className="text-xs font-bold" style={{ color: '#4361EE' }}>Free forever — no signup required</span>
+            </div>
+
+            <h1 className="text-4xl sm:text-5xl lg:text-[56px] font-black leading-[1.1] tracking-tight mb-6" style={{ fontFamily: 'var(--font-heading)', color: '#1B2559' }}>
+              Live Quizzes &{' '}
+              <span style={{ backgroundImage: 'linear-gradient(90deg, #FF6B6B, #4361EE)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                Presentations
+              </span>{' '}
+              That Actually Engage
+            </h1>
+
+            <p className="text-lg md:text-xl leading-relaxed mb-8 max-w-lg" style={{ color: '#4A5568' }}>
+              Create AI-powered quizzes and interactive presentations in minutes. Host them live for 2 or 2,000 participants.
+            </p>
+
+            <div className="flex flex-wrap gap-4 mb-8">
+              <Link href="/host"
+                className="inline-flex items-center gap-2 text-base font-bold px-7 py-3.5 rounded-2xl text-white transition-all hover:opacity-90 hover:scale-[1.02] shadow-lg"
+                style={{ background: 'linear-gradient(135deg, #FF6B6B, #4361EE)', fontFamily: 'var(--font-heading)', boxShadow: '0 8px 32px rgba(67,97,238,0.25)' }}>
+                Host a Quiz Free
+                <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </Link>
+              <Link href="/join"
+                className="inline-flex items-center gap-2 text-base font-bold px-7 py-3.5 rounded-2xl transition-all hover:bg-blue-50"
+                style={{ color: '#4361EE', border: '2px solid #4361EE' }}>
+                Join with Code
+              </Link>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+              {['Free forever', 'No signup required', 'AI-powered'].map(text => (
+                <span key={text} className="flex items-center gap-1.5 text-sm" style={{ color: '#718096' }}>
+                  <svg className="w-4 h-4 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  {text}
+                </span>
+              ))}
+            </div>
           </motion.div>
 
-          <motion.h1 variants={fadeUp} initial="hidden" animate="visible" custom={1}
-            className="text-5xl sm:text-6xl lg:text-[68px] font-bold leading-[1.0] mb-5"
-            style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-dark)', letterSpacing: '-0.01em' }}>
-            Make every quiz<br />feel like a{' '}
-            <span style={{
-              backgroundImage: 'linear-gradient(90deg, #7C3AED, #EC4899)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}>Game!</span>
-          </motion.h1>
+          <motion.div initial={{ opacity: 0, y: 32, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.7, delay: 0.15 }} className="relative">
+            <motion.div animate={{ y: [-6, 6, -6] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+              className="absolute -top-4 -right-2 md:-right-6 z-10 px-3 py-2 rounded-xl shadow-lg" style={{ background: '#fff', border: '1px solid #DBEAFE' }}>
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🎯</span>
+                <div>
+                  <p className="text-[10px] font-bold" style={{ color: '#1B2559' }}>24 students joined</p>
+                  <p className="text-[9px]" style={{ color: '#9CA3AF' }}>Game code: ASTRO-42</p>
+                </div>
+              </div>
+            </motion.div>
 
-          <motion.p variants={fadeUp} initial="hidden" animate="visible" custom={2}
-            className="text-lg leading-relaxed mb-9 max-w-[440px]"
-            style={{ color: 'var(--color-text-muted)' }}>
-            Create and host live quizzes that participants actually look forward to.
-            No boring slides. No dead silences. Just energy.
-          </motion.p>
+            <motion.div animate={{ y: [5, -5, 5] }} transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+              className="absolute -bottom-2 -left-4 md:-left-8 z-10 px-3 py-2 rounded-xl shadow-lg" style={{ background: '#fff', border: '1px solid #FED7AA' }}>
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🔥</span>
+                <div>
+                  <p className="text-[10px] font-bold" style={{ color: '#1B2559' }}>3x Streak!</p>
+                  <p className="text-[9px]" style={{ color: '#F59E0B' }}>+150 bonus points</p>
+                </div>
+              </div>
+            </motion.div>
 
-          <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={3}
-            className="flex flex-wrap items-center gap-3 mb-7">
-            <Link href="/host"
-              className="inline-flex items-center gap-2 rounded-full px-8 py-4 text-[17px] font-bold transition-all hover:-translate-y-0.5 hover:opacity-90"
-              style={{
-                fontFamily: 'var(--font-heading)',
-                background: 'linear-gradient(135deg, #7C3AED, #EC4899)',
-                color: '#fff',
-                animation: 'glow-pulse 2.5s ease-in-out infinite',
-              }}>
-              ✦ host a quiz free
-            </Link>
-            <Link href="/join"
-              className="inline-flex items-center rounded-full px-7 py-3.5 text-base font-bold border-2 transition-colors"
-              style={{
-                fontFamily: 'var(--font-heading)',
-                color: 'var(--color-dark)',
-                borderColor: '#D8CFFF',
-              }}>
-              join with a code →
-            </Link>
+            <QuizMockup />
           </motion.div>
-
-          <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={4}
-            className="flex gap-6 text-[13px]" style={{ color: 'var(--color-text-subtle)' }}>
-            <span><strong style={{ color: 'var(--color-text-secondary)', fontFamily: 'var(--font-heading)' }}>2 min</strong> to create</span>
-            <span><strong style={{ color: 'var(--color-text-secondary)', fontFamily: 'var(--font-heading)' }}>No</strong> credit card</span>
-            <span><strong style={{ color: '#7C3AED', fontFamily: 'var(--font-heading)' }}>AI</strong> powered</span>
-          </motion.div>
-        </div>
-
-        {/* Right — floating cards */}
-        <div className="relative flex-1 flex items-center justify-center min-h-[420px] lg:min-h-[500px]">
-          <FloatingQuizCard />
-          <PlayerJoinedNotification />
-          <ScorePill />
         </div>
       </div>
     </section>

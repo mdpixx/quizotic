@@ -15,6 +15,7 @@ interface AggregateData {
   words?: Record<string, number>  // word cloud
   scores?: number[]        // rating/scale
   emojis?: Record<string, number> // emoji pulse
+  pins?: { x: number; y: number }[] // pinpoint / grid_2x2
 }
 
 interface FloatingVoter { id: string; x: number; color: string; emoji: string }
@@ -29,7 +30,7 @@ const MILESTONES: Milestone[] = [
 ]
 
 const VOTER_EMOJIS = ['🦊','🐯','🐸','🦁','🐼','🐙','🦋','🐝','🦜','🐬']
-const VOTER_COLORS = ['#7C3AED','#DB2777','#0891B2','#16A34A','#EA580C','#9333EA','#DC2626']
+const VOTER_COLORS = ['#4361EE','#FF6B6B','#0891B2','#16A34A','#EA580C','#FFD166','#DC2626']
 
 // ─── Web Audio sound engine ───────────────────────────────────────────────────
 
@@ -85,10 +86,10 @@ function PollBar({ label, count, total, color }: { label: string; count: number;
   return (
     <div className="space-y-1.5 relative overflow-visible">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold" style={{ color: '#1A0A2E' }}>{label}</span>
-        <span className="text-sm font-bold tabular-nums" style={{ color }}>{count} <span className="text-xs font-normal opacity-60">({pct}%)</span></span>
+        <span className="text-xl font-semibold" style={{ color: 'var(--color-dark)' }}>{label}</span>
+        <span className="text-xl font-bold tabular-nums" style={{ color }}>{count} <span className="text-base font-normal opacity-60">({pct}%)</span></span>
       </div>
-      <div className="h-8 rounded-full overflow-hidden relative" style={{ background: 'rgba(0,0,0,0.06)' }}>
+      <div className="h-10 rounded-full overflow-hidden relative" style={{ background: 'rgba(0,0,0,0.06)' }}>
         <div
           className="h-full rounded-full transition-all"
           style={{
@@ -111,7 +112,7 @@ function PollBar({ label, count, total, color }: { label: string; count: number;
 function WordCloud({ words }: { words: Record<string, number> }) {
   const entries = Object.entries(words).sort((a, b) => b[1] - a[1]).slice(0, 30)
   const max = entries[0]?.[1] ?? 1
-  const colors = ['#7C3AED','#DB2777','#0891B2','#16A34A','#EA580C','#9333EA']
+  const colors = ['#4361EE','#FF6B6B','#0891B2','#16A34A','#EA580C','#6B8AFF']
   return (
     <div className="flex flex-wrap gap-2 items-center justify-center min-h-[80px]">
       {entries.map(([word, count], i) => {
@@ -144,10 +145,168 @@ function SpeedWaveform({ recentVotes }: { recentVotes: number[] }) {
   )
 }
 
+// ─── Live vertical bar chart ──────────────────────────────────────────────────
+
+function LiveVerticalBars({
+  options, counts, total, colors, showResults,
+}: {
+  options: string[]
+  counts: number[]
+  total: number
+  colors: string[]
+  showResults: boolean
+}) {
+  const max = Math.max(...counts, 1)
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 220 }}>
+      {options.map((opt, i) => {
+        const count = counts[i] ?? 0
+        const pct = total > 0 ? Math.round((count / total) * 100) : 0
+        const heightPct = count > 0 ? Math.max(3, (count / max) * 100) : 0
+        const isLeading = count > 0 && count === Math.max(...counts)
+        const color = colors[i % colors.length]
+
+        return (
+          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%' }}>
+            {/* Vote count badge above bar */}
+            <div style={{ height: 28, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', marginBottom: 4 }}>
+              {count > 0 && (
+                <span style={{ color, fontWeight: 800, fontSize: 17, lineHeight: 1 }}>
+                  {count}
+                </span>
+              )}
+            </div>
+
+            {/* Bar grows from bottom */}
+            <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', width: '100%' }}>
+              <div
+                style={{
+                  width: '100%',
+                  height: `${heightPct}%`,
+                  minHeight: count > 0 ? 6 : 0,
+                  borderRadius: '10px 10px 4px 4px',
+                  background: isLeading
+                    ? `linear-gradient(180deg, ${color} 0%, ${color}cc 100%)`
+                    : `linear-gradient(180deg, ${color}77 0%, ${color}44 100%)`,
+                  boxShadow: isLeading ? `0 0 20px ${color}55, 0 -2px 10px ${color}33` : 'none',
+                  transition: 'height 0.65s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                }}
+              />
+            </div>
+
+            {/* Floor line */}
+            <div style={{ width: '100%', height: 2, background: 'rgba(0,0,0,0.08)', borderRadius: 1, margin: '3px 0' }} />
+
+            {/* Option label */}
+            <div style={{ textAlign: 'center', maxWidth: '100%', paddingTop: 2 }}>
+              <div style={{
+                fontSize: options.length > 4 ? 11 : 13,
+                fontWeight: 700,
+                color: 'var(--color-dark)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: options.length > 4 ? 'nowrap' : 'normal',
+                maxWidth: '100%',
+                lineHeight: 1.2,
+              }}>
+                {opt || `Option ${i + 1}`}
+              </div>
+              {showResults && total > 0 && (
+                <div style={{ fontSize: 12, color, fontWeight: 700, marginTop: 2 }}>
+                  {pct}%
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Wheel Spinner Component ─────────────────────────────────────────────────
+
+function WheelSpinner({ names, headingStyle, title }: { names: string[]; headingStyle: React.CSSProperties; title: string }) {
+  const [spinning, setSpinning] = useState(false)
+  const [winner, setWinner] = useState<string | null>(null)
+  const [highlightIdx, setHighlightIdx] = useState(-1)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  function spin() {
+    if (spinning || names.length === 0) return
+    setSpinning(true)
+    setWinner(null)
+
+    let tick = 0
+    const totalTicks = 20 + Math.floor(Math.random() * 15)
+    const winnerIdx = Math.floor(Math.random() * names.length)
+
+    intervalRef.current = setInterval(() => {
+      setHighlightIdx(tick % names.length)
+      tick++
+      if (tick >= totalTicks) {
+        if (intervalRef.current) clearInterval(intervalRef.current)
+        setHighlightIdx(winnerIdx)
+        setWinner(names[winnerIdx])
+        setSpinning(false)
+      }
+    }, 60 + tick * 8) // decelerating
+
+    // Fallback: force stop after 4s
+    setTimeout(() => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      setHighlightIdx(winnerIdx)
+      setWinner(names[winnerIdx])
+      setSpinning(false)
+    }, 4000)
+  }
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl" style={headingStyle}>{title || 'Wheel of Names'}</h2>
+      {names.length === 0 ? (
+        <p className="text-sm text-center" style={{ color: '#9CA3AF' }}>No names added to this wheel.</p>
+      ) : (
+        <>
+          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(names.length, 4)}, 1fr)` }}>
+            {names.map((name, i) => (
+              <div key={i}
+                className="px-4 py-3 rounded-xl text-center font-bold text-sm transition-all"
+                style={{
+                  background: highlightIdx === i
+                    ? winner ? '#FACC15' : VOTER_COLORS[i % VOTER_COLORS.length]
+                    : '#F0F4FF',
+                  color: highlightIdx === i ? '#fff' : '#1E1B4B',
+                  transform: highlightIdx === i ? 'scale(1.08)' : 'scale(1)',
+                  boxShadow: highlightIdx === i ? '0 4px 16px rgba(0,0,0,0.15)' : 'none',
+                }}>
+                {name}
+              </div>
+            ))}
+          </div>
+          {winner && (
+            <div className="text-center py-4">
+              <p className="text-4xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#FACC15' }}>
+                {winner}
+              </p>
+            </div>
+          )}
+          <button onClick={spin} disabled={spinning}
+            className="w-full py-4 rounded-xl text-lg font-bold transition-all hover:scale-[1.02] disabled:opacity-50"
+            style={{ background: 'var(--brand-gradient)', color: '#fff', fontFamily: 'var(--font-heading)' }}>
+            {spinning ? 'Spinning...' : winner ? 'Spin Again' : 'Spin!'}
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
 // ─── Slide content renderer ───────────────────────────────────────────────────
 
 function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggregate: AggregateData; showResults: boolean }) {
-  const headingStyle: React.CSSProperties = { fontFamily: 'var(--font-heading)', color: '#1A0A2E', fontWeight: 900 }
+  const headingStyle: React.CSSProperties = { fontFamily: 'var(--font-heading)', color: 'var(--color-dark)', fontWeight: 900 }
 
   switch (slide.type) {
     case 'multiple_choice':
@@ -159,25 +318,21 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
         : (slide as { options: string[] }).options
       const barColors = slide.type === 'word_duel'
         ? ['#2563EB', '#DC2626']
-        : ['#7C3AED','#DB2777','#0891B2','#16A34A','#F59E0B']
+        : ['#4361EE','#FF6B6B','#0891B2','#16A34A','#F59E0B']
+      const counts = aggregate.counts ?? new Array(options.length).fill(0)
 
       return (
-        <div className="space-y-5">
-          <h2 className="text-2xl leading-snug" style={headingStyle}>
+        <div className="space-y-4">
+          <h2 className="text-3xl leading-snug" style={headingStyle}>
             {(slide as { question: string }).question || <span className="opacity-30">Question text...</span>}
           </h2>
-          {showResults && (
-            <div className="space-y-3">
-              {options.map((opt, i) => (
-                <PollBar key={i}
-                  label={opt || `Option ${i+1}`}
-                  count={aggregate.counts?.[i] ?? 0}
-                  total={aggregate.total}
-                  color={barColors[i % barColors.length]}
-                />
-              ))}
-            </div>
-          )}
+          <LiveVerticalBars
+            options={options}
+            counts={counts}
+            total={aggregate.total}
+            colors={barColors}
+            showResults={showResults}
+          />
         </div>
       )
     }
@@ -185,7 +340,7 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
     case 'open_text':
       return (
         <div className="space-y-4">
-          <h2 className="text-2xl leading-snug" style={headingStyle}>
+          <h2 className="text-4xl leading-snug" style={headingStyle}>
             {slide.question || <span className="opacity-30">Question text...</span>}
           </h2>
           {showResults && aggregate.words && (
@@ -197,7 +352,7 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
     case 'word_cloud':
       return (
         <div className="space-y-4">
-          <h2 className="text-2xl leading-snug" style={headingStyle}>
+          <h2 className="text-4xl leading-snug" style={headingStyle}>
             {slide.question || <span className="opacity-30">Question text...</span>}
           </h2>
           {showResults && aggregate.words && <WordCloud words={aggregate.words} />}
@@ -207,19 +362,19 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
     case 'rating_scale':
       return (
         <div className="space-y-5">
-          <h2 className="text-2xl leading-snug" style={headingStyle}>
+          <h2 className="text-4xl leading-snug" style={headingStyle}>
             {slide.question || <span className="opacity-30">Question text...</span>}
           </h2>
-          <div className="flex items-center justify-between text-sm font-semibold" style={{ color: '#6B4FA0' }}>
+          <div className="flex items-center justify-between text-xl font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
             <span>{slide.minLabel}</span>
             <span>{slide.maxLabel}</span>
           </div>
           {showResults && aggregate.scores && aggregate.scores.length > 0 && (
             <div className="text-center">
-              <p className="text-5xl font-black" style={{ color: '#7C3AED', fontFamily: 'var(--font-heading)' }}>
+              <p className="text-5xl font-black" style={{ color: 'var(--color-primary)', fontFamily: 'var(--font-heading)' }}>
                 {(aggregate.scores.reduce((a, b) => a + b, 0) / aggregate.scores.length).toFixed(1)}
               </p>
-              <p className="text-sm" style={{ color: '#9CA3AF' }}>average rating · {aggregate.total} responses</p>
+              <p className="text-lg" style={{ color: 'var(--color-text-muted)' }}>average rating · {aggregate.total} responses</p>
             </div>
           )}
         </div>
@@ -228,7 +383,7 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
     case 'emoji_pulse':
       return (
         <div className="space-y-5">
-          <h2 className="text-2xl leading-snug" style={headingStyle}>
+          <h2 className="text-4xl leading-snug" style={headingStyle}>
             {slide.question || <span className="opacity-30">Prompt text...</span>}
           </h2>
           {showResults && aggregate.emojis && (
@@ -236,7 +391,7 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
               {slide.emojis.map(em => (
                 <div key={em} className="flex flex-col items-center gap-1">
                   <span className="text-4xl">{em}</span>
-                  <span className="text-lg font-black" style={{ color: '#7C3AED' }}>
+                  <span className="text-lg font-black" style={{ color: 'var(--color-primary)' }}>
                     {aggregate.emojis?.[em] ?? 0}
                   </span>
                 </div>
@@ -249,7 +404,7 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
     case 'ranking':
       return (
         <div className="space-y-4">
-          <h2 className="text-2xl leading-snug" style={headingStyle}>
+          <h2 className="text-4xl leading-snug" style={headingStyle}>
             {slide.question || <span className="opacity-30">Question text...</span>}
           </h2>
           {showResults && aggregate.counts && (
@@ -266,19 +421,19 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
     case 'scale_100':
       return (
         <div className="space-y-5">
-          <h2 className="text-2xl leading-snug" style={headingStyle}>
+          <h2 className="text-4xl leading-snug" style={headingStyle}>
             {slide.question || <span className="opacity-30">Question text...</span>}
           </h2>
-          <div className="flex items-center justify-between text-sm font-semibold" style={{ color: '#6B4FA0' }}>
+          <div className="flex items-center justify-between text-xl font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
             <span>0 · {slide.minLabel}</span>
             <span>{slide.maxLabel} · 100</span>
           </div>
           {showResults && aggregate.scores && aggregate.scores.length > 0 && (
             <div className="text-center">
-              <p className="text-5xl font-black" style={{ color: '#7C3AED', fontFamily: 'var(--font-heading)' }}>
+              <p className="text-5xl font-black" style={{ color: 'var(--color-primary)', fontFamily: 'var(--font-heading)' }}>
                 {Math.round(aggregate.scores.reduce((a, b) => a + b, 0) / aggregate.scores.length)}
               </p>
-              <p className="text-sm" style={{ color: '#9CA3AF' }}>average · {aggregate.total} responses</p>
+              <p className="text-lg" style={{ color: 'var(--color-text-muted)' }}>average · {aggregate.total} responses</p>
             </div>
           )}
         </div>
@@ -303,7 +458,7 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
           <ul className="space-y-3">
             {slide.bullets.map((b, i) => (
               <li key={i} className="flex items-start gap-3 text-lg" style={{ color: '#1A0A2E' }}>
-                <span className="mt-1.5 w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#7C3AED' }} />
+                <span className="mt-1.5 w-2 h-2 rounded-full flex-shrink-0" style={{ background: 'var(--color-primary)' }} />
                 {b}
               </li>
             ))}
@@ -318,7 +473,7 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
             &ldquo;{slide.quote}&rdquo;
           </p>
           {slide.attribution && (
-            <p className="text-sm font-semibold" style={{ color: '#7C3AED' }}>{slide.attribution}</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--color-primary)' }}>{slide.attribution}</p>
           )}
         </div>
       )
@@ -335,10 +490,76 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
         </div>
       )
 
+    case 'pinpoint': {
+      const pins = aggregate.pins ?? []
+      return (
+        <div className="space-y-3">
+          <h2 className="text-2xl" style={headingStyle}>{slide.question}</h2>
+          <div className="relative rounded-2xl overflow-hidden border" style={{ aspectRatio: '4/3', background: slide.imageUrl ? '#000' : '#F0F4FF', borderColor: '#DBEAFE' }}>
+            {slide.imageUrl && <img src={slide.imageUrl} alt="" className="w-full h-full object-contain pointer-events-none" />}
+            {!slide.imageUrl && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <svg viewBox="0 0 24 24" className="w-12 h-12 opacity-10">
+                  <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </div>
+            )}
+            {showResults && pins.map((pin, i) => (
+              <div key={i} className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/60 transition-all"
+                style={{ left: `${pin.x}%`, top: `${pin.y}%`, background: VOTER_COLORS[i % VOTER_COLORS.length], opacity: 0.85 }} />
+            ))}
+          </div>
+          {showResults && <p className="text-sm text-center" style={{ color: '#9CA3AF' }}>{pins.length} pin{pins.length !== 1 ? 's' : ''} placed</p>}
+        </div>
+      )
+    }
+
+    case 'grid_2x2': {
+      const pins = aggregate.pins ?? []
+      return (
+        <div className="space-y-3">
+          <h2 className="text-2xl" style={headingStyle}>{slide.question}</h2>
+          <div className="relative flex">
+            {/* Y-axis label */}
+            <div className="flex flex-col justify-between items-center py-2 mr-2" style={{ width: 24 }}>
+              <span className="text-[10px] font-bold" style={{ color: '#9CA3AF' }}>{slide.yMax || 'High'}</span>
+              <span className="text-[10px] font-bold rotate-180" style={{ color: '#9CA3AF', writingMode: 'vertical-lr' }}>{slide.yLabel}</span>
+              <span className="text-[10px] font-bold" style={{ color: '#9CA3AF' }}>{slide.yMin || 'Low'}</span>
+            </div>
+            <div className="flex-1">
+              {/* Grid area */}
+              <div className="relative rounded-xl overflow-hidden border" style={{ aspectRatio: '1', background: '#FAFAFE', borderColor: '#DBEAFE' }}>
+                {/* Grid lines */}
+                <div className="absolute left-1/2 top-0 bottom-0 w-px" style={{ background: '#E5E7EB' }} />
+                <div className="absolute top-1/2 left-0 right-0 h-px" style={{ background: '#E5E7EB' }} />
+                {/* Dots */}
+                {showResults && pins.map((pin, i) => (
+                  <div key={i} className="absolute w-3.5 h-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/80 transition-all"
+                    style={{ left: `${pin.x}%`, top: `${pin.y}%`, background: VOTER_COLORS[i % VOTER_COLORS.length], opacity: 0.85 }} />
+                ))}
+              </div>
+              {/* X-axis labels */}
+              <div className="flex justify-between mt-1">
+                <span className="text-[10px] font-bold" style={{ color: '#9CA3AF' }}>{slide.xMin || 'Low'}</span>
+                <span className="text-[10px] font-bold" style={{ color: '#9CA3AF' }}>{slide.xLabel}</span>
+                <span className="text-[10px] font-bold" style={{ color: '#9CA3AF' }}>{slide.xMax || 'High'}</span>
+              </div>
+            </div>
+          </div>
+          {showResults && <p className="text-sm text-center" style={{ color: '#9CA3AF' }}>{pins.length} response{pins.length !== 1 ? 's' : ''}</p>}
+        </div>
+      )
+    }
+
+    case 'wheel': {
+      const names = slide.names ?? []
+      return <WheelSpinner names={names} headingStyle={headingStyle} title={slide.title} />
+    }
+
     default:
       return (
         <div className="text-center py-12">
-          <p className="text-lg font-bold" style={{ color: '#7C3AED' }}>{SLIDE_TYPE_META[slide.type].label}</p>
+          <p className="text-lg font-bold" style={{ color: 'var(--color-primary)' }}>{SLIDE_TYPE_META[slide.type].label}</p>
           <p className="text-sm mt-2" style={{ color: '#9CA3AF' }}>Live view coming soon</p>
         </div>
       )
@@ -354,6 +575,7 @@ export default function PresentSessionPage() {
   const voteHistoryRef = useRef<number[]>(Array(20).fill(0))
   const lastVoteSecRef = useRef(0)
   const reachedMilestonesRef = useRef(new Set<number>())
+  const sessionStartTimeRef = useRef<number>(0)
 
   const [phase, setPhase] = useState<'loading' | 'error' | 'idle' | 'live'>('loading')
   const [presentation, setPresentation] = useState<Presentation | null>(null)
@@ -368,6 +590,9 @@ export default function PresentSessionPage() {
   const [waveformData, setWaveformData] = useState<number[]>(Array(20).fill(0))
   const [milestoneLabel, setMilestoneLabel] = useState<string | null>(null)
   const [confetti, setConfetti] = useState(false)
+  const [socketConnected, setSocketConnected] = useState(false)
+  const [showWave, setShowWave] = useState(false)
+  const waveTriggeredRef = useRef(false)
 
   const currentSlide = presentation?.slides[slideIndex] ?? null
   const totalSlides = presentation?.slides.length ?? 0
@@ -388,6 +613,9 @@ export default function PresentSessionPage() {
     const socket = io()
     socketRef.current = socket
 
+    socket.on('connect', () => setSocketConnected(true))
+    socket.on('disconnect', () => setSocketConnected(false))
+
     socket.on('presenter_participant_joined', ({ count }: { count: number }) => {
       setParticipantCount(count)
     })
@@ -399,6 +627,66 @@ export default function PresentSessionPage() {
     socket.on('presenter_aggregate_updated', (data: AggregateData) => {
       setAggregate(data)
       triggerVoteEffects(data.total)
+
+      // Audience wave: detect 80%+ consensus with >=5 total votes
+      if (!waveTriggeredRef.current && data.total >= 5 && data.counts && data.counts.length > 0) {
+        const maxVotes = Math.max(...data.counts)
+        if (maxVotes / data.total >= 0.8) {
+          waveTriggeredRef.current = true
+          setShowWave(true)
+          setTimeout(() => setShowWave(false), 2500)
+        }
+      }
+    })
+
+    socket.on('presenter_session_summary', ({ aggregates, participantCount, slides }: {
+      aggregates: Record<number, AggregateData>
+      participantCount: number
+      slides: Slide[]
+    }) => {
+      if (!presentation) return
+
+      let interactiveCount = 0
+      let slidesWithResponses = 0
+      let totalResponses = 0
+
+      for (let i = 0; i < slides.length; i++) {
+        const meta = SLIDE_TYPE_META[slides[i].type]
+        if (!meta?.hasAudienceInput) continue
+        interactiveCount++
+        const agg = aggregates[i]
+        const count = agg?.total ?? 0
+        if (count > 0) slidesWithResponses++
+        totalResponses += count
+      }
+
+      const duration = Math.round((Date.now() - sessionStartTimeRef.current) / 1000)
+      const engagementRate = interactiveCount > 0
+        ? Math.round((slidesWithResponses / interactiveCount) * 100)
+        : 0
+      const avgResponsesPerSlide = interactiveCount > 0
+        ? Math.round(totalResponses / interactiveCount)
+        : 0
+
+      const record = {
+        id: crypto.randomUUID(),
+        presentationId: presentation.id,
+        presentationTitle: presentation.title,
+        date: new Date().toISOString(),
+        participantCount,
+        duration,
+        totalSlides: slides.length,
+        interactiveSlides: interactiveCount,
+        slidesWithResponses,
+        totalResponses,
+        engagementRate,
+        avgResponsesPerSlide,
+      }
+
+      try {
+        const existing = JSON.parse(localStorage.getItem('quizotic_presentation_sessions') || '[]')
+        localStorage.setItem('quizotic_presentation_sessions', JSON.stringify([record, ...existing]))
+      } catch { /* localStorage full or unavailable */ }
     })
 
     return () => { socket.disconnect() }
@@ -418,8 +706,8 @@ export default function PresentSessionPage() {
       color: VOTER_COLORS[Math.floor(Math.random() * VOTER_COLORS.length)],
       emoji: VOTER_EMOJIS[Math.floor(Math.random() * VOTER_EMOJIS.length)],
     }
-    setFloatingVoters(prev => [...prev.slice(-12), voter])
-    setTimeout(() => setFloatingVoters(prev => prev.filter(v => v.id !== voter.id)), 3500)
+    setFloatingVoters(prev => [...prev.slice(-20), voter])
+    setTimeout(() => setFloatingVoters(prev => prev.filter(v => v.id !== voter.id)), 4000)
 
     // Toast every 5 votes
     if (total > 0 && total % 5 === 0) {
@@ -454,10 +742,18 @@ export default function PresentSessionPage() {
 
   function createSession() {
     if (!presentation) return
-    socketRef.current?.emit('create_presenter_session',
+    const socket = socketRef.current
+    if (!socket?.connected) {
+      const toast: Toast = { id: Date.now().toString(), message: 'Connecting… please try again.' }
+      setToasts(prev => [...prev.slice(-2), toast])
+      setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toast.id)), 2500)
+      return
+    }
+    socket.emit('create_presenter_session',
       { presentationData: presentation },
       (res: { success: boolean; gameCode: string }) => {
         if (res.success) {
+          sessionStartTimeRef.current = Date.now()
           setGameCode(res.gameCode)
           setPhase('live')
           setSlideIndex(0)
@@ -473,6 +769,8 @@ export default function PresentSessionPage() {
     setSlideIndex(newIndex)
     setAggregate({ total: 0 })
     setShowResults(false)
+    setShowWave(false)
+    waveTriggeredRef.current = false
     reachedMilestonesRef.current.clear()
     voteHistoryRef.current = Array(20).fill(0)
     socketRef.current?.emit('presenter_next_slide', { gameCode, slideIndex: newIndex })
@@ -484,49 +782,149 @@ export default function PresentSessionPage() {
     setSlideIndex(newIndex)
     setAggregate({ total: 0 })
     setShowResults(false)
+    setShowWave(false)
+    waveTriggeredRef.current = false
     reachedMilestonesRef.current.clear()
     socketRef.current?.emit('presenter_prev_slide', { gameCode, slideIndex: newIndex })
   }
 
   function endSession() {
     socketRef.current?.emit('end_presenter_session', { gameCode })
-    router.push('/host')
+    // Small delay so presenter_session_summary arrives before socket disconnects
+    setTimeout(() => router.push('/host'), 300)
   }
 
   if (phase === 'loading') {
-    return <div className="min-h-screen flex items-center justify-center" style={{ background: '#FDFBFF' }}>
-      <p style={{ color: '#7C3AED' }}>Loading...</p>
-    </div>
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--color-bg)' }}>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 rounded-full border-3 border-t-transparent animate-spin"
+            style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }} />
+          <p className="text-sm font-semibold" style={{ color: 'var(--color-text-secondary)', fontFamily: 'var(--font-body)' }}>
+            Loading presentation…
+          </p>
+        </div>
+      </div>
+    )
   }
 
   if (phase === 'error') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ background: '#FDFBFF' }}>
-        <p style={{ color: '#6B7280' }}>No active presentation found.</p>
-        <button onClick={() => router.push('/host/present/create')}
-          className="px-6 py-3 rounded-xl font-bold text-white"
-          style={{ background: 'linear-gradient(135deg,#7C3AED,#DB2777)' }}>
-          Create Presentation
-        </button>
+      <div className="min-h-screen flex items-center justify-center px-6" style={{ background: 'var(--color-bg)' }}>
+        <div className="max-w-sm w-full rounded-2xl p-8 text-center" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+          <div className="w-14 h-14 rounded-full mx-auto mb-5 flex items-center justify-center text-2xl"
+            style={{ background: 'var(--color-surface-tint)' }}>
+            📋
+          </div>
+          <h2 className="text-lg font-bold mb-2" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-primary)' }}>
+            No presentation found
+          </h2>
+          <p className="text-sm mb-6" style={{ color: 'var(--color-text-muted)' }}>
+            Create a new presentation or go back to your dashboard.
+          </p>
+          <div className="flex flex-col gap-3">
+            <button onClick={() => router.push('/host/present/create')}
+              className="w-full px-6 py-3 rounded-xl font-bold text-white text-sm transition-all hover:scale-[1.02]"
+              style={{ background: 'var(--brand-gradient)', fontFamily: 'var(--font-heading)' }}>
+              Create Presentation
+            </button>
+            <button onClick={() => router.push('/host')}
+              className="w-full px-6 py-3 rounded-xl font-semibold text-sm transition-colors"
+              style={{ color: 'var(--color-text-secondary)', border: '1.5px solid var(--color-border)' }}>
+              Back to Dashboard
+            </button>
+          </div>
+        </div>
       </div>
     )
   }
 
   if (phase === 'idle' && presentation) {
+    const interactiveCount = presentation.slides.filter(
+      s => !['title', 'bullets', 'quote', 'video'].includes(s.type)
+    ).length
+
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-6 px-6" style={{ background: '#FDFBFF' }}>
-        <h1 className="text-3xl font-black text-center" style={{ fontFamily: 'var(--font-heading)', color: '#1A0A2E' }}>
-          {presentation.title}
-        </h1>
-        <p style={{ color: '#6B7280' }}>{presentation.slides.length} slides</p>
-        <button onClick={createSession}
-          className="px-8 py-4 rounded-2xl text-lg font-black text-white transition-all hover:scale-[1.03]"
-          style={{ background: 'linear-gradient(135deg,#7C3AED,#DB2777)', boxShadow: '0 4px 20px rgba(124,58,237,0.3)' }}>
-          Start Presentation →
-        </button>
-        <button onClick={() => router.push('/host/present/create')} className="text-sm" style={{ color: '#9CA3AF' }}>
-          ← Edit slides
-        </button>
+      <div className="min-h-screen flex items-center justify-center px-6" style={{ background: 'var(--color-bg)' }}>
+        <div className="max-w-md w-full">
+          {/* Presentation card */}
+          <div className="rounded-2xl p-8 text-center" style={{
+            background: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.06)',
+          }}>
+            {/* Icon */}
+            <div className="w-16 h-16 rounded-2xl mx-auto mb-6 flex items-center justify-center"
+              style={{ background: 'var(--color-surface-tint)' }}>
+              <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7" style={{ color: 'var(--color-primary)' }}>
+                <rect x="3" y="3" width="18" height="14" rx="3" stroke="currentColor" strokeWidth="2"/>
+                <path d="M10 10l2 1.5L14 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M8 21h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M12 17v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </div>
+
+            {/* Title */}
+            <h1 className="text-3xl font-bold mb-2" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-primary)' }}>
+              {presentation.title}
+            </h1>
+
+            {/* Slide stats */}
+            <div className="flex items-center justify-center gap-4 mb-8">
+              <span className="text-base font-medium px-4 py-1.5 rounded-full"
+                style={{ background: 'var(--color-surface-tint)', color: 'var(--color-text-secondary)' }}>
+                {presentation.slides.length} slide{presentation.slides.length !== 1 ? 's' : ''}
+              </span>
+              {interactiveCount > 0 && (
+                <span className="text-base font-medium px-4 py-1.5 rounded-full"
+                  style={{ background: '#FEF3C7', color: '#92400E' }}>
+                  {interactiveCount} interactive
+                </span>
+              )}
+            </div>
+
+            {/* Connection status */}
+            {!socketConnected && (
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <div className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+                <p className="text-base font-medium" style={{ color: 'var(--color-text-muted)' }}>Establishing connection…</p>
+              </div>
+            )}
+
+            {/* CTA */}
+            <button onClick={createSession}
+              disabled={!socketConnected}
+              className="w-full px-8 py-5 rounded-xl text-xl font-bold text-white transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: 'var(--brand-gradient)',
+                fontFamily: 'var(--font-heading)',
+                boxShadow: socketConnected ? '0 4px 20px rgba(67,97,238,0.25)' : 'none',
+              }}>
+              {socketConnected ? 'Start Presentation' : 'Connecting…'}
+            </button>
+          </div>
+
+          {/* Actions below card */}
+          <div className="flex items-center justify-center gap-4 mt-5">
+            <button onClick={() => router.push('/host/present/create?edit=active')}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors hover:opacity-80"
+              style={{ color: 'var(--color-text-secondary)' }}>
+              <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4">
+                <path d="M11.5 1.5l3 3-9 9H2.5v-3l9-9z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+              </svg>
+              Edit slides
+            </button>
+            <span style={{ color: 'var(--color-border)' }}>|</span>
+            <button onClick={() => router.push('/host')}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors hover:opacity-80"
+              style={{ color: 'var(--color-text-secondary)' }}>
+              <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4">
+                <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Dashboard
+            </button>
+          </div>
+        </div>
       </div>
     )
   }
@@ -558,11 +956,30 @@ export default function PresentSessionPage() {
       {milestoneLabel && (
         <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 pointer-events-none">
           <div className="rounded-3xl px-8 py-5 text-center shadow-2xl"
-            style={{ background: 'linear-gradient(135deg,#7C3AED,#DB2777)', color: '#fff' }}>
+            style={{ background: 'var(--brand-gradient)', color: '#fff' }}>
             <p className="text-4xl font-black mb-1" style={{ fontFamily: 'var(--font-heading)' }}>
               {milestoneLabel}
             </p>
             <p className="text-lg opacity-80">🎉</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Audience Wave overlay ─────────────────────────────────────────── */}
+      {showWave && (
+        <div className="fixed inset-0 pointer-events-none z-40 overflow-hidden">
+          <div className="absolute inset-0" style={{
+            background: 'linear-gradient(90deg, transparent, rgba(67,97,238,0.15), rgba(124,58,237,0.15), transparent)',
+            animation: 'waveSweep 2s ease-in-out forwards',
+          }} />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+            <p className="text-5xl font-black text-center" style={{
+              color: 'var(--color-primary)',
+              textShadow: '0 2px 20px rgba(67,97,238,0.4)',
+              animation: 'waveSweep 2s ease-in-out forwards',
+            }}>
+              Audience Wave!
+            </p>
           </div>
         </div>
       )}
@@ -574,12 +991,14 @@ export default function PresentSessionPage() {
         <div className="flex-1 p-8 flex flex-col relative overflow-hidden">
 
           {/* Floating voter avatars */}
-          <div className="absolute bottom-16 left-0 right-0 h-12 pointer-events-none overflow-hidden">
+          <div className="absolute bottom-16 left-0 right-0 h-40 pointer-events-none overflow-hidden">
             {floatingVoters.map(v => (
-              <div key={v.id} className="absolute bottom-0 text-2xl"
+              <div key={v.id} className="absolute bottom-0"
                 style={{
                   left: `${v.x}%`,
-                  animation: 'floatUp 3.5s ease-out forwards',
+                  fontSize: '3rem',
+                  filter: `drop-shadow(0 0 8px ${v.color})`,
+                  animation: 'voterFloat 4s ease-out forwards',
                 }}>
                 {v.emoji}
               </div>
@@ -590,7 +1009,7 @@ export default function PresentSessionPage() {
           <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
             {toasts.map(t => (
               <div key={t.id} className="rounded-xl px-4 py-2 text-sm font-bold shadow-lg text-white"
-                style={{ background: 'linear-gradient(135deg,#7C3AED,#DB2777)' }}>
+                style={{ background: 'var(--brand-gradient)' }}>
                 {t.message}
               </div>
             ))}
@@ -646,55 +1065,55 @@ export default function PresentSessionPage() {
               />
               <defs>
                 <linearGradient id="voteGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#7C3AED"/>
-                  <stop offset="100%" stopColor="#DB2777"/>
+                  <stop offset="0%" stopColor="#FF6B6B"/>
+                  <stop offset="100%" stopColor="#4361EE"/>
                 </linearGradient>
               </defs>
             </svg>
             <div className="absolute text-center">
-              <p className="text-2xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#7C3AED' }}>
+              <p className="text-3xl font-black" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-primary)' }}>
                 {aggregate.total}
               </p>
-              <p className="text-[10px] font-semibold" style={{ color: '#9CA3AF' }}>votes</p>
+              <p className="text-xs font-semibold" style={{ color: 'var(--color-text-muted)' }}>votes</p>
             </div>
           </div>
 
           {/* Participant count */}
-          <p className="text-xs font-semibold" style={{ color: '#6B7280' }}>
+          <p className="text-base font-semibold" style={{ color: 'var(--color-text-muted)' }}>
             {participantCount} participant{participantCount !== 1 ? 's' : ''} joined
           </p>
 
-          {/* QR code — 148×148 */}
+          {/* QR code */}
           <div className="flex flex-col items-center gap-2">
-            <div className="rounded-[18px] p-2.5 bg-white" style={{ border: '1.5px solid #E9E2FF', boxShadow: '0 2px 12px rgba(124,58,237,0.08)' }}>
+            <div className="rounded-[18px] p-3 bg-white" style={{ border: '1.5px solid var(--color-border)', boxShadow: '0 2px 12px rgba(67,97,238,0.08)' }}>
               <QRCode
-                value={`${typeof window !== 'undefined' ? window.location.origin : ''}/join?code=${gameCode}&mode=presenter`}
-                size={128}
+                value={`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')}/join?code=${gameCode}&mode=presenter`}
+                size={140}
                 bgColor="#ffffff"
-                fgColor="#7C3AED"
+                fgColor="#4361EE"
                 style={{ borderRadius: 8 }}
               />
             </div>
-            <p className="text-xs font-bold tracking-[0.2em] font-mono" style={{ color: '#7C3AED' }}>
+            <p className="text-base font-bold tracking-[0.2em] font-mono" style={{ color: 'var(--color-primary)' }}>
               {gameCode}
             </p>
-            <p className="text-[10px]" style={{ color: '#9CA3AF' }}>scan to join</p>
+            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>scan to join</p>
           </div>
         </div>
       </div>
 
       {/* ── Presenter controls (below slide — NOT projected) ─────────────────── */}
-      <div className="border-t flex items-center justify-between px-6 py-3 flex-shrink-0"
-        style={{ borderColor: '#E9E2FF', background: '#F8F7FF' }}>
+      <div className="border-t flex items-center justify-between px-6 py-4 flex-shrink-0"
+        style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-tint)' }}>
 
         {/* Left: sound toggle */}
         <button
           onClick={() => setSoundOn(s => !s)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all"
+          className="flex items-center gap-2 px-5 py-3 rounded-xl text-base font-bold transition-all"
           style={{
-            background: soundOn ? '#DCFCE7' : '#F3F4F6',
-            color: soundOn ? '#16A34A' : '#9CA3AF',
-            border: `1.5px solid ${soundOn ? '#86EFAC' : '#E5E7EB'}`,
+            background: soundOn ? '#DCFCE7' : 'var(--color-surface)',
+            color: soundOn ? '#16A34A' : 'var(--color-text-muted)',
+            border: `1.5px solid ${soundOn ? '#86EFAC' : 'var(--color-border)'}`,
           }}>
           {soundOn ? '🔊 Sound On' : '🔇 Sound Off'}
         </button>
@@ -702,17 +1121,17 @@ export default function PresentSessionPage() {
         {/* Center: navigation */}
         <div className="flex items-center gap-3">
           <button onClick={prevSlide} disabled={slideIndex <= 0}
-            className="px-5 py-2 rounded-xl text-sm font-bold border transition-all disabled:opacity-30"
-            style={{ borderColor: '#E9E2FF', color: '#7C3AED', background: '#fff' }}>
-            ← Prev
+            className="px-7 py-3 rounded-xl text-base font-bold border transition-all disabled:opacity-30"
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-primary)', background: 'var(--color-surface)' }}>
+            Prev
           </button>
-          <span className="text-sm font-semibold" style={{ color: '#9CA3AF' }}>
+          <span className="text-lg font-bold tabular-nums" style={{ color: 'var(--color-text-muted)', minWidth: 56, textAlign: 'center' }}>
             {slideIndex + 1} / {totalSlides}
           </span>
           <button onClick={nextSlide} disabled={slideIndex >= totalSlides - 1}
-            className="px-5 py-2 rounded-xl text-sm font-bold border transition-all disabled:opacity-30 hover:scale-[1.03]"
-            style={{ background: 'linear-gradient(135deg,#7C3AED,#DB2777)', color: '#fff', border: 'none' }}>
-            Next →
+            className="px-7 py-3 rounded-xl text-base font-bold transition-all disabled:opacity-30 hover:scale-[1.02]"
+            style={{ background: 'var(--brand-gradient)', color: '#fff', border: 'none', fontFamily: 'var(--font-heading)' }}>
+            Next
           </button>
         </div>
 
@@ -721,32 +1140,46 @@ export default function PresentSessionPage() {
           {meta.hasAudienceInput && (
             <button
               onClick={() => setShowResults(s => !s)}
-              className="px-4 py-2 rounded-xl text-sm font-bold transition-all"
+              className="px-5 py-3 rounded-xl text-base font-bold transition-all"
               style={{
-                background: showResults ? '#F3EEFF' : '#fff',
-                color: showResults ? '#7C3AED' : '#9CA3AF',
-                border: `1.5px solid ${showResults ? '#C4B5FD' : '#E5E7EB'}`,
+                background: showResults ? 'var(--color-surface-tint)' : 'var(--color-surface)',
+                color: showResults ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                border: `1.5px solid ${showResults ? 'var(--color-primary)' : 'var(--color-border)'}`,
               }}>
               {showResults ? 'Hide Results' : 'Show Results'}
             </button>
           )}
           <button onClick={endSession}
-            className="px-4 py-2 rounded-xl text-sm font-bold border transition-colors hover:bg-red-50 hover:border-red-200 hover:text-red-500"
-            style={{ borderColor: '#E9E2FF', color: '#9CA3AF', background: '#fff' }}>
-            End
+            className="px-5 py-3 rounded-xl text-base font-bold border transition-colors hover:scale-[1.02]"
+            style={{
+              borderColor: slideIndex >= totalSlides - 1 ? '#FCA5A5' : 'var(--color-border)',
+              color: slideIndex >= totalSlides - 1 ? '#fff' : 'var(--color-text-muted)',
+              background: slideIndex >= totalSlides - 1 ? '#EF4444' : 'var(--color-surface)',
+            }}>
+            End Session
           </button>
         </div>
       </div>
 
       {/* CSS animations */}
       <style>{`
-        @keyframes floatUp {
-          0% { transform: translateY(0) scale(1); opacity: 1; }
-          100% { transform: translateY(-80px) scale(0.7); opacity: 0; }
+        @keyframes voterFloat {
+          0% { transform: translateY(0) scale(0.3); opacity: 0; }
+          10% { transform: translateY(-10px) scale(1.2); opacity: 1; }
+          20% { transform: translateY(-20px) scale(1.0); opacity: 1; }
+          50% { transform: translateY(-60px) scale(1.0) translateX(8px); opacity: 0.9; }
+          75% { transform: translateY(-100px) scale(0.95) translateX(-6px); opacity: 0.6; }
+          100% { transform: translateY(-140px) scale(0.8) translateX(4px); opacity: 0; }
         }
         @keyframes fall {
           0% { transform: translateY(0) rotate(0deg); opacity: 1; }
           100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+        @keyframes waveSweep {
+          0% { transform: translateX(-100%); opacity: 0; }
+          20% { opacity: 1; }
+          80% { opacity: 1; }
+          100% { transform: translateX(100%); opacity: 0; }
         }
       `}</style>
     </div>

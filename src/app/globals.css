@@ -1,46 +1,46 @@
 @import "tailwindcss";
 
 :root {
-  /* ── Option D — Light theme (default) ────────────────────────────── */
-  --color-bg:           #FDFBFF;   /* near-white with violet tint */
-  --color-primary:      #7C3AED;   /* electric violet */
-  --color-primary-dark: #6D28D9;
-  --color-secondary:    #DB2777;   /* rose */
-  --color-gold:         #F59E0B;   /* stars / leaderboard / points */
-  --color-gold-dark:    #D97706;
-  --color-dark:         #1A0A2E;   /* deep indigo-black */
+  /* ── Classroom Energy — Light theme (default) ────────────────────── */
+  --color-bg:           #FFFBF5;   /* warm cream */
+  --color-primary:      #4361EE;   /* electric blue */
+  --color-primary-dark: #3A56D4;
+  --color-secondary:    #FF6B6B;   /* coral */
+  --color-gold:         #FFD166;   /* soft gold */
+  --color-gold-dark:    #E6B84D;
+  --color-dark:         #1B2559;   /* deep navy */
   --color-surface:      #FFFFFF;
-  --color-surface-tint: #F3EEFF;   /* soft violet tint */
-  --color-border:       rgba(124,58,237,0.15);
+  --color-surface-tint: #F0F4FF;   /* soft blue tint */
+  --color-border:       rgba(67,97,238,0.12);
 
   /* Brand gradient */
-  --brand-gradient: linear-gradient(135deg, #7C3AED, #DB2777);
+  --brand-gradient: linear-gradient(135deg, #FF6B6B, #4361EE);
 
   /* Text */
-  --color-text-primary:   #1A0A2E;
-  --color-text-secondary: #6B4FA0;
-  --color-text-muted:     #6B7280;
-  --color-text-subtle:    #9CA3AF;
+  --color-text-primary:   #1B2559;
+  --color-text-secondary: #4A5568;
+  --color-text-muted:     #718096;
+  --color-text-subtle:    #A0AEC0;
 
   /* Game / participant page dark bg */
-  --color-dark-bg:      #0A0A1A;
+  --color-dark-bg:      #0F1629;
 
   /* Fonts */
   --font-heading: var(--font-fredoka), 'Fredoka', sans-serif;
   --font-body:    var(--font-nunito), 'Nunito', sans-serif;
 }
 
-/* ── Option C — Dark mode toggle ────────────────────────────────────── */
+/* ── Dark mode toggle ──────────────────────────────────────────────── */
 [data-theme="dark"] {
-  --color-bg:           #0A1628;
-  --color-primary:      #F59E0B;   /* saffron */
-  --color-primary-dark: #D97706;
-  --color-secondary:    #EF4444;   /* red */
+  --color-bg:           #0F1629;
+  --color-primary:      #6B8AFF;   /* lighter blue */
+  --color-primary-dark: #4361EE;
+  --color-secondary:    #FF8A8A;   /* lighter coral */
   --color-dark:         #F8FAFC;
-  --color-surface:      #1E2D45;
-  --color-surface-tint: #162035;
-  --color-border:       rgba(245,158,11,0.2);
-  --brand-gradient:     linear-gradient(135deg, #F59E0B, #EF4444);
+  --color-surface:      #1A2744;
+  --color-surface-tint: #152035;
+  --color-border:       rgba(107,138,255,0.2);
+  --brand-gradient:     linear-gradient(135deg, #FF8A8A, #6B8AFF);
   --color-text-primary:   #F8FAFC;
   --color-text-secondary: #94A3B8;
   --color-text-muted:     #64748B;
@@ -64,8 +64,8 @@
 }
 
 @keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 4px 20px rgba(124,58,237,0.30); }
-  50%       { box-shadow: 0 6px 32px rgba(124,58,237,0.55); }
+  0%, 100% { box-shadow: 0 4px 20px rgba(255,107,107,0.30); }
+  50%       { box-shadow: 0 6px 32px rgba(255,107,107,0.55); }
 }
 
 @keyframes orb-drift {

@@ -74,9 +74,11 @@ interface SessionReportProps {
   quizTitle?: string
   participantCount?: number
   sessionDate?: string
+  plan?: 'free' | 'pro'
+  sessionId?: string
 }
 
-export function SessionReport({ questionStats, quizTitle, participantCount, sessionDate }: SessionReportProps) {
+export function SessionReport({ questionStats, quizTitle, participantCount, sessionDate, plan = 'free', sessionId }: SessionReportProps) {
   if (!questionStats || questionStats.length === 0) return null
 
   const avgAccuracy = questionStats.length > 0
@@ -87,7 +89,149 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
   const strongQuestions = questionStats.filter(q => q.correctPct >= 80)
 
   function handlePrint() {
-    window.print()
+    const needsReview = questionStats.filter(s => s.correctPct < 50)
+    const mastered = questionStats.filter(s => s.correctPct >= 80)
+    const misconceptions = questionStats.filter(s => s.confidenceGrid && s.confidenceGrid.sureWrong > 0)
+    const date = sessionDate || new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })
+
+    // Insight summary sentence
+    const insights: string[] = []
+    if (mastered.length > 0) insights.push(`${mastered.length} question${mastered.length > 1 ? 's' : ''} mastered (≥80%)`)
+    if (needsReview.length > 0) insights.push(`${needsReview.length} need${needsReview.length === 1 ? 's' : ''} re-teaching`)
+    if (misconceptions.length > 0) insights.push(`${misconceptions.length} misconception${misconceptions.length > 1 ? 's' : ''} detected (confident but wrong)`)
+
+    const needsReviewBox = needsReview.length > 0 ? `
+      <div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:14px 18px;margin-bottom:20px;">
+        <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#c2410c;text-transform:uppercase;letter-spacing:0.06em">⚠ Needs Re-teaching</p>
+        <p style="margin:0;font-size:13px;color:#9a3412;line-height:1.5">${needsReview.map(s => `Q${s.index + 1}: ${s.text.length > 60 ? s.text.slice(0, 60) + '…' : s.text}`).join('<br>')}</p>
+        <p style="margin:8px 0 0;font-size:12px;color:#c2410c">Revisit these topics in the next session before moving forward.</p>
+      </div>` : ''
+
+    const misconceptionBox = misconceptions.length > 0 ? `
+      <div style="background:#fdf4ff;border:1.5px solid #e9d5ff;border-radius:10px;padding:14px 18px;margin-bottom:20px;">
+        <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#7e22ce;text-transform:uppercase;letter-spacing:0.06em">🎯 Misconceptions Detected</p>
+        <p style="margin:0;font-size:13px;color:#6b21a8;line-height:1.5">${misconceptions.map(s => `Q${s.index + 1}: ${s.confidenceGrid!.sureWrong} student${s.confidenceGrid!.sureWrong > 1 ? 's were' : ' was'} confident but answered incorrectly`).join('<br>')}</p>
+        <p style="margin:8px 0 0;font-size:12px;color:#7e22ce">These students may hold incorrect prior knowledge — targeted correction needed.</p>
+      </div>` : ''
+
+    const rows = questionStats.map((stat, i) => {
+      const isWeak = stat.correctPct < 50
+      const isStrong = stat.correctPct >= 80
+      const pctColor = isWeak ? '#dc2626' : isStrong ? '#16a34a' : '#374151'
+      const cardBorder = isWeak ? '#fca5a5' : isStrong ? '#86efac' : '#e5e7eb'
+      const cardBg = isWeak ? '#fff5f5' : isStrong ? '#f0fdf4' : '#ffffff'
+      const badgeHtml = isWeak
+        ? `<span style="background:#fee2e2;color:#dc2626;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:8px">Needs Review</span>`
+        : isStrong
+        ? `<span style="background:#dcfce7;color:#16a34a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:8px">Mastered</span>`
+        : ''
+      const grid = stat.confidenceGrid
+      const gridHtml = grid ? `
+        <table style="border-collapse:collapse;margin-top:10px;font-size:12px;">
+          <tr>
+            <th style="width:80px"></th>
+            <th style="padding:2px 14px;color:#6b7280;font-weight:600;text-align:center">Correct</th>
+            <th style="padding:2px 14px;color:#6b7280;font-weight:600;text-align:center">Wrong</th>
+          </tr>
+          <tr>
+            <td style="color:#6b7280;padding:4px 8px 4px 0;font-size:12px">Sure</td>
+            <td style="background:#f0fdf4;border:1px solid #d1fae5;padding:4px 14px;text-align:center;border-radius:4px">${grid.sureCorrect}</td>
+            <td style="background:${grid.sureWrong > 0 ? '#fef3c7' : '#f9fafb'};border:1px solid ${grid.sureWrong > 0 ? '#fcd34d' : '#e5e7eb'};padding:4px 14px;text-align:center;border-radius:4px;font-weight:${grid.sureWrong > 0 ? '700' : '400'};color:${grid.sureWrong > 0 ? '#92400e' : '#374151'}">${grid.sureWrong}</td>
+          </tr>
+          <tr>
+            <td style="color:#6b7280;padding:4px 8px 4px 0;font-size:12px">Not Sure</td>
+            <td style="background:#f0fdf4;border:1px solid #d1fae5;padding:4px 14px;text-align:center;border-radius:4px">${grid.unsureCorrect}</td>
+            <td style="background:#f9fafb;border:1px solid #e5e7eb;padding:4px 14px;text-align:center;border-radius:4px">${grid.unsureWrong}</td>
+          </tr>
+        </table>` : ''
+      const misconceptionNote = grid && grid.sureWrong > 0
+        ? `<p style="margin:10px 0 0;font-size:12px;color:#7e22ce;background:#fdf4ff;border-radius:6px;padding:7px 10px">⚠ ${grid.sureWrong} student${grid.sureWrong > 1 ? 's were' : ' was'} confident but wrong — possible misconception</p>` : ''
+      return `
+        <div style="border:1.5px solid ${cardBorder};border-radius:10px;padding:16px;margin-bottom:12px;background:${cardBg};page-break-inside:avoid;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+            <p style="font-size:13px;color:#1f2937;font-weight:600;margin:0;line-height:1.5;flex:1">Q${i + 1}. ${stat.text}${badgeHtml}</p>
+            <span style="font-size:26px;font-weight:900;color:${pctColor};white-space:nowrap">${stat.correctPct}%</span>
+          </div>
+          ${grid ? gridHtml : ''}
+          ${misconceptionNote}
+          ${stat.explanation ? `<p style="margin-top:10px;font-size:12px;color:#4338ca;background:#eef2ff;border-radius:6px;padding:8px 10px">💡 ${stat.explanation}</p>` : ''}
+        </div>`
+    }).join('')
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+      <title>${quizTitle || 'Session Report'} — Quizotic</title>
+      <style>
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; color: #111; background: #fff; }
+        @media print { @page { margin: 16mm; } }
+      </style>
+    </head><body>
+
+      <!-- Brand header -->
+      <div style="background:linear-gradient(135deg,#4361EE 0%,#7c3aed 100%);padding:28px 32px;color:#fff;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <p style="margin:0;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;opacity:0.75">Session Report</p>
+            <h1 style="margin:4px 0 0;font-size:26px;font-weight:900;letter-spacing:-0.02em">${quizTitle || 'Quiz Session'}</h1>
+            <p style="margin:6px 0 0;font-size:13px;opacity:0.8">${date}</p>
+          </div>
+          <div style="text-align:right">
+            <p style="margin:0;font-size:24px;font-weight:900;letter-spacing:-0.03em">Quizotic</p>
+            <p style="margin:4px 0 0;font-size:11px;opacity:0.7">quizotic.live</p>
+          </div>
+        </div>
+
+        <!-- Stats row -->
+        <div style="display:flex;gap:0;margin-top:20px;background:rgba(255,255,255,0.15);border-radius:10px;overflow:hidden;">
+          ${participantCount !== undefined ? `
+          <div style="flex:1;padding:12px 18px;border-right:1px solid rgba(255,255,255,0.2);">
+            <p style="margin:0;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;opacity:0.75">Participants</p>
+            <p style="margin:4px 0 0;font-size:26px;font-weight:900">${participantCount}</p>
+          </div>` : ''}
+          <div style="flex:1;padding:12px 18px;border-right:1px solid rgba(255,255,255,0.2);">
+            <p style="margin:0;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;opacity:0.75">Avg Accuracy</p>
+            <p style="margin:4px 0 0;font-size:26px;font-weight:900">${avgAccuracy}%</p>
+          </div>
+          <div style="flex:1;padding:12px 18px;border-right:1px solid rgba(255,255,255,0.2);">
+            <p style="margin:0;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;opacity:0.75">Questions</p>
+            <p style="margin:4px 0 0;font-size:26px;font-weight:900">${questionStats.length}</p>
+          </div>
+          <div style="flex:1;padding:12px 18px;border-right:1px solid rgba(255,255,255,0.2);">
+            <p style="margin:0;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;opacity:0.75">Mastered</p>
+            <p style="margin:4px 0 0;font-size:26px;font-weight:900">${mastered.length}</p>
+          </div>
+          <div style="flex:1;padding:12px 18px;">
+            <p style="margin:0;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;opacity:0.75">Needs Review</p>
+            <p style="margin:4px 0 0;font-size:26px;font-weight:900;color:${needsReview.length > 0 ? '#fbbf24' : '#fff'}">${needsReview.length}</p>
+          </div>
+        </div>
+
+        <!-- Insight line -->
+        ${insights.length > 0 ? `<p style="margin:14px 0 0;font-size:13px;opacity:0.9;background:rgba(0,0,0,0.15);border-radius:6px;padding:8px 12px">📊 ${insights.join(' · ')}</p>` : ''}
+      </div>
+
+      <!-- Body -->
+      <div style="padding:24px 32px;">
+        ${needsReviewBox}
+        ${misconceptionBox}
+        <p style="margin:0 0 16px;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.06em">Question-by-Question Breakdown</p>
+        ${rows}
+      </div>
+
+      <!-- Footer -->
+      <div style="border-top:1px solid #e5e7eb;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;">
+        <p style="margin:0;font-size:11px;color:#9ca3af">Generated by <strong style="color:#4361EE">Quizotic</strong> · quizotic.live</p>
+        <p style="margin:0;font-size:11px;color:#9ca3af">${date}</p>
+      </div>
+
+    </body></html>`
+
+    const w = window.open('', '_blank')
+    if (!w) return
+    w.document.write(html)
+    w.document.close()
+    w.focus()
+    setTimeout(() => { w.print() }, 300)
   }
 
   return (
@@ -139,16 +283,43 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
       {/* Screen header */}
       <div className="flex items-center justify-between mb-4 print:hidden">
         <p className="text-xl font-black text-gray-900">Session Report</p>
-        <button
-          onClick={handlePrint}
-          className="flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-xl border-2 transition-all hover:border-violet-400 hover:text-violet-600 hover:bg-violet-50"
-          style={{ borderColor: '#E9E2FF', color: '#7C3AED' }}
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-          </svg>
-          Download Report
-        </button>
+        <div className="flex items-center gap-2">
+          {sessionId && (
+            plan === 'pro' ? (
+              <a
+                href={`/api/sessions/${sessionId}/csv`}
+                download
+                className="flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-xl border-2 transition-all hover:border-green-400 hover:text-green-600 hover:bg-green-50"
+                style={{ borderColor: '#D1FAE5', color: '#16a34a' }}
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <path d="M14 2v6h6M8 13h8M8 17h8M8 9h2" />
+                </svg>
+                Export CSV
+              </a>
+            ) : (
+              <span className="flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-xl border-2 border-gray-200 text-gray-400 cursor-not-allowed" title="Upgrade to Pro for CSV export">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <path d="M14 2v6h6M8 13h8M8 17h8M8 9h2" />
+                </svg>
+                CSV
+                <span className="text-[10px] font-bold bg-violet-100 text-violet-600 px-1.5 py-0.5 rounded-full">PRO</span>
+              </span>
+            )
+          )}
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-xl border-2 transition-all hover:border-violet-400 hover:text-violet-600 hover:bg-violet-50"
+            style={{ borderColor: '#DBEAFE', color: '#4361EE' }}
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+            </svg>
+            Download Report
+          </button>
+        </div>
       </div>
 
       <BloomsDistribution stats={questionStats} />

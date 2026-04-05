@@ -1,12 +1,33 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import dns from 'dns/promises'
+import { getCurrentUser } from '@/lib/auth-helpers'
+import { prisma } from '@/lib/prisma'
+import { getUserPlan } from '@/lib/billing'
+import { PLAN_LIMITS } from '@/lib/limits'
+
+const PRIVATE_IP_PATTERNS = [
+  /^10\./, /^172\.(1[6-9]|2\d|3[01])\./, /^192\.168\./, /^127\./, /^0\./, /^169\.254\./,
+  /^::1$/, /^fc00:/, /^fe80:/, /^fd/,
+]
+
+async function isSafeUrl(urlStr: string): Promise<boolean> {
+  try {
+    const { hostname } = new URL(urlStr)
+    if (hostname === 'localhost' || hostname.endsWith('.internal') || hostname.endsWith('.local')) return false
+    const addresses = await dns.resolve(hostname)
+    return addresses.every(addr => !PRIVATE_IP_PATTERNS.some(p => p.test(addr)))
+  } catch { return false }
+}
 
 const client = new OpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
-  apiKey: process.env.OPENROUTER_API_KEY,
+  apiKey: process.env.OPENROUTER_API_KEY ?? '',
 })
 
-const MODEL = process.env.QUIZ_AI_MODEL ?? 'google/gemini-2.0-flash-001'
+const MODEL = process.env.QUIZ_AI_MODEL ?? 'google/gemini-2.5-flash-preview-05-20'
 
 const SYSTEM_PROMPT = `You are a quiz generator. Return only valid JSON — no markdown, no explanation, no code fences.`
 
@@ -68,11 +89,36 @@ function validateQuestions(data: unknown): boolean {
 }
 
 export async function POST(req: NextRequest) {
+  const user = await getCurrentUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // AI rate limiting (parallel queries)
+  const startOfMonth = new Date()
+  startOfMonth.setDate(1)
+  startOfMonth.setHours(0, 0, 0, 0)
+
+  const [plan, usageCount] = await Promise.all([
+    getUserPlan(user.id),
+    prisma.usageLog.count({
+      where: { userId: user.id, action: 'ai_generate', createdAt: { gte: startOfMonth } },
+    }),
+  ])
+
+  const limit = PLAN_LIMITS[plan].maxAiGenerations
+  if (usageCount >= limit) {
+    return NextResponse.json({
+      error: `You've used all ${limit} AI generations this month. ${plan === 'free' ? 'Upgrade to Pro for 30/month.' : 'Limit resets next month.'}`,
+    }, { status: 429 })
+  }
+
   const contentType = req.headers.get('content-type') ?? ''
 
   let questionCount = 5
   let difficulty = 'medium'
   let contentText = ''
+  const maxQ = PLAN_LIMITS[plan].maxQuestionsPerGeneration
 
   try {
     // ── Document mode ──────────────────────────────────────────────────────────
@@ -116,6 +162,9 @@ export async function POST(req: NextRequest) {
         if (!url.startsWith('https://')) {
           return NextResponse.json({ error: 'Only https:// URLs are supported' }, { status: 400 })
         }
+        if (!await isSafeUrl(url)) {
+          return NextResponse.json({ error: 'This URL cannot be accessed' }, { status: 400 })
+        }
         const controller = new AbortController()
         const timeout = setTimeout(() => controller.abort(), 5000)
         let html: string
@@ -134,6 +183,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Clamp questionCount to plan limits
+    questionCount = Math.min(Math.max(questionCount, 3), maxQ)
+
     // ── Call model, validate, retry once on bad JSON ───────────────────────────
     let questions: unknown[]
     try {
@@ -150,6 +202,11 @@ export async function POST(req: NextRequest) {
     if (!validateQuestions(questions)) {
       return NextResponse.json({ error: 'Generation failed' }, { status: 500 })
     }
+
+    // Log usage
+    await prisma.usageLog.create({
+      data: { userId: user.id, action: 'ai_generate', metadata: { model: MODEL, questionCount } },
+    }).catch(() => {}) // non-blocking
 
     return NextResponse.json(questions)
   } catch (err) {

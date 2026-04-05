@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Nunito, Fredoka } from "next/font/google";
 import "./globals.css";
 import { Background } from "@/components/Background";
-import { ThemeProvider, ThemeToggle } from "@/components/ThemeProvider";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { AuthProvider } from "@/components/AuthProvider";
 
 const nunito = Nunito({
   variable: "--font-nunito",
@@ -32,11 +33,12 @@ export default function RootLayout({
       className={`${nunito.variable} ${fredoka.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <ThemeProvider>
-          <Background />
-          <ThemeToggle />
-          {children}
-        </ThemeProvider>
+        <AuthProvider>
+          <ThemeProvider>
+            <Background />
+            {children}
+          </ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   );

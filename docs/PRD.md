@@ -119,7 +119,7 @@ Quizotic is the **only** platform that:
 - Mobile-first responsive design
 - Minimal JavaScript — fast on low-end phones
 
-**Why two domains:** Clean separation. Teacher shares "go to quizotic.net, enter code 1234" — no confusion between host dashboard and player join. The .net domain loads fast because it serves only the participant experience.
+**Why two domains:** Clean separation. Teacher shares "go to quizotic.live, enter code 1234" — no confusion between host dashboard and player join. The .net domain loads fast because it serves only the participant experience.
 
 ---
 
@@ -167,12 +167,12 @@ Quizotic is the **only** platform that:
 **Creating a Session:**
 - Host selects a saved quiz → clicks "Start Live Session"
 - System generates a unique 6-digit game code
-- System generates a QR code pointing to `quizotic.net/join/<code>`
-- System generates a WhatsApp share link with pre-filled text: "Join my quiz on Quizotic! Go to quizotic.net and enter code: XXXXXX"
+- System generates a QR code pointing to `quizotic.live/join/<code>`
+- System generates a WhatsApp share link with pre-filled text: "Join my quiz on Quizotic! Go to quizotic.live and enter code: XXXXXX"
 - Host sees a lobby screen showing participants joining in real-time
 
 **Joining a Session (Participant Flow):**
-1. Open `quizotic.net`
+1. Open `quizotic.live`
 2. Enter 6-digit game code (or scan QR, or click WhatsApp link)
 3. Enter display name (no sign-up required)
 4. Wait in lobby until host starts
@@ -278,11 +278,11 @@ This makes Quizotic usable for both:
 
 **WhatsApp Join Link:**
 - One-click share from host dashboard
-- Pre-formatted message: "Join my quiz! Go to quizotic.net, code: XXXXXX"
+- Pre-formatted message: "Join my quiz! Go to quizotic.live, code: XXXXXX"
 - Uses `wa.me` deep link — works on any device with WhatsApp
 
 **Low-Bandwidth Optimization:**
-- Participant page (quizotic.net) target: < 100KB initial load
+- Participant page (quizotic.live) target: < 100KB initial load
 - Minimal JavaScript on participant side
 - WebSocket messages are tiny (JSON payloads < 1KB)
 - No heavy animations on participant screen
@@ -406,7 +406,7 @@ Target: 500+ paying customers, clear market position established.
 ### 8.1 Host Flow — First Time
 
 ```
-1. Visit quizotic.in
+1. Visit quizotic.live
 2. Click "Sign Up" → Google OAuth or email
 3. Land on empty dashboard → "Create Your First Quiz" CTA
 4. Quiz builder: Add title → Add questions (MCQ, T/F, poll, etc.)
@@ -420,8 +420,8 @@ Target: 500+ paying customers, clear market position established.
 ### 8.2 Participant Flow
 
 ```
-1. Receive code via WhatsApp / teacher says "go to quizotic.net"
-2. Open quizotic.net on phone/laptop
+1. Receive code via WhatsApp / teacher says "go to quizotic.live"
+2. Open quizotic.live on phone/laptop
 3. Enter 6-digit code → Enter display name
 4. Wait in lobby (see fun animations or quiz topic)
 5. Question appears → Select answer before timer runs out
@@ -433,7 +433,7 @@ Target: 500+ paying customers, clear market position established.
 ### 8.3 Institute Admin Flow
 
 ```
-1. Sign up for Institute plan on quizotic.in
+1. Sign up for Institute plan on quizotic.live
 2. Add teachers to institute account
 3. Each teacher creates and runs quizzes independently
 4. Admin sees aggregate dashboard: total sessions, total participants, top quizzes
@@ -472,7 +472,7 @@ Target: 500+ paying customers, clear market position established.
               ┌──────────────┼──────────────┐
               │              │              │
     ┌─────────▼──────┐  ┌───▼────────┐  ┌──▼───────────┐
-    │  quizotic.in   │  │quizotic.net│  │ Socket.io    │
+    │  quizotic.live   │  │quizotic.live│  │ Socket.io    │
     │  (Host App)    │  │(Join Page) │  │ Server       │
     │  Next.js SSR   │  │ Lightweight│  │ (Real-time)  │
     └─────────┬──────┘  └───┬────────┘  └──┬───────────┘
@@ -736,5 +736,5 @@ Server → Host:
 ## Appendix A: Name — "Quizotic"
 
 **Wordplay:** Quiz + Quixotic (bold, idealistic, ambitious)
-**Domains:** Quizotic.in (host platform), Quizotic.net (participant join)
+**Domains:** Quizotic.live (single global platform)
 **Tone:** Playful, energetic, memorable — fits an education engagement product

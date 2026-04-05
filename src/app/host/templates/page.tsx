@@ -46,7 +46,7 @@ export default function TemplatesPage() {
     <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
 
       {/* Header */}
-      <div className="border-b" style={{ borderColor: '#E9E2FF', background: '#fff' }}>
+      <div className="border-b" style={{ borderColor: '#DBEAFE', background: '#fff' }}>
         <div className="max-w-[1280px] mx-auto px-6 md:px-12 py-5 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/host"
@@ -54,14 +54,14 @@ export default function TemplatesPage() {
               style={{ color: '#9CA3AF' }}>
               ← Dashboard
             </Link>
-            <span style={{ color: '#E9E2FF' }}>|</span>
+            <span style={{ color: '#DBEAFE' }}>|</span>
             <h1 className="text-xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#1E1B4B' }}>
               Template Gallery
             </h1>
           </div>
           <Link href="/host/create"
             className="text-sm font-bold px-4 py-2 rounded-xl transition-all hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg,#7C3AED,#EC4899)', color: '#fff', fontFamily: 'var(--font-heading)' }}>
+            style={{ background: 'var(--brand-gradient)', color: '#fff', fontFamily: 'var(--font-heading)' }}>
             + Blank Quiz
           </Link>
         </div>
@@ -84,9 +84,9 @@ export default function TemplatesPage() {
               onClick={() => setFilter(f)}
               className="px-4 py-1.5 rounded-full text-sm font-bold border-2 transition-all"
               style={{
-                background: filter === f ? '#7C3AED' : '#fff',
+                background: filter === f ? '#4361EE' : '#fff',
                 color: filter === f ? '#fff' : '#6B7280',
-                borderColor: filter === f ? '#7C3AED' : '#E9E2FF',
+                borderColor: filter === f ? '#4361EE' : '#DBEAFE',
               }}
             >
               {f}
@@ -107,7 +107,7 @@ export default function TemplatesPage() {
             return (
               <div key={template.id}
                 className="rounded-2xl border flex flex-col overflow-hidden transition-all hover:shadow-lg hover:-translate-y-0.5"
-                style={{ background: '#fff', borderColor: '#E9E2FF' }}>
+                style={{ background: '#fff', borderColor: '#DBEAFE' }}>
 
                 {/* Card top */}
                 <div className="p-5 flex-1">
@@ -138,9 +138,9 @@ export default function TemplatesPage() {
                   {/* Question preview */}
                   <div className="space-y-2">
                     {previewQs.map((q, i) => (
-                      <div key={i} className="rounded-lg px-3 py-2" style={{ background: '#F3EEFF' }}>
+                      <div key={i} className="rounded-lg px-3 py-2" style={{ background: '#F0F4FF' }}>
                         <p className="text-xs font-medium leading-snug" style={{ color: '#4B5563' }}>
-                          <span className="font-bold" style={{ color: '#7C3AED' }}>Q{i + 1}.</span>{' '}
+                          <span className="font-bold" style={{ color: '#4361EE' }}>Q{i + 1}.</span>{' '}
                           {q.text.length > 72 ? q.text.slice(0, 72) + '…' : q.text}
                         </p>
                       </div>
@@ -159,7 +159,7 @@ export default function TemplatesPage() {
                     onClick={() => useTemplate(template.id)}
                     disabled={isLoading}
                     className="w-full py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
-                    style={{ background: 'linear-gradient(135deg,#7C3AED,#EC4899)', color: '#fff', fontFamily: 'var(--font-heading)' }}
+                    style={{ background: 'var(--brand-gradient)', color: '#fff', fontFamily: 'var(--font-heading)' }}
                   >
                     {isLoading ? 'Loading…' : 'Use Template →'}
                   </button>

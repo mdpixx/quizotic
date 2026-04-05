@@ -1,99 +1,151 @@
-const PILLARS = [
+'use client'
+
+import { motion } from 'framer-motion'
+
+const fadeUp = {
+  initial: { opacity: 0, y: 28 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: '-60px' },
+  transition: { duration: 0.5 },
+}
+
+function ConfidenceGridVisual() {
+  return (
+    <div className="flex justify-center my-4">
+      <div className="grid grid-cols-3 gap-0 text-[11px] font-semibold">
+        {/* Header row */}
+        <div />
+        <div className="text-center px-3 py-1.5" style={{ color: '#64748B' }}>Correct</div>
+        <div className="text-center px-3 py-1.5" style={{ color: '#64748B' }}>Wrong</div>
+        {/* Sure row */}
+        <div className="flex items-center pr-3 py-1.5" style={{ color: '#64748B' }}>Sure</div>
+        <div className="flex items-center justify-center px-4 py-3 rounded-tl-lg" style={{ background: '#DCFCE7', color: '#16A34A' }}>
+          <span className="text-lg font-black">12</span>
+        </div>
+        <div className="flex items-center justify-center px-4 py-3 rounded-tr-lg" style={{ background: '#FEF3C7', color: '#D97706' }}>
+          <span className="text-lg font-black">3</span>
+        </div>
+        {/* Unsure row */}
+        <div className="flex items-center pr-3 py-1.5" style={{ color: '#64748B' }}>Unsure</div>
+        <div className="flex items-center justify-center px-4 py-3 rounded-bl-lg" style={{ background: '#F0FDF4', color: '#4ADE80' }}>
+          <span className="text-lg font-black">5</span>
+        </div>
+        <div className="flex items-center justify-center px-4 py-3 rounded-br-lg" style={{ background: '#F8FAFC', color: '#94A3B8' }}>
+          <span className="text-lg font-black">4</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function BloomsPyramidVisual() {
+  const levels = [
+    { label: 'Create', color: '#7C3AED', width: '45%' },
+    { label: 'Evaluate', color: '#9333EA', width: '55%' },
+    { label: 'Analyse', color: '#A855F7', width: '65%' },
+    { label: 'Apply', color: '#F59E0B', width: '75%' },
+    { label: 'Understand', color: '#3B82F6', width: '85%' },
+    { label: 'Remember', color: '#60A5FA', width: '95%' },
+  ]
+  return (
+    <div className="flex flex-col items-center gap-1 my-4">
+      {levels.map(l => (
+        <div key={l.label} className="rounded-md py-1 text-center text-[10px] font-bold text-white" style={{ background: l.color, width: l.width }}>
+          {l.label}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function SpacedRetrievalVisual() {
+  const points = [
+    { day: 'Day 1', retention: 90, y: 10 },
+    { day: 'Day 7', retention: 70, y: 30 },
+    { day: 'Day 30', retention: 85, y: 15 },
+  ]
+  return (
+    <div className="flex items-end justify-center gap-6 my-4 h-24">
+      {points.map((p, i) => (
+        <div key={p.day} className="flex flex-col items-center gap-1">
+          <span className="text-xs font-black" style={{ color: '#4361EE' }}>{p.retention}%</span>
+          <div
+            className="rounded-t-md transition-all"
+            style={{
+              width: 32,
+              height: `${p.retention * 0.8}px`,
+              background: i === 2 ? 'linear-gradient(180deg, #4361EE, #7C3AED)' : `rgba(67, 97, 238, ${0.3 + i * 0.2})`,
+            }}
+          />
+          <span className="text-[10px] font-semibold" style={{ color: '#64748B' }}>{p.day}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const cards = [
   {
-    icon: (
-      <svg viewBox="0 0 48 48" fill="none" className="w-10 h-10">
-        <circle cx="24" cy="24" r="22" fill="#7C3AED" fillOpacity="0.12"/>
-        <path d="M24 10 L26.5 17.5 L34 17.5 L28 22.5 L30.5 30 L24 25.5 L17.5 30 L20 22.5 L14 17.5 L21.5 17.5 Z"
-          fill="#7C3AED" opacity="0.9"/>
-      </svg>
-    ),
-    tag: 'Retrieval Practice',
-    headline: 'Testing beats re-reading',
-    body: 'Research shows active recall improves long-term retention by 50–100% vs. passive review. Quizotic sprinkles retrieval moments throughout your session — not just at the end.',
-    citation: 'Roediger & Karpicke, 2006 (d ≈ 0.55)',
+    icon: '🧠',
+    title: 'Confidence Grid',
+    description: 'After each answer, learners rate their confidence. Teachers spot misconceptions: students who are confident but wrong need targeted correction.',
+    citation: 'Dunlosky et al., 2013',
+    Visual: ConfidenceGridVisual,
   },
   {
-    icon: (
-      <svg viewBox="0 0 48 48" fill="none" className="w-10 h-10">
-        <circle cx="24" cy="24" r="22" fill="#EC4899" fillOpacity="0.12"/>
-        <circle cx="24" cy="24" r="8" stroke="#EC4899" strokeWidth="2.5" fill="none"/>
-        <path d="M24 8 L24 14 M24 34 L24 40 M8 24 L14 24 M34 24 L40 24" stroke="#EC4899" strokeWidth="2.5" strokeLinecap="round"/>
-        <path d="M14.1 14.1 L18.2 18.2 M29.8 29.8 L33.9 33.9 M14.1 33.9 L18.2 29.8 M29.8 18.2 L33.9 14.1" stroke="#EC4899" strokeWidth="2" strokeLinecap="round"/>
-      </svg>
-    ),
-    tag: 'Spacing Effect',
-    headline: 'Memory fades — until you bring it back',
-    body: 'Distributing practice over time doubles long-term retention. After your live session, Quizotic generates a 3-part follow-up series at Day 1, Day 7, and Day 30.',
-    citation: 'Cepeda et al., 2008 (effect doubled vs. massed practice)',
+    icon: '📊',
+    title: "Bloom's Taxonomy",
+    description: "Tag questions by cognitive level. See whether your session hits higher-order thinking or stays at recall. Balance your quiz across all six levels.",
+    citation: 'Bloom 1956, Anderson & Krathwohl 2001',
+    Visual: BloomsPyramidVisual,
   },
   {
-    icon: (
-      <svg viewBox="0 0 48 48" fill="none" className="w-10 h-10">
-        <circle cx="24" cy="24" r="22" fill="#F59E0B" fillOpacity="0.12"/>
-        <path d="M12 36 L20 22 L28 30 L36 14" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-        <circle cx="20" cy="22" r="3" fill="#F59E0B"/>
-        <circle cx="28" cy="30" r="3" fill="#F59E0B"/>
-        <circle cx="36" cy="14" r="3" fill="#F59E0B"/>
-        <circle cx="12" cy="36" r="3" fill="#F59E0B"/>
-      </svg>
-    ),
-    tag: 'Case-Based Learning',
-    headline: 'Decisions sharpen through practice',
-    body: 'Real-world scenarios improve judgment and transfer far better than knowledge tests alone. Quizotic\'s Scenario blocks let your team choose, fail safely, and reflect on expert reasoning.',
-    citation: 'Williams, 1992 — medical education outcomes study',
+    icon: '🔄',
+    title: 'Spaced Retrieval',
+    description: 'Auto-generated follow-up quizzes at scientifically optimal intervals move knowledge from short-term to long-term memory.',
+    citation: 'Ebbinghaus Forgetting Curve',
+    Visual: SpacedRetrievalVisual,
   },
 ]
 
 export function LearningScience() {
   return (
-    <section className="py-20 px-6 md:px-12" style={{ background: '#F3EEFF' }}>
-      <div className="max-w-[1280px] mx-auto">
-
-        {/* Eyebrow + heading */}
-        <div className="mb-12">
-          <p className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: '#7C3AED' }}>
-            built on evidence
-          </p>
-          <h2 className="text-4xl sm:text-5xl font-black lowercase tracking-tight mb-3"
-            style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-dark)' }}>
-            why it works
+    <section className="py-20 md:py-28" style={{ background: '#FFFBF5' }}>
+      <div className="max-w-[1280px] mx-auto px-6 md:px-12">
+        <motion.div {...fadeUp} className="text-center mb-14">
+          <p className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: '#4361EE' }}>Evidence-Based</p>
+          <h2 className="text-3xl md:text-4xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#1B2559' }}>
+            Backed by Learning Science
           </h2>
-          <p className="text-base max-w-xl" style={{ color: 'var(--color-text-muted)' }}>
-            Every Quizotic feature is grounded in learning science — the same research used by top universities and L&D teams worldwide.
+          <p className="mt-3 text-base max-w-xl mx-auto" style={{ color: '#4A5568' }}>
+            Every feature is grounded in proven research methods that actually improve learning outcomes.
           </p>
-        </div>
+        </motion.div>
 
-        {/* 3-column grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {PILLARS.map(pillar => (
-            <div key={pillar.tag}
-              className="rounded-3xl p-7 flex flex-col gap-4"
-              style={{ background: '#fff', border: '1.5px solid #E9E2FF' }}>
+        <div className="grid md:grid-cols-3 gap-6">
+          {cards.map((card, i) => (
+            <motion.div
+              key={card.title}
+              {...fadeUp}
+              transition={{ ...fadeUp.transition, delay: 0.1 * i }}
+              className="rounded-2xl p-6 flex flex-col"
+              style={{ background: '#fff', border: '1.5px solid #E2E8F0' }}
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-2xl">{card.icon}</span>
+                <h3 className="text-lg font-black" style={{ fontFamily: 'var(--font-heading)', color: '#1B2559' }}>{card.title}</h3>
+              </div>
 
-              {/* Icon */}
-              <div>{pillar.icon}</div>
+              <card.Visual />
 
-              {/* Tag */}
-              <p className="text-xs font-black uppercase tracking-widest" style={{ color: '#7C3AED' }}>
-                {pillar.tag}
+              <p className="text-base leading-relaxed flex-1" style={{ color: '#4A5568' }}>
+                {card.description}
               </p>
 
-              {/* Headline */}
-              <h3 className="text-xl font-black leading-snug"
-                style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-dark)' }}>
-                {pillar.headline}
-              </h3>
-
-              {/* Body */}
-              <p className="text-sm leading-relaxed flex-1" style={{ color: 'var(--color-text-muted)' }}>
-                {pillar.body}
+              <p className="mt-4 text-xs font-medium" style={{ color: '#94A3B8' }}>
+                {card.citation}
               </p>
-
-              {/* Citation */}
-              <p className="text-xs font-medium" style={{ color: '#C4B5FD' }}>
-                {pillar.citation}
-              </p>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>

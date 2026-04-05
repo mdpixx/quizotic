@@ -4,8 +4,7 @@
 India-first live interactive quiz + presentation platform. Combines Kahoot's quiz engine with Mentimeter's interactive features. Targets schools, coaching institutes, colleges, and corporate trainers.
 
 ## Domains
-- **Quizotic.in** — Host platform (teacher dashboard, quiz builder, reports, billing)
-- **Quizotic.net** — Participant join page (lightweight, < 100KB, works on 1 Mbps)
+- **Quizotic.live** — Global platform (quiz builder, presentations, live sessions, reports)
 
 ## Tech Stack
 - **Frontend:** Next.js (App Router) + Tailwind CSS

@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { saveQuiz } from '@/lib/quiz-storage'
+import React, { useState, useRef, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { saveQuiz, loadQuizzes } from '@/lib/quiz-storage'
 import type { Question, QuestionType, BloomsLevel } from '@/lib/quiz-types'
 
 type Tab = 'manual' | 'aitopic' | 'aiurl' | 'aidoc'
@@ -30,12 +30,12 @@ const TYPE_PILLS: { value: QuestionType; label: string; color: string; bg: strin
     ),
   },
   {
-    value: 'poll', label: 'Poll', color: '#7C3AED', bg: '#F3EEFF',
+    value: 'poll', label: 'Poll', color: 'var(--color-primary)', bg: '#F0F4FF',
     svg: (
       <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
-        <rect x="3" y="12" width="3.5" height="5" rx="1" fill="#7C3AED" fillOpacity="0.8"/>
-        <rect x="8.25" y="8" width="3.5" height="9" rx="1" fill="#7C3AED"/>
-        <rect x="13.5" y="5" width="3.5" height="12" rx="1" fill="#7C3AED" fillOpacity="0.5"/>
+        <rect x="3" y="12" width="3.5" height="5" rx="1" fill="#4361EE" fillOpacity="0.8"/>
+        <rect x="8.25" y="8" width="3.5" height="9" rx="1" fill="#4361EE"/>
+        <rect x="13.5" y="5" width="3.5" height="12" rx="1" fill="#4361EE" fillOpacity="0.5"/>
       </svg>
     ),
   },
@@ -49,12 +49,12 @@ const TYPE_PILLS: { value: QuestionType; label: string; color: string; bg: strin
     ),
   },
   {
-    value: 'wordcloud', label: 'Word Cloud', color: '#DB2777', bg: '#FFF0FA',
+    value: 'wordcloud', label: 'Word Cloud', color: '#FF6B6B', bg: '#FFF0FA',
     svg: (
       <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
-        <ellipse cx="8" cy="11" rx="5" ry="3.5" fill="#DB2777" fillOpacity="0.2" stroke="#DB2777" strokeWidth="1.3"/>
-        <ellipse cx="13" cy="9" rx="4" ry="2.8" fill="#DB2777" fillOpacity="0.2" stroke="#DB2777" strokeWidth="1.3"/>
-        <ellipse cx="10" cy="7" rx="3.5" ry="2.5" fill="#DB2777" fillOpacity="0.3" stroke="#DB2777" strokeWidth="1.3"/>
+        <ellipse cx="8" cy="11" rx="5" ry="3.5" fill="#FF6B6B" fillOpacity="0.2" stroke="#FF6B6B" strokeWidth="1.3"/>
+        <ellipse cx="13" cy="9" rx="4" ry="2.8" fill="#FF6B6B" fillOpacity="0.2" stroke="#FF6B6B" strokeWidth="1.3"/>
+        <ellipse cx="10" cy="7" rx="3.5" ry="2.5" fill="#FF6B6B" fillOpacity="0.3" stroke="#FF6B6B" strokeWidth="1.3"/>
       </svg>
     ),
   },
@@ -140,6 +140,8 @@ function optionsForType(type: QuestionType): string[] | undefined {
   if (type === 'mcq') return ['', '', '', '']
   if (type === 'rating') return ['1', '2', '3', '4', '5']
   if (type === 'case') return ['', '', '', '']
+  if (type === 'poll') return ['', '', '', '']
+  if (type === 'ranking') return ['', '', '']
   return undefined
 }
 
@@ -219,8 +221,8 @@ function QuestionCard({
 
       {/* Scenario fields — only for 'case' type */}
       {question.type === 'case' && (
-        <div className="space-y-3 rounded-xl p-4" style={{ background: '#F3EEFF', border: '1px solid #E9E2FF' }}>
-          <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#7C3AED' }}>Scenario Block</p>
+        <div className="space-y-3 rounded-xl p-4" style={{ background: '#F0F4FF', border: '1px solid #DBEAFE' }}>
+          <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--color-primary)' }}>Scenario Block</p>
           <div>
             <label className="text-xs text-gray-500 mb-1 block">Scenario Narrative (what happened / the situation)</label>
             <textarea
@@ -278,7 +280,7 @@ function QuestionCard({
                   }`}
                   style={
                     question.correctAnswer === String(i)
-                      ? { background: '#7C3AED', color: '#fff' }
+                      ? { background: 'var(--color-primary)', color: '#fff' }
                       : { background: '#e5e7eb', color: '#6b7280' }
                   }
                 >
@@ -295,6 +297,46 @@ function QuestionCard({
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Ranking items editor */}
+      {question.type === 'ranking' && (
+        <div>
+          <label className="text-xs text-gray-500 mb-1 block">Items to Rank</label>
+          <div className="space-y-2">
+            {(question.options ?? []).map((item, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center text-xs font-bold bg-gray-100 text-gray-500">
+                  {i + 1}
+                </span>
+                <input
+                  type="text"
+                  value={item}
+                  onChange={e => handleOptionChange(i, e.target.value)}
+                  placeholder={`Item ${i + 1}`}
+                  className="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30"
+                />
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...question, options: (question.options ?? []).filter((_, j) => j !== i) })}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors text-sm"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+          {(question.options ?? []).length < 6 && (
+            <button
+              type="button"
+              onClick={() => onChange({ ...question, options: [...(question.options ?? []), ''] })}
+              className="mt-2 text-sm font-medium flex items-center gap-1 transition-colors"
+              style={{ color: 'var(--color-primary)' }}
+            >
+              + Add item
+            </button>
+          )}
         </div>
       )}
 
@@ -343,7 +385,7 @@ function QuestionCard({
           type="button"
           onClick={() => setShowAdvanced(s => !s)}
           className="text-xs font-medium flex items-center gap-1 transition-colors"
-          style={{ color: showAdvanced ? '#7C3AED' : '#9ca3af' }}
+          style={{ color: showAdvanced ? 'var(--color-primary)' : '#9ca3af' }}
         >
           <span>{showAdvanced ? '▾' : '▸'}</span>
           <span>Advanced options</span>
@@ -373,13 +415,25 @@ function QuestionCard({
 
 // ─── Main Builder Page ────────────────────────────────────────────────────────
 
-export default function CreateQuizPage() {
+function CreateQuizPageInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const editId = searchParams.get('edit')
+
   const [tab, setTab] = useState<Tab>('manual')
   const [title, setTitle] = useState('')
   const [subject, setSubject] = useState('')
   const [questions, setQuestions] = useState<Question[]>([makeQuestion()])
   const [saveError, setSaveError] = useState('')
+
+  // Plan state (for tier-based question limits)
+  const [plan, setPlan] = useState<'free' | 'pro'>('free')
+  useEffect(() => {
+    fetch('/api/billing/status').then(r => r.json()).then(d => {
+      if (d.plan === 'pro') setPlan('pro')
+    }).catch(() => {})
+  }, [])
+  const maxQuestions = plan === 'pro' ? 25 : 10
 
   // AI Topic state
   const [aiTopic, setAiTopic] = useState('')
@@ -407,10 +461,21 @@ export default function CreateQuizPage() {
   // Per-tab generated flag
   const [generatedOnTab, setGeneratedOnTab] = useState<Tab | null>(null)
 
-  // Title-first modal (shown on fresh new quiz, hidden after title is set)
-  const [showTitleModal, setShowTitleModal] = useState(true)
+  // Title-first modal (shown on fresh new quiz, hidden when editing)
+  const [showTitleModal, setShowTitleModal] = useState(!editId)
   const [modalTitle, setModalTitle] = useState('')
   const [modalSubject, setModalSubject] = useState('')
+
+  // Load existing quiz when editing
+  useEffect(() => {
+    if (!editId) return
+    const quiz = loadQuizzes().find(q => q.id === editId)
+    if (!quiz) return
+    setTitle(quiz.title)
+    setSubject(quiz.subject ?? '')
+    setQuestions(quiz.questions)
+    setShowTitleModal(false)
+  }, [editId])
 
   function handleModalSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -480,7 +545,7 @@ export default function CreateQuizPage() {
       const res = await fetch('/api/generate-quiz', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'url', url: aiUrl, questionCount: 5, difficulty: 'medium' }),
+        body: JSON.stringify({ mode: 'url', url: aiUrl, questionCount: aiCount, difficulty: aiDifficulty }),
       })
       const data = await res.json()
       if (!res.ok) { setUrlError(data.error ?? 'Generation failed'); return }
@@ -501,8 +566,8 @@ export default function CreateQuizPage() {
     try {
       const formData = new FormData()
       formData.append('file', docFile)
-      formData.append('questionCount', '5')
-      formData.append('difficulty', 'medium')
+      formData.append('questionCount', String(aiCount))
+      formData.append('difficulty', aiDifficulty)
       const res = await fetch('/api/generate-quiz', {
         method: 'POST',
         body: formData,
@@ -548,12 +613,13 @@ export default function CreateQuizPage() {
     setSaveError('')
 
     const now = new Date().toISOString()
+    const existing = editId ? loadQuizzes().find(q => q.id === editId) : null
     saveQuiz({
-      id: crypto.randomUUID(),
+      id: editId ?? crypto.randomUUID(),
       title: title.trim(),
       subject: subject.trim() || undefined,
-      language: translatedTo ?? 'English',
-      createdAt: now,
+      language: translatedTo ?? existing?.language ?? 'English',
+      createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       questions,
     })
@@ -580,8 +646,17 @@ export default function CreateQuizPage() {
       {/* ── Title-first modal ── */}
       {showTitleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.45)' }}>
-          <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+          style={{ background: 'rgba(0,0,0,0.45)' }}
+          onClick={() => router.push('/host')}>
+          <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md relative"
+            onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => router.push('/host')}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors text-lg"
+              aria-label="Cancel"
+            >
+              ✕
+            </button>
             <h2 className="text-xl font-black mb-1" style={{ color: '#1e1a14', fontFamily: 'var(--font-heading)' }}>
               name your quiz
             </h2>
@@ -606,23 +681,35 @@ export default function CreateQuizPage() {
                 type="submit"
                 disabled={!modalTitle.trim()}
                 className="w-full py-3 text-white font-bold rounded-xl transition-opacity hover:opacity-90 disabled:opacity-40"
-                style={{ background: 'linear-gradient(135deg,#7C3AED,#EC4899)' }}
+                style={{ background: 'var(--brand-gradient)' }}
               >
                 Start building →
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push('/host')}
+                className="w-full py-2.5 text-sm font-semibold text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Cancel
               </button>
             </form>
           </div>
         </div>
       )}
 
-      <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+      <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-b border-gray-200 px-6 py-4 flex items-center gap-3">
+        <button onClick={() => router.push('/host')}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors flex-shrink-0">
+          <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4">
+            <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Back
+        </button>
+        <div className="h-5 w-px bg-gray-200" />
         <span className="text-xl font-bold">
-          Quizo<span style={{ color: '#7C3AED' }}>tic</span>
+          Quizo<span style={{ color: 'var(--color-primary)' }}>tic</span>
           <span className="ml-2 text-xs font-normal text-gray-500 uppercase tracking-widest">Create Quiz</span>
         </span>
-        <button onClick={() => router.push('/host')} className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
-          ← Library
-        </button>
       </header>
 
       <div className="max-w-6xl mx-auto px-4 py-8 flex gap-6 items-start">
@@ -651,7 +738,7 @@ export default function CreateQuizPage() {
             <button
               onClick={addQuestion}
               className="w-full py-2 rounded-xl text-xs font-bold text-white transition-opacity hover:opacity-90"
-              style={{ background: 'linear-gradient(135deg,#7C3AED,#EC4899)' }}
+              style={{ background: 'var(--brand-gradient)' }}
             >
               + Add Question
             </button>
@@ -670,26 +757,13 @@ export default function CreateQuizPage() {
               onChange={e => setTitle(e.target.value)}
               className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-violet-400/30"
             />
-            <div className="flex gap-3">
-              <input
-                type="text"
-                placeholder="Subject / tag (optional)"
-                value={subject}
-                onChange={e => setSubject(e.target.value)}
-                className="flex-1 bg-white border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30"
-              />
-              <select
-                value={translateLang}
-                onChange={e => setTranslateLang(e.target.value)}
-                className="bg-white border border-gray-300 rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30"
-                title="Language for translation"
-              >
-                <option value="">No translation</option>
-                {GLOBAL_LANGUAGES.map(({ lang }) => (
-                  <option key={lang} value={lang}>{lang}</option>
-                ))}
-              </select>
-            </div>
+            <input
+              type="text"
+              placeholder="Subject / tag (optional)"
+              value={subject}
+              onChange={e => setSubject(e.target.value)}
+              className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30"
+            />
           </div>
 
           {/* Tabs */}
@@ -701,7 +775,7 @@ export default function CreateQuizPage() {
                 className="flex-1 px-3 py-2.5 rounded-lg text-sm font-bold transition-all"
                 style={
                   tab === t.id
-                    ? { background: 'linear-gradient(135deg,#7C3AED,#EC4899)', color: '#fff', boxShadow: '0 2px 8px rgba(124,58,237,0.35)' }
+                    ? { background: 'var(--brand-gradient)', color: '#fff', boxShadow: '0 2px 8px rgba(124,58,237,0.35)' }
                     : { background: 'transparent', color: '#6b7280' }
                 }
               >
@@ -775,16 +849,23 @@ export default function CreateQuizPage() {
               </div>
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <label className="text-xs text-gray-500 mb-1 block">Questions</label>
-                  <select
+                  <label className="text-xs text-gray-500 mb-1 block">
+                    Questions: <span className="font-bold text-gray-900">{aiCount}</span>
+                    {plan === 'free' && <span className="text-violet-500 ml-1 text-[10px]">(up to 25 with Pro)</span>}
+                  </label>
+                  <input
+                    type="range"
+                    min={3}
+                    max={maxQuestions}
+                    step={1}
                     value={aiCount}
                     onChange={e => setAiCount(Number(e.target.value))}
-                    className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30"
-                  >
-                    <option value={5}>5</option>
-                    <option value={8}>8</option>
-                    <option value={10}>10</option>
-                  </select>
+                    className="w-full accent-violet-500 h-2 rounded-lg cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+                    <span>3</span>
+                    <span>{maxQuestions}</span>
+                  </div>
                 </div>
                 <div className="flex-1">
                   <label className="text-xs text-gray-500 mb-1 block">Difficulty</label>
@@ -804,7 +885,7 @@ export default function CreateQuizPage() {
                 onClick={handleAiTopicGenerate}
                 disabled={aiLoading}
                 className="w-full py-4 text-white font-bold rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity"
-                style={{ background: 'linear-gradient(135deg,#7C3AED,#EC4899)' }}
+                style={{ background: 'var(--brand-gradient)' }}
               >
                 {aiLoading ? 'Generating...' : '✨ Generate Questions'}
               </button>
@@ -836,12 +917,31 @@ export default function CreateQuizPage() {
                   className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30"
                 />
               </div>
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">
+                  Questions: <span className="font-bold text-gray-900">{aiCount}</span>
+                  {plan === 'free' && <span className="text-violet-500 ml-1 text-[10px]">(up to 25 with Pro)</span>}
+                </label>
+                <input
+                  type="range"
+                  min={3}
+                  max={maxQuestions}
+                  step={1}
+                  value={aiCount}
+                  onChange={e => setAiCount(Number(e.target.value))}
+                  className="w-full accent-violet-500 h-2 rounded-lg cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+                  <span>3</span>
+                  <span>{maxQuestions}</span>
+                </div>
+              </div>
               {urlError && <p className="text-red-400 text-sm">{urlError}</p>}
               <button
                 onClick={handleUrlGenerate}
                 disabled={urlLoading}
                 className="w-full py-4 text-white font-bold rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity"
-                style={{ background: 'linear-gradient(135deg,#7C3AED,#EC4899)' }}
+                style={{ background: 'var(--brand-gradient)' }}
               >
                 {urlLoading ? 'Fetching & Generating...' : '🔗 Fetch & Generate'}
               </button>
@@ -873,12 +973,31 @@ export default function CreateQuizPage() {
                 />
                 {docFile && <p className="text-xs text-gray-500 mt-1">{docFile.name} ({(docFile.size / 1024 / 1024).toFixed(2)} MB)</p>}
               </div>
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">
+                  Questions: <span className="font-bold text-gray-900">{aiCount}</span>
+                  {plan === 'free' && <span className="text-violet-500 ml-1 text-[10px]">(up to 25 with Pro)</span>}
+                </label>
+                <input
+                  type="range"
+                  min={3}
+                  max={maxQuestions}
+                  step={1}
+                  value={aiCount}
+                  onChange={e => setAiCount(Number(e.target.value))}
+                  className="w-full accent-violet-500 h-2 rounded-lg cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+                  <span>3</span>
+                  <span>{maxQuestions}</span>
+                </div>
+              </div>
               {docError && <p className="text-red-400 text-sm">{docError}</p>}
               <button
                 onClick={handleDocGenerate}
                 disabled={docLoading || !docFile}
                 className="w-full py-4 text-white font-bold rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity"
-                style={{ background: 'linear-gradient(135deg,#7C3AED,#EC4899)' }}
+                style={{ background: 'var(--brand-gradient)' }}
               >
                 {docLoading ? 'Reading & Generating...' : '📄 Generate from Document'}
               </button>
@@ -898,19 +1017,33 @@ export default function CreateQuizPage() {
           )}
 
           {/* ── Translate Section ── */}
-          {translateLang && (
-            <div className="border-t border-gray-100 pt-5">
+          <div className="border-t border-gray-100 pt-5 space-y-2">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Translate quiz</p>
+            <div className="flex gap-2">
+              <select
+                value={translateLang}
+                onChange={e => setTranslateLang(e.target.value)}
+                className="flex-1 bg-white border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30"
+              >
+                <option value="">Select language</option>
+                {GLOBAL_LANGUAGES.map(({ lang }) => (
+                  <option key={lang} value={lang}>{lang}</option>
+                ))}
+              </select>
               <button
                 onClick={handleTranslate}
-                disabled={translateLoading || questions.length === 0}
-                className="w-full py-3 rounded-xl text-sm font-bold border-2 transition-colors disabled:opacity-50"
-                style={{ borderColor: '#7C3AED', color: '#7C3AED', background: '#F3EEFF' }}
+                disabled={!translateLang || translateLoading || questions.length === 0}
+                className="px-4 py-2.5 rounded-xl text-sm font-bold border-2 transition-colors disabled:opacity-40 whitespace-nowrap"
+                style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)', background: '#F0F4FF' }}
               >
-                {translateLoading ? `Translating to ${translateLang}...` : `Translate quiz to ${translateLang} →`}
+                {translateLoading ? 'Translating…' : 'Translate →'}
               </button>
-              {translateError && <p className="text-red-400 text-sm mt-2">{translateError}</p>}
             </div>
-          )}
+            {translatedTo && !translateError && (
+              <p className="text-xs text-green-600 font-medium">✓ Translated to {translatedTo}</p>
+            )}
+            {translateError && <p className="text-red-400 text-xs">{translateError}</p>}
+          </div>
 
           {/* ── Save ── */}
           <div className="border-t border-gray-100 pt-6 space-y-3">
@@ -918,7 +1051,7 @@ export default function CreateQuizPage() {
             <button
               onClick={handleSave}
               className="w-full py-4 text-white font-bold text-lg rounded-xl hover:opacity-90 transition-opacity"
-              style={{ background: 'linear-gradient(135deg,#7C3AED,#EC4899)' }}
+              style={{ background: 'var(--brand-gradient)' }}
             >
               Save Quiz
             </button>
@@ -927,5 +1060,13 @@ export default function CreateQuizPage() {
         </main>
       </div>
     </div>
+  )
+}
+
+export default function CreateQuizPage() {
+  return (
+    <Suspense>
+      <CreateQuizPageInner />
+    </Suspense>
   )
 }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { io, Socket } from 'socket.io-client'
 import QRCode from 'react-qr-code'
 import { Avatar } from '@/components/Avatar'
+import { Podium } from '@/components/Podium'
 import { SessionReport } from '@/components/SessionReport'
 import { getActiveSession, clearActiveSession } from '@/lib/quiz-storage'
 import type { Quiz, QuestionStat, SessionMode } from '@/lib/quiz-types'
@@ -34,15 +35,18 @@ export default function SessionPage() {
   const [phase, setPhase] = useState<Phase>('loading')
   const [quiz, setQuiz] = useState<Quiz | null>(null)
   const [gameCode, setGameCode] = useState('')
-  const [participants, setParticipants] = useState<Map<string, string>>(new Map())
-  // key = displayName, value = archetype
+  const [participants, setParticipants] = useState<Map<string, { archetype: string; team?: { index: number; name: string; color: string } | null }>>(new Map())
+  // key = displayName, value = { archetype, team }
   const [sessionMode, setSessionMode] = useState<SessionMode>('competitive')
   const [anonymousMode, setAnonymousMode] = useState(false)
+  const [teamMode, setTeamMode] = useState(false)
+  const [teamCount, setTeamCount] = useState(2)
   const [explanation, setExplanation] = useState<string | null>(null)
   const [questionStats, setQuestionStats] = useState<QuestionStat[]>([])
   const [questionIndex, setQuestionIndex] = useState(0)
   const [answered, setAnswered] = useState(0)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
+  const [teamLeaderboard, setTeamLeaderboard] = useState<{ name: string; color: string; score: number; members: number }[] | null>(null)
   const [followups, setFollowups] = useState<{ label: string; code: string }[]>([])
   const [followupLoading, setFollowupLoading] = useState(false)
   const [followupError, setFollowupError] = useState('')
@@ -66,8 +70,8 @@ export default function SessionPage() {
     const socket = io()
     socketRef.current = socket
 
-    socket.on('participant_joined', ({ name, archetype }: { name: string; archetype: string; count: number }) => {
-      setParticipants(prev => new Map(prev).set(name, archetype))
+    socket.on('participant_joined', ({ name, archetype, team }: { name: string; archetype: string; count: number; team?: { index: number; name: string; color: string } | null }) => {
+      setParticipants(prev => new Map(prev).set(name, { archetype, team }))
     })
 
     socket.on('participant_left', ({ name }: { name: string }) => {
@@ -83,13 +87,15 @@ export default function SessionPage() {
       setExplanation(exp)
     })
 
-    socket.on('session_ended', ({ leaderboard: lb, questionStats: qs, sessionMode: sm }: {
+    socket.on('session_ended', ({ leaderboard: lb, teamLeaderboard: tlb, questionStats: qs, sessionMode: sm }: {
       leaderboard: LeaderboardEntry[];
+      teamLeaderboard?: { name: string; color: string; score: number; members: number }[] | null;
       questionStats: QuestionStat[];
       sessionMode: SessionMode;
     }) => {
       if (sm) setSessionMode(sm)
       setLeaderboard(lb)
+      setTeamLeaderboard(tlb ?? null)
       setQuestionStats(qs ?? [])
       setPhase('ended')
 
@@ -119,7 +125,7 @@ export default function SessionPage() {
 
   function createSession() {
     if (!quiz) return
-    socketRef.current?.emit('create_session', { quizData: quiz, sessionMode, anonymousMode }, (res: { success: boolean; gameCode: string }) => {
+    socketRef.current?.emit('create_session', { quizData: quiz, sessionMode, anonymousMode, teamMode, teamCount }, (res: { success: boolean; gameCode: string }) => {
       if (res.success) {
         setGameCode(res.gameCode)
         setPhase('lobby')
@@ -199,8 +205,8 @@ export default function SessionPage() {
       {/* IDLE */}
       {phase === 'idle' && quiz && (
         <div className="p-4 max-w-2xl mx-auto py-8 space-y-4">
-          <h1 className="text-3xl font-black text-gray-900 mb-1">{quiz.title}</h1>
-          <p className="text-gray-500 text-sm">{quiz.questions.length} question{quiz.questions.length !== 1 ? 's' : ''}</p>
+          <h1 className="text-4xl font-black mb-1" style={{ color: 'var(--color-dark)' }}>{quiz.title}</h1>
+          <p className="text-gray-500 text-lg">{quiz.questions.length} question{quiz.questions.length !== 1 ? 's' : ''}</p>
 
           {/* Question preview */}
           <div className="space-y-2">
@@ -224,7 +230,7 @@ export default function SessionPage() {
                     : 'border-gray-200 bg-white'
                 }`}
               >
-                <svg className="w-6 h-6 mb-2" viewBox="0 0 24 24" fill="none" stroke={sessionMode === 'competitive' ? '#7C3AED' : '#9CA3AF'} strokeWidth="2">
+                <svg className="w-6 h-6 mb-2" viewBox="0 0 24 24" fill="none" stroke={sessionMode === 'competitive' ? '#4361EE' : '#9CA3AF'} strokeWidth="2">
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" strokeLinejoin="round"/>
                 </svg>
                 <p className={`font-bold text-sm ${sessionMode === 'competitive' ? 'text-violet-700' : 'text-gray-900'}`}>Competitive</p>
@@ -238,7 +244,7 @@ export default function SessionPage() {
                     : 'border-gray-200 bg-white'
                 }`}
               >
-                <svg className="w-6 h-6 mb-2" viewBox="0 0 24 24" fill="none" stroke={sessionMode === 'reflection' ? '#7C3AED' : '#9CA3AF'} strokeWidth="2">
+                <svg className="w-6 h-6 mb-2" viewBox="0 0 24 24" fill="none" stroke={sessionMode === 'reflection' ? '#4361EE' : '#9CA3AF'} strokeWidth="2">
                   <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" strokeLinejoin="round"/>
                 </svg>
                 <p className={`font-bold text-sm ${sessionMode === 'reflection' ? 'text-violet-700' : 'text-gray-900'}`}>Reflection</p>
@@ -249,7 +255,7 @@ export default function SessionPage() {
 
           {/* Anonymous mode toggle */}
           <div className="flex items-center justify-between bg-white rounded-xl border p-4 shadow-sm"
-            style={{ borderColor: '#E9E2FF' }}>
+            style={{ borderColor: '#DBEAFE' }}>
             <div>
               <p className="font-bold text-sm" style={{ color: '#1E1B4B' }}>Anonymous Mode</p>
               <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Hides participant names — shows archetypes only</p>
@@ -257,16 +263,52 @@ export default function SessionPage() {
             <button
               onClick={() => setAnonymousMode(m => !m)}
               className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0"
-              style={{ background: anonymousMode ? '#7C3AED' : '#E5E7EB' }}
+              style={{ background: anonymousMode ? '#4361EE' : '#E5E7EB' }}
             >
               <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${anonymousMode ? 'translate-x-6' : 'translate-x-0.5'}`} />
             </button>
           </div>
 
+          {/* Team mode toggle */}
+          <div className="bg-white rounded-xl border p-4 shadow-sm" style={{ borderColor: '#DBEAFE' }}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-bold text-sm" style={{ color: '#1E1B4B' }}>Team Mode</p>
+                <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Assign participants to teams automatically</p>
+              </div>
+              <button
+                onClick={() => setTeamMode(m => !m)}
+                className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0"
+                style={{ background: teamMode ? '#4361EE' : '#E5E7EB' }}
+              >
+                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${teamMode ? 'translate-x-6' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+            {teamMode && (
+              <div className="mt-3 flex items-center gap-3">
+                <span className="text-sm font-semibold text-gray-600">Teams:</span>
+                {[2, 3, 4, 5, 6].map(n => (
+                  <button
+                    key={n}
+                    onClick={() => setTeamCount(n)}
+                    className={`w-9 h-9 rounded-lg font-bold text-sm transition-all ${
+                      teamCount === n
+                        ? 'text-white shadow-sm'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                    style={teamCount === n ? { background: 'var(--color-primary)' } : undefined}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <button
             onClick={createSession}
-            className="w-full font-black rounded-2xl py-4 text-base transition-all hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg,#7C3AED,#EC4899)', color: '#fff', fontFamily: 'var(--font-heading)' }}
+            className="w-full font-black rounded-2xl py-5 text-xl transition-all hover:opacity-90"
+            style={{ background: 'var(--brand-gradient)', color: '#fff', fontFamily: 'var(--font-heading)' }}
           >
             Create Session
           </button>
@@ -277,37 +319,37 @@ export default function SessionPage() {
       {phase === 'lobby' && (
         <div className="p-4 max-w-2xl mx-auto py-8 space-y-4">
           <div className="flex items-center justify-between mb-2">
-            <h1 className="text-xl font-black text-gray-900">Quizo<span className="text-lime-400">tic</span></h1>
+            <h1 className="text-2xl font-black" style={{ color: 'var(--color-dark)' }}>Quizo<span style={{ color: 'var(--color-primary)' }}>tic</span></h1>
             <div className="flex items-center gap-2">
-              <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
+              <span className={`text-base font-bold px-4 py-1.5 rounded-full border ${
                 sessionMode === 'reflection'
-                  ? 'bg-violet-50 border-violet-200 text-violet-700'
-                  : 'bg-lime-50 border-lime-200 text-lime-700'
+                  ? 'bg-blue-50 border-blue-200 text-blue-700'
+                  : 'bg-green-50 border-green-200 text-green-700'
               }`}>
                 {sessionMode === 'reflection' ? 'Reflection' : 'Competitive'}
               </span>
-              <span className="bg-lime-50 border border-lime-200 text-lime-700 text-xs font-bold px-3 py-1 rounded-full">
-                ● {participants.size} players
+              <span className="bg-green-50 border border-green-200 text-green-700 text-base font-bold px-4 py-1.5 rounded-full">
+                {participants.size} players
               </span>
             </div>
           </div>
 
           {/* Game code + QR code */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
-            <div className="flex gap-4 items-center">
-              <div className="flex-1 text-center">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Game Code</p>
-                <p className="text-indigo-600 text-5xl font-black tracking-[0.3em]">{gameCode}</p>
-                <p className="text-gray-400 text-xs mt-2">quizotic.net</p>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 overflow-hidden">
+            <div className="flex gap-4 items-center min-w-0">
+              <div className="flex-1 min-w-0 text-center">
+                <p className="text-base font-bold text-gray-400 uppercase tracking-widest mb-3">Game Code</p>
+                <p className="text-6xl font-black tracking-[0.3em]" style={{ color: 'var(--color-primary)' }}>{gameCode}</p>
+                <p className="text-gray-400 text-base mt-3">quizotic.live</p>
               </div>
-              <div className="text-center">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Scan to Join</p>
+              <div className="flex-shrink-0 text-center">
+                <p className="text-base font-bold text-gray-400 uppercase tracking-widest mb-3">Scan to Join</p>
                 <div className="bg-white rounded-2xl p-3 border border-gray-200">
                   <QRCode
-                    value={`${typeof window !== 'undefined' ? window.location.origin : ''}/join?code=${gameCode}`}
-                    size={120}
+                    value={`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')}/join?code=${gameCode}`}
+                    size={128}
                     bgColor="#ffffff"
-                    fgColor="#4f46e5"
+                    fgColor="#4361EE"
                   />
                 </div>
               </div>
@@ -316,17 +358,21 @@ export default function SessionPage() {
 
           {/* Avatar grid */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">
+            <p className="text-base font-bold text-gray-400 uppercase tracking-wide mb-3">
               {participants.size === 0 ? 'Waiting for participants...' : `${participants.size} joined`}
             </p>
-            <div className="flex flex-wrap gap-3">
-              {Array.from(participants.entries()).map(([pName, pArchetype]) => (
+            <div className="flex flex-wrap gap-4">
+              {Array.from(participants.entries()).map(([pName, pInfo]) => (
                 <div key={pName} className="flex flex-col items-center gap-1">
-                  <div className="ring-2 ring-indigo-100 rounded-full overflow-hidden">
-                    <Avatar archetype={pArchetype} size={48} />
+                  <div className="ring-2 rounded-full overflow-hidden" style={{ borderColor: pInfo.team?.color ?? '#DBEAFE' }}>
+                    <Avatar archetype={pInfo.archetype} size={56} />
                   </div>
-                  <p className="text-xs text-gray-700 font-semibold max-w-[56px] truncate text-center">{pName}</p>
-                  <p className="text-xs text-gray-400 max-w-[56px] truncate text-center">{pArchetype}</p>
+                  <p className="text-base text-gray-700 font-semibold max-w-[72px] truncate text-center">{pName}</p>
+                  {pInfo.team ? (
+                    <p className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ background: pInfo.team.color }}>{pInfo.team.name}</p>
+                  ) : (
+                    <p className="text-sm text-gray-400 max-w-[72px] truncate text-center">{pInfo.archetype}</p>
+                  )}
                 </div>
               ))}
             </div>
@@ -335,9 +381,9 @@ export default function SessionPage() {
           <button
             onClick={startQuiz}
             disabled={participants.size === 0}
-            className="w-full bg-lime-400 text-black font-black rounded-2xl py-4 text-base hover:bg-lime-300 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+            className="w-full bg-amber-400 text-black font-black rounded-2xl py-5 text-xl hover:bg-amber-300 disabled:opacity-40 disabled:pointer-events-none transition-colors"
           >
-            {participants.size === 0 ? 'Waiting for players...' : 'Start Quiz →'}
+            {participants.size === 0 ? 'Waiting for players...' : 'Start Quiz'}
           </button>
         </div>
       )}
@@ -346,38 +392,38 @@ export default function SessionPage() {
       {phase === 'question' && currentQuestion && quiz && (
         <div className="p-4 max-w-2xl mx-auto py-8 space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-500 font-medium">Q{questionIndex + 1} / {quiz.questions.length}</span>
-            <span className="bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-full px-3 py-1 text-sm font-bold">
+            <span className="text-xl text-gray-500 font-semibold">Q{questionIndex + 1} / {quiz.questions.length}</span>
+            <span className="bg-blue-50 border border-blue-100 rounded-full px-5 py-2 text-xl font-bold" style={{ color: 'var(--color-primary)' }}>
               {answered} / {participants.size} answered
             </span>
           </div>
 
           {/* Progress bar */}
-          <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+          <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden">
             <div
-              className="h-full bg-lime-400 rounded-full transition-all duration-300"
+              className="h-full bg-amber-400 rounded-full transition-all duration-300"
               style={{ width: participants.size > 0 ? `${(answered / participants.size) * 100}%` : '0%' }}
             />
           </div>
 
           {/* Case scenario card (shown for 'case' type) */}
           {currentQuestion.type === 'case' && currentQuestion.scenarioText && (
-            <div className="rounded-2xl p-5 border" style={{ background: '#1E1B4B', borderColor: '#3730A3' }}>
-              <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#A78BFA' }}>Scenario</p>
-              <p className="text-base leading-relaxed" style={{ color: '#E9E2FF' }}>{currentQuestion.scenarioText}</p>
+            <div className="rounded-2xl p-6 border" style={{ background: '#1B2559', borderColor: '#2D3A6E' }}>
+              <p className="text-base font-bold uppercase tracking-widest mb-2" style={{ color: '#6B8AFF' }}>Scenario</p>
+              <p className="text-xl leading-relaxed" style={{ color: '#E0E7FF' }}>{currentQuestion.scenarioText}</p>
               {currentQuestion.supportingDetail && (
-                <p className="mt-3 font-bold text-sm" style={{ color: '#FDE68A' }}>{currentQuestion.supportingDetail}</p>
+                <p className="mt-3 font-bold text-lg" style={{ color: '#FFD166' }}>{currentQuestion.supportingDetail}</p>
               )}
             </div>
           )}
 
           {/* Question card */}
-          <div className={`bg-white rounded-2xl shadow-sm border p-6 ${currentQuestion.type === 'case' ? 'border-violet-200 border-t-4 border-t-violet-500' : 'border-gray-200 border-t-4 border-t-lime-400'}`}>
-            <p className="text-xl font-semibold leading-snug text-gray-900">{currentQuestion.text}</p>
+          <div className={`bg-white rounded-2xl shadow-sm border p-8 ${currentQuestion.type === 'case' ? 'border-blue-200 border-t-4 border-t-blue-500' : 'border-gray-200 border-t-4 border-t-amber-400'}`}>
+            <p className="text-3xl font-bold leading-snug" style={{ color: 'var(--color-dark)' }}>{currentQuestion.text}</p>
           </div>
 
           {/* Options with live vote bars */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             {currentQuestion.options?.map((opt, i) => {
               const votes = optionCounts[i] ?? 0
               const pct = participants.size > 0 ? (votes / participants.size) * 100 : 0
@@ -386,17 +432,17 @@ export default function SessionPage() {
               return (
                 <div
                   key={i}
-                  className={`rounded-xl overflow-hidden border ${!isCaseType && isCorrect ? 'ring-2 ring-lime-400 border-lime-300 bg-lime-50' : 'bg-white border-gray-200'}`}
+                  className={`rounded-xl overflow-hidden border ${!isCaseType && isCorrect ? 'ring-2 ring-green-400 border-green-300 bg-green-50' : 'bg-white border-gray-200'}`}
                 >
-                  <div className="p-4 flex items-center gap-3">
-                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ${OPTION_COLORS[i]}`}>
+                  <div className="p-5 flex items-center gap-3">
+                    <span className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold text-white flex-shrink-0 ${OPTION_COLORS[i]}`}>
                       {OPTION_LABELS[i]}
                     </span>
-                    <span className="text-sm flex-1 text-gray-800">{opt}</span>
-                    <span className="text-xs font-semibold text-gray-400">{votes}</span>
-                    {!isCaseType && isCorrect && <span className="text-lime-600 text-xs font-bold">✓</span>}
+                    <span className="text-xl flex-1 text-gray-800 font-medium">{opt}</span>
+                    <span className="text-lg font-bold text-gray-400">{votes}</span>
+                    {!isCaseType && isCorrect && <span className="text-green-600 text-lg font-bold">✓</span>}
                   </div>
-                  <div className="h-1.5 bg-gray-100">
+                  <div className="h-2 bg-gray-100">
                     <div
                       className={`h-full transition-all duration-500 ${OPTION_COLORS[i]}`}
                       style={{ width: `${pct}%` }}
@@ -409,8 +455,8 @@ export default function SessionPage() {
 
           {/* Explanation / Debrief (shown after question_ended event) */}
           {explanation && (
-            <div className={`rounded-xl p-4 text-sm ${currentQuestion.type === 'case' ? 'bg-violet-50 border border-violet-200 text-violet-900' : 'bg-indigo-50 border border-indigo-100 text-indigo-800'}`}>
-              <span className={`font-bold ${currentQuestion.type === 'case' ? 'text-violet-600' : 'text-indigo-600'}`}>
+            <div className={`rounded-xl p-5 text-lg ${currentQuestion.type === 'case' ? 'bg-blue-50 border border-blue-200 text-blue-900' : 'bg-blue-50 border border-blue-100 text-blue-800'}`}>
+              <span className={`font-bold ${currentQuestion.type === 'case' ? 'text-blue-600' : 'text-blue-600'}`}>
                 {currentQuestion.type === 'case' ? 'Expert View: ' : 'Explanation: '}
               </span>
               {explanation}
@@ -419,11 +465,11 @@ export default function SessionPage() {
 
           <button
             onClick={nextQuestion}
-            className={`w-full py-4 bg-lime-400 text-black font-black text-lg rounded-2xl hover:bg-lime-300 transition-colors ${
+            className={`w-full py-5 bg-amber-400 text-black font-black text-2xl rounded-2xl hover:bg-amber-300 transition-colors ${
               answered === participants.size && participants.size > 0 ? 'animate-pulse' : ''
             }`}
           >
-            {questionIndex + 1 >= quiz.questions.length ? 'End Quiz' : 'Next Question →'}
+            {questionIndex + 1 >= quiz.questions.length ? 'End Quiz' : 'Next Question'}
           </button>
         </div>
       )}
@@ -431,29 +477,34 @@ export default function SessionPage() {
       {/* ENDED */}
       {phase === 'ended' && (
         <div className="p-4 max-w-2xl mx-auto py-8 space-y-4">
-          <h2 className="text-2xl font-black text-gray-900">Session Complete</h2>
+          <h2 className="text-4xl font-black" style={{ color: 'var(--color-dark)' }}>Session Complete</h2>
 
-          {/* Leaderboard — always shown to host */}
-          <div className="space-y-2">
-            {leaderboard.map((entry, i) => {
-              const podiumClass = i === 0
-                ? 'bg-lime-400 text-black'
-                : i === 1 ? 'bg-gray-200 text-black'
-                : i === 2 ? 'bg-amber-200 text-amber-900'
-                : 'bg-white border border-gray-200 text-gray-700'
-              return (
-                <div key={i} className={`flex items-center gap-3 rounded-2xl p-3 ${podiumClass}`}>
-                  <span className="font-black w-5 text-center text-sm">{i + 1}</span>
-                  <Avatar archetype={entry.archetype ?? ''} size={40} />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold truncate text-sm">{entry.name}</p>
-                    <p className="text-xs opacity-60 truncate">{entry.archetype}</p>
+          {/* Team Leaderboard */}
+          {teamLeaderboard && teamLeaderboard.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-xl font-black" style={{ color: 'var(--color-dark)' }}>Team Standings</h3>
+              {teamLeaderboard.map((team, i) => (
+                <div key={team.name} className="flex items-center gap-3 rounded-xl p-4 bg-white border border-gray-200">
+                  <span className="text-2xl font-black w-8 text-center" style={{ color: team.color }}>
+                    {i === 0 ? '🏆' : i + 1}
+                  </span>
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm" style={{ background: team.color }}>
+                    {team.name[0]}
                   </div>
-                  <span className="font-black tabular-nums text-sm">{entry.score.toLocaleString()}</span>
+                  <div className="flex-1">
+                    <p className="font-bold text-lg" style={{ color: '#1E1B4B' }}>Team {team.name}</p>
+                    <p className="text-sm text-gray-500">{team.members} member{team.members !== 1 ? 's' : ''}</p>
+                  </div>
+                  {sessionMode === 'competitive' && (
+                    <span className="text-xl font-black tabular-nums" style={{ color: team.color }}>{team.score.toLocaleString()}</span>
+                  )}
                 </div>
-              )
-            })}
-          </div>
+              ))}
+            </div>
+          )}
+
+          {/* Animated Podium Leaderboard */}
+          <Podium leaderboard={leaderboard} sessionMode={sessionMode} />
 
           {/* Session Report */}
           <SessionReport
@@ -464,7 +515,7 @@ export default function SessionPage() {
           />
 
           {/* Spaced Follow-up Series */}
-          <div className="rounded-2xl border p-5" style={{ borderColor: '#E9E2FF', background: '#F3EEFF' }}>
+          <div className="rounded-2xl border p-5" style={{ borderColor: '#DBEAFE', background: '#F0F4FF' }}>
             <p className="text-sm font-black mb-0.5" style={{ fontFamily: 'var(--font-heading)', color: '#1E1B4B' }}>
               Lock in the learning
             </p>
@@ -478,7 +529,7 @@ export default function SessionPage() {
                   onClick={generateFollowups}
                   disabled={followupLoading}
                   className="w-full py-3 rounded-xl text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
-                  style={{ background: 'linear-gradient(135deg,#7C3AED,#EC4899)', color: '#fff', fontFamily: 'var(--font-heading)' }}
+                  style={{ background: 'var(--brand-gradient)', color: '#fff', fontFamily: 'var(--font-heading)' }}
                 >
                   {followupLoading ? 'Generating…' : 'Create Follow-up Series'}
                 </button>
@@ -489,18 +540,18 @@ export default function SessionPage() {
                 {followups.map(fu => (
                   <div key={fu.code}
                     className="flex items-center justify-between gap-3 bg-white rounded-xl px-4 py-3 border"
-                    style={{ borderColor: '#E9E2FF' }}>
+                    style={{ borderColor: '#DBEAFE' }}>
                     <div>
                       <p className="text-sm font-bold" style={{ color: '#1E1B4B' }}>{fu.label}</p>
-                      <p className="text-xs font-mono" style={{ color: '#7C3AED' }}>{fu.code}</p>
+                      <p className="text-xs font-mono" style={{ color: 'var(--color-primary)' }}>{fu.code}</p>
                     </div>
                     <button
                       onClick={() => copyFollowupLink(fu.code)}
                       className="text-xs font-bold px-3 py-1.5 rounded-lg border-2 transition-all"
                       style={{
-                        borderColor: copiedCode === fu.code ? '#7C3AED' : '#E9E2FF',
-                        color: copiedCode === fu.code ? '#7C3AED' : '#6B7280',
-                        background: copiedCode === fu.code ? '#F3EEFF' : '#fff',
+                        borderColor: copiedCode === fu.code ? '#4361EE' : '#DBEAFE',
+                        color: copiedCode === fu.code ? '#4361EE' : '#6B7280',
+                        background: copiedCode === fu.code ? '#F0F4FF' : '#fff',
                       }}
                     >
                       {copiedCode === fu.code ? 'Copied!' : 'Copy link'}
