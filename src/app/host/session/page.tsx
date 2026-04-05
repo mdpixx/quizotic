@@ -43,6 +43,7 @@ export default function SessionPage() {
   const [teamMode, setTeamMode] = useState(false)
   const [teamCount, setTeamCount] = useState(2)
   const [socketConnected, setSocketConnected] = useState(false)
+  const [creating, setCreating] = useState(false)
   const [sessionError, setSessionError] = useState('')
   const [explanation, setExplanation] = useState<string | null>(null)
   const [questionStats, setQuestionStats] = useState<QuestionStat[]>([])
@@ -68,8 +69,12 @@ export default function SessionPage() {
     setPhase('idle')
   }, [])
 
+  // Socket setup — run ONCE after quiz is loaded (empty deps, guarded by quiz check)
+  const socketInitialized = useRef(false)
   useEffect(() => {
-    if (!quiz) return   // wait until session is confirmed loaded
+    if (!quiz || socketInitialized.current) return
+    socketInitialized.current = true
+
     const socket = io()
     socketRef.current = socket
 
@@ -141,16 +146,19 @@ export default function SessionPage() {
   }, [quiz])
 
   async function createSession() {
-    if (!quiz) return
+    if (!quiz || creating) return
     setSessionError('')
+    setCreating(true)
 
     // Check socket is connected before proceeding
     if (!socketRef.current?.connected) {
       setSessionError('Not connected to server. Please wait or refresh the page.')
+      setCreating(false)
       return
     }
 
-    // Ensure quiz is persisted to DB before creating session (so GameSession.quizId is valid)
+    // Persist quiz to DB (fire-and-forget — don't update quiz state to avoid socket reconnection)
+    let quizDataForSession = quiz
     try {
       const res = await fetch('/api/quizzes', {
         method: 'POST',
@@ -165,21 +173,22 @@ export default function SessionPage() {
       })
       if (res.ok) {
         const { data } = await res.json()
-        if (data?.id) setQuiz(prev => prev ? { ...prev, id: data.id } : prev)
+        // Use DB ID in the session data, but do NOT call setQuiz (it would kill the socket)
+        if (data?.id) quizDataForSession = { ...quiz, id: data.id }
       }
     } catch {
-      // DB save failed — proceed anyway, session will work but quizId may be orphaned
+      // DB save failed — proceed anyway, session will work
     }
 
     // Timeout: if server doesn't respond within 8 seconds, show error
     const timeout = setTimeout(() => {
-      if (phase === 'idle') {
-        setSessionError('Server not responding. Please try again.')
-      }
+      setSessionError('Server not responding. Please try again.')
+      setCreating(false)
     }, 8000)
 
-    socketRef.current.emit('create_session', { quizData: quiz, sessionMode, anonymousMode, teamMode, teamCount }, (res: { success: boolean; gameCode: string; error?: string }) => {
+    socketRef.current.emit('create_session', { quizData: quizDataForSession, sessionMode, anonymousMode, teamMode, teamCount }, (res: { success: boolean; gameCode: string; error?: string }) => {
       clearTimeout(timeout)
+      setCreating(false)
       if (res.success) {
         setGameCode(res.gameCode)
         setPhase('lobby')
@@ -374,11 +383,11 @@ export default function SessionPage() {
 
           <button
             onClick={createSession}
-            disabled={!socketConnected}
+            disabled={!socketConnected || creating}
             className="w-full font-black rounded-2xl py-5 text-xl transition-all hover:opacity-90 disabled:opacity-50"
             style={{ background: 'var(--brand-gradient)', color: '#fff', fontFamily: 'var(--font-heading)' }}
           >
-            {socketConnected ? 'Create Session' : 'Connecting...'}
+            {!socketConnected ? 'Connecting...' : creating ? 'Creating Session...' : 'Create Session'}
           </button>
         </div>
       )}

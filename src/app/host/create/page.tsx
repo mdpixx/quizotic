@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { saveQuiz, loadQuizzes } from '@/lib/quiz-storage'
+import { saveQuiz, loadQuizzes, setActiveSession } from '@/lib/quiz-storage'
 import type { Question, QuestionType, BloomsLevel, Quiz, QuestionOption } from '@/lib/quiz-types'
 import { getOptionText, getOptionImage } from '@/lib/quiz-types'
 import { ImageUpload } from '@/components/ImageUpload'
@@ -521,6 +521,7 @@ function CreateQuizPageInner() {
   const [subject, setSubject] = useState('')
   const [questions, setQuestions] = useState<Question[]>([makeQuestion()])
   const [saveError, setSaveError] = useState('')
+  const [savedQuiz, setSavedQuiz] = useState<Quiz | null>(null)
 
   // Plan state
   const [plan, setPlan] = useState<'free' | 'pro'>('free')
@@ -855,6 +856,7 @@ function CreateQuizPageInner() {
     saveQuiz(quizData)
 
     // Also persist to database (fire-and-forget — localStorage is the fallback)
+    let finalQuiz = quizData as Quiz
     try {
       const res = await fetch('/api/quizzes', {
         method: 'POST',
@@ -871,15 +873,16 @@ function CreateQuizPageInner() {
         const { data } = await res.json()
         // Update localStorage with the DB-generated ID so session can reference it
         if (data?.id && data.id !== quizData.id) {
-          saveQuiz({ ...quizData, id: data.id })
+          finalQuiz = { ...quizData, id: data.id } as Quiz
+          saveQuiz(finalQuiz)
         }
       }
     } catch {
       // DB save failed silently — localStorage copy is the fallback
-      console.error('[quiz-save] DB save failed, localStorage copy preserved')
     }
 
-    router.push('/host')
+    // Show post-save modal instead of redirecting
+    setSavedQuiz(finalQuiz)
   }
 
   // ── Sidebar stats ───────────────────────────────────────────────────────────
@@ -1380,6 +1383,73 @@ function CreateQuizPageInner() {
 
         </main>
       </div>
+
+      {/* ── Post-Save Success Modal ── */}
+      {savedQuiz && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 space-y-5 animate-in fade-in zoom-in-95">
+            {/* Success icon */}
+            <div className="flex justify-center">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #4361EE, #7C3AED)' }}>
+                <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              </div>
+            </div>
+
+            <div className="text-center">
+              <h2 className="text-2xl font-black" style={{ color: 'var(--color-dark)', fontFamily: 'var(--font-heading)' }}>
+                Quiz Saved!
+              </h2>
+              <p className="text-gray-500 mt-1">
+                {savedQuiz.title} &middot; {savedQuiz.questions.length} question{savedQuiz.questions.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+
+            {/* Primary: Start Live Session */}
+            <button
+              onClick={() => {
+                setActiveSession(savedQuiz)
+                router.push('/host/session')
+              }}
+              className="w-full py-4 text-white font-bold text-lg rounded-xl hover:opacity-90 transition-opacity"
+              style={{ background: 'var(--brand-gradient)', fontFamily: 'var(--font-heading)' }}
+            >
+              Start Live Session
+            </button>
+
+            {/* Secondary actions */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => router.push('/host')}
+                className="py-3 text-sm font-semibold rounded-xl border-2 border-gray-200 text-gray-600 hover:border-gray-300 transition-colors"
+              >
+                Go to Dashboard
+              </button>
+              <button
+                onClick={() => {
+                  const url = `${window.location.origin}/join`
+                  navigator.clipboard.writeText(url)
+                  const btn = document.activeElement as HTMLButtonElement
+                  if (btn) { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy Join Link' }, 1500) }
+                }}
+                className="py-3 text-sm font-semibold rounded-xl border-2 transition-colors"
+                style={{ borderColor: '#DBEAFE', color: 'var(--color-primary)' }}
+              >
+                Copy Join Link
+              </button>
+            </div>
+
+            {/* Edit again link */}
+            <button
+              onClick={() => setSavedQuiz(null)}
+              className="w-full text-center text-sm text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              Continue editing
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

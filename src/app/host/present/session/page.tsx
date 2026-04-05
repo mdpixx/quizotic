@@ -607,9 +607,11 @@ export default function PresentSessionPage() {
     } catch { setPhase('error') }
   }, [])
 
-  // Connect socket once presentation is loaded
+  // Connect socket ONCE after presentation is loaded
+  const socketInitialized = useRef(false)
   useEffect(() => {
-    if (!presentation) return
+    if (!presentation || socketInitialized.current) return
+    socketInitialized.current = true
     const socket = io()
     socketRef.current = socket
 
