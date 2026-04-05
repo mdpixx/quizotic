@@ -16,8 +16,15 @@ model User {
   email         String    @unique
   emailVerified DateTime?
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  role             String?   // teacher, trainer, student, hr, manager, other
+  orgType          String?   // school, college, coaching, corporate, government, other
+  organization     String?   // school/company name
+  onboarded        Boolean   @default(false)
+  referralCode     String?   @unique // "mahesh-k7x2"
+  referredByCode   String?           // code used at signup
+  discoveryChannel String?           // "google" | "social" | "friend" | "event" | "other"
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   accounts      Account[]
   sessions      Session[]
@@ -27,6 +34,8 @@ model User {
   quizzes       Quiz[]
   presentations Presentation[]
   gameSessions  GameSession[]
+  referralsGiven    Referral[] @relation("referrals_given")
+  referralsReceived Referral[] @relation("referrals_received")
 }
 
 // ─── NextAuth Account (OAuth providers) ─────────────────────────
@@ -173,4 +182,22 @@ model GameSession {
   user         User?         @relation(fields: [userId], references: [id])
 
   @@index([userId])
+}
+
+// ─── Referral (reward tracking) ─────────────────────────────────
+model Referral {
+  id          String    @id @default(cuid())
+  referrerId  String    // user who shared the code
+  refereeId   String    // user who signed up
+  status      String    @default("pending") // "pending" | "completed" | "rewarded"
+  rewardType  String?   // "ai_credits"
+  rewardValue Int?      // e.g., 10 (bonus AI credits)
+  rewardedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  referrer User @relation("referrals_given", fields: [referrerId], references: [id], onDelete: Cascade)
+  referee  User @relation("referrals_received", fields: [refereeId], references: [id], onDelete: Cascade)
+
+  @@unique([referrerId, refereeId])
+  @@index([referrerId])
 }

@@ -3,6 +3,8 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth-helpers'
+import { getUserPlan } from '@/lib/billing'
+import { PLAN_LIMITS } from '@/lib/limits'
 
 // GET /api/presentations — list presentations for current user
 export async function GET() {
@@ -34,12 +36,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'title and slides are required' }, { status: 400 })
     }
 
+    // Enforce slide count limit
+    const plan = await getUserPlan(user.id)
+    const maxSlides = PLAN_LIMITS[plan].maxSlidesPerPresentation
+    if (Array.isArray(slides) && maxSlides !== Infinity && slides.length > maxSlides) {
+      return NextResponse.json({
+        success: false,
+        error: `Free plan allows up to ${maxSlides} slides per presentation. ${plan === 'free' ? 'Upgrade to Pro for unlimited slides.' : ''}`,
+      }, { status: 403 })
+    }
+
     let presentation
     if (id) {
       const existing = await prisma.presentation.findFirst({ where: { id, userId: user.id } })
       if (!existing) return NextResponse.json({ success: false, error: 'Presentation not found' }, { status: 404 })
       presentation = await prisma.presentation.update({ where: { id }, data: { title, slides } })
     } else {
+      // Check saved presentation limit
+      const maxSaved = PLAN_LIMITS[plan].maxSavedPresentations
+      if (maxSaved !== Infinity) {
+        const count = await prisma.presentation.count({ where: { userId: user.id } })
+        if (count >= maxSaved) {
+          return NextResponse.json({
+            success: false,
+            error: `You've reached the limit of ${maxSaved} saved presentations. ${plan === 'free' ? 'Upgrade to Pro for unlimited presentations.' : 'Delete some presentations to save new ones.'}`,
+          }, { status: 403 })
+        }
+      }
       presentation = await prisma.presentation.create({ data: { title, slides, userId: user.id } })
     }
 

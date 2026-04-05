@@ -27,8 +27,9 @@ if (process.env.DATABASE_URL) {
   dbPool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 5 })
 }
 
-async function persistGameSession({ code, type, quizId, presentationId, userId, hostName, status, participantCount, results }) {
+async function persistGameSession(data, attempt = 1) {
   if (!dbPool) return
+  const { code, type, quizId, presentationId, userId, hostName, status, participantCount, results } = data
   try {
     await dbPool.query(
       `INSERT INTO "GameSession" (id, code, type, "quizId", "presentationId", "userId", "hostName", status, "participantCount", results, "createdAt", "endedAt")
@@ -37,8 +38,19 @@ async function persistGameSession({ code, type, quizId, presentationId, userId, 
     )
     console.log(`[db] persisted ${type} session: ${code}`)
   } catch (err) {
-    console.error('[db] session persist failed:', err.message)
+    console.error(`[db] session persist failed (attempt ${attempt}):`, err.message)
+    if (attempt < 3) {
+      setTimeout(() => persistGameSession(data, attempt + 1), attempt * 2000)
+    }
   }
+}
+
+async function getHostName(userId) {
+  if (!dbPool || !userId) return null
+  try {
+    const result = await dbPool.query(`SELECT name FROM "User" WHERE id = $1 LIMIT 1`, [userId])
+    return result.rows[0]?.name || null
+  } catch { return null }
 }
 
 async function getHostPlan(userId) {
@@ -116,7 +128,7 @@ app.prepare().then(() => {
 
     // ─── HOST EVENTS ───────────────────────────────────────────────
 
-    socket.on('create_session', ({ quizData, sessionMode, anonymousMode, teamMode, teamCount }, callback) => {
+    socket.on('create_session', async ({ quizData, sessionMode, anonymousMode, teamMode, teamCount }, callback) => {
       if (sessions.size >= MAX_CONCURRENT_SESSIONS) {
         callback({ success: false, error: 'Server capacity reached. Try again in a few minutes.' })
         return
@@ -127,6 +139,8 @@ app.prepare().then(() => {
       const teamNames = ['Red', 'Blue', 'Green', 'Yellow', 'Purple', 'Orange']
       const teamColors = ['#EF4444', '#3B82F6', '#16A34A', '#EAB308', '#7C3AED', '#F97316']
       const numTeams = Math.min(Math.max(teamCount ?? 2, 2), 6)
+
+      const hostName = await getHostName(socket.data.userId)
 
       sessions.set(gameCode, {
         hostSocketId: socket.id,
@@ -142,6 +156,7 @@ app.prepare().then(() => {
         teamColors: teamColors.slice(0, numTeams),
         teamJoinCounter: 0,
         userId: socket.data.userId || null,
+        hostName,
         hostPlan: null,
         startedAt: Date.now(),
       })
@@ -188,14 +203,14 @@ app.prepare().then(() => {
         socket.to(`session:${gameCode}`).emit('session_ended', { leaderboard, teamLeaderboard, sessionMode: session.sessionMode })
         console.log(`[session] ended: ${gameCode}`)
 
-        // Persist to DB (fire-and-forget)
+        // Persist to DB (with retry)
         persistGameSession({
           code: gameCode,
           type: 'quiz',
           quizId: session.quizData.id || null,
           presentationId: null,
           userId: session.userId,
-          hostName: null,
+          hostName: session.hostName || null,
           status: 'ended',
           participantCount: session.participants.size,
           results: {
@@ -237,14 +252,14 @@ app.prepare().then(() => {
       socket.to(`session:${gameCode}`).emit('session_ended', { leaderboard, teamLeaderboard, sessionMode: session.sessionMode })
       console.log(`[session] force-ended: ${gameCode}`)
 
-      // Persist to DB (fire-and-forget)
+      // Persist to DB (with retry)
       persistGameSession({
         code: gameCode,
         type: 'quiz',
         quizId: session.quizData.id || null,
         presentationId: null,
         userId: session.userId,
-        hostName: null,
+        hostName: session.hostName || null,
         status: 'ended',
         participantCount: session.participants.size,
         results: {
@@ -263,13 +278,15 @@ app.prepare().then(() => {
 
     // ─── PRESENTER MODE EVENTS ─────────────────────────────────────
 
-    socket.on('create_presenter_session', ({ presentationData }, callback) => {
+    socket.on('create_presenter_session', async ({ presentationData }, callback) => {
       if (sessions.size >= MAX_CONCURRENT_SESSIONS) {
         callback({ success: false, error: 'Server capacity reached. Try again in a few minutes.' })
         return
       }
       let gameCode = generateGameCode()
       while (sessions.has(gameCode)) gameCode = generateGameCode()
+
+      const presenterHostName = await getHostName(socket.data.userId)
 
       sessions.set(gameCode, {
         hostSocketId: socket.id,
@@ -281,6 +298,8 @@ app.prepare().then(() => {
         // Per-slide aggregates keyed by slideIndex
         aggregates: {},
         userId: socket.data.userId || null,
+        hostPlan: null, // lazy-loaded on first participant join
+        hostName: presenterHostName,
         startedAt: Date.now(),
       })
 
@@ -377,14 +396,14 @@ app.prepare().then(() => {
 
       io.to(`session:${gameCode}`).emit('presenter_ended')
 
-      // Persist to DB (fire-and-forget)
+      // Persist to DB (with retry)
       persistGameSession({
         code: gameCode,
         type: 'presentation',
         quizId: null,
         presentationId: session.presentationData.id || null,
         userId: session.userId,
-        hostName: null,
+        hostName: session.hostName || null,
         status: 'ended',
         participantCount: session.participants.size,
         results: {
@@ -407,6 +426,16 @@ app.prepare().then(() => {
       }
       if (session.status === 'ended') {
         callback({ success: false, error: 'Session has ended.' })
+        return
+      }
+
+      // Participant limit check for presenter sessions
+      if (session.hostPlan === null) {
+        session.hostPlan = await getHostPlan(session.userId)
+      }
+      const presenterMaxP = session.hostPlan === 'pro' ? Infinity : 50
+      if (session.participants.size >= presenterMaxP) {
+        callback({ success: false, error: 'This session is full (max 50 participants on Free plan). The host can upgrade to Pro for unlimited participants.' })
         return
       }
 
@@ -513,9 +542,9 @@ app.prepare().then(() => {
         session.hostPlan = await getHostPlan(session.userId)
       }
       const hostPlan = session.hostPlan
-      const maxParticipants = hostPlan === 'pro' ? Infinity : 10
+      const maxParticipants = hostPlan === 'pro' ? Infinity : 50
       if (session.participants.size >= maxParticipants) {
-        callback({ success: false, error: 'This session is full (max 10 participants). The host can upgrade to Pro for unlimited participants.' })
+        callback({ success: false, error: 'This session is full (max 50 participants on Free plan). The host can upgrade to Pro for unlimited participants.' })
         return
       }
 

@@ -123,8 +123,30 @@ export default function SessionPage() {
     return () => { socket.disconnect() }
   }, [quiz])
 
-  function createSession() {
+  async function createSession() {
     if (!quiz) return
+
+    // Ensure quiz is persisted to DB before creating session (so GameSession.quizId is valid)
+    try {
+      const res = await fetch('/api/quizzes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: quiz.id,
+          title: quiz.title,
+          subject: quiz.subject,
+          language: quiz.language,
+          questions: quiz.questions,
+        }),
+      })
+      if (res.ok) {
+        const { data } = await res.json()
+        if (data?.id) setQuiz(prev => prev ? { ...prev, id: data.id } : prev)
+      }
+    } catch {
+      // DB save failed — proceed anyway, session will work but quizId may be orphaned
+    }
+
     socketRef.current?.emit('create_session', { quizData: quiz, sessionMode, anonymousMode, teamMode, teamCount }, (res: { success: boolean; gameCode: string }) => {
       if (res.success) {
         setGameCode(res.gameCode)

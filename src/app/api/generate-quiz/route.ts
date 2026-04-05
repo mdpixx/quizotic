@@ -5,7 +5,7 @@ import OpenAI from 'openai'
 import dns from 'dns/promises'
 import { getCurrentUser } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
-import { getUserPlan } from '@/lib/billing'
+import { getUserPlan, getReferralBonusCredits } from '@/lib/billing'
 import { PLAN_LIMITS } from '@/lib/limits'
 
 const PRIVATE_IP_PATTERNS = [
@@ -27,41 +27,76 @@ const client = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY ?? '',
 })
 
-const MODEL = process.env.QUIZ_AI_MODEL ?? 'google/gemini-2.5-flash-preview-05-20'
+const MODEL = process.env.QUIZ_AI_MODEL ?? 'google/gemini-2.0-flash-001'
 
 const SYSTEM_PROMPT = `You are a quiz generator. Return only valid JSON — no markdown, no explanation, no code fences.`
 
-function buildUserPrompt(text: string, questionCount: number, difficulty: string): string {
-  return `Generate ${questionCount} ${difficulty} quiz questions based on the following content.
-
-Return a JSON array. Each item must have exactly this shape:
-{
-  "type": "mcq",
-  "text": "Who was the first Prime Minister of India?",
-  "options": ["Mahatma Gandhi", "Jawaharlal Nehru", "Sardar Patel", "B.R. Ambedkar"],
-  "correctAnswer": "1",
-  "timerSeconds": 20,
-  "points": 1000
+interface TypeMix {
+  mcq?: number
+  truefalse?: number
+  poll?: number
+  openended?: number
 }
 
+function buildUserPrompt(text: string, questionCount: number, difficulty: string, typeMix?: TypeMix): string {
+  // Build type breakdown instructions
+  const mcq = typeMix?.mcq ?? questionCount
+  const tf = typeMix?.truefalse ?? 0
+  const poll = typeMix?.poll ?? 0
+  const open = typeMix?.openended ?? 0
+
+  let typeInstructions = ''
+  const examples: string[] = []
+
+  if (mcq > 0) {
+    typeInstructions += `\n- ${mcq} MCQ questions: type "mcq", exactly 4 options, "correctAnswer" is a string index ("0","1","2","3")`
+    examples.push(`{"type":"mcq","text":"Who discovered gravity?","options":["Einstein","Newton","Galileo","Kepler"],"correctAnswer":"1","timerSeconds":20,"points":1000}`)
+  }
+  if (tf > 0) {
+    typeInstructions += `\n- ${tf} True/False questions: type "truefalse", options must be exactly ["True","False"], "correctAnswer" is "0" (True) or "1" (False)`
+    examples.push(`{"type":"truefalse","text":"The Earth revolves around the Sun.","options":["True","False"],"correctAnswer":"0","timerSeconds":15,"points":1000}`)
+  }
+  if (poll > 0) {
+    typeInstructions += `\n- ${poll} Poll questions: type "poll", exactly 4 opinion-based options, NO "correctAnswer" field`
+    examples.push(`{"type":"poll","text":"Which subject do you enjoy most?","options":["Science","Mathematics","History","Literature"],"timerSeconds":20,"points":0}`)
+  }
+  if (open > 0) {
+    typeInstructions += `\n- ${open} Open-ended questions: type "openended", NO "options" field, NO "correctAnswer" field`
+    examples.push(`{"type":"openended","text":"Explain the significance of the French Revolution in your own words.","timerSeconds":60,"points":1000}`)
+  }
+
+  return `Generate exactly ${questionCount} ${difficulty} quiz questions based on the following content.
+
+Return a JSON array with exactly ${questionCount} items in this breakdown:${typeInstructions}
+
+Examples of each type:
+${examples.map(e => e).join('\n')}
+
 Rules:
-- "correctAnswer" is always a string index into the options array ("0", "1", "2", or "3")
 - "timerSeconds" must be one of: 10, 15, 20, 30, 60
-- "points" must be one of: 500, 1000, 2000
-- All questions must be MCQ with exactly 4 options
+- "points" must be one of: 0, 500, 1000, 2000 (use 0 only for poll type)
 - Each option must be a complete, meaningful answer — never blank, never a placeholder like "Option A"
+- Never reference the source material in questions. Don't say "according to the passage", "based on the content", "extracted from", "as mentioned in", "from the text", etc. Write each question as a standalone knowledge question.
 - Return nothing except the JSON array
 
 Content:
 ${text}`
 }
 
-async function callModel(prompt: string, questionCount: number, difficulty: string): Promise<unknown[]> {
+function buildSimplePrompt(text: string, questionCount: number, difficulty: string): string {
+  return buildUserPrompt(text, questionCount, difficulty, { mcq: questionCount })
+}
+
+async function callModel(contentText: string, questionCount: number, difficulty: string, typeMix?: TypeMix): Promise<unknown[]> {
+  const prompt = typeMix
+    ? buildUserPrompt(contentText, questionCount, difficulty, typeMix)
+    : buildSimplePrompt(contentText, questionCount, difficulty)
+
   const response = await client.chat.completions.create({
     model: MODEL,
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: buildUserPrompt(prompt, questionCount, difficulty) },
+      { role: 'user', content: prompt },
     ],
   })
 
@@ -76,40 +111,71 @@ function validateQuestions(data: unknown): boolean {
   return data.every((q: unknown) => {
     if (typeof q !== 'object' || q === null) return false
     const item = q as Record<string, unknown>
-    return (
-      typeof item.text === 'string' && item.text.trim().length > 0 &&
-      Array.isArray(item.options) &&
-      item.options.length >= 2 &&
-      (item.options as unknown[]).every((o: unknown) => typeof o === 'string' && (o as string).trim().length > 0) &&
-      typeof item.correctAnswer === 'string' &&
-      typeof item.timerSeconds === 'number' &&
-      typeof item.points === 'number'
-    )
+    const type = item.type as string
+
+    // Common validations
+    if (typeof item.text !== 'string' || item.text.trim().length === 0) return false
+    if (typeof item.timerSeconds !== 'number') return false
+    if (typeof item.points !== 'number') return false
+
+    // Type-specific validations
+    if (type === 'mcq') {
+      return Array.isArray(item.options) && item.options.length >= 2 &&
+        (item.options as unknown[]).every((o: unknown) => typeof o === 'string' && (o as string).trim().length > 0) &&
+        typeof item.correctAnswer === 'string'
+    }
+    if (type === 'truefalse') {
+      return Array.isArray(item.options) && item.options.length === 2 &&
+        typeof item.correctAnswer === 'string'
+    }
+    if (type === 'poll') {
+      return Array.isArray(item.options) && item.options.length >= 2 &&
+        (item.options as unknown[]).every((o: unknown) => typeof o === 'string' && (o as string).trim().length > 0)
+    }
+    if (type === 'openended') {
+      return true // text + timer + points is enough
+    }
+
+    // Fallback: accept MCQ-shaped (backwards compat)
+    return Array.isArray(item.options) && item.options.length >= 2 &&
+      typeof item.correctAnswer === 'string'
   })
 }
 
 export async function POST(req: NextRequest) {
+  if (!process.env.OPENROUTER_API_KEY) {
+    console.error('[generate-quiz] OPENROUTER_API_KEY is not configured')
+    return NextResponse.json({ error: 'AI generation is temporarily unavailable' }, { status: 503 })
+  }
+
   const user = await getCurrentUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // AI rate limiting (parallel queries)
+  // AI rate limiting — proportional (count questions, not calls)
   const startOfMonth = new Date()
   startOfMonth.setDate(1)
   startOfMonth.setHours(0, 0, 0, 0)
 
-  const [plan, usageCount] = await Promise.all([
+  const [plan, usageLogs] = await Promise.all([
     getUserPlan(user.id),
-    prisma.usageLog.count({
-      where: { userId: user.id, action: 'ai_generate', createdAt: { gte: startOfMonth } },
+    prisma.usageLog.findMany({
+      where: { userId: user.id, action: { in: ['ai_generate', 'ai_translate'] }, createdAt: { gte: startOfMonth } },
+      select: { metadata: true },
     }),
   ])
 
-  const limit = PLAN_LIMITS[plan].maxAiGenerations
-  if (usageCount >= limit) {
+  const questionsUsed = usageLogs.reduce((sum, log) => {
+    const meta = log.metadata as Record<string, unknown> | null
+    return sum + (typeof meta?.questionCount === 'number' ? meta.questionCount : 5)
+  }, 0)
+
+  const bonusCredits = await getReferralBonusCredits(user.id)
+  const limit = PLAN_LIMITS[plan].maxAiQuestions + bonusCredits
+  if (questionsUsed >= limit) {
     return NextResponse.json({
-      error: `You've used all ${limit} AI generations this month. ${plan === 'free' ? 'Upgrade to Pro for 30/month.' : 'Limit resets next month.'}`,
+      error: `You've used all ${limit} AI question credits this month (${questionsUsed}/${limit}). ${plan === 'free' ? 'Upgrade to Pro for 750 AI questions per month.' : 'Limit resets next month.'}`,
     }, { status: 429 })
   }
 
@@ -118,6 +184,9 @@ export async function POST(req: NextRequest) {
   let questionCount = 5
   let difficulty = 'medium'
   let contentText = ''
+  let typeMix: TypeMix | undefined
+  let mode = 'document'
+  let topicOrUrl: string | null = null
   const maxQ = PLAN_LIMITS[plan].maxQuestionsPerGeneration
 
   try {
@@ -127,6 +196,10 @@ export async function POST(req: NextRequest) {
       const file = formData.get('file') as File | null
       questionCount = Number(formData.get('questionCount') ?? 5)
       difficulty = (formData.get('difficulty') as string) ?? 'medium'
+      const typeMixStr = formData.get('typeMix') as string | null
+      if (typeMixStr) {
+        try { typeMix = JSON.parse(typeMixStr) } catch { /* use default */ }
+      }
 
       if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
       if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: 'File must be under 5MB' }, { status: 400 })
@@ -150,15 +223,18 @@ export async function POST(req: NextRequest) {
     // ── JSON modes (topic / url) ───────────────────────────────────────────────
     else {
       const body = await req.json()
-      const mode: string = body.mode
+      mode = body.mode ?? 'topic'
       questionCount = body.questionCount ?? 5
       difficulty = body.difficulty ?? 'medium'
+      typeMix = body.typeMix as TypeMix | undefined
 
       if (mode === 'topic') {
         if (!body.topic) return NextResponse.json({ error: 'Topic is required' }, { status: 400 })
         contentText = `Topic: ${body.topic}`
+        topicOrUrl = body.topic?.slice(0, 100) || null
       } else if (mode === 'url') {
         const url: string = body.url ?? ''
+        topicOrUrl = url.slice(0, 200)
         if (!url.startsWith('https://')) {
           return NextResponse.json({ error: 'Only https:// URLs are supported' }, { status: 400 })
         }
@@ -189,13 +265,15 @@ export async function POST(req: NextRequest) {
     // ── Call model, validate, retry once on bad JSON ───────────────────────────
     let questions: unknown[]
     try {
-      questions = await callModel(contentText, questionCount, difficulty)
-    } catch {
+      questions = await callModel(contentText, questionCount, difficulty, typeMix)
+    } catch (err) {
+      console.error('[generate-quiz] first attempt failed:', err instanceof Error ? err.message : err)
       // Retry once
       try {
-        questions = await callModel(contentText, questionCount, difficulty)
-      } catch {
-        return NextResponse.json({ error: 'Generation failed' }, { status: 500 })
+        questions = await callModel(contentText, questionCount, difficulty, typeMix)
+      } catch (retryErr) {
+        console.error('[generate-quiz] retry failed:', retryErr instanceof Error ? retryErr.message : retryErr)
+        return NextResponse.json({ error: 'Generation failed — please try again' }, { status: 500 })
       }
     }
 
@@ -205,8 +283,19 @@ export async function POST(req: NextRequest) {
 
     // Log usage
     await prisma.usageLog.create({
-      data: { userId: user.id, action: 'ai_generate', metadata: { model: MODEL, questionCount } },
-    }).catch(() => {}) // non-blocking
+      data: {
+        userId: user.id,
+        action: 'ai_generate',
+        metadata: {
+          model: MODEL,
+          questionCount,
+          difficulty,
+          mode,
+          typeMix: typeMix ? { ...typeMix } : null,
+          topic: topicOrUrl,
+        },
+      },
+    }).catch(err => console.error('[usage-log] failed to record:', err.message))
 
     return NextResponse.json(questions)
   } catch (err) {

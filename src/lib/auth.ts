@@ -3,6 +3,7 @@ import Google from 'next-auth/providers/google'
 import Resend from 'next-auth/providers/resend'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import { prisma } from '@/lib/prisma'
+import { createUniqueReferralCode } from '@/lib/referral'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -24,6 +25,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         })]
       : []),
   ],
+  events: {
+    async createUser({ user }) {
+      if (user.id && user.name) {
+        const code = await createUniqueReferralCode(user.name)
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { referralCode: code },
+        })
+      }
+    },
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (user?.id) {

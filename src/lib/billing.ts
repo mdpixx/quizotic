@@ -14,6 +14,17 @@ export async function getUserPlan(userId: string): Promise<Plan> {
   return 'free'
 }
 
+/**
+ * Get bonus AI credits earned from referrals (10 per referral, max 100).
+ */
+export async function getReferralBonusCredits(userId: string): Promise<number> {
+  const result = await prisma.referral.aggregate({
+    where: { referrerId: userId, status: 'rewarded' },
+    _sum: { rewardValue: true },
+  })
+  return Math.min(result._sum.rewardValue ?? 0, 100)
+}
+
 export const PRICES = {
   stripe: {
     monthly: process.env.STRIPE_PRICE_MONTHLY ?? '',

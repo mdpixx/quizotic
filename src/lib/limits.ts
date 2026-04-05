@@ -1,9 +1,11 @@
 export const PLAN_LIMITS = {
   free: {
-    maxParticipants: 10,
-    maxAiGenerations: 3,     // per month
+    maxParticipants: 50,
+    maxAiQuestions: 30,      // AI-generated questions per month (proportional)
     maxQuestionsPerGeneration: 10,
     maxSavedQuizzes: 5,
+    maxSavedPresentations: 3,
+    maxSlidesPerPresentation: 10,
     maxSessionHistory: 3,
     pdfExport: false,
     csvExport: false,
@@ -12,9 +14,11 @@ export const PLAN_LIMITS = {
   },
   pro: {
     maxParticipants: Infinity,
-    maxAiGenerations: 30,    // per month
+    maxAiQuestions: 750,     // AI-generated questions per month (proportional)
     maxQuestionsPerGeneration: 25,
     maxSavedQuizzes: Infinity,
+    maxSavedPresentations: Infinity,
+    maxSlidesPerPresentation: Infinity,
     maxSessionHistory: 50,
     pdfExport: true,
     csvExport: true,

@@ -41,7 +41,7 @@ export function HostNav() {
             Q
           </div>
           <span className="text-lg font-black tracking-tight" style={{ fontFamily: 'var(--font-heading)', color: '#1B2559' }}>
-            Quizo<span style={{ color: '#4361EE' }}>tic</span>
+            Quizo<span style={{ color: '#4361EE' }}>tic</span><span className="text-[10px] font-bold tracking-wide ml-0.5" style={{ color: '#9CA3AF', verticalAlign: 'super' }}>.live</span>
           </span>
         </Link>
 
@@ -51,7 +51,7 @@ export function HostNav() {
             Dashboard
           </Link>
           <Link href="/host/billing" className="text-sm font-semibold transition-colors hover:text-[#4361EE]" style={{ color: '#4A5568' }}>
-            Billing
+            Pricing
           </Link>
           <Link href="/join" className="text-sm font-semibold transition-colors hover:text-[#4361EE]" style={{ color: '#4A5568' }}>
             Join Quiz
@@ -112,7 +112,7 @@ export function HostNav() {
                     <Link href="/host/billing" onClick={() => setMenuOpen(false)}
                       className="block px-4 py-2 text-sm font-medium transition-colors hover:bg-blue-50"
                       style={{ color: '#4A5568' }}>
-                      Billing
+                      Pricing
                     </Link>
                   </div>
 

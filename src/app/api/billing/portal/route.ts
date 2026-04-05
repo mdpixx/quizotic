@@ -32,5 +32,14 @@ export async function POST() {
     return NextResponse.json({ cancelled: true })
   }
 
+  // Manual / admin-granted subscriptions — cancel immediately
+  if (sub.provider === 'manual') {
+    await prisma.subscription.update({
+      where: { userId: user.id },
+      data: { status: 'cancelled', cancelledAt: new Date() },
+    })
+    return NextResponse.json({ cancelled: true })
+  }
+
   return NextResponse.json({ error: 'Unable to manage subscription' }, { status: 400 })
 }

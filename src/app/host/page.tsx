@@ -70,10 +70,10 @@ function StatCard({ value, label, sub, color }: {
 }) {
   return (
     <div className="rounded-2xl p-5 border" style={{ background: '#fff', borderColor: '#DBEAFE' }}>
-      <p className="text-3xl font-black mb-1" style={{ fontFamily: 'var(--font-heading)', color }}>
+      <p className="text-4xl font-black mb-1" style={{ fontFamily: 'var(--font-heading)', color }}>
         {value}
       </p>
-      <p className="text-base font-semibold" style={{ color: '#1E1B4B' }}>{label}</p>
+      <p className="text-lg font-semibold" style={{ color: '#1E1B4B' }}>{label}</p>
       {sub && <p className="text-sm mt-0.5" style={{ color: '#9CA3AF' }}>{sub}</p>}
     </div>
   )
@@ -148,13 +148,57 @@ export default function HostDashboardPage() {
   const [presentations, setPresentations] = useState<PresentationRecord[]>([])
   const [search, setSearch] = useState('')
   const [bannerDismissed, setBannerDismissed] = useState(false)
+  const [referralCode, setReferralCode] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [referralStats, setReferralStats] = useState<{ referralCount: number; bonusCredits: number } | null>(null)
 
   useEffect(() => {
-    setQuizzes(loadQuizzes())
+    // Load from localStorage first (instant)
+    const localQuizzes = loadQuizzes()
+    setQuizzes(localQuizzes)
     setSessions(loadSessions())
     setPresentationSessions(loadPresentationSessions())
     setPresentations(loadPresentations())
     setBannerDismissed(localStorage.getItem('quizotic_welcome_dismissed') === 'true')
+
+    // Then fetch from DB and merge (DB is source of truth)
+    fetch('/api/quizzes')
+      .then(r => r.json())
+      .then(res => {
+        if (!res.success || !res.data) return
+        const dbQuizzes: Quiz[] = res.data
+        const localMap = new Map(localQuizzes.map(q => [q.id, q]))
+        const merged = new Map<string, Quiz>()
+
+        // DB quizzes take priority
+        for (const q of dbQuizzes) {
+          merged.set(q.id, localMap.get(q.id) ?? q)
+        }
+        // Add any localStorage-only quizzes (not yet synced to DB)
+        for (const q of localQuizzes) {
+          if (!merged.has(q.id)) merged.set(q.id, q)
+        }
+
+        const result = Array.from(merged.values())
+        setQuizzes(result)
+      })
+      .catch(() => {}) // DB fetch failed — localStorage copy already loaded
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/user/referral-code')
+      .then(r => r.json())
+      .then(d => { if (d.code) setReferralCode(d.code) })
+      .catch(() => {})
+    fetch('/api/user/referral-stats')
+      .then(r => r.json())
+      .then(d => { if (typeof d.referralCount === 'number') setReferralStats(d) })
+      .catch(() => {})
+    fetch('/api/admin/check')
+      .then(r => r.json())
+      .then(d => setIsAdmin(d.isAdmin === true))
+      .catch(() => {})
   }, [])
 
   function dismissBanner() {
@@ -165,6 +209,8 @@ export default function HostDashboardPage() {
   function handleDelete(id: string) {
     deleteQuiz(id)
     setQuizzes(loadQuizzes())
+    // Also delete from DB
+    fetch(`/api/quizzes/${id}`, { method: 'DELETE' }).catch(() => {})
   }
 
   function handleStart(quiz: Quiz) {
@@ -274,51 +320,137 @@ export default function HostDashboardPage() {
           <StatCard value={totalPlayers + presentationSessions.reduce((s, r) => s + r.participantCount, 0)} label="Participants" sub="total across sessions" color="#16A34A" />
         </div>
 
-        {/* Quick actions */}
+        {/* Quick actions — 2 hero cards + 2 secondary */}
         <div>
-          <h2 className="text-base font-bold mb-3 uppercase tracking-wider" style={{ color: '#a8a29e' }}>
-            quick actions
+          <h2 className="text-lg font-bold mb-4 uppercase tracking-wider" style={{ color: '#a8a29e' }}>
+            create something
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {[
-              {
-                icon: '✦', title: 'Create with AI', desc: 'Paste a URL or topic — AI builds the quiz',
-                action: () => router.push('/host/create?tab=ai-topic'),
-                bg: 'var(--brand-gradient)', titleColor: '#fff', descColor: 'rgba(255,255,255,0.75)',
-              },
-              {
-                icon: '▶', title: 'Create Presentation', desc: 'Mentimeter-style live slides with audience polls',
-                action: () => router.push('/host/present/create'),
-                bg: 'linear-gradient(135deg,#F0F4FF,#FFF5F5)', titleColor: '#4361EE', descColor: '#9CA3AF',
-              },
-              {
-                icon: '✏', title: 'Blank quiz', desc: 'Start from scratch with your own questions',
-                action: () => router.push('/host/create'),
-                bg: '#FAFAFE', titleColor: '#1E1B4B', descColor: '#6B7280',
-              },
-              {
-                icon: '★', title: 'Join a game', desc: 'Enter a code to join a live quiz as a player',
-                action: () => router.push('/join'),
-                bg: '#FEF3C7', titleColor: '#1E1B4B', descColor: '#92400E',
-              },
-            ].map(item => (
-              <button key={item.title} onClick={item.action}
-                className="rounded-2xl p-6 text-left transition-all hover:-translate-y-1 hover:shadow-xl active:scale-[0.98]"
-                style={{ background: item.bg }}>
-                <span className="text-3xl mb-3 block" style={{ fontFamily: 'var(--font-heading)', fontSize: 24 }}>{item.icon}</span>
-                <p className="font-black text-base mb-1" style={{ color: item.titleColor, fontFamily: 'var(--font-heading)' }}>{item.title}</p>
-                <p className="text-sm font-medium" style={{ color: item.descColor }}>{item.desc}</p>
-              </button>
-            ))}
+
+          {/* Hero cards — Quiz + Presentation */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            {/* Create Quiz */}
+            <div className="rounded-2xl p-6 sm:p-8" style={{ background: 'linear-gradient(135deg, #4361EE, #7C3AED)' }}>
+              <p className="text-3xl mb-2">🎯</p>
+              <h3 className="text-xl font-black mb-1 text-white" style={{ fontFamily: 'var(--font-heading)' }}>
+                Create Quiz
+              </h3>
+              <p className="text-base font-medium mb-5" style={{ color: 'rgba(255,255,255,0.75)' }}>
+                Test knowledge with interactive MCQs, true/false & more
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button onClick={() => router.push('/host/create?tab=ai-topic')}
+                  className="flex-1 py-2.5 px-4 rounded-xl text-sm font-bold transition-all hover:scale-[1.03] active:scale-[0.97]"
+                  style={{ background: 'rgba(255,255,255,0.95)', color: '#4361EE' }}>
+                  ✦ AI from Topic / URL
+                </button>
+                <button onClick={() => router.push('/host/create')}
+                  className="flex-1 py-2.5 px-4 rounded-xl text-sm font-bold transition-all hover:scale-[1.03] active:scale-[0.97]"
+                  style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1.5px solid rgba(255,255,255,0.4)' }}>
+                  Blank Quiz
+                </button>
+              </div>
+            </div>
+
+            {/* Create Presentation */}
+            <div className="rounded-2xl p-6 sm:p-8" style={{ background: 'linear-gradient(135deg, #FF6B6B, #F59E0B)' }}>
+              <p className="text-3xl mb-2">📊</p>
+              <h3 className="text-xl font-black mb-1 text-white" style={{ fontFamily: 'var(--font-heading)' }}>
+                Create Presentation
+              </h3>
+              <p className="text-base font-medium mb-5" style={{ color: 'rgba(255,255,255,0.75)' }}>
+                Live polls, word clouds, Q&A & audience interaction slides
+              </p>
+              <div className="flex gap-2">
+                <button onClick={() => router.push('/host/present/create')}
+                  className="w-full py-2.5 px-4 rounded-xl text-sm font-bold transition-all hover:scale-[1.03] active:scale-[0.97]"
+                  style={{ background: 'rgba(255,255,255,0.95)', color: '#FF6B6B' }}>
+                  + Create Presentation
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Secondary cards */}
+          <div className="grid grid-cols-2 gap-4">
+            <button onClick={() => router.push('/join')}
+              className="rounded-2xl p-5 text-left transition-all hover:-translate-y-1 hover:shadow-lg active:scale-[0.98] border"
+              style={{ background: '#FEF3C7', borderColor: '#FDE68A' }}>
+              <p className="text-2xl mb-2">🎮</p>
+              <p className="text-lg font-black" style={{ color: '#1E1B4B', fontFamily: 'var(--font-heading)' }}>Join a Game</p>
+              <p className="text-sm font-medium" style={{ color: '#92400E' }}>Enter a code to play</p>
+            </button>
+            <button onClick={() => router.push('/host/templates')}
+              className="rounded-2xl p-5 text-left transition-all hover:-translate-y-1 hover:shadow-lg active:scale-[0.98] border"
+              style={{ background: '#F3E8FF', borderColor: '#DDD6FE' }}>
+              <p className="text-2xl mb-2">📚</p>
+              <p className="text-lg font-black" style={{ color: '#1E1B4B', fontFamily: 'var(--font-heading)' }}>Templates</p>
+              <p className="text-sm font-medium" style={{ color: '#7C3AED' }}>8 ready-made quiz templates</p>
+            </button>
           </div>
         </div>
+
+        {/* Referral share card */}
+        {referralCode && (
+          <div className="rounded-2xl border p-5"
+            style={{ background: 'linear-gradient(135deg, #F0F4FF 0%, #FEF3C7 100%)', borderColor: '#DBEAFE' }}>
+            <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xl">🎁</span>
+                  <p className="text-base font-bold" style={{ color: '#1E1B4B' }}>
+                    Invite & Earn AI Credits
+                  </p>
+                </div>
+                <p className="text-sm mb-2" style={{ color: '#374151' }}>
+                  Earn <strong>10 bonus AI credits</strong> for every colleague who signs up. Up to 100 bonus credits.
+                </p>
+                {referralStats && referralStats.referralCount > 0 && (
+                  <div className="flex gap-4 mb-2">
+                    <span className="text-sm font-semibold" style={{ color: '#4361EE' }}>
+                      {referralStats.referralCount} referral{referralStats.referralCount !== 1 ? 's' : ''}
+                    </span>
+                    <span className="text-sm font-semibold" style={{ color: '#059669' }}>
+                      +{referralStats.bonusCredits} bonus credits
+                    </span>
+                  </div>
+                )}
+                <p className="text-sm font-mono truncate" style={{ color: '#6B7280' }}>
+                  quizotic.live/r/{referralCode}
+                </p>
+              </div>
+              <div className="flex gap-2 flex-shrink-0">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`https://www.quizotic.live/r/${referralCode}`)
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 2000)
+                  }}
+                  className="px-4 py-2 rounded-xl text-sm font-bold transition-all hover:scale-[1.03] active:scale-[0.97]"
+                  style={{ background: '#fff', color: '#4361EE', border: '1.5px solid #DBEAFE' }}>
+                  {copied ? 'Copied!' : 'Copy Link'}
+                </button>
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(`I use Quizotic for live quizzes & interactive presentations — 9 quiz types, 18 slide types, Bloom's taxonomy analytics, and spaced retrieval. Free for up to 50 participants. Try it: https://www.quizotic.live/r/${referralCode}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 rounded-xl transition-all hover:scale-[1.03] active:scale-[0.97] flex items-center justify-center"
+                  style={{ background: '#25D366', width: 38, height: 38 }}
+                  title="Share on WhatsApp">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="#fff">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                  </svg>
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Recent quizzes + Recent presentations — side by side on desktop */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Recent quizzes */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-bold uppercase tracking-wider" style={{ color: '#a8a29e' }}>
+              <h2 className="text-lg font-bold uppercase tracking-wider" style={{ color: '#a8a29e' }}>
                 recent quizzes
               </h2>
               {quizzes.length > 3 && (
@@ -355,7 +487,7 @@ export default function HostDashboardPage() {
           {/* Recent presentations */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-bold uppercase tracking-wider" style={{ color: '#a8a29e' }}>
+              <h2 className="text-lg font-bold uppercase tracking-wider" style={{ color: '#a8a29e' }}>
                 recent presentations
               </h2>
               {presentations.length > 3 && (
@@ -411,7 +543,7 @@ export default function HostDashboardPage() {
         {(sessions.length > 0 || presentationSessions.length > 0) && (
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-bold uppercase tracking-wider" style={{ color: '#a8a29e' }}>
+              <h2 className="text-lg font-bold uppercase tracking-wider" style={{ color: '#a8a29e' }}>
                 recent activity
               </h2>
               <button onClick={() => setTab('analytics')}
@@ -864,6 +996,14 @@ export default function HostDashboardPage() {
           </nav>
 
           <div className="flex items-center gap-2">
+            {isAdmin && (
+              <button
+                onClick={() => router.push('/host/admin')}
+                className="text-sm font-bold px-4 py-2 rounded-xl transition-all hover:scale-[1.02]"
+                style={{ border: '2px solid #7C3AED', color: '#7C3AED', background: 'transparent', fontFamily: 'var(--font-heading)' }}>
+                Admin
+              </button>
+            )}
             <button
               onClick={() => router.push('/host/present/create')}
               className="text-sm font-bold px-5 py-2 rounded-xl transition-all hover:scale-[1.02]"
@@ -900,7 +1040,7 @@ export default function HostDashboardPage() {
         <div className="mb-7">
           {tab === 'dashboard' ? (
             <>
-              <h1 className="text-2xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#1E1B4B' }}>
+              <h1 className="text-3xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#1E1B4B' }}>
                 {session?.user?.name ? (
                   <>
                     Hey, {session.user.name.split(' ')[0]}
@@ -916,7 +1056,7 @@ export default function HostDashboardPage() {
                   'Dashboard'
                 )}
               </h1>
-              <p className="text-sm mt-1" style={{ color: '#a8a29e' }}>
+              <p className="text-base mt-1" style={{ color: '#a8a29e' }}>
                 {quizzes.length === 0 ? 'Welcome to Quizotic!' : 'Welcome back!'} Here&apos;s your quiz activity at a glance.
               </p>
             </>

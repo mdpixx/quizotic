@@ -5,7 +5,7 @@ import OpenAI from 'openai'
 import type { Question } from '@/lib/quiz-types'
 import { getCurrentUser } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
-import { getUserPlan } from '@/lib/billing'
+import { getUserPlan, getReferralBonusCredits } from '@/lib/billing'
 import { PLAN_LIMITS } from '@/lib/limits'
 
 const client = new OpenAI({
@@ -13,30 +13,42 @@ const client = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY ?? '',
 })
 
-const MODEL = process.env.QUIZ_AI_MODEL ?? 'google/gemini-2.5-flash-preview-05-20'
+const MODEL = process.env.QUIZ_AI_MODEL ?? 'google/gemini-2.0-flash-001'
 
 export async function POST(req: NextRequest) {
+  if (!process.env.OPENROUTER_API_KEY) {
+    console.error('[translate-quiz] OPENROUTER_API_KEY is not configured')
+    return NextResponse.json({ error: 'AI translation is temporarily unavailable' }, { status: 503 })
+  }
+
   const user = await getCurrentUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // AI rate limiting (parallel queries; translations count toward same limit)
+  // AI rate limiting — proportional (count questions, not calls)
   const startOfMonth = new Date()
   startOfMonth.setDate(1)
   startOfMonth.setHours(0, 0, 0, 0)
 
-  const [plan, usageCount] = await Promise.all([
+  const [plan, usageLogs] = await Promise.all([
     getUserPlan(user.id),
-    prisma.usageLog.count({
+    prisma.usageLog.findMany({
       where: { userId: user.id, action: { in: ['ai_generate', 'ai_translate'] }, createdAt: { gte: startOfMonth } },
+      select: { metadata: true },
     }),
   ])
 
-  const limit = PLAN_LIMITS[plan].maxAiGenerations
-  if (usageCount >= limit) {
+  const questionsUsed = usageLogs.reduce((sum, log) => {
+    const meta = log.metadata as Record<string, unknown> | null
+    return sum + (typeof meta?.questionCount === 'number' ? meta.questionCount : 5)
+  }, 0)
+
+  const bonusCredits = await getReferralBonusCredits(user.id)
+  const limit = PLAN_LIMITS[plan].maxAiQuestions + bonusCredits
+  if (questionsUsed >= limit) {
     return NextResponse.json({
-      error: `You've used all ${limit} AI generations this month. ${plan === 'free' ? 'Upgrade to Pro for 30/month.' : 'Limit resets next month.'}`,
+      error: `You've used all ${limit} AI question credits this month (${questionsUsed}/${limit}). ${plan === 'free' ? 'Upgrade to Pro for 750 AI questions per month.' : 'Limit resets next month.'}`,
     }, { status: 429 })
   }
 
@@ -83,7 +95,7 @@ ${JSON.stringify(translatable)}`,
     // Log usage
     await prisma.usageLog.create({
       data: { userId: user.id, action: 'ai_translate', metadata: { model: MODEL, questionCount: questions.length } },
-    }).catch(() => {}) // non-blocking
+    }).catch(err => console.error('[usage-log] failed to record:', err.message))
 
     return NextResponse.json(merged)
   } catch (err) {

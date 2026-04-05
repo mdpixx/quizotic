@@ -3,12 +3,31 @@
 import React, { useState, useRef, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { saveQuiz, loadQuizzes } from '@/lib/quiz-storage'
-import type { Question, QuestionType, BloomsLevel } from '@/lib/quiz-types'
+import type { Question, QuestionType, BloomsLevel, Quiz } from '@/lib/quiz-types'
 
-type Tab = 'manual' | 'aitopic' | 'aiurl' | 'aidoc'
+type Tab = 'manual' | 'aitopic' | 'aiurl' | 'aidoc' | 'library'
 
 const TIMER_OPTIONS: (10 | 15 | 20 | 30 | 60)[] = [10, 15, 20, 30, 60]
 const POINTS_OPTIONS: (500 | 1000 | 2000)[] = [500, 1000, 2000]
+
+const QUESTION_COUNT_OPTIONS: Record<string, number[]> = {
+  free: [5, 8, 10],
+  pro: [5, 10, 15, 20, 25],
+}
+
+interface TypeMix {
+  mcq: number
+  truefalse: number
+  poll: number
+  openended: number
+}
+
+const TYPE_MIX_LABELS: { key: keyof TypeMix; label: string; color: string }[] = [
+  { key: 'mcq', label: 'MCQ (4 options)', color: '#2563EB' },
+  { key: 'truefalse', label: 'True / False', color: '#16A34A' },
+  { key: 'poll', label: 'Poll', color: '#4361EE' },
+  { key: 'openended', label: 'Open-ended', color: '#D97706' },
+]
 
 const TYPE_PILLS: { value: QuestionType; label: string; color: string; bg: string; svg: React.ReactNode }[] = [
   {
@@ -103,6 +122,7 @@ const TOPIC_SUGGESTIONS = [
 ]
 
 const GLOBAL_LANGUAGES: { lang: string }[] = [
+  { lang: 'English' },
   { lang: 'Arabic' },
   { lang: 'Bahasa' },
   { lang: 'Bengali' },
@@ -157,12 +177,18 @@ function QuestionCard({
   onChange,
   onDelete,
   onDuplicate,
+  selectable,
+  selected,
+  onToggleSelect,
 }: {
   question: Question
   index: number
   onChange: (q: Question) => void
   onDelete: () => void
   onDuplicate: () => void
+  selectable?: boolean
+  selected?: boolean
+  onToggleSelect?: () => void
 }) {
   const [showAdvanced, setShowAdvanced] = useState(false)
 
@@ -179,19 +205,31 @@ function QuestionCard({
   }
 
   return (
-    <div id={`q-${question.id}`} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Q{index + 1}</span>
-        <div className="flex gap-3">
-          <button onClick={onDuplicate} className="text-xs text-gray-400 hover:text-violet-600 transition-colors">Duplicate</button>
-          <button onClick={onDelete} className="text-xs text-gray-400 hover:text-red-500 transition-colors">Remove</button>
+    <div id={`q-${question.id}`} className={`bg-white rounded-xl border shadow-sm p-6 space-y-5 relative ${selectable && !selected ? 'border-amber-300 bg-amber-50/30' : 'border-gray-200'}`}>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">Q{index + 1}</span>
+        <div className="flex items-center gap-3">
+          {/* Selective regen checkbox */}
+          {selectable && (
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selected}
+                onChange={onToggleSelect}
+                className="w-4 h-4 rounded accent-violet-600"
+              />
+              <span className="text-xs font-medium text-gray-600">{selected ? 'Keep' : 'Replace'}</span>
+            </label>
+          )}
+          <button onClick={onDuplicate} className="text-sm text-gray-500 hover:text-violet-600 transition-colors font-medium">Duplicate</button>
+          <button onClick={onDelete} className="text-sm text-gray-500 hover:text-red-500 transition-colors font-medium">Remove</button>
         </div>
       </div>
 
       {/* Type pills */}
       <div>
-        <label className="text-xs text-gray-500 mb-2 block">Question Type</label>
-        <div className="grid grid-cols-4 gap-2">
+        <label className="text-sm font-medium text-gray-700 mb-2 block">Question Type</label>
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
           {TYPE_PILLS.map(t => {
             const active = question.type === t.value
             return (
@@ -199,32 +237,32 @@ function QuestionCard({
                 key={t.value}
                 type="button"
                 onClick={() => handleTypeChange(t.value)}
-                className="flex flex-col items-center gap-1.5 px-2 py-2.5 rounded-xl text-xs font-medium transition-all"
+                className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl text-xs font-semibold transition-all"
                 style={
                   active
                     ? { border: `2px solid ${t.color}`, background: t.bg, color: t.color }
-                    : { border: '1px solid #e5e7eb', background: '#fff', color: '#6b7280' }
+                    : { border: '1px solid #d1d5db', background: '#fff', color: '#374151' }
                 }
               >
                 <span
                   className="flex items-center justify-center rounded-lg flex-shrink-0"
-                  style={{ width: 28, height: 28, background: active ? t.bg : '#f3f4f6' }}
+                  style={{ width: 32, height: 32, background: active ? t.bg : '#f3f4f6' }}
                 >
                   {t.svg}
                 </span>
-                <span className="text-center leading-tight text-[11px]">{t.label}</span>
+                <span className="text-center leading-tight text-xs">{t.label}</span>
               </button>
             )
           })}
         </div>
       </div>
 
-      {/* Scenario fields — only for 'case' type */}
+      {/* Scenario fields */}
       {question.type === 'case' && (
         <div className="space-y-3 rounded-xl p-4" style={{ background: '#F0F4FF', border: '1px solid #DBEAFE' }}>
           <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--color-primary)' }}>Scenario Block</p>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Scenario Narrative (what happened / the situation)</label>
+            <label className="text-sm font-medium text-gray-700 mb-1.5 block">Scenario Narrative (what happened / the situation)</label>
             <textarea
               value={question.scenarioText ?? ''}
               onChange={e => onChange({ ...question, scenarioText: e.target.value || undefined })}
@@ -235,7 +273,7 @@ function QuestionCard({
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Supporting Detail (optional — bold callout, stat, or quote)</label>
+            <label className="text-sm font-medium text-gray-700 mb-1.5 block">Supporting Detail (optional)</label>
             <input
               type="text"
               value={question.supportingDetail ?? ''}
@@ -250,7 +288,7 @@ function QuestionCard({
 
       {/* Question text */}
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">
+        <label className="text-sm font-medium text-gray-700 mb-1.5 block">
           {question.type === 'case' ? 'Decision Question (shown above options)' : 'Question'}
         </label>
         <textarea
@@ -258,30 +296,30 @@ function QuestionCard({
           onChange={e => onChange({ ...question, text: e.target.value })}
           placeholder={question.type === 'case' ? 'e.g., "What should you do?"' : 'Enter your question...'}
           rows={2}
-          className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30 resize-none"
+          className="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-violet-400/30 resize-none"
         />
       </div>
 
       {/* Options */}
       {question.options && question.type !== 'rating' && question.type !== 'ranking' && (
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">
+          <label className="text-sm font-medium text-gray-700 mb-1.5 block">
             Options{hasCorrectAnswer(question.type) ? ' — click letter to mark correct' : ''}
           </label>
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {question.options.map((opt, i) => (
               <div key={i} className="flex items-center gap-2">
                 <button
                   type="button"
                   disabled={!hasCorrectAnswer(question.type)}
                   onClick={() => hasCorrectAnswer(question.type) && onChange({ ...question, correctAnswer: String(i) })}
-                  className={`w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center text-xs font-bold transition-all ${
+                  className={`w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-sm font-bold transition-all ${
                     hasCorrectAnswer(question.type) ? 'cursor-pointer' : 'cursor-default'
                   }`}
                   style={
                     question.correctAnswer === String(i)
                       ? { background: 'var(--color-primary)', color: '#fff' }
-                      : { background: '#e5e7eb', color: '#6b7280' }
+                      : { background: '#e5e7eb', color: '#4b5563' }
                   }
                 >
                   {String.fromCharCode(65 + i)}
@@ -292,7 +330,7 @@ function QuestionCard({
                   onChange={e => handleOptionChange(i, e.target.value)}
                   placeholder={`Option ${String.fromCharCode(65 + i)}`}
                   disabled={question.type === 'truefalse'}
-                  className="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30 disabled:opacity-50"
+                  className="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-violet-400/30 disabled:opacity-50"
                 />
               </div>
             ))}
@@ -300,10 +338,23 @@ function QuestionCard({
         </div>
       )}
 
+      {/* Rating scale preview */}
+      {question.type === 'rating' && (
+        <div>
+          <label className="text-sm font-medium text-gray-700 mb-2 block">Rating Scale (1-5 stars — participants will see this)</label>
+          <div className="flex items-center gap-1.5">
+            {[1, 2, 3, 4, 5].map(n => (
+              <span key={n} className="text-2xl" style={{ color: '#EA580C' }}>&#9733;</span>
+            ))}
+          </div>
+          <p className="text-xs text-gray-500 mt-1.5">Participants will rate on a 1-5 star scale. No correct answer — results shown as average.</p>
+        </div>
+      )}
+
       {/* Ranking items editor */}
       {question.type === 'ranking' && (
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Items to Rank</label>
+          <label className="text-sm font-medium text-gray-700 mb-1.5 block">Items to Rank</label>
           <div className="space-y-2">
             {(question.options ?? []).map((item, i) => (
               <div key={i} className="flex items-center gap-2">
@@ -322,7 +373,7 @@ function QuestionCard({
                   onClick={() => onChange({ ...question, options: (question.options ?? []).filter((_, j) => j !== i) })}
                   className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors text-sm"
                 >
-                  ✕
+                  x
                 </button>
               </div>
             ))}
@@ -343,21 +394,21 @@ function QuestionCard({
       {/* Timer + Points */}
       <div className="flex gap-4">
         <div className="flex-1">
-          <label className="text-xs text-gray-500 mb-1 block">Timer</label>
+          <label className="text-sm font-medium text-gray-700 mb-1.5 block">Timer</label>
           <select
             value={question.timerSeconds}
             onChange={e => onChange({ ...question, timerSeconds: Number(e.target.value) as Question['timerSeconds'] })}
-            className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30"
+            className="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30"
           >
             {TIMER_OPTIONS.map(t => <option key={t} value={t}>{t}s</option>)}
           </select>
         </div>
         <div className="flex-1">
-          <label className="text-xs text-gray-500 mb-1 block">Points</label>
+          <label className="text-sm font-medium text-gray-700 mb-1.5 block">Points</label>
           <select
             value={question.points}
             onChange={e => onChange({ ...question, points: Number(e.target.value) as Question['points'] })}
-            className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30"
+            className="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30"
           >
             {POINTS_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
@@ -366,7 +417,7 @@ function QuestionCard({
 
       {/* Explanation / Debrief */}
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">
+        <label className="text-sm font-medium text-gray-700 mb-1.5 block">
           {question.type === 'case' ? 'Debrief / Expert Reasoning (revealed after host clicks "Reveal Debrief")' : 'Explanation (optional — shown after answer reveal)'}
         </label>
         <textarea
@@ -375,28 +426,30 @@ function QuestionCard({
           placeholder={question.type === 'case' ? 'Expert reasoning — what\'s the right call and why?' : 'Why is this the correct answer? (max ~300 chars)'}
           rows={2}
           maxLength={500}
-          className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30 resize-none"
+          className="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30 resize-none"
         />
       </div>
 
-      {/* Advanced options (Bloom's Level) */}
-      <div>
+      {/* Advanced options */}
+      <div className="border-t border-gray-100 pt-3">
         <button
           type="button"
           onClick={() => setShowAdvanced(s => !s)}
-          className="text-xs font-medium flex items-center gap-1 transition-colors"
-          style={{ color: showAdvanced ? 'var(--color-primary)' : '#9ca3af' }}
+          className="text-sm font-semibold flex items-center gap-2 transition-colors px-2 py-1.5 rounded-lg hover:bg-gray-50"
+          style={{ color: showAdvanced ? 'var(--color-primary)' : '#6b7280' }}
         >
-          <span>{showAdvanced ? '▾' : '▸'}</span>
+          <svg viewBox="0 0 16 16" fill="none" className={`w-4 h-4 transition-transform ${showAdvanced ? 'rotate-90' : ''}`}>
+            <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
           <span>Advanced options</span>
         </button>
         {showAdvanced && (
-          <div className="mt-2">
-            <label className="text-xs text-gray-500 mb-1 block">Bloom&apos;s Level (optional)</label>
+          <div className="mt-3 pl-2">
+            <label className="text-sm font-medium text-gray-700 mb-1.5 block">Bloom&apos;s Taxonomy Level (optional)</label>
             <select
               value={question.bloomsLevel ?? ''}
               onChange={e => onChange({ ...question, bloomsLevel: (e.target.value as BloomsLevel) || undefined })}
-              className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30"
+              className="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30"
             >
               <option value="">— not tagged —</option>
               <option value="remember">Remember</option>
@@ -426,42 +479,55 @@ function CreateQuizPageInner() {
   const [questions, setQuestions] = useState<Question[]>([makeQuestion()])
   const [saveError, setSaveError] = useState('')
 
-  // Plan state (for tier-based question limits)
+  // Plan state
   const [plan, setPlan] = useState<'free' | 'pro'>('free')
   useEffect(() => {
     fetch('/api/billing/status').then(r => r.json()).then(d => {
       if (d.plan === 'pro') setPlan('pro')
     }).catch(() => {})
   }, [])
-  const maxQuestions = plan === 'pro' ? 25 : 10
 
-  // AI Topic state
-  const [aiTopic, setAiTopic] = useState('')
+  // AI usage / rate limit
+  const [aiUsage, setAiUsage] = useState<{ used: number; limit: number; plan: string } | null>(null)
+  useEffect(() => {
+    fetch('/api/user/ai-usage').then(r => r.json()).then(d => {
+      if (d.used !== undefined) setAiUsage(d)
+    }).catch(() => {})
+  }, [])
+
+  // Shared AI settings
   const [aiCount, setAiCount] = useState(5)
   const [aiDifficulty, setAiDifficulty] = useState('medium')
-  const [aiLoading, setAiLoading] = useState(false)
-  const [aiError, setAiError] = useState('')
+  const [typeMix, setTypeMix] = useState<TypeMix>({ mcq: 5, truefalse: 0, poll: 0, openended: 0 })
+  const [quizLanguage, setQuizLanguage] = useState('English')
 
-  // AI URL state
+  // Reset type mix when count changes
+  useEffect(() => {
+    setTypeMix({ mcq: aiCount, truefalse: 0, poll: 0, openended: 0 })
+  }, [aiCount])
+
+  // AI generation state
+  const [aiGenerating, setAiGenerating] = useState(false)
+  const [aiGenError, setAiGenError] = useState('')
+  const [translating, setTranslating] = useState(false)
+
+  // Tab-specific inputs
+  const [aiTopic, setAiTopic] = useState('')
   const [aiUrl, setAiUrl] = useState('')
-  const [urlLoading, setUrlLoading] = useState(false)
-  const [urlError, setUrlError] = useState('')
-
-  // AI Doc state
   const [docFile, setDocFile] = useState<File | null>(null)
-  const [docLoading, setDocLoading] = useState(false)
-  const [docError, setDocError] = useState('')
 
-  // Translate state
-  const [translateLang, setTranslateLang] = useState('Hindi')
-  const [translateLoading, setTranslateLoading] = useState(false)
-  const [translateError, setTranslateError] = useState('')
-  const [translatedTo, setTranslatedTo] = useState<string | null>(null)
-
-  // Per-tab generated flag
+  // Generation tracking
   const [generatedOnTab, setGeneratedOnTab] = useState<Tab | null>(null)
+  const [translatedTo, setTranslatedTo] = useState<string | null>(null)
+  const [selectedQuestions, setSelectedQuestions] = useState<Set<string>>(new Set())
 
-  // Title-first modal (shown on fresh new quiz, hidden when editing)
+  // Library quizzes
+  const [savedQuizzes, setSavedQuizzes] = useState<Quiz[]>([])
+  useEffect(() => {
+    if (tab === 'library') setSavedQuizzes(loadQuizzes())
+  }, [tab])
+
+  // Title modal
   const [showTitleModal, setShowTitleModal] = useState(!editId)
   const [modalTitle, setModalTitle] = useState('')
   const [modalSubject, setModalSubject] = useState('')
@@ -488,6 +554,23 @@ function CreateQuizPageInner() {
   // Drag-to-reorder ref
   const dragIndex = useRef<number | null>(null)
 
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+
+  const isAiTab = tab === 'aitopic' || tab === 'aiurl' || tab === 'aidoc'
+  const settingsLocked = generatedOnTab !== null
+  const typeMixSum = typeMix.mcq + typeMix.truefalse + typeMix.poll + typeMix.openended
+  const typeMixValid = typeMixSum === aiCount
+  const countOptions = QUESTION_COUNT_OPTIONS[plan] ?? QUESTION_COUNT_OPTIONS.free
+
+  function handleTypeMixChange(key: keyof TypeMix, val: number) {
+    setTypeMix(prev => ({ ...prev, [key]: val }))
+  }
+
+  function maxForType(key: keyof TypeMix): number {
+    const remaining = aiCount - typeMixSum
+    return typeMix[key] + Math.max(0, remaining)
+  }
+
   // ── Question mutations ──────────────────────────────────────────────────────
 
   function addQuestion() {
@@ -507,114 +590,215 @@ function CreateQuizPageInner() {
     setQuestions(prev => [...prev.slice(0, index + 1), copy, ...prev.slice(index + 1)])
   }
 
-  function setGeneratedQuestions(raw: Question[], forTab: Tab) {
+  function applyGeneratedQuestions(raw: Question[], forTab: Tab): Question[] {
     const withIds = raw.map(q => ({ ...q, id: crypto.randomUUID() }))
     setQuestions(withIds)
     setGeneratedOnTab(forTab)
+    setSelectedQuestions(new Set(withIds.map(q => q.id)))
+    return withIds
   }
 
-  // ── AI Topic generate ───────────────────────────────────────────────────────
+  function toggleSelect(id: string) {
+    setSelectedQuestions(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
-  async function handleAiTopicGenerate() {
-    if (!aiTopic.trim()) { setAiError('Enter a topic first'); return }
-    setAiLoading(true)
-    setAiError('')
+  function resetGeneration() {
+    setGeneratedOnTab(null)
+    setSelectedQuestions(new Set())
+    setTranslatedTo(null)
+    setAiGenError('')
+  }
+
+  // ── Unified AI generate handler ─────────────────────────────────────────────
+
+  async function handleGenerate() {
+    setAiGenError('')
+
+    // Tab-specific validation
+    if (tab === 'aitopic' && !aiTopic.trim()) { setAiGenError('Enter a topic first'); return }
+    if (tab === 'aiurl' && !aiUrl.startsWith('https://')) { setAiGenError('URL must start with https://'); return }
+    if (tab === 'aidoc' && !docFile) { setAiGenError('Select a file first'); return }
+
+    if (!typeMixValid) { setAiGenError(`Type mix must add up to ${aiCount} (currently ${typeMixSum})`); return }
+
+    // Clear previous generation if re-generating
+    if (generatedOnTab) resetGeneration()
+
+    setAiGenerating(true)
+
     try {
-      const res = await fetch('/api/generate-quiz', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'topic', topic: aiTopic, questionCount: aiCount, difficulty: aiDifficulty }),
-      })
+      let res: Response
+
+      if (tab === 'aidoc') {
+        const formData = new FormData()
+        formData.append('file', docFile!)
+        formData.append('questionCount', String(aiCount))
+        formData.append('difficulty', aiDifficulty)
+        formData.append('typeMix', JSON.stringify(typeMix))
+        res = await fetch('/api/generate-quiz', { method: 'POST', body: formData })
+      } else {
+        const body: Record<string, unknown> = {
+          mode: tab === 'aitopic' ? 'topic' : 'url',
+          questionCount: aiCount,
+          difficulty: aiDifficulty,
+          typeMix,
+        }
+        if (tab === 'aitopic') body.topic = aiTopic
+        if (tab === 'aiurl') body.url = aiUrl
+
+        res = await fetch('/api/generate-quiz', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+      }
+
       const data = await res.json()
-      if (!res.ok) { setAiError(data.error ?? 'Generation failed'); return }
-      setGeneratedQuestions(data, 'aitopic')
+      if (!res.ok) { setAiGenError(data.error ?? 'Generation failed'); return }
+
+      const generated = applyGeneratedQuestions(data, tab)
+
+      // Update usage locally
+      setAiUsage(prev => prev ? { ...prev, used: prev.used + 1 } : prev)
+
+      // Auto-translate if non-English
+      if (quizLanguage !== 'English') {
+        setTranslating(true)
+        try {
+          const tRes = await fetch('/api/translate-quiz', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ questions: generated, targetLanguage: quizLanguage }),
+          })
+          const tData = await tRes.json()
+          if (tRes.ok) {
+            setQuestions(tData)
+            setTranslatedTo(quizLanguage)
+          }
+        } catch { /* translation failed silently — quiz remains in English */ }
+        finally { setTranslating(false) }
+      }
     } catch {
-      setAiError('Network error. Try again.')
+      setAiGenError('Network error. Try again.')
     } finally {
-      setAiLoading(false)
+      setAiGenerating(false)
     }
   }
 
-  // ── AI URL generate ─────────────────────────────────────────────────────────
+  // ── Selective regeneration ──────────────────────────────────────────────────
 
-  async function handleUrlGenerate() {
-    if (!aiUrl.startsWith('https://')) { setUrlError('URL must start with https://'); return }
-    setUrlLoading(true)
-    setUrlError('')
+  const deselectedCount = generatedOnTab ? questions.filter(q => !selectedQuestions.has(q.id)).length : 0
+
+  async function handleSelectiveRegenerate() {
+    const deselectedIds = new Set(
+      questions.filter(q => !selectedQuestions.has(q.id)).map(q => q.id)
+    )
+    if (deselectedIds.size === 0) return
+
+    setAiGenerating(true)
+    setAiGenError('')
+
     try {
-      const res = await fetch('/api/generate-quiz', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'url', url: aiUrl, questionCount: aiCount, difficulty: aiDifficulty }),
-      })
+      let res: Response
+      const regenCount = deselectedIds.size
+
+      if (generatedOnTab === 'aidoc' && docFile) {
+        const formData = new FormData()
+        formData.append('file', docFile)
+        formData.append('questionCount', String(regenCount))
+        formData.append('difficulty', aiDifficulty)
+        res = await fetch('/api/generate-quiz', { method: 'POST', body: formData })
+      } else {
+        const body: Record<string, unknown> = {
+          mode: generatedOnTab === 'aitopic' ? 'topic' : 'url',
+          questionCount: regenCount,
+          difficulty: aiDifficulty,
+        }
+        if (generatedOnTab === 'aitopic') body.topic = aiTopic
+        if (generatedOnTab === 'aiurl') body.url = aiUrl
+
+        res = await fetch('/api/generate-quiz', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+      }
+
       const data = await res.json()
-      if (!res.ok) { setUrlError(data.error ?? 'Generation failed'); return }
-      setGeneratedQuestions(data, 'aiurl')
+      if (!res.ok) { setAiGenError(data.error ?? 'Regeneration failed'); return }
+
+      const newQs: Question[] = (data as Question[]).map(q => ({ ...q, id: crypto.randomUUID() }))
+      let newIdx = 0
+      const merged = questions.map(q => {
+        if (deselectedIds.has(q.id) && newIdx < newQs.length) {
+          return newQs[newIdx++]
+        }
+        return q
+      })
+
+      setQuestions(merged)
+      setSelectedQuestions(new Set(merged.map(q => q.id)))
+      setAiUsage(prev => prev ? { ...prev, used: prev.used + 1 } : prev)
+
+      // Re-translate if quiz was translated
+      if (translatedTo && translatedTo !== 'English') {
+        setTranslating(true)
+        try {
+          const tRes = await fetch('/api/translate-quiz', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ questions: merged, targetLanguage: translatedTo }),
+          })
+          const tData = await tRes.json()
+          if (tRes.ok) setQuestions(tData)
+        } catch {}
+        finally { setTranslating(false) }
+      }
     } catch {
-      setUrlError('Network error. Try again.')
+      setAiGenError('Network error. Try again.')
     } finally {
-      setUrlLoading(false)
+      setAiGenerating(false)
     }
   }
 
-  // ── AI Doc generate ─────────────────────────────────────────────────────────
+  // ── Manual translate (post-generation language change) ──────────────────────
 
-  async function handleDocGenerate() {
-    if (!docFile) { setDocError('Select a file first'); return }
-    setDocLoading(true)
-    setDocError('')
-    try {
-      const formData = new FormData()
-      formData.append('file', docFile)
-      formData.append('questionCount', String(aiCount))
-      formData.append('difficulty', aiDifficulty)
-      const res = await fetch('/api/generate-quiz', {
-        method: 'POST',
-        body: formData,
-      })
-      const data = await res.json()
-      if (!res.ok) { setDocError(data.error ?? 'Generation failed'); return }
-      setGeneratedQuestions(data, 'aidoc')
-    } catch {
-      setDocError('Network error. Try again.')
-    } finally {
-      setDocLoading(false)
-    }
-  }
-
-  // ── Translate ───────────────────────────────────────────────────────────────
-
-  async function handleTranslate() {
-    if (questions.length === 0) { setTranslateError('No questions to translate'); return }
-    setTranslateLoading(true)
-    setTranslateError('')
+  async function handleManualTranslate() {
+    if (questions.length === 0 || quizLanguage === 'English') return
+    setTranslating(true)
+    setAiGenError('')
     try {
       const res = await fetch('/api/translate-quiz', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questions, targetLanguage: translateLang }),
+        body: JSON.stringify({ questions, targetLanguage: quizLanguage }),
       })
       const data = await res.json()
-      if (!res.ok) { setTranslateError(data.error ?? 'Translation failed'); return }
+      if (!res.ok) { setAiGenError(data.error ?? 'Translation failed'); return }
       setQuestions(data)
-      setTranslatedTo(translateLang)
+      setTranslatedTo(quizLanguage)
     } catch {
-      setTranslateError('Network error. Try again.')
+      setAiGenError('Network error. Try again.')
     } finally {
-      setTranslateLoading(false)
+      setTranslating(false)
     }
   }
 
   // ── Save ────────────────────────────────────────────────────────────────────
 
-  function handleSave() {
+  async function handleSave() {
     if (!title.trim()) { setSaveError('Quiz title is required'); return }
     if (questions.length === 0) { setSaveError('Add at least one question'); return }
     setSaveError('')
 
     const now = new Date().toISOString()
     const existing = editId ? loadQuizzes().find(q => q.id === editId) : null
-    saveQuiz({
+    const quizData = {
       id: editId ?? crypto.randomUUID(),
       title: title.trim(),
       subject: subject.trim() || undefined,
@@ -622,7 +806,36 @@ function CreateQuizPageInner() {
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       questions,
-    })
+    }
+
+    // Save to localStorage (instant, offline-safe)
+    saveQuiz(quizData)
+
+    // Also persist to database (fire-and-forget — localStorage is the fallback)
+    try {
+      const res = await fetch('/api/quizzes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editId || undefined,
+          title: quizData.title,
+          subject: quizData.subject,
+          language: quizData.language,
+          questions: quizData.questions,
+        }),
+      })
+      if (res.ok) {
+        const { data } = await res.json()
+        // Update localStorage with the DB-generated ID so session can reference it
+        if (data?.id && data.id !== quizData.id) {
+          saveQuiz({ ...quizData, id: data.id })
+        }
+      }
+    } catch {
+      // DB save failed silently — localStorage copy is the fallback
+      console.error('[quiz-save] DB save failed, localStorage copy preserved')
+    }
+
     router.push('/host')
   }
 
@@ -634,10 +847,11 @@ function CreateQuizPageInner() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'manual',  label: '✏️ Manual' },
-    { id: 'aitopic', label: '✨ AI Topic' },
-    { id: 'aiurl',   label: '🔗 AI URL' },
-    { id: 'aidoc',   label: '📄 AI Doc' },
+    { id: 'manual',  label: 'Manual' },
+    { id: 'aitopic', label: 'AI Topic' },
+    { id: 'aiurl',   label: 'AI URL' },
+    { id: 'aidoc',   label: 'AI Doc' },
+    { id: 'library', label: 'Library' },
   ]
 
   return (
@@ -655,7 +869,7 @@ function CreateQuizPageInner() {
               className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors text-lg"
               aria-label="Cancel"
             >
-              ✕
+              x
             </button>
             <h2 className="text-xl font-black mb-1" style={{ color: '#1e1a14', fontFamily: 'var(--font-heading)' }}>
               name your quiz
@@ -683,7 +897,7 @@ function CreateQuizPageInner() {
                 className="w-full py-3 text-white font-bold rounded-xl transition-opacity hover:opacity-90 disabled:opacity-40"
                 style={{ background: 'var(--brand-gradient)' }}
               >
-                Start building →
+                Start building
               </button>
               <button
                 type="button"
@@ -707,12 +921,12 @@ function CreateQuizPageInner() {
         </button>
         <div className="h-5 w-px bg-gray-200" />
         <span className="text-xl font-bold">
-          Quizo<span style={{ color: 'var(--color-primary)' }}>tic</span>
+          Quizo<span style={{ color: 'var(--color-primary)' }}>tic</span><span className="text-[10px] font-bold tracking-wide ml-0.5" style={{ color: '#9CA3AF', verticalAlign: 'super' }}>.live</span>
           <span className="ml-2 text-xs font-normal text-gray-500 uppercase tracking-widest">Create Quiz</span>
         </span>
       </header>
 
-      <div className="max-w-6xl mx-auto px-4 py-8 flex gap-6 items-start">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex gap-6 items-start">
 
         {/* ── Sidebar ─────────────────────────────────────────────────────── */}
         <aside className="hidden lg:flex flex-col w-60 flex-shrink-0 sticky top-[73px] self-start max-h-[calc(100vh-90px)] bg-white rounded-2xl shadow-sm border border-gray-100 p-4 overflow-y-auto">
@@ -822,228 +1036,292 @@ function CreateQuizPageInner() {
             </div>
           )}
 
-          {/* ── AI Topic Tab ── */}
-          {tab === 'aitopic' && (
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">Topic</label>
-                <input
-                  type="text"
-                  placeholder='e.g. "Indian Independence Movement"'
-                  value={aiTopic}
-                  onChange={e => setAiTopic(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30"
-                />
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {TOPIC_SUGGESTIONS.map(chip => (
-                    <button
-                      key={chip}
-                      type="button"
-                      onClick={() => setAiTopic(chip)}
-                      className="px-3 py-1 rounded-full text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 transition-colors"
-                    >
-                      {chip}
-                    </button>
-                  ))}
+          {/* ── From Library Tab ── */}
+          {tab === 'library' && (
+            <div className="space-y-3">
+              {savedQuizzes.length === 0 ? (
+                <div className="text-center py-16">
+                  <p className="text-gray-400 text-sm">No saved quizzes yet</p>
+                  <p className="text-gray-300 text-xs mt-1">Create a quiz first, then find it here</p>
                 </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <label className="text-xs text-gray-500 mb-1 block">
-                    Questions: <span className="font-bold text-gray-900">{aiCount}</span>
-                    {plan === 'free' && <span className="text-violet-500 ml-1 text-[10px]">(up to 25 with Pro)</span>}
-                  </label>
-                  <input
-                    type="range"
-                    min={3}
-                    max={maxQuestions}
-                    step={1}
-                    value={aiCount}
-                    onChange={e => setAiCount(Number(e.target.value))}
-                    className="w-full accent-violet-500 h-2 rounded-lg cursor-pointer"
-                  />
-                  <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
-                    <span>3</span>
-                    <span>{maxQuestions}</span>
+              ) : (
+                savedQuizzes.map(quiz => (
+                  <button
+                    key={quiz.id}
+                    onClick={() => {
+                      setTitle(quiz.title)
+                      setSubject(quiz.subject ?? '')
+                      setQuestions(quiz.questions)
+                      setGeneratedOnTab(null)
+                      setTab('manual')
+                    }}
+                    className="w-full text-left bg-white rounded-xl border border-gray-200 p-4 hover:border-violet-300 hover:shadow-sm transition-all"
+                  >
+                    <p className="font-semibold text-sm text-gray-900">{quiz.title}</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {quiz.questions.length} questions · {quiz.language ?? 'English'} · {new Date(quiz.createdAt).toLocaleDateString()}
+                    </p>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* ── AI Tabs (Topic / URL / Doc) — shared settings ── */}
+          {isAiTab && (
+            <div className="space-y-4">
+
+              {/* Rate limit bar */}
+              {aiUsage && (
+                <div className="rounded-xl p-3 border border-gray-100 bg-gray-50">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-sm text-gray-700 font-medium">
+                      AI Questions: {aiUsage.used} of {aiUsage.limit} used this month
+                    </span>
+                    <span className="text-xs text-gray-500 capitalize">{aiUsage.plan} plan</span>
+                  </div>
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${Math.min(100, (aiUsage.used / aiUsage.limit) * 100)}%`,
+                        background: aiUsage.used >= aiUsage.limit ? '#EF4444' : aiUsage.used >= aiUsage.limit * 0.7 ? '#F59E0B' : 'var(--color-primary)',
+                      }}
+                    />
                   </div>
                 </div>
-                <div className="flex-1">
-                  <label className="text-xs text-gray-500 mb-1 block">Difficulty</label>
-                  <select
-                    value={aiDifficulty}
-                    onChange={e => setAiDifficulty(e.target.value)}
+              )}
+
+              {/* Tab-specific input */}
+              {tab === 'aitopic' && (
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Topic</label>
+                  <input
+                    type="text"
+                    placeholder='e.g. "Indian Independence Movement"'
+                    value={aiTopic}
+                    onChange={e => setAiTopic(e.target.value)}
                     className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30"
+                  />
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {TOPIC_SUGGESTIONS.map(chip => (
+                      <button
+                        key={chip}
+                        type="button"
+                        onClick={() => setAiTopic(chip)}
+                        className="px-3 py-1 rounded-full text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 transition-colors"
+                      >
+                        {chip}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {tab === 'aiurl' && (
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">URL (must start with https://)</label>
+                  <input
+                    type="url"
+                    placeholder="https://example.com/article"
+                    value={aiUrl}
+                    onChange={e => setAiUrl(e.target.value)}
+                    className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30"
+                  />
+                </div>
+              )}
+
+              {tab === 'aidoc' && (
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Upload PDF or DOCX (max 5MB)</label>
+                  <input
+                    type="file"
+                    accept=".pdf,.docx"
+                    onChange={e => setDocFile(e.target.files?.[0] ?? null)}
+                    className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-600 file:text-sm"
+                  />
+                  {docFile && <p className="text-xs text-gray-500 mt-1">{docFile.name} ({(docFile.size / 1024 / 1024).toFixed(2)} MB)</p>}
+                </div>
+              )}
+
+              {/* ── Shared AI Settings ── */}
+              <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-4">
+                {settingsLocked && (
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-gray-400">Settings locked after generation.</p>
+                    <button onClick={resetGeneration} className="text-xs text-violet-600 font-medium hover:underline">Start new</button>
+                  </div>
+                )}
+
+                {/* Question count + Difficulty row */}
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <label className="text-xs text-gray-500 mb-1 block">
+                      Questions
+                      {plan === 'free' && <span className="text-violet-500 ml-1 text-[10px]">(up to 25 with Pro)</span>}
+                    </label>
+                    <select
+                      value={aiCount}
+                      onChange={e => setAiCount(Number(e.target.value))}
+                      disabled={settingsLocked}
+                      className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {countOptions.map(n => (
+                        <option key={n} value={n}>{n} questions</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-xs text-gray-500 mb-1 block">Difficulty</label>
+                    <select
+                      value={aiDifficulty}
+                      onChange={e => setAiDifficulty(e.target.value)}
+                      disabled={settingsLocked}
+                      className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <option value="easy">Easy</option>
+                      <option value="medium">Medium</option>
+                      <option value="hard">Hard</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Type mix */}
+                <div>
+                  <label className="text-xs text-gray-500 mb-2 block">Question type breakdown</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {TYPE_MIX_LABELS.map(({ key, label, color }) => (
+                      <div key={key} className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
+                        <span className="text-xs text-gray-600 flex-1 truncate">{label}</span>
+                        <select
+                          value={typeMix[key]}
+                          onChange={e => handleTypeMixChange(key, Number(e.target.value))}
+                          disabled={settingsLocked}
+                          className="w-16 bg-gray-50 border border-gray-300 rounded-lg px-2 py-1.5 text-xs text-center focus:outline-none focus:ring-2 focus:ring-violet-400/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {Array.from({ length: maxForType(key) + 1 }, (_, i) => (
+                            <option key={i} value={i}>{i}</option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className={`text-xs font-medium ${typeMixValid ? 'text-green-600' : 'text-amber-600'}`}>
+                      Total: {typeMixSum}/{aiCount}
+                    </span>
+                    {typeMixValid && <span className="text-green-500 text-xs">&#10003;</span>}
+                    {!typeMixValid && <span className="text-amber-500 text-xs">({aiCount - typeMixSum} remaining)</span>}
+                  </div>
+                </div>
+
+                {/* Language */}
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Language</label>
+                  <div className="flex gap-2">
+                    <select
+                      value={quizLanguage}
+                      onChange={e => setQuizLanguage(e.target.value)}
+                      className="flex-1 bg-white border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30"
+                    >
+                      {GLOBAL_LANGUAGES.map(({ lang }) => (
+                        <option key={lang} value={lang}>{lang}</option>
+                      ))}
+                    </select>
+                    {/* Show translate button if language changed post-generation */}
+                    {generatedOnTab && quizLanguage !== 'English' && quizLanguage !== translatedTo && (
+                      <button
+                        onClick={handleManualTranslate}
+                        disabled={translating}
+                        className="px-4 py-2 rounded-xl text-xs font-bold border-2 transition-colors disabled:opacity-40 whitespace-nowrap"
+                        style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)', background: '#F0F4FF' }}
+                      >
+                        {translating ? 'Translating...' : 'Translate'}
+                      </button>
+                    )}
+                  </div>
+                  {translatedTo && (
+                    <p className="text-xs text-green-600 font-medium mt-1">Translated to {translatedTo}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Error banner */}
+              {aiGenError && (
+                <div className="rounded-xl p-4 border" style={{ background: '#FEF2F2', borderColor: '#FECACA' }}>
+                  <p className="text-sm font-semibold" style={{ color: '#DC2626' }}>{aiGenError}</p>
+                  {aiGenError.includes('Upgrade') && (
+                    <button
+                      onClick={() => router.push('/host/billing')}
+                      className="mt-2 text-sm font-bold px-4 py-1.5 rounded-lg text-white"
+                      style={{ background: '#4361EE' }}
+                    >
+                      View Pro Plans
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Generate button */}
+              {!generatedOnTab && (
+                <button
+                  onClick={handleGenerate}
+                  disabled={aiGenerating || !typeMixValid}
+                  className="w-full py-4 text-white font-bold rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity"
+                  style={{ background: 'var(--brand-gradient)' }}
+                >
+                  {aiGenerating
+                    ? 'Generating...'
+                    : translating
+                      ? 'Translating...'
+                      : tab === 'aiurl'
+                        ? 'Fetch & Generate'
+                        : tab === 'aidoc'
+                          ? 'Generate from Document'
+                          : 'Generate Questions'}
+                </button>
+              )}
+
+              {/* Generated questions */}
+              {generatedOnTab && (
+                <div className="space-y-4 mt-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-gray-500">Generated {questions.length} questions — edit, deselect to replace, then save.</p>
+                    {deselectedCount > 0 && (
+                      <button
+                        onClick={handleSelectiveRegenerate}
+                        disabled={aiGenerating}
+                        className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                        style={{ background: 'var(--brand-gradient)' }}
+                      >
+                        {aiGenerating ? 'Regenerating...' : `Regenerate ${deselectedCount} question${deselectedCount > 1 ? 's' : ''}`}
+                      </button>
+                    )}
+                  </div>
+                  {questions.map((q, i) => (
+                    <QuestionCard
+                      key={q.id}
+                      question={q}
+                      index={i}
+                      onChange={u => updateQuestion(i, u)}
+                      onDelete={() => removeQuestion(i)}
+                      onDuplicate={() => duplicateQuestion(i)}
+                      selectable
+                      selected={selectedQuestions.has(q.id)}
+                      onToggleSelect={() => toggleSelect(q.id)}
+                    />
+                  ))}
+                  <button
+                    onClick={addQuestion}
+                    className="w-full py-3 border border-dashed border-gray-300 text-gray-500 rounded-xl hover:border-violet-500 hover:text-violet-600 transition-colors text-sm font-medium"
                   >
-                    <option value="easy">Easy</option>
-                    <option value="medium">Medium</option>
-                    <option value="hard">Hard</option>
-                  </select>
-                </div>
-              </div>
-              {aiError && <p className="text-red-400 text-sm">{aiError}</p>}
-              <button
-                onClick={handleAiTopicGenerate}
-                disabled={aiLoading}
-                className="w-full py-4 text-white font-bold rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity"
-                style={{ background: 'var(--brand-gradient)' }}
-              >
-                {aiLoading ? 'Generating...' : '✨ Generate Questions'}
-              </button>
-              {generatedOnTab === 'aitopic' && (
-                <div className="space-y-4 mt-2">
-                  <p className="text-xs text-gray-500">Generated — edit before saving:</p>
-                  {questions.map((q, i) => (
-                    <QuestionCard key={q.id} question={q} index={i}
-                      onChange={u => updateQuestion(i, u)}
-                      onDelete={() => removeQuestion(i)}
-                      onDuplicate={() => duplicateQuestion(i)}
-                    />
-                  ))}
+                    + Add Question
+                  </button>
                 </div>
               )}
             </div>
           )}
-
-          {/* ── AI URL Tab ── */}
-          {tab === 'aiurl' && (
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">URL (must start with https://)</label>
-                <input
-                  type="url"
-                  placeholder="https://example.com/article"
-                  value={aiUrl}
-                  onChange={e => setAiUrl(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">
-                  Questions: <span className="font-bold text-gray-900">{aiCount}</span>
-                  {plan === 'free' && <span className="text-violet-500 ml-1 text-[10px]">(up to 25 with Pro)</span>}
-                </label>
-                <input
-                  type="range"
-                  min={3}
-                  max={maxQuestions}
-                  step={1}
-                  value={aiCount}
-                  onChange={e => setAiCount(Number(e.target.value))}
-                  className="w-full accent-violet-500 h-2 rounded-lg cursor-pointer"
-                />
-                <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
-                  <span>3</span>
-                  <span>{maxQuestions}</span>
-                </div>
-              </div>
-              {urlError && <p className="text-red-400 text-sm">{urlError}</p>}
-              <button
-                onClick={handleUrlGenerate}
-                disabled={urlLoading}
-                className="w-full py-4 text-white font-bold rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity"
-                style={{ background: 'var(--brand-gradient)' }}
-              >
-                {urlLoading ? 'Fetching & Generating...' : '🔗 Fetch & Generate'}
-              </button>
-              {generatedOnTab === 'aiurl' && (
-                <div className="space-y-4 mt-2">
-                  <p className="text-xs text-gray-500">Generated — edit before saving:</p>
-                  {questions.map((q, i) => (
-                    <QuestionCard key={q.id} question={q} index={i}
-                      onChange={u => updateQuestion(i, u)}
-                      onDelete={() => removeQuestion(i)}
-                      onDuplicate={() => duplicateQuestion(i)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── AI Doc Tab ── */}
-          {tab === 'aidoc' && (
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">Upload PDF or DOCX (max 5MB)</label>
-                <input
-                  type="file"
-                  accept=".pdf,.docx"
-                  onChange={e => setDocFile(e.target.files?.[0] ?? null)}
-                  className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-600 file:text-sm"
-                />
-                {docFile && <p className="text-xs text-gray-500 mt-1">{docFile.name} ({(docFile.size / 1024 / 1024).toFixed(2)} MB)</p>}
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">
-                  Questions: <span className="font-bold text-gray-900">{aiCount}</span>
-                  {plan === 'free' && <span className="text-violet-500 ml-1 text-[10px]">(up to 25 with Pro)</span>}
-                </label>
-                <input
-                  type="range"
-                  min={3}
-                  max={maxQuestions}
-                  step={1}
-                  value={aiCount}
-                  onChange={e => setAiCount(Number(e.target.value))}
-                  className="w-full accent-violet-500 h-2 rounded-lg cursor-pointer"
-                />
-                <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
-                  <span>3</span>
-                  <span>{maxQuestions}</span>
-                </div>
-              </div>
-              {docError && <p className="text-red-400 text-sm">{docError}</p>}
-              <button
-                onClick={handleDocGenerate}
-                disabled={docLoading || !docFile}
-                className="w-full py-4 text-white font-bold rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity"
-                style={{ background: 'var(--brand-gradient)' }}
-              >
-                {docLoading ? 'Reading & Generating...' : '📄 Generate from Document'}
-              </button>
-              {generatedOnTab === 'aidoc' && (
-                <div className="space-y-4 mt-2">
-                  <p className="text-xs text-gray-500">Generated — edit before saving:</p>
-                  {questions.map((q, i) => (
-                    <QuestionCard key={q.id} question={q} index={i}
-                      onChange={u => updateQuestion(i, u)}
-                      onDelete={() => removeQuestion(i)}
-                      onDuplicate={() => duplicateQuestion(i)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── Translate Section ── */}
-          <div className="border-t border-gray-100 pt-5 space-y-2">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Translate quiz</p>
-            <div className="flex gap-2">
-              <select
-                value={translateLang}
-                onChange={e => setTranslateLang(e.target.value)}
-                className="flex-1 bg-white border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30"
-              >
-                <option value="">Select language</option>
-                {GLOBAL_LANGUAGES.map(({ lang }) => (
-                  <option key={lang} value={lang}>{lang}</option>
-                ))}
-              </select>
-              <button
-                onClick={handleTranslate}
-                disabled={!translateLang || translateLoading || questions.length === 0}
-                className="px-4 py-2.5 rounded-xl text-sm font-bold border-2 transition-colors disabled:opacity-40 whitespace-nowrap"
-                style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)', background: '#F0F4FF' }}
-              >
-                {translateLoading ? 'Translating…' : 'Translate →'}
-              </button>
-            </div>
-            {translatedTo && !translateError && (
-              <p className="text-xs text-green-600 font-medium">✓ Translated to {translatedTo}</p>
-            )}
-            {translateError && <p className="text-red-400 text-xs">{translateError}</p>}
-          </div>
 
           {/* ── Save ── */}
           <div className="border-t border-gray-100 pt-6 space-y-3">
