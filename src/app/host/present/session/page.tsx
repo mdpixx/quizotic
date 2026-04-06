@@ -490,6 +490,16 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
         </div>
       )
 
+    case 'image':
+      return (
+        <div className="flex flex-col items-center justify-center gap-3">
+          {slide.imageUrl && (
+            <img src={slide.imageUrl} alt="" className="max-h-[70vh] w-full object-contain rounded-2xl" />
+          )}
+          {slide.caption && <p className="text-lg font-medium text-center" style={{ color: '#374151' }}>{slide.caption}</p>}
+        </div>
+      )
+
     case 'pinpoint': {
       const pins = aggregate.pins ?? []
       return (

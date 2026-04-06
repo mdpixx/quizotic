@@ -129,6 +129,13 @@ const SLIDE_ICONS: Record<SlideType, React.ReactNode> = {
       <path d="M14 8.5l3 2-3 2V8.5z" fill="currentColor"/>
     </svg>
   ),
+  image: (
+    <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
+      <rect x="3" y="3" width="14" height="14" rx="2" fill="currentColor" fillOpacity="0.2" stroke="currentColor" strokeWidth="1.5"/>
+      <circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/>
+      <path d="M3 13l4-4 3 3 2-2 5 5H5a2 2 0 01-2-2v-0z" fill="currentColor" fillOpacity="0.5"/>
+    </svg>
+  ),
 }
 
 // ─── Slide type descriptions ──────────────────────────────────────────────────
@@ -152,6 +159,7 @@ const SLIDE_DESCRIPTIONS: Record<SlideType, string> = {
   bullets:         'Display a list of key points. Presenter-led content, no audience input needed.',
   quote:           'A full-screen quote to inspire or frame a discussion moment.',
   video:           'Play a YouTube or Vimeo video inline during your presentation.',
+  image:           'Display a full-screen image. Use "Import PDF" to add presentation slides as images.',
 }
 
 // ─── Slide editor fields per type ─────────────────────────────────────────────
@@ -636,6 +644,24 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
       </div>
     )
 
+    case 'image': return (
+      <div className="space-y-4">
+        <div>
+          <label className={labelClass} style={labelStyle}>Image URL</label>
+          <input className={inputClass} style={inputStyle} value={slide.imageUrl}
+            onChange={e => update({ imageUrl: e.target.value })} placeholder="https://..." />
+        </div>
+        {slide.imageUrl && (
+          <img src={slide.imageUrl} alt="" className="w-full rounded-xl border max-h-64 object-contain" style={{ borderColor: '#E9E2FF' }} />
+        )}
+        <div>
+          <label className={labelClass} style={labelStyle}>Caption (optional)</label>
+          <input className={inputClass} style={inputStyle} value={slide.caption}
+            onChange={e => update({ caption: e.target.value })} placeholder="Slide title or context..." />
+        </div>
+      </div>
+    )
+
     default: return (
       <div className="text-sm text-gray-400 text-center py-8">
         Editor for this slide type coming soon.
@@ -658,6 +684,7 @@ function SlideThumbnail({ slide, index, active, onClick }: {
       case 'bullets': return (slide as { heading: string }).heading || 'Bullet Points'
       case 'quote': return (slide as { quote: string }).quote || 'Quote'
       case 'video': return 'Video'
+      case 'image': return (slide as { caption?: string }).caption || 'Image'
       default: return (slide as { question?: string }).question || meta.label
     }
   }
@@ -753,6 +780,8 @@ function PresentCreatePageInner() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [hoveredType, setHoveredType] = useState<SlideType | null>(null)
+  const [pdfImporting, setPdfImporting] = useState(false)
+  const [pdfProgress, setPdfProgress] = useState('')
 
   // Load existing presentation when editing
   useEffect(() => {
@@ -840,6 +869,79 @@ function PresentCreatePageInner() {
     router.push('/host/present/session')
   }
 
+  async function importPdf(file: File) {
+    if (file.size > 10 * 1024 * 1024) {
+      alert('PDF must be under 10 MB')
+      return
+    }
+    setPdfImporting(true)
+    setPdfProgress('Loading PDF...')
+
+    try {
+      const pdfjsLib = await import('pdfjs-dist')
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+
+      const arrayBuffer = await file.arrayBuffer()
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+      const pageCount = pdf.numPages
+
+      if (pageCount > 50) {
+        alert('PDF must have 50 pages or fewer')
+        setPdfImporting(false)
+        return
+      }
+
+      const newSlides: Slide[] = []
+
+      for (let i = 1; i <= pageCount; i++) {
+        setPdfProgress(`Rendering page ${i} / ${pageCount}...`)
+        const page = await pdf.getPage(i)
+        const viewport = page.getViewport({ scale: 2 })
+
+        const canvas = document.createElement('canvas')
+        canvas.width = viewport.width
+        canvas.height = viewport.height
+        const ctx = canvas.getContext('2d')!
+        await page.render({ canvas, canvasContext: ctx, viewport }).promise
+
+        // Convert to blob for upload
+        const blob: Blob = await new Promise(resolve => canvas.toBlob(b => resolve(b!), 'image/jpeg', 0.85))
+
+        setPdfProgress(`Uploading page ${i} / ${pageCount}...`)
+        const formData = new FormData()
+        formData.append('file', blob, `page-${i}.jpg`)
+
+        const res = await fetch('/api/upload-image', { method: 'POST', body: formData })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: 'Upload failed' }))
+          throw new Error(err.error || `Failed to upload page ${i}`)
+        }
+        const { url } = await res.json()
+
+        newSlides.push({
+          id: crypto.randomUUID(),
+          type: 'image' as const,
+          imageUrl: url,
+          caption: `Slide ${i}`,
+        })
+      }
+
+      // Append imported slides after current slides
+      setPresentation(prev => ({
+        ...prev,
+        slides: [...prev.slides, ...newSlides],
+        updatedAt: new Date().toISOString(),
+      }))
+      setActiveIndex(presentation.slides.length) // focus first imported slide
+      setPdfProgress('')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'PDF import failed')
+    } finally {
+      setPdfImporting(false)
+      setPdfProgress('')
+    }
+  }
+
   return (
     <div className="min-h-screen flex flex-col" style={{ background: '#FDFBFF', fontFamily: 'var(--font-body)' }}>
 
@@ -916,6 +1018,27 @@ function PresentCreatePageInner() {
                 )}
               </div>
             ))}
+          </div>
+
+          {/* PDF Import */}
+          <div className="rounded-2xl border p-3" style={{ borderColor: '#E9D5FF', background: 'linear-gradient(135deg, #F5F3FF 0%, #FEF3C7 100%)' }}>
+            <label className={`flex items-center justify-center gap-2 rounded-xl py-3 font-bold text-sm transition-all ${pdfImporting ? 'opacity-50 pointer-events-none' : 'hover:scale-[1.02] cursor-pointer'}`}
+              style={{ background: 'var(--brand-gradient)', color: '#fff' }}>
+              <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
+                <path d="M10 3v10m0 0l-3-3m3 3l3-3M4 14v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              {pdfImporting ? pdfProgress || 'Importing...' : 'Import PDF'}
+              <input type="file" accept=".pdf" className="hidden"
+                disabled={pdfImporting}
+                onChange={e => {
+                  const file = e.target.files?.[0]
+                  if (file) importPdf(file)
+                  e.target.value = ''
+                }} />
+            </label>
+            <p className="text-[11px] text-center mt-1.5" style={{ color: '#6B4FA0' }}>
+              Each page becomes an image slide
+            </p>
           </div>
 
           <SlideTypePicker onPick={addSlide} onHover={setHoveredType} />

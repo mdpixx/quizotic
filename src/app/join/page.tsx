@@ -363,7 +363,9 @@ function JoinPageInner() {
       setPresenterTotalSlides(total)
       if (slide !== undefined) setPresenterCurrentSlide(slide)
       setPresenterVoted(false)
-      setPhase('presenter-voting')
+      const nonInteractiveTypes = ['title', 'bullets', 'quote', 'video', 'wheel', 'image']
+      const sType = (slide as Record<string, unknown>)?.type as string | undefined
+      setPhase(sType && !nonInteractiveTypes.includes(sType) ? 'presenter-voting' : 'presenter-lobby')
     })
 
     socket.on('presenter_response_confirmed', () => {
@@ -435,7 +437,7 @@ function JoinPageInner() {
         setPresenterCurrentSlide(res.currentSlide ?? null)
         setPresenterVoted(false)
         // If joining mid-presentation on an interactive slide, go straight to voting
-        const nonInteractive = ['title', 'bullets', 'quote', 'video', 'wheel']
+        const nonInteractive = ['title', 'bullets', 'quote', 'video', 'wheel', 'image']
         const slideType = res.currentSlide?.type
         setPhase(slideType && !nonInteractive.includes(slideType) ? 'presenter-voting' : 'presenter-lobby')
       })

@@ -21,6 +21,7 @@ export type SlideType =
   | 'bullets'
   | 'quote'
   | 'video'
+  | 'image'
 
 export const SLIDE_TYPE_META: Record<SlideType, {
   label: string
@@ -47,6 +48,7 @@ export const SLIDE_TYPE_META: Record<SlideType, {
   bullets:         { label: 'Bullet Points',     category: 'content',     color: '#374151', bg: '#F9FAFB', hasAudienceInput: false },
   quote:           { label: 'Quote',             category: 'content',     color: '#6B7280', bg: '#F3F4F6', hasAudienceInput: false },
   video:           { label: 'Video',             category: 'content',     color: '#1D4ED8', bg: '#EFF6FF', hasAudienceInput: false },
+  image:           { label: 'Image',             category: 'content',     color: '#6D28D9', bg: '#F5F3FF', hasAudienceInput: false },
 }
 
 export const SLIDE_CATEGORIES = [
@@ -184,12 +186,18 @@ export interface VideoSlide extends SlideBase {
   caption: string
 }
 
+export interface ImageSlide extends SlideBase {
+  type: 'image'
+  imageUrl: string
+  caption: string
+}
+
 export type Slide =
   | MultipleChoiceSlide | OpenTextSlide | WordCloudSlide | RatingScaleSlide
   | RankingSlide | ImageChoiceSlide | Scale100Slide | PinpointSlide
   | Grid2x2Slide | WheelSlide | WordDuelSlide | LiveRaceSlide
   | EmojiPulseSlide | QuickFireSlide | TitleSlide | BulletsSlide
-  | QuoteSlide | VideoSlide
+  | QuoteSlide | VideoSlide | ImageSlide
 
 export interface Presentation {
   id: string
@@ -222,5 +230,6 @@ export function makeSlide(type: SlideType): Slide {
     case 'bullets':         return { id, type, heading: '', bullets: ['', '', ''] }
     case 'quote':           return { id, type, quote: '', attribution: '' }
     case 'video':           return { id, type, url: '', caption: '' }
+    case 'image':           return { id, type, imageUrl: '', caption: '' }
   }
 }
