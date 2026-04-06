@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback, useEffect, Suspense } from 'react'
+import React, { useState, useCallback, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   type Slide, type SlideType, type Presentation,
@@ -782,6 +782,13 @@ function PresentCreatePageInner() {
   const [hoveredType, setHoveredType] = useState<SlideType | null>(null)
   const [pdfImporting, setPdfImporting] = useState(false)
   const [pdfProgress, setPdfProgress] = useState('')
+  const [pdfCurrent, setPdfCurrent] = useState(0)
+  const [pdfTotal, setPdfTotal] = useState(0)
+  const [pdfImportedCount, setPdfImportedCount] = useState(0)
+  const [insertPickerAt, setInsertPickerAt] = useState<number | null>(null)
+  const [addSlideOpen, setAddSlideOpen] = useState(false)
+  const hasLoadedRef = useRef(false)
+  const lastSavedRef = useRef(JSON.stringify(makePresentation()))
 
   // Load existing presentation when editing
   useEffect(() => {
@@ -814,13 +821,17 @@ function PresentCreatePageInner() {
     })
   }, [activeIndex])
 
-  function addSlide(type: SlideType) {
+  function addSlide(type: SlideType, atIndex?: number) {
     const newSlide = makeSlide(type)
+    const insertAt = atIndex ?? activeIndex + 1
     setPresentation(prev => {
-      const slides = [...prev.slides, newSlide]
+      const slides = [...prev.slides]
+      slides.splice(insertAt, 0, newSlide)
       return { ...prev, slides, updatedAt: new Date().toISOString() }
     })
-    setActiveIndex(presentation.slides.length)
+    setActiveIndex(insertAt)
+    setInsertPickerAt(null)
+    setAddSlideOpen(false)
   }
 
   function deleteSlide(i: number) {
@@ -866,8 +877,39 @@ function PresentCreatePageInner() {
 
   function startPresentation() {
     localStorage.setItem('quizotic_active_presentation', JSON.stringify(presentation))
+    lastSavedRef.current = JSON.stringify(presentation)
     router.push('/host/present/session')
   }
+
+  // Mark as loaded once initial data is set (avoid auto-saving the initial empty state)
+  useEffect(() => {
+    hasLoadedRef.current = true
+    lastSavedRef.current = JSON.stringify(presentation)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Auto-save with 3s debounce
+  useEffect(() => {
+    if (!hasLoadedRef.current) return
+    if (JSON.stringify(presentation) === lastSavedRef.current) return
+    const timer = setTimeout(() => {
+      lastSavedRef.current = JSON.stringify(presentation)
+      savePresentation()
+    }, 3000)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presentation])
+
+  // Warn before leaving with unsaved changes
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (JSON.stringify(presentation) !== lastSavedRef.current) {
+        e.preventDefault()
+      }
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [presentation])
 
   async function importPdf(file: File) {
     if (file.size > 10 * 1024 * 1024) {
@@ -876,6 +918,8 @@ function PresentCreatePageInner() {
     }
     setPdfImporting(true)
     setPdfProgress('Loading PDF...')
+    setPdfCurrent(0)
+    setPdfTotal(0)
 
     try {
       const pdfjsLib = await import('pdfjs-dist')
@@ -891,10 +935,12 @@ function PresentCreatePageInner() {
         return
       }
 
+      setPdfTotal(pageCount)
       const newSlides: Slide[] = []
 
       for (let i = 1; i <= pageCount; i++) {
-        setPdfProgress(`Rendering page ${i} / ${pageCount}...`)
+        setPdfCurrent(i)
+        setPdfProgress(`Rendering page ${i} of ${pageCount}`)
         const page = await pdf.getPage(i)
         const viewport = page.getViewport({ scale: 2 })
 
@@ -907,7 +953,7 @@ function PresentCreatePageInner() {
         // Convert to blob for upload
         const blob: Blob = await new Promise(resolve => canvas.toBlob(b => resolve(b!), 'image/jpeg', 0.85))
 
-        setPdfProgress(`Uploading page ${i} / ${pageCount}...`)
+        setPdfProgress(`Uploading page ${i} of ${pageCount}`)
         const formData = new FormData()
         formData.append('file', blob, `page-${i}.jpg`)
 
@@ -926,19 +972,23 @@ function PresentCreatePageInner() {
         })
       }
 
-      // Append imported slides after current slides
-      setPresentation(prev => ({
-        ...prev,
-        slides: [...prev.slides, ...newSlides],
-        updatedAt: new Date().toISOString(),
-      }))
-      setActiveIndex(presentation.slides.length) // focus first imported slide
+      // Insert imported slides after the currently selected slide
+      const insertAt = activeIndex + 1
+      setPresentation(prev => {
+        const slides = [...prev.slides]
+        slides.splice(insertAt, 0, ...newSlides)
+        return { ...prev, slides, updatedAt: new Date().toISOString() }
+      })
+      setActiveIndex(insertAt) // focus first imported slide
+      setPdfImportedCount(prev => prev + pageCount)
       setPdfProgress('')
     } catch (err) {
       alert(err instanceof Error ? err.message : 'PDF import failed')
     } finally {
       setPdfImporting(false)
       setPdfProgress('')
+      setPdfCurrent(0)
+      setPdfTotal(0)
     }
   }
 
@@ -967,6 +1017,11 @@ function PresentCreatePageInner() {
           />
 
           <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Auto-save indicator */}
+            <span className="text-xs font-medium flex items-center gap-1.5 mr-1" style={{ color: saving ? '#4361EE' : saved ? '#16A34A' : 'transparent' }}>
+              {saving && <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#4361EE' }} />}
+              {saving ? 'Saving...' : saved ? '✓ Saved' : ''}
+            </span>
             <button onClick={savePresentation} disabled={saving}
               className="text-sm font-bold px-5 py-2 rounded-xl border-2 transition-all"
               style={{ borderColor: saved ? '#16A34A' : 'var(--color-border)', color: saved ? '#16A34A' : 'var(--color-primary)', background: saved ? '#F0FDF4' : 'var(--color-surface)' }}>
@@ -984,64 +1039,147 @@ function PresentCreatePageInner() {
       {/* Body — 3-column layout */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* LEFT: slide list + type picker */}
-        <div className="w-72 flex-shrink-0 border-r overflow-y-auto p-3 space-y-3" style={{ borderColor: '#DBEAFE', background: '#F8F7FF' }}>
-          <div className="space-y-1.5">
+        {/* LEFT: slide list (scrollable) + fixed bottom bar */}
+        <div className="w-72 flex-shrink-0 border-r flex flex-col" style={{ borderColor: '#DBEAFE', background: '#F8F7FF' }}>
+          {/* Scrollable slide list */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-0.5">
             {presentation.slides.map((slide, i) => (
-              <div key={slide.id} className="relative group">
-                <SlideThumbnail
-                  slide={slide}
-                  index={i}
-                  active={i === activeIndex}
-                  onClick={() => setActiveIndex(i)}
-                />
-                {/* Slide actions */}
-                {presentation.slides.length > 1 && (
-                  <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
-                    {i > 0 && (
-                      <button onClick={(e) => { e.stopPropagation(); moveSlide(i, 'up') }}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:text-blue-600 hover:bg-white/90 text-sm shadow-sm bg-white/70 transition-colors">
-                        ↑
-                      </button>
-                    )}
-                    {i < presentation.slides.length - 1 && (
-                      <button onClick={(e) => { e.stopPropagation(); moveSlide(i, 'down') }}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:text-blue-600 hover:bg-white/90 text-sm shadow-sm bg-white/70 transition-colors">
-                        ↓
-                      </button>
-                    )}
-                    <button onClick={(e) => { e.stopPropagation(); deleteSlide(i) }}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-white/90 text-sm shadow-sm bg-white/70 transition-colors">
-                      ✕
+              <div key={slide.id}>
+                {/* Insert button between slides */}
+                {i === 0 && (
+                  <div className="relative group/insert flex items-center justify-center h-3 -mb-0.5">
+                    <button onClick={() => setInsertPickerAt(insertPickerAt === 0 ? null : 0)}
+                      className="opacity-0 group-hover/insert:opacity-100 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all z-10 hover:scale-110"
+                      style={{ background: '#4361EE', color: '#fff' }}>
+                      +
                     </button>
+                    <div className="absolute inset-x-4 top-1/2 h-px opacity-0 group-hover/insert:opacity-100 transition-opacity" style={{ background: '#4361EE' }} />
+                  </div>
+                )}
+                {insertPickerAt === i && (
+                  <div className="mb-1.5 rounded-xl border p-2 shadow-lg animate-in fade-in slide-in-from-top-1 duration-200" style={{ borderColor: '#DBEAFE', background: '#fff' }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1 px-1" style={{ color: '#4361EE' }}>Insert here</p>
+                    <div className="grid grid-cols-2 gap-1">
+                      {(Object.keys(SLIDE_TYPE_META) as SlideType[]).slice(0, 8).map(type => (
+                        <button key={type} onClick={() => addSlide(type, i)}
+                          className="text-[11px] font-semibold rounded-lg px-2 py-1.5 text-left truncate transition-colors hover:bg-blue-50"
+                          style={{ color: SLIDE_TYPE_META[type].color }}>
+                          {SLIDE_TYPE_META[type].label}
+                        </button>
+                      ))}
+                    </div>
+                    <button onClick={() => setInsertPickerAt(null)}
+                      className="w-full text-[10px] text-gray-400 hover:text-gray-600 mt-1 transition-colors">Cancel</button>
+                  </div>
+                )}
+                <div className="relative group">
+                  <SlideThumbnail
+                    slide={slide}
+                    index={i}
+                    active={i === activeIndex}
+                    onClick={() => setActiveIndex(i)}
+                  />
+                  {/* Slide actions */}
+                  {presentation.slides.length > 1 && (
+                    <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
+                      {i > 0 && (
+                        <button onClick={(e) => { e.stopPropagation(); moveSlide(i, 'up') }}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:text-blue-600 hover:bg-white/90 text-sm shadow-sm bg-white/70 transition-colors">
+                          ↑
+                        </button>
+                      )}
+                      {i < presentation.slides.length - 1 && (
+                        <button onClick={(e) => { e.stopPropagation(); moveSlide(i, 'down') }}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:text-blue-600 hover:bg-white/90 text-sm shadow-sm bg-white/70 transition-colors">
+                          ↓
+                        </button>
+                      )}
+                      <button onClick={(e) => { e.stopPropagation(); deleteSlide(i) }}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-white/90 text-sm shadow-sm bg-white/70 transition-colors">
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {/* Insert button after each slide */}
+                <div className="relative group/insert flex items-center justify-center h-3 -mt-0.5">
+                  <button onClick={() => setInsertPickerAt(insertPickerAt === i + 1 ? null : i + 1)}
+                    className="opacity-0 group-hover/insert:opacity-100 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all z-10 hover:scale-110"
+                    style={{ background: '#4361EE', color: '#fff' }}>
+                    +
+                  </button>
+                  <div className="absolute inset-x-4 top-1/2 h-px opacity-0 group-hover/insert:opacity-100 transition-opacity" style={{ background: '#4361EE' }} />
+                </div>
+                {insertPickerAt === i + 1 && (
+                  <div className="mt-1 mb-1.5 rounded-xl border p-2 shadow-lg animate-in fade-in slide-in-from-top-1 duration-200" style={{ borderColor: '#DBEAFE', background: '#fff' }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1 px-1" style={{ color: '#4361EE' }}>Insert here</p>
+                    <div className="grid grid-cols-2 gap-1">
+                      {(Object.keys(SLIDE_TYPE_META) as SlideType[]).slice(0, 8).map(type => (
+                        <button key={type} onClick={() => addSlide(type, i + 1)}
+                          className="text-[11px] font-semibold rounded-lg px-2 py-1.5 text-left truncate transition-colors hover:bg-blue-50"
+                          style={{ color: SLIDE_TYPE_META[type].color }}>
+                          {SLIDE_TYPE_META[type].label}
+                        </button>
+                      ))}
+                    </div>
+                    <button onClick={() => setInsertPickerAt(null)}
+                      className="w-full text-[10px] text-gray-400 hover:text-gray-600 mt-1 transition-colors">Cancel</button>
                   </div>
                 )}
               </div>
             ))}
           </div>
 
-          {/* PDF Import */}
-          <div className="rounded-2xl border p-3" style={{ borderColor: '#E9D5FF', background: 'linear-gradient(135deg, #F5F3FF 0%, #FEF3C7 100%)' }}>
-            <label className={`flex items-center justify-center gap-2 rounded-xl py-3 font-bold text-sm transition-all ${pdfImporting ? 'opacity-50 pointer-events-none' : 'hover:scale-[1.02] cursor-pointer'}`}
-              style={{ background: 'var(--brand-gradient)', color: '#fff' }}>
-              <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
-                <path d="M10 3v10m0 0l-3-3m3 3l3-3M4 14v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              {pdfImporting ? pdfProgress || 'Importing...' : 'Import PDF'}
-              <input type="file" accept=".pdf" className="hidden"
-                disabled={pdfImporting}
-                onChange={e => {
-                  const file = e.target.files?.[0]
-                  if (file) importPdf(file)
-                  e.target.value = ''
-                }} />
-            </label>
-            <p className="text-[11px] text-center mt-1.5" style={{ color: '#6B4FA0' }}>
-              Each page becomes an image slide
-            </p>
-          </div>
+          {/* Fixed bottom action bar */}
+          <div className="flex-shrink-0 border-t p-3 space-y-2" style={{ borderColor: '#DBEAFE', background: '#F0EDFF' }}>
+            {/* PDF Import */}
+            {pdfImporting ? (
+              <div className="rounded-xl border p-3" style={{ borderColor: '#E9D5FF', background: '#fff' }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#4361EE', borderTopColor: 'transparent' }} />
+                  <span className="text-xs font-semibold" style={{ color: '#4361EE' }}>{pdfProgress}</span>
+                </div>
+                <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: '#E9D5FF' }}>
+                  <div className="h-full rounded-full transition-all duration-300 ease-out"
+                    style={{ width: pdfTotal > 0 ? `${(pdfCurrent / pdfTotal) * 100}%` : '0%', background: 'linear-gradient(90deg, #4361EE, #7C3AED)' }} />
+                </div>
+                <p className="text-[10px] mt-1 text-center" style={{ color: '#6B4FA0' }}>
+                  {pdfCurrent} of {pdfTotal} pages
+                </p>
+              </div>
+            ) : (
+              <label className="flex items-center justify-center gap-2 rounded-xl py-2.5 font-bold text-xs cursor-pointer transition-all hover:scale-[1.02]"
+                style={{ background: 'linear-gradient(135deg, #4361EE, #7C3AED)', color: '#fff' }}>
+                <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4">
+                  <path d="M10 3v10m0 0l-3-3m3 3l3-3M4 14v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                {pdfImportedCount > 0 ? `Import PDF (${pdfImportedCount} slides added)` : 'Import PDF'}
+                <input type="file" accept=".pdf" className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0]
+                    if (file) importPdf(file)
+                    e.target.value = ''
+                  }} />
+              </label>
+            )}
 
-          <SlideTypePicker onPick={addSlide} onHover={setHoveredType} />
+            {/* Add Slide dropdown */}
+            <div className="relative">
+              <button onClick={() => setAddSlideOpen(!addSlideOpen)}
+                className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 font-bold text-xs transition-all hover:scale-[1.02]"
+                style={{ background: '#fff', color: '#4361EE', border: '1.5px solid #4361EE' }}>
+                <span className="text-base leading-none">+</span>
+                Add Slide
+                <span className="text-[10px] opacity-60">{addSlideOpen ? '▲' : '▼'}</span>
+              </button>
+              {addSlideOpen && (
+                <div className="absolute bottom-full left-0 right-0 mb-1 rounded-xl border shadow-xl p-2 max-h-72 overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-200"
+                  style={{ borderColor: '#DBEAFE', background: '#fff', zIndex: 50 }}>
+                  <SlideTypePicker onPick={(type) => addSlide(type)} onHover={setHoveredType} />
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* CENTER: slide editor */}
