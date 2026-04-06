@@ -430,7 +430,7 @@ export default function HostDashboardPage() {
                   {copied ? 'Copied!' : 'Copy Link'}
                 </button>
                 <a
-                  href={`https://wa.me/?text=${encodeURIComponent(`I use Quizotic for live quizzes & interactive presentations — 9 quiz types, 18 slide types, Bloom's taxonomy analytics, and spaced retrieval. Free for up to 50 participants. Try it: https://www.quizotic.live/r/${referralCode}`)}`}
+                  href={`https://wa.me/?text=${encodeURIComponent(`Hey! Check out *Quizotic* — it's a free live quiz & presentation platform (like Kahoot but better).\n\n- AI generates quizzes in seconds\n- 9 quiz types + 18 interactive slide types\n- Works on any phone browser, no app needed\n- Free for up to 50 participants\n- Pricing in INR with UPI\n\nI've been using it for my sessions and it's really good. Give it a try:\nhttps://www.quizotic.live/r/${referralCode}`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-2 rounded-xl transition-all hover:scale-[1.03] active:scale-[0.97] flex items-center justify-center"
