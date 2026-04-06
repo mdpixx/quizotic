@@ -3,10 +3,20 @@ import type { Quiz } from './quiz-types'
 const QUIZZES_KEY = 'quizotic_quizzes'
 const SESSION_KEY = 'quizotic_active_session'
 
+function isValidQuiz(q: unknown): q is Quiz {
+  if (!q || typeof q !== 'object') return false
+  const obj = q as Record<string, unknown>
+  return typeof obj.id === 'string' &&
+    typeof obj.title === 'string' &&
+    Array.isArray(obj.questions)
+}
+
 export function loadQuizzes(): Quiz[] {
   if (typeof window === 'undefined') return []
   try {
-    return JSON.parse(localStorage.getItem(QUIZZES_KEY) ?? '[]')
+    const raw = JSON.parse(localStorage.getItem(QUIZZES_KEY) ?? '[]')
+    if (!Array.isArray(raw)) return []
+    return raw.filter(isValidQuiz)
   } catch {
     return []
   }
@@ -36,7 +46,9 @@ export function getActiveSession(): Quiz | null {
   if (typeof window === 'undefined') return null
   try {
     const raw = localStorage.getItem(SESSION_KEY)
-    return raw ? JSON.parse(raw) : null
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return isValidQuiz(parsed) ? parsed : null
   } catch {
     return null
   }

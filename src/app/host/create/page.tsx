@@ -7,7 +7,7 @@ import type { Question, QuestionType, BloomsLevel, Quiz, QuestionOption } from '
 import { getOptionText, getOptionImage } from '@/lib/quiz-types'
 import { ImageUpload } from '@/components/ImageUpload'
 
-type Tab = 'manual' | 'aitopic' | 'aiurl' | 'aidoc' | 'library'
+type Tab = 'manual' | 'aitopic' | 'aiurl' | 'aidoc' | 'library' | 'csv'
 
 const TIMER_OPTIONS: (10 | 15 | 20 | 30 | 60)[] = [10, 15, 20, 30, 60]
 const POINTS_OPTIONS: (500 | 1000 | 2000)[] = [500, 1000, 2000]
@@ -31,9 +31,9 @@ const TYPE_MIX_LABELS: { key: keyof TypeMix; label: string; color: string }[] = 
   { key: 'openended', label: 'Open-ended', color: '#D97706' },
 ]
 
-const TYPE_PILLS: { value: QuestionType; label: string; color: string; bg: string; svg: React.ReactNode }[] = [
+const TYPE_PILLS: { value: QuestionType; label: string; color: string; bg: string; svg: React.ReactNode; tooltip: string }[] = [
   {
-    value: 'mcq', label: 'Multiple Choice', color: '#2563EB', bg: '#EFF6FF',
+    value: 'mcq', label: 'Multiple Choice', color: '#2563EB', bg: '#EFF6FF', tooltip: 'Classic quiz format — 2-4 options, one correct answer. Best for knowledge checks.',
     svg: (
       <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
         <rect x="3" y="3" width="14" height="14" rx="3" fill="#2563EB" fillOpacity="0.15" stroke="#2563EB" strokeWidth="1.5"/>
@@ -42,7 +42,7 @@ const TYPE_PILLS: { value: QuestionType; label: string; color: string; bg: strin
     ),
   },
   {
-    value: 'truefalse', label: 'True / False', color: '#16A34A', bg: '#F0FDF4',
+    value: 'truefalse', label: 'True / False', color: '#16A34A', bg: '#F0FDF4', tooltip: 'Simple binary choice. Great for fact-checking and quick comprehension tests.',
     svg: (
       <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
         <circle cx="10" cy="10" r="7.5" fill="#16A34A" fillOpacity="0.15" stroke="#16A34A" strokeWidth="1.5"/>
@@ -51,7 +51,7 @@ const TYPE_PILLS: { value: QuestionType; label: string; color: string; bg: strin
     ),
   },
   {
-    value: 'poll', label: 'Poll', color: 'var(--color-primary)', bg: '#F0F4FF',
+    value: 'poll', label: 'Poll', color: 'var(--color-primary)', bg: '#F0F4FF', tooltip: 'Gather opinions — no right or wrong answer. See live results in a bar chart.',
     svg: (
       <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
         <rect x="3" y="12" width="3.5" height="5" rx="1" fill="#4361EE" fillOpacity="0.8"/>
@@ -61,7 +61,7 @@ const TYPE_PILLS: { value: QuestionType; label: string; color: string; bg: strin
     ),
   },
   {
-    value: 'openended', label: 'Open-ended', color: '#D97706', bg: '#FFFBEB',
+    value: 'openended', label: 'Open-ended', color: '#D97706', bg: '#FFFBEB', tooltip: 'Free-text responses. Participants type their own answers — good for reflection.',
     svg: (
       <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
         <path d="M4 6h12M4 10h8M4 14h6" stroke="#D97706" strokeWidth="2" strokeLinecap="round"/>
@@ -70,7 +70,7 @@ const TYPE_PILLS: { value: QuestionType; label: string; color: string; bg: strin
     ),
   },
   {
-    value: 'wordcloud', label: 'Word Cloud', color: '#FF6B6B', bg: '#FFF0FA',
+    value: 'wordcloud', label: 'Word Cloud', color: '#FF6B6B', bg: '#FFF0FA', tooltip: 'Participants submit words that form a live word cloud. Great for brainstorming.',
     svg: (
       <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
         <ellipse cx="8" cy="11" rx="5" ry="3.5" fill="#FF6B6B" fillOpacity="0.2" stroke="#FF6B6B" strokeWidth="1.3"/>
@@ -80,7 +80,7 @@ const TYPE_PILLS: { value: QuestionType; label: string; color: string; bg: strin
     ),
   },
   {
-    value: 'qa', label: 'Q&A', color: '#0891B2', bg: '#ECFEFF',
+    value: 'qa', label: 'Q&A', color: '#0891B2', bg: '#ECFEFF', tooltip: 'Open Q&A — participants ask questions. Host sees all submissions live.',
     svg: (
       <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
         <path d="M4 4h12a1 1 0 011 1v7a1 1 0 01-1 1H8l-3 3v-3H4a1 1 0 01-1-1V5a1 1 0 011-1z" fill="#0891B2" fillOpacity="0.15" stroke="#0891B2" strokeWidth="1.5" strokeLinejoin="round"/>
@@ -90,7 +90,7 @@ const TYPE_PILLS: { value: QuestionType; label: string; color: string; bg: strin
     ),
   },
   {
-    value: 'rating', label: 'Rating', color: '#EA580C', bg: '#FFF7ED',
+    value: 'rating', label: 'Rating', color: '#EA580C', bg: '#FFF7ED', tooltip: 'Star rating (1-5 or 1-10). Collect satisfaction or confidence scores.',
     svg: (
       <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
         <path d="M10 3l1.8 3.6 4 .6-2.9 2.8.7 4L10 12l-3.6 1.9.7-4L4.2 7.2l4-.6z" fill="#EA580C" fillOpacity="0.8" stroke="#EA580C" strokeWidth="1" strokeLinejoin="round"/>
@@ -98,7 +98,7 @@ const TYPE_PILLS: { value: QuestionType; label: string; color: string; bg: strin
     ),
   },
   {
-    value: 'ranking', label: 'Ranking', color: '#4F46E5', bg: '#EEF2FF',
+    value: 'ranking', label: 'Ranking', color: '#4F46E5', bg: '#EEF2FF', tooltip: 'Drag-to-rank items in order. Tests prioritisation and sequencing.',
     svg: (
       <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
         <rect x="3" y="4" width="14" height="3" rx="1.5" fill="#4F46E5"/>
@@ -108,7 +108,7 @@ const TYPE_PILLS: { value: QuestionType; label: string; color: string; bg: strin
     ),
   },
   {
-    value: 'case', label: 'Scenario', color: '#DC2626', bg: '#FFF1F2',
+    value: 'case', label: 'Scenario', color: '#DC2626', bg: '#FFF1F2', tooltip: 'Present a real-world scenario with context. Tests analysis and decision-making.',
     svg: (
       <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
         <rect x="4" y="3" width="12" height="14" rx="2" fill="#DC2626" fillOpacity="0.12" stroke="#DC2626" strokeWidth="1.5"/>
@@ -256,6 +256,7 @@ function QuestionCard({
                 key={t.value}
                 type="button"
                 onClick={() => handleTypeChange(t.value)}
+                title={t.tooltip}
                 className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl text-xs font-semibold transition-all"
                 style={
                   active
@@ -317,6 +318,9 @@ function QuestionCard({
           rows={2}
           className="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-violet-400/30 resize-none"
         />
+        <p className="text-xs mt-1 text-right" style={{ color: question.text.length > 300 ? '#DC2626' : '#9CA3AF' }}>
+          {question.text.length} / 300 recommended
+        </p>
       </div>
 
       {/* Question Image */}
@@ -897,6 +901,7 @@ function CreateQuizPageInner() {
     { id: 'aitopic', label: 'AI Topic' },
     { id: 'aiurl',   label: 'AI URL' },
     { id: 'aidoc',   label: 'AI Doc' },
+    { id: 'csv',     label: 'CSV' },
     { id: 'library', label: 'Library' },
   ]
 
@@ -1079,6 +1084,85 @@ function CreateQuizPageInner() {
               >
                 + Add Question
               </button>
+            </div>
+          )}
+
+          {/* ── CSV Import Tab ── */}
+          {tab === 'csv' && (
+            <div className="space-y-4">
+              <div className="rounded-xl p-5 border" style={{ background: '#F0F4FF', borderColor: '#DBEAFE' }}>
+                <p className="text-sm font-bold mb-2" style={{ color: '#1E1B4B' }}>Import questions from a CSV file</p>
+                <p className="text-xs mb-3" style={{ color: '#6B7280', lineHeight: 1.6 }}>
+                  Your CSV should have columns: <strong>question</strong>, <strong>optionA</strong>, <strong>optionB</strong>, <strong>optionC</strong>, <strong>optionD</strong>, <strong>correctAnswer</strong> (A/B/C/D), <strong>timer</strong> (optional: 10/15/20/30/60), <strong>points</strong> (optional: 500/1000/2000).
+                </p>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="text-sm"
+                    onChange={e => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      const reader = new FileReader()
+                      reader.onload = () => {
+                        const text = reader.result as string
+                        const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+                        if (lines.length < 2) return
+                        const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/['"]/g, ''))
+                        const qIdx = headers.findIndex(h => h === 'question')
+                        const aIdx = headers.findIndex(h => h === 'optiona' || h === 'option_a' || h === 'a')
+                        const bIdx = headers.findIndex(h => h === 'optionb' || h === 'option_b' || h === 'b')
+                        const cIdx = headers.findIndex(h => h === 'optionc' || h === 'option_c' || h === 'c')
+                        const dIdx = headers.findIndex(h => h === 'optiond' || h === 'option_d' || h === 'd')
+                        const correctIdx = headers.findIndex(h => h === 'correctanswer' || h === 'correct_answer' || h === 'correct' || h === 'answer')
+                        const timerIdx = headers.findIndex(h => h === 'timer' || h === 'time')
+                        const pointsIdx = headers.findIndex(h => h === 'points')
+                        if (qIdx === -1) { alert('CSV must have a "question" column'); return }
+
+                        const parsed: Question[] = []
+                        for (let i = 1; i < lines.length; i++) {
+                          const cols = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g)?.map(c => c.replace(/^"|"$/g, '').trim()) ?? lines[i].split(',').map(c => c.trim())
+                          const questionText = cols[qIdx]
+                          if (!questionText) continue
+                          const options: string[] = []
+                          if (aIdx >= 0 && cols[aIdx]) options.push(cols[aIdx])
+                          if (bIdx >= 0 && cols[bIdx]) options.push(cols[bIdx])
+                          if (cIdx >= 0 && cols[cIdx]) options.push(cols[cIdx])
+                          if (dIdx >= 0 && cols[dIdx]) options.push(cols[dIdx])
+                          const correctLetter = correctIdx >= 0 ? cols[correctIdx]?.toUpperCase() : undefined
+                          const correctIndex = correctLetter ? { A: '0', B: '1', C: '2', D: '3' }[correctLetter] : undefined
+                          const timer = timerIdx >= 0 ? parseInt(cols[timerIdx]) : 20
+                          const validTimer = [10, 15, 20, 30, 60].includes(timer) ? timer : 20
+                          const pts = pointsIdx >= 0 ? parseInt(cols[pointsIdx]) : 1000
+                          const validPts = [500, 1000, 2000].includes(pts) ? pts : 1000
+                          parsed.push({
+                            id: crypto.randomUUID(),
+                            type: options.length > 0 ? 'mcq' : 'openended',
+                            text: questionText,
+                            options: options.length > 0 ? options : undefined,
+                            correctAnswer: correctIndex,
+                            timerSeconds: validTimer as 10 | 15 | 20 | 30 | 60,
+                            points: validPts as 500 | 1000 | 2000,
+                          })
+                        }
+                        if (parsed.length === 0) { alert('No valid questions found in CSV'); return }
+                        setQuestions(prev => [...prev, ...parsed])
+                        setTab('manual')
+                      }
+                      reader.readAsText(file)
+                      e.target.value = ''
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="rounded-xl p-4 border" style={{ borderColor: '#DBEAFE' }}>
+                <p className="text-xs font-bold mb-2" style={{ color: '#374151' }}>Example CSV:</p>
+                <pre className="text-xs font-mono overflow-x-auto p-3 rounded-lg" style={{ background: '#F8FAFC', color: '#374151' }}>
+{`question,optionA,optionB,optionC,optionD,correctAnswer,timer,points
+"What is 2+2?",3,4,5,6,B,20,1000
+"Capital of India?",Mumbai,Delhi,Chennai,Kolkata,B,15,500`}
+                </pre>
+              </div>
             </div>
           )}
 

@@ -19,6 +19,8 @@ export default function TemplatesPage() {
   const router = useRouter()
   const [filter, setFilter] = useState<TemplateAudience | 'All'>('All')
   const [loading, setLoading] = useState<string | null>(null)
+  const [previewId, setPreviewId] = useState<string | null>(null)
+  const previewTemplate = previewId ? QUIZ_TEMPLATES.find(t => t.id === previewId) : null
 
   const filtered = filter === 'All'
     ? QUIZ_TEMPLATES
@@ -154,14 +156,21 @@ export default function TemplatesPage() {
                 </div>
 
                 {/* CTA */}
-                <div className="px-5 pb-5">
+                <div className="px-5 pb-5 flex gap-2">
+                  <button
+                    onClick={() => setPreviewId(template.id)}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-bold border-2 transition-all hover:bg-gray-50"
+                    style={{ borderColor: '#DBEAFE', color: '#6B7280' }}
+                  >
+                    Preview
+                  </button>
                   <button
                     onClick={() => useTemplate(template.id)}
                     disabled={isLoading}
-                    className="w-full py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
+                    className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
                     style={{ background: 'var(--brand-gradient)', color: '#fff', fontFamily: 'var(--font-heading)' }}
                   >
-                    {isLoading ? 'Loading…' : 'Use Template →'}
+                    {isLoading ? 'Loading…' : 'Use →'}
                   </button>
                 </div>
               </div>
@@ -169,6 +178,76 @@ export default function TemplatesPage() {
           })}
         </div>
       </div>
+
+      {/* Preview Modal */}
+      {previewTemplate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.5)' }}
+          onClick={() => setPreviewId(null)}>
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto shadow-2xl"
+            onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white rounded-t-2xl p-5 border-b flex items-center justify-between"
+              style={{ borderColor: '#DBEAFE' }}>
+              <div>
+                <h2 className="text-lg font-black" style={{ fontFamily: 'var(--font-heading)', color: '#1E1B4B' }}>
+                  {previewTemplate.title}
+                </h2>
+                <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
+                  {previewTemplate.questionCount} questions · {previewTemplate.subject}
+                </p>
+              </div>
+              <button onClick={() => setPreviewId(null)}
+                className="text-lg font-bold w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100"
+                style={{ color: '#9CA3AF' }}>
+                &times;
+              </button>
+            </div>
+            <div className="p-5 space-y-3">
+              {previewTemplate.quiz.questions.map((q, i) => (
+                <div key={i} className="rounded-xl p-4 border" style={{ borderColor: '#DBEAFE' }}>
+                  <p className="text-sm font-semibold mb-2" style={{ color: '#1E1B4B' }}>
+                    <span style={{ color: '#4361EE' }}>Q{i + 1}.</span> {q.text}
+                  </p>
+                  {q.options && (
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {q.options.map((opt, j) => {
+                        const optText = typeof opt === 'string' ? opt : opt.text
+                        const isCorrect = q.correctAnswer === String(j)
+                        return (
+                          <div key={j} className="text-xs rounded-lg px-2.5 py-1.5 flex items-center gap-1.5"
+                            style={{
+                              background: isCorrect ? '#DCFCE7' : '#F0F4FF',
+                              color: isCorrect ? '#16A34A' : '#4B5563',
+                              fontWeight: isCorrect ? 700 : 400,
+                            }}>
+                            {isCorrect && <span>✓</span>}
+                            {optText}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#F0F4FF', color: '#4361EE' }}>
+                      {q.type}
+                    </span>
+                    <span className="text-[10px]" style={{ color: '#9CA3AF' }}>{q.timerSeconds}s · {q.points}pts</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="sticky bottom-0 bg-white p-5 border-t" style={{ borderColor: '#DBEAFE' }}>
+              <button
+                onClick={() => { setPreviewId(null); useTemplate(previewTemplate.id) }}
+                className="w-full py-3 rounded-xl text-sm font-bold transition-all hover:opacity-90"
+                style={{ background: 'var(--brand-gradient)', color: '#fff', fontFamily: 'var(--font-heading)' }}
+              >
+                Use This Template →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

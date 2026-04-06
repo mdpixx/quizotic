@@ -53,7 +53,7 @@ export interface Quiz {
   questions: Question[]
 }
 
-export type SessionMode = 'competitive' | 'reflection'
+export type SessionMode = 'competitive' | 'reflection' | 'selfpaced' | 'assessment'
 
 // ─── Learning Science types ───────────────────────────────────────────────────
 

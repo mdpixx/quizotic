@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { loadQuizzes, deleteQuiz, setActiveSession } from '@/lib/quiz-storage'
+import { loadQuizzes, deleteQuiz, saveQuiz, setActiveSession } from '@/lib/quiz-storage'
 import type { Quiz } from '@/lib/quiz-types'
 
 // ─── Session history types ────────────────────────────────────────────────────
@@ -86,12 +86,14 @@ function QuizCard({
   onStart,
   onEdit,
   onDelete,
+  onDuplicate,
 }: {
   quiz: Quiz
   sessionCount: number
   onStart: () => void
   onEdit: () => void
   onDelete: () => void
+  onDuplicate: () => void
 }) {
   const created = quiz.createdAt
     ? new Date(quiz.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })
@@ -114,6 +116,12 @@ function QuizCard({
         </p>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
+        <button onClick={onDuplicate}
+          className="text-sm font-semibold px-3.5 py-1.5 rounded-lg border transition-colors hover:bg-blue-50"
+          style={{ color: '#6B7280', borderColor: '#DBEAFE' }}
+          title="Duplicate quiz">
+          Duplicate
+        </button>
         <button onClick={onEdit}
           className="text-sm font-semibold px-3.5 py-1.5 rounded-lg border transition-colors hover:bg-violet-50"
           style={{ color: '#6B7280', borderColor: '#DBEAFE' }}>
@@ -207,9 +215,9 @@ export default function HostDashboardPage() {
   }
 
   function handleDelete(id: string) {
+    if (!window.confirm('Are you sure you want to delete this quiz? This cannot be undone.')) return
     deleteQuiz(id)
     setQuizzes(loadQuizzes())
-    // Also delete from DB
     fetch(`/api/quizzes/${id}`, { method: 'DELETE' }).catch(() => {})
   }
 
@@ -223,7 +231,27 @@ export default function HostDashboardPage() {
     router.push(`/host/create?edit=${quiz.id}`)
   }
 
+  function handleDuplicate(quiz: Quiz) {
+    const clone: Quiz = {
+      ...quiz,
+      id: crypto.randomUUID(),
+      title: `${quiz.title} (copy)`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      questions: quiz.questions.map(q => ({ ...q, id: crypto.randomUUID() })),
+    }
+    saveQuiz(clone)
+    setQuizzes(loadQuizzes())
+    // Also persist to DB
+    fetch('/api/quizzes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(clone),
+    }).catch(() => {})
+  }
+
   function handleDeletePresentation(id: string) {
+    if (!window.confirm('Are you sure you want to delete this presentation? This cannot be undone.')) return
     const updated = presentations.filter(p => p.id !== id)
     localStorage.setItem('quizotic_presentations', JSON.stringify(updated))
     setPresentations(updated)
@@ -478,6 +506,7 @@ export default function HostDashboardPage() {
                     onStart={() => handleStart(q)}
                     onEdit={() => handleEdit(q)}
                     onDelete={() => handleDelete(q.id)}
+                    onDuplicate={() => handleDuplicate(q)}
                   />
                 ))}
               </div>
@@ -633,6 +662,7 @@ export default function HostDashboardPage() {
                 onStart={() => handleStart(q)}
                 onEdit={() => handleEdit(q)}
                 onDelete={() => handleDelete(q.id)}
+                onDuplicate={() => handleDuplicate(q)}
               />
             ))}
           </div>

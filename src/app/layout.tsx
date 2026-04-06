@@ -1,21 +1,23 @@
 import type { Metadata } from "next";
-import { Nunito, Fredoka } from "next/font/google";
+import { Outfit, Nunito_Sans } from "next/font/google";
 import "./globals.css";
 import { Background } from "@/components/Background";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/components/AuthProvider";
 import { PostHogProvider } from "@/components/PostHogProvider";
 
-const nunito = Nunito({
-  variable: "--font-nunito",
+const outfit = Outfit({
+  variable: "--font-outfit",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800", "900"],
+  display: "swap",
 });
 
-const fredoka = Fredoka({
-  variable: "--font-fredoka",
+const nunitoSans = Nunito_Sans({
+  variable: "--font-nunito-sans",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -77,7 +79,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${nunito.variable} ${fredoka.variable} h-full antialiased`}
+      className={`${outfit.variable} ${nunitoSans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <AuthProvider>

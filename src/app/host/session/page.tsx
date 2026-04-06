@@ -7,7 +7,7 @@ import QRCode from 'react-qr-code'
 import { Avatar } from '@/components/Avatar'
 import { Podium } from '@/components/Podium'
 import { SessionReport } from '@/components/SessionReport'
-import { getActiveSession, clearActiveSession } from '@/lib/quiz-storage'
+import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/quiz-storage'
 import type { Quiz, QuestionStat, SessionMode } from '@/lib/quiz-types'
 import { getOptionText, getOptionImage } from '@/lib/quiz-types'
 
@@ -56,6 +56,7 @@ export default function SessionPage() {
   const [followupError, setFollowupError] = useState('')
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
   const [optionCounts, setOptionCounts] = useState<number[]>([])
+  const [paused, setPaused] = useState(false)
 
   const currentQuestion = quiz?.questions[questionIndex] ?? null
 
@@ -126,8 +127,9 @@ export default function SessionPage() {
         const maxScore = lb[0].score || 1
         const avgScore = Math.round(lb.reduce((s, p) => s + (p.score / maxScore * 100), 0) / lb.length)
         const duration = Math.round((Date.now() - sessionStartTimeRef.current) / 1000)
+        const sessionId = crypto.randomUUID()
         const record = {
-          id: crypto.randomUUID(),
+          id: sessionId,
           quizId: quiz.id,
           quizTitle: quiz.title,
           date: new Date().toISOString(),
@@ -138,11 +140,26 @@ export default function SessionPage() {
         try {
           const existing = JSON.parse(localStorage.getItem('quizotic_sessions') || '[]')
           localStorage.setItem('quizotic_sessions', JSON.stringify([record, ...existing]))
+          // Persist question-level stats for analytics
+          if (qs && qs.length > 0) {
+            const statsKey = `quizotic_qstats_${sessionId}`
+            localStorage.setItem(statsKey, JSON.stringify(qs))
+          }
         } catch {}
       }
     })
 
-    return () => { socket.disconnect() }
+    return () => {
+      socket.off('connect')
+      socket.off('disconnect')
+      socket.off('connect_error')
+      socket.off('participant_joined')
+      socket.off('participant_left')
+      socket.off('answer_received')
+      socket.off('question_ended')
+      socket.off('session_ended')
+      socket.disconnect()
+    }
   }, [quiz])
 
   async function createSession() {
@@ -292,34 +309,28 @@ export default function SessionPage() {
           <div>
             <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Session Mode</p>
             <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setSessionMode('competitive')}
-                className={`rounded-2xl p-4 border-2 text-left transition-all ${
-                  sessionMode === 'competitive'
-                    ? 'border-violet-500 bg-violet-50 shadow-sm'
-                    : 'border-gray-200 bg-white'
-                }`}
-              >
-                <svg className="w-6 h-6 mb-2" viewBox="0 0 24 24" fill="none" stroke={sessionMode === 'competitive' ? '#4361EE' : '#9CA3AF'} strokeWidth="2">
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" strokeLinejoin="round"/>
-                </svg>
-                <p className={`font-bold text-sm ${sessionMode === 'competitive' ? 'text-violet-700' : 'text-gray-900'}`}>Competitive</p>
-                <p className="text-xs text-gray-500 mt-0.5 leading-tight">Live leaderboard, speed scoring</p>
-              </button>
-              <button
-                onClick={() => setSessionMode('reflection')}
-                className={`rounded-2xl p-4 border-2 text-left transition-all ${
-                  sessionMode === 'reflection'
-                    ? 'border-violet-500 bg-violet-50 shadow-sm'
-                    : 'border-gray-200 bg-white'
-                }`}
-              >
-                <svg className="w-6 h-6 mb-2" viewBox="0 0 24 24" fill="none" stroke={sessionMode === 'reflection' ? '#4361EE' : '#9CA3AF'} strokeWidth="2">
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" strokeLinejoin="round"/>
-                </svg>
-                <p className={`font-bold text-sm ${sessionMode === 'reflection' ? 'text-violet-700' : 'text-gray-900'}`}>Reflection</p>
-                <p className="text-xs text-gray-500 mt-0.5 leading-tight">Calmer pace, results at end</p>
-              </button>
+              {([
+                { mode: 'competitive' as const, label: 'Competitive', desc: 'Live leaderboard, speed scoring', icon: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z' },
+                { mode: 'reflection' as const, label: 'Reflection', desc: 'Calmer pace, results at end', icon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z' },
+                { mode: 'selfpaced' as const, label: 'Self-paced', desc: 'Homework mode — no timer, do anytime', icon: 'M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z' },
+                { mode: 'assessment' as const, label: 'Assessment', desc: 'Pass/fail with score threshold', icon: 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9l2 2 4-4' },
+              ]).map(opt => (
+                <button
+                  key={opt.mode}
+                  onClick={() => setSessionMode(opt.mode)}
+                  className={`rounded-2xl p-4 border-2 text-left transition-all ${
+                    sessionMode === opt.mode
+                      ? 'border-violet-500 bg-violet-50 shadow-sm'
+                      : 'border-gray-200 bg-white'
+                  }`}
+                >
+                  <svg className="w-6 h-6 mb-2" viewBox="0 0 24 24" fill="none" stroke={sessionMode === opt.mode ? '#4361EE' : '#9CA3AF'} strokeWidth="2">
+                    <path d={opt.icon} strokeLinejoin="round" strokeLinecap="round"/>
+                  </svg>
+                  <p className={`font-bold text-sm ${sessionMode === opt.mode ? 'text-violet-700' : 'text-gray-900'}`}>{opt.label}</p>
+                  <p className="text-xs text-gray-500 mt-0.5 leading-tight">{opt.desc}</p>
+                </button>
+              ))}
             </div>
           </div>
 
@@ -416,7 +427,7 @@ export default function SessionPage() {
             <div className="flex gap-4 items-center min-w-0">
               <div className="flex-1 min-w-0 text-center">
                 <p className="text-base font-bold text-gray-400 uppercase tracking-widest mb-3">Game Code</p>
-                <p className="text-6xl font-black tracking-[0.3em]" style={{ color: 'var(--color-primary)' }}>{gameCode}</p>
+                <p className="text-8xl font-black tracking-[0.3em]" style={{ color: 'var(--color-primary)' }}>{gameCode}</p>
                 <p className="text-gray-400 text-base mt-3">quizotic.live</p>
               </div>
               <div className="flex-shrink-0 text-center">
@@ -510,7 +521,7 @@ export default function SessionPage() {
           <div className={`bg-white rounded-2xl shadow-sm border p-8 ${currentQuestion.type === 'case' ? 'border-blue-200 border-t-4 border-t-blue-500' : 'border-gray-200 border-t-4 border-t-amber-400'}`}>
             <p className="text-3xl font-bold leading-snug" style={{ color: 'var(--color-dark)' }}>{currentQuestion.text}</p>
             {currentQuestion.imageUrl && (
-              <img src={currentQuestion.imageUrl} alt="" className="mt-4 rounded-xl max-h-64 w-full object-contain" loading="lazy" />
+              <img src={currentQuestion.imageUrl} alt={`Image for question ${questionIndex + 1}`} className="mt-4 rounded-xl max-h-64 w-full object-contain" loading="lazy" />
             )}
           </div>
 
@@ -560,14 +571,35 @@ export default function SessionPage() {
             </div>
           )}
 
-          <button
-            onClick={nextQuestion}
-            className={`w-full py-5 bg-amber-400 text-black font-black text-2xl rounded-2xl hover:bg-amber-300 transition-colors ${
-              answered === participants.size && participants.size > 0 ? 'animate-pulse' : ''
-            }`}
-          >
-            {questionIndex + 1 >= quiz.questions.length ? 'End Quiz' : 'Next Question'}
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                if (paused) {
+                  socketRef.current?.emit('resume_quiz', { gameCode })
+                  setPaused(false)
+                } else {
+                  socketRef.current?.emit('pause_quiz', { gameCode })
+                  setPaused(true)
+                }
+              }}
+              className="px-6 py-5 rounded-2xl font-bold text-lg border-2 transition-all hover:scale-[1.02]"
+              style={{
+                borderColor: paused ? '#16A34A' : '#F59E0B',
+                color: paused ? '#16A34A' : '#92400E',
+                background: paused ? '#F0FDF4' : '#FFFBEB',
+              }}
+            >
+              {paused ? 'Resume' : 'Pause'}
+            </button>
+            <button
+              onClick={nextQuestion}
+              className={`flex-1 py-5 bg-amber-400 text-black font-black text-2xl rounded-2xl hover:bg-amber-300 transition-colors ${
+                answered === participants.size && participants.size > 0 ? 'animate-pulse' : ''
+              }`}
+            >
+              {questionIndex + 1 >= quiz.questions.length ? 'End Quiz' : 'Next Question'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -659,9 +691,63 @@ export default function SessionPage() {
             )}
           </div>
 
+          {/* Action buttons */}
+          <div className="flex gap-3 mt-2">
+            <button
+              onClick={() => {
+                if (quiz) {
+                  setActiveSession(quiz)
+                  setPhase('idle')
+                  setLeaderboard([])
+                  setTeamLeaderboard(null)
+                  setQuestionStats([])
+                  setQuestionIndex(0)
+                  setAnswered(0)
+                  setOptionCounts([])
+                  setExplanation(null)
+                  setFollowups([])
+                  setParticipants(new Map())
+                  setGameCode('')
+                  socketInitialized.current = false
+                }
+              }}
+              className="flex-1 font-bold rounded-xl py-3 text-base transition-all hover:scale-[1.02]"
+              style={{ background: 'var(--brand-gradient)', color: '#fff', fontFamily: 'var(--font-heading)' }}
+            >
+              Play Again
+            </button>
+            <button
+              onClick={() => {
+                if (!quiz || leaderboard.length === 0) return
+                const rows = [['Rank', 'Name', 'Score']]
+                leaderboard.forEach((entry, i) => {
+                  rows.push([String(i + 1), entry.name, String(entry.score)])
+                })
+                if (questionStats.length > 0) {
+                  rows.push([])
+                  rows.push(['Question', 'Correct %', 'Text'])
+                  questionStats.forEach((stat, i) => {
+                    rows.push([`Q${i + 1}`, `${stat.correctPct}%`, `"${stat.text.replace(/"/g, '""')}"`])
+                  })
+                }
+                const csv = rows.map(r => r.join(',')).join('\n')
+                const blob = new Blob([csv], { type: 'text/csv' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `${quiz.title.replace(/[^a-zA-Z0-9]/g, '_')}_results.csv`
+                a.click()
+                URL.revokeObjectURL(url)
+              }}
+              className="flex-1 font-bold rounded-xl py-3 text-base border-2 transition-all hover:scale-[1.02]"
+              style={{ borderColor: '#D1FAE5', color: '#16a34a' }}
+            >
+              Export CSV
+            </button>
+          </div>
           <button
             onClick={goBackToLibrary}
-            className="mt-2 w-full border border-gray-300 text-gray-600 rounded-xl py-3 hover:border-gray-400 transition-colors font-semibold"
+            className="w-full border border-gray-300 text-gray-600 rounded-xl py-3 hover:border-gray-400 transition-colors font-semibold"
           >
             Back to Library
           </button>

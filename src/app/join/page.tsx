@@ -283,8 +283,36 @@ function JoinPageInner() {
   const displayNameRef = useRef('')
 
   useEffect(() => {
-    const socket = io()
+    const socket = io({
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+    })
     socketRef.current = socket
+
+    socket.on('connect', () => {
+      // Re-join session on reconnect if we were already in a game
+      if (gameCodeRef.current && displayNameRef.current && phase !== 'form') {
+        socket.emit('join_session', {
+          gameCode: gameCodeRef.current,
+          displayName: displayNameRef.current,
+        }, () => {})
+      }
+    })
+
+    socket.on('disconnect', () => {
+      // Show reconnecting indicator if in an active session
+      if (phase !== 'form' && phase !== 'ended') {
+        setError('Connection lost. Reconnecting...')
+      }
+    })
+
+    socket.on('connect_error', () => {
+      if (phase !== 'form') {
+        setError('Connection lost. Reconnecting...')
+      }
+    })
 
     socket.on('question_show', ({ question, index, total }: { question: Omit<Question, 'index' | 'total'>; index: number; total: number }) => {
       setQuestion({ ...question, index, total })
@@ -352,6 +380,22 @@ function JoinPageInner() {
       setPhase('ended')
     })
 
+    socket.on('quiz_paused', () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    })
+
+    socket.on('quiz_resumed', () => {
+      if (phase === 'question' && timeLeft > 0) {
+        timerRef.current = setInterval(() => {
+          setTimeLeft(prev => {
+            if (prev <= 1) { clearInterval(timerRef.current!); return 0 }
+            if (prev <= 6 && prev > 1) playTick()
+            return prev - 1
+          })
+        }, 1000)
+      }
+    })
+
     socket.on('host_disconnected', () => {
       setError('The host has left. Session ended.')
       setPhase('form')
@@ -401,23 +445,47 @@ function JoinPageInner() {
       })
     }
 
-    return () => { socket.disconnect() }
+    return () => {
+      socket.off('connect')
+      socket.off('disconnect')
+      socket.off('connect_error')
+      socket.off('question_show')
+      socket.off('answer_confirmed')
+      socket.off('question_ended')
+      socket.off('session_ended')
+      socket.off('host_disconnected')
+      socket.off('quiz_paused')
+      socket.off('quiz_resumed')
+      socket.off('presenter_slide_changed')
+      socket.off('presenter_response_confirmed')
+      socket.off('presenter_ended')
+      socket.disconnect()
+    }
   }, [])
 
   function handleJoin(e: React.FormEvent) {
     e.preventDefault()
-    if (!name.trim() || !code.trim()) return
+    const trimmedName = name.trim()
+    const trimmedCode = code.trim()
+    if (!trimmedName || !trimmedCode) {
+      setError(trimmedName ? 'Enter a game code' : 'Enter your name')
+      return
+    }
+    if (trimmedName.length > 30) {
+      setError('Name must be 30 characters or less')
+      return
+    }
     setError('')
     setPhase('connecting')
 
-    gameCodeRef.current = code.trim()
-    displayNameRef.current = name.trim()
+    gameCodeRef.current = trimmedCode
+    displayNameRef.current = trimmedName
 
     // Route to presenter join if mode=presenter
     if (modeParam === 'presenter') {
       socketRef.current?.emit('join_presenter_session', {
-        gameCode: code.trim(),
-        displayName: name.trim(),
+        gameCode: trimmedCode,
+        displayName: trimmedName,
       }, (res: {
         success: boolean; error?: string;
         presentationTitle?: string;
@@ -445,8 +513,8 @@ function JoinPageInner() {
     }
 
     socketRef.current?.emit('join_session', {
-      gameCode: code.trim(),
-      displayName: name.trim(),
+      gameCode: trimmedCode,
+      displayName: trimmedName,
     }, (res: { success: boolean; error?: string; status?: string; quizTitle?: string; archetype?: string; sessionMode?: 'competitive' | 'reflection'; anonymousMode?: boolean; team?: { index: number; name: string; color: string } | null }) => {
       if (!res.success) {
         setError(res.error ?? 'Could not join. Try again.')

@@ -28,12 +28,14 @@ export function ImageUpload({ imageUrl, onUpload, onRemove, variant = 'question'
     }
 
     setUploading(true)
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15000)
     try {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('context', variant)
 
-      const res = await fetch('/api/upload-image', { method: 'POST', body: formData })
+      const res = await fetch('/api/upload-image', { method: 'POST', body: formData, signal: controller.signal })
       const data = await res.json()
 
       if (!data.success) {
@@ -42,9 +44,14 @@ export function ImageUpload({ imageUrl, onUpload, onRemove, variant = 'question'
       }
 
       onUpload(data.url)
-    } catch {
-      setError('Upload failed')
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setError('Upload timed out. Check your connection and try again.')
+      } else {
+        setError('Upload failed. Please try again.')
+      }
     } finally {
+      clearTimeout(timeout)
       setUploading(false)
     }
   }

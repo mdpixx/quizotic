@@ -7,18 +7,35 @@ export default function SignInPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
+  const [error, setError] = useState('')
 
   async function handleGoogleSignIn() {
     setLoading(true)
-    await signIn('google', { callbackUrl: '/host' })
+    setError('')
+    try {
+      await signIn('google', { callbackUrl: '/host' })
+    } catch {
+      setError('Could not connect to Google. Please try again.')
+      setLoading(false)
+    }
   }
 
   async function handleEmailSignIn(e: React.FormEvent) {
     e.preventDefault()
     if (!email.trim()) return
     setLoading(true)
-    await signIn('resend', { email, callbackUrl: '/host', redirect: false })
-    setEmailSent(true)
+    setError('')
+    try {
+      const result = await signIn('resend', { email, callbackUrl: '/host', redirect: false })
+      if (result?.error) {
+        setError('Could not send the magic link. Please check your email and try again.')
+        setLoading(false)
+        return
+      }
+      setEmailSent(true)
+    } catch {
+      setError('Something went wrong. Please try again.')
+    }
     setLoading(false)
   }
 
@@ -100,6 +117,12 @@ export default function SignInPage() {
           </form>
         </div>
 
+        {error && (
+          <div className="mt-4 rounded-xl border px-4 py-3 text-sm font-medium"
+            style={{ background: '#FEF2F2', borderColor: '#FECACA', color: '#DC2626' }}>
+            {error}
+          </div>
+        )}
         <p className="text-center text-xs mt-4" style={{ color: '#9CA3AF' }}>
           No password needed. We&apos;ll email you a secure link.
         </p>

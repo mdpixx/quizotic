@@ -185,6 +185,22 @@ app.prepare().then(() => {
       console.log(`[session] started: ${gameCode}`)
     })
 
+    socket.on('pause_quiz', ({ gameCode }) => {
+      const session = sessions.get(gameCode)
+      if (!session || session.hostSocketId !== socket.id) return
+      session.paused = true
+      io.to(`session:${gameCode}`).emit('quiz_paused')
+      console.log(`[session] paused: ${gameCode}`)
+    })
+
+    socket.on('resume_quiz', ({ gameCode }) => {
+      const session = sessions.get(gameCode)
+      if (!session || session.hostSocketId !== socket.id) return
+      session.paused = false
+      io.to(`session:${gameCode}`).emit('quiz_resumed')
+      console.log(`[session] resumed: ${gameCode}`)
+    })
+
     socket.on('next_question', ({ gameCode }) => {
       const session = sessions.get(gameCode)
       if (!session || session.hostSocketId !== socket.id) return

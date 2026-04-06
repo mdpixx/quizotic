@@ -10,8 +10,8 @@
   --color-gold-dark:    #E6B84D;
   --color-dark:         #1B2559;   /* deep navy */
   --color-surface:      #FFFFFF;
-  --color-surface-tint: #F0F4FF;   /* soft blue tint */
-  --color-border:       rgba(67,97,238,0.12);
+  --color-surface-tint: #FFF4EC;   /* warm cream tint — matches Outfit's warmth */
+  --color-border:       rgba(67,97,238,0.10);
 
   /* Brand gradient */
   --brand-gradient: linear-gradient(135deg, #FF6B6B, #4361EE);
@@ -26,8 +26,8 @@
   --color-dark-bg:      #0F1629;
 
   /* Fonts */
-  --font-heading: var(--font-fredoka), 'Fredoka', sans-serif;
-  --font-body:    var(--font-nunito), 'Nunito', sans-serif;
+  --font-heading: var(--font-outfit), 'Outfit', sans-serif;
+  --font-body:    var(--font-nunito-sans), 'Nunito Sans', sans-serif;
 }
 
 /* ── Dark mode toggle ──────────────────────────────────────────────── */

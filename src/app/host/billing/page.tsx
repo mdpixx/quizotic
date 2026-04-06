@@ -541,6 +541,18 @@ export default function PricingPage() {
           </div>
         </div>
 
+        {/* ─── GST / Tax note ──────────────────────────────────────────── */}
+        <div className="rounded-xl px-5 py-4 mb-10 flex items-start gap-3" style={{ background: '#FFFBEB', border: '1.5px solid #FDE68A' }}>
+          <span className="text-lg flex-shrink-0 mt-0.5">🧾</span>
+          <div>
+            <p className="text-sm font-bold mb-1" style={{ color: '#92400E' }}>Pricing &amp; GST</p>
+            <p className="text-sm" style={{ color: '#78350F', lineHeight: 1.6 }}>
+              All prices shown are <strong>exclusive of GST</strong>. For Indian customers, 18% GST will be added at checkout as per government regulations.
+              Your invoice will include a full GST breakdown with our GSTIN number. International customers are not charged GST.
+            </p>
+          </div>
+        </div>
+
         {/* ─── Feature Comparison Table (grouped, color-coded) ─────────── */}
         <div className="rounded-2xl overflow-hidden mb-10" style={{ background: '#fff', border: '1.5px solid #E2E8F0' }}>
           <div className="p-6 sm:p-8 pb-4">

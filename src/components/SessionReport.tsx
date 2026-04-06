@@ -69,6 +69,15 @@ function ConfidenceGridDisplay({ grid }: { grid: NonNullable<QuestionStat['confi
   )
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 interface SessionReportProps {
   questionStats: QuestionStat[]
   quizTitle?: string
@@ -103,7 +112,7 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
     const needsReviewBox = needsReview.length > 0 ? `
       <div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:14px 18px;margin-bottom:20px;">
         <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#c2410c;text-transform:uppercase;letter-spacing:0.06em">⚠ Needs Re-teaching</p>
-        <p style="margin:0;font-size:13px;color:#9a3412;line-height:1.5">${needsReview.map(s => `Q${s.index + 1}: ${s.text.length > 60 ? s.text.slice(0, 60) + '…' : s.text}`).join('<br>')}</p>
+        <p style="margin:0;font-size:13px;color:#9a3412;line-height:1.5">${needsReview.map(s => `Q${s.index + 1}: ${escapeHtml(s.text.length > 60 ? s.text.slice(0, 60) + '…' : s.text)}`).join('<br>')}</p>
         <p style="margin:8px 0 0;font-size:12px;color:#c2410c">Revisit these topics in the next session before moving forward.</p>
       </div>` : ''
 
@@ -149,17 +158,17 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
       return `
         <div style="border:1.5px solid ${cardBorder};border-radius:10px;padding:16px;margin-bottom:12px;background:${cardBg};page-break-inside:avoid;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
-            <p style="font-size:13px;color:#1f2937;font-weight:600;margin:0;line-height:1.5;flex:1">Q${i + 1}. ${stat.text}${badgeHtml}</p>
+            <p style="font-size:13px;color:#1f2937;font-weight:600;margin:0;line-height:1.5;flex:1">Q${i + 1}. ${escapeHtml(stat.text)}${badgeHtml}</p>
             <span style="font-size:26px;font-weight:900;color:${pctColor};white-space:nowrap">${stat.correctPct}%</span>
           </div>
           ${grid ? gridHtml : ''}
           ${misconceptionNote}
-          ${stat.explanation ? `<p style="margin-top:10px;font-size:12px;color:#4338ca;background:#eef2ff;border-radius:6px;padding:8px 10px">💡 ${stat.explanation}</p>` : ''}
+          ${stat.explanation ? `<p style="margin-top:10px;font-size:12px;color:#4338ca;background:#eef2ff;border-radius:6px;padding:8px 10px">💡 ${escapeHtml(stat.explanation)}</p>` : ''}
         </div>`
     }).join('')
 
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-      <title>${quizTitle || 'Session Report'} — Quizotic</title>
+      <title>${escapeHtml(quizTitle || 'Session Report')} — Quizotic</title>
       <style>
         * { box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; color: #111; background: #fff; }
@@ -172,7 +181,7 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <div>
             <p style="margin:0;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;opacity:0.75">Session Report</p>
-            <h1 style="margin:4px 0 0;font-size:26px;font-weight:900;letter-spacing:-0.02em">${quizTitle || 'Quiz Session'}</h1>
+            <h1 style="margin:4px 0 0;font-size:26px;font-weight:900;letter-spacing:-0.02em">${escapeHtml(quizTitle || 'Quiz Session')}</h1>
             <p style="margin:6px 0 0;font-size:13px;opacity:0.8">${date}</p>
           </div>
           <div style="text-align:right">

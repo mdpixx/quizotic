@@ -82,7 +82,8 @@ export default function OnboardPage() {
             }
       ),
     })
-    router.push('/host')
+    // If this is a new user's first quiz, guide them to create
+    router.push('/host?welcome=1')
   }
 
   return (

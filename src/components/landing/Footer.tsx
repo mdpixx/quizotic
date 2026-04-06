@@ -30,6 +30,8 @@ export function Footer() {
               { label: 'Join a Quiz', href: '/join' },
               { label: 'Templates', href: '/host/templates' },
               { label: 'Presentations', href: '/host/present/create' },
+              { label: 'Privacy Policy', href: '/privacy' },
+              { label: 'Terms of Service', href: '/terms' },
             ].map(link => (
               <Link key={link.label} href={link.href}
                 className="text-sm font-medium transition-colors hover:text-white"

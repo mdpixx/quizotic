@@ -22,7 +22,8 @@ export function CircularTimer({ timeLeft, total }: { timeLeft: number; total: nu
           style={{ transition: 'stroke-dashoffset 1s linear, stroke 0.3s' }}
         />
       </svg>
-      <span className={`absolute inset-0 flex items-center justify-center text-2xl font-black ${isLow ? 'text-red-500' : 'text-blue-600'}`}>
+      <span className={`absolute inset-0 flex items-center justify-center text-2xl font-black ${isLow ? 'text-red-500' : 'text-white'}`}
+        style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
         {timeLeft}
       </span>
     </div>

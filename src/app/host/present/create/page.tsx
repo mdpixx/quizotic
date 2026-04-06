@@ -167,9 +167,9 @@ const SLIDE_DESCRIPTIONS: Record<SlideType, string> = {
 function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) => void }) {
   const update = (patch: Partial<Slide>) => onChange({ ...slide, ...patch } as Slide)
 
-  const inputClass = "w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300 transition-colors"
+  const inputClass = "w-full border rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-violet-300 transition-colors"
   const inputStyle = { borderColor: '#E9E2FF', color: '#1A0A2E', background: '#fff' }
-  const labelClass = "block text-xs font-semibold mb-1.5"
+  const labelClass = "block text-sm font-semibold mb-2"
   const labelStyle = { color: '#6B4FA0' }
 
   switch (slide.type) {
@@ -789,6 +789,7 @@ function PresentCreatePageInner() {
   const [addSlideOpen, setAddSlideOpen] = useState(false)
   const hasLoadedRef = useRef(false)
   const lastSavedRef = useRef(JSON.stringify(makePresentation()))
+  const sidebarScrollRef = useRef<HTMLDivElement>(null)
 
   // Load existing presentation when editing
   useEffect(() => {
@@ -911,6 +912,30 @@ function PresentCreatePageInner() {
     return () => window.removeEventListener('beforeunload', handler)
   }, [presentation])
 
+  // Keyboard navigation — arrow keys move between slides (skip when typing in inputs)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault()
+        setActiveIndex(prev => Math.max(0, prev - 1))
+      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault()
+        setActiveIndex(prev => Math.min(prev + 1, presentation.slides.length - 1))
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [presentation.slides.length])
+
+  // Auto-scroll sidebar to keep the active thumbnail visible
+  useEffect(() => {
+    if (!sidebarScrollRef.current) return
+    const el = sidebarScrollRef.current.querySelector<HTMLElement>(`[data-slide-index="${activeIndex}"]`)
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [activeIndex])
+
   async function importPdf(file: File) {
     if (file.size > 10 * 1024 * 1024) {
       alert('PDF must be under 10 MB')
@@ -993,7 +1018,7 @@ function PresentCreatePageInner() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#FDFBFF', fontFamily: 'var(--font-body)' }}>
+    <div className="h-screen flex flex-col" style={{ background: '#FDFBFF', fontFamily: 'var(--font-body)' }}>
 
       {/* Header */}
       <header className="sticky top-0 z-20 border-b" style={{ background: 'rgba(253,251,255,0.96)', backdropFilter: 'blur(8px)', borderColor: 'var(--color-border)' }}>
@@ -1042,9 +1067,9 @@ function PresentCreatePageInner() {
         {/* LEFT: slide list (scrollable) + fixed bottom bar */}
         <div className="w-72 flex-shrink-0 border-r flex flex-col" style={{ borderColor: '#DBEAFE', background: '#F8F7FF' }}>
           {/* Scrollable slide list */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-0.5">
+          <div ref={sidebarScrollRef} className="flex-1 overflow-y-auto p-3 space-y-0.5">
             {presentation.slides.map((slide, i) => (
-              <div key={slide.id}>
+              <div key={slide.id} data-slide-index={i}>
                 {/* Insert button between slides */}
                 {i === 0 && (
                   <div className="relative group/insert flex items-center justify-center h-3 -mb-0.5">
@@ -1165,7 +1190,7 @@ function PresentCreatePageInner() {
 
             {/* Add Slide dropdown */}
             <div className="relative">
-              <button onClick={() => setAddSlideOpen(!addSlideOpen)}
+              <button onClick={() => { setAddSlideOpen(o => { if (o) setHoveredType(null); return !o }) }}
                 className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 font-bold text-xs transition-all hover:scale-[1.02]"
                 style={{ background: '#fff', color: '#4361EE', border: '1.5px solid #4361EE' }}>
                 <span className="text-base leading-none">+</span>
@@ -1185,30 +1210,51 @@ function PresentCreatePageInner() {
         {/* CENTER: slide editor */}
         <div className="flex-1 flex flex-col overflow-y-auto">
           {activeSlide ? (
-            <div className="max-w-2xl w-full mx-auto px-8 py-8 flex-1">
-              {/* Slide type badge */}
-              <div className="flex items-center gap-2 mb-5">
-                <span className="flex items-center justify-center w-7 h-7 rounded-lg"
-                  style={{ background: SLIDE_TYPE_META[activeSlide.type].bg, color: SLIDE_TYPE_META[activeSlide.type].color }}>
-                  {SLIDE_ICONS[activeSlide.type]}
-                </span>
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-widest" style={{ color: SLIDE_TYPE_META[activeSlide.type].color }}>
-                    {SLIDE_TYPE_META[activeSlide.type].label}
-                  </p>
-                  <p className="text-[10px]" style={{ color: '#9CA3AF' }}>
-                    Slide {activeIndex + 1} of {presentation.slides.length}
-                    {SLIDE_TYPE_META[activeSlide.type].hasAudienceInput ? ' · Audience votes' : ' · Display only'}
-                  </p>
+            <>
+              {/* Sticky mini-header: slide counter + prev/next */}
+              <div className="sticky top-0 z-10 flex items-center justify-between px-8 py-3 border-b"
+                style={{ background: 'rgba(253,251,255,0.95)', backdropFilter: 'blur(8px)', borderColor: '#E9E2FF' }}>
+                <div className="flex items-center gap-2.5">
+                  <span className="flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0"
+                    style={{ background: SLIDE_TYPE_META[activeSlide.type].bg, color: SLIDE_TYPE_META[activeSlide.type].color }}>
+                    {SLIDE_ICONS[activeSlide.type]}
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold" style={{ color: SLIDE_TYPE_META[activeSlide.type].color }}>
+                      {SLIDE_TYPE_META[activeSlide.type].label}
+                    </p>
+                    <p className="text-[11px]" style={{ color: '#9CA3AF' }}>
+                      {SLIDE_TYPE_META[activeSlide.type].hasAudienceInput ? 'Audience votes' : 'Display only'}
+                    </p>
+                  </div>
+                </div>
+                {/* Slide counter + prev/next */}
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setActiveIndex(i => Math.max(0, i - 1))}
+                    disabled={activeIndex === 0}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-colors disabled:opacity-30"
+                    style={{ color: '#4361EE' }} title="Previous slide (←)">
+                    ‹
+                  </button>
+                  <span className="text-sm font-semibold px-2 py-1 rounded-lg min-w-[80px] text-center"
+                    style={{ background: '#F0EDFF', color: '#4361EE' }}>
+                    {activeIndex + 1} / {presentation.slides.length}
+                  </span>
+                  <button onClick={() => setActiveIndex(i => Math.min(i + 1, presentation.slides.length - 1))}
+                    disabled={activeIndex === presentation.slides.length - 1}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-colors disabled:opacity-30"
+                    style={{ color: '#4361EE' }} title="Next slide (→)">
+                    ›
+                  </button>
                 </div>
               </div>
 
-              {/* Divider */}
-              <div className="h-px mb-5" style={{ background: '#E9E2FF' }} />
-
               {/* Editor form */}
-              <SlideEditor slide={activeSlide} onChange={updateSlide} />
-            </div>
+              <div className="max-w-2xl w-full mx-auto px-8 py-8 flex-1">
+                <div className="h-px mb-6" style={{ background: '#E9E2FF' }} />
+                <SlideEditor slide={activeSlide} onChange={updateSlide} />
+              </div>
+            </>
           ) : (
             <div className="flex-1 flex items-center justify-center">
               <p className="text-sm" style={{ color: '#9CA3AF' }}>Select a slide to edit</p>
@@ -1218,7 +1264,7 @@ function PresentCreatePageInner() {
 
         {/* RIGHT: type info panel */}
         <div className="w-56 flex-shrink-0 border-l p-4 space-y-4 overflow-y-auto" style={{ borderColor: '#DBEAFE', background: '#FDFBFF' }}>
-          {hoveredType ? (
+          {addSlideOpen && hoveredType ? (
             /* Show hovered slide type info */
             <div className="space-y-3">
               <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#4361EE' }}>Slide Preview</p>
