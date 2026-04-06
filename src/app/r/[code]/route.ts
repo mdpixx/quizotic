@@ -13,8 +13,9 @@ export async function GET(
     select: { id: true },
   })
 
+  const baseUrl = process.env.HOST_DOMAIN || process.env.NEXTAUTH_URL || _req.url
   const response = NextResponse.redirect(
-    new URL(referrer ? '/auth/signin' : '/', _req.url)
+    new URL(referrer ? '/auth/signin' : '/', baseUrl)
   )
 
   // Set referral cookie (30-day expiry) if code is valid

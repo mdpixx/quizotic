@@ -60,7 +60,8 @@ export function proxy(request: NextRequest) {
     request.cookies.get('__Secure-authjs.session-token')?.value
 
   if (!token && pathname.startsWith('/host')) {
-    return NextResponse.redirect(new URL('/auth/signin', request.url))
+    const baseUrl = process.env.HOST_DOMAIN || process.env.NEXTAUTH_URL || request.url
+    return NextResponse.redirect(new URL('/auth/signin', baseUrl))
   }
 
   return NextResponse.next()
