@@ -790,6 +790,7 @@ function PresentCreatePageInner() {
   const hasLoadedRef = useRef(false)
   const lastSavedRef = useRef(JSON.stringify(makePresentation()))
   const sidebarScrollRef = useRef<HTMLDivElement>(null)
+  const addSlideRef = useRef<HTMLDivElement>(null)
 
   // Load existing presentation when editing
   useEffect(() => {
@@ -936,6 +937,19 @@ function PresentCreatePageInner() {
     el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }, [activeIndex])
 
+  // Close Add Slide dropdown on click outside
+  useEffect(() => {
+    if (!addSlideOpen) return
+    function handleClickOutside(e: MouseEvent) {
+      if (addSlideRef.current && !addSlideRef.current.contains(e.target as Node)) {
+        setAddSlideOpen(false)
+        setHoveredType(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [addSlideOpen])
+
   async function importPdf(file: File) {
     if (file.size > 10 * 1024 * 1024) {
       alert('PDF must be under 10 MB')
@@ -1022,14 +1036,14 @@ function PresentCreatePageInner() {
 
       {/* Header */}
       <header className="sticky top-0 z-20 border-b" style={{ background: 'rgba(253,251,255,0.96)', backdropFilter: 'blur(8px)', borderColor: 'var(--color-border)' }}>
-        <div className="flex items-center gap-3 px-5 h-14">
+        <div className="flex items-center gap-3 px-3 h-12 md:px-5 md:h-14">
           <button onClick={() => router.push('/host')}
             className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all hover:bg-violet-50"
             style={{ color: 'var(--color-text-secondary)' }}>
             <svg viewBox="0 0 16 16" fill="none" className="w-5 h-5">
               <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            Back
+            <span className="hidden sm:inline">Back</span>
           </button>
           <div className="h-5 w-px" style={{ background: 'var(--color-border)' }} />
 
@@ -1048,14 +1062,14 @@ function PresentCreatePageInner() {
               {saving ? 'Saving...' : saved ? '✓ Saved' : ''}
             </span>
             <button onClick={savePresentation} disabled={saving}
-              className="text-sm font-bold px-5 py-2 rounded-xl border-2 transition-all"
+              className="text-xs md:text-sm font-bold px-3 py-1.5 md:px-5 md:py-2 rounded-xl border-2 transition-all"
               style={{ borderColor: saved ? '#16A34A' : 'var(--color-border)', color: saved ? '#16A34A' : 'var(--color-primary)', background: saved ? '#F0FDF4' : 'var(--color-surface)' }}>
               {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save'}
             </button>
             <button onClick={() => { savePresentation(); startPresentation() }}
-              className="text-sm font-bold px-5 py-2 rounded-xl transition-all hover:scale-[1.02]"
+              className="text-xs md:text-sm font-bold px-3 py-1.5 md:px-5 md:py-2 rounded-xl transition-all hover:scale-[1.02]"
               style={{ background: 'var(--brand-gradient)', color: '#fff', fontFamily: 'var(--font-heading)' }}>
-              Save & Present →
+              <span className="hidden sm:inline">Save & </span>Present →
             </button>
           </div>
         </div>
@@ -1064,8 +1078,60 @@ function PresentCreatePageInner() {
       {/* Body — 3-column layout */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* LEFT: slide list (scrollable) + fixed bottom bar */}
-        <div className="w-72 flex-shrink-0 border-r flex flex-col" style={{ borderColor: '#DBEAFE', background: '#F8F7FF' }}>
+        {/* LEFT: fixed top bar + scrollable slide list */}
+        <div className="hidden md:flex w-72 flex-shrink-0 border-r flex-col" style={{ borderColor: '#DBEAFE', background: '#F8F7FF' }}>
+
+          {/* Top action bar — always visible */}
+          <div className="flex-shrink-0 border-b p-3 space-y-2" style={{ borderColor: '#DBEAFE', background: '#F0EDFF' }}>
+            {/* PDF Import */}
+            {pdfImporting ? (
+              <div className="rounded-xl border p-3" style={{ borderColor: '#E9D5FF', background: '#fff' }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#4361EE', borderTopColor: 'transparent' }} />
+                  <span className="text-xs font-semibold" style={{ color: '#4361EE' }}>{pdfProgress}</span>
+                </div>
+                <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: '#E9D5FF' }}>
+                  <div className="h-full rounded-full transition-all duration-300 ease-out"
+                    style={{ width: pdfTotal > 0 ? `${(pdfCurrent / pdfTotal) * 100}%` : '0%', background: 'linear-gradient(90deg, #4361EE, #7C3AED)' }} />
+                </div>
+                <p className="text-[10px] mt-1 text-center" style={{ color: '#6B4FA0' }}>
+                  {pdfCurrent} of {pdfTotal} pages
+                </p>
+              </div>
+            ) : (
+              <label className="flex items-center justify-center gap-2 rounded-xl py-2.5 font-bold text-xs cursor-pointer transition-all hover:scale-[1.02]"
+                style={{ background: 'linear-gradient(135deg, #4361EE, #7C3AED)', color: '#fff' }}>
+                <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4">
+                  <path d="M10 3v10m0 0l-3-3m3 3l3-3M4 14v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                {pdfImportedCount > 0 ? `Import PDF (${pdfImportedCount} slides added)` : 'Import PDF'}
+                <input type="file" accept=".pdf" className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0]
+                    if (file) importPdf(file)
+                    e.target.value = ''
+                  }} />
+              </label>
+            )}
+
+            {/* Add Slide dropdown */}
+            <div className="relative" ref={addSlideRef}>
+              <button onClick={() => { setAddSlideOpen(o => { if (o) setHoveredType(null); return !o }) }}
+                className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 font-bold text-xs transition-all hover:scale-[1.02]"
+                style={{ background: '#fff', color: '#4361EE', border: '1.5px solid #4361EE' }}>
+                <span className="text-base leading-none">+</span>
+                Add Slide
+                <span className="text-[10px] opacity-60">{addSlideOpen ? '▲' : '▼'}</span>
+              </button>
+              {addSlideOpen && (
+                <div className="absolute top-full left-0 right-0 mt-1 rounded-xl border shadow-xl p-2 max-h-72 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200"
+                  style={{ borderColor: '#DBEAFE', background: '#fff', zIndex: 50 }}>
+                  <SlideTypePicker onPick={(type) => addSlide(type)} onHover={setHoveredType} />
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Scrollable slide list */}
           <div ref={sidebarScrollRef} className="flex-1 overflow-y-auto p-3 space-y-0.5">
             {presentation.slides.map((slide, i) => (
@@ -1155,56 +1221,6 @@ function PresentCreatePageInner() {
             ))}
           </div>
 
-          {/* Fixed bottom action bar */}
-          <div className="flex-shrink-0 border-t p-3 space-y-2" style={{ borderColor: '#DBEAFE', background: '#F0EDFF' }}>
-            {/* PDF Import */}
-            {pdfImporting ? (
-              <div className="rounded-xl border p-3" style={{ borderColor: '#E9D5FF', background: '#fff' }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#4361EE', borderTopColor: 'transparent' }} />
-                  <span className="text-xs font-semibold" style={{ color: '#4361EE' }}>{pdfProgress}</span>
-                </div>
-                <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: '#E9D5FF' }}>
-                  <div className="h-full rounded-full transition-all duration-300 ease-out"
-                    style={{ width: pdfTotal > 0 ? `${(pdfCurrent / pdfTotal) * 100}%` : '0%', background: 'linear-gradient(90deg, #4361EE, #7C3AED)' }} />
-                </div>
-                <p className="text-[10px] mt-1 text-center" style={{ color: '#6B4FA0' }}>
-                  {pdfCurrent} of {pdfTotal} pages
-                </p>
-              </div>
-            ) : (
-              <label className="flex items-center justify-center gap-2 rounded-xl py-2.5 font-bold text-xs cursor-pointer transition-all hover:scale-[1.02]"
-                style={{ background: 'linear-gradient(135deg, #4361EE, #7C3AED)', color: '#fff' }}>
-                <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4">
-                  <path d="M10 3v10m0 0l-3-3m3 3l3-3M4 14v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                {pdfImportedCount > 0 ? `Import PDF (${pdfImportedCount} slides added)` : 'Import PDF'}
-                <input type="file" accept=".pdf" className="hidden"
-                  onChange={e => {
-                    const file = e.target.files?.[0]
-                    if (file) importPdf(file)
-                    e.target.value = ''
-                  }} />
-              </label>
-            )}
-
-            {/* Add Slide dropdown */}
-            <div className="relative">
-              <button onClick={() => { setAddSlideOpen(o => { if (o) setHoveredType(null); return !o }) }}
-                className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 font-bold text-xs transition-all hover:scale-[1.02]"
-                style={{ background: '#fff', color: '#4361EE', border: '1.5px solid #4361EE' }}>
-                <span className="text-base leading-none">+</span>
-                Add Slide
-                <span className="text-[10px] opacity-60">{addSlideOpen ? '▲' : '▼'}</span>
-              </button>
-              {addSlideOpen && (
-                <div className="absolute bottom-full left-0 right-0 mb-1 rounded-xl border shadow-xl p-2 max-h-72 overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-200"
-                  style={{ borderColor: '#DBEAFE', background: '#fff', zIndex: 50 }}>
-                  <SlideTypePicker onPick={(type) => addSlide(type)} onHover={setHoveredType} />
-                </div>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* CENTER: slide editor */}
@@ -1212,7 +1228,7 @@ function PresentCreatePageInner() {
           {activeSlide ? (
             <>
               {/* Sticky mini-header: slide counter + prev/next */}
-              <div className="sticky top-0 z-10 flex items-center justify-between px-8 py-3 border-b"
+              <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 md:px-8 border-b"
                 style={{ background: 'rgba(253,251,255,0.95)', backdropFilter: 'blur(8px)', borderColor: '#E9E2FF' }}>
                 <div className="flex items-center gap-2.5">
                   <span className="flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0"
@@ -1250,7 +1266,7 @@ function PresentCreatePageInner() {
               </div>
 
               {/* Editor form */}
-              <div className="max-w-2xl w-full mx-auto px-8 py-8 flex-1">
+              <div className="max-w-2xl w-full mx-auto px-4 py-5 md:px-8 md:py-8 flex-1">
                 <div className="h-px mb-6" style={{ background: '#E9E2FF' }} />
                 <SlideEditor slide={activeSlide} onChange={updateSlide} />
               </div>
@@ -1263,7 +1279,7 @@ function PresentCreatePageInner() {
         </div>
 
         {/* RIGHT: type info panel */}
-        <div className="w-56 flex-shrink-0 border-l p-4 space-y-4 overflow-y-auto" style={{ borderColor: '#DBEAFE', background: '#FDFBFF' }}>
+        <div className="hidden md:flex md:w-56 flex-shrink-0 border-l p-4 space-y-4 overflow-y-auto flex-col" style={{ borderColor: '#DBEAFE', background: '#FDFBFF' }}>
           {addSlideOpen && hoveredType ? (
             /* Show hovered slide type info */
             <div className="space-y-3">
@@ -1328,6 +1344,47 @@ function PresentCreatePageInner() {
           )}
         </div>
       </div>
+
+      {/* Mobile-only bottom action bar — hidden on md+ */}
+      <div className="md:hidden flex-shrink-0 border-t flex items-center gap-2 px-3 py-2.5" style={{ borderColor: '#DBEAFE', background: '#F0EDFF' }}>
+        {/* Prev / counter / next */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            onClick={() => setActiveIndex(i => Math.max(0, i - 1))}
+            disabled={activeIndex === 0}
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-lg font-bold disabled:opacity-30 transition-colors"
+            style={{ color: '#4361EE', background: '#fff', border: '1.5px solid #DBEAFE' }}>
+            ‹
+          </button>
+          <span className="text-sm font-bold px-2 py-2 rounded-xl text-center"
+            style={{ background: '#fff', color: '#4361EE', border: '1.5px solid #DBEAFE', minWidth: 56 }}>
+            {activeIndex + 1}/{presentation.slides.length}
+          </span>
+          <button
+            onClick={() => setActiveIndex(i => Math.min(i + 1, presentation.slides.length - 1))}
+            disabled={activeIndex === presentation.slides.length - 1}
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-lg font-bold disabled:opacity-30 transition-colors"
+            style={{ color: '#4361EE', background: '#fff', border: '1.5px solid #DBEAFE' }}>
+            ›
+          </button>
+        </div>
+        {/* Add Slide */}
+        <div className="relative flex-1" ref={addSlideRef}>
+          <button
+            onClick={() => { setAddSlideOpen(o => { if (o) setHoveredType(null); return !o }) }}
+            className="w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 font-bold text-sm transition-all"
+            style={{ background: 'linear-gradient(135deg, #4361EE, #7C3AED)', color: '#fff' }}>
+            <span>+</span> Add Slide
+          </button>
+          {addSlideOpen && (
+            <div className="absolute bottom-full left-0 right-0 mb-1 rounded-xl border shadow-xl p-2 max-h-64 overflow-y-auto"
+              style={{ borderColor: '#DBEAFE', background: '#fff', zIndex: 50 }}>
+              <SlideTypePicker onPick={(type) => addSlide(type)} onHover={setHoveredType} />
+            </div>
+          )}
+        </div>
+      </div>
+
     </div>
   )
 }

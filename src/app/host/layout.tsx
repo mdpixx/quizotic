@@ -2,7 +2,6 @@ import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { HostNav } from '@/components/HostNav'
 
 export const metadata: Metadata = {
   title: 'Dashboard',
@@ -22,10 +21,5 @@ export default async function HostLayout({ children }: { children: React.ReactNo
     }
   }
 
-  return (
-    <>
-      <HostNav />
-      {children}
-    </>
-  )
+  return <>{children}</>
 }

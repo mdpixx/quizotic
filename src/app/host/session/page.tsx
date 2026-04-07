@@ -9,6 +9,7 @@ import { Podium } from '@/components/Podium'
 import { SessionReport } from '@/components/SessionReport'
 import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/quiz-storage'
 import type { Quiz, QuestionStat, SessionMode } from '@/lib/quiz-types'
+import { ReflectionInsights } from '@/components/ReflectionInsights'
 import { getOptionText, getOptionImage } from '@/lib/quiz-types'
 
 type Phase = 'loading' | 'error' | 'idle' | 'lobby' | 'question' | 'ended'
@@ -426,7 +427,7 @@ export default function SessionPage() {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 overflow-hidden">
             <div className="flex gap-4 items-center min-w-0">
               <div className="flex-1 min-w-0 text-center">
-                <p className="text-base font-bold text-gray-400 uppercase tracking-widest mb-3">Game Code</p>
+                <p className="text-base font-bold text-gray-400 uppercase tracking-widest mb-3">Session Code</p>
                 <p className="text-8xl font-black tracking-[0.3em]" style={{ color: 'var(--color-primary)' }}>{gameCode}</p>
                 <p className="text-gray-400 text-base mt-3">quizotic.live</p>
               </div>
@@ -642,6 +643,9 @@ export default function SessionPage() {
             participantCount={leaderboard.length}
             sessionDate={new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
           />
+
+          {/* Reflection Insights */}
+          <ReflectionInsights gameCode={gameCode} questionStats={questionStats} />
 
           {/* Spaced Follow-up Series */}
           <div className="rounded-2xl border p-5" style={{ borderColor: '#DBEAFE', background: '#F0F4FF' }}>

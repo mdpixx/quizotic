@@ -248,7 +248,7 @@ function QuestionCard({
       {/* Type pills */}
       <div>
         <label className="text-sm font-medium text-gray-700 mb-2 block">Question Type</label>
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
           {TYPE_PILLS.map(t => {
             const active = question.type === t.value
             return (
@@ -977,7 +977,7 @@ function CreateQuizPageInner() {
         </span>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex gap-6 items-start">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8 flex gap-6 items-start">
 
         {/* ── Sidebar ─────────────────────────────────────────────────────── */}
         <aside className="hidden lg:flex flex-col w-60 flex-shrink-0 sticky top-[73px] self-start max-h-[calc(100vh-90px)] bg-white rounded-2xl shadow-sm border border-gray-100 p-4 overflow-y-auto">
@@ -1032,12 +1032,12 @@ function CreateQuizPageInner() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 p-1 rounded-xl" style={{ background: '#f3f4f6' }}>
+          <div className="flex gap-1 p-1 rounded-xl overflow-x-auto" style={{ background: '#f3f4f6' }}>
             {tabs.map(t => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className="flex-1 px-3 py-2.5 rounded-lg text-sm font-bold transition-all"
+                className="flex-shrink-0 px-3 py-2.5 rounded-lg text-sm font-bold transition-all"
                 style={
                   tab === t.id
                     ? { background: 'var(--brand-gradient)', color: '#fff', boxShadow: '0 2px 8px rgba(124,58,237,0.35)' }

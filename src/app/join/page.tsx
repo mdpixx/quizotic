@@ -6,6 +6,7 @@ import { io, Socket } from 'socket.io-client'
 import { CircularTimer } from '@/components/CircularTimer'
 import { Avatar } from '@/components/Avatar'
 import { Podium } from '@/components/Podium'
+import { ReflectionMoment } from '@/components/ReflectionMoment'
 import { playTick, playCorrect, playWrong, playStreak } from '@/lib/sounds'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -281,6 +282,18 @@ function JoinPageInner() {
 
   const gameCodeRef = useRef('')
   const displayNameRef = useRef('')
+  const shownQuestionsRef = useRef<{ index: number; text: string }[]>([])
+
+  const [reflectionVisible, setReflectionVisible] = useState(false)
+
+  useEffect(() => {
+    if (phase === 'ended') {
+      const t = setTimeout(() => setReflectionVisible(true), 2500)
+      return () => clearTimeout(t)
+    } else {
+      setReflectionVisible(false)
+    }
+  }, [phase])
 
   useEffect(() => {
     const socket = io({
@@ -315,6 +328,7 @@ function JoinPageInner() {
     })
 
     socket.on('question_show', ({ question, index, total }: { question: Omit<Question, 'index' | 'total'>; index: number; total: number }) => {
+      shownQuestionsRef.current.push({ index, text: question.text })
       setQuestion({ ...question, index, total })
       setSelectedAnswer(null)
       setPendingAnswer(null)
@@ -468,7 +482,7 @@ function JoinPageInner() {
     const trimmedName = name.trim()
     const trimmedCode = code.trim()
     if (!trimmedName || !trimmedCode) {
-      setError(trimmedName ? 'Enter a game code' : 'Enter your name')
+      setError(trimmedName ? 'Enter a session code' : 'Enter your name')
       return
     }
     if (trimmedName.length > 30) {
@@ -662,7 +676,7 @@ function JoinPageInner() {
           <form onSubmit={handleJoin} className="space-y-4">
             <input
               type="text"
-              placeholder="Game code"
+              placeholder="Session code"
               value={code}
               onChange={e => setCode(e.target.value)}
               disabled={phase === 'connecting'}
@@ -1024,11 +1038,19 @@ function JoinPageInner() {
 
         <Podium leaderboard={leaderboard} sessionMode={sessionMode} highlightName={displayNameRef.current} />
 
+        {reflectionVisible && shownQuestionsRef.current.length > 0 && (
+          <ReflectionMoment
+            gameCode={gameCodeRef.current}
+            participantName={displayNameRef.current}
+            questions={shownQuestionsRef.current}
+          />
+        )}
+
         <button
           onClick={handlePlayAgain}
           className="w-full border border-gray-300 text-gray-600 rounded-xl py-4 text-lg hover:border-gray-400 transition-colors font-semibold mt-6"
         >
-          Play Again
+          Attempt Again
         </button>
       </div>
     )

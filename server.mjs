@@ -75,10 +75,12 @@ async function getSocketUserId(socket) {
     const rawCookie = socket.handshake.headers.cookie
     if (!rawCookie) return null
     const cookies = parseCookie(rawCookie)
-    const token = cookies['authjs.session-token'] || cookies['__Secure-authjs.session-token']
+    const secureCookie = cookies['__Secure-authjs.session-token']
+    const cookieName = secureCookie ? '__Secure-authjs.session-token' : 'authjs.session-token'
+    const token = cookies[cookieName]
     if (!token) return null
     const { decode } = await import('@auth/core/jwt')
-    const decoded = await decode({ token, secret, salt: 'authjs.session-token' })
+    const decoded = await decode({ token, secret, salt: cookieName })
     return decoded?.userId || decoded?.sub || null
   } catch { return null }
 }

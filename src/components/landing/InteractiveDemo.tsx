@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const QUESTIONS = [
@@ -26,6 +26,61 @@ const QUESTIONS = [
 
 const OPTION_COLORS = ['#4361EE', '#FF6B6B', '#16A34A', '#F59E0B']
 
+// CSS-only confetti particles
+function CSSConfetti() {
+  const particles = Array.from({ length: 30 }, (_, i) => ({
+    id: i,
+    left: `${Math.random() * 100}%`,
+    delay: `${Math.random() * 0.5}s`,
+    duration: `${1.5 + Math.random() * 1.5}s`,
+    color: ['#4361EE', '#FF6B6B', '#F59E0B', '#16A34A', '#9333EA', '#FFD166'][i % 6],
+    size: 4 + Math.random() * 6,
+    rotation: Math.random() * 360,
+  }))
+
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none z-20">
+      {particles.map(p => (
+        <div
+          key={p.id}
+          className="absolute rounded-sm"
+          style={{
+            left: p.left,
+            top: '-10px',
+            width: p.size,
+            height: p.size * 0.6,
+            background: p.color,
+            transform: `rotate(${p.rotation}deg)`,
+            animation: `confetti-fall ${p.duration} ease-out ${p.delay} forwards`,
+          }}
+        />
+      ))}
+      <style>{`
+        @keyframes confetti-fall {
+          0% { opacity: 1; transform: translateY(0) rotate(0deg); }
+          100% { opacity: 0; transform: translateY(400px) rotate(720deg); }
+        }
+      `}</style>
+    </div>
+  )
+}
+
+// Floating score points animation
+function FloatingPoints({ points, isCorrect }: { points: number; isCorrect: boolean }) {
+  if (!isCorrect) return null
+  return (
+    <motion.div
+      initial={{ opacity: 1, y: 0, scale: 1 }}
+      animate={{ opacity: 0, y: -50, scale: 0.5 }}
+      transition={{ duration: 1.2, ease: 'easeOut' }}
+      className="absolute top-0 right-4 text-lg font-black z-30"
+      style={{ color: '#4361EE' }}
+    >
+      +{points}
+    </motion.div>
+  )
+}
+
 export function InteractiveDemo() {
   const [qIdx, setQIdx] = useState(0)
   const [selected, setSelected] = useState<number | null>(null)
@@ -33,6 +88,9 @@ export function InteractiveDemo() {
   const [streak, setStreak] = useState(0)
   const [phase, setPhase] = useState<'playing' | 'done'>('playing')
   const [showExplanation, setShowExplanation] = useState(false)
+  const [lastPoints, setLastPoints] = useState(0)
+  const [showConfetti, setShowConfetti] = useState(false)
+  const [showFloatingPoints, setShowFloatingPoints] = useState(false)
 
   const question = QUESTIONS[qIdx]
 
@@ -44,8 +102,12 @@ export function InteractiveDemo() {
     const isCorrect = idx === question.correct
     if (isCorrect) {
       const bonus = (streak + 1) * 50
-      setScore(s => s + 100 + bonus)
+      const pts = 100 + bonus
+      setLastPoints(pts)
+      setScore(s => s + pts)
       setStreak(s => s + 1)
+      setShowFloatingPoints(true)
+      setTimeout(() => setShowFloatingPoints(false), 1200)
     } else {
       setStreak(0)
     }
@@ -57,9 +119,12 @@ export function InteractiveDemo() {
         setShowExplanation(false)
       } else {
         setPhase('done')
+        if (score + (isCorrect ? 100 + (streak + 1) * 50 : 0) >= 300) {
+          setShowConfetti(true)
+        }
       }
     }, 2200)
-  }, [selected, qIdx, streak, question.correct])
+  }, [selected, qIdx, streak, question.correct, score])
 
   const restart = () => {
     setQIdx(0)
@@ -68,7 +133,15 @@ export function InteractiveDemo() {
     setStreak(0)
     setPhase('playing')
     setShowExplanation(false)
+    setShowConfetti(false)
   }
+
+  const resultEmoji = score >= 300 ? '🎉' : score >= 150 ? '👍' : '💪'
+  const resultMessage = score >= 300
+    ? "You're a genius!"
+    : score >= 150
+      ? 'Great job! Keep it up!'
+      : 'Every expert was once a beginner!'
 
   return (
     <section className="py-20 md:py-28" style={{ background: '#fff' }}>
@@ -90,39 +163,53 @@ export function InteractiveDemo() {
         </motion.div>
 
         <div className="max-w-2xl mx-auto">
-          <div className="rounded-3xl overflow-hidden shadow-xl" style={{ background: '#FFFBF5', border: '1.5px solid #DBEAFE' }}>
+          <div className="rounded-3xl overflow-hidden shadow-xl relative" style={{ background: '#FFFBF5', border: '1.5px solid #DBEAFE' }}>
+            {/* Confetti overlay */}
+            {showConfetti && <CSSConfetti />}
+
+            {/* Header */}
             <div className="flex items-center justify-between px-6 py-3" style={{ background: '#F0F4FF', borderBottom: '1px solid #DBEAFE' }}>
               <span className="text-xs font-bold" style={{ color: '#4361EE', fontFamily: 'var(--font-heading)' }}>Mini Quiz Demo</span>
               <div className="flex items-center gap-3">
                 <span className="text-xs font-bold" style={{ color: '#1B2559' }}>Score: {score}</span>
                 {streak > 0 && (
                   <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }}
-                    className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#FEF3C7', color: '#92400E' }}>
-                    🔥 {streak}x streak
+                    className="text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: '#FEF3C7', color: '#92400E' }}>
+                    <span style={{ animation: streak > 1 ? 'flame-grow 0.6s ease-in-out infinite' : undefined, display: 'inline-block' }}>🔥</span>
+                    {streak}x streak
                   </motion.span>
                 )}
               </div>
             </div>
 
+            {/* Progress bar */}
             <div className="h-1" style={{ background: '#E2E8F0' }}>
               <motion.div className="h-full"
                 animate={{ width: `${((qIdx + (phase === 'done' ? 1 : 0)) / QUESTIONS.length) * 100}%` }}
                 style={{ background: 'var(--brand-gradient)' }} />
             </div>
 
-            <div className="p-6 md:p-8">
+            <div className="p-6 md:p-8 relative">
+              {/* Floating points animation */}
+              {showFloatingPoints && <FloatingPoints points={lastPoints} isCorrect />}
+
               <AnimatePresence mode="wait">
                 {phase === 'done' ? (
-                  <motion.div key="done" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-8">
-                    <div className="text-5xl mb-4">{score >= 300 ? '🎉' : score >= 150 ? '👏' : '💪'}</div>
-                    <h3 className="text-2xl font-black mb-2" style={{ fontFamily: 'var(--font-heading)', color: '#1B2559' }}>
-                      {score >= 300 ? 'Perfect!' : score >= 150 ? 'Great job!' : 'Nice try!'}
-                    </h3>
+                  <motion.div key="done" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-6">
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+                      className="text-6xl mb-2"
+                    >
+                      {resultEmoji}
+                    </motion.div>
+                    <p className="text-sm font-bold mb-3" style={{ color: '#4A5568' }}>{resultMessage}</p>
                     <p className="text-3xl font-black mb-1" style={{ color: '#4361EE', fontFamily: 'var(--font-heading)' }}>{score} points</p>
                     <p className="text-base mb-6" style={{ color: '#4A5568' }}>That&apos;s how it feels for your students.</p>
                     <div className="flex gap-3 justify-center">
-                      <button onClick={restart} className="text-sm font-bold px-5 py-2.5 rounded-xl" style={{ color: '#4361EE', border: '1.5px solid #4361EE' }}>Try Again</button>
-                      <a href="/host" className="text-sm font-bold px-5 py-2.5 rounded-xl text-white" style={{ background: 'var(--brand-gradient)' }}>Create Your Own →</a>
+                      <button onClick={restart} className="text-sm font-bold px-5 py-2.5 rounded-xl transition-all hover:bg-blue-50" style={{ color: '#4361EE', border: '1.5px solid #4361EE' }}>Try Again</button>
+                      <a href="/host" className="text-sm font-bold px-5 py-2.5 rounded-xl text-white transition-all hover:opacity-90" style={{ background: 'var(--brand-gradient)' }}>Create Your Own</a>
                     </div>
                   </motion.div>
                 ) : (
@@ -142,7 +229,13 @@ export function InteractiveDemo() {
                         else if (showResult && isSelected && !isCorrect) { bg = '#FEF2F2'; border = '2px solid #EF4444'; textColor = '#991B1B' }
 
                         return (
-                          <button key={i} onClick={() => handleSelect(i)} disabled={selected !== null}
+                          <motion.button
+                            key={i}
+                            onClick={() => handleSelect(i)}
+                            disabled={selected !== null}
+                            whileTap={selected === null ? { scale: 0.97 } : undefined}
+                            animate={showResult && isSelected && !isCorrect ? { x: [0, -4, 4, -4, 4, 0] } : undefined}
+                            transition={showResult && isSelected && !isCorrect ? { duration: 0.4 } : undefined}
                             className="flex items-center gap-3 rounded-xl px-4 py-4 text-left transition-all hover:shadow-md disabled:cursor-default"
                             style={{ background: bg, border }}>
                             <span className="w-8 h-8 rounded-lg text-xs font-bold flex items-center justify-center text-white flex-shrink-0"
@@ -150,7 +243,7 @@ export function InteractiveDemo() {
                             <span className="text-sm font-semibold" style={{ color: textColor }}>
                               {opt}{showResult && isCorrect && ' ✓'}{showResult && isSelected && !isCorrect && ' ✗'}
                             </span>
-                          </button>
+                          </motion.button>
                         )
                       })}
                     </div>
