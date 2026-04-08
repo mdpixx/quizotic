@@ -11,6 +11,7 @@ import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/qu
 import type { Quiz, QuestionStat, SessionMode } from '@/lib/quiz-types'
 import { ReflectionInsights } from '@/components/ReflectionInsights'
 import { getOptionText, getOptionImage } from '@/lib/quiz-types'
+import { CircularTimer } from '@/components/CircularTimer'
 
 type Phase = 'loading' | 'error' | 'idle' | 'lobby' | 'question' | 'ended'
 
@@ -58,6 +59,8 @@ export default function SessionPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
   const [optionCounts, setOptionCounts] = useState<number[]>([])
   const [paused, setPaused] = useState(false)
+  const [hostTimeLeft, setHostTimeLeft] = useState(0)
+  const hostTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const currentQuestion = quiz?.questions[questionIndex] ?? null
 
@@ -109,6 +112,8 @@ export default function SessionPage() {
 
     socket.on('question_ended', ({ explanation: exp }: { correctAnswer: string; explanation: string | null }) => {
       setExplanation(exp)
+      if (hostTimerRef.current) { clearInterval(hostTimerRef.current); hostTimerRef.current = null }
+      setHostTimeLeft(0)
     })
 
     socket.on('session_ended', ({ leaderboard: lb, teamLeaderboard: tlb, questionStats: qs, sessionMode: sm }: {
@@ -216,6 +221,21 @@ export default function SessionPage() {
     })
   }
 
+  function startHostTimer(seconds: number) {
+    if (hostTimerRef.current) clearInterval(hostTimerRef.current)
+    setHostTimeLeft(seconds)
+    hostTimerRef.current = setInterval(() => {
+      setHostTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(hostTimerRef.current!)
+          hostTimerRef.current = null
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }
+
   function startQuiz() {
     if (!socketRef.current?.connected) {
       setSessionError('Connection lost. Please refresh the page.')
@@ -228,11 +248,13 @@ export default function SessionPage() {
     setOptionCounts([])
     setQuestionIndex(0)
     setPhase('question')
+    if (quiz?.questions[0]?.timerSeconds) startHostTimer(quiz.questions[0].timerSeconds)
   }
 
   function nextQuestion() {
     if (!quiz) return
     setExplanation(null)
+    if (hostTimerRef.current) { clearInterval(hostTimerRef.current); hostTimerRef.current = null }
     const nextIndex = questionIndex + 1
     if (nextIndex >= quiz.questions.length) {
       socketRef.current?.emit('end_session', { gameCode })
@@ -241,6 +263,7 @@ export default function SessionPage() {
       setQuestionIndex(nextIndex)
       setAnswered(0)
       setOptionCounts([])
+      if (quiz.questions[nextIndex]?.timerSeconds) startHostTimer(quiz.questions[nextIndex].timerSeconds)
     }
   }
 
@@ -494,9 +517,14 @@ export default function SessionPage() {
         <div className="p-4 max-w-2xl mx-auto py-8 space-y-4">
           <div className="flex items-center justify-between">
             <span className="text-xl text-gray-500 font-semibold">Q{questionIndex + 1} / {quiz.questions.length}</span>
-            <span className="bg-blue-50 border border-blue-100 rounded-full px-5 py-2 text-xl font-bold" style={{ color: 'var(--color-primary)' }}>
-              {answered} / {participants.size} answered
-            </span>
+            <div className="flex items-center gap-3">
+              {currentQuestion.timerSeconds > 0 && (
+                <CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} />
+              )}
+              <span className="bg-blue-50 border border-blue-100 rounded-full px-5 py-2 text-xl font-bold" style={{ color: 'var(--color-primary)' }}>
+                {answered} / {participants.size} answered
+              </span>
+            </div>
           </div>
 
           {/* Progress bar */}

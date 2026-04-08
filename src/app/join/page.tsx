@@ -844,18 +844,26 @@ function JoinPageInner() {
             </button>
           </div>
         ) : (
-          <div className={`gap-3 flex-1 ${question.type === 'rating' && question.options?.length === 5 ? 'grid grid-cols-5' : 'grid grid-cols-2'}`}>
+          <div className={`gap-3 flex-1 ${
+            question.type === 'rating' && question.options?.length === 5
+              ? 'grid grid-cols-5'
+              : question.options?.length === 2
+              ? 'grid grid-cols-1'
+              : 'grid grid-cols-2'
+          }`}>
             {question.options?.map((opt, idx) => {
               const isSelected = selectedAnswer === String(idx)
               const isDisabled = selectedAnswer !== null || timeLeft <= 0
               const optText = getOptText(opt)
               const optImage = getOptImage(opt)
+              const isTwoOption = (question.options?.length ?? 0) === 2
               return (
                 <button
                   key={idx}
                   onClick={() => handleAnswerTap(idx)}
                   disabled={isDisabled}
-                  className={`${OPTION_GRADIENTS[idx]} rounded-2xl p-4 text-white text-left transition-all min-h-[90px]
+                  className={`${OPTION_GRADIENTS[idx]} rounded-2xl p-4 text-white text-left transition-all
+                    ${isTwoOption ? 'flex items-center gap-4 py-5' : 'min-h-[90px]'}
                     ${isSelected ? 'ring-4 ring-white scale-[0.97]' : ''}
                     ${isDisabled && !isSelected ? 'opacity-50 pointer-events-none' : ''}
                   `}
@@ -863,7 +871,9 @@ function JoinPageInner() {
                   {optImage && (
                     <img src={optImage} alt="" className="w-full h-20 object-cover rounded-xl mb-2" loading="lazy" />
                   )}
-                  <span className="w-10 h-10 rounded-full bg-white/25 flex items-center justify-center font-black text-lg mb-2 mx-auto">
+                  <span className={`rounded-full bg-white/25 flex items-center justify-center font-black text-lg flex-shrink-0
+                    ${isTwoOption ? 'w-10 h-10' : 'w-10 h-10 mb-2 mx-auto'}`}
+                  >
                     {question.type === 'rating' ? optText : OPTION_LABELS[idx]}
                   </span>
                   {question.type !== 'rating' && (
