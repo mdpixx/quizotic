@@ -62,7 +62,7 @@ export function ProductShowcase() {
           <div style={{ display: 'flex', background: '#F1F5F9', minHeight: 560 }}>
 
             {/* ── Sidebar ── */}
-            <aside style={{ width: 188, background: '#0F1B3D', flexShrink: 0, display: 'flex', flexDirection: 'column', padding: '16px 0' }}>
+            <aside className="dash-sidebar" style={{ width: 188, background: '#0F1B3D', flexShrink: 0, display: 'flex', flexDirection: 'column', padding: '16px 0' }}>
               {/* Logo */}
               <div style={{ padding: '0 14px 18px', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ width: 28, height: 28, borderRadius: 6, background: 'linear-gradient(135deg, #4338CA, #7C3AED)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 900, fontSize: 14, color: '#fff', flexShrink: 0 }}>Q</div>
@@ -304,6 +304,12 @@ export function ProductShowcase() {
         @media (max-width: 900px) {
           .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
           .dash-row2, .dash-row3 { grid-template-columns: 1fr !important; }
+        }
+        @media (max-width: 768px) {
+          .dash-sidebar { display: none !important; }
+          .dash-row2 { display: none !important; }
+          .dash-row3 { display: none !important; }
+          .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
         }
       `}</style>
     </section>

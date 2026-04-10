@@ -36,7 +36,7 @@ export function QuizVsPresentation() {
         {/* Cards grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28 }} className="two-powers-grid">
           {/* Quiz Mode card */}
-          <div style={{ border: '2px solid #E5E7EB', borderRadius: 20, padding: '36px 32px', background: '#fff', display: 'flex', flexDirection: 'column', gap: 20, minHeight: 460 }}>
+          <div style={{ border: '2px solid #E5E7EB', borderRadius: 20, padding: '36px 32px', background: '#fff', display: 'grid', gridTemplateRows: 'auto 1fr auto', gap: 20, minHeight: 460 }}>
             <div style={{ display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 12, color: '#2D3A8C', letterSpacing: '0.1em', border: '2px solid #2D3A8C', borderRadius: 20, padding: '5px 14px', textTransform: 'uppercase', alignSelf: 'flex-start' }}>
               Quiz Mode
             </div>
@@ -49,7 +49,7 @@ export function QuizVsPresentation() {
               ))}
             </ul>
             {/* Mini quiz preview */}
-            <div style={{ background: '#F8F9FA', borderRadius: 12, padding: '16px', marginTop: 'auto' }}>
+            <div style={{ background: '#F8F9FA', borderRadius: 12, padding: '16px' }}>
               <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 13, color: '#0F1B3D', marginBottom: 10 }}>
                 Which element has symbol &apos;Fe&apos;?
               </div>
@@ -74,7 +74,7 @@ export function QuizVsPresentation() {
           </div>
 
           {/* Present Mode card */}
-          <div style={{ border: '2px solid #0F1B3D', borderRadius: 20, padding: '36px 32px', background: '#0F1B3D', display: 'flex', flexDirection: 'column', gap: 20, minHeight: 460 }}>
+          <div style={{ border: '2px solid #0F1B3D', borderRadius: 20, padding: '36px 32px', background: '#0F1B3D', display: 'grid', gridTemplateRows: 'auto 1fr auto', gap: 20, minHeight: 460 }}>
             <div style={{ display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 12, color: '#F5E642', letterSpacing: '0.1em', border: '2px solid rgba(245,230,66,0.6)', borderRadius: 20, padding: '5px 14px', textTransform: 'uppercase', alignSelf: 'flex-start' }}>
               Present Mode
             </div>
@@ -87,7 +87,7 @@ export function QuizVsPresentation() {
               ))}
             </ul>
             {/* Mini bar chart preview */}
-            <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: '16px', marginTop: 'auto' }}>
+            <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                 <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 13, color: '#fff' }}>
                   Q3 Student Performance

@@ -12,17 +12,19 @@ const MARQUEE_ITEMS = [
 
 export function BrandRecall() {
   return (
-    <section style={{ padding: '80px 24px 0', background: '#fff', textAlign: 'center' }}>
+    <section style={{ padding: '80px 0 0', background: '#fff', textAlign: 'center' }}>
       {/* Big wordmark */}
-      <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 'min(10vw, 96px)', letterSpacing: '-0.04em', lineHeight: 1, display: 'inline-block' }}>
-        <span style={{ color: '#0F1B3D' }}>quizotic</span><span style={{ color: '#16A34A', animation: 'blink-live 1.5s ease-in-out infinite' }}>.live</span>
-      </div>
-      <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontWeight: 500, fontSize: 20, color: '#888', marginTop: 12, marginBottom: 48 }}>
-        Where learning gets real.
+      <div style={{ padding: '0 24px' }}>
+        <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 'min(10vw, 96px)', letterSpacing: '-0.04em', lineHeight: 1, display: 'inline-block' }}>
+          <span style={{ color: '#0F1B3D' }}>quizotic</span><span style={{ color: '#16A34A', animation: 'blink-live 1.5s ease-in-out infinite' }}>.live</span>
+        </div>
+        <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontWeight: 500, fontSize: 20, color: '#888', marginTop: 12, marginBottom: 48 }}>
+          Where learning gets real.
+        </div>
       </div>
 
-      {/* Marquee strip */}
-      <div style={{ background: '#0F1B3D', padding: '14px 0', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+      {/* Marquee strip — full bleed */}
+      <div style={{ background: '#0F1B3D', padding: '14px 0', overflow: 'hidden', whiteSpace: 'nowrap', width: '100%' }}>
         <div style={{ display: 'inline-flex', animation: 'marquee 25s linear infinite' }}>
           {[0, 1].map(n => (
             <span key={n} style={{ display: 'inline-block', paddingRight: 48 }}>

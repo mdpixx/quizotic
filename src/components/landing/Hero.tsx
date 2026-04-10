@@ -4,69 +4,105 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 
 const QUESTIONS = [
-  {
-    q: 'Which planet is closest to the Sun?',
-    options: ['Mercury', 'Venus', 'Mars', 'Jupiter'],
-    correct: 0,
-  },
-  {
-    q: 'What is the chemical formula for water?',
-    options: ['H₂O₂', 'CO₂', 'H₂O', 'NaCl'],
-    correct: 2,
-  },
-  {
-    q: 'Who wrote Hamlet?',
-    options: ['Dickens', 'Shakespeare', 'Tolstoy', 'Austen'],
-    correct: 1,
-  },
+  { q: 'Which planet is closest to the Sun?', options: ['Mercury', 'Venus', 'Mars', 'Jupiter'], correct: 0 },
+  { q: 'What is the chemical formula for water?', options: ['H₂O₂', 'CO₂', 'H₂O', 'NaCl'], correct: 2 },
+  { q: 'Who wrote Hamlet?', options: ['Dickens', 'Shakespeare', 'Tolstoy', 'Austen'], correct: 1 },
 ]
 
 const OPTION_COLORS = ['#2D3A8C', '#FF8A47', '#5BC0EB', '#E07A5F']
+const CONFETTI_COLORS = ['#F5E642', '#16A34A', '#2D3A8C', '#FF8A47', '#5BC0EB', '#E07A5F', '#DC2626', '#7C3AED']
+
+function Confetti() {
+  return (
+    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 10 }}>
+      {Array.from({ length: 28 }).map((_, i) => (
+        <div key={i} style={{
+          position: 'absolute',
+          width: i % 3 === 0 ? 10 : 7,
+          height: i % 3 === 0 ? 10 : 7,
+          borderRadius: i % 4 === 0 ? '50%' : 2,
+          background: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+          left: `${(i * 3.5 + 3) % 94}%`,
+          top: 0,
+          animation: `confetti-fall ${0.8 + (i % 5) * 0.25}s ease-in ${(i % 7) * 0.1}s both`,
+        }} />
+      ))}
+    </div>
+  )
+}
 
 function BrowserQuiz() {
   const [qIndex, setQIndex] = useState(0)
   const [selected, setSelected] = useState<number | null>(null)
   const [timeLeft, setTimeLeft] = useState(10)
-  const [celebrating, setCelebrating] = useState(false)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [phase, setPhase] = useState<'playing' | 'end'>('playing')
 
-  const q = QUESTIONS[qIndex]
+  const scoreRef   = useRef(0)
+  const qIndexRef  = useRef(0)
+  const answeredRef = useRef(false)   // prevents timer race with click
+  const timerRef   = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pendingRef  = useRef<ReturnType<typeof setTimeout>  | null>(null)
 
+  function resetQuiz() {
+    setPhase('playing')
+    setQIndex(0)
+    qIndexRef.current = 0
+    setSelected(null)
+    scoreRef.current = 0
+  }
+
+  function advanceQuestion() {
+    const next = qIndexRef.current + 1
+    if (next < QUESTIONS.length) {
+      qIndexRef.current = next
+      setQIndex(next)
+      setSelected(null)
+    } else {
+      setPhase('end')
+      pendingRef.current = setTimeout(resetQuiz, 4500)
+    }
+  }
+
+  function handleAnswer(i: number) {
+    if (answeredRef.current) return
+    answeredRef.current = true
+    clearInterval(timerRef.current!)
+    if (pendingRef.current) clearTimeout(pendingRef.current)
+    if (i === QUESTIONS[qIndexRef.current].correct) scoreRef.current++
+    setSelected(i)
+    pendingRef.current = setTimeout(advanceQuestion, 1600)
+  }
+
+  // Timer — restarts on each new question
   useEffect(() => {
-    if (selected !== null) return
+    answeredRef.current = false
     setTimeLeft(10)
     timerRef.current = setInterval(() => {
       setTimeLeft(t => {
         if (t <= 1) {
           clearInterval(timerRef.current!)
+          if (!answeredRef.current) {
+            answeredRef.current = true
+            setSelected(-1)   // -1 = time up, show correct answer
+            pendingRef.current = setTimeout(advanceQuestion, 1800)
+          }
           return 0
         }
         return t - 1
       })
     }, 1000)
     return () => clearInterval(timerRef.current!)
-  }, [qIndex, selected])
+  }, [qIndex]) // eslint-disable-line
 
-  function handleAnswer(i: number) {
-    if (selected !== null) return
+  // Global cleanup
+  useEffect(() => () => {
     clearInterval(timerRef.current!)
-    setSelected(i)
-    setTimeout(() => {
-      if (qIndex < QUESTIONS.length - 1) {
-        setQIndex(qi => qi + 1)
-        setSelected(null)
-      } else {
-        setCelebrating(true)
-        setTimeout(() => {
-          setQIndex(0)
-          setSelected(null)
-          setCelebrating(false)
-        }, 3000)
-      }
-    }, 1500)
-  }
+    if (pendingRef.current) clearTimeout(pendingRef.current)
+  }, [])
 
-  const timerPct = (timeLeft / 10) * 100
+  const timerPct   = (timeLeft / 10) * 100
+  const allCorrect = scoreRef.current === QUESTIONS.length
+  const q          = QUESTIONS[qIndex]
 
   return (
     <div style={{ borderRadius: 16, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.5)', border: '2px solid rgba(255,255,255,0.15)', background: '#fff', maxWidth: 480, width: '100%' }}>
@@ -78,15 +114,46 @@ function BrowserQuiz() {
         <span style={{ marginLeft: 8, fontSize: 11, color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>quizotic.live/join?code=K7X9</span>
       </div>
 
-      {/* Content */}
-      <div style={{ padding: '20px 20px 24px', background: '#fff', position: 'relative', minHeight: 280 }}>
-        {celebrating ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 240, gap: 12 }}>
-            <div style={{ fontSize: 48 }}>🎉</div>
-            <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 28, color: '#0F1B3D' }}>Perfect!</div>
-            <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 14, color: '#666' }}>All 3 correct!</div>
-          </div>
+      {/* Content area */}
+      <div style={{ padding: '20px 20px 24px', background: '#fff', position: 'relative', minHeight: 320 }}>
+
+        {/* ── END SCREEN ── */}
+        {phase === 'end' ? (
+          <>
+            {allCorrect && <Confetti />}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 272, gap: 14, position: 'relative', zIndex: 20 }}>
+              <div style={{ fontSize: 52, animation: 'bounce-in 0.5s ease-out' }}>
+                {allCorrect ? '🎉' : '💪'}
+              </div>
+              <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 26, color: '#0F1B3D', textAlign: 'center', lineHeight: 1.2 }}>
+                {allCorrect ? 'Perfect Score!' : `${scoreRef.current} of 3 correct`}
+              </div>
+              <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 14, color: '#555', textAlign: 'center', lineHeight: 1.6, maxWidth: 290 }}>
+                {allCorrect
+                  ? 'Outstanding! You got every question right. Your students will love this.'
+                  : scoreRef.current === 2
+                    ? 'Great effort! One slip — review it and you\'ll nail it next time.'
+                    : 'Keep practising — every attempt builds stronger recall. You\'ve got this! 🚀'}
+              </div>
+              {/* Score dots */}
+              <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+                {QUESTIONS.map((_, i) => (
+                  <div key={i} style={{
+                    width: 36, height: 36, borderRadius: '50%',
+                    background: i < scoreRef.current ? '#16A34A' : '#F3F4F6',
+                    border: `2px solid ${i < scoreRef.current ? '#16A34A' : '#E5E7EB'}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 16, color: i < scoreRef.current ? '#fff' : '#CBD5E1',
+                    animation: i < scoreRef.current ? `bounce-in 0.4s ease-out ${i * 0.15}s both` : 'none',
+                  }}>
+                    {i < scoreRef.current ? '✓' : '✗'}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
         ) : (
+          /* ── QUIZ SCREEN ── */
           <>
             {/* Top row */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -94,8 +161,15 @@ function BrowserQuiz() {
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#16A34A', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
                 24 participants live
               </div>
-              <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 18, color: '#fff', background: '#0F1B3D', borderRadius: 7, width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {selected !== null ? '✓' : String(timeLeft).padStart(2, '0')}
+              <div style={{
+                fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 18,
+                color: timeLeft <= 3 ? '#DC2626' : '#fff',
+                background: timeLeft <= 3 ? '#FEF2F2' : '#0F1B3D',
+                border: timeLeft <= 3 ? '2px solid #DC2626' : '2px solid transparent',
+                borderRadius: 7, width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'background 0.3s, color 0.3s',
+              }}>
+                {selected !== null && selected !== -1 ? '✓' : selected === -1 ? '⏱' : String(timeLeft).padStart(2, '0')}
               </div>
             </div>
 
@@ -113,17 +187,16 @@ function BrowserQuiz() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
               {q.options.map((opt, i) => {
                 let bg = OPTION_COLORS[i]
-                let border = 'none'
-                let scale = 1
+                let textColor = '#fff'
                 if (selected !== null) {
-                  if (i === q.correct) { bg = '#16A34A'; border = '2px solid #16A34A' }
-                  else if (i === selected && i !== q.correct) { bg = '#DC2626'; border = '2px solid #DC2626' }
-                  else { bg = '#E5E7EB' }
+                  if (i === q.correct) { bg = '#16A34A' }
+                  else if (i === selected && i !== q.correct) { bg = '#DC2626' }
+                  else { bg = '#E5E7EB'; textColor = '#aaa' }
                 }
                 return (
                   <button key={i} onClick={() => handleAnswer(i)}
-                    style={{ background: bg, color: '#fff', border, borderRadius: 8, padding: '10px 12px', fontSize: 13, fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontWeight: 600, cursor: selected !== null ? 'default' : 'pointer', textAlign: 'left', transform: `scale(${scale})`, transition: 'background 0.2s, transform 0.1s', lineHeight: 1.3 }}>
-                    <span style={{ opacity: 0.8, marginRight: 4 }}>{String.fromCharCode(65 + i)} ·</span>
+                    style={{ background: bg, color: textColor, border: 'none', borderRadius: 8, padding: '10px 12px', fontSize: 13, fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontWeight: 600, cursor: selected !== null ? 'default' : 'pointer', textAlign: 'left', transition: 'background 0.25s', lineHeight: 1.3 }}>
+                    <span style={{ opacity: 0.75, marginRight: 4 }}>{String.fromCharCode(65 + i)} ·</span>
                     {opt}
                   </button>
                 )
@@ -143,7 +216,7 @@ function BrowserQuiz() {
               ))}
             </div>
 
-            {/* Question indicator */}
+            {/* Question progress dots */}
             <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 12 }}>
               {QUESTIONS.map((_, i) => (
                 <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: i === qIndex ? '#F5E642' : '#E5E7EB', border: i === qIndex ? '1.5px solid #0D0D0D' : 'none', transition: 'background 0.2s' }} />
@@ -154,7 +227,9 @@ function BrowserQuiz() {
       </div>
 
       <style>{`
-        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+        @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
+        @keyframes bounce-in { 0%{transform:scale(0.3);opacity:0} 60%{transform:scale(1.15)} 100%{transform:scale(1);opacity:1} }
+        @keyframes confetti-fall { 0%{transform:translateY(0) rotate(0deg);opacity:1} 100%{transform:translateY(340px) rotate(720deg);opacity:0} }
       `}</style>
     </div>
   )
@@ -163,11 +238,9 @@ function BrowserQuiz() {
 export function Hero() {
   return (
     <section style={{ background: '#0F1B3D', paddingTop: 64, overflow: 'hidden' }}>
-      {/* Subtle bg decoration */}
       <div style={{ position: 'absolute', top: 0, right: 0, width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,230,66,0.06) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '80px 24px 80px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 64, alignItems: 'center' }} className="hero-inner">
-        {/* Left */}
         <div>
           <div style={{ display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 12, color: '#F5E642', letterSpacing: '0.1em', border: '1px solid rgba(245,230,66,0.4)', borderRadius: 20, padding: '6px 14px', marginBottom: 24, textTransform: 'uppercase' }}>
             Quiz + Presentations Platform
@@ -190,7 +263,6 @@ export function Hero() {
           </div>
         </div>
 
-        {/* Right — interactive quiz */}
         <div style={{ display: 'flex', justifyContent: 'center' }} className="hero-browser">
           <BrowserQuiz />
         </div>

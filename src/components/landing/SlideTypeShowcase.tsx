@@ -206,7 +206,7 @@ function FlipCard({ s, index }: { s: typeof SLIDE_TYPES[0]; index: number }) {
           <div style={{ marginBottom: 12 }}>{s.icon}</div>
           <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 14, color: '#0F1B3D', marginBottom: 4 }}>{s.title}</div>
           <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 12, color: '#777', lineHeight: 1.4 }}>{s.desc}</div>
-          <div style={{ marginTop: 'auto', fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 10, color: '#CBD5E1' }}>Tap to learn more</div>
+          <div style={{ marginTop: 'auto', fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 10, color: '#94A3B8', animation: 'hint-pulse 2s ease-in-out infinite' }}>↔ Tap to flip</div>
         </div>
 
         {/* Back */}
@@ -218,15 +218,15 @@ function FlipCard({ s, index }: { s: typeof SLIDE_TYPES[0]; index: number }) {
           transform: 'rotateY(180deg)',
           border: '1.5px solid #0F1B3D',
           borderRadius: 14,
-          padding: '20px',
+          padding: '16px',
           background: '#0F1B3D',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'space-between',
+          justifyContent: 'flex-start',
           overflow: 'hidden',
         }}>
-          <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 13, color: '#F5E642', marginBottom: 8 }}>{s.title}</div>
-          <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 12, color: 'rgba(255,255,255,0.85)', lineHeight: 1.55, flex: 1 }}>{s.back}</div>
+          <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 13, color: '#F5E642', marginBottom: 8, flexShrink: 0 }}>{s.title}</div>
+          <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 11, color: 'rgba(255,255,255,0.85)', lineHeight: 1.5, overflow: 'hidden', wordBreak: 'break-word' }}>{s.back}</div>
         </div>
       </div>
     </div>
@@ -257,6 +257,10 @@ export function SlideTypeShowcase() {
       </div>
 
       <style>{`
+        @keyframes hint-pulse {
+          0%, 100% { opacity: 0.6; }
+          50% { opacity: 1; }
+        }
         @media (max-width: 900px) { .slide-grid { grid-template-columns: repeat(3, 1fr) !important; } }
         @media (max-width: 600px) { .slide-grid { grid-template-columns: repeat(2, 1fr) !important; } }
       `}</style>
