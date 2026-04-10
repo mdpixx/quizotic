@@ -138,28 +138,336 @@ const SLIDE_ICONS: Record<SlideType, React.ReactNode> = {
   ),
 }
 
-// ─── Slide type descriptions ──────────────────────────────────────────────────
+// ─── Gradient helpers for slide previews ──────────────────────────────────────
 
-const SLIDE_DESCRIPTIONS: Record<SlideType, string> = {
-  multiple_choice: 'Participants pick from up to 4 options. Optionally reveal the correct answer after voting.',
-  open_text:       'Audience types a free-text response. Answers appear as animated text on screen.',
-  word_cloud:      'Each person submits 1–3 words. Frequent words grow larger in the live cloud.',
-  rating_scale:    'Rate on a star or numeric scale (1–5, 1–7, 1–10). See the score distribution live.',
-  ranking:         'Participants drag items into their preferred order. Live results show the consensus.',
-  image_choice:    'Pick between visual options. Image cards with live vote percentages.',
-  scale_100:       'Drag a dial anywhere from 0 to 100. Great for agreement or confidence checks.',
-  pinpoint:        'Participants click a spot on an image or diagram. Dots cluster on the live view.',
-  grid_2x2:        'Place a dot on a 2×2 quadrant (e.g. easy/hard × fun/boring). Great for retrospectives.',
-  wheel:           'Spin a wheel to randomly pick a name or option from your list.',
-  word_duel:       'Two sides battle for votes. Audience splits left or right — watch the bar shift.',
-  live_race:       'Racing bar chart — votes animate the bars in real time. High energy!',
-  emoji_pulse:     'Audience taps an emoji reaction. See the mood of the room at a glance.',
-  quick_fire:      'Fast-paced vote with a countdown timer — no time to overthink!',
-  title:           'Full-screen title slide for introducing a section or kicking off your session.',
-  bullets:         'Display a list of key points. Presenter-led content, no audience input needed.',
-  quote:           'A full-screen quote to inspire or frame a discussion moment.',
-  video:           'Play a YouTube or Vimeo video inline during your presentation.',
-  image:           'Display a full-screen image. Use "Import PDF" to add presentation slides as images.',
+function getSlideGradient(slide: Slide): string {
+  switch (slide.type) {
+    case 'title': {
+      const bg = (slide as { bgColor: string }).bgColor || '#0F1B3D'
+      return `linear-gradient(135deg, ${bg}, ${bg}dd)`
+    }
+    case 'multiple_choice': return 'linear-gradient(135deg, #2563EB, #1D4ED8)'
+    case 'open_text': return 'linear-gradient(135deg, #2D3A8C, #1E40AF)'
+    case 'word_cloud': return 'linear-gradient(135deg, #1e293b, #0f172a)'
+    case 'rating_scale': return 'linear-gradient(135deg, #7C3AED, #6366F1)'
+    case 'ranking': return 'linear-gradient(135deg, #4F46E5, #4338CA)'
+    case 'image_choice': return 'linear-gradient(135deg, #0891B2, #0E7490)'
+    case 'scale_100': return 'linear-gradient(135deg, #16A34A, #15803D)'
+    case 'pinpoint': return 'linear-gradient(135deg, #9333EA, #7C3AED)'
+    case 'grid_2x2': return 'linear-gradient(135deg, #0D9488, #0F766E)'
+    case 'wheel': return 'linear-gradient(135deg, #F59E0B, #D97706)'
+    case 'word_duel': return 'linear-gradient(135deg, #DC2626, #B91C1C)'
+    case 'live_race': return 'linear-gradient(135deg, #B45309, #92400E)'
+    case 'emoji_pulse': return 'linear-gradient(135deg, #0F1B3D, #1e3a5f)'
+    case 'quick_fire': return 'linear-gradient(135deg, #EF4444, #DC2626)'
+    case 'bullets': return 'linear-gradient(135deg, #F8FAFC, #F1F5F9)'
+    case 'quote': return 'linear-gradient(135deg, #1e293b, #0f172a)'
+    case 'video': return 'linear-gradient(135deg, #0f172a, #1e293b)'
+    case 'image': return 'linear-gradient(135deg, #F3F4F6, #E5E7EB)'
+  }
+}
+
+function getSlideTextColor(slide: Slide): string {
+  if (slide.type === 'bullets' || slide.type === 'image') return '#0F1B3D'
+  return '#fff'
+}
+
+// ─── Slide WYSIWYG preview (center panel) ─────────────────────────────────────
+
+function SlidePreview({ slide }: { slide: Slide }) {
+  const meta = SLIDE_TYPE_META[slide.type]
+  const gradient = getSlideGradient(slide)
+  const textColor = getSlideTextColor(slide)
+
+  const getQuestionText = (): string => {
+    switch (slide.type) {
+      case 'title': return (slide as { heading: string }).heading || 'Title Slide'
+      case 'bullets': return (slide as { heading: string }).heading || 'Key Points'
+      case 'quote': return ''
+      case 'video': return (slide as { caption: string }).caption || 'Video'
+      case 'image': return (slide as { caption: string }).caption || 'Image Slide'
+      case 'wheel': return (slide as { title: string }).title || 'Spin the Wheel'
+      default: return (slide as { question?: string }).question || 'Your question here...'
+    }
+  }
+
+  const renderVisualization = () => {
+    switch (slide.type) {
+      case 'title': return (
+        <p className="text-sm opacity-60" style={{ color: textColor }}>
+          {(slide as { subheading: string }).subheading || 'Subtitle goes here'}
+        </p>
+      )
+
+      case 'multiple_choice':
+      case 'quick_fire': {
+        const opts = (slide as { options: string[] }).options
+        const colors = ['#3B82F6', '#F59E0B', '#EF4444', '#10B981']
+        return (
+          <div className="w-4/5 grid grid-cols-2 gap-2">
+            {opts.slice(0, 4).map((opt, i) => (
+              <div key={i} className="rounded-lg px-3 py-2 text-xs font-bold truncate"
+                style={{ background: `${colors[i]}30`, color: textColor, border: `1.5px solid ${colors[i]}60` }}>
+                {opt || `Option ${['A', 'B', 'C', 'D'][i]}`}
+              </div>
+            ))}
+          </div>
+        )
+      }
+
+      case 'rating_scale': {
+        const s = slide as { maxRating: number; minLabel: string; maxLabel: string }
+        const heights = [20, 35, 60, 80, 45]
+        return (
+          <div className="w-4/5 flex flex-col items-center gap-2">
+            <div className="flex items-end gap-1.5" style={{ height: 60 }}>
+              {heights.slice(0, s.maxRating === 10 ? 5 : s.maxRating === 7 ? 5 : 5).map((h, i) => (
+                <div key={i} className="rounded-t-md" style={{ width: 24, height: `${h}%`, background: `rgba(255,255,255,${0.2 + i * 0.15})` }} />
+              ))}
+            </div>
+            <div className="flex justify-between w-full">
+              <span className="text-[9px] opacity-50" style={{ color: textColor }}>{s.minLabel || 'Low'}</span>
+              <span className="text-[9px] opacity-50" style={{ color: textColor }}>{s.maxLabel || 'High'}</span>
+            </div>
+          </div>
+        )
+      }
+
+      case 'word_cloud': return (
+        <div className="flex flex-wrap justify-center gap-2 w-4/5">
+          {['Ideas', 'Creativity', 'Team', 'Growth', 'Vision', 'Focus'].map((w, i) => (
+            <span key={i} className="font-bold opacity-70" style={{
+              color: textColor, fontSize: [18, 14, 22, 12, 16, 10][i],
+            }}>{w}</span>
+          ))}
+        </div>
+      )
+
+      case 'ranking': {
+        const items = (slide as { items: string[] }).items
+        return (
+          <div className="w-4/5 space-y-1.5">
+            {items.slice(0, 4).map((item, i) => (
+              <div key={i} className="flex items-center gap-2 rounded-lg px-3 py-1.5"
+                style={{ background: `rgba(255,255,255,${0.15 - i * 0.03})` }}>
+                <span className="text-xs font-black opacity-60" style={{ color: textColor }}>{i + 1}</span>
+                <span className="text-xs font-semibold truncate" style={{ color: textColor }}>{item || `Item ${i + 1}`}</span>
+              </div>
+            ))}
+          </div>
+        )
+      }
+
+      case 'scale_100': {
+        const s = slide as { minLabel: string; maxLabel: string }
+        return (
+          <div className="w-4/5 space-y-2">
+            <div className="h-3 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.15)' }}>
+              <div className="h-full rounded-full" style={{ width: '65%', background: 'rgba(255,255,255,0.6)' }} />
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[9px] opacity-50" style={{ color: textColor }}>{s.minLabel || '0'}</span>
+              <span className="text-xs font-bold opacity-80" style={{ color: textColor }}>65</span>
+              <span className="text-[9px] opacity-50" style={{ color: textColor }}>{s.maxLabel || '100'}</span>
+            </div>
+          </div>
+        )
+      }
+
+      case 'grid_2x2': {
+        const s = slide as { xLabel: string; yLabel: string; xMin: string; xMax: string; yMin: string; yMax: string }
+        return (
+          <div className="w-3/5 flex flex-col items-center">
+            <span className="text-[8px] font-bold opacity-50 mb-1" style={{ color: textColor }}>{s.yMax || 'High'}</span>
+            <div className="grid grid-cols-2 gap-0.5 w-full aspect-square">
+              {[0.2, 0.15, 0.15, 0.2].map((op, i) => (
+                <div key={i} className="rounded-sm" style={{ background: `rgba(255,255,255,${op})` }} />
+              ))}
+            </div>
+            <div className="flex justify-between w-full mt-1">
+              <span className="text-[8px] font-bold opacity-50" style={{ color: textColor }}>{s.xMin || 'Low'}</span>
+              <span className="text-[8px] font-bold opacity-50" style={{ color: textColor }}>{s.xMax || 'High'}</span>
+            </div>
+          </div>
+        )
+      }
+
+      case 'word_duel': {
+        const s = slide as { optionA: string; optionB: string }
+        return (
+          <div className="w-4/5 flex items-center gap-3">
+            <div className="flex-1 rounded-lg px-3 py-3 text-center text-sm font-bold"
+              style={{ background: 'rgba(59,130,246,0.3)', color: textColor }}>
+              {s.optionA || 'Side A'}
+            </div>
+            <span className="text-xs font-black opacity-40" style={{ color: textColor }}>VS</span>
+            <div className="flex-1 rounded-lg px-3 py-3 text-center text-sm font-bold"
+              style={{ background: 'rgba(239,68,68,0.3)', color: textColor }}>
+              {s.optionB || 'Side B'}
+            </div>
+          </div>
+        )
+      }
+
+      case 'live_race': {
+        const opts = (slide as { options: string[] }).options
+        return (
+          <div className="w-4/5 space-y-2">
+            {opts.slice(0, 4).map((opt, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="text-[9px] font-bold truncate w-16 text-right opacity-60" style={{ color: textColor }}>{opt || `Option ${i + 1}`}</span>
+                <div className="flex-1 h-4 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                  <div className="h-full rounded-full" style={{ width: `${[75, 50, 90, 30][i]}%`, background: `rgba(255,255,255,${0.5 - i * 0.1})` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      }
+
+      case 'emoji_pulse': {
+        const emojis = (slide as { emojis: string[] }).emojis
+        return (
+          <div className="flex gap-4">
+            {emojis.map((em, i) => (
+              <div key={i} className="flex flex-col items-center gap-1">
+                <span className="text-2xl">{em}</span>
+                <span className="text-[9px] font-bold opacity-40" style={{ color: textColor }}>{[12, 8, 18, 5][i] ?? 0}</span>
+              </div>
+            ))}
+          </div>
+        )
+      }
+
+      case 'wheel': {
+        const names = (slide as { names: string[] }).names
+        const colors = ['#3B82F6', '#F59E0B', '#EF4444', '#10B981', '#8B5CF6']
+        return (
+          <div className="relative" style={{ width: 100, height: 100 }}>
+            <div className="w-full h-full rounded-full overflow-hidden" style={{
+              background: `conic-gradient(${names.map((_, i) => `${colors[i % 5]} ${(i / names.length) * 100}% ${((i + 1) / names.length) * 100}%`).join(', ')})`,
+            }} />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-4 h-4 rounded-full bg-white shadow-md" />
+            </div>
+          </div>
+        )
+      }
+
+      case 'open_text': return (
+        <div className="w-4/5 rounded-lg p-3" style={{ background: 'rgba(255,255,255,0.1)', border: '1px dashed rgba(255,255,255,0.3)' }}>
+          <span className="text-xs opacity-40" style={{ color: textColor }}>Audience responses will appear here...</span>
+        </div>
+      )
+
+      case 'bullets': {
+        const bullets = (slide as { bullets: string[] }).bullets
+        return (
+          <div className="w-4/5 space-y-2">
+            {bullets.slice(0, 5).map((b, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#0F1B3D' }} />
+                <span className="text-xs" style={{ color: textColor }}>{b || `Point ${i + 1}`}</span>
+              </div>
+            ))}
+          </div>
+        )
+      }
+
+      case 'quote': {
+        const s = slide as { quote: string; attribution: string }
+        return (
+          <div className="w-4/5 text-center space-y-3">
+            <p className="text-lg font-bold italic leading-relaxed" style={{ color: textColor }}>
+              &ldquo;{s.quote || 'Your quote here...'}&rdquo;
+            </p>
+            {s.attribution && (
+              <p className="text-xs opacity-50" style={{ color: textColor }}>&mdash; {s.attribution}</p>
+            )}
+          </div>
+        )
+      }
+
+      case 'video': return (
+        <div className="w-3/5 aspect-video rounded-lg flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)' }}>
+          <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.2)' }}>
+            <svg viewBox="0 0 20 20" fill="white" className="w-6 h-6 ml-1"><path d="M6.5 4.5v11l9-5.5z"/></svg>
+          </div>
+        </div>
+      )
+
+      case 'image': {
+        const url = (slide as { imageUrl: string }).imageUrl
+        if (url) return <img src={url} alt="" className="max-w-[70%] max-h-[60%] rounded-lg object-contain" />
+        return (
+          <div className="w-3/5 aspect-video rounded-lg flex items-center justify-center"
+            style={{ background: 'rgba(0,0,0,0.08)', border: '1px dashed rgba(0,0,0,0.2)' }}>
+            <span className="text-xs opacity-40" style={{ color: textColor }}>No image yet</span>
+          </div>
+        )
+      }
+
+      case 'pinpoint': {
+        const url = (slide as { imageUrl?: string }).imageUrl
+        return (
+          <div className="w-3/5 aspect-video rounded-lg relative overflow-hidden"
+            style={{ background: url ? undefined : 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)' }}>
+            {url && <img src={url} alt="" className="w-full h-full object-cover" />}
+            <div className="absolute" style={{ top: '30%', left: '40%', width: 10, height: 10, borderRadius: '50%', background: '#EF4444', border: '2px solid #fff' }} />
+            <div className="absolute" style={{ top: '55%', left: '60%', width: 10, height: 10, borderRadius: '50%', background: '#3B82F6', border: '2px solid #fff' }} />
+          </div>
+        )
+      }
+
+      case 'image_choice': {
+        const opts = (slide as { options: string[] }).options
+        return (
+          <div className="w-4/5 grid grid-cols-2 gap-2">
+            {opts.slice(0, 4).map((opt, i) => (
+              <div key={i} className="rounded-lg p-2 text-center"
+                style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)' }}>
+                <div className="w-full aspect-square rounded-md mb-1" style={{ background: 'rgba(255,255,255,0.08)' }} />
+                <span className="text-[9px] font-semibold truncate block" style={{ color: textColor }}>{opt || `Choice ${i + 1}`}</span>
+              </div>
+            ))}
+          </div>
+        )
+      }
+
+      default: return null
+    }
+  }
+
+  return (
+    <div className="w-full aspect-video rounded-2xl overflow-hidden relative shadow-lg"
+      style={{ background: gradient }}>
+      {/* Question / heading */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center px-8 py-6 gap-4">
+        {slide.type !== 'quote' && (
+          <p className="text-lg font-bold text-center leading-snug" style={{ color: textColor, fontFamily: 'var(--font-heading)' }}>
+            {getQuestionText()}
+          </p>
+        )}
+        {renderVisualization()}
+      </div>
+
+      {/* Type badge */}
+      <div className="absolute top-3 right-3 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider"
+        style={{ background: meta.bg, color: meta.color }}>
+        {meta.label}
+      </div>
+
+      {/* Join bar */}
+      <div className="absolute bottom-0 inset-x-0 px-4 py-2 flex items-center justify-between"
+        style={{ background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(4px)' }}>
+        <span className="text-[10px] font-bold opacity-70" style={{ color: '#fff' }}>quizotic.live &middot; Code: ----</span>
+        <div className="w-6 h-6 rounded flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.15)' }}>
+          <span className="text-[7px] font-bold text-white opacity-60">QR</span>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // ─── Slide editor fields per type ─────────────────────────────────────────────
@@ -167,10 +475,10 @@ const SLIDE_DESCRIPTIONS: Record<SlideType, string> = {
 function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) => void }) {
   const update = (patch: Partial<Slide>) => onChange({ ...slide, ...patch } as Slide)
 
-  const inputClass = "w-full border rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-violet-300 transition-colors"
-  const inputStyle = { borderColor: '#E9E2FF', color: '#1A0A2E', background: '#fff' }
-  const labelClass = "block text-sm font-semibold mb-2"
-  const labelStyle = { color: '#6B4FA0' }
+  const inputClass = "w-full border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#0F1B3D]/20 transition-colors"
+  const inputStyle = { borderColor: '#E2E8F0', color: '#1A0A2E', background: '#fff' }
+  const labelClass = "block text-xs font-semibold mb-1.5"
+  const labelStyle = { color: '#64748B' }
 
   switch (slide.type) {
     case 'multiple_choice': return (
@@ -185,12 +493,12 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
           {slide.options.map((opt, i) => (
             <div key={i} className="flex items-center gap-2">
               <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                style={{ background: ['#3B82F6','#0F1B3D','#FF8A47','#16A34A'][i] }}>
-                {['A','B','C','D'][i]}
+                style={{ background: ['#3B82F6', '#0F1B3D', '#FF8A47', '#16A34A'][i] }}>
+                {['A', 'B', 'C', 'D'][i]}
               </span>
               <input className={inputClass} style={inputStyle} value={opt}
                 onChange={e => { const opts = [...slide.options]; opts[i] = e.target.value; update({ options: opts }) }}
-                placeholder={`Option ${['A','B','C','D'][i]}`} />
+                placeholder={`Option ${['A', 'B', 'C', 'D'][i]}`} />
             </div>
           ))}
         </div>
@@ -223,7 +531,7 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
           <label className={labelClass} style={labelStyle}>Words per participant</label>
           <select className={inputClass} style={inputStyle} value={slide.maxWords}
             onChange={e => update({ maxWords: Number(e.target.value) })}>
-            {[1,2,3].map(n => <option key={n} value={n}>{n} word{n > 1 ? 's' : ''}</option>)}
+            {[1, 2, 3].map(n => <option key={n} value={n}>{n} word{n > 1 ? 's' : ''}</option>)}
           </select>
         </div>
       </div>
@@ -251,10 +559,10 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
         <div>
           <label className={labelClass} style={labelStyle}>Scale</label>
           <select className={inputClass} style={inputStyle} value={slide.maxRating}
-            onChange={e => update({ maxRating: Number(e.target.value) as 5|7|10 })}>
-            <option value={5}>1–5 stars</option>
-            <option value={7}>1–7 scale</option>
-            <option value={10}>1–10 scale</option>
+            onChange={e => update({ maxRating: Number(e.target.value) as 5 | 7 | 10 })}>
+            <option value={5}>1-5 stars</option>
+            <option value={7}>1-7 scale</option>
+            <option value={10}>1-10 scale</option>
           </select>
         </div>
       </div>
@@ -272,13 +580,13 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
           {slide.items.map((item, i) => (
             <div key={i} className="flex items-center gap-2">
               <span className="w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold flex-shrink-0"
-                style={{ background: '#F3F4F6', color: '#0F1B3D' }}>{i+1}</span>
+                style={{ background: '#F3F4F6', color: '#0F1B3D' }}>{i + 1}</span>
               <input className={inputClass} style={inputStyle} value={item}
                 onChange={e => { const items = [...slide.items]; items[i] = e.target.value; update({ items }) }}
-                placeholder={`Item ${i+1}`} />
+                placeholder={`Item ${i + 1}`} />
               {slide.items.length > 2 && (
                 <button type="button" onClick={() => update({ items: slide.items.filter((_, j) => j !== i) })}
-                  className="text-xs text-red-400 hover:text-red-600 flex-shrink-0">✕</button>
+                  className="text-xs text-red-400 hover:text-red-600 flex-shrink-0">x</button>
               )}
             </div>
           ))}
@@ -299,7 +607,7 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
         <div>
           <label className={labelClass} style={labelStyle}>Question</label>
           <textarea className={inputClass} style={inputStyle} rows={2} value={slide.question}
-            onChange={e => update({ question: e.target.value })} placeholder="On a scale of 0–100..." />
+            onChange={e => update({ question: e.target.value })} placeholder="On a scale of 0-100..." />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -350,13 +658,13 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
           {slide.options.map((opt, i) => (
             <div key={i} className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                style={{ background: ['#3B82F6','#0F1B3D','#FF8A47','#16A34A','#F59E0B'][i % 5] }} />
+                style={{ background: ['#3B82F6', '#0F1B3D', '#FF8A47', '#16A34A', '#F59E0B'][i % 5] }} />
               <input className={inputClass} style={inputStyle} value={opt}
                 onChange={e => { const opts = [...slide.options]; opts[i] = e.target.value; update({ options: opts }) }}
-                placeholder={`Option ${i+1}`} />
+                placeholder={`Option ${i + 1}`} />
               {slide.options.length > 2 && (
                 <button type="button" onClick={() => update({ options: slide.options.filter((_, j) => j !== i) })}
-                  className="text-xs text-red-400 hover:text-red-600 flex-shrink-0">✕</button>
+                  className="text-xs text-red-400 hover:text-red-600 flex-shrink-0">x</button>
               )}
             </div>
           ))}
@@ -382,8 +690,8 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
           <label className={labelClass} style={labelStyle}>Emoji options</label>
           <div className="flex gap-3 flex-wrap">
             {slide.emojis.map((em, i) => (
-              <input key={i} className="text-center text-2xl border rounded-xl w-14 h-14 focus:outline-none focus:ring-2 focus:ring-violet-300"
-                style={{ borderColor: '#E9E2FF' }}
+              <input key={i} className="text-center text-2xl border rounded-xl w-14 h-14 focus:outline-none focus:ring-2 focus:ring-[#0F1B3D]/20"
+                style={{ borderColor: '#E2E8F0' }}
                 value={em} onChange={e => { const emojis = [...slide.emojis]; emojis[i] = e.target.value; update({ emojis }) }} />
             ))}
           </div>
@@ -396,14 +704,14 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
         <div>
           <label className={labelClass} style={labelStyle}>Question</label>
           <textarea className={inputClass} style={inputStyle} rows={2} value={slide.question}
-            onChange={e => update({ question: e.target.value })} placeholder="Quick — vote fast!" />
+            onChange={e => update({ question: e.target.value })} placeholder="Quick - vote fast!" />
         </div>
         <div className="space-y-2">
           <label className={labelClass} style={labelStyle}>Options</label>
           {slide.options.map((opt, i) => (
             <input key={i} className={inputClass} style={inputStyle} value={opt}
               onChange={e => { const opts = [...slide.options]; opts[i] = e.target.value; update({ options: opts }) }}
-              placeholder={`Option ${i+1}`} />
+              placeholder={`Option ${i + 1}`} />
           ))}
         </div>
         <div>
@@ -431,10 +739,10 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
             <div key={i} className="flex items-center gap-2">
               <input className={inputClass} style={inputStyle} value={name}
                 onChange={e => { const names = [...slide.names]; names[i] = e.target.value; update({ names }) }}
-                placeholder={`Name ${i+1}`} />
+                placeholder={`Name ${i + 1}`} />
               {slide.names.length > 2 && (
                 <button type="button" onClick={() => update({ names: slide.names.filter((_, j) => j !== i) })}
-                  className="text-xs text-red-400 hover:text-red-600">✕</button>
+                  className="text-xs text-red-400 hover:text-red-600">x</button>
               )}
             </div>
           ))}
@@ -463,7 +771,7 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
           <label className={labelClass} style={labelStyle}>Background color</label>
           <div className="flex items-center gap-3">
             <input type="color" value={slide.bgColor} onChange={e => update({ bgColor: e.target.value })}
-              className="w-10 h-10 rounded-lg border cursor-pointer" style={{ borderColor: '#E9E2FF' }} />
+              className="w-10 h-10 rounded-lg border cursor-pointer" style={{ borderColor: '#E2E8F0' }} />
             <span className="text-sm font-mono" style={{ color: '#6B7280' }}>{slide.bgColor}</span>
           </div>
         </div>
@@ -484,10 +792,10 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
               <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#0F1B3D' }} />
               <input className={inputClass} style={inputStyle} value={b}
                 onChange={e => { const bullets = [...slide.bullets]; bullets[i] = e.target.value; update({ bullets }) }}
-                placeholder={`Point ${i+1}`} />
+                placeholder={`Point ${i + 1}`} />
               {slide.bullets.length > 1 && (
                 <button type="button" onClick={() => update({ bullets: slide.bullets.filter((_, j) => j !== i) })}
-                  className="text-xs text-red-400 hover:text-red-600">✕</button>
+                  className="text-xs text-red-400 hover:text-red-600">x</button>
               )}
             </div>
           ))}
@@ -507,12 +815,12 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
         <div>
           <label className={labelClass} style={labelStyle}>Quote</label>
           <textarea className={inputClass} style={inputStyle} rows={4} value={slide.quote}
-            onChange={e => update({ quote: e.target.value })} placeholder="&ldquo;Type the quote here...&rdquo;" />
+            onChange={e => update({ quote: e.target.value })} placeholder="Type the quote here..." />
         </div>
         <div>
           <label className={labelClass} style={labelStyle}>Attribution</label>
           <input className={inputClass} style={inputStyle} value={slide.attribution}
-            onChange={e => update({ attribution: e.target.value })} placeholder="— Author name" />
+            onChange={e => update({ attribution: e.target.value })} placeholder="- Author name" />
         </div>
       </div>
     )
@@ -566,7 +874,7 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
               <button onClick={() => update({ imageUrl: undefined })}
                 className="px-3 py-2 rounded-lg text-sm font-bold transition-colors hover:bg-red-50 flex-shrink-0"
                 style={{ color: '#EF4444', border: '1.5px solid #FCA5A5' }}>
-                ✕
+                x
               </button>
             )}
           </div>
@@ -575,13 +883,10 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
           </p>
         </div>
         {slide.imageUrl && (
-          <div className="rounded-xl overflow-hidden border" style={{ borderColor: '#E9E2FF' }}>
+          <div className="rounded-xl overflow-hidden border" style={{ borderColor: '#E2E8F0' }}>
             <img src={slide.imageUrl} alt="Pinpoint background" className="w-full object-contain max-h-40" />
           </div>
         )}
-        <div className="rounded-xl p-3 text-xs" style={{ background: '#FAF5FF', border: '1px solid #E9D5FF', color: '#7C3AED' }}>
-          During the session, participant pins appear as coloured dots on the shared screen in real time.
-        </div>
       </div>
     )
 
@@ -594,20 +899,6 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
         </div>
         <div className="space-y-3">
           <label className={labelClass} style={labelStyle}>Axis labels</label>
-          {/* Mini quadrant preview */}
-          <div className="rounded-xl p-3 flex flex-col items-center gap-1" style={{ background: '#F0FDFA', border: '1px solid #99F6E4' }}>
-            <span className="text-xs font-bold" style={{ color: '#0D9488' }}>{slide.yMax || 'Y Max'}</span>
-            <div className="flex items-center gap-1 w-full">
-              <span className="text-xs font-bold flex-shrink-0" style={{ color: '#0D9488' }}>{slide.xMin || 'X Min'}</span>
-              <div className="grid grid-cols-2 gap-0.5 flex-1">
-                {['#CCFBF1','#99F6E4','#99F6E4','#CCFBF1'].map((bg, i) => (
-                  <div key={i} className="rounded-md" style={{ background: bg, aspectRatio: '1' }} />
-                ))}
-              </div>
-              <span className="text-xs font-bold flex-shrink-0" style={{ color: '#0D9488' }}>{slide.xMax || 'X Max'}</span>
-            </div>
-            <span className="text-xs font-bold" style={{ color: '#0D9488' }}>{slide.yMin || 'Y Min'}</span>
-          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass} style={labelStyle}>X axis label</label>
@@ -652,12 +943,30 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
             onChange={e => update({ imageUrl: e.target.value })} placeholder="https://..." />
         </div>
         {slide.imageUrl && (
-          <img src={slide.imageUrl} alt="" className="w-full rounded-xl border max-h-64 object-contain" style={{ borderColor: '#E9E2FF' }} />
+          <img src={slide.imageUrl} alt="" className="w-full rounded-xl border max-h-64 object-contain" style={{ borderColor: '#E2E8F0' }} />
         )}
         <div>
           <label className={labelClass} style={labelStyle}>Caption (optional)</label>
           <input className={inputClass} style={inputStyle} value={slide.caption}
             onChange={e => update({ caption: e.target.value })} placeholder="Slide title or context..." />
+        </div>
+      </div>
+    )
+
+    case 'image_choice': return (
+      <div className="space-y-4">
+        <div>
+          <label className={labelClass} style={labelStyle}>Question</label>
+          <textarea className={inputClass} style={inputStyle} rows={2} value={slide.question}
+            onChange={e => update({ question: e.target.value })} placeholder="Pick the right image..." />
+        </div>
+        <div className="space-y-2">
+          <label className={labelClass} style={labelStyle}>Options</label>
+          {slide.options.map((opt, i) => (
+            <input key={i} className={inputClass} style={inputStyle} value={opt}
+              onChange={e => { const opts = [...slide.options]; opts[i] = e.target.value; update({ options: opts }) }}
+              placeholder={`Option ${i + 1}`} />
+          ))}
         </div>
       </div>
     )
@@ -670,13 +979,14 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
   }
 }
 
-// ─── Slide thumbnail ──────────────────────────────────────────────────────────
+// ─── Slide thumbnail (left panel) ─────────────────────────────────────────────
 
 function SlideThumbnail({ slide, index, active, onClick }: {
   slide: Slide; index: number; active: boolean; onClick: () => void
 }) {
   const meta = SLIDE_TYPE_META[slide.type]
-  const icon = SLIDE_ICONS[slide.type]
+  const gradient = getSlideGradient(slide)
+  const textColor = getSlideTextColor(slide)
 
   const getLabel = () => {
     switch (slide.type) {
@@ -685,75 +995,66 @@ function SlideThumbnail({ slide, index, active, onClick }: {
       case 'quote': return (slide as { quote: string }).quote || 'Quote'
       case 'video': return 'Video'
       case 'image': return (slide as { caption?: string }).caption || 'Image'
+      case 'wheel': return (slide as { title: string }).title || 'Wheel'
       default: return (slide as { question?: string }).question || meta.label
     }
   }
 
   return (
-    <button
-      onClick={onClick}
-      className="w-full text-left rounded-xl p-3 transition-all group flex items-start gap-3"
+    <button onClick={onClick}
+      className="w-full text-left rounded-xl overflow-hidden transition-all group"
       style={{
         border: active ? `2px solid ${meta.color}` : '2px solid transparent',
-        background: active ? meta.bg : '#F8F7FF',
-      }}
-    >
-      <div className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
-        style={{ background: active ? meta.color : '#E9E2FF', color: active ? '#fff' : meta.color }}>
-        {icon}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-bold uppercase tracking-wide mb-0.5" style={{ color: meta.color }}>{index + 1} · {meta.label}</p>
-        <p className="text-sm font-medium truncate" style={{ color: active ? '#1A0A2E' : '#6B7280' }}>{getLabel()}</p>
+        boxShadow: active ? `0 0 0 2px ${meta.color}30` : 'none',
+      }}>
+      {/* Mini 16:9 preview */}
+      <div className="w-full aspect-video rounded-t-lg flex items-center justify-center px-2 py-1.5 relative"
+        style={{ background: gradient }}>
+        <p className="text-[9px] font-bold text-center leading-tight line-clamp-2" style={{ color: textColor }}>
+          {getLabel()}
+        </p>
+        <span className="absolute top-1 left-1.5 text-[8px] font-black px-1 py-0.5 rounded"
+          style={{ background: 'rgba(255,255,255,0.85)', color: '#0F1B3D' }}>
+          {index + 1}
+        </span>
+        <span className="absolute bottom-1 right-1.5 text-[7px] font-bold uppercase tracking-wider px-1 py-0.5 rounded"
+          style={{ background: meta.bg, color: meta.color }}>
+          {meta.label.split(' ')[0]}
+        </span>
       </div>
     </button>
   )
 }
 
-// ─── Slide type picker ────────────────────────────────────────────────────────
+// ─── Slide type picker (dropdown) ─────────────────────────────────────────────
 
-function SlideTypePicker({ onPick, onHover }: {
-  onPick: (type: SlideType) => void
-  onHover: (type: SlideType | null) => void
-}) {
-  const [hovered, setHovered] = useState<SlideType | null>(null)
-
+function SlideTypePicker({ onPick }: { onPick: (type: SlideType) => void }) {
   const allByCategory = SLIDE_CATEGORIES.map(cat => ({
     ...cat,
     types: (Object.keys(SLIDE_TYPE_META) as SlideType[]).filter(t => SLIDE_TYPE_META[t].category === cat.id),
   }))
 
-  function handleHover(type: SlideType | null) {
-    setHovered(type)
-    onHover(type)
-  }
-
   return (
-    <div className="rounded-2xl border p-3" style={{ borderColor: '#DBEAFE', background: '#FDFBFF' }}>
-      <p className="text-sm font-bold uppercase tracking-widest px-1 pb-2" style={{ color: '#0F1B3D' }}>Add Slide</p>
+    <div className="space-y-1">
       {allByCategory.map((cat, ci) => (
         <div key={cat.id}>
-          {ci > 0 && <div className="h-px my-2" style={{ background: '#F3F4F6' }} />}
-          <p className="text-[11px] font-black uppercase tracking-widest px-2 py-1" style={{ color: cat.color }}>
+          {ci > 0 && <div className="h-px my-1.5" style={{ background: '#F3F4F6' }} />}
+          <p className="text-[10px] font-black uppercase tracking-widest px-2 py-1" style={{ color: cat.color }}>
             {cat.label}
           </p>
-          {cat.types.map(type => {
-            const meta = SLIDE_TYPE_META[type]
-            const isHov = hovered === type
-            return (
-              <button key={type} onClick={() => onPick(type)}
-                onMouseEnter={() => handleHover(type)}
-                onMouseLeave={() => handleHover(null)}
-                className="w-full flex items-center gap-2.5 rounded-xl px-2 py-2 text-left transition-all"
-                style={{
-                  background: isHov ? meta.bg : 'transparent',
-                  border: isHov ? `1px solid ${meta.color}25` : '1px solid transparent',
-                }}>
-                <span style={{ color: meta.color }}>{SLIDE_ICONS[type]}</span>
-                <span className="text-sm font-semibold" style={{ color: meta.color }}>{meta.label}</span>
-              </button>
-            )
-          })}
+          <div className="grid grid-cols-2 gap-1">
+            {cat.types.map(type => {
+              const meta = SLIDE_TYPE_META[type]
+              return (
+                <button key={type} onClick={() => onPick(type)}
+                  className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-left transition-all hover:scale-[1.02]"
+                  style={{ background: meta.bg, color: meta.color }}>
+                  <span className="flex-shrink-0">{SLIDE_ICONS[type]}</span>
+                  <span className="text-[10px] font-semibold truncate">{meta.label}</span>
+                </button>
+              )
+            })}
+          </div>
         </div>
       ))}
     </div>
@@ -779,13 +1080,11 @@ function PresentCreatePageInner() {
   const [activeIndex, setActiveIndex] = useState(0)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [hoveredType, setHoveredType] = useState<SlideType | null>(null)
   const [pdfImporting, setPdfImporting] = useState(false)
   const [pdfProgress, setPdfProgress] = useState('')
   const [pdfCurrent, setPdfCurrent] = useState(0)
   const [pdfTotal, setPdfTotal] = useState(0)
   const [pdfImportedCount, setPdfImportedCount] = useState(0)
-  const [insertPickerAt, setInsertPickerAt] = useState<number | null>(null)
   const [addSlideOpen, setAddSlideOpen] = useState(false)
   const hasLoadedRef = useRef(false)
   const lastSavedRef = useRef(JSON.stringify(makePresentation()))
@@ -796,14 +1095,12 @@ function PresentCreatePageInner() {
   useEffect(() => {
     const editId = searchParams.get('id')
     if (editId) {
-      // Load from localStorage by ID
       try {
         const all = JSON.parse(localStorage.getItem('quizotic_presentations') ?? '[]')
         const found = all.find((p: Presentation) => p.id === editId)
         if (found) { setPresentation(found); setActiveIndex(0); return }
       } catch { /* ignore */ }
     }
-    // Also try loading from active presentation (coming from session page "Edit slides")
     const editFlag = searchParams.get('edit')
     if (editFlag === 'active') {
       try {
@@ -832,7 +1129,6 @@ function PresentCreatePageInner() {
       return { ...prev, slides, updatedAt: new Date().toISOString() }
     })
     setActiveIndex(insertAt)
-    setInsertPickerAt(null)
     setAddSlideOpen(false)
   }
 
@@ -864,7 +1160,6 @@ function PresentCreatePageInner() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(presentation),
       })
-      // Also save to localStorage as fallback
       const existing = JSON.parse(localStorage.getItem('quizotic_presentations') ?? '[]')
       const idx = existing.findIndex((p: Presentation) => p.id === presentation.id)
       if (idx >= 0) existing[idx] = presentation
@@ -883,7 +1178,7 @@ function PresentCreatePageInner() {
     router.push('/host/present/session')
   }
 
-  // Mark as loaded once initial data is set (avoid auto-saving the initial empty state)
+  // Mark as loaded
   useEffect(() => {
     hasLoadedRef.current = true
     lastSavedRef.current = JSON.stringify(presentation)
@@ -913,7 +1208,7 @@ function PresentCreatePageInner() {
     return () => window.removeEventListener('beforeunload', handler)
   }, [presentation])
 
-  // Keyboard navigation — arrow keys move between slides (skip when typing in inputs)
+  // Keyboard navigation
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName
@@ -930,7 +1225,7 @@ function PresentCreatePageInner() {
     return () => window.removeEventListener('keydown', handler)
   }, [presentation.slides.length])
 
-  // Auto-scroll sidebar to keep the active thumbnail visible
+  // Auto-scroll sidebar
   useEffect(() => {
     if (!sidebarScrollRef.current) return
     const el = sidebarScrollRef.current.querySelector<HTMLElement>(`[data-slide-index="${activeIndex}"]`)
@@ -943,7 +1238,6 @@ function PresentCreatePageInner() {
     function handleClickOutside(e: MouseEvent) {
       if (addSlideRef.current && !addSlideRef.current.contains(e.target as Node)) {
         setAddSlideOpen(false)
-        setHoveredType(null)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -989,7 +1283,6 @@ function PresentCreatePageInner() {
         const ctx = canvas.getContext('2d')!
         await page.render({ canvas, canvasContext: ctx, viewport }).promise
 
-        // Convert to blob for upload
         const blob: Blob = await new Promise(resolve => canvas.toBlob(b => resolve(b!), 'image/jpeg', 0.85))
 
         setPdfProgress(`Uploading page ${i} of ${pageCount}`)
@@ -1011,14 +1304,13 @@ function PresentCreatePageInner() {
         })
       }
 
-      // Insert imported slides after the currently selected slide
       const insertAt = activeIndex + 1
       setPresentation(prev => {
         const slides = [...prev.slides]
         slides.splice(insertAt, 0, ...newSlides)
         return { ...prev, slides, updatedAt: new Date().toISOString() }
       })
-      setActiveIndex(insertAt) // focus first imported slide
+      setActiveIndex(insertAt)
       setPdfImportedCount(prev => prev + pageCount)
       setPdfProgress('')
     } catch (err) {
@@ -1031,80 +1323,92 @@ function PresentCreatePageInner() {
     }
   }
 
-  return (
-    <div className="h-screen flex flex-col" style={{ background: '#FDFBFF', fontFamily: 'var(--font-body)' }}>
+  const interactiveCount = presentation.slides.filter(s => SLIDE_TYPE_META[s.type].hasAudienceInput).length
 
-      {/* Header */}
-      <header className="sticky top-0 z-20 border-b" style={{ background: 'rgba(253,251,255,0.96)', backdropFilter: 'blur(8px)', borderColor: '#E5E7EB' }}>
+  return (
+    <div className="h-screen flex flex-col" style={{ background: '#FAFBFC', fontFamily: 'var(--font-body)' }}>
+
+      {/* ── Header ── */}
+      <header className="sticky top-0 z-20 border-b" style={{ background: 'rgba(250,251,252,0.96)', backdropFilter: 'blur(8px)', borderColor: '#E2E8F0' }}>
         <div className="flex items-center gap-3 px-3 h-12 md:px-5 md:h-14">
           <button onClick={() => router.push('/host')}
-            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all hover:bg-violet-50"
+            className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-semibold transition-colors hover:bg-gray-100"
             style={{ color: '#9CA3AF' }}>
             <svg viewBox="0 0 16 16" fill="none" className="w-5 h-5">
               <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
             <span className="hidden sm:inline">Back</span>
           </button>
-          <div className="h-5 w-px" style={{ background: '#E5E7EB' }} />
+          <div className="h-5 w-px" style={{ background: '#E2E8F0' }} />
 
           {/* Editable title */}
-          <input
-            value={presentation.title}
-            onChange={e => setPresentation(prev => ({ ...prev, title: e.target.value }))}
-            className="flex-1 text-sm font-bold bg-transparent focus:outline-none min-w-0"
-            style={{ color: '#0F1B3D' }}
-          />
+          <div className="flex-1 min-w-0">
+            <input
+              value={presentation.title}
+              onChange={e => setPresentation(prev => ({ ...prev, title: e.target.value }))}
+              className="w-full text-sm font-bold bg-transparent focus:outline-none"
+              style={{ color: '#0F1B3D' }}
+            />
+            <p className="text-[11px]" style={{ color: '#94A3B8' }}>
+              {presentation.slides.length} slide{presentation.slides.length !== 1 ? 's' : ''} &middot; {interactiveCount} interactive
+            </p>
+          </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* Auto-save indicator */}
             <span className="text-xs font-medium flex items-center gap-1.5 mr-1" style={{ color: saving ? '#0F1B3D' : saved ? '#16A34A' : 'transparent' }}>
               {saving && <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#0F1B3D' }} />}
-              {saving ? 'Saving...' : saved ? '✓ Saved' : ''}
+              {saving ? 'Saving...' : saved ? 'Saved' : ''}
             </span>
             <button onClick={savePresentation} disabled={saving}
-              className="text-xs md:text-sm font-bold px-3 py-1.5 md:px-5 md:py-2 rounded-xl border-2 transition-all"
-              style={{ borderColor: saved ? '#16A34A' : '#E5E7EB', color: saved ? '#16A34A' : '#0F1B3D', background: saved ? '#F0FDF4' : '#fff' }}>
-              {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save'}
+              className="text-xs md:text-sm font-bold px-3 py-1.5 md:px-5 md:py-2 rounded-xl border-2 transition-all disabled:opacity-50"
+              style={{ borderColor: saved ? '#16A34A' : '#E2E8F0', color: saved ? '#16A34A' : '#0F1B3D', background: saved ? '#F0FDF4' : '#fff' }}>
+              {saving ? (
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  Saving
+                </span>
+              ) : saved ? 'Saved' : 'Save'}
             </button>
             <button onClick={() => { savePresentation(); startPresentation() }}
               className="text-xs md:text-sm font-bold px-3 py-1.5 md:px-5 md:py-2 rounded-xl transition-all hover:scale-[1.02]"
               style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}>
-              <span className="hidden sm:inline">Save & </span>Present →
+              <span className="hidden sm:inline">Save & </span>Present
             </button>
           </div>
         </div>
       </header>
 
-      {/* Body — 3-column layout */}
+      {/* ── Body — 3-column layout ── */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* LEFT: fixed top bar + scrollable slide list */}
-        <div className="hidden md:flex w-72 flex-shrink-0 border-r flex-col" style={{ borderColor: '#DBEAFE', background: '#F8F7FF' }}>
+        {/* LEFT: Slide thumbnails + actions */}
+        <div className="hidden md:flex w-52 flex-shrink-0 border-r flex-col" style={{ borderColor: '#E2E8F0', background: '#F8FAFC' }}>
 
-          {/* Top action bar — always visible */}
-          <div className="flex-shrink-0 border-b p-3 space-y-2" style={{ borderColor: '#DBEAFE', background: '#F3F4F6' }}>
+          {/* Top action bar */}
+          <div className="flex-shrink-0 border-b p-2.5 space-y-2" style={{ borderColor: '#E2E8F0' }}>
             {/* PDF Import */}
             {pdfImporting ? (
-              <div className="rounded-xl border p-3" style={{ borderColor: '#E9D5FF', background: '#fff' }}>
+              <div className="rounded-xl border p-2.5" style={{ borderColor: '#E2E8F0', background: '#fff' }}>
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#0F1B3D', borderTopColor: 'transparent' }} />
-                  <span className="text-xs font-semibold" style={{ color: '#0F1B3D' }}>{pdfProgress}</span>
+                  <div className="w-3.5 h-3.5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#0F1B3D', borderTopColor: 'transparent' }} />
+                  <span className="text-[10px] font-semibold" style={{ color: '#0F1B3D' }}>{pdfProgress}</span>
                 </div>
-                <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: '#E9D5FF' }}>
+                <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: '#E2E8F0' }}>
                   <div className="h-full rounded-full transition-all duration-300 ease-out"
                     style={{ width: pdfTotal > 0 ? `${(pdfCurrent / pdfTotal) * 100}%` : '0%', background: '#0F1B3D' }} />
                 </div>
-                <p className="text-[10px] mt-1 text-center" style={{ color: '#6B4FA0' }}>
+                <p className="text-[9px] mt-1 text-center" style={{ color: '#94A3B8' }}>
                   {pdfCurrent} of {pdfTotal} pages
                 </p>
               </div>
             ) : (
-              <label className="flex items-center justify-center gap-2 rounded-xl py-2.5 font-bold text-xs cursor-pointer transition-all hover:scale-[1.02]"
+              <label className="flex items-center justify-center gap-1.5 rounded-xl py-2 font-bold text-[11px] cursor-pointer transition-all hover:scale-[1.02]"
                 style={{ background: '#0F1B3D', color: '#fff' }}>
-                <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4">
+                <svg viewBox="0 0 20 20" fill="none" className="w-3.5 h-3.5">
                   <path d="M10 3v10m0 0l-3-3m3 3l3-3M4 14v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-                {pdfImportedCount > 0 ? `Import PDF (${pdfImportedCount} slides added)` : 'Import PDF'}
+                {pdfImportedCount > 0 ? `Import PDF (${pdfImportedCount} added)` : 'Import PDF'}
                 <input type="file" accept=".pdf" className="hidden"
                   onChange={e => {
                     const file = e.target.files?.[0]
@@ -1116,158 +1420,135 @@ function PresentCreatePageInner() {
 
             {/* Add Slide dropdown */}
             <div className="relative" ref={addSlideRef}>
-              <button onClick={() => { setAddSlideOpen(o => { if (o) setHoveredType(null); return !o }) }}
-                className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 font-bold text-xs transition-all hover:scale-[1.02]"
+              <button onClick={() => setAddSlideOpen(o => !o)}
+                className="w-full flex items-center justify-center gap-1.5 rounded-xl py-2 font-bold text-[11px] transition-all hover:scale-[1.02]"
                 style={{ background: '#fff', color: '#0F1B3D', border: '1.5px solid #0F1B3D' }}>
-                <span className="text-base leading-none">+</span>
+                <span className="text-sm leading-none">+</span>
                 Add Slide
-                <span className="text-[10px] opacity-60">{addSlideOpen ? '▲' : '▼'}</span>
               </button>
               {addSlideOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1 rounded-xl border shadow-xl p-2 max-h-72 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200"
-                  style={{ borderColor: '#DBEAFE', background: '#fff', zIndex: 50 }}>
-                  <SlideTypePicker onPick={(type) => addSlide(type)} onHover={setHoveredType} />
+                <div className="absolute top-full left-0 right-0 mt-1 rounded-xl border shadow-xl p-2 max-h-80 overflow-y-auto z-50"
+                  style={{ borderColor: '#E2E8F0', background: '#fff' }}>
+                  <SlideTypePicker onPick={(type) => addSlide(type)} />
                 </div>
               )}
             </div>
           </div>
 
           {/* Scrollable slide list */}
-          <div ref={sidebarScrollRef} className="flex-1 overflow-y-auto p-3 space-y-0.5">
+          <div ref={sidebarScrollRef} className="flex-1 overflow-y-auto p-2.5 space-y-1.5">
             {presentation.slides.map((slide, i) => (
-              <div key={slide.id} data-slide-index={i}>
-                {/* Insert button between slides */}
-                {i === 0 && (
-                  <div className="relative group/insert flex items-center justify-center h-3 -mb-0.5">
-                    <button onClick={() => setInsertPickerAt(insertPickerAt === 0 ? null : 0)}
-                      className="opacity-0 group-hover/insert:opacity-100 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all z-10 hover:scale-110"
-                      style={{ background: '#0F1B3D', color: '#fff' }}>
-                      +
-                    </button>
-                    <div className="absolute inset-x-4 top-1/2 h-px opacity-0 group-hover/insert:opacity-100 transition-opacity" style={{ background: '#0F1B3D' }} />
-                  </div>
-                )}
-                {insertPickerAt === i && (
-                  <div className="mb-1.5 rounded-xl border p-2 shadow-lg animate-in fade-in slide-in-from-top-1 duration-200" style={{ borderColor: '#DBEAFE', background: '#fff' }}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1 px-1" style={{ color: '#0F1B3D' }}>Insert here</p>
-                    <div className="grid grid-cols-2 gap-1">
-                      {(Object.keys(SLIDE_TYPE_META) as SlideType[]).slice(0, 8).map(type => (
-                        <button key={type} onClick={() => addSlide(type, i)}
-                          className="text-[11px] font-semibold rounded-lg px-2 py-1.5 text-left truncate transition-colors hover:bg-gray-50"
-                          style={{ color: SLIDE_TYPE_META[type].color }}>
-                          {SLIDE_TYPE_META[type].label}
-                        </button>
-                      ))}
-                    </div>
-                    <button onClick={() => setInsertPickerAt(null)}
-                      className="w-full text-[10px] text-gray-400 hover:text-gray-600 mt-1 transition-colors">Cancel</button>
-                  </div>
-                )}
-                <div className="relative group">
-                  <SlideThumbnail
-                    slide={slide}
-                    index={i}
-                    active={i === activeIndex}
-                    onClick={() => setActiveIndex(i)}
-                  />
-                  {/* Slide actions */}
-                  {presentation.slides.length > 1 && (
-                    <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
-                      {i > 0 && (
-                        <button onClick={(e) => { e.stopPropagation(); moveSlide(i, 'up') }}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:text-blue-600 hover:bg-white/90 text-sm shadow-sm bg-white/70 transition-colors">
-                          ↑
-                        </button>
-                      )}
-                      {i < presentation.slides.length - 1 && (
-                        <button onClick={(e) => { e.stopPropagation(); moveSlide(i, 'down') }}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:text-blue-600 hover:bg-white/90 text-sm shadow-sm bg-white/70 transition-colors">
-                          ↓
-                        </button>
-                      )}
-                      <button onClick={(e) => { e.stopPropagation(); deleteSlide(i) }}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-white/90 text-sm shadow-sm bg-white/70 transition-colors">
-                        ✕
+              <div key={slide.id} data-slide-index={i} className="relative group">
+                <SlideThumbnail
+                  slide={slide}
+                  index={i}
+                  active={i === activeIndex}
+                  onClick={() => setActiveIndex(i)}
+                />
+                {/* Slide actions overlay */}
+                {presentation.slides.length > 1 && (
+                  <div className="absolute top-1 right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    {i > 0 && (
+                      <button onClick={(e) => { e.stopPropagation(); moveSlide(i, 'up') }}
+                        className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold bg-white/90 shadow-sm transition-colors hover:bg-blue-50 hover:text-blue-600"
+                        style={{ color: '#64748B' }}>
+                        ^
                       </button>
-                    </div>
-                  )}
-                </div>
-                {/* Insert button after each slide */}
-                <div className="relative group/insert flex items-center justify-center h-3 -mt-0.5">
-                  <button onClick={() => setInsertPickerAt(insertPickerAt === i + 1 ? null : i + 1)}
-                    className="opacity-0 group-hover/insert:opacity-100 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all z-10 hover:scale-110"
-                    style={{ background: '#0F1B3D', color: '#fff' }}>
-                    +
-                  </button>
-                  <div className="absolute inset-x-4 top-1/2 h-px opacity-0 group-hover/insert:opacity-100 transition-opacity" style={{ background: '#0F1B3D' }} />
-                </div>
-                {insertPickerAt === i + 1 && (
-                  <div className="mt-1 mb-1.5 rounded-xl border p-2 shadow-lg animate-in fade-in slide-in-from-top-1 duration-200" style={{ borderColor: '#DBEAFE', background: '#fff' }}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1 px-1" style={{ color: '#0F1B3D' }}>Insert here</p>
-                    <div className="grid grid-cols-2 gap-1">
-                      {(Object.keys(SLIDE_TYPE_META) as SlideType[]).slice(0, 8).map(type => (
-                        <button key={type} onClick={() => addSlide(type, i + 1)}
-                          className="text-[11px] font-semibold rounded-lg px-2 py-1.5 text-left truncate transition-colors hover:bg-gray-50"
-                          style={{ color: SLIDE_TYPE_META[type].color }}>
-                          {SLIDE_TYPE_META[type].label}
-                        </button>
-                      ))}
-                    </div>
-                    <button onClick={() => setInsertPickerAt(null)}
-                      className="w-full text-[10px] text-gray-400 hover:text-gray-600 mt-1 transition-colors">Cancel</button>
+                    )}
+                    {i < presentation.slides.length - 1 && (
+                      <button onClick={(e) => { e.stopPropagation(); moveSlide(i, 'down') }}
+                        className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold bg-white/90 shadow-sm transition-colors hover:bg-blue-50 hover:text-blue-600"
+                        style={{ color: '#64748B' }}>
+                        v
+                      </button>
+                    )}
+                    <button onClick={(e) => { e.stopPropagation(); deleteSlide(i) }}
+                      className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold bg-white/90 shadow-sm transition-colors hover:bg-red-50 hover:text-red-500"
+                      style={{ color: '#94A3B8' }}>
+                      x
+                    </button>
                   </div>
                 )}
               </div>
             ))}
           </div>
-
         </div>
 
-        {/* CENTER: slide editor */}
-        <div className="flex-1 flex flex-col overflow-y-auto">
+        {/* CENTER: WYSIWYG Preview */}
+        <div className="flex-1 flex flex-col items-center justify-center overflow-y-auto" style={{ background: '#E8ECF0' }}>
+          {activeSlide ? (
+            <div className="w-full max-w-2xl px-6 py-6">
+              {/* Slide preview */}
+              <SlidePreview slide={activeSlide} />
+
+              {/* Slide controls */}
+              <div className="flex items-center justify-center gap-3 mt-4">
+                <button onClick={() => setActiveIndex(i => Math.max(0, i - 1))}
+                  disabled={activeIndex === 0}
+                  className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold transition-all disabled:opacity-30"
+                  style={{ background: '#fff', color: '#0F1B3D', border: '1.5px solid #E2E8F0' }}
+                  title="Previous slide">
+                  &lsaquo;
+                </button>
+                <span className="text-sm font-bold px-4 py-2 rounded-xl"
+                  style={{ background: '#0F1B3D', color: '#F5E642' }}>
+                  Slide {activeIndex + 1} of {presentation.slides.length}
+                </span>
+                <button onClick={() => setActiveIndex(i => Math.min(i + 1, presentation.slides.length - 1))}
+                  disabled={activeIndex === presentation.slides.length - 1}
+                  className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold transition-all disabled:opacity-30"
+                  style={{ background: '#fff', color: '#0F1B3D', border: '1.5px solid #E2E8F0' }}
+                  title="Next slide">
+                  &rsaquo;
+                </button>
+              </div>
+
+              {/* Slide type info */}
+              <div className="flex items-center justify-center gap-2 mt-3">
+                <span className="flex items-center justify-center w-5 h-5 rounded" style={{ color: SLIDE_TYPE_META[activeSlide.type].color }}>
+                  {SLIDE_ICONS[activeSlide.type]}
+                </span>
+                <span className="text-xs font-semibold" style={{ color: '#64748B' }}>
+                  {SLIDE_TYPE_META[activeSlide.type].label}
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+                  style={{
+                    background: SLIDE_TYPE_META[activeSlide.type].hasAudienceInput ? '#ECFDF5' : '#F3F4F6',
+                    color: SLIDE_TYPE_META[activeSlide.type].hasAudienceInput ? '#059669' : '#9CA3AF',
+                  }}>
+                  {SLIDE_TYPE_META[activeSlide.type].hasAudienceInput ? 'Interactive' : 'Display only'}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm" style={{ color: '#9CA3AF' }}>Select a slide to preview</p>
+          )}
+        </div>
+
+        {/* RIGHT: Editor panel */}
+        <div className="hidden md:flex md:w-80 flex-shrink-0 border-l flex-col overflow-hidden" style={{ borderColor: '#E2E8F0', background: '#fff' }}>
           {activeSlide ? (
             <>
-              {/* Sticky mini-header: slide counter + prev/next */}
-              <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 md:px-8 border-b"
-                style={{ background: 'rgba(253,251,255,0.95)', backdropFilter: 'blur(8px)', borderColor: '#E9E2FF' }}>
-                <div className="flex items-center gap-2.5">
-                  <span className="flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0"
+              {/* Editor header */}
+              <div className="flex-shrink-0 border-b px-4 py-3" style={{ borderColor: '#E2E8F0' }}>
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center justify-center w-7 h-7 rounded-lg"
                     style={{ background: SLIDE_TYPE_META[activeSlide.type].bg, color: SLIDE_TYPE_META[activeSlide.type].color }}>
                     {SLIDE_ICONS[activeSlide.type]}
                   </span>
                   <div>
-                    <p className="text-sm font-bold" style={{ color: SLIDE_TYPE_META[activeSlide.type].color }}>
+                    <p className="text-sm font-bold" style={{ color: '#0F1B3D' }}>
                       {SLIDE_TYPE_META[activeSlide.type].label}
                     </p>
-                    <p className="text-[11px]" style={{ color: '#9CA3AF' }}>
-                      {SLIDE_TYPE_META[activeSlide.type].hasAudienceInput ? 'Audience votes' : 'Display only'}
+                    <p className="text-[10px]" style={{ color: '#94A3B8' }}>
+                      Slide {activeIndex + 1} &middot; Edit content below
                     </p>
                   </div>
-                </div>
-                {/* Slide counter + prev/next */}
-                <div className="flex items-center gap-1">
-                  <button onClick={() => setActiveIndex(i => Math.max(0, i - 1))}
-                    disabled={activeIndex === 0}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-colors disabled:opacity-30"
-                    style={{ color: '#0F1B3D' }} title="Previous slide (←)">
-                    ‹
-                  </button>
-                  <span className="text-sm font-semibold px-2 py-1 rounded-lg min-w-[80px] text-center"
-                    style={{ background: '#F3F4F6', color: '#0F1B3D' }}>
-                    {activeIndex + 1} / {presentation.slides.length}
-                  </span>
-                  <button onClick={() => setActiveIndex(i => Math.min(i + 1, presentation.slides.length - 1))}
-                    disabled={activeIndex === presentation.slides.length - 1}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-colors disabled:opacity-30"
-                    style={{ color: '#0F1B3D' }} title="Next slide (→)">
-                    ›
-                  </button>
                 </div>
               </div>
 
               {/* Editor form */}
-              <div className="max-w-2xl w-full mx-auto px-4 py-5 md:px-8 md:py-8 flex-1">
-                <div className="h-px mb-6" style={{ background: '#E9E2FF' }} />
+              <div className="flex-1 overflow-y-auto px-4 py-4">
                 <SlideEditor slide={activeSlide} onChange={updateSlide} />
               </div>
             </>
@@ -1277,109 +1558,41 @@ function PresentCreatePageInner() {
             </div>
           )}
         </div>
-
-        {/* RIGHT: type info panel */}
-        <div className="hidden md:flex md:w-56 flex-shrink-0 border-l p-4 space-y-4 overflow-y-auto flex-col" style={{ borderColor: '#DBEAFE', background: '#FDFBFF' }}>
-          {addSlideOpen && hoveredType ? (
-            /* Show hovered slide type info */
-            <div className="space-y-3">
-              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#0F1B3D' }}>Slide Preview</p>
-              <div className="rounded-xl p-4 space-y-2" style={{
-                background: SLIDE_TYPE_META[hoveredType].bg,
-                border: `1.5px solid ${SLIDE_TYPE_META[hoveredType].color}30`,
-              }}>
-                <div className="flex items-center gap-2">
-                  <span className="flex items-center justify-center w-8 h-8 rounded-lg"
-                    style={{ background: SLIDE_TYPE_META[hoveredType].color, color: '#fff' }}>
-                    {SLIDE_ICONS[hoveredType]}
-                  </span>
-                  <p className="text-sm font-bold" style={{ color: SLIDE_TYPE_META[hoveredType].color }}>
-                    {SLIDE_TYPE_META[hoveredType].label}
-                  </p>
-                </div>
-                <p className="text-xs leading-relaxed" style={{ color: '#4B5563' }}>
-                  {SLIDE_DESCRIPTIONS[hoveredType]}
-                </p>
-                <div className="flex items-center gap-1.5 pt-1">
-                  <span className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ background: SLIDE_TYPE_META[hoveredType].hasAudienceInput ? '#16A34A' : '#9CA3AF' }} />
-                  <span className="text-[11px] font-semibold" style={{ color: '#6B7280' }}>
-                    {SLIDE_TYPE_META[hoveredType].hasAudienceInput ? 'Audience votes' : 'Display only'}
-                  </span>
-                </div>
-              </div>
-              <p className="text-xs text-center" style={{ color: '#9CA3AF' }}>Click to add this slide</p>
-            </div>
-          ) : activeSlide ? (
-            /* Show current slide info */
-            <div className="space-y-3">
-              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#0F1B3D' }}>Current Slide</p>
-              <div className="rounded-xl p-3" style={{
-                background: SLIDE_TYPE_META[activeSlide.type].bg,
-                border: `1px solid ${SLIDE_TYPE_META[activeSlide.type].color}20`,
-              }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-md"
-                    style={{ background: SLIDE_TYPE_META[activeSlide.type].color, color: '#fff' }}>
-                    {SLIDE_ICONS[activeSlide.type]}
-                  </span>
-                  <p className="text-xs font-bold" style={{ color: SLIDE_TYPE_META[activeSlide.type].color }}>
-                    {SLIDE_TYPE_META[activeSlide.type].label}
-                  </p>
-                </div>
-                <p className="text-[11px] leading-relaxed" style={{ color: '#6B7280' }}>
-                  {SLIDE_DESCRIPTIONS[activeSlide.type]}
-                </p>
-              </div>
-              <div className="space-y-2 text-[11px]" style={{ color: '#9CA3AF' }}>
-                <p>Slide {activeIndex + 1} of {presentation.slides.length}</p>
-                <p>{presentation.slides.filter(s => SLIDE_TYPE_META[s.type].hasAudienceInput).length} interactive slide{presentation.slides.filter(s => SLIDE_TYPE_META[s.type].hasAudienceInput).length !== 1 ? 's' : ''}</p>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#0F1B3D' }}>Slide Info</p>
-              <p className="text-xs" style={{ color: '#9CA3AF' }}>Hover a slide type on the left to see what it does.</p>
-            </div>
-          )}
-        </div>
       </div>
 
-      {/* Mobile-only bottom action bar — hidden on md+ */}
-      <div className="md:hidden flex-shrink-0 border-t flex items-center gap-2 px-3 py-2.5" style={{ borderColor: '#DBEAFE', background: '#F3F4F6' }}>
-        {/* Prev / counter / next */}
+      {/* ── Mobile bottom bar ── */}
+      <div className="md:hidden flex-shrink-0 border-t flex items-center gap-2 px-3 py-2.5" style={{ borderColor: '#E2E8F0', background: '#F8FAFC' }}>
         <div className="flex items-center gap-1 flex-shrink-0">
           <button
             onClick={() => setActiveIndex(i => Math.max(0, i - 1))}
             disabled={activeIndex === 0}
             className="w-9 h-9 rounded-xl flex items-center justify-center text-lg font-bold disabled:opacity-30 transition-colors"
-            style={{ color: '#0F1B3D', background: '#fff', border: '1.5px solid #DBEAFE' }}>
-            ‹
+            style={{ color: '#0F1B3D', background: '#fff', border: '1.5px solid #E2E8F0' }}>
+            &lsaquo;
           </button>
           <span className="text-sm font-bold px-2 py-2 rounded-xl text-center"
-            style={{ background: '#fff', color: '#0F1B3D', border: '1.5px solid #DBEAFE', minWidth: 56 }}>
+            style={{ background: '#fff', color: '#0F1B3D', border: '1.5px solid #E2E8F0', minWidth: 56 }}>
             {activeIndex + 1}/{presentation.slides.length}
           </span>
           <button
             onClick={() => setActiveIndex(i => Math.min(i + 1, presentation.slides.length - 1))}
             disabled={activeIndex === presentation.slides.length - 1}
             className="w-9 h-9 rounded-xl flex items-center justify-center text-lg font-bold disabled:opacity-30 transition-colors"
-            style={{ color: '#0F1B3D', background: '#fff', border: '1.5px solid #DBEAFE' }}>
-            ›
+            style={{ color: '#0F1B3D', background: '#fff', border: '1.5px solid #E2E8F0' }}>
+            &rsaquo;
           </button>
         </div>
-        {/* Add Slide */}
         <div className="relative flex-1" ref={addSlideRef}>
           <button
-            onClick={() => { setAddSlideOpen(o => { if (o) setHoveredType(null); return !o }) }}
+            onClick={() => setAddSlideOpen(o => !o)}
             className="w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 font-bold text-sm transition-all"
             style={{ background: '#0F1B3D', color: '#fff' }}>
             <span>+</span> Add Slide
           </button>
           {addSlideOpen && (
-            <div className="absolute bottom-full left-0 right-0 mb-1 rounded-xl border shadow-xl p-2 max-h-64 overflow-y-auto"
-              style={{ borderColor: '#DBEAFE', background: '#fff', zIndex: 50 }}>
-              <SlideTypePicker onPick={(type) => addSlide(type)} onHover={setHoveredType} />
+            <div className="absolute bottom-full left-0 right-0 mb-1 rounded-xl border shadow-xl p-2 max-h-64 overflow-y-auto z-50"
+              style={{ borderColor: '#E2E8F0', background: '#fff' }}>
+              <SlideTypePicker onPick={(type) => addSlide(type)} />
             </div>
           )}
         </div>
