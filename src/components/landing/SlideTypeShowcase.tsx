@@ -1,7 +1,12 @@
+'use client'
+
+import { useState, useEffect, useRef } from 'react'
+
 const SLIDE_TYPES = [
   {
     title: 'Multiple Choice',
     desc: 'Classic A/B/C/D with timer',
+    back: 'Classic A/B/C/D with a countdown timer. Tap an option to lock in your answer — instant feedback shows class-wide results after the timer ends. Add images to any option for visual questions.',
     icon: (
       <svg viewBox="0 0 40 40" fill="none" width="40" height="40">
         <rect x="4" y="4" width="32" height="32" rx="6" stroke="#0F1B3D" strokeWidth="2"/>
@@ -15,6 +20,7 @@ const SLIDE_TYPES = [
   {
     title: 'Open Text',
     desc: 'Free-form written responses',
+    back: 'Participants type free-form responses up to 250 characters. Great for reflection, brainstorming, or deeper comprehension checks beyond multiple choice. Responses display anonymously or with names.',
     icon: (
       <svg viewBox="0 0 40 40" fill="none" width="40" height="40">
         <rect x="4" y="8" width="32" height="24" rx="4" stroke="#0F1B3D" strokeWidth="2"/>
@@ -27,6 +33,7 @@ const SLIDE_TYPES = [
   {
     title: 'Word Cloud',
     desc: 'Visualize popular answers',
+    back: 'Every response populates a live word cloud where more frequent answers appear larger. Perfect for gauging group sentiment, surfacing common themes, or warming up a new topic.',
     icon: (
       <svg viewBox="0 0 40 40" fill="none" width="40" height="40">
         <text x="4" y="16" fontFamily="Space Grotesk" fontWeight="800" fontSize="12" fill="#2D3A8C">AI</text>
@@ -40,6 +47,7 @@ const SLIDE_TYPES = [
   {
     title: 'Rating Scale',
     desc: '1–5 or 1–10 scales',
+    back: 'Rate something on a 1–5 or 1–10 scale. Results show a live distribution curve and average. Ideal for pulse checks, feedback surveys, and gauging confidence on a topic.',
     icon: (
       <svg viewBox="0 0 40 40" fill="none" width="40" height="40">
         <line x1="6" y1="30" x2="34" y2="30" stroke="#E2E8F0" strokeWidth="2" strokeLinecap="round"/>
@@ -53,6 +61,7 @@ const SLIDE_TYPES = [
   {
     title: 'Ranking',
     desc: 'Drag to order preferences',
+    back: 'Participants drag items into their preferred order. Reveals group consensus and individual differences at a glance — great for prioritisation exercises and decision-making discussions.',
     icon: (
       <svg viewBox="0 0 40 40" fill="none" width="40" height="40">
         <rect x="6" y="6" width="28" height="8" rx="3" fill="#2D3A8C"/>
@@ -64,6 +73,7 @@ const SLIDE_TYPES = [
   {
     title: 'Image Choice',
     desc: 'Pick from visual options',
+    back: 'Present 2–6 visual options instead of text. Participants tap their choice. Perfect for design reviews, visual identification tasks, or preference and opinion polls.',
     icon: (
       <svg viewBox="0 0 40 40" fill="none" width="40" height="40">
         <rect x="4" y="6" width="14" height="12" rx="3" stroke="#0F1B3D" strokeWidth="2"/>
@@ -77,6 +87,7 @@ const SLIDE_TYPES = [
   {
     title: 'Live Race',
     desc: 'Speed-based quiz competition',
+    back: 'A speed-based format where the fastest correct answer scores the most points. Creates high energy and competitive engagement — ideal for vocabulary drills and formula recall.',
     icon: (
       <svg viewBox="0 0 40 40" fill="none" width="40" height="40">
         <path d="M6 34 L16 20 L22 26 L34 8" stroke="#2D3A8C" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -88,6 +99,7 @@ const SLIDE_TYPES = [
   {
     title: 'Quick Fire',
     desc: 'Rapid-fire question rounds',
+    back: 'Rapid-fire questions with no pause between them — questions auto-advance after each answer. Perfect for timed vocabulary, mental maths, or factual recall under pressure.',
     icon: (
       <svg viewBox="0 0 40 40" fill="none" width="40" height="40">
         <path d="M20 4 L22 16 L30 14 L18 36 L16 24 L8 26 Z" fill="#F5E642" stroke="#0D0D0D" strokeWidth="1.5" strokeLinejoin="round"/>
@@ -97,6 +109,7 @@ const SLIDE_TYPES = [
   {
     title: 'Emoji Pulse',
     desc: 'React with emojis in real time',
+    back: 'Participants react with emojis in real time — no text, no scoring. Capture emotional responses, mood checks, or quick sentiment polls without interrupting the flow.',
     icon: (
       <svg viewBox="0 0 40 40" fill="none" width="40" height="40">
         <circle cx="20" cy="20" r="16" stroke="#0F1B3D" strokeWidth="2"/>
@@ -109,6 +122,7 @@ const SLIDE_TYPES = [
   {
     title: 'Grid 2×2',
     desc: 'Plot ideas on a matrix',
+    back: 'Participants place ideas on a 2×2 matrix (e.g., Important/Urgent). Instantly reveals how the group categorises and prioritises concepts — great for strategic discussions.',
     icon: (
       <svg viewBox="0 0 40 40" fill="none" width="40" height="40">
         <line x1="20" y1="4" x2="20" y2="36" stroke="#E2E8F0" strokeWidth="2"/>
@@ -123,6 +137,7 @@ const SLIDE_TYPES = [
   {
     title: 'Pinpoint',
     desc: 'Mark locations on an image',
+    back: 'Participants tap a location on an image, map, or diagram. Perfect for anatomy, geography, process flow diagrams, or any "find the thing" activity.',
     icon: (
       <svg viewBox="0 0 40 40" fill="none" width="40" height="40">
         <rect x="4" y="4" width="32" height="32" rx="4" stroke="#E2E8F0" strokeWidth="2"/>
@@ -135,6 +150,7 @@ const SLIDE_TYPES = [
   {
     title: 'Word Duel',
     desc: 'Head-to-head vocabulary battles',
+    back: 'Two vocabulary terms appear side-by-side — participants choose which matches a definition or clue. Builds precise language understanding under timed pressure.',
     icon: (
       <svg viewBox="0 0 40 40" fill="none" width="40" height="40">
         <rect x="2" y="10" width="16" height="20" rx="4" fill="#2D3A8C"/>
@@ -145,6 +161,77 @@ const SLIDE_TYPES = [
     ),
   },
 ]
+
+function FlipCard({ s, index }: { s: typeof SLIDE_TYPES[0]; index: number }) {
+  const [flipped, setFlipped] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleClick = () => {
+    if (flipped) return
+    setFlipped(true)
+    timerRef.current = setTimeout(() => setFlipped(false), 3000)
+  }
+
+  useEffect(() => {
+    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
+  }, [])
+
+  return (
+    <div
+      onClick={handleClick}
+      style={{ perspective: 1000, cursor: 'pointer', height: 160 }}
+    >
+      <div style={{
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        transformStyle: 'preserve-3d',
+        transition: 'transform 0.6s ease',
+        transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+      }}>
+        {/* Front */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          backfaceVisibility: 'hidden',
+          WebkitBackfaceVisibility: 'hidden',
+          border: '1.5px solid #E5E7EB',
+          borderRadius: 14,
+          padding: '20px',
+          background: '#fff',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'flex-start',
+        }}>
+          <div style={{ marginBottom: 12 }}>{s.icon}</div>
+          <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 14, color: '#0F1B3D', marginBottom: 4 }}>{s.title}</div>
+          <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 12, color: '#777', lineHeight: 1.4 }}>{s.desc}</div>
+          <div style={{ marginTop: 'auto', fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 10, color: '#CBD5E1' }}>Tap to learn more</div>
+        </div>
+
+        {/* Back */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          backfaceVisibility: 'hidden',
+          WebkitBackfaceVisibility: 'hidden',
+          transform: 'rotateY(180deg)',
+          border: '1.5px solid #0F1B3D',
+          borderRadius: 14,
+          padding: '20px',
+          background: '#0F1B3D',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          overflow: 'hidden',
+        }}>
+          <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 13, color: '#F5E642', marginBottom: 8 }}>{s.title}</div>
+          <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 12, color: 'rgba(255,255,255,0.85)', lineHeight: 1.55, flex: 1 }}>{s.back}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export function SlideTypeShowcase() {
   return (
@@ -159,13 +246,8 @@ export function SlideTypeShowcase() {
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }} className="slide-grid">
-          {SLIDE_TYPES.map((s) => (
-            <div key={s.title} style={{ border: '1.5px solid #E5E7EB', borderRadius: 14, padding: '24px 20px', background: '#fff', transition: 'border-color 0.2s, box-shadow 0.2s', cursor: 'default' }}
-              className="slide-card">
-              <div style={{ marginBottom: 14 }}>{s.icon}</div>
-              <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 15, color: '#0F1B3D', marginBottom: 6 }}>{s.title}</div>
-              <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 13, color: '#777' }}>{s.desc}</div>
-            </div>
+          {SLIDE_TYPES.map((s, i) => (
+            <FlipCard key={s.title} s={s} index={i} />
           ))}
         </div>
 
@@ -175,7 +257,6 @@ export function SlideTypeShowcase() {
       </div>
 
       <style>{`
-        .slide-card:hover { border-color: #0F1B3D !important; box-shadow: 0 4px 16px rgba(15,27,61,0.1); }
         @media (max-width: 900px) { .slide-grid { grid-template-columns: repeat(3, 1fr) !important; } }
         @media (max-width: 600px) { .slide-grid { grid-template-columns: repeat(2, 1fr) !important; } }
       `}</style>

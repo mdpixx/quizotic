@@ -46,34 +46,49 @@ function BloomsVisual({ animate }: { animate: boolean }) {
 }
 
 function ConfidenceGrid() {
-  const cells = [
-    { label: 'Sure + Correct', pct: '58%', desc: 'Solid knowledge', note: '✓ Truly understands', color: '#16A34A', border: '#16A34A' },
-    { label: 'Sure + Wrong', pct: '12%', desc: 'Dangerous gap', note: '⚠ WATCH — Won\'t seek help', color: '#DC2626', border: '#DC2626' },
-    { label: 'Unsure + Correct', pct: '15%', desc: 'Lucky guess', note: 'Needs reinforcement', color: '#CA8A04', border: '#CA8A04' },
-    { label: 'Unsure + Wrong', pct: '15%', desc: 'Knows the gap', note: 'Easiest to help', color: '#2563EB', border: '#2563EB' },
+  const axisLabel = { fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 12, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.08em' }
+  const cellLabel = 'var(--font-body, "DM Sans", sans-serif)'
+  const rows = [
+    {
+      row: 'SURE',
+      cells: [
+        { label: 'Sure + Correct', pct: '58%', desc: 'Solid knowledge', note: '✓ Truly understands', color: '#16A34A' },
+        { label: 'Sure + Wrong', pct: '12%', desc: 'Dangerous gap', note: '⚠ WATCH — Won\'t seek help', color: '#DC2626' },
+      ],
+    },
+    {
+      row: 'UNSURE',
+      cells: [
+        { label: 'Unsure + Correct', pct: '15%', desc: 'Lucky guess', note: 'Needs reinforcement', color: '#CA8A04' },
+        { label: 'Unsure + Wrong', pct: '15%', desc: 'Knows the gap', note: 'Easiest to help', color: '#2563EB' },
+      ],
+    },
   ]
   return (
     <div>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 8, paddingLeft: 32 }}>
-        <div style={{ flex: 1, textAlign: 'center', fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>CORRECT</div>
-        <div style={{ flex: 1, textAlign: 'center', fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>WRONG</div>
+      {/* Column headers */}
+      <div style={{ display: 'grid', gridTemplateColumns: '52px 1fr 1fr', gap: 8, marginBottom: 8 }}>
+        <div />
+        <div style={{ ...axisLabel, textAlign: 'center' }}>CORRECT</div>
+        <div style={{ ...axisLabel, textAlign: 'center' }}>WRONG</div>
       </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', marginRight: 4, minWidth: 28 }}>
-          <span style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: 600, writingMode: 'vertical-rl', transform: 'rotate(180deg)', letterSpacing: '0.05em', textAlign: 'center', paddingBottom: 8 }}>SURE</span>
-          <span style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: 600, writingMode: 'vertical-rl', transform: 'rotate(180deg)', letterSpacing: '0.05em', textAlign: 'center' }}>UNSURE</span>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, flex: 1 }}>
-          {cells.map(c => (
-            <div key={c.label} style={{ border: `2px solid ${c.border}`, borderRadius: 10, padding: '14px', background: `${c.color}22` }}>
-              <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 11, color: 'rgba(255,255,255,0.7)', marginBottom: 4 }}>{c.label}</div>
-              <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 28, color: '#fff', marginBottom: 2 }}>{c.pct}</div>
-              <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 12, color: '#fff', fontWeight: 600, marginBottom: 4 }}>{c.desc}</div>
-              <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 11, color: 'rgba(255,255,255,0.65)' }}>{c.note}</div>
+      {/* Rows */}
+      {rows.map((r, ri) => (
+        <div key={r.row} style={{ display: 'grid', gridTemplateColumns: '52px 1fr 1fr', gap: 8, marginBottom: ri === 0 ? 8 : 0 }}>
+          {/* Row label — horizontal, centred vertically */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 6 }}>
+            <span style={{ ...axisLabel, fontSize: 11 }}>{r.row}</span>
+          </div>
+          {r.cells.map(c => (
+            <div key={c.label} style={{ border: `2px solid ${c.color}`, borderRadius: 10, padding: '14px', background: `${c.color}22` }}>
+              <div style={{ fontFamily: cellLabel, fontSize: 11, color: 'rgba(255,255,255,0.65)', marginBottom: 4 }}>{c.label}</div>
+              <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 32, color: '#fff', lineHeight: 1, marginBottom: 4 }}>{c.pct}</div>
+              <div style={{ fontFamily: cellLabel, fontSize: 13, color: '#fff', fontWeight: 700, marginBottom: 4 }}>{c.desc}</div>
+              <div style={{ fontFamily: cellLabel, fontSize: 11, color: 'rgba(255,255,255,0.65)' }}>{c.note}</div>
             </div>
           ))}
         </div>
-      </div>
+      ))}
     </div>
   )
 }
@@ -111,11 +126,11 @@ function ForgettingCurve({ animate }: { animate: boolean }) {
         <text x="310" y="24" fill="#16A34A" fontFamily="DM Sans, sans-serif" fontSize="9" fontWeight="500">Long-term memory</text>
         {/* Practice dots */}
         <circle cx="60" cy="15" r="6" fill="#F5E642"/>
-        <text x="66" y="10" fill="#F5E642" fontFamily="DM Sans, sans-serif" fontSize="9" fontWeight="500">Session 1</text>
+        <text x="68" y="28" fill="#F5E642" fontFamily="DM Sans, sans-serif" fontSize="9" fontWeight="500">Session 1</text>
         <circle cx="160" cy="80" r="6" fill="#F5E642"/>
-        <text x="166" y="76" fill="#F5E642" fontFamily="DM Sans, sans-serif" fontSize="9" fontWeight="500">Session 2</text>
+        <text x="168" y="76" fill="#F5E642" fontFamily="DM Sans, sans-serif" fontSize="9" fontWeight="500">Session 2</text>
         <circle cx="280" cy="55" r="6" fill="#F5E642"/>
-        <text x="268" y="48" fill="#F5E642" fontFamily="DM Sans, sans-serif" fontSize="9" fontWeight="500">Session 3</text>
+        <text x="288" y="52" fill="#F5E642" fontFamily="DM Sans, sans-serif" fontSize="9" fontWeight="500">Session 3</text>
         {/* Legend */}
         <line x1="60" y1="218" x2="80" y2="218" stroke="#5BC0EB" strokeWidth="2"/>
         <text x="84" y="221" fill="rgba(255,255,255,0.5)" fontFamily="DM Sans, sans-serif" fontSize="9">Retention with practice</text>

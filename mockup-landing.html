@@ -1,0 +1,1693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Quizotic — Redesign Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+/* ─────────────────────────────────────────────
+   RESET & BASE
+───────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --brand: #4361EE;
+  --brand-2: #7C3AED;
+  --brand-gradient: linear-gradient(135deg, #4361EE, #7C3AED);
+  --dark: #0B0E1A;
+  --dark-2: #111827;
+  --surface: #1A2035;
+  --white: #ffffff;
+  --gray-50: #F8FAFF;
+  --gray-100: #EEF2FF;
+  --gray-300: #CBD5E1;
+  --gray-500: #64748B;
+  --gray-700: #334155;
+  --gold: #F59E0B;
+  --green: #10B981;
+  --red: #EF4444;
+  --font-display: 'Poppins', sans-serif;
+  --font-body: 'Inter', sans-serif;
+}
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font-body);
+  background: var(--white);
+  color: var(--gray-700);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─────────────────────────────────────────────
+   ANIMATIONS
+───────────────────────────────────────────── */
+@keyframes aurora {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+@keyframes float2 {
+  0%, 100% { transform: translateY(0px) rotate(-2deg); }
+  50%       { transform: translateY(-14px) rotate(2deg); }
+}
+@keyframes pulse-ring {
+  0%   { transform: scale(0.9); opacity: 1; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+@keyframes bounce-in {
+  0%   { transform: scale(0.3); opacity: 0; }
+  50%  { transform: scale(1.08); }
+  70%  { transform: scale(0.96); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes count-pop {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.2); color: #4361EE; }
+  100% { transform: scale(1); }
+}
+@keyframes beam-draw {
+  from { stroke-dashoffset: 800; }
+  to   { stroke-dashoffset: 0; }
+}
+@keyframes ticker {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+@keyframes word-fade {
+  from { opacity: 0; filter: blur(6px); transform: translateY(8px); }
+  to   { opacity: 1; filter: blur(0); transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* ─────────────────────────────────────────────
+   REVEAL ON SCROLL
+───────────────────────────────────────────── */
+.reveal {
+  opacity: 0;
+  transform: translateY(32px);
+  transition: opacity 0.7s cubic-bezier(0.16,1,0.3,1), transform 0.7s cubic-bezier(0.16,1,0.3,1);
+}
+.reveal.visible { opacity: 1; transform: translateY(0); }
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+.reveal-delay-4 { transition-delay: 0.4s; }
+
+/* ─────────────────────────────────────────────
+   NAVBAR
+───────────────────────────────────────────── */
+nav {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 999;
+  width: min(900px, calc(100% - 40px));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-radius: 999px;
+  background: rgba(11,14,26,0.5);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: background 0.3s;
+}
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--white);
+  text-decoration: none;
+}
+.nav-logo .q-mark {
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  background: var(--brand-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 16px;
+  color: white;
+}
+.nav-links {
+  display: flex;
+  gap: 28px;
+  list-style: none;
+}
+.nav-links a {
+  color: rgba(255,255,255,0.7);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: white; }
+.nav-cta {
+  display: flex;
+  gap: 10px;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 20px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s;
+  border: none;
+}
+.btn-ghost {
+  background: transparent;
+  color: rgba(255,255,255,0.8);
+  border: 1px solid rgba(255,255,255,0.2);
+}
+.btn-ghost:hover { background: rgba(255,255,255,0.08); color: white; }
+.btn-primary {
+  background: var(--brand-gradient);
+  color: white;
+  box-shadow: 0 0 20px rgba(67,97,238,0.4);
+}
+.btn-primary:hover { transform: scale(1.04); box-shadow: 0 0 30px rgba(67,97,238,0.6); }
+.btn-primary-light {
+  background: var(--brand-gradient);
+  color: white;
+  padding: 14px 32px;
+  font-size: 16px;
+  border-radius: 14px;
+  box-shadow: 0 4px 24px rgba(67,97,238,0.35);
+}
+.btn-primary-light:hover { transform: scale(1.03); box-shadow: 0 8px 32px rgba(67,97,238,0.5); }
+.btn-secondary-light {
+  background: white;
+  color: var(--brand);
+  border: 2px solid var(--gray-100);
+  padding: 14px 32px;
+  font-size: 16px;
+  border-radius: 14px;
+}
+.btn-secondary-light:hover { background: var(--gray-50); transform: scale(1.02); }
+
+/* ─────────────────────────────────────────────
+   HERO
+───────────────────────────────────────────── */
+#hero {
+  min-height: 100vh;
+  background: var(--dark);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 120px 24px 80px;
+  overflow: hidden;
+}
+.aurora-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 20%, rgba(67,97,238,0.35) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 10%, rgba(124,58,237,0.3) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 60% at 50% 80%, rgba(16,185,129,0.15) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 90% 70%, rgba(67,97,238,0.2) 0%, transparent 50%);
+  background-size: 200% 200%;
+  animation: aurora 12s ease infinite;
+  pointer-events: none;
+}
+.aurora-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+}
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px 6px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.85);
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 28px;
+  animation: slide-up 0.6s cubic-bezier(0.16,1,0.3,1) both;
+}
+.hero-badge .dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #10B981;
+  position: relative;
+}
+.hero-badge .dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: rgba(16,185,129,0.4);
+  animation: pulse-ring 1.5s ease-out infinite;
+}
+.hero-headline {
+  font-family: var(--font-display);
+  font-size: clamp(40px, 7vw, 80px);
+  font-weight: 900;
+  color: white;
+  text-align: center;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  max-width: 840px;
+  margin-bottom: 20px;
+  animation: slide-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.15s both;
+}
+.hero-headline .gradient-word {
+  background: linear-gradient(90deg, #60A5FA, #818CF8, #A78BFA);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hero-sub {
+  font-size: clamp(16px, 2.5vw, 20px);
+  color: rgba(255,255,255,0.55);
+  text-align: center;
+  max-width: 520px;
+  line-height: 1.6;
+  margin-bottom: 40px;
+  animation: slide-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.28s both;
+}
+.hero-actions {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 72px;
+  animation: slide-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.4s both;
+}
+.hero-code-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 999px;
+  padding: 8px 18px;
+  color: rgba(255,255,255,0.7);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.hero-code-pill:hover { background: rgba(255,255,255,0.1); color: white; }
+.hero-code-pill .code-tag {
+  font-family: monospace;
+  background: rgba(67,97,238,0.3);
+  color: #93C5FD;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+/* Quiz mockup card in hero */
+.hero-mockup-wrap {
+  position: relative;
+  animation: slide-up 0.8s cubic-bezier(0.16,1,0.3,1) 0.5s both;
+  width: 100%;
+  max-width: 680px;
+}
+.quiz-card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 24px;
+  padding: 28px;
+  backdrop-filter: blur(12px);
+  width: 100%;
+  animation: float 5s ease-in-out infinite;
+}
+.quiz-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.quiz-session-code {
+  font-family: monospace;
+  font-size: 13px;
+  color: rgba(255,255,255,0.5);
+  background: rgba(255,255,255,0.06);
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.quiz-timer {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  border: 3px solid var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--brand);
+  font-family: var(--font-display);
+}
+.quiz-q {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  color: white;
+  margin-bottom: 20px;
+  line-height: 1.35;
+}
+.quiz-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.quiz-opt {
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.8);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.quiz-opt:hover { border-color: var(--brand); background: rgba(67,97,238,0.15); }
+.quiz-opt.correct { border-color: #10B981; background: rgba(16,185,129,0.15); color: #6EE7B7; }
+.quiz-opt.selected { border-color: var(--brand); background: rgba(67,97,238,0.2); }
+.opt-letter {
+  width: 26px; height: 26px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.quiz-opt.correct .opt-letter { background: rgba(16,185,129,0.3); color: #6EE7B7; }
+
+/* Floating badges around card */
+.float-badge {
+  position: absolute;
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.12);
+  white-space: nowrap;
+}
+.badge-participants {
+  left: -80px;
+  top: 40px;
+  background: rgba(124,58,237,0.85);
+  color: white;
+  animation: float 4s ease-in-out infinite;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.badge-streak {
+  right: -60px;
+  top: 60px;
+  background: rgba(245,158,11,0.9);
+  color: white;
+  animation: float2 4.5s ease-in-out infinite;
+}
+.badge-score {
+  right: -50px;
+  bottom: 60px;
+  background: rgba(16,185,129,0.85);
+  color: white;
+  animation: float 5s ease-in-out 1s infinite;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Participant avatars in badge */
+.avatar-stack {
+  display: flex;
+}
+.avatar-mini {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,0.3);
+  margin-left: -6px;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.avatar-mini:first-child { margin-left: 0; }
+
+/* SVG Beams */
+.beams-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+/* ─────────────────────────────────────────────
+   STATS TICKER
+───────────────────────────────────────────── */
+#stats {
+  background: var(--dark-2);
+  padding: 20px 0;
+  overflow: hidden;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.ticker-track {
+  display: flex;
+  width: max-content;
+  animation: ticker 28s linear infinite;
+}
+.ticker-track:hover { animation-play-state: paused; }
+.ticker-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 40px;
+  color: rgba(255,255,255,0.6);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.ticker-item .stat-num {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 18px;
+  color: white;
+}
+.ticker-sep {
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  flex-shrink: 0;
+}
+
+/* ─────────────────────────────────────────────
+   HOW IT WORKS
+───────────────────────────────────────────── */
+#hiw {
+  padding: 120px 24px;
+  background: var(--white);
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.section-label {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--brand);
+  background: var(--gray-100);
+  padding: 5px 14px;
+  border-radius: 999px;
+  margin-bottom: 20px;
+}
+.section-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(32px, 5vw, 52px);
+  color: var(--dark);
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+  margin-bottom: 14px;
+}
+.section-sub {
+  font-size: 18px;
+  color: var(--gray-500);
+  line-height: 1.6;
+  max-width: 520px;
+  margin-bottom: 64px;
+}
+.steps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+  position: relative;
+}
+.steps-grid::before {
+  content: '';
+  position: absolute;
+  top: 42px;
+  left: calc(33.33% - 20px);
+  right: calc(33.33% - 20px);
+  height: 2px;
+  background: linear-gradient(90deg, var(--brand) 0%, var(--brand-2) 100%);
+  border-radius: 999px;
+  z-index: 0;
+}
+.step-card {
+  background: white;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 24px;
+  padding: 32px 28px;
+  position: relative;
+  transition: all 0.3s;
+  z-index: 1;
+}
+.step-card:hover {
+  border-color: var(--brand);
+  box-shadow: 0 12px 40px rgba(67,97,238,0.12);
+  transform: translateY(-4px);
+}
+.step-num {
+  font-family: var(--font-display);
+  font-size: 60px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--gray-100);
+  margin-bottom: 16px;
+  transition: color 0.3s;
+}
+.step-card:hover .step-num { color: #EEF2FF; }
+.step-icon {
+  width: 52px; height: 52px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  margin-bottom: 16px;
+}
+.step-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--dark);
+  margin-bottom: 10px;
+}
+.step-desc {
+  font-size: 15px;
+  color: var(--gray-500);
+  line-height: 1.65;
+}
+
+/* ─────────────────────────────────────────────
+   FEATURE PANELS
+───────────────────────────────────────────── */
+#features { padding: 0; }
+.feature-panel {
+  padding: 100px 24px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  align-items: center;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.feature-panel.reverse { direction: rtl; }
+.feature-panel.reverse > * { direction: ltr; }
+.feature-panel-bg {
+  padding: 100px 24px;
+}
+.feature-panel-bg.tinted { background: var(--gray-50); }
+.feature-panel-bg.dark { background: var(--dark); }
+.feature-text {}
+.feature-title {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 800;
+  color: var(--dark);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin-bottom: 16px;
+}
+.feature-panel-bg.dark .feature-title { color: white; }
+.feature-desc {
+  font-size: 17px;
+  color: var(--gray-500);
+  line-height: 1.7;
+  margin-bottom: 28px;
+}
+.feature-panel-bg.dark .feature-desc { color: rgba(255,255,255,0.55); }
+.feature-points {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.feature-points li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 15px;
+  color: var(--gray-700);
+}
+.feature-panel-bg.dark .feature-points li { color: rgba(255,255,255,0.75); }
+.check {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+  font-size: 12px;
+  color: white;
+}
+
+/* Feature visual areas */
+.feature-visual {
+  border-radius: 24px;
+  overflow: hidden;
+  background: white;
+  border: 1.5px solid #E2E8F0;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.08);
+}
+.feature-panel-bg.dark .feature-visual {
+  border-color: rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+}
+
+/* AI generation visual */
+.ai-visual {
+  padding: 28px;
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.ai-prompt-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--gray-50);
+  border: 1.5px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 14px;
+  color: var(--gray-700);
+}
+.ai-spark {
+  width: 20px; height: 20px;
+  border-radius: 6px;
+  background: var(--brand-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.ai-generating {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--brand);
+  font-weight: 600;
+}
+.ai-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--brand);
+  animation: pop 1s ease infinite;
+}
+.ai-dot:nth-child(2) { animation-delay: 0.2s; }
+.ai-dot:nth-child(3) { animation-delay: 0.4s; }
+.ai-question-preview {
+  background: var(--gray-50);
+  border-radius: 12px;
+  padding: 14px;
+}
+.ai-q-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--gray-300);
+  margin-bottom: 6px;
+}
+.ai-q-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dark);
+  margin-bottom: 10px;
+}
+.ai-options-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ai-opt-chip {
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: white;
+  border: 1px solid #E2E8F0;
+  font-size: 12px;
+  color: var(--gray-700);
+}
+.ai-opt-chip.right {
+  border-color: var(--green);
+  background: rgba(16,185,129,0.08);
+  color: var(--green);
+}
+.ai-count-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--brand);
+  font-weight: 600;
+}
+
+/* Live session visual */
+.live-visual {
+  padding: 0;
+  background: var(--dark);
+  border-color: rgba(255,255,255,0.1);
+}
+.live-top-bar {
+  padding: 14px 20px;
+  background: rgba(255,255,255,0.04);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.live-dot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #10B981;
+  font-weight: 600;
+}
+.live-dot::before {
+  content: '';
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #10B981;
+}
+.live-code {
+  font-family: monospace;
+  font-size: 20px;
+  font-weight: 800;
+  color: white;
+  letter-spacing: 0.1em;
+}
+.live-count {
+  font-size: 13px;
+  color: rgba(255,255,255,0.5);
+}
+.live-body { padding: 20px; }
+.leaderboard-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  margin-bottom: 6px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.leaderboard-row.top { background: rgba(67,97,238,0.15); border-color: rgba(67,97,238,0.3); }
+.rank {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 15px;
+  color: rgba(255,255,255,0.4);
+  width: 20px;
+  text-align: center;
+}
+.leaderboard-row.top .rank { color: #FBBF24; }
+.player-info { flex: 1; }
+.player-name { font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.9); }
+.player-streak { font-size: 11px; color: rgba(255,255,255,0.4); }
+.player-score {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 18px;
+  color: white;
+}
+.score-bar-wrap {
+  width: 60px; height: 4px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+.score-bar { height: 100%; border-radius: 999px; background: var(--brand-gradient); }
+
+/* Analytics visual */
+.analytics-visual { padding: 24px; min-height: 300px; }
+.analytics-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.analytics-kpi {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.kpi-card {
+  background: var(--gray-50);
+  border-radius: 12px;
+  padding: 14px;
+}
+.kpi-val {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--dark);
+  line-height: 1;
+}
+.kpi-label {
+  font-size: 11px;
+  color: var(--gray-500);
+  margin-top: 4px;
+}
+.chart-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 80px;
+}
+.chart-bar-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+  justify-content: flex-end;
+}
+.chart-bar {
+  width: 100%;
+  border-radius: 6px 6px 0 0;
+  background: var(--brand-gradient);
+  transition: height 0.5s cubic-bezier(0.16,1,0.3,1);
+}
+.chart-label { font-size: 10px; color: var(--gray-300); }
+
+/* ─────────────────────────────────────────────
+   PRICING
+───────────────────────────────────────────── */
+#pricing {
+  padding: 120px 24px;
+  background: var(--gray-50);
+}
+.pricing-inner {
+  max-width: 860px;
+  margin: 0 auto;
+  text-align: center;
+}
+.pricing-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 56px;
+}
+.price-card {
+  border-radius: 28px;
+  padding: 36px;
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+  cursor: default;
+  transition: transform 0.3s;
+  --spotlight-x: 50%;
+  --spotlight-y: 50%;
+}
+.price-card:hover { transform: scale(1.01); }
+.price-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle 200px at var(--spotlight-x) var(--spotlight-y), rgba(67,97,238,0.12), transparent 70%);
+  pointer-events: none;
+  transition: opacity 0.3s;
+  opacity: 0;
+}
+.price-card:hover::before { opacity: 1; }
+.price-card.free {
+  background: white;
+  border: 2px solid #E2E8F0;
+}
+.price-card.pro {
+  background: var(--dark);
+  border: 2px solid rgba(67,97,238,0.5);
+}
+.plan-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 999px;
+  margin-bottom: 20px;
+}
+.free .plan-badge { background: var(--gray-100); color: var(--gray-500); }
+.pro .plan-badge { background: rgba(67,97,238,0.2); color: #93C5FD; }
+.plan-price {
+  font-family: var(--font-display);
+  font-size: 52px;
+  font-weight: 900;
+  color: var(--dark);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.pro .plan-price { color: white; }
+.plan-price sup { font-size: 24px; vertical-align: super; }
+.plan-period { font-size: 15px; color: var(--gray-500); margin-bottom: 28px; }
+.pro .plan-period { color: rgba(255,255,255,0.5); }
+.plan-divider {
+  height: 1px;
+  background: #F1F5F9;
+  margin-bottom: 24px;
+}
+.pro .plan-divider { background: rgba(255,255,255,0.08); }
+.plan-features { list-style: none; display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
+.plan-features li { display: flex; align-items: center; gap: 10px; font-size: 15px; color: var(--gray-700); }
+.pro .plan-features li { color: rgba(255,255,255,0.8); }
+.plan-check { font-size: 14px; }
+.plan-cta {
+  display: block;
+  text-align: center;
+  padding: 14px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+.free .plan-cta {
+  background: var(--gray-100);
+  color: var(--dark);
+  border: 2px solid #E2E8F0;
+}
+.free .plan-cta:hover { background: var(--gray-100); border-color: var(--brand); color: var(--brand); }
+.pro .plan-cta {
+  background: var(--brand-gradient);
+  color: white;
+  box-shadow: 0 4px 24px rgba(67,97,238,0.4);
+}
+.pro .plan-cta:hover { box-shadow: 0 8px 32px rgba(67,97,238,0.6); transform: scale(1.02); }
+.popular-ring {
+  position: absolute;
+  top: -1px; left: -1px; right: -1px;
+  height: 3px;
+  background: var(--brand-gradient);
+  border-radius: 28px 28px 0 0;
+}
+
+/* ─────────────────────────────────────────────
+   FINAL CTA
+───────────────────────────────────────────── */
+#cta {
+  padding: 120px 24px;
+  background: var(--dark);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+#cta .aurora-bg { opacity: 0.6; }
+.cta-title {
+  font-family: var(--font-display);
+  font-size: clamp(36px, 6vw, 64px);
+  font-weight: 900;
+  color: white;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  margin-bottom: 20px;
+  position: relative;
+  z-index: 1;
+}
+.cta-sub {
+  font-size: 18px;
+  color: rgba(255,255,255,0.5);
+  max-width: 480px;
+  margin: 0 auto 40px;
+  position: relative;
+  z-index: 1;
+}
+.cta-actions {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
+}
+.cta-trust {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  margin-top: 28px;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
+}
+.trust-item {
+  font-size: 13px;
+  color: rgba(255,255,255,0.4);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.trust-item span { color: rgba(255,255,255,0.6); }
+
+/* ─────────────────────────────────────────────
+   FOOTER
+───────────────────────────────────────────── */
+footer {
+  background: #050810;
+  padding: 40px 24px;
+  text-align: center;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+.footer-logo {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 20px;
+  color: rgba(255,255,255,0.7);
+  margin-bottom: 12px;
+}
+.footer-logo span { color: var(--brand); }
+.footer-links { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; margin-bottom: 16px; }
+.footer-links a { font-size: 13px; color: rgba(255,255,255,0.3); text-decoration: none; }
+.footer-links a:hover { color: rgba(255,255,255,0.6); }
+.footer-copy { font-size: 12px; color: rgba(255,255,255,0.2); }
+
+/* ─────────────────────────────────────────────
+   RESPONSIVE
+───────────────────────────────────────────── */
+@media (max-width: 768px) {
+  nav { padding: 10px 16px; }
+  .nav-links, .btn-ghost { display: none; }
+  .steps-grid { grid-template-columns: 1fr; }
+  .steps-grid::before { display: none; }
+  .feature-panel { grid-template-columns: 1fr; gap: 40px; }
+  .feature-panel.reverse { direction: ltr; }
+  .pricing-grid { grid-template-columns: 1fr; }
+  .badge-participants, .badge-streak, .badge-score { display: none; }
+  .quiz-options { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ─── NAVBAR ─── -->
+<nav id="navbar">
+  <a href="#" class="nav-logo">
+    <div class="q-mark">Q</div>
+    Quizotic<span style="color:#4361EE">.</span><span style="font-size:11px;color:#10B981;vertical-align:super">live</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#hiw">How it works</a></li>
+    <li><a href="#features">Features</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+  </ul>
+  <div class="nav-cta">
+    <a href="#" class="btn btn-ghost">Join session</a>
+    <a href="#" class="btn btn-primary">Host free →</a>
+  </div>
+</nav>
+
+<!-- ─── HERO ─── -->
+<section id="hero">
+  <div class="aurora-bg"></div>
+  <div class="aurora-grid"></div>
+
+  <!-- SVG Beams -->
+  <svg class="beams-svg" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M -100 200 Q 400 100 900 400 T 1600 300" stroke="url(#beam1)" stroke-width="1.5" fill="none" stroke-dasharray="800" style="animation: beam-draw 3s ease forwards 0.5s; stroke-dashoffset:800" />
+    <path d="M 200 900 Q 600 500 1000 600 T 1600 200" stroke="url(#beam2)" stroke-width="1" fill="none" stroke-dasharray="800" style="animation: beam-draw 3.5s ease forwards 1s; stroke-dashoffset:800" />
+    <defs>
+      <linearGradient id="beam1" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#4361EE" stop-opacity="0" />
+        <stop offset="50%" stop-color="#7C3AED" stop-opacity="0.8" />
+        <stop offset="100%" stop-color="#4361EE" stop-opacity="0" />
+      </linearGradient>
+      <linearGradient id="beam2" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#10B981" stop-opacity="0" />
+        <stop offset="50%" stop-color="#4361EE" stop-opacity="0.6" />
+        <stop offset="100%" stop-color="#10B981" stop-opacity="0" />
+      </linearGradient>
+    </defs>
+  </svg>
+
+  <div class="hero-badge">
+    <span class="dot"></span>
+    Live at quizotic.live — Free forever
+  </div>
+
+  <h1 class="hero-headline">
+    Make every session<br/>
+    a <span class="gradient-word">moment they</span><br/>
+    remember.
+  </h1>
+
+  <p class="hero-sub">
+    AI-powered live quizzes &amp; presentations. No app. No signup needed for participants. Just a code.
+  </p>
+
+  <div class="hero-actions">
+    <a href="#" class="btn btn-primary" style="padding:14px 28px;font-size:16px;border-radius:14px;">
+      ✨ Create free quiz
+    </a>
+    <a href="#" class="hero-code-pill">
+      Join with code <span class="code-tag">A4B2C9</span>
+    </a>
+  </div>
+
+  <!-- Quiz card mockup -->
+  <div class="hero-mockup-wrap">
+    <!-- Floating badges -->
+    <div class="float-badge badge-participants">
+      <div class="avatar-stack">
+        <div class="avatar-mini" style="background:#7C3AED">R</div>
+        <div class="avatar-mini" style="background:#4361EE">S</div>
+        <div class="avatar-mini" style="background:#10B981">A</div>
+      </div>
+      <span id="pcount">24</span> joined
+    </div>
+    <div class="float-badge badge-streak">🔥 3x Streak!</div>
+    <div class="float-badge badge-score">✅ +200 pts</div>
+
+    <div class="quiz-card">
+      <div class="quiz-card-header">
+        <span class="quiz-session-code">Session · A4B2C9</span>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="font-size:13px;color:rgba(255,255,255,0.4);">Q 3 of 10</span>
+          <div class="quiz-timer">12</div>
+        </div>
+      </div>
+      <div class="quiz-q">Which planet has the most moons in our Solar System?</div>
+      <div class="quiz-options">
+        <div class="quiz-opt correct">
+          <div class="opt-letter">A</div> Saturn
+        </div>
+        <div class="quiz-opt">
+          <div class="opt-letter">B</div> Jupiter
+        </div>
+        <div class="quiz-opt">
+          <div class="opt-letter">C</div> Neptune
+        </div>
+        <div class="quiz-opt">
+          <div class="opt-letter">D</div> Uranus
+        </div>
+      </div>
+
+      <!-- Participant bar -->
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;color:rgba(255,255,255,0.4);">
+          <span id="answered">18</span> / <span id="total">24</span> answered
+        </span>
+        <div style="width:140px;height:4px;border-radius:999px;background:rgba(255,255,255,0.08);overflow:hidden;">
+          <div id="progress-bar" style="height:100%;width:75%;border-radius:999px;background:linear-gradient(90deg,#4361EE,#7C3AED);transition:width 0.5s;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── STATS TICKER ─── -->
+<section id="stats">
+  <div class="ticker-track" id="ticker">
+    <!-- duplicated for infinite scroll -->
+    <div class="ticker-item"><span class="stat-num">12,400+</span> quizzes created</div>
+    <div class="ticker-sep"></div>
+    <div class="ticker-item"><span class="stat-num">4.8★</span> average rating</div>
+    <div class="ticker-sep"></div>
+    <div class="ticker-item"><span class="stat-num">340,000+</span> participants</div>
+    <div class="ticker-sep"></div>
+    <div class="ticker-item"><span class="stat-num">98%</span> would recommend</div>
+    <div class="ticker-sep"></div>
+    <div class="ticker-item"><span class="stat-num">9</span> question types</div>
+    <div class="ticker-sep"></div>
+    <div class="ticker-item"><span class="stat-num">50+</span> languages supported</div>
+    <div class="ticker-sep"></div>
+    <!-- duplicate for seamless loop -->
+    <div class="ticker-item"><span class="stat-num">12,400+</span> quizzes created</div>
+    <div class="ticker-sep"></div>
+    <div class="ticker-item"><span class="stat-num">4.8★</span> average rating</div>
+    <div class="ticker-sep"></div>
+    <div class="ticker-item"><span class="stat-num">340,000+</span> participants</div>
+    <div class="ticker-sep"></div>
+    <div class="ticker-item"><span class="stat-num">98%</span> would recommend</div>
+    <div class="ticker-sep"></div>
+    <div class="ticker-item"><span class="stat-num">9</span> question types</div>
+    <div class="ticker-sep"></div>
+    <div class="ticker-item"><span class="stat-num">50+</span> languages supported</div>
+    <div class="ticker-sep"></div>
+  </div>
+</section>
+
+<!-- ─── HOW IT WORKS ─── -->
+<section>
+<div id="hiw">
+  <div class="reveal">
+    <span class="section-label">How it works</span>
+    <h2 class="section-title">From idea to live quiz<br/>in under 3 minutes.</h2>
+    <p class="section-sub">No training. No setup. Just open, create, and host — your audience joins from any device.</p>
+  </div>
+
+  <div class="steps-grid">
+    <div class="step-card reveal reveal-delay-1">
+      <div class="step-num">01</div>
+      <div class="step-icon" style="background:#EEF2FF;">🧠</div>
+      <div class="step-title">Create or generate</div>
+      <p class="step-desc">Build manually or paste a topic, URL, or PDF. Our AI writes your quiz in seconds — questions, options, timers, and Bloom's taxonomy tags included.</p>
+    </div>
+    <div class="step-card reveal reveal-delay-2">
+      <div class="step-num">02</div>
+      <div class="step-icon" style="background:#F0FDF4;">📡</div>
+      <div class="step-title">Share the code</div>
+      <p class="step-desc">Hit "Start session". A 6-digit code appears. Participants open quizotic.live/join on their phone — no app install, no account needed.</p>
+    </div>
+    <div class="step-card reveal reveal-delay-3">
+      <div class="step-num">03</div>
+      <div class="step-icon" style="background:#FFF7ED;">📊</div>
+      <div class="step-title">See who learned what</div>
+      <p class="step-desc">After the session, your dashboard shows scores, question difficulty, Bloom's coverage, and which participants need follow-up — not just a leaderboard.</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ─── FEATURE 1: AI Generation ─── -->
+<div class="feature-panel-bg tinted">
+<div class="feature-panel">
+  <div class="feature-text reveal">
+    <span class="section-label">AI-powered</span>
+    <h2 class="feature-title">Your content becomes a quiz. Instantly.</h2>
+    <p class="feature-desc">Paste a topic, drop a PDF, share a YouTube link — Quizotic's AI reads it and generates ready-to-host questions in seconds.</p>
+    <ul class="feature-points">
+      <li><span class="check">✓</span> Multiple choice, true/false, polls, open-ended</li>
+      <li><span class="check">✓</span> Bloom's taxonomy auto-tagging</li>
+      <li><span class="check">✓</span> Translate to 50+ languages in one click</li>
+      <li><span class="check">✓</span> Edit, reorder, delete — full control</li>
+    </ul>
+  </div>
+  <div class="feature-visual reveal reveal-delay-2">
+    <div class="ai-visual">
+      <div class="ai-prompt-bar">
+        <div class="ai-spark">✦</div>
+        "Generate 10 questions on the Water Cycle for Grade 8"
+      </div>
+      <div class="ai-generating">
+        <div class="ai-dot"></div>
+        <div class="ai-dot"></div>
+        <div class="ai-dot"></div>
+        Generating questions…
+      </div>
+      <div class="ai-question-preview">
+        <div class="ai-q-label">Question 1 · Remember</div>
+        <div class="ai-q-text">What process converts liquid water into water vapour?</div>
+        <div class="ai-options-row">
+          <span class="ai-opt-chip right">✓ Evaporation</span>
+          <span class="ai-opt-chip">Condensation</span>
+          <span class="ai-opt-chip">Precipitation</span>
+          <span class="ai-opt-chip">Transpiration</span>
+        </div>
+      </div>
+      <div class="ai-question-preview">
+        <div class="ai-q-label">Question 2 · Understand</div>
+        <div class="ai-q-text">Why does water vapour rise into the atmosphere?</div>
+        <div class="ai-options-row">
+          <span class="ai-opt-chip">It is heavier</span>
+          <span class="ai-opt-chip right">✓ It is lighter &amp; warm</span>
+          <span class="ai-opt-chip">Wind carries it</span>
+        </div>
+      </div>
+      <div class="ai-count-row">
+        <span>✦</span> 8 more questions ready · <strong>Bloom's coverage: 4/6 levels</strong>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ─── FEATURE 2: Live Session ─── -->
+<div class="feature-panel-bg dark">
+<div class="feature-panel reverse">
+  <div class="feature-text reveal">
+    <span class="section-label" style="background:rgba(67,97,238,0.2);color:#93C5FD;">Live sessions</span>
+    <h2 class="feature-title" style="color:white;">Every participant, on their phone, in real time.</h2>
+    <p class="feature-desc" style="color:rgba(255,255,255,0.55);">No projector app. No clicker. Participants join from any phone browser. You control the pace. The leaderboard updates live.</p>
+    <ul class="feature-points">
+      <li><span class="check" style="background:#7C3AED;">✓</span> Up to 50 participants (free) — unlimited on Pro</li>
+      <li><span class="check" style="background:#7C3AED;">✓</span> Live leaderboard after every question</li>
+      <li><span class="check" style="background:#7C3AED;">✓</span> Team mode, anonymous mode, competitive mode</li>
+      <li><span class="check" style="background:#7C3AED;">✓</span> Sound effects, streaks, confetti</li>
+    </ul>
+  </div>
+  <div class="feature-visual reveal reveal-delay-2" style="border-color:rgba(255,255,255,0.1);background:transparent;">
+    <div class="live-visual">
+      <div class="live-top-bar">
+        <span class="live-dot">LIVE</span>
+        <span class="live-code">A4B2C9</span>
+        <span class="live-count">24 players</span>
+      </div>
+      <div class="live-body">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.3);margin-bottom:12px;">Leaderboard — Q4 of 10</div>
+        <div class="leaderboard-row top">
+          <div class="rank">🥇</div>
+          <div class="player-info">
+            <div class="player-name">Rahul S.</div>
+            <div class="player-streak">🔥 3x streak</div>
+          </div>
+          <div>
+            <div class="score-bar-wrap"><div class="score-bar" style="width:100%"></div></div>
+          </div>
+          <div class="player-score">3,200</div>
+        </div>
+        <div class="leaderboard-row">
+          <div class="rank">2</div>
+          <div class="player-info">
+            <div class="player-name">Priya M.</div>
+            <div class="player-streak">2x streak</div>
+          </div>
+          <div>
+            <div class="score-bar-wrap"><div class="score-bar" style="width:82%"></div></div>
+          </div>
+          <div class="player-score">2,850</div>
+        </div>
+        <div class="leaderboard-row">
+          <div class="rank">3</div>
+          <div class="player-info">
+            <div class="player-name">Arjun K.</div>
+            <div class="player-streak">1x streak</div>
+          </div>
+          <div>
+            <div class="score-bar-wrap"><div class="score-bar" style="width:70%"></div></div>
+          </div>
+          <div class="player-score">2,400</div>
+        </div>
+        <div class="leaderboard-row">
+          <div class="rank">4</div>
+          <div class="player-info">
+            <div class="player-name">Sneha D.</div>
+            <div class="player-streak">—</div>
+          </div>
+          <div>
+            <div class="score-bar-wrap"><div class="score-bar" style="width:58%"></div></div>
+          </div>
+          <div class="player-score">2,100</div>
+        </div>
+        <div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:12px;color:rgba(255,255,255,0.3);">20 more participants ↓</span>
+          <span style="font-size:12px;color:#10B981;font-weight:600;">→ Next question</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ─── FEATURE 3: Analytics ─── -->
+<div class="feature-panel-bg" style="background:white;">
+<div class="feature-panel">
+  <div class="feature-text reveal">
+    <span class="section-label">Analytics</span>
+    <h2 class="feature-title">Know exactly who learned — and who didn't.</h2>
+    <p class="feature-desc">Not just a score. Track question-level difficulty, Bloom's taxonomy coverage, and participant streaks across sessions.</p>
+    <ul class="feature-points">
+      <li><span class="check">✓</span> Per-question difficulty analysis</li>
+      <li><span class="check">✓</span> Confidence grid (sure-correct, dangerous guesses)</li>
+      <li><span class="check">✓</span> Bloom's coverage radar chart</li>
+      <li><span class="check">✓</span> Export to CSV (Pro)</li>
+    </ul>
+  </div>
+  <div class="feature-visual reveal reveal-delay-2">
+    <div class="analytics-visual">
+      <div class="analytics-header">
+        <span style="font-size:14px;font-weight:700;color:var(--dark);">Session Analytics</span>
+        <span style="font-size:12px;color:var(--brand);font-weight:600;">Last 30 days</span>
+      </div>
+      <div class="analytics-kpi">
+        <div class="kpi-card">
+          <div class="kpi-val" style="color:#4361EE;" data-target="24">0</div>
+          <div class="kpi-label">Sessions</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val" style="color:#7C3AED;" data-target="340">0</div>
+          <div class="kpi-label">Participants</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val" style="color:#10B981;" data-target="73">0</div>
+          <div class="kpi-label">Avg Score %</div>
+        </div>
+      </div>
+      <!-- Mini bar chart -->
+      <div style="font-size:11px;color:var(--gray-500);margin-bottom:8px;font-weight:600;">Performance trend</div>
+      <div class="chart-bars">
+        <div class="chart-bar-wrap">
+          <div class="chart-bar" style="height:40%;"></div>
+          <span class="chart-label">Mon</span>
+        </div>
+        <div class="chart-bar-wrap">
+          <div class="chart-bar" style="height:65%;"></div>
+          <span class="chart-label">Tue</span>
+        </div>
+        <div class="chart-bar-wrap">
+          <div class="chart-bar" style="height:50%;"></div>
+          <span class="chart-label">Wed</span>
+        </div>
+        <div class="chart-bar-wrap">
+          <div class="chart-bar" style="height:80%;"></div>
+          <span class="chart-label">Thu</span>
+        </div>
+        <div class="chart-bar-wrap">
+          <div class="chart-bar" style="height:60%;"></div>
+          <span class="chart-label">Fri</span>
+        </div>
+        <div class="chart-bar-wrap">
+          <div class="chart-bar" style="height:90%;background:linear-gradient(180deg,#10B981,#4361EE);"></div>
+          <span class="chart-label">Sat</span>
+        </div>
+        <div class="chart-bar-wrap">
+          <div class="chart-bar" style="height:70%;"></div>
+          <span class="chart-label">Sun</span>
+        </div>
+      </div>
+      <!-- Confidence grid mini -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid #F1F5F9;">
+        <div style="background:#DCFCE7;border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:20px;font-weight:800;color:#16A34A;">142</div>
+          <div style="font-size:10px;color:#16A34A;">Sure &amp; Correct ✓</div>
+        </div>
+        <div style="background:#FEF3C7;border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:20px;font-weight:800;color:#D97706;">23</div>
+          <div style="font-size:10px;color:#D97706;">Sure &amp; Wrong ⚠</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ─── PRICING ─── -->
+<section id="pricing">
+  <div class="pricing-inner">
+    <div class="reveal">
+      <span class="section-label">Pricing</span>
+      <h2 class="section-title">Simple. No surprises.</h2>
+      <p class="section-sub" style="margin:0 auto 0;text-align:center;">Start free. Upgrade when you need more. No contracts, cancel anytime.</p>
+    </div>
+    <div class="pricing-grid">
+      <!-- Free -->
+      <div class="price-card free reveal reveal-delay-1">
+        <span class="plan-badge">Free forever</span>
+        <div class="plan-price"><sup>₹</sup>0</div>
+        <div class="plan-period">No credit card needed</div>
+        <div class="plan-divider"></div>
+        <ul class="plan-features">
+          <li><span class="plan-check">✅</span> 50 participants per session</li>
+          <li><span class="plan-check">✅</span> 5 saved quizzes</li>
+          <li><span class="plan-check">✅</span> 30 AI questions / month</li>
+          <li><span class="plan-check">✅</span> 3 presentation slots</li>
+          <li><span class="plan-check">✅</span> Basic analytics</li>
+          <li><span class="plan-check" style="opacity:0.3;">✕</span> <span style="opacity:0.4;">CSV export</span></li>
+          <li><span class="plan-check" style="opacity:0.3;">✕</span> <span style="opacity:0.4;">Remove branding</span></li>
+        </ul>
+        <a href="#" class="plan-cta">Get started free</a>
+      </div>
+      <!-- Pro -->
+      <div class="price-card pro reveal reveal-delay-2">
+        <div class="popular-ring"></div>
+        <span class="plan-badge">Most popular</span>
+        <div class="plan-price" style="color:white;"><sup style="color:rgba(255,255,255,0.6);">₹</sup>999</div>
+        <div class="plan-period">per month · billed monthly</div>
+        <div class="plan-divider"></div>
+        <ul class="plan-features">
+          <li><span class="plan-check">✅</span> Unlimited participants</li>
+          <li><span class="plan-check">✅</span> Unlimited saved quizzes</li>
+          <li><span class="plan-check">✅</span> 750 AI questions / month</li>
+          <li><span class="plan-check">✅</span> Unlimited presentations</li>
+          <li><span class="plan-check">✅</span> Full analytics + PDF/CSV export</li>
+          <li><span class="plan-check">✅</span> Spaced retrieval sessions</li>
+          <li><span class="plan-check">✅</span> No Quizotic branding</li>
+        </ul>
+        <a href="#" class="plan-cta">Upgrade to Pro</a>
+      </div>
+    </div>
+    <p class="reveal" style="margin-top:24px;font-size:13px;color:var(--gray-500);text-align:center;">
+      🎁 Refer a friend → get +10 free AI questions per month (up to +100)
+    </p>
+  </div>
+</section>
+
+<!-- ─── CTA ─── -->
+<section id="cta">
+  <div class="aurora-bg"></div>
+  <div class="aurora-grid" style="opacity:0.5;"></div>
+  <div class="reveal">
+    <h2 class="cta-title">Your next session<br/>starts <span style="background:linear-gradient(90deg,#60A5FA,#A78BFA);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">right now.</span></h2>
+    <p class="cta-sub">No setup. No training. Create your first quiz and host it live in under 3 minutes.</p>
+    <div class="cta-actions">
+      <a href="#" class="btn btn-primary" style="padding:16px 36px;font-size:17px;border-radius:16px;">✨ Create free quiz</a>
+      <a href="#" class="btn" style="padding:16px 36px;font-size:17px;border-radius:16px;background:rgba(255,255,255,0.08);color:white;border:1.5px solid rgba(255,255,255,0.15);">Build presentation</a>
+    </div>
+    <div class="cta-trust">
+      <div class="trust-item"><span>✓</span> No credit card</div>
+      <div class="trust-item"><span>✓</span> Participants need no account</div>
+      <div class="trust-item"><span>✓</span> Free forever</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── FOOTER ─── -->
+<footer>
+  <div class="footer-logo">Quizo<span>tic</span><span style="font-size:11px;color:#10B981;vertical-align:super;">.live</span></div>
+  <div class="footer-links">
+    <a href="#">Product</a>
+    <a href="#">Pricing</a>
+    <a href="#">Privacy</a>
+    <a href="#">Terms</a>
+    <a href="#">Contact</a>
+  </div>
+  <div class="footer-copy">© 2026 Quizotic. Made with ♥ in India.</div>
+</footer>
+
+<script>
+// ─── Scroll reveal
+const revealEls = document.querySelectorAll('.reveal');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); } });
+}, { threshold: 0.12 });
+revealEls.forEach(el => observer.observe(el));
+
+// ─── Counter animation
+const counters = document.querySelectorAll('[data-target]');
+const counterObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    const el = e.target;
+    const target = parseInt(el.dataset.target);
+    let current = 0;
+    const step = target / 40;
+    const timer = setInterval(() => {
+      current += step;
+      if (current >= target) { current = target; clearInterval(timer); }
+      el.textContent = Math.round(current);
+    }, 30);
+    counterObserver.unobserve(el);
+  });
+}, { threshold: 0.5 });
+counters.forEach(el => counterObserver.observe(el));
+
+// ─── Pricing card spotlight
+document.querySelectorAll('.price-card').forEach(card => {
+  card.addEventListener('mousemove', (e) => {
+    const rect = card.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width * 100).toFixed(1) + '%';
+    const y = ((e.clientY - rect.top) / rect.height * 100).toFixed(1) + '%';
+    card.style.setProperty('--spotlight-x', x);
+    card.style.setProperty('--spotlight-y', y);
+  });
+});
+
+// ─── Live participant counter in hero
+let count = 24;
+setInterval(() => {
+  const delta = Math.random() > 0.5 ? 1 : 0;
+  count = Math.min(count + delta, 31);
+  const el = document.getElementById('pcount');
+  if (el) { el.textContent = count; el.style.animation = 'count-pop 0.3s ease'; setTimeout(() => el.style.animation = '', 300); }
+  // also update answered count
+  const answered = document.getElementById('answered');
+  const total = document.getElementById('total');
+  const bar = document.getElementById('progress-bar');
+  if (answered && total && bar) {
+    const a = Math.min(parseInt(answered.textContent) + delta, count);
+    answered.textContent = a;
+    total.textContent = count;
+    bar.style.width = Math.round(a / count * 100) + '%';
+  }
+}, 1800);
+
+// ─── Navbar scroll effect
+window.addEventListener('scroll', () => {
+  const nav = document.getElementById('navbar');
+  if (window.scrollY > 60) {
+    nav.style.background = 'rgba(11,14,26,0.92)';
+    nav.style.boxShadow = '0 8px 32px rgba(0,0,0,0.3)';
+  } else {
+    nav.style.background = 'rgba(11,14,26,0.5)';
+    nav.style.boxShadow = 'none';
+  }
+});
+</script>
+</body>
+</html>

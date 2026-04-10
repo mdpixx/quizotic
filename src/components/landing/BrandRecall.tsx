@@ -11,13 +11,15 @@ const MARQUEE_ITEMS = [
 ]
 
 export function BrandRecall() {
-  const marqueeText = MARQUEE_ITEMS.map(item => `${item} ·`).join('  ')
-
   return (
     <section style={{ padding: '80px 24px 0', background: '#fff', textAlign: 'center' }}>
       {/* Big wordmark */}
-      <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 'min(10vw, 96px)', color: '#0F1B3D', letterSpacing: '-0.04em', lineHeight: 1 }}>
-        quizotic.live
+      <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 'min(10vw, 96px)', letterSpacing: '-0.04em', lineHeight: 1, display: 'inline-flex', alignItems: 'baseline', gap: 4 }}>
+        <span style={{ color: '#0F1B3D' }}>quizotic</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#16A34A', display: 'inline-block', animation: 'blink-live 1.5s ease-in-out infinite', verticalAlign: 'middle', marginBottom: 4 }} />
+          <span style={{ color: '#16A34A', animation: 'blink-live 1.5s ease-in-out infinite' }}>.live</span>
+        </span>
       </div>
       <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontWeight: 500, fontSize: 20, color: '#888', marginTop: 12, marginBottom: 48 }}>
         Where learning gets real.
@@ -42,6 +44,10 @@ export function BrandRecall() {
         @keyframes marquee {
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
+        }
+        @keyframes blink-live {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
         }
       `}</style>
     </section>
