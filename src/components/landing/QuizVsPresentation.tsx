@@ -1,7 +1,5 @@
 'use client'
 
-import Link from 'next/link'
-
 const QUIZ_FEATURES = [
   'MCQ, True/False, Word Cloud, Open-ended & more',
   'Live leaderboard with real-time scoring',
@@ -33,14 +31,21 @@ export function QuizVsPresentation() {
           Quizotic gives you live quiz engagement AND interactive presentation power — use them together or independently.
         </p>
 
-        {/* Cards grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28 }} className="two-powers-grid">
-          {/* Quiz Mode card */}
-          <div style={{ border: '2px solid #E5E7EB', borderRadius: 20, padding: '36px 32px', background: '#fff', display: 'grid', gridTemplateRows: 'auto 1fr auto', gap: 20, minHeight: 460 }}>
-            <div style={{ display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 12, color: '#2D3A8C', letterSpacing: '0.1em', border: '2px solid #2D3A8C', borderRadius: 20, padding: '5px 14px', textTransform: 'uppercase', alignSelf: 'flex-start' }}>
-              Quiz Mode
+        {/* Cards grid — subgrid so both cards share row tracks, guaranteeing preview alignment */}
+        <div className="two-powers-grid">
+
+          {/* ── Quiz Mode card ── */}
+          <div className="qvp-card quiz-card">
+
+            {/* Row 1: Badge */}
+            <div style={{ padding: '36px 32px 0' }}>
+              <div style={{ display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 12, color: '#2D3A8C', letterSpacing: '0.1em', border: '2px solid #2D3A8C', borderRadius: 20, padding: '5px 14px', textTransform: 'uppercase' }}>
+                Quiz Mode
+              </div>
             </div>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+            {/* Row 2: Features */}
+            <ul style={{ listStyle: 'none', padding: '0 32px', margin: 0, display: 'flex', flexDirection: 'column', gap: 12, alignContent: 'start' }}>
               {QUIZ_FEATURES.map(f => (
                 <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 15, color: '#374151', lineHeight: 1.5 }}>
                   <span style={{ color: '#2D3A8C', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>
@@ -48,37 +53,47 @@ export function QuizVsPresentation() {
                 </li>
               ))}
             </ul>
-            {/* Mini quiz preview */}
-            <div style={{ background: '#F8F9FA', borderRadius: 12, padding: '16px' }}>
-              <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 13, color: '#0F1B3D', marginBottom: 10 }}>
-                Which element has symbol &apos;Fe&apos;?
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
-                {['A · Iron', 'B · Gold', 'C · Silver', 'D · Zinc'].map((opt, i) => (
-                  <span key={i} style={{ background: PILL_COLORS[i], color: '#fff', fontSize: 12, fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontWeight: 600, padding: '8px 12px', borderRadius: 8, textAlign: 'center' }}>
-                    {opt}
-                  </span>
-                ))}
-              </div>
-              {/* Mini leaderboard */}
-              <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: 10 }}>
-                <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 10, color: '#888', letterSpacing: '0.08em', marginBottom: 6 }}>🏆 LEADERBOARD</div>
-                {[['Arjun S.', '1,420'], ['Priya K.', '1,280'], ['Riya M.', '1,150']].map(([name, score], i) => (
-                  <div key={name} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontFamily: 'var(--font-body, "DM Sans", sans-serif)', padding: '3px 0', color: '#374151' }}>
-                    <span style={{ color: '#888' }}>{i + 1}. {name}</span>
-                    <span style={{ fontWeight: 700, color: '#0F1B3D' }}>{score}</span>
-                  </div>
-                ))}
+
+            {/* Row 3: Preview */}
+            <div style={{ padding: '0 32px 36px' }}>
+              <div style={{ background: '#F8F9FA', borderRadius: 12, padding: '16px' }}>
+                <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 13, color: '#0F1B3D', marginBottom: 10 }}>
+                  Which element has symbol &apos;Fe&apos;?
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                  {['A · Iron', 'B · Gold', 'C · Silver', 'D · Zinc'].map((opt, i) => (
+                    <span key={i} style={{ background: PILL_COLORS[i], color: '#fff', fontSize: 12, fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontWeight: 600, padding: '8px 12px', borderRadius: 8, textAlign: 'center' }}>
+                      {opt}
+                    </span>
+                  ))}
+                </div>
+                {/* Mini leaderboard */}
+                <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: 10 }}>
+                  <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 10, color: '#888', letterSpacing: '0.08em', marginBottom: 6 }}>🏆 LEADERBOARD</div>
+                  {[['Arjun S.', '1,420'], ['Priya K.', '1,280'], ['Riya M.', '1,150']].map(([name, score], i) => (
+                    <div key={name} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontFamily: 'var(--font-body, "DM Sans", sans-serif)', padding: '3px 0', color: '#374151' }}>
+                      <span style={{ color: '#888' }}>{i + 1}. {name}</span>
+                      <span style={{ fontWeight: 700, color: '#0F1B3D' }}>{score}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
+
           </div>
 
-          {/* Present Mode card */}
-          <div style={{ border: '2px solid #0F1B3D', borderRadius: 20, padding: '36px 32px', background: '#0F1B3D', display: 'grid', gridTemplateRows: 'auto 1fr auto', gap: 20, minHeight: 460 }}>
-            <div style={{ display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 12, color: '#F5E642', letterSpacing: '0.1em', border: '2px solid rgba(245,230,66,0.6)', borderRadius: 20, padding: '5px 14px', textTransform: 'uppercase', alignSelf: 'flex-start' }}>
-              Present Mode
+          {/* ── Present Mode card ── */}
+          <div className="qvp-card present-card">
+
+            {/* Row 1: Badge */}
+            <div style={{ padding: '36px 32px 0' }}>
+              <div style={{ display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 12, color: '#F5E642', letterSpacing: '0.1em', border: '2px solid rgba(245,230,66,0.6)', borderRadius: 20, padding: '5px 14px', textTransform: 'uppercase' }}>
+                Present Mode
+              </div>
             </div>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+            {/* Row 2: Features */}
+            <ul style={{ listStyle: 'none', padding: '0 32px', margin: 0, display: 'flex', flexDirection: 'column', gap: 12, alignContent: 'start' }}>
               {PRESENT_FEATURES.map(f => (
                 <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 15, color: 'rgba(255,255,255,0.85)', lineHeight: 1.5 }}>
                   <span style={{ color: '#F5E642', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>
@@ -86,32 +101,65 @@ export function QuizVsPresentation() {
                 </li>
               ))}
             </ul>
-            {/* Mini bar chart preview */}
-            <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 13, color: '#fff' }}>
-                  Q3 Student Performance
-                </div>
-                <span style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 11, fontWeight: 600, color: '#F5E642', border: '1px solid rgba(245,230,66,0.4)', borderRadius: 12, padding: '2px 8px' }}>Bloom&apos;s: Apply</span>
-              </div>
-              {/* Labeled bars */}
-              {[['Correct', 72, '#16A34A'], ['Partial', 18, '#CA8A04'], ['Wrong', 10, '#DC2626']].map(([label, pct, color]) => (
-                <div key={label as string} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                  <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 11, color: 'rgba(255,255,255,0.55)', width: 44, flexShrink: 0 }}>{label}</div>
-                  <div style={{ flex: 1, height: 18, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${pct}%`, background: color as string, borderRadius: 4 }} />
+
+            {/* Row 3: Preview */}
+            <div style={{ padding: '0 32px 36px' }}>
+              <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 13, color: '#fff' }}>
+                    Q3 Student Performance
                   </div>
-                  <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontSize: 12, fontWeight: 700, color: '#fff', width: 28, textAlign: 'right' }}>{pct}%</div>
+                  <span style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 11, fontWeight: 600, color: '#F5E642', border: '1px solid rgba(245,230,66,0.4)', borderRadius: 12, padding: '2px 8px' }}>Bloom&apos;s: Apply</span>
                 </div>
-              ))}
+                {[['Correct', 72, '#16A34A'], ['Partial', 18, '#CA8A04'], ['Wrong', 10, '#DC2626']].map(([label, pct, color]) => (
+                  <div key={label as string} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                    <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 11, color: 'rgba(255,255,255,0.55)', width: 44, flexShrink: 0 }}>{label}</div>
+                    <div style={{ flex: 1, height: 18, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: color as string, borderRadius: 4 }} />
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontSize: 12, fontWeight: 700, color: '#fff', width: 28, textAlign: 'right' }}>{pct}%</div>
+                  </div>
+                ))}
+              </div>
             </div>
+
           </div>
         </div>
       </div>
 
       <style>{`
+        /* Parent grid: 3 shared row tracks */
+        .two-powers-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          grid-template-rows: auto 1fr auto;
+          column-gap: 28px;
+          row-gap: 20px;
+        }
+        /* Each card spans all 3 rows and mirrors parent tracks via subgrid */
+        .qvp-card {
+          grid-row: span 3;
+          display: grid;
+          grid-template-rows: subgrid;
+          border-radius: 20px;
+          overflow: hidden;
+        }
+        .quiz-card    { border: 2px solid #E5E7EB; background: #fff; }
+        .present-card { border: 2px solid #0F1B3D; background: #0F1B3D; }
+        /* Mobile: single column, revert to flex */
         @media (max-width: 768px) {
-          .two-powers-grid { grid-template-columns: 1fr !important; }
+          .two-powers-grid {
+            grid-template-columns: 1fr;
+            grid-template-rows: auto;
+            row-gap: 28px;
+          }
+          .qvp-card {
+            grid-row: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+          }
+          .qvp-card > div:first-child { padding-bottom: 0; }
         }
       `}</style>
     </section>
