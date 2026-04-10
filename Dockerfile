@@ -15,4 +15,4 @@ RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npm run build
 
 EXPOSE 4000
 
-CMD ["sh", "-c", "npx prisma db push --skip-generate && node server.mjs"]
+CMD ["node", "server.mjs"]
