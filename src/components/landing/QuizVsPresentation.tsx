@@ -104,22 +104,55 @@ export function QuizVsPresentation() {
 
             {/* Row 3: Preview */}
             <div style={{ padding: '0 32px 36px' }}>
-              <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                  <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 13, color: '#fff' }}>
-                    Q3 Student Performance
+              <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+                {/* Session header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 12, color: '#fff' }}>Digital Tools Onboarding</div>
+                    <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>Slide 6 of 14</div>
                   </div>
-                  <span style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 11, fontWeight: 600, color: '#F5E642', border: '1px solid rgba(245,230,66,0.4)', borderRadius: 12, padding: '2px 8px' }}>Bloom&apos;s: Apply</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#16A34A', display: 'inline-block', boxShadow: '0 0 4px #16A34A' }} />
+                    <span style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 10, fontWeight: 600, color: '#16A34A' }}>34 live</span>
+                  </div>
                 </div>
-                {[['Correct', 72, '#16A34A'], ['Partial', 18, '#CA8A04'], ['Wrong', 10, '#DC2626']].map(([label, pct, color]) => (
-                  <div key={label as string} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                    <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 11, color: 'rgba(255,255,255,0.55)', width: 44, flexShrink: 0 }}>{label}</div>
-                    <div style={{ flex: 1, height: 18, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${pct}%`, background: color as string, borderRadius: 4 }} />
-                    </div>
-                    <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontSize: 12, fontWeight: 700, color: '#fff', width: 28, textAlign: 'right' }}>{pct}%</div>
+
+                {/* Slide progress bar */}
+                <div style={{ height: 3, background: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
+                  <div style={{ height: '100%', width: '43%', background: '#F5E642', borderRadius: 2 }} />
+                </div>
+
+                {/* Audience reactions */}
+                <div>
+                  <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 9, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 7 }}>Audience Reactions</div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {[['👍', 18], ['❤️', 9], ['🤔', 6], ['😮', 4]].map(([emoji, count]) => (
+                      <div key={emoji as string} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '5px 9px', textAlign: 'center' }}>
+                        <div style={{ fontSize: 14, lineHeight: 1 }}>{emoji}</div>
+                        <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontSize: 10, fontWeight: 700, color: '#fff', marginTop: 3 }}>{count}</div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
+
+                {/* Embedded poll result */}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
+                    <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 10, color: 'rgba(255,255,255,0.55)' }}>Embedded Poll · "Rate your confidence"</div>
+                    <span style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 9, fontWeight: 600, color: '#F5E642', border: '1px solid rgba(245,230,66,0.35)', borderRadius: 8, padding: '1px 6px' }}>28 voted</span>
+                  </div>
+                  {[[5,'#16A34A',11],[4,'#4ADE80',9],[3,'#CA8A04',5],[2,'#EA580C',2],[1,'#DC2626',1]].map(([star, color, count]) => (
+                    <div key={star as number} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
+                      <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 9, color: 'rgba(255,255,255,0.45)', width: 10, flexShrink: 0 }}>{star}</div>
+                      <div style={{ flex: 1, height: 7, background: 'rgba(255,255,255,0.07)', borderRadius: 3, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${(count as number) / 11 * 100}%`, background: color as string, borderRadius: 3 }} />
+                      </div>
+                      <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 9, color: 'rgba(255,255,255,0.4)', width: 12, textAlign: 'right' }}>{count}</div>
+                    </div>
+                  ))}
+                </div>
+
               </div>
             </div>
 
