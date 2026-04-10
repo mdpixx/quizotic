@@ -73,23 +73,13 @@ function BrowserQuiz() {
     pendingRef.current = setTimeout(advanceQuestion, 1600)
   }
 
-  // Timer — restarts on each new question
+  // Timer — loops back to 10 when it hits 0. Never auto-advances.
+  // Questions only advance on user click (handleAnswer).
   useEffect(() => {
     answeredRef.current = false
     setTimeLeft(10)
     timerRef.current = setInterval(() => {
-      setTimeLeft(t => {
-        if (t <= 1) {
-          clearInterval(timerRef.current!)
-          if (!answeredRef.current) {
-            answeredRef.current = true
-            setSelected(-1)   // -1 = time up, show correct answer
-            pendingRef.current = setTimeout(advanceQuestion, 1800)
-          }
-          return 0
-        }
-        return t - 1
-      })
+      setTimeLeft(t => (t <= 1 ? 10 : t - 1))
     }, 1000)
     return () => clearInterval(timerRef.current!)
   }, [qIndex]) // eslint-disable-line
@@ -163,13 +153,12 @@ function BrowserQuiz() {
               </div>
               <div style={{
                 fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 18,
-                color: timeLeft <= 3 ? '#DC2626' : '#fff',
-                background: timeLeft <= 3 ? '#FEF2F2' : '#0F1B3D',
-                border: timeLeft <= 3 ? '2px solid #DC2626' : '2px solid transparent',
+                color: '#fff',
+                background: '#0F1B3D',
+                border: '2px solid transparent',
                 borderRadius: 7, width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'background 0.3s, color 0.3s',
               }}>
-                {selected !== null && selected !== -1 ? '✓' : selected === -1 ? '⏱' : String(timeLeft).padStart(2, '0')}
+                {selected !== null ? '✓' : String(timeLeft).padStart(2, '0')}
               </div>
             </div>
 
@@ -180,7 +169,7 @@ function BrowserQuiz() {
 
             {/* Timer bar */}
             <div style={{ height: 4, background: '#E5E7EB', borderRadius: 2, marginBottom: 14, overflow: 'hidden' }}>
-              <div style={{ height: '100%', background: timeLeft <= 3 ? '#DC2626' : '#F5E642', borderRadius: 2, width: `${timerPct}%`, transition: 'width 1s linear, background 0.3s' }} />
+              <div style={{ height: '100%', background: '#F5E642', borderRadius: 2, width: `${timerPct}%`, transition: 'width 1s linear' }} />
             </div>
 
             {/* Answer buttons */}
