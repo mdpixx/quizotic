@@ -316,7 +316,7 @@ export default function SessionPage() {
       {/* IDLE */}
       {phase === 'idle' && quiz && (
         <div className="p-4 max-w-2xl mx-auto py-8 space-y-4">
-          <h1 className="text-4xl font-black mb-1" style={{ color: 'var(--color-dark)' }}>{quiz.title}</h1>
+          <h1 className="text-4xl font-black mb-1" style={{ color: '#0F1B3D' }}>{quiz.title}</h1>
           <p className="text-gray-500 text-lg">{quiz.questions.length} question{quiz.questions.length !== 1 ? 's' : ''}</p>
 
           {/* Question preview */}
@@ -348,7 +348,7 @@ export default function SessionPage() {
                       : 'border-gray-200 bg-white'
                   }`}
                 >
-                  <svg className="w-6 h-6 mb-2" viewBox="0 0 24 24" fill="none" stroke={sessionMode === opt.mode ? '#4361EE' : '#9CA3AF'} strokeWidth="2">
+                  <svg className="w-6 h-6 mb-2" viewBox="0 0 24 24" fill="none" stroke={sessionMode === opt.mode ? '#0F1B3D' : '#9CA3AF'} strokeWidth="2">
                     <path d={opt.icon} strokeLinejoin="round" strokeLinecap="round"/>
                   </svg>
                   <p className={`font-bold text-sm ${sessionMode === opt.mode ? 'text-violet-700' : 'text-gray-900'}`}>{opt.label}</p>
@@ -368,7 +368,7 @@ export default function SessionPage() {
             <button
               onClick={() => setAnonymousMode(m => !m)}
               className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0"
-              style={{ background: anonymousMode ? '#4361EE' : '#E5E7EB' }}
+              style={{ background: anonymousMode ? '#0F1B3D' : '#E5E7EB' }}
             >
               <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${anonymousMode ? 'translate-x-6' : 'translate-x-0.5'}`} />
             </button>
@@ -384,7 +384,7 @@ export default function SessionPage() {
               <button
                 onClick={() => setTeamMode(m => !m)}
                 className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0"
-                style={{ background: teamMode ? '#4361EE' : '#E5E7EB' }}
+                style={{ background: teamMode ? '#0F1B3D' : '#E5E7EB' }}
               >
                 <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${teamMode ? 'translate-x-6' : 'translate-x-0.5'}`} />
               </button>
@@ -401,7 +401,7 @@ export default function SessionPage() {
                         ? 'text-white shadow-sm'
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
-                    style={teamCount === n ? { background: 'var(--color-primary)' } : undefined}
+                    style={teamCount === n ? { background: '#0F1B3D' } : undefined}
                   >
                     {n}
                   </button>
@@ -420,7 +420,7 @@ export default function SessionPage() {
             onClick={createSession}
             disabled={!socketConnected || creating}
             className="w-full font-black rounded-2xl py-5 text-xl transition-all hover:opacity-90 disabled:opacity-50"
-            style={{ background: 'var(--brand-gradient)', color: '#fff', fontFamily: 'var(--font-heading)' }}
+            style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
           >
             {!socketConnected ? 'Connecting...' : creating ? 'Creating Session...' : 'Create Session'}
           </button>
@@ -431,7 +431,7 @@ export default function SessionPage() {
       {phase === 'lobby' && (
         <div className="p-4 max-w-2xl mx-auto py-8 space-y-4">
           <div className="flex items-center justify-between mb-2">
-            <h1 className="text-2xl font-black" style={{ color: 'var(--color-dark)' }}>Quizo<span style={{ color: 'var(--color-primary)' }}>tic</span></h1>
+            <h1 className="text-2xl font-black" style={{ color: '#0F1B3D' }}>Quizo<span style={{ color: '#F5E642' }}>tic</span></h1>
             <div className="flex items-center gap-2">
               <span className={`text-base font-bold px-4 py-1.5 rounded-full border ${
                 sessionMode === 'reflection'
@@ -451,7 +451,7 @@ export default function SessionPage() {
             <div className="flex gap-4 items-center min-w-0">
               <div className="flex-1 min-w-0 text-center">
                 <p className="text-base font-bold text-gray-400 uppercase tracking-widest mb-3">Session Code</p>
-                <p className="text-8xl font-black tracking-[0.3em]" style={{ color: 'var(--color-primary)' }}>{gameCode}</p>
+                <p className="text-8xl font-black tracking-[0.3em]" style={{ color: '#0F1B3D' }}>{gameCode}</p>
                 <p className="text-gray-400 text-base mt-3">quizotic.live</p>
               </div>
               <div className="flex-shrink-0 text-center">
@@ -461,7 +461,7 @@ export default function SessionPage() {
                     value={`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')}/join?code=${gameCode}`}
                     size={128}
                     bgColor="#ffffff"
-                    fgColor="#4361EE"
+                    fgColor="#0F1B3D"
                   />
                 </div>
               </div>
@@ -521,7 +521,7 @@ export default function SessionPage() {
               {currentQuestion.timerSeconds > 0 && (
                 <CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} />
               )}
-              <span className="bg-blue-50 border border-blue-100 rounded-full px-5 py-2 text-xl font-bold" style={{ color: 'var(--color-primary)' }}>
+              <span className="bg-blue-50 border border-blue-100 rounded-full px-5 py-2 text-xl font-bold" style={{ color: '#0F1B3D' }}>
                 {answered} / {participants.size} answered
               </span>
             </div>
@@ -537,7 +537,7 @@ export default function SessionPage() {
 
           {/* Case scenario card (shown for 'case' type) */}
           {currentQuestion.type === 'case' && currentQuestion.scenarioText && (
-            <div className="rounded-2xl p-6 border" style={{ background: '#1B2559', borderColor: '#2D3A6E' }}>
+            <div className="rounded-2xl p-6 border" style={{ background: '#0F1B3D', borderColor: '#1E2A4F' }}>
               <p className="text-base font-bold uppercase tracking-widest mb-2" style={{ color: '#6B8AFF' }}>Scenario</p>
               <p className="text-xl leading-relaxed" style={{ color: '#E0E7FF' }}>{currentQuestion.scenarioText}</p>
               {currentQuestion.supportingDetail && (
@@ -548,7 +548,7 @@ export default function SessionPage() {
 
           {/* Question card */}
           <div className={`bg-white rounded-2xl shadow-sm border p-8 ${currentQuestion.type === 'case' ? 'border-blue-200 border-t-4 border-t-blue-500' : 'border-gray-200 border-t-4 border-t-amber-400'}`}>
-            <p className="text-3xl font-bold leading-snug" style={{ color: 'var(--color-dark)' }}>{currentQuestion.text}</p>
+            <p className="text-3xl font-bold leading-snug" style={{ color: '#0F1B3D' }}>{currentQuestion.text}</p>
             {currentQuestion.imageUrl && (
               <img src={currentQuestion.imageUrl} alt={`Image for question ${questionIndex + 1}`} className="mt-4 rounded-xl max-h-64 w-full object-contain" loading="lazy" />
             )}
@@ -635,12 +635,12 @@ export default function SessionPage() {
       {/* ENDED */}
       {phase === 'ended' && (
         <div className="p-4 max-w-2xl mx-auto py-8 space-y-4">
-          <h2 className="text-4xl font-black" style={{ color: 'var(--color-dark)' }}>Session Complete</h2>
+          <h2 className="text-4xl font-black" style={{ color: '#0F1B3D' }}>Session Complete</h2>
 
           {/* Team Leaderboard */}
           {teamLeaderboard && teamLeaderboard.length > 0 && (
             <div className="space-y-3">
-              <h3 className="text-xl font-black" style={{ color: 'var(--color-dark)' }}>Team Standings</h3>
+              <h3 className="text-xl font-black" style={{ color: '#0F1B3D' }}>Team Standings</h3>
               {teamLeaderboard.map((team, i) => (
                 <div key={team.name} className="flex items-center gap-3 rounded-xl p-4 bg-white border border-gray-200">
                   <span className="text-2xl font-black w-8 text-center" style={{ color: team.color }}>
@@ -676,7 +676,7 @@ export default function SessionPage() {
           <ReflectionInsights gameCode={gameCode} questionStats={questionStats} />
 
           {/* Spaced Follow-up Series */}
-          <div className="rounded-2xl border p-5" style={{ borderColor: '#DBEAFE', background: '#F0F4FF' }}>
+          <div className="rounded-2xl border p-5" style={{ borderColor: '#DBEAFE', background: '#F3F4F6' }}>
             <p className="text-sm font-black mb-0.5" style={{ fontFamily: 'var(--font-heading)', color: '#1E1B4B' }}>
               Lock in the learning
             </p>
@@ -690,7 +690,7 @@ export default function SessionPage() {
                   onClick={generateFollowups}
                   disabled={followupLoading}
                   className="w-full py-3 rounded-xl text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
-                  style={{ background: 'var(--brand-gradient)', color: '#fff', fontFamily: 'var(--font-heading)' }}
+                  style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
                 >
                   {followupLoading ? 'Generating…' : 'Create Follow-up Series'}
                 </button>
@@ -704,15 +704,15 @@ export default function SessionPage() {
                     style={{ borderColor: '#DBEAFE' }}>
                     <div>
                       <p className="text-sm font-bold" style={{ color: '#1E1B4B' }}>{fu.label}</p>
-                      <p className="text-xs font-mono" style={{ color: 'var(--color-primary)' }}>{fu.code}</p>
+                      <p className="text-xs font-mono" style={{ color: '#0F1B3D' }}>{fu.code}</p>
                     </div>
                     <button
                       onClick={() => copyFollowupLink(fu.code)}
                       className="text-xs font-bold px-3 py-1.5 rounded-lg border-2 transition-all"
                       style={{
-                        borderColor: copiedCode === fu.code ? '#4361EE' : '#DBEAFE',
-                        color: copiedCode === fu.code ? '#4361EE' : '#6B7280',
-                        background: copiedCode === fu.code ? '#F0F4FF' : '#fff',
+                        borderColor: copiedCode === fu.code ? '#0F1B3D' : '#DBEAFE',
+                        color: copiedCode === fu.code ? '#0F1B3D' : '#6B7280',
+                        background: copiedCode === fu.code ? '#F3F4F6' : '#fff',
                       }}
                     >
                       {copiedCode === fu.code ? 'Copied!' : 'Copy link'}
@@ -744,7 +744,7 @@ export default function SessionPage() {
                 }
               }}
               className="flex-1 font-bold rounded-xl py-3 text-base transition-all hover:scale-[1.02]"
-              style={{ background: 'var(--brand-gradient)', color: '#fff', fontFamily: 'var(--font-heading)' }}
+              style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
             >
               Play Again
             </button>

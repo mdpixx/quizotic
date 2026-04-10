@@ -1,149 +1,211 @@
 'use client'
 
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
 
-function QuizMockup() {
+const QUESTIONS = [
+  {
+    q: 'Which planet is closest to the Sun?',
+    options: ['Mercury', 'Venus', 'Mars', 'Jupiter'],
+    correct: 0,
+  },
+  {
+    q: 'What is the chemical formula for water?',
+    options: ['H₂O₂', 'CO₂', 'H₂O', 'NaCl'],
+    correct: 2,
+  },
+  {
+    q: 'Who wrote Hamlet?',
+    options: ['Dickens', 'Shakespeare', 'Tolstoy', 'Austen'],
+    correct: 1,
+  },
+]
+
+const OPTION_COLORS = ['#2D3A8C', '#FF8A47', '#5BC0EB', '#E07A5F']
+
+function BrowserQuiz() {
+  const [qIndex, setQIndex] = useState(0)
+  const [selected, setSelected] = useState<number | null>(null)
+  const [timeLeft, setTimeLeft] = useState(10)
+  const [celebrating, setCelebrating] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const q = QUESTIONS[qIndex]
+
+  useEffect(() => {
+    if (selected !== null) return
+    setTimeLeft(10)
+    timerRef.current = setInterval(() => {
+      setTimeLeft(t => {
+        if (t <= 1) {
+          clearInterval(timerRef.current!)
+          return 0
+        }
+        return t - 1
+      })
+    }, 1000)
+    return () => clearInterval(timerRef.current!)
+  }, [qIndex, selected])
+
+  function handleAnswer(i: number) {
+    if (selected !== null) return
+    clearInterval(timerRef.current!)
+    setSelected(i)
+    setTimeout(() => {
+      if (qIndex < QUESTIONS.length - 1) {
+        setQIndex(qi => qi + 1)
+        setSelected(null)
+      } else {
+        setCelebrating(true)
+        setTimeout(() => {
+          setQIndex(0)
+          setSelected(null)
+          setCelebrating(false)
+        }, 3000)
+      }
+    }, 1500)
+  }
+
+  const timerPct = (timeLeft / 10) * 100
+
   return (
-    <div className="rounded-2xl overflow-hidden shadow-xl border" style={{ background: '#fff', borderColor: '#DBEAFE' }}>
-      <div className="flex items-center gap-1.5 px-3 py-1.5" style={{ background: '#F8FAFC' }}>
-        <span className="w-2 h-2 rounded-full bg-red-300" />
-        <span className="w-2 h-2 rounded-full bg-amber-300" />
-        <span className="w-2 h-2 rounded-full bg-green-300" />
-        <span className="ml-2 text-[9px] font-mono text-gray-400">quizotic.live</span>
+    <div style={{ borderRadius: 16, overflow: 'hidden', boxShadow: '0 16px 48px rgba(0,0,0,0.4)', border: '2px solid rgba(255,255,255,0.1)', background: '#fff', maxWidth: 420, width: '100%' }}>
+      {/* Browser bar */}
+      <div style={{ background: '#1A1A2E', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#FF5F57', display: 'inline-block' }} />
+        <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#FFBD2E', display: 'inline-block' }} />
+        <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#28C840', display: 'inline-block' }} />
+        <span style={{ marginLeft: 8, fontSize: 11, color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>quizotic.live/join?code=K7X9</span>
       </div>
-      <div className="p-4 space-y-3">
-        <p className="text-xs font-bold" style={{ color: '#1B2559' }}>Which planet has the most moons?</p>
-        <div className="space-y-1.5">
-          {[
-            { letter: 'A', text: 'Jupiter', pct: 35, color: '#3B82F6' },
-            { letter: 'B', text: 'Saturn', pct: 58, color: '#4361EE', correct: true },
-            { letter: 'C', text: 'Neptune', pct: 4, color: '#FF6B6B' },
-            { letter: 'D', text: 'Uranus', pct: 3, color: '#FFD166' },
-          ].map(opt => (
-            <div key={opt.letter} className="relative rounded-md overflow-hidden" style={{ background: '#F8FAFC' }}>
-              <div className="absolute inset-y-0 left-0 rounded-md" style={{ width: `${opt.pct}%`, background: opt.correct ? '#4361EE' : '#E2E8F0', opacity: opt.correct ? 0.15 : 0.5 }} />
-              <div className="relative flex items-center justify-between px-2.5 py-1.5">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-4 h-4 rounded text-[8px] font-bold flex items-center justify-center text-white" style={{ background: opt.color }}>{opt.letter}</span>
-                  <span className={`text-[10px] font-semibold ${opt.correct ? 'text-blue-700' : 'text-gray-600'}`}>{opt.text} {opt.correct && '✓'}</span>
-                </div>
-                <span className="text-[9px] font-bold text-gray-400">{opt.pct}%</span>
+
+      {/* Content */}
+      <div style={{ padding: '20px 20px 24px', background: '#fff', position: 'relative', minHeight: 280 }}>
+        {celebrating ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 240, gap: 12 }}>
+            <div style={{ fontSize: 48 }}>🎉</div>
+            <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 28, color: '#0F1B3D' }}>Perfect!</div>
+            <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 14, color: '#666' }}>All 3 correct!</div>
+          </div>
+        ) : (
+          <>
+            {/* Top row */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontWeight: 600, color: '#16A34A' }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#16A34A', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
+                24 participants live
+              </div>
+              <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 22, color: '#0F1B3D', minWidth: 32, textAlign: 'center' }}>
+                {selected !== null ? '✓' : String(timeLeft).padStart(2, '0')}
               </div>
             </div>
-          ))}
-        </div>
-        <div className="flex items-center gap-2 pt-0.5">
-          {['🏆 Sarah 840', '🥈 Kai 720', '🥉 Priya 680'].map((entry, i) => (
-            <span key={i} className="text-[9px] font-bold" style={{ color: i === 0 ? '#F59E0B' : '#9CA3AF' }}>{entry}</span>
-          ))}
-        </div>
+
+            {/* Question */}
+            <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 15, color: '#0F1B3D', marginBottom: 10, lineHeight: 1.4 }}>
+              {q.q}
+            </div>
+
+            {/* Timer bar */}
+            <div style={{ height: 4, background: '#E5E7EB', borderRadius: 2, marginBottom: 14, overflow: 'hidden' }}>
+              <div style={{ height: '100%', background: timeLeft <= 3 ? '#DC2626' : '#F5E642', borderRadius: 2, width: `${timerPct}%`, transition: 'width 1s linear, background 0.3s' }} />
+            </div>
+
+            {/* Answer buttons */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+              {q.options.map((opt, i) => {
+                let bg = OPTION_COLORS[i]
+                let border = 'none'
+                let scale = 1
+                if (selected !== null) {
+                  if (i === q.correct) { bg = '#16A34A'; border = '2px solid #16A34A' }
+                  else if (i === selected && i !== q.correct) { bg = '#DC2626'; border = '2px solid #DC2626' }
+                  else { bg = '#E5E7EB' }
+                }
+                return (
+                  <button key={i} onClick={() => handleAnswer(i)}
+                    style={{ background: bg, color: '#fff', border, borderRadius: 8, padding: '10px 12px', fontSize: 13, fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontWeight: 600, cursor: selected !== null ? 'default' : 'pointer', textAlign: 'left', transform: `scale(${scale})`, transition: 'background 0.2s, transform 0.1s', lineHeight: 1.3 }}>
+                    <span style={{ opacity: 0.8, marginRight: 4 }}>{String.fromCharCode(65 + i)} ·</span>
+                    {opt}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Mini leaderboard */}
+            <div style={{ background: '#F8F9FA', borderRadius: 10, padding: '10px 12px' }}>
+              <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 11, color: '#0F1B3D', marginBottom: 6, letterSpacing: '0.05em' }}>
+                🏆 LEADERBOARD
+              </div>
+              {[['1. Arjun S.', '1,420'], ['2. Priya K.', '1,280'], ['3. Riya M.', '1,150']].map(([name, score]) => (
+                <div key={name} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontFamily: 'var(--font-body, "DM Sans", sans-serif)', padding: '3px 0', color: '#374151' }}>
+                  <span>{name}</span>
+                  <span style={{ fontWeight: 700, color: '#0F1B3D' }}>{score}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Question indicator */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 12 }}>
+              {QUESTIONS.map((_, i) => (
+                <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: i === qIndex ? '#F5E642' : '#E5E7EB', border: i === qIndex ? '1.5px solid #0D0D0D' : 'none', transition: 'background 0.2s' }} />
+              ))}
+            </div>
+          </>
+        )}
       </div>
+
+      <style>{`
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+      `}</style>
     </div>
   )
 }
 
 export function Hero() {
   return (
-    <section className="relative pt-28 pb-16 md:pt-36 md:pb-24 overflow-hidden" style={{ background: '#FFFBF5' }}>
-      {/* Gradient mesh background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full opacity-[0.07]" style={{ background: 'radial-gradient(circle, #4361EE 0%, transparent 70%)' }} />
-        <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full opacity-[0.05]" style={{ background: 'radial-gradient(circle, #FF6B6B 0%, transparent 70%)' }} />
-        <div className="absolute top-1/3 left-1/2 w-[400px] h-[400px] rounded-full opacity-[0.04]" style={{ background: 'radial-gradient(circle, #F59E0B 0%, transparent 70%)' }} />
-      </div>
+    <section style={{ background: '#0F1B3D', paddingTop: 64, overflow: 'hidden' }}>
+      {/* Subtle bg decoration */}
+      <div style={{ position: 'absolute', top: 0, right: 0, width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,230,66,0.06) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
-      <div className="max-w-[1280px] mx-auto px-6 md:px-12 relative">
-        <div className="grid md:grid-cols-2 gap-12 md:gap-16 items-center">
-          {/* Left — copy */}
-          <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-6" style={{ background: '#F0F4FF', border: '1px solid #DBEAFE' }}>
-              <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#4361EE' }} />
-              <span className="text-xs font-bold" style={{ color: '#4361EE' }}>Free forever — no signup required</span>
-            </div>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '80px 24px 80px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 64, alignItems: 'center' }} className="hero-inner">
+        {/* Left */}
+        <div>
+          <div style={{ display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 12, color: '#F5E642', letterSpacing: '0.1em', border: '1px solid rgba(245,230,66,0.4)', borderRadius: 20, padding: '6px 14px', marginBottom: 24, textTransform: 'uppercase' }}>
+            Quiz + Presentations Platform
+          </div>
+          <h1 style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 'clamp(36px, 4.5vw, 56px)', color: '#fff', letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: 20 }}>
+            Turn every <span style={{ color: '#F5E642' }}>session</span> into a learning moment.
+          </h1>
+          <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 18, color: 'rgba(255,255,255,0.7)', lineHeight: 1.7, marginBottom: 36, maxWidth: 480 }}>
+            The only platform built on evidence-based learning science — Bloom&apos;s Taxonomy, Confidence Grid &amp; Spaced Retrieval. Run live quizzes and interactive presentations from one place.
+          </p>
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+            <Link href="/auth/signin" className="btn-hero-primary"
+              style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 17, color: '#0D0D0D', textDecoration: 'none', padding: '16px 32px', borderRadius: 12, background: '#F5E642', border: '3px solid #0D0D0D', boxShadow: '5px 5px 0 #0D0D0D', display: 'inline-block' }}>
+              Start Teaching Free →
+            </Link>
+            <a href="#how" className="btn-hero-ghost"
+              style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontWeight: 600, fontSize: 16, color: 'rgba(255,255,255,0.85)', textDecoration: 'none', padding: '16px 28px', borderRadius: 12, border: '2px solid rgba(255,255,255,0.3)', display: 'inline-block' }}>
+              See How It Works ↓
+            </a>
+          </div>
+        </div>
 
-            <h1 className="text-4xl sm:text-5xl lg:text-[56px] font-black leading-[1.1] tracking-tight mb-6" style={{ fontFamily: 'var(--font-heading)', color: '#1B2559' }}>
-              Learning that{' '}
-              <span style={{ backgroundImage: 'linear-gradient(90deg, #FF6B6B, #4361EE)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                lasts,
-              </span>{' '}
-              not just answers that score.
-            </h1>
-
-            <p className="text-lg md:text-xl leading-relaxed mb-8 max-w-lg" style={{ color: '#4A5568' }}>
-              Create AI-powered live quizzes and presentations in minutes. Real engagement, real outcomes — for 2 or 2,000 participants.
-            </p>
-
-            {/* Dual CTAs */}
-            <div className="flex flex-wrap gap-4 mb-8">
-              <Link href="/host/create"
-                className="inline-flex items-center gap-2 text-base font-bold px-7 py-3.5 rounded-2xl text-white transition-all hover:opacity-90 hover:scale-[1.02] shadow-lg"
-                style={{ background: 'linear-gradient(135deg, #4361EE, #3A56D4)', fontFamily: 'var(--font-heading)', boxShadow: '0 8px 32px rgba(67,97,238,0.25)' }}>
-                Create a Quiz
-                <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              </Link>
-              <Link href="/host/present/create"
-                className="inline-flex items-center gap-2 text-base font-bold px-7 py-3.5 rounded-2xl text-white transition-all hover:opacity-90 hover:scale-[1.02] shadow-lg"
-                style={{ background: 'linear-gradient(135deg, #FF6B6B, #E05555)', fontFamily: 'var(--font-heading)', boxShadow: '0 8px 32px rgba(255,107,107,0.25)' }}>
-                Build a Presentation
-                <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              </Link>
-            </div>
-
-            <div className="flex flex-wrap gap-3 mb-4">
-              <Link href="/join"
-                className="inline-flex items-center gap-2 text-sm font-bold px-5 py-2.5 rounded-xl transition-all hover:bg-blue-50"
-                style={{ color: '#4361EE', border: '2px solid #4361EE' }}>
-                Join with Code
-              </Link>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-              {['Free forever', 'No signup required', 'AI-powered', '9 question types'].map(text => (
-                <span key={text} className="flex items-center gap-1.5 text-sm" style={{ color: '#718096' }}>
-                  <svg className="w-4 h-4 text-green-500" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  {text}
-                </span>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* Right — Genie + mini mockup */}
-          <motion.div
-            initial={{ opacity: 0, y: 32, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.7, delay: 0.15 }}
-            className="relative flex items-center justify-center"
-          >
-            {/* Floating badges */}
-            <motion.div animate={{ y: [-6, 6, -6] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-              className="absolute -top-4 -right-2 md:-right-4 z-10 px-3 py-2 rounded-xl shadow-lg" style={{ background: '#fff', border: '1px solid #DBEAFE' }}>
-              <div className="flex items-center gap-2">
-                <span className="text-lg">🎯</span>
-                <div>
-                  <p className="text-[10px] font-bold" style={{ color: '#1B2559' }}>24 students joined</p>
-                  <p className="text-[9px]" style={{ color: '#9CA3AF' }}>Session code: ASTRO-42</p>
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div animate={{ y: [5, -5, 5] }} transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
-              className="absolute -bottom-2 -left-4 md:-left-6 z-10 px-3 py-2 rounded-xl shadow-lg" style={{ background: '#fff', border: '1px solid #FED7AA' }}>
-              <div className="flex items-center gap-2">
-                <span className="text-lg">🔥</span>
-                <div>
-                  <p className="text-[10px] font-bold" style={{ color: '#1B2559' }}>3x Streak!</p>
-                  <p className="text-[9px]" style={{ color: '#F59E0B' }}>+150 bonus points</p>
-                </div>
-              </div>
-            </motion.div>
-
-            <QuizMockup />
-          </motion.div>
+        {/* Right — interactive quiz */}
+        <div style={{ display: 'flex', justifyContent: 'center' }} className="hero-browser">
+          <BrowserQuiz />
         </div>
       </div>
+
+      <style>{`
+        .btn-hero-primary { transition: transform 0.15s, box-shadow 0.15s; }
+        .btn-hero-primary:hover { transform: translate(2px,2px); box-shadow: 3px 3px 0 #0D0D0D !important; }
+        .btn-hero-ghost:hover { border-color: rgba(255,255,255,0.7) !important; color: #fff !important; }
+        .btn-hero-ghost { transition: border-color 0.2s, color 0.2s; }
+        @media (max-width: 768px) {
+          .hero-inner { grid-template-columns: 1fr !important; gap: 40px !important; padding: 48px 24px 48px !important; }
+          .hero-browser { justify-content: stretch !important; }
+        }
+      `}</style>
     </section>
   )
 }

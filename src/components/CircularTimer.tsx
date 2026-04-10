@@ -11,10 +11,10 @@ export function CircularTimer({ timeLeft, total }: { timeLeft: number; total: nu
   return (
     <div className="relative w-20 h-20">
       <svg width="80" height="80" style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx="40" cy="40" r={RADIUS} fill="none" stroke="#dbeafe" strokeWidth="4" />
+        <circle cx="40" cy="40" r={RADIUS} fill="none" stroke="rgba(15,27,61,0.15)" strokeWidth="4" />
         <circle
           cx="40" cy="40" r={RADIUS} fill="none"
-          stroke={isLow ? '#ef4444' : '#4361EE'}
+          stroke={isLow ? '#DC2626' : '#0F1B3D'}
           strokeWidth="4"
           strokeDasharray={CIRCUMFERENCE}
           strokeDashoffset={offset}

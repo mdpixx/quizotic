@@ -95,7 +95,7 @@ export default function ParticipantsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#1B2559' }}>
+          <h1 className="text-2xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
             Participants
           </h1>
           <p className="text-sm mt-0.5" style={{ color: '#9CA3AF' }}>
@@ -108,7 +108,7 @@ export default function ParticipantsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
         {[
           { label: 'Unique Participants', value: totalUnique, color: '#7C3AED', icon: '👥' },
-          { label: 'Avg Sessions Each', value: avgSessions, color: '#4361EE', icon: '⚡' },
+          { label: 'Avg Sessions Each', value: avgSessions, color: '#0F1B3D', icon: '⚡' },
           { label: 'Most Active', value: topParticipant?.name?.split(' ')[0] ?? '—', color: '#F59E0B', icon: '🏆' },
         ].map((stat, i) => (
           <motion.div
@@ -138,8 +138,8 @@ export default function ParticipantsPage() {
           placeholder="Search participants..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="text-sm px-4 py-2.5 rounded-xl border outline-none focus:ring-2 focus:ring-blue-200 flex-1 min-w-[180px] max-w-xs"
-          style={{ borderColor: '#E2E8F0', background: '#fff', color: '#1B2559' }}
+          className="text-sm px-4 py-2.5 rounded-xl border outline-none focus:ring-2 focus:ring-yellow-200 flex-1 min-w-[180px] max-w-xs"
+          style={{ borderColor: '#E2E8F0', background: '#fff', color: '#0F1B3D' }}
         />
         <div className="flex gap-1.5">
           {([['sessions', 'Most Active'], ['score', 'Top Score'], ['name', 'A–Z']] as const).map(([val, label]) => (
@@ -147,7 +147,7 @@ export default function ParticipantsPage() {
               key={val}
               onClick={() => setSort(val)}
               className="text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
-              style={{ background: sort === val ? '#4361EE' : '#F0F4FF', color: sort === val ? '#fff' : '#4361EE' }}
+              style={{ background: sort === val ? '#0F1B3D' : '#F3F4F6', color: sort === val ? '#fff' : '#0F1B3D' }}
             >
               {label}
             </button>
@@ -166,12 +166,12 @@ export default function ParticipantsPage() {
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin"
-              style={{ borderColor: '#4361EE', borderTopColor: 'transparent' }} />
+              style={{ borderColor: '#0F1B3D', borderTopColor: 'transparent' }} />
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="text-4xl mb-3">👥</div>
-            <p className="text-base font-bold" style={{ color: '#1B2559' }}>
+            <p className="text-base font-bold" style={{ color: '#0F1B3D' }}>
               {participants.length === 0 ? 'No participants yet' : 'No participants match your search'}
             </p>
             <p className="text-sm mt-1 max-w-xs" style={{ color: '#9CA3AF' }}>
@@ -195,18 +195,18 @@ export default function ParticipantsPage() {
               </thead>
               <tbody>
                 {filtered.map((p, i) => (
-                  <tr key={i} className="border-t hover:bg-blue-50/40 transition-colors"
+                  <tr key={i} className="border-t hover:bg-gray-50/40 transition-colors"
                     style={{ borderColor: '#F1F5F9' }}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div
                           className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0"
-                          style={{ background: '#EEF2FF', color: '#4361EE' }}
+                          style={{ background: '#F3F4F6', color: '#0F1B3D' }}
                         >
                           {p.name.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <p className="font-semibold text-sm" style={{ color: '#1B2559' }}>{p.name}</p>
+                          <p className="font-semibold text-sm" style={{ color: '#0F1B3D' }}>{p.name}</p>
                           {p.archetype && (
                             <p className="text-[10px]" style={{ color: '#9CA3AF' }}>{p.archetype}</p>
                           )}

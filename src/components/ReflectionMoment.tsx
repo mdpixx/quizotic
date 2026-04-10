@@ -57,9 +57,9 @@ export function ReflectionMoment({ gameCode, participantName, questions }: Refle
   ]
 
   return (
-    <div className="mt-6 rounded-2xl overflow-hidden border" style={{ borderColor: '#DBEAFE', background: '#F0F4FF' }}>
+    <div className="mt-6 rounded-2xl overflow-hidden border" style={{ borderColor: 'rgba(15,27,61,0.15)', background: '#F8F9FA' }}>
       {/* Header strip */}
-      <div className="px-5 py-3 flex items-center gap-2" style={{ background: 'var(--color-primary)' }}>
+      <div className="px-5 py-3 flex items-center gap-2" style={{ background: '#0F1B3D' }}>
         <span className="text-white text-lg">🪞</span>
         <p className="text-sm font-black text-white" style={{ fontFamily: 'var(--font-heading)' }}>
           Reflection Moment
@@ -72,14 +72,14 @@ export function ReflectionMoment({ gameCode, participantName, questions }: Refle
           {/* Step: Intro */}
           {step === 'intro' && (
             <motion.div key="intro" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-              <p className="text-sm mb-1 font-bold" style={{ color: '#1B2559' }}>Take a moment to reflect</p>
-              <p className="text-xs mb-4" style={{ color: '#4A5568' }}>
+              <p className="text-sm mb-1 font-bold" style={{ color: '#0F1B3D' }}>Take a moment to reflect</p>
+              <p className="text-xs mb-4" style={{ color: '#374151' }}>
                 Which question made you think the hardest? Your feedback helps you (and your teacher) learn better.
               </p>
               <button
                 onClick={() => setStep('question')}
                 className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
-                style={{ background: 'var(--brand-gradient)' }}
+                style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
               >
                 Start reflection →
               </button>
@@ -89,21 +89,21 @@ export function ReflectionMoment({ gameCode, participantName, questions }: Refle
           {/* Step: Pick question */}
           {step === 'question' && (
             <motion.div key="question" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-              <p className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: 'var(--color-primary)' }}>Step 1 of 3</p>
-              <p className="text-sm font-bold mb-3" style={{ color: '#1B2559' }}>Which question made you think the most?</p>
+              <p className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: '#0F1B3D' }}>Step 1 of 3</p>
+              <p className="text-sm font-bold mb-3" style={{ color: '#0F1B3D' }}>Which question made you think the most?</p>
               <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                 {questions.map(q => (
                   <button
                     key={q.index}
                     onClick={() => { setSelectedQuestion(q); setStep('confidence') }}
-                    className="w-full text-left px-4 py-3 rounded-xl border text-sm transition-all hover:border-blue-400"
+                    className="w-full text-left px-4 py-3 rounded-xl border text-sm transition-all"
                     style={{
                       background: '#fff',
-                      borderColor: '#DBEAFE',
-                      color: '#1B2559',
+                      borderColor: 'rgba(15,27,61,0.15)',
+                      color: '#0F1B3D',
                     }}
                   >
-                    <span className="font-bold mr-2" style={{ color: 'var(--color-primary)' }}>Q{q.index + 1}</span>
+                    <span className="font-bold mr-2" style={{ color: '#0F1B3D' }}>Q{q.index + 1}</span>
                     {q.text.length > 80 ? q.text.slice(0, 80) + '…' : q.text}
                   </button>
                 ))}
@@ -114,8 +114,8 @@ export function ReflectionMoment({ gameCode, participantName, questions }: Refle
           {/* Step: Confidence */}
           {step === 'confidence' && selectedQuestion && (
             <motion.div key="confidence" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-              <p className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: 'var(--color-primary)' }}>Step 2 of 3</p>
-              <p className="text-sm font-bold mb-1" style={{ color: '#1B2559' }}>How confident were you?</p>
+              <p className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: '#0F1B3D' }}>Step 2 of 3</p>
+              <p className="text-sm font-bold mb-1" style={{ color: '#0F1B3D' }}>How confident were you?</p>
               <p className="text-xs mb-3 line-clamp-2" style={{ color: '#6B7280' }}>
                 Q{selectedQuestion.index + 1}: {selectedQuestion.text}
               </p>
@@ -142,8 +142,8 @@ export function ReflectionMoment({ gameCode, participantName, questions }: Refle
           {/* Step: Note */}
           {step === 'note' && (
             <motion.div key="note" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-              <p className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: 'var(--color-primary)' }}>Step 3 of 3</p>
-              <p className="text-sm font-bold mb-1" style={{ color: '#1B2559' }}>Anything you want to revisit?</p>
+              <p className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: '#0F1B3D' }}>Step 3 of 3</p>
+              <p className="text-sm font-bold mb-1" style={{ color: '#0F1B3D' }}>Anything you want to revisit?</p>
               <p className="text-xs mb-3" style={{ color: '#6B7280' }}>Optional — jot a quick note for yourself</p>
               <textarea
                 value={note}
@@ -151,8 +151,8 @@ export function ReflectionMoment({ gameCode, participantName, questions }: Refle
                 placeholder="e.g. I need to review photosynthesis steps…"
                 maxLength={300}
                 rows={3}
-                className="w-full rounded-xl border px-3 py-2 text-sm resize-none outline-none focus:border-blue-400"
-                style={{ borderColor: '#DBEAFE', background: '#fff', color: '#1B2559' }}
+                className="w-full rounded-xl border px-3 py-2 text-sm resize-none outline-none"
+                style={{ borderColor: 'rgba(15,27,61,0.15)', background: '#fff', color: '#0F1B3D' }}
               />
               <p className="text-right text-xs mb-3" style={{ color: '#CBD5E1' }}>{note.length}/300</p>
               {error && <p className="text-red-500 text-xs mb-2">{error}</p>}
@@ -163,8 +163,8 @@ export function ReflectionMoment({ gameCode, participantName, questions }: Refle
                 <button
                   onClick={submit}
                   disabled={submitting}
-                  className="flex-1 py-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-50"
-                  style={{ background: 'var(--brand-gradient)' }}
+                  className="flex-1 py-2 rounded-xl text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
+                  style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
                 >
                   {submitting ? 'Saving…' : 'Submit reflection'}
                 </button>
@@ -176,7 +176,7 @@ export function ReflectionMoment({ gameCode, participantName, questions }: Refle
           {step === 'done' && (
             <motion.div key="done" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-4">
               <div className="text-4xl mb-2">✅</div>
-              <p className="font-black text-base mb-1" style={{ fontFamily: 'var(--font-heading)', color: '#1B2559' }}>
+              <p className="font-black text-base mb-1" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
                 Reflection saved!
               </p>
               <p className="text-xs" style={{ color: '#64748B' }}>

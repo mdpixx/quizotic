@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const QUESTIONS = [
@@ -24,16 +24,15 @@ const QUESTIONS = [
   },
 ]
 
-const OPTION_COLORS = ['#4361EE', '#FF6B6B', '#16A34A', '#F59E0B']
+const OPTION_COLORS = ['#2D3A8C', '#FF8A47', '#5BC0EB', '#E07A5F']
 
-// CSS-only confetti particles
 function CSSConfetti() {
   const particles = Array.from({ length: 30 }, (_, i) => ({
     id: i,
     left: `${Math.random() * 100}%`,
     delay: `${Math.random() * 0.5}s`,
     duration: `${1.5 + Math.random() * 1.5}s`,
-    color: ['#4361EE', '#FF6B6B', '#F59E0B', '#16A34A', '#9333EA', '#FFD166'][i % 6],
+    color: ['#0F1B3D', '#F5E642', '#16A34A', '#2D3A8C', '#FF8A47', '#5BC0EB'][i % 6],
     size: 4 + Math.random() * 6,
     rotation: Math.random() * 360,
   }))
@@ -65,7 +64,6 @@ function CSSConfetti() {
   )
 }
 
-// Floating score points animation
 function FloatingPoints({ points, isCorrect }: { points: number; isCorrect: boolean }) {
   if (!isCorrect) return null
   return (
@@ -74,7 +72,7 @@ function FloatingPoints({ points, isCorrect }: { points: number; isCorrect: bool
       animate={{ opacity: 0, y: -50, scale: 0.5 }}
       transition={{ duration: 1.2, ease: 'easeOut' }}
       className="absolute top-0 right-4 text-lg font-black z-30"
-      style={{ color: '#4361EE' }}
+      style={{ color: '#F5E642' }}
     >
       +{points}
     </motion.div>
@@ -136,7 +134,6 @@ export function InteractiveDemo() {
     setShowConfetti(false)
   }
 
-  const resultEmoji = score >= 300 ? '🎉' : score >= 150 ? '👍' : '💪'
   const resultMessage = score >= 300
     ? "You're a genius!"
     : score >= 150
@@ -153,29 +150,27 @@ export function InteractiveDemo() {
           transition={{ duration: 0.5 }}
           className="text-center mb-12"
         >
-          <p className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: '#F59E0B' }}>Try It Now</p>
-          <h2 className="text-3xl md:text-4xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#1B2559' }}>
+          <p className="text-sm font-bold uppercase tracking-widest mb-3 inline-block px-4 py-1.5 rounded-full" style={{ background: '#F5E642', color: '#0F1B3D' }}>Try It Now</p>
+          <h2 className="text-3xl md:text-4xl font-black mt-4" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
             See How It Feels
           </h2>
-          <p className="text-base mt-3 max-w-md mx-auto" style={{ color: '#4A5568' }}>
+          <p className="text-base mt-3 max-w-md mx-auto" style={{ color: '#374151' }}>
             Answer 3 quick questions. This is exactly what your students experience.
           </p>
         </motion.div>
 
         <div className="max-w-2xl mx-auto">
-          <div className="rounded-3xl overflow-hidden shadow-xl relative" style={{ background: '#FFFBF5', border: '1.5px solid #DBEAFE' }}>
-            {/* Confetti overlay */}
+          <div className="rounded-2xl overflow-hidden shadow-xl relative" style={{ background: '#fff', border: '3px solid #0F1B3D', boxShadow: '6px 6px 0 #0D0D0D' }}>
             {showConfetti && <CSSConfetti />}
 
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-3" style={{ background: '#F0F4FF', borderBottom: '1px solid #DBEAFE' }}>
-              <span className="text-xs font-bold" style={{ color: '#4361EE', fontFamily: 'var(--font-heading)' }}>Mini Quiz Demo</span>
+            <div className="flex items-center justify-between px-6 py-3" style={{ background: '#0F1B3D' }}>
+              <span className="text-xs font-bold" style={{ color: '#F5E642', fontFamily: 'var(--font-heading)' }}>Mini Quiz Demo</span>
               <div className="flex items-center gap-3">
-                <span className="text-xs font-bold" style={{ color: '#1B2559' }}>Score: {score}</span>
+                <span className="text-xs font-bold text-white">Score: {score}</span>
                 {streak > 0 && (
                   <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }}
-                    className="text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: '#FEF3C7', color: '#92400E' }}>
-                    <span style={{ animation: streak > 1 ? 'flame-grow 0.6s ease-in-out infinite' : undefined, display: 'inline-block' }}>🔥</span>
+                    className="text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: '#F5E642', color: '#0F1B3D' }}>
                     {streak}x streak
                   </motion.span>
                 )}
@@ -186,11 +181,10 @@ export function InteractiveDemo() {
             <div className="h-1" style={{ background: '#E2E8F0' }}>
               <motion.div className="h-full"
                 animate={{ width: `${((qIdx + (phase === 'done' ? 1 : 0)) / QUESTIONS.length) * 100}%` }}
-                style={{ background: 'var(--brand-gradient)' }} />
+                style={{ background: '#F5E642' }} />
             </div>
 
             <div className="p-6 md:p-8 relative">
-              {/* Floating points animation */}
               {showFloatingPoints && <FloatingPoints points={lastPoints} isCorrect />}
 
               <AnimatePresence mode="wait">
@@ -202,20 +196,20 @@ export function InteractiveDemo() {
                       transition={{ type: 'spring', stiffness: 300, damping: 15 }}
                       className="text-6xl mb-2"
                     >
-                      {resultEmoji}
+                      {score >= 300 ? '🎉' : score >= 150 ? '👍' : '💪'}
                     </motion.div>
-                    <p className="text-sm font-bold mb-3" style={{ color: '#4A5568' }}>{resultMessage}</p>
-                    <p className="text-3xl font-black mb-1" style={{ color: '#4361EE', fontFamily: 'var(--font-heading)' }}>{score} points</p>
-                    <p className="text-base mb-6" style={{ color: '#4A5568' }}>That&apos;s how it feels for your students.</p>
+                    <p className="text-sm font-bold mb-3" style={{ color: '#374151' }}>{resultMessage}</p>
+                    <p className="text-3xl font-black mb-1" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>{score} points</p>
+                    <p className="text-base mb-6" style={{ color: '#374151' }}>That&apos;s how it feels for your students.</p>
                     <div className="flex gap-3 justify-center">
-                      <button onClick={restart} className="text-sm font-bold px-5 py-2.5 rounded-xl transition-all hover:bg-blue-50" style={{ color: '#4361EE', border: '1.5px solid #4361EE' }}>Try Again</button>
-                      <a href="/host" className="text-sm font-bold px-5 py-2.5 rounded-xl text-white transition-all hover:opacity-90" style={{ background: 'var(--brand-gradient)' }}>Create Your Own</a>
+                      <button onClick={restart} className="text-sm font-bold px-5 py-2.5 rounded-full transition-all" style={{ color: '#0F1B3D', border: '2px solid #0F1B3D' }}>Try Again</button>
+                      <a href="/host" className="text-sm font-bold px-5 py-2.5 rounded-full transition-all hover:opacity-90" style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D', boxShadow: '3px 3px 0 #0D0D0D' }}>Create Your Own</a>
                     </div>
                   </motion.div>
                 ) : (
                   <motion.div key={qIdx} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
                     <p className="text-xs font-bold mb-3" style={{ color: '#9CA3AF' }}>Question {qIdx + 1} of {QUESTIONS.length}</p>
-                    <h3 className="text-xl md:text-2xl font-bold mb-6 leading-snug" style={{ color: '#1B2559' }}>{question.q}</h3>
+                    <h3 className="text-xl md:text-2xl font-bold mb-6 leading-snug" style={{ color: '#0F1B3D' }}>{question.q}</h3>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {question.options.map((opt, i) => {
@@ -223,8 +217,8 @@ export function InteractiveDemo() {
                         const isSelected = selected === i
                         const showResult = selected !== null
                         let bg = '#fff'
-                        let border = '1.5px solid #E2E8F0'
-                        let textColor = '#1B2559'
+                        let border = '2px solid #E2E8F0'
+                        let textColor = '#0F1B3D'
                         if (showResult && isCorrect) { bg = '#F0FDF4'; border = '2px solid #16A34A'; textColor = '#166534' }
                         else if (showResult && isSelected && !isCorrect) { bg = '#FEF2F2'; border = '2px solid #EF4444'; textColor = '#991B1B' }
 
@@ -251,8 +245,8 @@ export function InteractiveDemo() {
                     <AnimatePresence>
                       {showExplanation && (
                         <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                          className="mt-4 rounded-xl px-4 py-3" style={{ background: '#F0F4FF', border: '1px solid #DBEAFE' }}>
-                          <p className="text-xs font-semibold" style={{ color: '#4A5568' }}>💡 {question.explanation}</p>
+                          className="mt-4 rounded-xl px-4 py-3" style={{ background: '#FFFDE6', border: '1.5px solid rgba(245,230,66,0.4)' }}>
+                          <p className="text-xs font-semibold" style={{ color: '#374151' }}>{question.explanation}</p>
                         </motion.div>
                       )}
                     </AnimatePresence>

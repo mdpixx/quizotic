@@ -41,19 +41,21 @@ export default function SignInPage() {
 
   if (emailSent) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#FFFBF5' }}>
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#0F1B3D' }}>
         <div className="max-w-sm w-full text-center">
-          <div className="text-4xl mb-4">📧</div>
-          <h1 className="text-2xl font-black mb-2" style={{ fontFamily: 'var(--font-heading)', color: '#1B2559' }}>
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: '#F5E642', border: '2px solid #0D0D0D' }}>
+            <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M3 8l9 6 9-6" stroke="#0F1B3D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><rect x="2" y="4" width="20" height="16" rx="2" stroke="#0F1B3D" strokeWidth="2"/></svg>
+          </div>
+          <h1 className="text-2xl font-black mb-2" style={{ fontFamily: 'var(--font-heading)', color: '#fff' }}>
             Check your email
           </h1>
-          <p className="text-base mb-6" style={{ color: '#4A5568' }}>
-            We sent a magic link to <strong>{email}</strong>. Click it to sign in.
+          <p className="text-base mb-6" style={{ color: '#94A3B8' }}>
+            We sent a magic link to <strong style={{ color: '#F5E642' }}>{email}</strong>. Click it to sign in.
           </p>
           <button
             onClick={() => { setEmailSent(false); setEmail('') }}
             className="text-sm font-semibold"
-            style={{ color: '#4361EE' }}
+            style={{ color: '#F5E642' }}
           >
             Try a different email
           </button>
@@ -63,23 +65,29 @@ export default function SignInPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#FFFBF5' }}>
+    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#0F1B3D' }}>
       <div className="max-w-sm w-full">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-black mb-2" style={{ fontFamily: 'var(--font-heading)', color: '#1B2559' }}>
+          <div className="flex items-center justify-center gap-2 mb-6">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center font-black text-sm" style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>Q</div>
+            <span className="text-xl font-black tracking-tight" style={{ fontFamily: 'var(--font-heading)', color: '#fff' }}>
+              Quizo<span style={{ color: '#F5E642' }}>tic</span>
+            </span>
+          </div>
+          <h1 className="text-3xl font-black mb-2" style={{ fontFamily: 'var(--font-heading)', color: '#fff' }}>
             Welcome to Quizotic
           </h1>
-          <p className="text-base" style={{ color: '#4A5568' }}>
+          <p className="text-base" style={{ color: '#94A3B8' }}>
             Sign in to create and host quizzes
           </p>
         </div>
 
-        <div className="rounded-2xl p-6" style={{ background: '#fff', border: '1.5px solid #E2E8F0' }}>
+        <div className="rounded-2xl p-6" style={{ background: '#fff', border: '2px solid rgba(15,27,61,0.1)' }}>
           <button
             onClick={handleGoogleSignIn}
             disabled={loading}
             className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all hover:shadow-md disabled:opacity-50"
-            style={{ background: '#fff', border: '1.5px solid #E2E8F0', color: '#1B2559' }}
+            style={{ background: '#fff', border: '1.5px solid #E2E8F0', color: '#0F1B3D' }}
           >
             <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
               <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
@@ -103,14 +111,14 @@ export default function SignInPage() {
               onChange={e => setEmail(e.target.value)}
               placeholder="your@email.com"
               required
-              className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all focus:ring-2 focus:ring-blue-200"
-              style={{ background: '#F8FAFC', border: '1.5px solid #E2E8F0', color: '#1B2559' }}
+              className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all focus:ring-2"
+              style={{ background: '#F8FAFC', border: '1.5px solid #E2E8F0', color: '#0F1B3D', '--tw-ring-color': 'rgba(245,230,66,0.4)' } as React.CSSProperties}
             />
             <button
               type="submit"
               disabled={loading || !email.trim()}
-              className="w-full mt-3 px-4 py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg, #FF6B6B, #4361EE)' }}
+              className="w-full mt-3 px-4 py-3 rounded-full text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
+              style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
             >
               {loading ? 'Sending...' : 'Send Magic Link'}
             </button>
@@ -123,7 +131,7 @@ export default function SignInPage() {
             {error}
           </div>
         )}
-        <p className="text-center text-xs mt-4" style={{ color: '#9CA3AF' }}>
+        <p className="text-center text-xs mt-4" style={{ color: '#64748B' }}>
           No password needed. We&apos;ll email you a secure link.
         </p>
       </div>

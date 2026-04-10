@@ -1,145 +1,101 @@
 'use client'
 
-import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import Link from 'next/link'
 
-const fadeUp = {
-  initial: { opacity: 0, y: 28 },
-  whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true, margin: '-60px' },
-  transition: { duration: 0.5 },
-}
-
-const modes = [
-  {
-    id: 'quiz',
-    label: 'I want to test knowledge',
-    icon: '🎯',
-    title: 'Live Quizzes',
-    color: '#4361EE',
-    bg: '#F0F4FF',
-    features: [
-      { label: 'Best for', value: 'Testing, revision, assessment, certification' },
-      { label: 'Scoring', value: 'Points, leaderboards, streaks, speed bonus' },
-      { label: 'Question types', value: 'MCQ, True/False, Case Study, Ranking, Open-ended' },
-      { label: 'Use when', value: '"Did they learn it?" — measure comprehension after teaching' },
-      { label: 'Example', value: 'End-of-chapter revision, compliance assessment, entrance exam prep' },
-    ],
-    examples: ['Chapter revision test', 'Compliance training quiz', 'Science Olympiad practice', 'Weekly concept check'],
-  },
-  {
-    id: 'presentation',
-    label: 'I want to engage my audience',
-    icon: '📊',
-    title: 'Interactive Presentations',
-    color: '#FF6B6B',
-    bg: '#FFF5F5',
-    features: [
-      { label: 'Best for', value: 'Gathering opinions, brainstorming, feedback, icebreakers' },
-      { label: 'Scoring', value: 'No scores — participation only, safe space for opinions' },
-      { label: 'Slide types', value: 'Polls, Word Cloud, Rating, Pinpoint, Q&A, Emoji Pulse' },
-      { label: 'Use when', value: '"What do they think?" — collect input during a session' },
-      { label: 'Example', value: 'Conference feedback, team retrospective, class brainstorming' },
-    ],
-    examples: ['Conference live poll', 'Team retrospective', 'Brainstorming session', 'Event audience check-in'],
-  },
+const QUIZ_FEATURES = [
+  'MCQ, True/False, Word Cloud, Open-ended & more',
+  'Live leaderboard with real-time scoring',
+  'Timer-based engagement for active recall',
+  'Instant response heatmaps',
+  'Confidence tracking per question',
 ]
 
+const PRESENT_FEATURES = [
+  '19 interactive slide types',
+  'Embed live polls inside presentations',
+  'Audience reactions in real time',
+  'Branching slides based on responses',
+  'Export & share session recordings',
+]
+
+const PILL_COLORS = ['#2D3A8C', '#FF8A47', '#5BC0EB', '#E07A5F']
+
 export function QuizVsPresentation() {
-  const [active, setActive] = useState<'quiz' | 'presentation'>('quiz')
-  const mode = modes.find(m => m.id === active)!
-
   return (
-    <section className="py-20 md:py-28" style={{ background: '#fff' }}>
-      <div className="max-w-[1280px] mx-auto px-6 md:px-12">
-        <motion.div {...fadeUp} className="text-center mb-12">
-          <p className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: '#FF6B6B' }}>
-            Quiz or Presentation?
-          </p>
-          <h2 className="text-3xl md:text-4xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#1B2559' }}>
-            Which One Do You Need?
-          </h2>
-          <p className="mt-3 text-base max-w-lg mx-auto" style={{ color: '#4A5568' }}>
-            Not sure? Here&apos;s a quick guide to help you choose the right tool.
-          </p>
-        </motion.div>
+    <section id="features" style={{ padding: '120px 24px', background: '#fff' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+        {/* Heading */}
+        <h2 style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 'clamp(32px, 4vw, 48px)', color: '#0F1B3D', letterSpacing: '-0.03em', textAlign: 'center', marginBottom: 16 }}>
+          Two superpowers.{' '}
+          <span style={{ background: '#F5E642', padding: '2px 8px', borderRadius: 6 }}>One platform.</span>
+        </h2>
+        <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 18, color: '#555', textAlign: 'center', maxWidth: 600, margin: '0 auto 56px', lineHeight: 1.6 }}>
+          Quizotic gives you live quiz engagement AND interactive presentation power — use them together or independently.
+        </p>
 
-        {/* Toggle tabs */}
-        <motion.div {...fadeUp} className="flex justify-center mb-10">
-          <div className="inline-flex rounded-2xl p-1" style={{ background: '#F1F5F9' }}>
-            {modes.map(m => (
-              <button
-                key={m.id}
-                onClick={() => setActive(m.id as 'quiz' | 'presentation')}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all"
-                style={{
-                  background: active === m.id ? m.color : 'transparent',
-                  color: active === m.id ? '#fff' : '#64748B',
-                }}
-              >
-                <span>{m.icon}</span>
-                <span className="hidden sm:inline">{m.label}</span>
-                <span className="sm:hidden">{m.title}</span>
-              </button>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Content area */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={active}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ duration: 0.25 }}
-          >
-            <div className="grid md:grid-cols-3 gap-8 items-start">
-              {/* Feature details */}
-              <div className="md:col-span-2 rounded-2xl p-6 md:p-8" style={{ background: mode.bg, border: `1.5px solid ${mode.color}20` }}>
-                <h3 className="text-2xl font-black mb-6 flex items-center gap-3" style={{ fontFamily: 'var(--font-heading)', color: '#1B2559' }}>
-                  <span>{mode.icon}</span> {mode.title}
-                </h3>
-                <div className="space-y-4">
-                  {mode.features.map(f => (
-                    <div key={f.label} className="flex gap-3">
-                      <span className="text-xs font-bold uppercase tracking-wide mt-0.5 w-28 flex-shrink-0" style={{ color: mode.color }}>
-                        {f.label}
-                      </span>
-                      <p className="text-sm leading-relaxed" style={{ color: '#4A5568' }}>{f.value}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Example use cases */}
-                <div className="mt-6 pt-6" style={{ borderTop: `1px solid ${mode.color}20` }}>
-                  <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: mode.color }}>Popular use cases</p>
-                  <div className="flex flex-wrap gap-2">
-                    {mode.examples.map(ex => (
-                      <span key={ex} className="text-xs font-semibold px-3 py-1.5 rounded-full" style={{ background: '#fff', color: mode.color, border: `1px solid ${mode.color}30` }}>
-                        {ex}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+        {/* Cards grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28 }} className="two-powers-grid">
+          {/* Quiz Mode card */}
+          <div style={{ border: '2px solid #E5E7EB', borderRadius: 20, padding: '36px 32px', background: '#fff', display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div style={{ display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 12, color: '#2D3A8C', letterSpacing: '0.1em', border: '2px solid #2D3A8C', borderRadius: 20, padding: '5px 14px', textTransform: 'uppercase', alignSelf: 'flex-start' }}>
+              Quiz Mode
+            </div>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {QUIZ_FEATURES.map(f => (
+                <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 15, color: '#374151', lineHeight: 1.5 }}>
+                  <span style={{ color: '#2D3A8C', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>
+                  {f}
+                </li>
+              ))}
+            </ul>
+            {/* Mini quiz preview */}
+            <div style={{ background: '#F8F9FA', borderRadius: 12, padding: '16px' }}>
+              <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 13, color: '#0F1B3D', marginBottom: 10 }}>
+                Which element has symbol &apos;Fe&apos;?
               </div>
-
-              {/* Pro tip card */}
-              <div className="flex flex-col items-center justify-center">
-                <div className="rounded-2xl p-5 w-full" style={{ background: active === 'quiz' ? '#F0F4FF' : '#FFF5F5', border: `1.5px solid ${mode.color}20` }}>
-                  <div className="text-3xl mb-3 text-center">💡</div>
-                  <p className="text-sm font-bold mb-2 text-center" style={{ color: '#1B2559' }}>Pro Tip</p>
-                  <p className="text-sm leading-relaxed text-center" style={{ color: '#4A5568' }}>
-                    {active === 'quiz'
-                      ? 'Start with a quiz — students love the competition! Streaks and leaderboards drive repeat engagement.'
-                      : 'Use word clouds as icebreakers — they get everyone involved instantly. Great for large audiences.'}
-                  </p>
-                </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {['A · Iron', 'B · Gold', 'C · Silver', 'D · Zinc'].map((opt, i) => (
+                  <span key={i} style={{ background: PILL_COLORS[i], color: '#fff', fontSize: 12, fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontWeight: 600, padding: '6px 14px', borderRadius: 20 }}>
+                    {opt}
+                  </span>
+                ))}
               </div>
             </div>
-          </motion.div>
-        </AnimatePresence>
+          </div>
+
+          {/* Present Mode card */}
+          <div style={{ border: '2px solid #0F1B3D', borderRadius: 20, padding: '36px 32px', background: '#0F1B3D', display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div style={{ display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 12, color: '#F5E642', letterSpacing: '0.1em', border: '2px solid rgba(245,230,66,0.6)', borderRadius: 20, padding: '5px 14px', textTransform: 'uppercase', alignSelf: 'flex-start' }}>
+              Present Mode
+            </div>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {PRESENT_FEATURES.map(f => (
+                <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 15, color: 'rgba(255,255,255,0.85)', lineHeight: 1.5 }}>
+                  <span style={{ color: '#F5E642', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>
+                  {f}
+                </li>
+              ))}
+            </ul>
+            {/* Mini bar chart preview */}
+            <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: '16px' }}>
+              <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 13, color: '#fff', marginBottom: 12 }}>
+                Q3 Student Performance
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 72 }}>
+                {[[80, '#2D3A8C'], [55, '#FF8A47'], [90, '#5BC0EB'], [45, '#E07A5F'], [70, '#16A34A']].map(([h, c], i) => (
+                  <div key={i} style={{ flex: 1, background: c as string, height: `${h}%`, borderRadius: '4px 4px 0 0', opacity: 0.9 }} />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .two-powers-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </section>
   )
 }

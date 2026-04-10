@@ -8,7 +8,7 @@ import { saveQuiz } from '@/lib/quiz-storage'
 import type { Quiz } from '@/lib/quiz-types'
 
 const AUDIENCE_COLORS: Record<TemplateAudience, { bg: string; text: string; border: string }> = {
-  Schools:   { bg: '#EEF2FF', text: '#4338CA', border: '#C7D2FE' },
+  Schools:   { bg: '#F3F4F6', text: '#4338CA', border: '#C7D2FE' },
   Corporate: { bg: '#F0FDF4', text: '#15803D', border: '#BBF7D0' },
   Both:      { bg: '#FFF7ED', text: '#C2410C', border: '#FED7AA' },
 }
@@ -45,7 +45,7 @@ export default function TemplatesPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
+    <div className="min-h-screen" style={{ background: '#F8F9FA' }}>
 
       {/* Header */}
       <div className="border-b" style={{ borderColor: '#DBEAFE', background: '#fff' }}>
@@ -63,7 +63,7 @@ export default function TemplatesPage() {
           </div>
           <Link href="/host/create"
             className="text-sm font-bold px-4 py-2 rounded-xl transition-all hover:opacity-90"
-            style={{ background: 'var(--brand-gradient)', color: '#fff', fontFamily: 'var(--font-heading)' }}>
+            style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}>
             + Blank Quiz
           </Link>
         </div>
@@ -86,9 +86,9 @@ export default function TemplatesPage() {
               onClick={() => setFilter(f)}
               className="px-4 py-1.5 rounded-full text-sm font-bold border-2 transition-all"
               style={{
-                background: filter === f ? '#4361EE' : '#fff',
+                background: filter === f ? '#0F1B3D' : '#fff',
                 color: filter === f ? '#fff' : '#6B7280',
-                borderColor: filter === f ? '#4361EE' : '#DBEAFE',
+                borderColor: filter === f ? '#0F1B3D' : '#DBEAFE',
               }}
             >
               {f}
@@ -140,9 +140,9 @@ export default function TemplatesPage() {
                   {/* Question preview */}
                   <div className="space-y-2">
                     {previewQs.map((q, i) => (
-                      <div key={i} className="rounded-lg px-3 py-2" style={{ background: '#F0F4FF' }}>
+                      <div key={i} className="rounded-lg px-3 py-2" style={{ background: '#F3F4F6' }}>
                         <p className="text-xs font-medium leading-snug" style={{ color: '#4B5563' }}>
-                          <span className="font-bold" style={{ color: '#4361EE' }}>Q{i + 1}.</span>{' '}
+                          <span className="font-bold" style={{ color: '#0F1B3D' }}>Q{i + 1}.</span>{' '}
                           {q.text.length > 72 ? q.text.slice(0, 72) + '…' : q.text}
                         </p>
                       </div>
@@ -168,7 +168,7 @@ export default function TemplatesPage() {
                     onClick={() => useTemplate(template.id)}
                     disabled={isLoading}
                     className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
-                    style={{ background: 'var(--brand-gradient)', color: '#fff', fontFamily: 'var(--font-heading)' }}
+                    style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
                   >
                     {isLoading ? 'Loading…' : 'Use →'}
                   </button>
@@ -206,7 +206,7 @@ export default function TemplatesPage() {
               {previewTemplate.quiz.questions.map((q, i) => (
                 <div key={i} className="rounded-xl p-4 border" style={{ borderColor: '#DBEAFE' }}>
                   <p className="text-sm font-semibold mb-2" style={{ color: '#1E1B4B' }}>
-                    <span style={{ color: '#4361EE' }}>Q{i + 1}.</span> {q.text}
+                    <span style={{ color: '#0F1B3D' }}>Q{i + 1}.</span> {q.text}
                   </p>
                   {q.options && (
                     <div className="grid grid-cols-2 gap-1.5">
@@ -216,7 +216,7 @@ export default function TemplatesPage() {
                         return (
                           <div key={j} className="text-xs rounded-lg px-2.5 py-1.5 flex items-center gap-1.5"
                             style={{
-                              background: isCorrect ? '#DCFCE7' : '#F0F4FF',
+                              background: isCorrect ? '#DCFCE7' : '#F3F4F6',
                               color: isCorrect ? '#16A34A' : '#4B5563',
                               fontWeight: isCorrect ? 700 : 400,
                             }}>
@@ -228,7 +228,7 @@ export default function TemplatesPage() {
                     </div>
                   )}
                   <div className="flex items-center gap-2 mt-2">
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#F0F4FF', color: '#4361EE' }}>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#F3F4F6', color: '#0F1B3D' }}>
                       {q.type}
                     </span>
                     <span className="text-[10px]" style={{ color: '#9CA3AF' }}>{q.timerSeconds}s · {q.points}pts</span>
@@ -240,7 +240,7 @@ export default function TemplatesPage() {
               <button
                 onClick={() => { setPreviewId(null); useTemplate(previewTemplate.id) }}
                 className="w-full py-3 rounded-xl text-sm font-bold transition-all hover:opacity-90"
-                style={{ background: 'var(--brand-gradient)', color: '#fff', fontFamily: 'var(--font-heading)' }}
+                style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
               >
                 Use This Template →
               </button>

@@ -16,7 +16,7 @@ export default async function Image() {
           flexDirection: 'column',
           justifyContent: 'center',
           alignItems: 'center',
-          background: 'linear-gradient(135deg, #1B2559 0%, #0F1629 40%, #1a1040 100%)',
+          background: '#0F1B3D',
           fontFamily: 'system-ui, -apple-system, sans-serif',
           position: 'relative',
           overflow: 'hidden',
@@ -31,7 +31,7 @@ export default async function Image() {
             width: 400,
             height: 400,
             borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(67,97,238,0.3) 0%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(245,230,66,0.15) 0%, transparent 70%)',
           }}
         />
         <div
@@ -42,7 +42,7 @@ export default async function Image() {
             width: 500,
             height: 500,
             borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(255,107,107,0.2) 0%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(245,230,66,0.1) 0%, transparent 70%)',
           }}
         />
 
@@ -53,11 +53,11 @@ export default async function Image() {
               width: 72,
               height: 72,
               borderRadius: 16,
-              background: 'linear-gradient(135deg, #FF6B6B, #4361EE)',
+              background: '#F5E642',
+              color: '#0D0D0D',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'white',
               fontSize: 40,
               fontWeight: 900,
             }}
@@ -68,7 +68,7 @@ export default async function Image() {
             <span style={{ fontSize: 56, fontWeight: 900, color: '#FFFFFF', letterSpacing: '-1px' }}>
               Quizo
             </span>
-            <span style={{ fontSize: 56, fontWeight: 900, color: '#6B8AFF', letterSpacing: '-1px' }}>
+            <span style={{ fontSize: 56, fontWeight: 900, color: '#F5E642', letterSpacing: '-1px' }}>
               tic
             </span>
             <span style={{ fontSize: 18, fontWeight: 700, color: '#22C55E', marginLeft: 4, marginTop: -20 }}>
@@ -94,10 +94,10 @@ export default async function Image() {
         {/* Feature pills */}
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center', maxWidth: 900 }}>
           {[
-            { text: '9 Quiz Types', color: '#4361EE' },
-            { text: 'AI-Powered', color: '#7C3AED' },
-            { text: '18 Slide Types', color: '#0891B2' },
-            { text: 'Real-Time', color: '#FF6B6B' },
+            { text: '9 Quiz Types', color: '#F5E642' },
+            { text: 'AI-Powered', color: '#F5E642' },
+            { text: '18 Slide Types', color: '#5BC0EB' },
+            { text: 'Real-Time', color: '#FF8A47' },
             { text: '50 Free Participants', color: '#16A34A' },
             { text: 'INR Billing', color: '#EA580C' },
           ].map((pill) => (
@@ -126,17 +126,17 @@ export default async function Image() {
             left: 0,
             right: 0,
             height: 48,
-            background: 'linear-gradient(135deg, #FF6B6B, #4361EE)',
+            background: '#F5E642',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             gap: 8,
           }}
         >
-          <span style={{ color: 'white', fontSize: 18, fontWeight: 700 }}>
+          <span style={{ color: '#0D0D0D', fontSize: 18, fontWeight: 700 }}>
             Start Free at quizotic.live
           </span>
-          <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 18 }}>
+          <span style={{ color: 'rgba(0,0,0,0.5)', fontSize: 18 }}>
             — No app install needed
           </span>
         </div>

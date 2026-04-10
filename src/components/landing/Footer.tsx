@@ -1,56 +1,45 @@
-'use client'
-
 import Link from 'next/link'
+
+const FOOTER_LINKS = [
+  { href: '#features', label: 'Features' },
+  { href: '#methodology', label: 'Methodology' },
+  { href: '#slide-types', label: 'Slide Types' },
+  { href: '#dashboard', label: 'Dashboard' },
+  { href: '/auth/signin', label: 'Sign In' },
+  { href: '/privacy', label: 'Privacy' },
+  { href: '/terms', label: 'Terms' },
+]
 
 export function Footer() {
   return (
-    <footer style={{ background: '#1B2559' }}>
-      <div className="max-w-[1280px] mx-auto px-6 md:px-12 py-12">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
-          {/* Logo + tagline */}
-          <div>
-            <Link href="/" className="flex items-center gap-2.5 mb-2">
-              <div className="w-7 h-7 rounded-md flex items-center justify-center text-xs font-black text-white" style={{ background: 'var(--brand-gradient)' }}>Q</div>
-              <span className="text-lg font-black tracking-tight text-white" style={{ fontFamily: 'var(--font-heading)' }}>
-                Quizo<span style={{ color: '#6B8AFF' }}>tic</span>
-              </span>
-            </Link>
-            <p className="text-sm" style={{ color: '#94A3B8' }}>
-              Live quizzes & interactive presentations for everyone.
-            </p>
-            <a href="mailto:info@quizotic.live" className="text-sm mt-1 inline-block transition-colors hover:text-white" style={{ color: '#94A3B8' }}>
-              info@quizotic.live
-            </a>
-          </div>
-
-          {/* Links */}
-          <div className="flex flex-wrap gap-x-8 gap-y-3">
-            {[
-              { label: 'Host Dashboard', href: '/host' },
-              { label: 'Join a Quiz', href: '/join' },
-              { label: 'Templates', href: '/host/templates' },
-              { label: 'Presentations', href: '/host/present/create' },
-              { label: 'Privacy Policy', href: '/privacy' },
-              { label: 'Terms of Service', href: '/terms' },
-            ].map(link => (
-              <Link key={link.label} href={link.href}
-                className="text-sm font-medium transition-colors hover:text-white"
-                style={{ color: '#94A3B8' }}>
-                {link.label}
-              </Link>
-            ))}
-          </div>
+    <footer style={{ background: '#0F1B3D', borderTop: '2px solid #F5E642', padding: '48px 24px' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+        {/* Wordmark */}
+        <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 24, color: '#F5E642' }}>
+          Quizotic
+          <span style={{ fontWeight: 500, fontSize: 16, color: 'rgba(245,230,66,0.6)', marginLeft: 2 }}>.live</span>
         </div>
 
-        <div className="mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4"
-          style={{ borderTop: '1px solid rgba(148,163,184,0.15)' }}>
-          <p className="text-xs" style={{ color: '#64748B' }}>
-            &copy; {new Date().getFullYear()} Quizotic. All rights reserved.
-          </p>
-          <p className="text-xs" style={{ color: '#64748B' }}>
-            quizotic.live
-          </p>
+        {/* Links */}
+        <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap', justifyContent: 'center' }}>
+          {FOOTER_LINKS.map(l => (
+            l.href.startsWith('#')
+              ? <a key={l.href} href={l.href} style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 14, color: 'rgba(255,255,255,0.65)', textDecoration: 'none', transition: 'color 0.2s' }}
+                  onMouseEnter={e => (e.target as HTMLElement).style.color = '#F5E642'}
+                  onMouseLeave={e => (e.target as HTMLElement).style.color = 'rgba(255,255,255,0.65)'}>{l.label}</a>
+              : <Link key={l.href} href={l.href} style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 14, color: 'rgba(255,255,255,0.65)', textDecoration: 'none' }}>{l.label}</Link>
+          ))}
         </div>
+
+        {/* Science line */}
+        <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 13, color: 'rgba(255,255,255,0.35)', textAlign: 'center', maxWidth: 600, lineHeight: 1.6 }}>
+          Built on Bloom&apos;s Taxonomy, Confidence Grid &amp; Spaced Retrieval — peer-reviewed learning science.
+        </p>
+
+        {/* Copyright */}
+        <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 13, color: 'rgba(255,255,255,0.25)' }}>
+          © 2025 Quizotic · quizotic.live
+        </p>
       </div>
     </footer>
   )

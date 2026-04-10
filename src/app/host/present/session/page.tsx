@@ -30,7 +30,7 @@ const MILESTONES: Milestone[] = [
 ]
 
 const VOTER_EMOJIS = ['🦊','🐯','🐸','🦁','🐼','🐙','🦋','🐝','🦜','🐬']
-const VOTER_COLORS = ['#4361EE','#FF6B6B','#0891B2','#16A34A','#EA580C','#FFD166','#DC2626']
+const VOTER_COLORS = ['#0F1B3D','#FF8A47','#0891B2','#16A34A','#EA580C','#FFD166','#DC2626']
 
 // ─── Web Audio sound engine ───────────────────────────────────────────────────
 
@@ -86,7 +86,7 @@ function PollBar({ label, count, total, color }: { label: string; count: number;
   return (
     <div className="space-y-1.5 relative overflow-visible">
       <div className="flex items-center justify-between">
-        <span className="text-xl font-semibold" style={{ color: 'var(--color-dark)' }}>{label}</span>
+        <span className="text-xl font-semibold" style={{ color: '#0F1B3D' }}>{label}</span>
         <span className="text-xl font-bold tabular-nums" style={{ color }}>{count} <span className="text-base font-normal opacity-60">({pct}%)</span></span>
       </div>
       <div className="h-10 rounded-full overflow-hidden relative" style={{ background: 'rgba(0,0,0,0.06)' }}>
@@ -112,7 +112,7 @@ function PollBar({ label, count, total, color }: { label: string; count: number;
 function WordCloud({ words }: { words: Record<string, number> }) {
   const entries = Object.entries(words).sort((a, b) => b[1] - a[1]).slice(0, 30)
   const max = entries[0]?.[1] ?? 1
-  const colors = ['#4361EE','#FF6B6B','#0891B2','#16A34A','#EA580C','#6B8AFF']
+  const colors = ['#0F1B3D','#FF8A47','#0891B2','#16A34A','#EA580C','#6B8AFF']
   return (
     <div className="flex flex-wrap gap-2 items-center justify-center min-h-[80px]">
       {entries.map(([word, count], i) => {
@@ -203,7 +203,7 @@ function LiveVerticalBars({
               <div style={{
                 fontSize: options.length > 4 ? 11 : 13,
                 fontWeight: 700,
-                color: 'var(--color-dark)',
+                color: '#0F1B3D',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: options.length > 4 ? 'nowrap' : 'normal',
@@ -276,7 +276,7 @@ function WheelSpinner({ names, headingStyle, title }: { names: string[]; heading
                 style={{
                   background: highlightIdx === i
                     ? winner ? '#FACC15' : VOTER_COLORS[i % VOTER_COLORS.length]
-                    : '#F0F4FF',
+                    : '#F3F4F6',
                   color: highlightIdx === i ? '#fff' : '#1E1B4B',
                   transform: highlightIdx === i ? 'scale(1.08)' : 'scale(1)',
                   boxShadow: highlightIdx === i ? '0 4px 16px rgba(0,0,0,0.15)' : 'none',
@@ -294,7 +294,7 @@ function WheelSpinner({ names, headingStyle, title }: { names: string[]; heading
           )}
           <button onClick={spin} disabled={spinning}
             className="w-full py-4 rounded-xl text-lg font-bold transition-all hover:scale-[1.02] disabled:opacity-50"
-            style={{ background: 'var(--brand-gradient)', color: '#fff', fontFamily: 'var(--font-heading)' }}>
+            style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}>
             {spinning ? 'Spinning...' : winner ? 'Spin Again' : 'Spin!'}
           </button>
         </>
@@ -306,7 +306,7 @@ function WheelSpinner({ names, headingStyle, title }: { names: string[]; heading
 // ─── Slide content renderer ───────────────────────────────────────────────────
 
 function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggregate: AggregateData; showResults: boolean }) {
-  const headingStyle: React.CSSProperties = { fontFamily: 'var(--font-heading)', color: 'var(--color-dark)', fontWeight: 900 }
+  const headingStyle: React.CSSProperties = { fontFamily: 'var(--font-heading)', color: '#0F1B3D', fontWeight: 900 }
 
   switch (slide.type) {
     case 'multiple_choice':
@@ -318,7 +318,7 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
         : (slide as { options: string[] }).options
       const barColors = slide.type === 'word_duel'
         ? ['#2563EB', '#DC2626']
-        : ['#4361EE','#FF6B6B','#0891B2','#16A34A','#F59E0B']
+        : ['#0F1B3D','#FF8A47','#0891B2','#16A34A','#F59E0B']
       const counts = aggregate.counts ?? new Array(options.length).fill(0)
 
       return (
@@ -365,16 +365,16 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
           <h2 className="text-4xl leading-snug" style={headingStyle}>
             {slide.question || <span className="opacity-30">Question text...</span>}
           </h2>
-          <div className="flex items-center justify-between text-xl font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+          <div className="flex items-center justify-between text-xl font-semibold" style={{ color: '#9CA3AF' }}>
             <span>{slide.minLabel}</span>
             <span>{slide.maxLabel}</span>
           </div>
           {showResults && aggregate.scores && aggregate.scores.length > 0 && (
             <div className="text-center">
-              <p className="text-5xl font-black" style={{ color: 'var(--color-primary)', fontFamily: 'var(--font-heading)' }}>
+              <p className="text-5xl font-black" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>
                 {(aggregate.scores.reduce((a, b) => a + b, 0) / aggregate.scores.length).toFixed(1)}
               </p>
-              <p className="text-lg" style={{ color: 'var(--color-text-muted)' }}>average rating · {aggregate.total} responses</p>
+              <p className="text-lg" style={{ color: '#6B7280' }}>average rating · {aggregate.total} responses</p>
             </div>
           )}
         </div>
@@ -391,7 +391,7 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
               {slide.emojis.map(em => (
                 <div key={em} className="flex flex-col items-center gap-1">
                   <span className="text-4xl">{em}</span>
-                  <span className="text-lg font-black" style={{ color: 'var(--color-primary)' }}>
+                  <span className="text-lg font-black" style={{ color: '#0F1B3D' }}>
                     {aggregate.emojis?.[em] ?? 0}
                   </span>
                 </div>
@@ -424,16 +424,16 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
           <h2 className="text-4xl leading-snug" style={headingStyle}>
             {slide.question || <span className="opacity-30">Question text...</span>}
           </h2>
-          <div className="flex items-center justify-between text-xl font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+          <div className="flex items-center justify-between text-xl font-semibold" style={{ color: '#9CA3AF' }}>
             <span>0 · {slide.minLabel}</span>
             <span>{slide.maxLabel} · 100</span>
           </div>
           {showResults && aggregate.scores && aggregate.scores.length > 0 && (
             <div className="text-center">
-              <p className="text-5xl font-black" style={{ color: 'var(--color-primary)', fontFamily: 'var(--font-heading)' }}>
+              <p className="text-5xl font-black" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>
                 {Math.round(aggregate.scores.reduce((a, b) => a + b, 0) / aggregate.scores.length)}
               </p>
-              <p className="text-lg" style={{ color: 'var(--color-text-muted)' }}>average · {aggregate.total} responses</p>
+              <p className="text-lg" style={{ color: '#6B7280' }}>average · {aggregate.total} responses</p>
             </div>
           )}
         </div>
@@ -458,7 +458,7 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
           <ul className="space-y-3">
             {slide.bullets.map((b, i) => (
               <li key={i} className="flex items-start gap-3 text-lg" style={{ color: '#1A0A2E' }}>
-                <span className="mt-1.5 w-2 h-2 rounded-full flex-shrink-0" style={{ background: 'var(--color-primary)' }} />
+                <span className="mt-1.5 w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#0F1B3D' }} />
                 {b}
               </li>
             ))}
@@ -473,7 +473,7 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
             &ldquo;{slide.quote}&rdquo;
           </p>
           {slide.attribution && (
-            <p className="text-sm font-semibold" style={{ color: 'var(--color-primary)' }}>{slide.attribution}</p>
+            <p className="text-sm font-semibold" style={{ color: '#0F1B3D' }}>{slide.attribution}</p>
           )}
         </div>
       )
@@ -505,7 +505,7 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
       return (
         <div className="space-y-3">
           <h2 className="text-2xl" style={headingStyle}>{slide.question}</h2>
-          <div className="relative rounded-2xl overflow-hidden border" style={{ aspectRatio: '4/3', background: slide.imageUrl ? '#000' : '#F0F4FF', borderColor: '#DBEAFE' }}>
+          <div className="relative rounded-2xl overflow-hidden border" style={{ aspectRatio: '4/3', background: slide.imageUrl ? '#000' : '#F3F4F6', borderColor: '#DBEAFE' }}>
             {slide.imageUrl && <img src={slide.imageUrl} alt="" className="w-full h-full object-contain pointer-events-none" />}
             {!slide.imageUrl && (
               <div className="absolute inset-0 flex items-center justify-center">
@@ -569,7 +569,7 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
     default:
       return (
         <div className="text-center py-12">
-          <p className="text-lg font-bold" style={{ color: 'var(--color-primary)' }}>{SLIDE_TYPE_META[slide.type].label}</p>
+          <p className="text-lg font-bold" style={{ color: '#0F1B3D' }}>{SLIDE_TYPE_META[slide.type].label}</p>
           <p className="text-sm mt-2" style={{ color: '#9CA3AF' }}>Live view coming soon</p>
         </div>
       )
@@ -821,11 +821,11 @@ export default function PresentSessionPage() {
 
   if (phase === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--color-bg)' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F8F9FA' }}>
         <div className="flex flex-col items-center gap-4">
           <div className="w-10 h-10 rounded-full border-3 border-t-transparent animate-spin"
-            style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }} />
-          <p className="text-sm font-semibold" style={{ color: 'var(--color-text-secondary)', fontFamily: 'var(--font-body)' }}>
+            style={{ borderColor: '#0F1B3D', borderTopColor: 'transparent' }} />
+          <p className="text-sm font-semibold" style={{ color: '#9CA3AF', fontFamily: 'var(--font-body)' }}>
             Loading presentation…
           </p>
         </div>
@@ -835,27 +835,27 @@ export default function PresentSessionPage() {
 
   if (phase === 'error') {
     return (
-      <div className="min-h-screen flex items-center justify-center px-6" style={{ background: 'var(--color-bg)' }}>
-        <div className="max-w-sm w-full rounded-2xl p-8 text-center" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+      <div className="min-h-screen flex items-center justify-center px-6" style={{ background: '#F8F9FA' }}>
+        <div className="max-w-sm w-full rounded-2xl p-8 text-center" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
           <div className="w-14 h-14 rounded-full mx-auto mb-5 flex items-center justify-center text-2xl"
-            style={{ background: 'var(--color-surface-tint)' }}>
+            style={{ background: '#F8F9FA' }}>
             📋
           </div>
-          <h2 className="text-lg font-bold mb-2" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-primary)' }}>
+          <h2 className="text-lg font-bold mb-2" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
             No presentation found
           </h2>
-          <p className="text-sm mb-6" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="text-sm mb-6" style={{ color: '#6B7280' }}>
             Create a new presentation or go back to your dashboard.
           </p>
           <div className="flex flex-col gap-3">
             <button onClick={() => router.push('/host/present/create')}
               className="w-full px-6 py-3 rounded-xl font-bold text-white text-sm transition-all hover:scale-[1.02]"
-              style={{ background: 'var(--brand-gradient)', fontFamily: 'var(--font-heading)' }}>
+              style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}>
               Create Presentation
             </button>
             <button onClick={() => router.push('/host')}
               className="w-full px-6 py-3 rounded-xl font-semibold text-sm transition-colors"
-              style={{ color: 'var(--color-text-secondary)', border: '1.5px solid var(--color-border)' }}>
+              style={{ color: '#9CA3AF', border: '1.5px solid #E5E7EB' }}>
               Back to Dashboard
             </button>
           </div>
@@ -870,18 +870,18 @@ export default function PresentSessionPage() {
     ).length
 
     return (
-      <div className="min-h-screen flex items-center justify-center px-6" style={{ background: 'var(--color-bg)' }}>
+      <div className="min-h-screen flex items-center justify-center px-6" style={{ background: '#F8F9FA' }}>
         <div className="max-w-md w-full">
           {/* Presentation card */}
           <div className="rounded-2xl p-8 text-center" style={{
-            background: 'var(--color-surface)',
-            border: '1px solid var(--color-border)',
+            background: '#fff',
+            border: '1px solid #E5E7EB',
             boxShadow: '0 8px 32px rgba(0,0,0,0.06)',
           }}>
             {/* Icon */}
             <div className="w-16 h-16 rounded-2xl mx-auto mb-6 flex items-center justify-center"
-              style={{ background: 'var(--color-surface-tint)' }}>
-              <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7" style={{ color: 'var(--color-primary)' }}>
+              style={{ background: '#F8F9FA' }}>
+              <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7" style={{ color: '#0F1B3D' }}>
                 <rect x="3" y="3" width="18" height="14" rx="3" stroke="currentColor" strokeWidth="2"/>
                 <path d="M10 10l2 1.5L14 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M8 21h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -890,14 +890,14 @@ export default function PresentSessionPage() {
             </div>
 
             {/* Title */}
-            <h1 className="text-3xl font-bold mb-2" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-primary)' }}>
+            <h1 className="text-3xl font-bold mb-2" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
               {presentation.title}
             </h1>
 
             {/* Slide stats */}
             <div className="flex items-center justify-center gap-4 mb-8">
               <span className="text-base font-medium px-4 py-1.5 rounded-full"
-                style={{ background: 'var(--color-surface-tint)', color: 'var(--color-text-secondary)' }}>
+                style={{ background: '#F8F9FA', color: '#9CA3AF' }}>
                 {presentation.slides.length} slide{presentation.slides.length !== 1 ? 's' : ''}
               </span>
               {interactiveCount > 0 && (
@@ -912,18 +912,19 @@ export default function PresentSessionPage() {
             {!socketConnected && (
               <div className="flex items-center justify-center gap-2 mb-4">
                 <div className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
-                <p className="text-base font-medium" style={{ color: 'var(--color-text-muted)' }}>Establishing connection…</p>
+                <p className="text-base font-medium" style={{ color: '#6B7280' }}>Establishing connection…</p>
               </div>
             )}
 
             {/* CTA */}
             <button onClick={createSession}
               disabled={!socketConnected}
-              className="w-full px-8 py-5 rounded-xl text-xl font-bold text-white transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-8 py-5 rounded-xl text-xl font-bold transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
-                background: 'var(--brand-gradient)',
+                background: '#F5E642',
+                color: '#0D0D0D',
                 fontFamily: 'var(--font-heading)',
-                boxShadow: socketConnected ? '0 4px 20px rgba(67,97,238,0.25)' : 'none',
+                boxShadow: socketConnected ? '0 4px 20px rgba(15,27,61,0.25)' : 'none',
               }}>
               {socketConnected ? 'Start Presentation' : 'Connecting…'}
             </button>
@@ -933,16 +934,16 @@ export default function PresentSessionPage() {
           <div className="flex items-center justify-center gap-4 mt-5">
             <button onClick={() => router.push('/host/present/create?edit=active')}
               className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors hover:opacity-80"
-              style={{ color: 'var(--color-text-secondary)' }}>
+              style={{ color: '#9CA3AF' }}>
               <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4">
                 <path d="M11.5 1.5l3 3-9 9H2.5v-3l9-9z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
               </svg>
               Edit slides
             </button>
-            <span style={{ color: 'var(--color-border)' }}>|</span>
+            <span style={{ color: '#E5E7EB' }}>|</span>
             <button onClick={() => router.push('/host')}
               className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors hover:opacity-80"
-              style={{ color: 'var(--color-text-secondary)' }}>
+              style={{ color: '#9CA3AF' }}>
               <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4">
                 <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
@@ -981,7 +982,7 @@ export default function PresentSessionPage() {
       {milestoneLabel && (
         <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 pointer-events-none">
           <div className="rounded-3xl px-8 py-5 text-center shadow-2xl"
-            style={{ background: 'var(--brand-gradient)', color: '#fff' }}>
+            style={{ background: '#0F1B3D', color: '#fff' }}>
             <p className="text-4xl font-black mb-1" style={{ fontFamily: 'var(--font-heading)' }}>
               {milestoneLabel}
             </p>
@@ -999,7 +1000,7 @@ export default function PresentSessionPage() {
           }} />
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
             <p className="text-5xl font-black text-center" style={{
-              color: 'var(--color-primary)',
+              color: '#0F1B3D',
               textShadow: '0 2px 20px rgba(67,97,238,0.4)',
               animation: 'waveSweep 2s ease-in-out forwards',
             }}>
@@ -1034,7 +1035,7 @@ export default function PresentSessionPage() {
           <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
             {toasts.map(t => (
               <div key={t.id} className="rounded-xl px-4 py-2 text-sm font-bold shadow-lg text-white"
-                style={{ background: 'var(--brand-gradient)' }}>
+                style={{ background: '#0F1B3D' }}>
                 {t.message}
               </div>
             ))}
@@ -1090,55 +1091,55 @@ export default function PresentSessionPage() {
               />
               <defs>
                 <linearGradient id="voteGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#FF6B6B"/>
-                  <stop offset="100%" stopColor="#4361EE"/>
+                  <stop offset="0%" stopColor="#FF8A47"/>
+                  <stop offset="100%" stopColor="#0F1B3D"/>
                 </linearGradient>
               </defs>
             </svg>
             <div className="absolute text-center">
-              <p className="text-3xl font-black" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-primary)' }}>
+              <p className="text-3xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
                 {aggregate.total}
               </p>
-              <p className="text-xs font-semibold" style={{ color: 'var(--color-text-muted)' }}>votes</p>
+              <p className="text-xs font-semibold" style={{ color: '#6B7280' }}>votes</p>
             </div>
           </div>
 
           {/* Participant count */}
-          <p className="text-base font-semibold" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="text-base font-semibold" style={{ color: '#6B7280' }}>
             {participantCount} participant{participantCount !== 1 ? 's' : ''} joined
           </p>
 
           {/* QR code */}
           <div className="flex flex-col items-center gap-2">
-            <div className="rounded-[18px] p-3 bg-white" style={{ border: '1.5px solid var(--color-border)', boxShadow: '0 2px 12px rgba(67,97,238,0.08)' }}>
+            <div className="rounded-[18px] p-3 bg-white" style={{ border: '1.5px solid #E5E7EB', boxShadow: '0 2px 12px rgba(67,97,238,0.08)' }}>
               <QRCode
                 value={`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')}/join?code=${gameCode}&mode=presenter`}
                 size={140}
                 bgColor="#ffffff"
-                fgColor="#4361EE"
+                fgColor="#0F1B3D"
                 style={{ borderRadius: 8 }}
               />
             </div>
-            <p className="text-base font-bold tracking-[0.2em] font-mono" style={{ color: 'var(--color-primary)' }}>
+            <p className="text-base font-bold tracking-[0.2em] font-mono" style={{ color: '#0F1B3D' }}>
               {gameCode}
             </p>
-            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>scan to join</p>
+            <p className="text-xs" style={{ color: '#6B7280' }}>scan to join</p>
           </div>
         </div>
       </div>
 
       {/* ── Presenter controls (below slide — NOT projected) ─────────────────── */}
       <div className="border-t flex items-center justify-between px-6 py-4 flex-shrink-0"
-        style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-tint)' }}>
+        style={{ borderColor: '#E5E7EB', background: '#F8F9FA' }}>
 
         {/* Left: sound toggle */}
         <button
           onClick={() => setSoundOn(s => !s)}
           className="flex items-center gap-2 px-5 py-3 rounded-xl text-base font-bold transition-all"
           style={{
-            background: soundOn ? '#DCFCE7' : 'var(--color-surface)',
-            color: soundOn ? '#16A34A' : 'var(--color-text-muted)',
-            border: `1.5px solid ${soundOn ? '#86EFAC' : 'var(--color-border)'}`,
+            background: soundOn ? '#DCFCE7' : '#fff',
+            color: soundOn ? '#16A34A' : '#6B7280',
+            border: `1.5px solid ${soundOn ? '#86EFAC' : '#E5E7EB'}`,
           }}>
           {soundOn ? '🔊 Sound On' : '🔇 Sound Off'}
         </button>
@@ -1147,15 +1148,15 @@ export default function PresentSessionPage() {
         <div className="flex items-center gap-3">
           <button onClick={prevSlide} disabled={slideIndex <= 0}
             className="px-7 py-3 rounded-xl text-base font-bold border transition-all disabled:opacity-30"
-            style={{ borderColor: 'var(--color-border)', color: 'var(--color-primary)', background: 'var(--color-surface)' }}>
+            style={{ borderColor: '#E5E7EB', color: '#0F1B3D', background: '#fff' }}>
             Prev
           </button>
-          <span className="text-lg font-bold tabular-nums" style={{ color: 'var(--color-text-muted)', minWidth: 56, textAlign: 'center' }}>
+          <span className="text-lg font-bold tabular-nums" style={{ color: '#6B7280', minWidth: 56, textAlign: 'center' }}>
             {slideIndex + 1} / {totalSlides}
           </span>
           <button onClick={nextSlide} disabled={slideIndex >= totalSlides - 1}
             className="px-7 py-3 rounded-xl text-base font-bold transition-all disabled:opacity-30 hover:scale-[1.02]"
-            style={{ background: 'var(--brand-gradient)', color: '#fff', border: 'none', fontFamily: 'var(--font-heading)' }}>
+            style={{ background: '#F5E642', color: '#0D0D0D', border: 'none', fontFamily: 'var(--font-heading)' }}>
             Next
           </button>
         </div>
@@ -1167,9 +1168,9 @@ export default function PresentSessionPage() {
               onClick={() => setShowResults(s => !s)}
               className="px-5 py-3 rounded-xl text-base font-bold transition-all"
               style={{
-                background: showResults ? 'var(--color-surface-tint)' : 'var(--color-surface)',
-                color: showResults ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                border: `1.5px solid ${showResults ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                background: showResults ? '#F8F9FA' : '#fff',
+                color: showResults ? '#0F1B3D' : '#6B7280',
+                border: `1.5px solid ${showResults ? '#0F1B3D' : '#E5E7EB'}`,
               }}>
               {showResults ? 'Hide Results' : 'Show Results'}
             </button>
@@ -1177,9 +1178,9 @@ export default function PresentSessionPage() {
           <button onClick={endSession}
             className="px-5 py-3 rounded-xl text-base font-bold border transition-colors hover:scale-[1.02]"
             style={{
-              borderColor: slideIndex >= totalSlides - 1 ? '#FCA5A5' : 'var(--color-border)',
-              color: slideIndex >= totalSlides - 1 ? '#fff' : 'var(--color-text-muted)',
-              background: slideIndex >= totalSlides - 1 ? '#EF4444' : 'var(--color-surface)',
+              borderColor: slideIndex >= totalSlides - 1 ? '#FCA5A5' : '#E5E7EB',
+              color: slideIndex >= totalSlides - 1 ? '#fff' : '#6B7280',
+              background: slideIndex >= totalSlides - 1 ? '#EF4444' : '#fff',
             }}>
             End Session
           </button>

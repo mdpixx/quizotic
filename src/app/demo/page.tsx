@@ -40,11 +40,11 @@ export default function DemoPage() {
   ]
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
+    <div className="min-h-screen" style={{ background: '#F8F9FA' }}>
       {/* Header */}
       <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
         <div className="max-w-3xl mx-auto px-4 py-3">
-          <h1 className="text-2xl font-black mb-2" style={{ color: 'var(--color-dark)' }}>Gamification Demo</h1>
+          <h1 className="text-2xl font-black mb-2" style={{ color: '#0F1B3D' }}>Gamification Demo</h1>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {sections.map(s => (
               <button
@@ -53,7 +53,7 @@ export default function DemoPage() {
                 className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${
                   section === s.id ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
-                style={section === s.id ? { background: 'var(--color-primary)' } : undefined}
+                style={section === s.id ? { background: '#0F1B3D' } : undefined}
               >
                 {s.label}
               </button>
@@ -79,23 +79,23 @@ function AvatarsDemo() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-black mb-1" style={{ color: 'var(--color-dark)' }}>DiceBear Fun-Emoji Avatars</h2>
+        <h2 className="text-xl font-black mb-1" style={{ color: '#0F1B3D' }}>DiceBear Fun-Emoji Avatars</h2>
         <p className="text-gray-500 text-sm mb-4">Every participant gets a unique avatar from their archetype name. Bundled locally — no external API calls.</p>
       </div>
 
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
         {ARCHETYPES.map(arch => (
           <div key={arch} className="flex flex-col items-center gap-2 bg-white rounded-xl p-4 border border-gray-200">
-            <div className="ring-2 ring-blue-100 rounded-full">
+            <div className="ring-2 rounded-full" style={{ '--tw-ring-color': 'rgba(15,27,61,0.1)' } as React.CSSProperties}>
               <Avatar archetype={arch} size={72} />
             </div>
-            <p className="text-xs font-bold text-center" style={{ color: 'var(--color-dark)' }}>{arch}</p>
+            <p className="text-xs font-bold text-center" style={{ color: '#0F1B3D' }}>{arch}</p>
           </div>
         ))}
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <p className="text-sm text-blue-800">
+      <div className="rounded-xl p-4" style={{ background: 'rgba(15,27,61,0.05)', border: '1px solid rgba(15,27,61,0.1)' }}>
+        <p className="text-sm" style={{ color: '#0F1B3D' }}>
           <span className="font-bold">How it works:</span> Each archetype string is used as a seed for DiceBear&apos;s fun-emoji style.
           Same name always produces the same avatar. All SVGs are generated at runtime from the npm package — no network calls.
         </p>
@@ -112,13 +112,13 @@ function PodiumDemo() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-black" style={{ color: 'var(--color-dark)' }}>Animated Podium</h2>
+          <h2 className="text-xl font-black" style={{ color: '#0F1B3D' }}>Animated Podium</h2>
           <p className="text-gray-500 text-sm">Bars grow with staggered timing. Winner gets crown + confetti.</p>
         </div>
         <button
           onClick={() => setKey(k => k + 1)}
           className="px-4 py-2 rounded-xl font-bold text-sm text-white"
-          style={{ background: 'var(--color-primary)' }}
+          style={{ background: '#0F1B3D' }}
         >
           Replay
         </button>
@@ -161,7 +161,7 @@ function CountdownDemo() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-black" style={{ color: 'var(--color-dark)' }}>Countdown Timer + Tick Sound</h2>
+        <h2 className="text-xl font-black" style={{ color: '#0F1B3D' }}>Countdown Timer + Tick Sound</h2>
         <p className="text-gray-500 text-sm">Tick sound plays during the last 5 seconds. Progress bar turns red.</p>
       </div>
 
@@ -169,16 +169,16 @@ function CountdownDemo() {
         <div className="flex items-center justify-center gap-8">
           <CircularTimer timeLeft={timeLeft} total={10} />
           <div className="text-center">
-            <p className="text-6xl font-black tabular-nums" style={{ color: timeLeft <= 5 ? '#EF4444' : 'var(--color-primary)' }}>{timeLeft}</p>
+            <p className="text-6xl font-black tabular-nums" style={{ color: timeLeft <= 5 ? '#EF4444' : '#0F1B3D' }}>{timeLeft}</p>
             <p className="text-gray-400 text-sm">seconds</p>
           </div>
         </div>
 
         {/* Progress bar */}
-        <div className="h-3 bg-blue-100 rounded-full overflow-hidden">
+        <div className="h-3 rounded-full overflow-hidden" style={{ background: 'rgba(15,27,61,0.1)' }}>
           <div
-            className={`h-full rounded-full transition-all duration-1000 ${timeLeft <= 5 ? 'bg-red-500' : 'bg-gradient-to-r from-blue-600 to-blue-400'}`}
-            style={{ width: `${(timeLeft / 10) * 100}%` }}
+            className={`h-full rounded-full transition-all duration-1000`}
+            style={{ background: timeLeft <= 5 ? '#DC2626' : '#0F1B3D', width: `${(timeLeft / 10) * 100}%` }}
           />
         </div>
 
@@ -186,7 +186,7 @@ function CountdownDemo() {
           onClick={start}
           disabled={running}
           className="w-full py-3 rounded-xl font-bold text-white disabled:opacity-40 transition-all"
-          style={{ background: 'var(--color-primary)' }}
+          style={{ background: '#0F1B3D' }}
         >
           {running ? 'Running...' : 'Start 10s Countdown'}
         </button>
@@ -223,7 +223,7 @@ function ReactionsDemo() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-black" style={{ color: 'var(--color-dark)' }}>Reaction Bursts + Streak</h2>
+        <h2 className="text-xl font-black" style={{ color: '#0F1B3D' }}>Reaction Bursts + Streak</h2>
         <p className="text-gray-500 text-sm">Confetti on correct, red flash on wrong. Streak escalates sounds at 3+.</p>
       </div>
 
@@ -243,7 +243,7 @@ function ReactionsDemo() {
               <div key={i} className="absolute w-3 h-3 rounded-sm" style={{
                 left: `${10 + Math.random() * 80}%`,
                 top: '60%',
-                background: ['#4361EE', '#FF6B6B', '#FFD166', '#16A34A', '#7C3AED', '#F59E0B'][i % 6],
+                background: ['#0F1B3D', '#F5E642', '#FF8A47', '#16A34A', '#2D3A8C', '#5BC0EB'][i % 6],
                 animation: `confettiBurst ${0.8 + Math.random() * 0.8}s ease-out ${Math.random() * 0.2}s forwards`,
               }} />
             ))}
@@ -280,7 +280,7 @@ function ReactionsDemo() {
           {/* Streak badge */}
           {streak >= 2 && (
             <div className="flex items-center gap-2 px-4 py-2 rounded-full" style={{
-              background: streak >= 5 ? 'linear-gradient(135deg, #F59E0B, #EF4444)' : 'linear-gradient(135deg, #4361EE, #7C3AED)',
+              background: streak >= 5 ? 'linear-gradient(135deg, #F5E642, #FF8A47)' : '#0F1B3D',
               animation: 'correctPop 0.4s ease-out',
             }}>
               <span className="text-white font-black text-lg">{streak} Streak!</span>
@@ -346,13 +346,13 @@ function TeamsDemo() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-black" style={{ color: 'var(--color-dark)' }}>Team Mode</h2>
+        <h2 className="text-xl font-black" style={{ color: '#0F1B3D' }}>Team Mode</h2>
         <p className="text-gray-500 text-sm">Participants are auto-assigned to teams (round-robin). Team scores aggregate individual scores.</p>
       </div>
 
       {/* Team Leaderboard */}
       <div className="space-y-3">
-        <h3 className="text-lg font-black" style={{ color: 'var(--color-dark)' }}>Team Standings</h3>
+        <h3 className="text-lg font-black" style={{ color: '#0F1B3D' }}>Team Standings</h3>
         {teamScores.map((team, i) => (
           <div key={team.name} className="flex items-center gap-3 rounded-xl p-4 bg-white border border-gray-200">
             <span className="text-2xl font-black w-8 text-center" style={{ color: team.color }}>
@@ -372,7 +372,7 @@ function TeamsDemo() {
 
       {/* Participant Grid with Team Badges */}
       <div>
-        <h3 className="text-lg font-black mb-3" style={{ color: 'var(--color-dark)' }}>Lobby View</h3>
+        <h3 className="text-lg font-black mb-3" style={{ color: '#0F1B3D' }}>Lobby View</h3>
         <div className="bg-white rounded-2xl border border-gray-200 p-5">
           <div className="flex flex-wrap gap-4">
             {teamAssignments.map(p => (
@@ -392,7 +392,7 @@ function TeamsDemo() {
 
       {/* Participant question header preview */}
       <div>
-        <h3 className="text-lg font-black mb-3" style={{ color: 'var(--color-dark)' }}>Participant Header (during question)</h3>
+        <h3 className="text-lg font-black mb-3" style={{ color: '#0F1B3D' }}>Participant Header (during question)</h3>
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
           <div className="flex items-center gap-2">
             <Avatar archetype="Mystic Owl" size={40} />
@@ -417,7 +417,7 @@ function WaveDemo() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-black" style={{ color: 'var(--color-dark)' }}>Audience Wave</h2>
+        <h2 className="text-xl font-black" style={{ color: '#0F1B3D' }}>Audience Wave</h2>
         <p className="text-gray-500 text-sm">Triggers when 80%+ of participants agree on the same option (min 5 votes).</p>
       </div>
 
@@ -425,13 +425,13 @@ function WaveDemo() {
         {showWave && (
           <>
             <div className="absolute inset-0 pointer-events-none z-20" style={{
-              background: 'linear-gradient(90deg, transparent, rgba(67,97,238,0.15), rgba(124,58,237,0.15), transparent)',
+              background: 'linear-gradient(90deg, transparent, rgba(15,27,61,0.1), rgba(245,230,66,0.15), transparent)',
               animation: 'waveSweep 2s ease-in-out forwards',
             }} />
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30">
               <p className="text-4xl font-black text-center whitespace-nowrap" style={{
-                color: 'var(--color-primary)',
-                textShadow: '0 2px 20px rgba(67,97,238,0.4)',
+                color: '#0F1B3D',
+                textShadow: '0 2px 20px rgba(15,27,61,0.3)',
                 animation: 'waveSweep 2s ease-in-out forwards',
               }}>
                 Audience Wave!
@@ -464,7 +464,7 @@ function WaveDemo() {
 
         <button onClick={triggerWave} disabled={showWave}
           className="w-full py-3 rounded-xl font-bold text-white disabled:opacity-40 transition-all"
-          style={{ background: 'var(--color-primary)' }}>
+          style={{ background: '#0F1B3D' }}>
           {showWave ? 'Waving...' : 'Trigger Audience Wave'}
         </button>
       </div>

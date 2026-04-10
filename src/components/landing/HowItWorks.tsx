@@ -1,160 +1,74 @@
-'use client'
-
-import { useRef } from 'react'
-import { motion, useInView } from 'framer-motion'
-
-const steps = [
-  {
-    num: '1',
-    title: 'Paste any content',
-    desc: 'Drop a URL, paste text, or describe your topic. Our AI reads it and understands the key concepts.',
-    color: '#4361EE',
-    bg: '#F0F4FF',
-    icon: (
-      <svg viewBox="0 0 32 32" fill="none" className="w-7 h-7">
-        <rect x="6" y="4" width="20" height="24" rx="4" fill="#DBEAFE" />
-        <path d="M11 12h10M11 16h6M11 20h8" stroke="#4361EE" strokeWidth="2" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    num: '2',
-    title: 'AI builds your quiz',
-    desc: "In seconds, get a complete quiz with explanations, Bloom's taxonomy tagging, and multiple question types.",
-    color: '#FF6B6B',
-    bg: '#FFF5F5',
-    icon: (
-      <svg viewBox="0 0 32 32" fill="none" className="w-7 h-7">
-        <circle cx="16" cy="16" r="12" fill="#FECACA" />
-        <path d="M11 15l4 4 6-8" stroke="#FF6B6B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    ),
-  },
-  {
-    num: '3',
-    title: 'Host it live!',
-    desc: 'Share the session code or QR. Students join from any device — no app install, no signup required.',
-    color: '#F59E0B',
-    bg: '#FFFBEB',
-    icon: (
-      <svg viewBox="0 0 32 32" fill="none" className="w-7 h-7">
-        <rect x="8" y="4" width="16" height="24" rx="3" fill="#FEF3C7" />
-        <rect x="11" y="10" width="10" height="6" rx="1.5" fill="#FDE68A" />
-        <circle cx="16" cy="22" r="2" fill="#F59E0B" />
-      </svg>
-    ),
-  },
-]
-
-function ConnectingLine() {
-  const ref = useRef<SVGSVGElement>(null)
-  const isInView = useInView(ref, { once: true, margin: '-100px' })
-
-  return (
-    <>
-      {/* Desktop: horizontal straight line */}
-      <svg ref={ref} viewBox="0 0 1280 160" className="hidden md:block absolute inset-0 w-full h-full" preserveAspectRatio="xMidYMid meet">
-        {/* Shadow line */}
-        <line x1="213" y1="48" x2="1067" y2="48" stroke="#E2E8F0" strokeWidth="6" strokeLinecap="round" />
-        {/* Animated gradient line */}
-        <line
-          x1="213" y1="48" x2="1067" y2="48"
-          stroke="url(#lineGradient)"
-          strokeWidth="4"
-          strokeLinecap="round"
-          strokeDasharray="854"
-          strokeDashoffset={isInView ? '0' : '854'}
-          style={{ transition: 'stroke-dashoffset 1.5s ease-in-out' }}
-        />
-        <defs>
-          <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#4361EE" />
-            <stop offset="50%" stopColor="#FF6B6B" />
-            <stop offset="100%" stopColor="#F59E0B" />
-          </linearGradient>
-        </defs>
-      </svg>
-
-      {/* Mobile: vertical straight line */}
-      <svg viewBox="0 0 200 540" className="md:hidden absolute left-0 top-0 w-full h-full" preserveAspectRatio="xMidYMid meet">
-        <line x1="100" y1="50" x2="100" y2="490" stroke="#E2E8F0" strokeWidth="4" strokeLinecap="round" />
-        <line
-          x1="100" y1="50" x2="100" y2="490"
-          stroke="url(#lineGradientMobile)"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeDasharray="440"
-          strokeDashoffset={isInView ? '0' : '440'}
-          style={{ transition: 'stroke-dashoffset 1.5s ease-in-out' }}
-        />
-        <defs>
-          <linearGradient id="lineGradientMobile" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#4361EE" />
-            <stop offset="50%" stopColor="#FF6B6B" />
-            <stop offset="100%" stopColor="#F59E0B" />
-          </linearGradient>
-        </defs>
-      </svg>
-    </>
-  )
-}
-
 export function HowItWorks() {
+  const steps = [
+    {
+      num: '1',
+      title: 'Create your quiz',
+      desc: 'Add questions, set time limits, choose from 19 slide types. Import from a spreadsheet or build from scratch.',
+    },
+    {
+      num: '2',
+      title: 'Share the join link',
+      desc: 'Display the room code on screen or share a QR code. Students join instantly from their devices — no login needed.',
+    },
+    {
+      num: '3',
+      title: 'Learn together',
+      desc: 'Watch responses roll in live. Pause to discuss wrong answers. Celebrate top scorers on the leaderboard.',
+    },
+  ]
+
   return (
-    <section id="how-it-works" className="py-20 md:py-28" style={{ background: '#FFFBF5' }}>
-      <div className="max-w-[1280px] mx-auto px-6 md:px-12">
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-60px' }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-16"
-        >
-          <p className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: '#FF6B6B' }}>
-            Ridiculously Simple
-          </p>
-          <h2 className="text-3xl md:text-4xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#1B2559' }}>
-            Three Steps. That&apos;s It.
-          </h2>
-        </motion.div>
+    <section id="how" style={{ padding: '120px 24px', background: '#F0FDF4' }}>
+      <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+        <h2 style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 'clamp(28px, 3.5vw, 44px)', color: '#0F1B3D', letterSpacing: '-0.03em', textAlign: 'center', marginBottom: 16 }}>
+          Up and running in under a minute
+        </h2>
+        <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 18, color: '#555', textAlign: 'center', maxWidth: 560, margin: '0 auto 72px', lineHeight: 1.6 }}>
+          Three steps. That&apos;s all it takes to transform a boring review session into something learners remember.
+        </p>
 
-        {/* Steps with connecting line */}
-        <div className="relative" style={{ minHeight: 160 }}>
-          <ConnectingLine />
+        {/* Steps row */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', position: 'relative' }} className="steps-row">
+          {steps.map((step, i) => (
+            <div key={i} style={{ flex: 1, textAlign: 'center', padding: '0 24px', position: 'relative' }} className="step-item">
+              {/* Circle */}
+              <div style={{ width: 72, height: 72, background: '#F5E642', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 28, color: '#0F1B3D', margin: '0 auto 20px', border: '3px solid #0D0D0D', boxShadow: '3px 3px 0 #0D0D0D', position: 'relative', zIndex: 1 }}>
+                {step.num}
+              </div>
 
-          <div className="grid md:grid-cols-3 gap-8 relative z-10">
-            {steps.map((step, i) => (
-              <motion.div
-                key={step.num}
-                initial={{ opacity: 0, y: 24 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-40px' }}
-                transition={{ duration: 0.5, delay: i * 0.2 }}
-                className="relative text-center"
-              >
-                {/* Step bubble */}
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-5 relative z-10 shadow-lg"
-                  style={{ background: step.bg, border: `3px solid ${step.color}40` }}>
-                  {step.icon}
-                </div>
+              {/* Dashed connector (not on last step) */}
+              {i < steps.length - 1 && (
+                <svg style={{ position: 'absolute', top: 36, left: 'calc(50% + 48px)', width: 'calc(100% - 96px)', height: 2, zIndex: 0, overflow: 'visible' }} preserveAspectRatio="none" viewBox="0 0 200 2">
+                  <line x1="0" y1="1" x2="200" y2="1" stroke="#0F1B3D" strokeWidth="2" strokeDasharray="8 6" />
+                </svg>
+              )}
 
-                {/* Number badge */}
-                <div className="absolute top-0 right-[calc(50%-44px)] w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white z-20 shadow-md"
-                  style={{ background: step.color }}>
-                  {step.num}
-                </div>
+              <h3 style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 20, color: '#0F1B3D', marginBottom: 10 }}>
+                {step.title}
+              </h3>
+              <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 15, color: '#555', lineHeight: 1.6 }}>
+                {step.desc}
+              </p>
+            </div>
+          ))}
+        </div>
 
-                <h3 className="text-lg font-black mb-2" style={{ fontFamily: 'var(--font-heading)', color: '#1B2559' }}>
-                  {step.title}
-                </h3>
-                <p className="text-base leading-relaxed max-w-xs mx-auto" style={{ color: '#4A5568' }}>
-                  {step.desc}
-                </p>
-              </motion.div>
-            ))}
-          </div>
+        {/* Trust strip */}
+        <div style={{ maxWidth: 700, margin: '48px auto 0', background: '#0F1B3D', borderRadius: 16, padding: '20px 32px', display: 'flex', justifyContent: 'center', gap: 40, flexWrap: 'wrap' }}>
+          {['ℹ No student account needed', '✓ Works on any device', '📋 Free forever plan'].map(item => (
+            <span key={item} style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontWeight: 500, fontSize: 14, color: '#fff', whiteSpace: 'nowrap' }}>
+              {item}
+            </span>
+          ))}
         </div>
       </div>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .steps-row { flex-direction: column !important; gap: 40px; }
+          .step-item svg { display: none !important; }
+        }
+      `}</style>
     </section>
   )
 }

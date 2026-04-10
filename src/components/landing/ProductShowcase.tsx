@@ -1,153 +1,128 @@
-'use client'
+const SESSION_ROWS = [
+  { date: 'Today', name: 'Physics Quiz #4', participants: 38, score: '78%' },
+  { date: 'Apr 7', name: 'History Review', participants: 42, score: '65%' },
+  { date: 'Apr 5', name: 'Bio Midterm Prep', participants: 35, score: '71%' },
+  { date: 'Apr 3', name: 'Math Warm-up', participants: 29, score: '82%' },
+]
 
-import Link from 'next/link'
-import { motion } from 'framer-motion'
-
-const fadeUp = {
-  initial: { opacity: 0, y: 28 },
-  whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true, margin: '-60px' },
-  transition: { duration: 0.5 },
-}
-
-function QuizCard() {
-  return (
-    <div className="rounded-xl p-4 space-y-3" style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }}>
-      <p className="text-xs font-bold" style={{ color: '#1B2559' }}>What is the capital of France?</p>
-      <div className="space-y-1.5">
-        {[
-          { letter: 'A', text: 'London', pct: 12 },
-          { letter: 'B', text: 'Paris', pct: 72, correct: true },
-          { letter: 'C', text: 'Berlin', pct: 8 },
-          { letter: 'D', text: 'Madrid', pct: 8 },
-        ].map(o => (
-          <div key={o.letter} className="flex items-center gap-2">
-            <span className="w-4 h-4 rounded text-[8px] font-bold flex items-center justify-center text-white flex-shrink-0"
-              style={{ background: o.correct ? '#4361EE' : '#CBD5E1' }}>{o.letter}</span>
-            <div className="flex-1 h-5 rounded-md relative overflow-hidden" style={{ background: '#E2E8F0' }}>
-              <div className="h-full rounded-md" style={{ width: `${o.pct}%`, background: o.correct ? '#4361EE' : '#94A3B8' }} />
-            </div>
-            <span className="text-[9px] font-bold w-6 text-right" style={{ color: '#64748B' }}>{o.pct}%</span>
-          </div>
-        ))}
-      </div>
-      <div className="flex items-center gap-2 pt-1">
-        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#FEF3C7', color: '#92400E' }}>🏆 Sarah 840</span>
-        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#F1F5F9', color: '#64748B' }}>🥈 Liam 720</span>
-      </div>
-    </div>
-  )
-}
-
-function PresentationCard() {
-  return (
-    <div className="rounded-xl p-4 space-y-3" style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }}>
-      <p className="text-xs font-bold" style={{ color: '#1B2559' }}>What topic should we cover next?</p>
-      <div className="flex flex-wrap gap-1.5 justify-center py-2">
-        {[
-          { word: 'Machine Learning', size: 16, color: '#4361EE' },
-          { word: 'Robotics', size: 13, color: '#FF6B6B' },
-          { word: 'Climate', size: 14, color: '#16A34A' },
-          { word: 'Space', size: 12, color: '#F59E0B' },
-          { word: 'AI Ethics', size: 15, color: '#0891B2' },
-          { word: 'Quantum', size: 11, color: '#9333EA' },
-          { word: 'Blockchain', size: 10, color: '#EA580C' },
-        ].map(w => (
-          <span key={w.word} className="font-bold" style={{ fontSize: w.size, color: w.color }}>{w.word}</span>
-        ))}
-      </div>
-      <div className="flex items-center gap-2">
-        <span className="text-[9px] font-semibold" style={{ color: '#64748B' }}>How was today?</span>
-        <div className="flex gap-0.5">
-          {[1, 2, 3, 4, 5].map(n => (
-            <span key={n} className="text-sm" style={{ opacity: n <= 4 ? 1 : 0.3 }}>&#9733;</span>
-          ))}
-        </div>
-        <span className="text-[9px] font-bold" style={{ color: '#F59E0B' }}>4.2 avg</span>
-      </div>
-    </div>
-  )
-}
+const KPI = [
+  { label: 'Total Sessions', value: '24', arrow: true },
+  { label: 'Participants', value: '847' },
+  { label: 'Avg Score', value: '72%' },
+  { label: 'Completion', value: '91%' },
+]
 
 export function ProductShowcase() {
   return (
-    <section id="showcase" className="py-20 md:py-28" style={{ background: '#fff' }}>
-      <div className="max-w-[1280px] mx-auto px-6 md:px-12">
-        <motion.div {...fadeUp} className="text-center mb-14">
-          <p className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: '#4361EE' }}>Two Powerful Modes</p>
-          <h2 className="text-3xl md:text-4xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#1B2559' }}>
-            Everything You Need to Engage
-          </h2>
-        </motion.div>
+    <section id="dashboard" style={{ padding: '120px 24px', background: '#F8F9FA' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+        <h2 style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 'clamp(28px, 3.5vw, 48px)', color: '#0F1B3D', letterSpacing: '-0.03em', textAlign: 'center', marginBottom: 16 }}>
+          Your classroom intelligence hub.
+        </h2>
+        <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 18, color: '#555', textAlign: 'center', maxWidth: 600, margin: '0 auto 56px', lineHeight: 1.6 }}>
+          Every session generates actionable data. See where your learners excel, where they struggle, and what to teach next.
+        </p>
 
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* Quiz card */}
-          <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.1 }}
-            className="rounded-3xl p-8 flex flex-col"
-            style={{ background: '#FFFBF5', border: '1.5px solid #DBEAFE' }}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg" style={{ background: '#F0F4FF' }}>🎯</div>
-              <h3 className="text-xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#1B2559' }}>Live Quizzes</h3>
-            </div>
-            <p className="text-base leading-relaxed mb-6" style={{ color: '#4A5568' }}>
-              Speed scoring, AI generation, 9 question types, real-time leaderboards, CSV import, and spaced retrieval follow-ups.
-            </p>
-            <QuizCard />
-            <div className="mt-6 flex flex-wrap gap-2">
-              {['Speed Scoring', 'AI Generation', 'Confidence Grid', '9 Question Types', 'CSV Import'].map(tag => (
-                <span key={tag} className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: '#F0F4FF', color: '#4361EE' }}>{tag}</span>
+        {/* Browser frame */}
+        <div style={{ borderRadius: 16, overflow: 'hidden', boxShadow: '0 12px 48px rgba(0,0,0,0.1)', border: '2px solid #E2E8F0' }}>
+          {/* Title bar */}
+          <div style={{ background: '#1A1A2E', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#FF5F57', display: 'inline-block' }} />
+            <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#FFBD2E', display: 'inline-block' }} />
+            <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#28C840', display: 'inline-block' }} />
+            <span style={{ marginLeft: 8, fontSize: 12, color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>app.quizotic.live/dashboard</span>
+          </div>
+
+          {/* Dashboard content */}
+          <div style={{ background: '#fff', padding: 32 }}>
+            {/* KPI strip */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 32 }} className="kpi-grid">
+              {KPI.map(k => (
+                <div key={k.label} style={{ border: '2px solid #E2E8F0', borderRadius: 12, padding: '20px', textAlign: 'center' }}>
+                  <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 13, color: '#888', marginBottom: 8 }}>{k.label}</div>
+                  <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 32, color: '#0F1B3D' }}>
+                    {k.value}
+                    {k.arrow && <span style={{ fontSize: 16, color: '#16A34A', marginLeft: 4 }}>↑</span>}
+                  </div>
+                </div>
               ))}
             </div>
-            <Link href="/host/create"
-              className="mt-auto pt-6 inline-flex items-center justify-center gap-2 text-sm font-bold px-6 py-3 rounded-xl text-white transition-all hover:opacity-90 hover:scale-[1.02]"
-              style={{ background: 'linear-gradient(135deg, #4361EE, #3A56D4)', fontFamily: 'var(--font-heading)' }}>
-              Create a Quiz
-              <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </Link>
-          </motion.div>
 
-          {/* Presentation card */}
-          <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.2 }}
-            className="rounded-3xl p-8 flex flex-col"
-            style={{ background: '#FFFBF5', border: '1.5px solid #FECACA' }}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg" style={{ background: '#FFF5F5' }}>📊</div>
-              <h3 className="text-xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#1B2559' }}>Interactive Presentations</h3>
+            {/* Body: table + radar */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 32 }} className="dash-body">
+              {/* Session table */}
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 14 }}>
+                  <thead style={{ background: '#F8F9FA' }}>
+                    <tr>
+                      {['Date', 'Session', 'Participants', 'Avg Score', 'Status'].map(h => (
+                        <th key={h} style={{ textAlign: 'left', padding: '10px 12px', fontWeight: 600, color: '#555', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {SESSION_ROWS.map((r, i) => (
+                      <tr key={i} style={{ background: i % 2 === 1 ? '#FAFAFA' : '#fff' }}>
+                        <td style={{ padding: '12px', borderBottom: '1px solid #F1F1F1', whiteSpace: 'nowrap' }}>{r.date}</td>
+                        <td style={{ padding: '12px', borderBottom: '1px solid #F1F1F1' }}>{r.name}</td>
+                        <td style={{ padding: '12px', borderBottom: '1px solid #F1F1F1', textAlign: 'center' }}>{r.participants}</td>
+                        <td style={{ padding: '12px', borderBottom: '1px solid #F1F1F1', textAlign: 'center' }}>{r.score}</td>
+                        <td style={{ padding: '12px', borderBottom: '1px solid #F1F1F1', color: '#16A34A', fontWeight: 600, textAlign: 'center' }}>✓</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Bloom's radar */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <svg viewBox="0 0 260 210" width="260" style={{ maxWidth: '100%' }}>
+                  {/* Outer hexagon */}
+                  <polygon points="130,20 220,55 220,145 130,180 40,145 40,55" fill="none" stroke="#E2E8F0" strokeWidth="1"/>
+                  {/* Mid hexagon */}
+                  <polygon points="130,50 190,72 190,128 130,150 70,128 70,72" fill="none" stroke="#E2E8F0" strokeWidth="0.5" strokeDasharray="3 3"/>
+                  {/* Inner hexagon */}
+                  <polygon points="130,80 160,91 160,109 130,120 100,109 100,91" fill="none" stroke="#E2E8F0" strokeWidth="0.5" strokeDasharray="3 3"/>
+                  {/* Axis lines */}
+                  <line x1="130" y1="20" x2="130" y2="180" stroke="#E2E8F0" strokeWidth="0.5"/>
+                  <line x1="40" y1="55" x2="220" y2="145" stroke="#E2E8F0" strokeWidth="0.5"/>
+                  <line x1="40" y1="145" x2="220" y2="55" stroke="#E2E8F0" strokeWidth="0.5"/>
+                  {/* Data polygon */}
+                  <polygon points="130,28 210,62 195,138 130,165 55,130 52,60" fill="rgba(245,230,66,0.2)" stroke="#F5E642" strokeWidth="2"/>
+                  {/* Recommended outline */}
+                  <polygon points="130,40 195,65 195,135 130,160 65,135 65,65" fill="none" stroke="rgba(15,27,61,0.2)" strokeWidth="1" strokeDasharray="4 3"/>
+                  {/* Axis labels */}
+                  <text x="130" y="12" textAnchor="middle" fontFamily="DM Sans, sans-serif" fontSize="11" fill="#555" fontWeight="500">Remember</text>
+                  <text x="230" y="55" textAnchor="start" fontFamily="DM Sans, sans-serif" fontSize="11" fill="#555" fontWeight="500">Understand</text>
+                  <text x="230" y="150" textAnchor="start" fontFamily="DM Sans, sans-serif" fontSize="11" fill="#555" fontWeight="500">Apply</text>
+                  <text x="130" y="196" textAnchor="middle" fontFamily="DM Sans, sans-serif" fontSize="11" fill="#555" fontWeight="500">Analyse</text>
+                  <text x="28" y="150" textAnchor="end" fontFamily="DM Sans, sans-serif" fontSize="11" fill="#555" fontWeight="500">Evaluate</text>
+                  <text x="28" y="55" textAnchor="end" fontFamily="DM Sans, sans-serif" fontSize="11" fill="#555" fontWeight="500">Create</text>
+                  {/* Data dots */}
+                  {[[130,28],[210,62],[195,138],[130,165],[55,130],[52,60]].map(([cx,cy], i) => (
+                    <circle key={i} cx={cx} cy={cy} r="4" fill="#F5E642" stroke="#0F1B3D" strokeWidth="1.5"/>
+                  ))}
+                </svg>
+                <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 13, color: '#888', textAlign: 'center', marginTop: 8 }}>
+                  Your Bloom&apos;s Coverage vs. Recommended
+                </div>
+              </div>
             </div>
-            <p className="text-base leading-relaxed mb-6" style={{ color: '#4A5568' }}>
-              Live polls, word clouds, ratings, Q&A, emoji pulse, pinpoint, and 18 interactive slide types for any audience.
-            </p>
-            <PresentationCard />
-            <div className="mt-6 flex flex-wrap gap-2">
-              {['Word Cloud', 'Pinpoint', 'Live Race', 'Emoji Pulse', '18 Slide Types'].map(tag => (
-                <span key={tag} className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: '#FFF5F5', color: '#FF6B6B' }}>{tag}</span>
-              ))}
+
+            {/* At-risk strip */}
+            <div style={{ marginTop: 24, background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '12px 20px', fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 14, color: '#991B1B' }}>
+              ⚠ 3 participants scored below 60% in 2 consecutive sessions
             </div>
-            <Link href="/host/present/create"
-              className="mt-auto pt-6 inline-flex items-center justify-center gap-2 text-sm font-bold px-6 py-3 rounded-xl text-white transition-all hover:opacity-90 hover:scale-[1.02]"
-              style={{ background: 'linear-gradient(135deg, #FF6B6B, #E05555)', fontFamily: 'var(--font-heading)' }}>
-              Build a Presentation
-              <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </Link>
-          </motion.div>
+          </div>
         </div>
-
-        {/* Quick comparison helper */}
-        <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.3 }}
-          className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto">
-          {[
-            { emoji: '📝', text: 'Want to test knowledge?', action: 'Use a Quiz', color: '#4361EE' },
-            { emoji: '💡', text: 'Want to gather opinions?', action: 'Use a Presentation', color: '#FF6B6B' },
-            { emoji: '🎯', text: 'Not sure which one?', action: 'Try both — it\'s free!', color: '#F59E0B' },
-          ].map(item => (
-            <div key={item.action} className="text-center rounded-2xl px-5 py-4" style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }}>
-              <span className="text-2xl block mb-2">{item.emoji}</span>
-              <p className="text-sm mb-1" style={{ color: '#4A5568' }}>{item.text}</p>
-              <p className="text-sm font-bold" style={{ color: item.color }}>{item.action}</p>
-            </div>
-          ))}
-        </motion.div>
       </div>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .dash-body { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </section>
   )
 }

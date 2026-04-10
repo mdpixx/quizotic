@@ -27,7 +27,7 @@ interface TypeMix {
 const TYPE_MIX_LABELS: { key: keyof TypeMix; label: string; color: string }[] = [
   { key: 'mcq', label: 'MCQ (4 options)', color: '#2563EB' },
   { key: 'truefalse', label: 'True / False', color: '#16A34A' },
-  { key: 'poll', label: 'Poll', color: '#4361EE' },
+  { key: 'poll', label: 'Poll', color: '#0F1B3D' },
   { key: 'openended', label: 'Open-ended', color: '#D97706' },
 ]
 
@@ -51,12 +51,12 @@ const TYPE_PILLS: { value: QuestionType; label: string; color: string; bg: strin
     ),
   },
   {
-    value: 'poll', label: 'Poll', color: 'var(--color-primary)', bg: '#F0F4FF', tooltip: 'Gather opinions — no right or wrong answer. See live results in a bar chart.',
+    value: 'poll', label: 'Poll', color: '#0F1B3D', bg: '#F3F4F6', tooltip: 'Gather opinions — no right or wrong answer. See live results in a bar chart.',
     svg: (
       <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
-        <rect x="3" y="12" width="3.5" height="5" rx="1" fill="#4361EE" fillOpacity="0.8"/>
-        <rect x="8.25" y="8" width="3.5" height="9" rx="1" fill="#4361EE"/>
-        <rect x="13.5" y="5" width="3.5" height="12" rx="1" fill="#4361EE" fillOpacity="0.5"/>
+        <rect x="3" y="12" width="3.5" height="5" rx="1" fill="#0F1B3D" fillOpacity="0.8"/>
+        <rect x="8.25" y="8" width="3.5" height="9" rx="1" fill="#0F1B3D"/>
+        <rect x="13.5" y="5" width="3.5" height="12" rx="1" fill="#0F1B3D" fillOpacity="0.5"/>
       </svg>
     ),
   },
@@ -70,12 +70,12 @@ const TYPE_PILLS: { value: QuestionType; label: string; color: string; bg: strin
     ),
   },
   {
-    value: 'wordcloud', label: 'Word Cloud', color: '#FF6B6B', bg: '#FFF0FA', tooltip: 'Participants submit words that form a live word cloud. Great for brainstorming.',
+    value: 'wordcloud', label: 'Word Cloud', color: '#FF8A47', bg: '#FFF0FA', tooltip: 'Participants submit words that form a live word cloud. Great for brainstorming.',
     svg: (
       <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
-        <ellipse cx="8" cy="11" rx="5" ry="3.5" fill="#FF6B6B" fillOpacity="0.2" stroke="#FF6B6B" strokeWidth="1.3"/>
-        <ellipse cx="13" cy="9" rx="4" ry="2.8" fill="#FF6B6B" fillOpacity="0.2" stroke="#FF6B6B" strokeWidth="1.3"/>
-        <ellipse cx="10" cy="7" rx="3.5" ry="2.5" fill="#FF6B6B" fillOpacity="0.3" stroke="#FF6B6B" strokeWidth="1.3"/>
+        <ellipse cx="8" cy="11" rx="5" ry="3.5" fill="#FF8A47" fillOpacity="0.2" stroke="#FF8A47" strokeWidth="1.3"/>
+        <ellipse cx="13" cy="9" rx="4" ry="2.8" fill="#FF8A47" fillOpacity="0.2" stroke="#FF8A47" strokeWidth="1.3"/>
+        <ellipse cx="10" cy="7" rx="3.5" ry="2.5" fill="#FF8A47" fillOpacity="0.3" stroke="#FF8A47" strokeWidth="1.3"/>
       </svg>
     ),
   },
@@ -98,7 +98,7 @@ const TYPE_PILLS: { value: QuestionType; label: string; color: string; bg: strin
     ),
   },
   {
-    value: 'ranking', label: 'Ranking', color: '#4F46E5', bg: '#EEF2FF', tooltip: 'Drag-to-rank items in order. Tests prioritisation and sequencing.',
+    value: 'ranking', label: 'Ranking', color: '#4F46E5', bg: '#F3F4F6', tooltip: 'Drag-to-rank items in order. Tests prioritisation and sequencing.',
     svg: (
       <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
         <rect x="3" y="4" width="14" height="3" rx="1.5" fill="#4F46E5"/>
@@ -279,8 +279,8 @@ function QuestionCard({
 
       {/* Scenario fields */}
       {question.type === 'case' && (
-        <div className="space-y-3 rounded-xl p-4" style={{ background: '#F0F4FF', border: '1px solid #DBEAFE' }}>
-          <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--color-primary)' }}>Scenario Block</p>
+        <div className="space-y-3 rounded-xl p-4" style={{ background: '#F3F4F6', border: '1px solid #E5E7EB' }}>
+          <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#0F1B3D' }}>Scenario Block</p>
           <div>
             <label className="text-sm font-medium text-gray-700 mb-1.5 block">Scenario Narrative (what happened / the situation)</label>
             <textarea
@@ -349,7 +349,7 @@ function QuestionCard({
                   }`}
                   style={
                     question.correctAnswer === String(i)
-                      ? { background: 'var(--color-primary)', color: '#fff' }
+                      ? { background: '#0F1B3D', color: '#fff' }
                       : { background: '#e5e7eb', color: '#4b5563' }
                   }
                 >
@@ -430,7 +430,7 @@ function QuestionCard({
               type="button"
               onClick={() => onChange({ ...question, options: [...(question.options ?? []), ''] })}
               className="mt-2 text-sm font-medium flex items-center gap-1 transition-colors"
-              style={{ color: 'var(--color-primary)' }}
+              style={{ color: '#0F1B3D' }}
             >
               + Add item
             </button>
@@ -483,7 +483,7 @@ function QuestionCard({
           type="button"
           onClick={() => setShowAdvanced(s => !s)}
           className="text-sm font-semibold flex items-center gap-2 transition-colors px-2 py-1.5 rounded-lg hover:bg-gray-50"
-          style={{ color: showAdvanced ? 'var(--color-primary)' : '#6b7280' }}
+          style={{ color: showAdvanced ? '#0F1B3D' : '#6b7280' }}
         >
           <svg viewBox="0 0 16 16" fill="none" className={`w-4 h-4 transition-transform ${showAdvanced ? 'rotate-90' : ''}`}>
             <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -945,8 +945,8 @@ function CreateQuizPageInner() {
               <button
                 type="submit"
                 disabled={!modalTitle.trim()}
-                className="w-full py-3 text-white font-bold rounded-xl transition-opacity hover:opacity-90 disabled:opacity-40"
-                style={{ background: 'var(--brand-gradient)' }}
+                className="w-full py-3 font-bold rounded-xl transition-opacity hover:opacity-90 disabled:opacity-40"
+                style={{ background: '#F5E642', color: '#0D0D0D' }}
               >
                 Start building
               </button>
@@ -972,7 +972,7 @@ function CreateQuizPageInner() {
         </button>
         <div className="h-5 w-px bg-gray-200" />
         <span className="text-xl font-bold">
-          Quizo<span style={{ color: 'var(--color-primary)' }}>tic</span><span className="text-[10px] font-bold tracking-wide ml-0.5 animate-pulse" style={{ color: '#22C55E', verticalAlign: 'super' }}>.live</span>
+          Quizo<span style={{ color: '#F5E642' }}>tic</span><span className="text-[10px] font-bold tracking-wide ml-0.5 animate-pulse" style={{ color: '#22C55E', verticalAlign: 'super' }}>.live</span>
           <span className="ml-2 text-xs font-normal text-gray-500 uppercase tracking-widest">Create Quiz</span>
         </span>
       </header>
@@ -1002,8 +1002,8 @@ function CreateQuizPageInner() {
           <div className="border-t border-gray-100 pt-3 mt-3">
             <button
               onClick={addQuestion}
-              className="w-full py-2 rounded-xl text-xs font-bold text-white transition-opacity hover:opacity-90"
-              style={{ background: 'var(--brand-gradient)' }}
+              className="w-full py-2 rounded-xl text-xs font-bold transition-opacity hover:opacity-90"
+              style={{ background: '#F5E642', color: '#0D0D0D' }}
             >
               + Add Question
             </button>
@@ -1040,7 +1040,7 @@ function CreateQuizPageInner() {
                 className="flex-shrink-0 px-3 py-2.5 rounded-lg text-sm font-bold transition-all"
                 style={
                   tab === t.id
-                    ? { background: 'var(--brand-gradient)', color: '#fff', boxShadow: '0 2px 8px rgba(124,58,237,0.35)' }
+                    ? { background: '#0F1B3D', color: '#fff', boxShadow: '0 2px 8px rgba(15,27,61,0.35)' }
                     : { background: 'transparent', color: '#6b7280' }
                 }
               >
@@ -1090,7 +1090,7 @@ function CreateQuizPageInner() {
           {/* ── CSV Import Tab ── */}
           {tab === 'csv' && (
             <div className="space-y-4">
-              <div className="rounded-xl p-5 border" style={{ background: '#F0F4FF', borderColor: '#DBEAFE' }}>
+              <div className="rounded-xl p-5 border" style={{ background: '#F3F4F6', borderColor: '#E5E7EB' }}>
                 <p className="text-sm font-bold mb-2" style={{ color: '#1E1B4B' }}>Import questions from a CSV file</p>
                 <p className="text-xs mb-3" style={{ color: '#6B7280', lineHeight: 1.6 }}>
                   Your CSV should have columns: <strong>question</strong>, <strong>optionA</strong>, <strong>optionB</strong>, <strong>optionC</strong>, <strong>optionD</strong>, <strong>correctAnswer</strong> (A/B/C/D), <strong>timer</strong> (optional: 10/15/20/30/60), <strong>points</strong> (optional: 500/1000/2000).
@@ -1155,7 +1155,7 @@ function CreateQuizPageInner() {
                   />
                 </div>
               </div>
-              <div className="rounded-xl p-4 border" style={{ borderColor: '#DBEAFE' }}>
+              <div className="rounded-xl p-4 border" style={{ borderColor: '#E5E7EB' }}>
                 <p className="text-xs font-bold mb-2" style={{ color: '#374151' }}>Example CSV:</p>
                 <pre className="text-xs font-mono overflow-x-auto p-3 rounded-lg" style={{ background: '#F8FAFC', color: '#374151' }}>
 {`question,optionA,optionB,optionC,optionD,correctAnswer,timer,points
@@ -1215,7 +1215,7 @@ function CreateQuizPageInner() {
                       className="h-full rounded-full transition-all"
                       style={{
                         width: `${Math.min(100, (aiUsage.used / aiUsage.limit) * 100)}%`,
-                        background: aiUsage.used >= aiUsage.limit ? '#EF4444' : aiUsage.used >= aiUsage.limit * 0.7 ? '#F59E0B' : 'var(--color-primary)',
+                        background: aiUsage.used >= aiUsage.limit ? '#EF4444' : aiUsage.used >= aiUsage.limit * 0.7 ? '#F59E0B' : '#0F1B3D',
                       }}
                     />
                   </div>
@@ -1365,7 +1365,7 @@ function CreateQuizPageInner() {
                         onClick={handleManualTranslate}
                         disabled={translating}
                         className="px-4 py-2 rounded-xl text-xs font-bold border-2 transition-colors disabled:opacity-40 whitespace-nowrap"
-                        style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)', background: '#F0F4FF' }}
+                        style={{ borderColor: '#0F1B3D', color: '#0F1B3D', background: '#F3F4F6' }}
                       >
                         {translating ? 'Translating...' : 'Translate'}
                       </button>
@@ -1385,7 +1385,7 @@ function CreateQuizPageInner() {
                     <button
                       onClick={() => router.push('/host/billing')}
                       className="mt-2 text-sm font-bold px-4 py-1.5 rounded-lg text-white"
-                      style={{ background: '#4361EE' }}
+                      style={{ background: '#0F1B3D' }}
                     >
                       View Pro Plans
                     </button>
@@ -1398,8 +1398,8 @@ function CreateQuizPageInner() {
                 <button
                   onClick={handleGenerate}
                   disabled={aiGenerating || !typeMixValid}
-                  className="w-full py-4 text-white font-bold rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity"
-                  style={{ background: 'var(--brand-gradient)' }}
+                  className="w-full py-4 font-bold rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity"
+                  style={{ background: '#F5E642', color: '#0D0D0D' }}
                 >
                   {aiGenerating
                     ? 'Generating...'
@@ -1422,8 +1422,8 @@ function CreateQuizPageInner() {
                       <button
                         onClick={handleSelectiveRegenerate}
                         disabled={aiGenerating}
-                        className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                        style={{ background: 'var(--brand-gradient)' }}
+                        className="px-4 py-2 rounded-xl text-xs font-bold transition-opacity hover:opacity-90 disabled:opacity-50"
+                        style={{ background: '#F5E642', color: '#0D0D0D' }}
                       >
                         {aiGenerating ? 'Regenerating...' : `Regenerate ${deselectedCount} question${deselectedCount > 1 ? 's' : ''}`}
                       </button>
@@ -1458,8 +1458,8 @@ function CreateQuizPageInner() {
             {saveError && <p className="text-red-400 text-sm">{saveError}</p>}
             <button
               onClick={handleSave}
-              className="w-full py-4 text-white font-bold text-lg rounded-xl hover:opacity-90 transition-opacity"
-              style={{ background: 'var(--brand-gradient)' }}
+              className="w-full py-4 font-bold text-lg rounded-xl hover:opacity-90 transition-opacity"
+              style={{ background: '#F5E642', color: '#0D0D0D' }}
             >
               Save Quiz
             </button>
@@ -1474,7 +1474,7 @@ function CreateQuizPageInner() {
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 space-y-5 animate-in fade-in zoom-in-95">
             {/* Success icon */}
             <div className="flex justify-center">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #4361EE, #7C3AED)' }}>
+              <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: '#0F1B3D' }}>
                 <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                 </svg>
@@ -1482,7 +1482,7 @@ function CreateQuizPageInner() {
             </div>
 
             <div className="text-center">
-              <h2 className="text-2xl font-black" style={{ color: 'var(--color-dark)', fontFamily: 'var(--font-heading)' }}>
+              <h2 className="text-2xl font-black" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>
                 Quiz Saved!
               </h2>
               <p className="text-gray-500 mt-1">
@@ -1496,8 +1496,8 @@ function CreateQuizPageInner() {
                 setActiveSession(savedQuiz)
                 router.push('/host/session')
               }}
-              className="w-full py-4 text-white font-bold text-lg rounded-xl hover:opacity-90 transition-opacity"
-              style={{ background: 'var(--brand-gradient)', fontFamily: 'var(--font-heading)' }}
+              className="w-full py-4 font-bold text-lg rounded-xl hover:opacity-90 transition-opacity"
+              style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
             >
               Start Live Session
             </button>
@@ -1518,7 +1518,7 @@ function CreateQuizPageInner() {
                   if (btn) { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy Join Link' }, 1500) }
                 }}
                 className="py-3 text-sm font-semibold rounded-xl border-2 transition-colors"
-                style={{ borderColor: '#DBEAFE', color: 'var(--color-primary)' }}
+                style={{ borderColor: '#E5E7EB', color: '#0F1B3D' }}
               >
                 Copy Join Link
               </button>

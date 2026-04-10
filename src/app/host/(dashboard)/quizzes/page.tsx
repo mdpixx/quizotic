@@ -96,7 +96,7 @@ export default function QuizzesPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#1B2559' }}>
+          <h1 className="text-2xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
             My Quizzes
           </h1>
           <p className="text-sm mt-0.5" style={{ color: '#9CA3AF' }}>
@@ -106,7 +106,7 @@ export default function QuizzesPage() {
         <Link
           href="/host/create"
           className="text-sm font-bold px-5 py-2.5 rounded-xl transition-all hover:scale-[1.02]"
-          style={{ background: 'var(--brand-gradient)', color: '#fff' }}
+          style={{ background: '#F5E642', color: '#0D0D0D' }}
         >
           + Create Quiz
         </Link>
@@ -125,20 +125,20 @@ export default function QuizzesPage() {
           placeholder="Search quizzes by title or subject..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="w-full max-w-md text-sm px-4 py-2.5 rounded-xl border outline-none focus:ring-2 focus:ring-blue-200"
-          style={{ borderColor: '#E2E8F0', background: '#fff', color: '#1B2559' }}
+          className="w-full max-w-md text-sm px-4 py-2.5 rounded-xl border outline-none focus:ring-2 focus:ring-yellow-200"
+          style={{ borderColor: '#E2E8F0', background: '#fff', color: '#0F1B3D' }}
         />
       </div>
 
       {/* Grid */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#4361EE', borderTopColor: 'transparent' }} />
+          <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#0F1B3D', borderTopColor: 'transparent' }} />
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="text-5xl mb-4">🧠</div>
-          <p className="text-lg font-black mb-2" style={{ color: '#1B2559' }}>
+          <p className="text-lg font-black mb-2" style={{ color: '#0F1B3D' }}>
             {quizzes.length === 0 ? 'No quizzes yet' : 'No quizzes match your search'}
           </p>
           <p className="text-sm mb-6" style={{ color: '#9CA3AF' }}>
@@ -148,7 +148,7 @@ export default function QuizzesPage() {
             <Link
               href="/host/create"
               className="text-sm font-bold px-6 py-3 rounded-xl"
-              style={{ background: 'var(--brand-gradient)', color: '#fff' }}
+              style={{ background: '#F5E642', color: '#0D0D0D' }}
             >
               + Create Your First Quiz
             </Link>
@@ -170,11 +170,11 @@ export default function QuizzesPage() {
               >
                 <div className="flex items-start gap-3 mb-3">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-                    style={{ background: '#EEF2FF' }}>
+                    style={{ background: '#F3F4F6' }}>
                     🧠
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-black text-sm leading-snug truncate" style={{ color: '#1B2559' }}>
+                    <h3 className="font-black text-sm leading-snug truncate" style={{ color: '#0F1B3D' }}>
                       {quiz.title}
                     </h3>
                     {quiz.subject && (
@@ -193,14 +193,14 @@ export default function QuizzesPage() {
                     onClick={() => handleStart(quiz.id)}
                     disabled={startingId === quiz.id}
                     className="flex-1 text-xs font-bold py-2 rounded-xl transition-all hover:scale-[1.02] disabled:opacity-60"
-                    style={{ background: 'var(--brand-gradient)', color: '#fff' }}
+                    style={{ background: '#F5E642', color: '#0D0D0D' }}
                   >
                     {startingId === quiz.id ? '⏳ Loading…' : '▶ Start'}
                   </button>
                   <Link
                     href={`/host/create?edit=${quiz.id}`}
-                    className="px-3 py-2 rounded-xl text-xs font-bold transition-all hover:bg-blue-50"
-                    style={{ color: '#4361EE', border: '1.5px solid #C7D7FD' }}
+                    className="px-3 py-2 rounded-xl text-xs font-bold transition-all hover:bg-gray-50"
+                    style={{ color: '#0F1B3D', border: '1.5px solid #D1D5DB' }}
                   >
                     Edit
                   </Link>
@@ -246,7 +246,7 @@ export default function QuizzesPage() {
               style={{ background: '#fff' }}
               onClick={e => e.stopPropagation()}
             >
-              <h3 className="text-lg font-black mb-2" style={{ color: '#1B2559' }}>Delete Quiz?</h3>
+              <h3 className="text-lg font-black mb-2" style={{ color: '#0F1B3D' }}>Delete Quiz?</h3>
               <p className="text-sm mb-5" style={{ color: '#64748B' }}>
                 This will permanently delete &ldquo;{quizzes.find(q => q.id === confirmDelete)?.title}&rdquo;.
                 Session history will not be affected.

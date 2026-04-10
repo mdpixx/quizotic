@@ -123,7 +123,7 @@ interface FeatureGroup {
 const FEATURE_GROUPS: FeatureGroup[] = [
   {
     category: 'Quiz Creation',
-    color: '#F0F4FF',
+    color: '#F3F4F6',
     features: [
       { name: 'Quiz types — MCQ, True/False, Poll, Open-ended', free: true, pro: true },
       { name: 'Quiz types — Word Cloud, Q&A, Rating, Ranking, Case Study', free: false, pro: true },
@@ -183,7 +183,7 @@ const FEATURE_GROUPS: FeatureGroup[] = [
 
 function FeatureValue({ value }: { value: boolean | string }) {
   if (typeof value === 'string') {
-    return <span className="text-sm font-semibold" style={{ color: '#1B2559' }}>{value}</span>
+    return <span className="text-sm font-semibold" style={{ color: '#0F1B3D' }}>{value}</span>
   }
   if (value) {
     return (
@@ -262,9 +262,9 @@ export default function PricingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#FFFBF5' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F8F9FA' }}>
         <div className="flex items-center gap-3">
-          <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#4361EE', borderTopColor: 'transparent' }} />
+          <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#0F1B3D', borderTopColor: 'transparent' }} />
           <p className="text-base font-medium" style={{ color: '#374151' }}>Loading your plan...</p>
         </div>
       </div>
@@ -277,17 +277,17 @@ export default function PricingPage() {
   const yearlyPerMonthLocal = localPrice(Math.round(BASE_PRICES.yearly / 12))
 
   return (
-    <div className="min-h-screen pb-16" style={{ background: '#FFFBF5' }}>
+    <div className="min-h-screen pb-16" style={{ background: '#F8F9FA' }}>
       <script src="https://checkout.razorpay.com/v1/checkout.js" async />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-6">
-        <a href="/host" className="text-base font-semibold mb-6 inline-block" style={{ color: '#4361EE' }}>
+        <a href="/host" className="text-base font-semibold mb-6 inline-block" style={{ color: '#0F1B3D' }}>
           &larr; Back to Dashboard
         </a>
 
         {/* Page header */}
         <div className="text-center mb-10">
-          <h1 className="text-3xl sm:text-4xl font-black mb-3" style={{ fontFamily: 'var(--font-heading)', color: '#1B2559' }}>
+          <h1 className="text-3xl sm:text-4xl font-black mb-3" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
             Plans & Pricing
           </h1>
           <p className="text-lg max-w-2xl mx-auto" style={{ color: '#374151' }}>
@@ -300,10 +300,10 @@ export default function PricingPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <h2 className="text-xl font-bold" style={{ color: '#1B2559' }}>Your Current Plan</h2>
+                <h2 className="text-xl font-bold" style={{ color: '#0F1B3D' }}>Your Current Plan</h2>
                 <span className="text-sm font-bold px-3 py-1 rounded-full" style={{
-                  background: isPro ? '#DCFCE7' : '#F0F4FF',
-                  color: isPro ? '#16A34A' : '#4361EE',
+                  background: isPro ? '#DCFCE7' : '#F3F4F6',
+                  color: isPro ? '#16A34A' : '#0F1B3D',
                 }}>
                   {isPro ? 'Pro' : 'Free'}
                 </span>
@@ -311,11 +311,11 @@ export default function PricingPage() {
 
               {isPro ? (
                 <>
-                  <p className="text-base mb-1" style={{ color: '#1B2559' }}>
+                  <p className="text-base mb-1" style={{ color: '#0F1B3D' }}>
                     You have full access to all Pro features. Thank you for supporting better learning!
                   </p>
                   {billing?.subscription?.currentPeriodEnd && (
-                    <p className="text-base" style={{ color: '#4A5568' }}>
+                    <p className="text-base" style={{ color: '#374151' }}>
                       {billing.subscription.cancelledAt
                         ? `Access until ${new Date(billing.subscription.currentPeriodEnd).toLocaleDateString()}`
                         : `Renews on ${new Date(billing.subscription.currentPeriodEnd).toLocaleDateString()}`
@@ -324,7 +324,7 @@ export default function PricingPage() {
                   )}
                 </>
               ) : (
-                <p className="text-base" style={{ color: '#1B2559' }}>
+                <p className="text-base" style={{ color: '#0F1B3D' }}>
                   You&apos;re on the Free plan — great for getting started! Upgrade to Pro when you&apos;re ready for larger sessions, more AI credits, exports, and advanced learning tools.
                 </p>
               )}
@@ -334,7 +334,7 @@ export default function PricingPage() {
             {aiUsage && (
               <div className="sm:text-right flex-shrink-0">
                 <p className="text-sm font-bold mb-1" style={{ color: '#374151' }}>AI Questions This Month</p>
-                <p className="text-3xl font-black" style={{ color: aiUsage.used >= aiUsage.limit ? '#EF4444' : '#4361EE' }}>
+                <p className="text-3xl font-black" style={{ color: aiUsage.used >= aiUsage.limit ? '#EF4444' : '#0F1B3D' }}>
                   {aiUsage.used}<span className="text-base font-semibold" style={{ color: '#6B7280' }}> / {aiUsage.limit}</span>
                 </p>
                 <div className="w-40 h-2.5 rounded-full mt-2" style={{ background: '#E2E8F0' }}>
@@ -346,7 +346,7 @@ export default function PricingPage() {
                         ? '#EF4444'
                         : aiUsage.used >= aiUsage.limit * 0.8
                           ? '#F59E0B'
-                          : '#4361EE',
+                          : '#0F1B3D',
                     }}
                   />
                 </div>
@@ -374,7 +374,7 @@ export default function PricingPage() {
                     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className="mt-0.5 flex-shrink-0">
                       <path d="M4.5 9L7.5 12L13.5 5.5" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                    <span className="text-base" style={{ color: '#1B2559' }}>{item}</span>
+                    <span className="text-base" style={{ color: '#0F1B3D' }}>{item}</span>
                   </div>
                 ))}
               </div>
@@ -388,9 +388,9 @@ export default function PricingPage() {
           <div className="rounded-2xl flex flex-col" style={{ background: '#fff', border: '1.5px solid #E2E8F0' }}>
             {/* Header */}
             <div className="p-6 sm:p-8 pb-5">
-              <h3 className="text-xl font-bold mb-1" style={{ color: '#1B2559' }}>Free</h3>
-              <p className="text-base mb-4" style={{ color: '#4A5568' }}>For exploring and small groups</p>
-              <p className="text-4xl font-black" style={{ color: '#1B2559' }}>
+              <h3 className="text-xl font-bold mb-1" style={{ color: '#0F1B3D' }}>Free</h3>
+              <p className="text-base mb-4" style={{ color: '#374151' }}>For exploring and small groups</p>
+              <p className="text-4xl font-black" style={{ color: '#0F1B3D' }}>
                 {getCurrencySymbol(userCurrency)} 0<span className="text-base font-medium ml-1" style={{ color: '#6B7280' }}>/forever</span>
               </p>
               <p className="text-sm mt-1" style={{ color: '#6B7280' }}>No credit card needed</p>
@@ -420,7 +420,7 @@ export default function PricingPage() {
                 >
                   <span className="text-sm font-medium" style={{ color: '#6B7280' }}>{row.label}</span>
                   {typeof row.value === 'string' ? (
-                    <span className="text-sm font-bold text-right" style={{ color: '#1B2559' }}>{row.value}</span>
+                    <span className="text-sm font-bold text-right" style={{ color: '#0F1B3D' }}>{row.value}</span>
                   ) : (
                     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className="flex-shrink-0">
                       <path d="M6 6L12 12M12 6L6 12" stroke="#D1D5DB" strokeWidth="2" strokeLinecap="round" />
@@ -433,7 +433,7 @@ export default function PricingPage() {
             {/* CTA */}
             <div className="p-6 sm:p-8 pt-5">
               {!isPro ? (
-                <div className="py-3 rounded-xl text-base font-bold text-center" style={{ background: '#F0F4FF', color: '#4361EE' }}>
+                <div className="py-3 rounded-xl text-base font-bold text-center" style={{ background: '#F3F4F6', color: '#0F1B3D' }}>
                   Your Current Plan
                 </div>
               ) : (
@@ -447,12 +447,12 @@ export default function PricingPage() {
           {/* Pro Plan — highlighted */}
           <div className="rounded-2xl flex flex-col relative" style={{
             background: '#fff',
-            border: '2.5px solid #4361EE',
-            boxShadow: '0 4px 32px rgba(67,97,238,0.15)',
+            border: '2.5px solid #0F1B3D',
+            boxShadow: '0 4px 32px rgba(15,27,61,0.15)',
           }}>
             {/* Top badges */}
             <div className="absolute -top-3.5 left-6 flex items-center gap-2">
-              <span className="px-4 py-1.5 rounded-full text-sm font-bold text-white" style={{ background: 'linear-gradient(135deg, #4361EE, #7C3AED)' }}>
+              <span className="px-4 py-1.5 rounded-full text-sm font-bold text-white" style={{ background: '#0F1B3D' }}>
                 Recommended
               </span>
               <span className="px-3 py-1.5 rounded-full text-xs font-bold text-white" style={{ background: '#16A34A' }}>
@@ -462,15 +462,15 @@ export default function PricingPage() {
 
             {/* Header — same height structure as Free */}
             <div className="p-6 sm:p-8 pb-5 mt-1">
-              <h3 className="text-xl font-bold mb-1" style={{ color: '#1B2559' }}>Pro</h3>
-              <p className="text-base mb-4" style={{ color: '#4A5568' }}>For educators, trainers & serious learners</p>
+              <h3 className="text-xl font-bold mb-1" style={{ color: '#0F1B3D' }}>Pro</h3>
+              <p className="text-base mb-4" style={{ color: '#374151' }}>For educators, trainers & serious learners</p>
               <div>
                 {userCurrency === 'INR' ? (
-                  <p className="text-4xl font-black" style={{ color: '#4361EE' }}>
+                  <p className="text-4xl font-black" style={{ color: '#0F1B3D' }}>
                     Rs 499<span className="text-base font-medium ml-1" style={{ color: '#6B7280' }}>/month</span>
                   </p>
                 ) : (
-                  <p className="text-4xl font-black" style={{ color: '#4361EE' }}>
+                  <p className="text-4xl font-black" style={{ color: '#0F1B3D' }}>
                     {monthlyLocal}<span className="text-base font-medium ml-1" style={{ color: '#6B7280' }}>/month</span>
                   </p>
                 )}
@@ -508,7 +508,7 @@ export default function PricingPage() {
                 >
                   <span className="text-sm font-medium" style={{ color: '#6B7280' }}>{row.label}</span>
                   {typeof row.value === 'string' ? (
-                    <span className="text-sm font-bold text-right" style={{ color: row.highlight ? '#4361EE' : '#1B2559' }}>{row.value}</span>
+                    <span className="text-sm font-bold text-right" style={{ color: row.highlight ? '#0F1B3D' : '#0F1B3D' }}>{row.value}</span>
                   ) : (
                     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className="flex-shrink-0">
                       <circle cx="9" cy="9" r="9" fill="#DCFCE7" />
@@ -529,7 +529,7 @@ export default function PricingPage() {
                 <button
                   disabled
                   className="w-full py-3 rounded-xl text-base font-bold text-white opacity-60 cursor-not-allowed relative overflow-hidden"
-                  style={{ background: 'linear-gradient(135deg, #4361EE, #7C3AED)' }}
+                  style={{ background: '#0F1B3D' }}
                 >
                   Upgrade to Pro
                   <span className="absolute top-1.5 right-3 text-xs font-bold px-2.5 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.25)' }}>
@@ -556,8 +556,8 @@ export default function PricingPage() {
         {/* ─── Feature Comparison Table (grouped, color-coded) ─────────── */}
         <div className="rounded-2xl overflow-hidden mb-10" style={{ background: '#fff', border: '1.5px solid #E2E8F0' }}>
           <div className="p-6 sm:p-8 pb-4">
-            <h2 className="text-2xl font-bold" style={{ color: '#1B2559' }}>Full Feature Comparison</h2>
-            <p className="text-base mt-1" style={{ color: '#4A5568' }}>
+            <h2 className="text-2xl font-bold" style={{ color: '#0F1B3D' }}>Full Feature Comparison</h2>
+            <p className="text-base mt-1" style={{ color: '#374151' }}>
               Every feature Quizotic offers today — quizzes, presentations, and learning tools — at a glance.
             </p>
           </div>
@@ -568,7 +568,7 @@ export default function PricingPage() {
                 <tr style={{ background: '#F1F5F9' }}>
                   <th className="text-left px-6 py-4 text-base font-bold" style={{ color: '#374151', minWidth: 280 }}>Feature</th>
                   <th className="text-center px-5 py-4 text-base font-bold" style={{ color: '#374151', minWidth: 120 }}>Free</th>
-                  <th className="text-center px-5 py-4 text-base font-bold" style={{ color: '#fff', minWidth: 140, background: 'linear-gradient(135deg, #4361EE, #7C3AED)', borderRadius: '12px 12px 0 0' }}>Pro</th>
+                  <th className="text-center px-5 py-4 text-base font-bold" style={{ color: '#fff', minWidth: 140, background: '#0F1B3D', borderRadius: '12px 12px 0 0' }}>Pro</th>
                 </tr>
               </thead>
               <tbody>
@@ -591,9 +591,9 @@ export default function PricingPage() {
                           borderBottom: '1px solid #F1F5F9',
                         }}
                       >
-                        <td className="px-6 py-3.5 text-base font-medium" style={{ color: '#1B2559' }}>{feature.name}</td>
+                        <td className="px-6 py-3.5 text-base font-medium" style={{ color: '#0F1B3D' }}>{feature.name}</td>
                         <td className="px-5 py-3.5 text-center"><FeatureValue value={feature.free} /></td>
-                        <td className="px-5 py-3.5 text-center" style={{ background: i % 2 === 0 ? '#EEF2FF' : '#E8EDFF' }}>
+                        <td className="px-5 py-3.5 text-center" style={{ background: i % 2 === 0 ? '#F3F4F6' : '#EBEDEF' }}>
                           <FeatureValue value={feature.pro} />
                         </td>
                       </tr>
@@ -607,23 +607,23 @@ export default function PricingPage() {
 
         {/* ─── Why Upgrade? (free users) ───────────────────────────────────── */}
         {!isPro && (
-          <div className="rounded-2xl p-6 sm:p-8 mb-10" style={{ background: 'linear-gradient(135deg, #F0F4FF 0%, #F5F0FF 100%)', border: '1.5px solid #E0E7FF' }}>
-            <h2 className="text-xl font-bold mb-4" style={{ color: '#1B2559' }}>Why go Pro?</h2>
+          <div className="rounded-2xl p-6 sm:p-8 mb-10" style={{ background: 'linear-gradient(135deg, #F3F4F6 0%, #F3F4F6 100%)', border: '1.5px solid #E0E7FF' }}>
+            <h2 className="text-xl font-bold mb-4" style={{ color: '#0F1B3D' }}>Why go Pro?</h2>
             <div className="grid sm:grid-cols-3 gap-5">
               <div>
-                <p className="text-base font-bold mb-1.5" style={{ color: '#4361EE' }}>Teach bigger groups</p>
+                <p className="text-base font-bold mb-1.5" style={{ color: '#0F1B3D' }}>Teach bigger groups</p>
                 <p className="text-base" style={{ color: '#374151' }}>
                   Free supports 50 learners per session. Pro removes the cap entirely — run sessions with your entire batch, department, or event audience.
                 </p>
               </div>
               <div>
-                <p className="text-base font-bold mb-1.5" style={{ color: '#4361EE' }}>Prepare faster</p>
+                <p className="text-base font-bold mb-1.5" style={{ color: '#0F1B3D' }}>Prepare faster</p>
                 <p className="text-base" style={{ color: '#374151' }}>
                   Generate up to 25 questions at a time from any topic, document, or URL. With 750 AI credits a month, you can build a full question bank in minutes.
                 </p>
               </div>
               <div>
-                <p className="text-base font-bold mb-1.5" style={{ color: '#4361EE' }}>Measure learning</p>
+                <p className="text-base font-bold mb-1.5" style={{ color: '#0F1B3D' }}>Measure learning</p>
                 <p className="text-base" style={{ color: '#374151' }}>
                   Export results as CSV or PDF. Use confidence grids to spot misconceptions and spaced retrieval to help learners retain what they&apos;ve learned.
                 </p>
@@ -638,7 +638,7 @@ export default function PricingPage() {
 
         {/* ─── FAQ ──────────────────────────────────────────────────────── */}
         <div className="rounded-2xl p-6 sm:p-8 mb-10" style={{ background: '#fff', border: '1.5px solid #E2E8F0' }}>
-          <h2 className="text-2xl font-bold mb-6" style={{ color: '#1B2559' }}>Frequently Asked Questions</h2>
+          <h2 className="text-2xl font-bold mb-6" style={{ color: '#0F1B3D' }}>Frequently Asked Questions</h2>
           <div className="space-y-5">
             {[
               {
@@ -684,7 +684,7 @@ export default function PricingPage() {
             ].map(faq => (
               <details key={faq.q} className="group" style={{ borderBottom: '1px solid #E2E8F0' }}>
                 <summary className="flex items-center justify-between cursor-pointer list-none py-3">
-                  <span className="text-base font-bold" style={{ color: '#1B2559' }}>{faq.q}</span>
+                  <span className="text-base font-bold" style={{ color: '#0F1B3D' }}>{faq.q}</span>
                   <svg
                     width="20" height="20" viewBox="0 0 20 20" fill="none"
                     className="flex-shrink-0 ml-4 transition-transform group-open:rotate-180"
@@ -703,7 +703,7 @@ export default function PricingPage() {
         {/* ─── Payment History ────────────────────────────────────────────── */}
         {payments.length > 0 && (
           <div className="rounded-2xl p-6 sm:p-8 mb-10" style={{ background: '#fff', border: '1.5px solid #E2E8F0' }}>
-            <h2 className="text-xl font-bold mb-4" style={{ color: '#1B2559' }}>Payment History</h2>
+            <h2 className="text-xl font-bold mb-4" style={{ color: '#0F1B3D' }}>Payment History</h2>
             <table className="w-full">
               <thead>
                 <tr style={{ color: '#6B7280' }}>
@@ -717,7 +717,7 @@ export default function PricingPage() {
                 {payments.map(p => (
                   <tr key={p.id} style={{ borderTop: '1px solid #E2E8F0' }}>
                     <td className="py-3 text-base" style={{ color: '#374151' }}>{new Date(p.createdAt).toLocaleDateString()}</td>
-                    <td className="py-3 text-base font-bold" style={{ color: '#1B2559' }}>{formatAmount(p.amount, p.currency)}</td>
+                    <td className="py-3 text-base font-bold" style={{ color: '#0F1B3D' }}>{formatAmount(p.amount, p.currency)}</td>
                     <td className="py-3">
                       <span className="text-sm font-bold px-2.5 py-1 rounded-full" style={{
                         background: p.status === 'succeeded' ? '#DCFCE7' : '#FEF2F2',
@@ -728,7 +728,7 @@ export default function PricingPage() {
                     </td>
                     <td className="py-3 text-right">
                       {p.invoiceUrl && (
-                        <a href={p.invoiceUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-bold" style={{ color: '#4361EE' }}>
+                        <a href={p.invoiceUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-bold" style={{ color: '#0F1B3D' }}>
                           View
                         </a>
                       )}
@@ -771,7 +771,7 @@ export default function PricingPage() {
                   onClick={() => setCancelConfirm(false)}
                   disabled={cancelling}
                   className="text-base font-medium px-5 py-2.5 rounded-xl"
-                  style={{ color: '#4A5568' }}
+                  style={{ color: '#374151' }}
                 >
                   Never mind
                 </button>

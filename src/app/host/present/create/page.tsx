@@ -185,7 +185,7 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
           {slide.options.map((opt, i) => (
             <div key={i} className="flex items-center gap-2">
               <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                style={{ background: ['#3B82F6','#4361EE','#FF6B6B','#16A34A'][i] }}>
+                style={{ background: ['#3B82F6','#0F1B3D','#FF8A47','#16A34A'][i] }}>
                 {['A','B','C','D'][i]}
               </span>
               <input className={inputClass} style={inputStyle} value={opt}
@@ -272,7 +272,7 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
           {slide.items.map((item, i) => (
             <div key={i} className="flex items-center gap-2">
               <span className="w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold flex-shrink-0"
-                style={{ background: '#F0F4FF', color: 'var(--color-primary)' }}>{i+1}</span>
+                style={{ background: '#F3F4F6', color: '#0F1B3D' }}>{i+1}</span>
               <input className={inputClass} style={inputStyle} value={item}
                 onChange={e => { const items = [...slide.items]; items[i] = e.target.value; update({ items }) }}
                 placeholder={`Item ${i+1}`} />
@@ -286,7 +286,7 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
             <button type="button"
               onClick={() => update({ items: [...slide.items, ''] })}
               className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-              style={{ color: 'var(--color-primary)', background: '#F0F4FF' }}>
+              style={{ color: '#0F1B3D', background: '#F3F4F6' }}>
               + Add item
             </button>
           )}
@@ -350,7 +350,7 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
           {slide.options.map((opt, i) => (
             <div key={i} className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                style={{ background: ['#3B82F6','#4361EE','#FF6B6B','#16A34A','#F59E0B'][i % 5] }} />
+                style={{ background: ['#3B82F6','#0F1B3D','#FF8A47','#16A34A','#F59E0B'][i % 5] }} />
               <input className={inputClass} style={inputStyle} value={opt}
                 onChange={e => { const opts = [...slide.options]; opts[i] = e.target.value; update({ options: opts }) }}
                 placeholder={`Option ${i+1}`} />
@@ -363,7 +363,7 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
           {slide.options.length < 5 && (
             <button type="button" onClick={() => update({ options: [...slide.options, ''] })}
               className="text-xs font-semibold px-3 py-1.5 rounded-lg"
-              style={{ color: 'var(--color-primary)', background: '#F0F4FF' }}>
+              style={{ color: '#0F1B3D', background: '#F3F4F6' }}>
               + Add option
             </button>
           )}
@@ -440,7 +440,7 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
           ))}
           <button type="button" onClick={() => update({ names: [...slide.names, ''] })}
             className="text-xs font-semibold px-3 py-1.5 rounded-lg"
-            style={{ color: 'var(--color-primary)', background: '#F0F4FF' }}>
+            style={{ color: '#0F1B3D', background: '#F3F4F6' }}>
             + Add name
           </button>
         </div>
@@ -481,7 +481,7 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
           <label className={labelClass} style={labelStyle}>Bullet points</label>
           {slide.bullets.map((b, i) => (
             <div key={i} className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: 'var(--color-primary)' }} />
+              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#0F1B3D' }} />
               <input className={inputClass} style={inputStyle} value={b}
                 onChange={e => { const bullets = [...slide.bullets]; bullets[i] = e.target.value; update({ bullets }) }}
                 placeholder={`Point ${i+1}`} />
@@ -494,7 +494,7 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
           {slide.bullets.length < 8 && (
             <button type="button" onClick={() => update({ bullets: [...slide.bullets, ''] })}
               className="text-xs font-semibold px-3 py-1.5 rounded-lg"
-              style={{ color: 'var(--color-primary)', background: '#F0F4FF' }}>
+              style={{ color: '#0F1B3D', background: '#F3F4F6' }}>
               + Add bullet
             </button>
           )}
@@ -547,7 +547,7 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
               placeholder="https://example.com/diagram.jpg"
               readOnly={slide.imageUrl?.startsWith('data:')} />
             <label className="px-4 py-2 rounded-lg text-sm font-bold cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5 flex-shrink-0"
-              style={{ background: '#F0F4FF', color: '#4361EE', border: '1.5px solid #DBEAFE' }}>
+              style={{ background: '#F3F4F6', color: '#0F1B3D', border: '1.5px solid #DBEAFE' }}>
               <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4">
                 <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
               </svg>
@@ -730,10 +730,10 @@ function SlideTypePicker({ onPick, onHover }: {
 
   return (
     <div className="rounded-2xl border p-3" style={{ borderColor: '#DBEAFE', background: '#FDFBFF' }}>
-      <p className="text-sm font-bold uppercase tracking-widest px-1 pb-2" style={{ color: '#4361EE' }}>Add Slide</p>
+      <p className="text-sm font-bold uppercase tracking-widest px-1 pb-2" style={{ color: '#0F1B3D' }}>Add Slide</p>
       {allByCategory.map((cat, ci) => (
         <div key={cat.id}>
-          {ci > 0 && <div className="h-px my-2" style={{ background: '#EEF2FF' }} />}
+          {ci > 0 && <div className="h-px my-2" style={{ background: '#F3F4F6' }} />}
           <p className="text-[11px] font-black uppercase tracking-widest px-2 py-1" style={{ color: cat.color }}>
             {cat.label}
           </p>
@@ -1035,40 +1035,40 @@ function PresentCreatePageInner() {
     <div className="h-screen flex flex-col" style={{ background: '#FDFBFF', fontFamily: 'var(--font-body)' }}>
 
       {/* Header */}
-      <header className="sticky top-0 z-20 border-b" style={{ background: 'rgba(253,251,255,0.96)', backdropFilter: 'blur(8px)', borderColor: 'var(--color-border)' }}>
+      <header className="sticky top-0 z-20 border-b" style={{ background: 'rgba(253,251,255,0.96)', backdropFilter: 'blur(8px)', borderColor: '#E5E7EB' }}>
         <div className="flex items-center gap-3 px-3 h-12 md:px-5 md:h-14">
           <button onClick={() => router.push('/host')}
             className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all hover:bg-violet-50"
-            style={{ color: 'var(--color-text-secondary)' }}>
+            style={{ color: '#9CA3AF' }}>
             <svg viewBox="0 0 16 16" fill="none" className="w-5 h-5">
               <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
             <span className="hidden sm:inline">Back</span>
           </button>
-          <div className="h-5 w-px" style={{ background: 'var(--color-border)' }} />
+          <div className="h-5 w-px" style={{ background: '#E5E7EB' }} />
 
           {/* Editable title */}
           <input
             value={presentation.title}
             onChange={e => setPresentation(prev => ({ ...prev, title: e.target.value }))}
             className="flex-1 text-sm font-bold bg-transparent focus:outline-none min-w-0"
-            style={{ color: 'var(--color-text-primary)' }}
+            style={{ color: '#0F1B3D' }}
           />
 
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* Auto-save indicator */}
-            <span className="text-xs font-medium flex items-center gap-1.5 mr-1" style={{ color: saving ? '#4361EE' : saved ? '#16A34A' : 'transparent' }}>
-              {saving && <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#4361EE' }} />}
+            <span className="text-xs font-medium flex items-center gap-1.5 mr-1" style={{ color: saving ? '#0F1B3D' : saved ? '#16A34A' : 'transparent' }}>
+              {saving && <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#0F1B3D' }} />}
               {saving ? 'Saving...' : saved ? '✓ Saved' : ''}
             </span>
             <button onClick={savePresentation} disabled={saving}
               className="text-xs md:text-sm font-bold px-3 py-1.5 md:px-5 md:py-2 rounded-xl border-2 transition-all"
-              style={{ borderColor: saved ? '#16A34A' : 'var(--color-border)', color: saved ? '#16A34A' : 'var(--color-primary)', background: saved ? '#F0FDF4' : 'var(--color-surface)' }}>
+              style={{ borderColor: saved ? '#16A34A' : '#E5E7EB', color: saved ? '#16A34A' : '#0F1B3D', background: saved ? '#F0FDF4' : '#fff' }}>
               {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save'}
             </button>
             <button onClick={() => { savePresentation(); startPresentation() }}
               className="text-xs md:text-sm font-bold px-3 py-1.5 md:px-5 md:py-2 rounded-xl transition-all hover:scale-[1.02]"
-              style={{ background: 'var(--brand-gradient)', color: '#fff', fontFamily: 'var(--font-heading)' }}>
+              style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}>
               <span className="hidden sm:inline">Save & </span>Present →
             </button>
           </div>
@@ -1082,17 +1082,17 @@ function PresentCreatePageInner() {
         <div className="hidden md:flex w-72 flex-shrink-0 border-r flex-col" style={{ borderColor: '#DBEAFE', background: '#F8F7FF' }}>
 
           {/* Top action bar — always visible */}
-          <div className="flex-shrink-0 border-b p-3 space-y-2" style={{ borderColor: '#DBEAFE', background: '#F0EDFF' }}>
+          <div className="flex-shrink-0 border-b p-3 space-y-2" style={{ borderColor: '#DBEAFE', background: '#F3F4F6' }}>
             {/* PDF Import */}
             {pdfImporting ? (
               <div className="rounded-xl border p-3" style={{ borderColor: '#E9D5FF', background: '#fff' }}>
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#4361EE', borderTopColor: 'transparent' }} />
-                  <span className="text-xs font-semibold" style={{ color: '#4361EE' }}>{pdfProgress}</span>
+                  <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#0F1B3D', borderTopColor: 'transparent' }} />
+                  <span className="text-xs font-semibold" style={{ color: '#0F1B3D' }}>{pdfProgress}</span>
                 </div>
                 <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: '#E9D5FF' }}>
                   <div className="h-full rounded-full transition-all duration-300 ease-out"
-                    style={{ width: pdfTotal > 0 ? `${(pdfCurrent / pdfTotal) * 100}%` : '0%', background: 'linear-gradient(90deg, #4361EE, #7C3AED)' }} />
+                    style={{ width: pdfTotal > 0 ? `${(pdfCurrent / pdfTotal) * 100}%` : '0%', background: '#0F1B3D' }} />
                 </div>
                 <p className="text-[10px] mt-1 text-center" style={{ color: '#6B4FA0' }}>
                   {pdfCurrent} of {pdfTotal} pages
@@ -1100,7 +1100,7 @@ function PresentCreatePageInner() {
               </div>
             ) : (
               <label className="flex items-center justify-center gap-2 rounded-xl py-2.5 font-bold text-xs cursor-pointer transition-all hover:scale-[1.02]"
-                style={{ background: 'linear-gradient(135deg, #4361EE, #7C3AED)', color: '#fff' }}>
+                style={{ background: '#0F1B3D', color: '#fff' }}>
                 <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4">
                   <path d="M10 3v10m0 0l-3-3m3 3l3-3M4 14v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
@@ -1118,7 +1118,7 @@ function PresentCreatePageInner() {
             <div className="relative" ref={addSlideRef}>
               <button onClick={() => { setAddSlideOpen(o => { if (o) setHoveredType(null); return !o }) }}
                 className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 font-bold text-xs transition-all hover:scale-[1.02]"
-                style={{ background: '#fff', color: '#4361EE', border: '1.5px solid #4361EE' }}>
+                style={{ background: '#fff', color: '#0F1B3D', border: '1.5px solid #0F1B3D' }}>
                 <span className="text-base leading-none">+</span>
                 Add Slide
                 <span className="text-[10px] opacity-60">{addSlideOpen ? '▲' : '▼'}</span>
@@ -1141,19 +1141,19 @@ function PresentCreatePageInner() {
                   <div className="relative group/insert flex items-center justify-center h-3 -mb-0.5">
                     <button onClick={() => setInsertPickerAt(insertPickerAt === 0 ? null : 0)}
                       className="opacity-0 group-hover/insert:opacity-100 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all z-10 hover:scale-110"
-                      style={{ background: '#4361EE', color: '#fff' }}>
+                      style={{ background: '#0F1B3D', color: '#fff' }}>
                       +
                     </button>
-                    <div className="absolute inset-x-4 top-1/2 h-px opacity-0 group-hover/insert:opacity-100 transition-opacity" style={{ background: '#4361EE' }} />
+                    <div className="absolute inset-x-4 top-1/2 h-px opacity-0 group-hover/insert:opacity-100 transition-opacity" style={{ background: '#0F1B3D' }} />
                   </div>
                 )}
                 {insertPickerAt === i && (
                   <div className="mb-1.5 rounded-xl border p-2 shadow-lg animate-in fade-in slide-in-from-top-1 duration-200" style={{ borderColor: '#DBEAFE', background: '#fff' }}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1 px-1" style={{ color: '#4361EE' }}>Insert here</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1 px-1" style={{ color: '#0F1B3D' }}>Insert here</p>
                     <div className="grid grid-cols-2 gap-1">
                       {(Object.keys(SLIDE_TYPE_META) as SlideType[]).slice(0, 8).map(type => (
                         <button key={type} onClick={() => addSlide(type, i)}
-                          className="text-[11px] font-semibold rounded-lg px-2 py-1.5 text-left truncate transition-colors hover:bg-blue-50"
+                          className="text-[11px] font-semibold rounded-lg px-2 py-1.5 text-left truncate transition-colors hover:bg-gray-50"
                           style={{ color: SLIDE_TYPE_META[type].color }}>
                           {SLIDE_TYPE_META[type].label}
                         </button>
@@ -1196,18 +1196,18 @@ function PresentCreatePageInner() {
                 <div className="relative group/insert flex items-center justify-center h-3 -mt-0.5">
                   <button onClick={() => setInsertPickerAt(insertPickerAt === i + 1 ? null : i + 1)}
                     className="opacity-0 group-hover/insert:opacity-100 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all z-10 hover:scale-110"
-                    style={{ background: '#4361EE', color: '#fff' }}>
+                    style={{ background: '#0F1B3D', color: '#fff' }}>
                     +
                   </button>
-                  <div className="absolute inset-x-4 top-1/2 h-px opacity-0 group-hover/insert:opacity-100 transition-opacity" style={{ background: '#4361EE' }} />
+                  <div className="absolute inset-x-4 top-1/2 h-px opacity-0 group-hover/insert:opacity-100 transition-opacity" style={{ background: '#0F1B3D' }} />
                 </div>
                 {insertPickerAt === i + 1 && (
                   <div className="mt-1 mb-1.5 rounded-xl border p-2 shadow-lg animate-in fade-in slide-in-from-top-1 duration-200" style={{ borderColor: '#DBEAFE', background: '#fff' }}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1 px-1" style={{ color: '#4361EE' }}>Insert here</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1 px-1" style={{ color: '#0F1B3D' }}>Insert here</p>
                     <div className="grid grid-cols-2 gap-1">
                       {(Object.keys(SLIDE_TYPE_META) as SlideType[]).slice(0, 8).map(type => (
                         <button key={type} onClick={() => addSlide(type, i + 1)}
-                          className="text-[11px] font-semibold rounded-lg px-2 py-1.5 text-left truncate transition-colors hover:bg-blue-50"
+                          className="text-[11px] font-semibold rounded-lg px-2 py-1.5 text-left truncate transition-colors hover:bg-gray-50"
                           style={{ color: SLIDE_TYPE_META[type].color }}>
                           {SLIDE_TYPE_META[type].label}
                         </button>
@@ -1249,17 +1249,17 @@ function PresentCreatePageInner() {
                   <button onClick={() => setActiveIndex(i => Math.max(0, i - 1))}
                     disabled={activeIndex === 0}
                     className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-colors disabled:opacity-30"
-                    style={{ color: '#4361EE' }} title="Previous slide (←)">
+                    style={{ color: '#0F1B3D' }} title="Previous slide (←)">
                     ‹
                   </button>
                   <span className="text-sm font-semibold px-2 py-1 rounded-lg min-w-[80px] text-center"
-                    style={{ background: '#F0EDFF', color: '#4361EE' }}>
+                    style={{ background: '#F3F4F6', color: '#0F1B3D' }}>
                     {activeIndex + 1} / {presentation.slides.length}
                   </span>
                   <button onClick={() => setActiveIndex(i => Math.min(i + 1, presentation.slides.length - 1))}
                     disabled={activeIndex === presentation.slides.length - 1}
                     className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-colors disabled:opacity-30"
-                    style={{ color: '#4361EE' }} title="Next slide (→)">
+                    style={{ color: '#0F1B3D' }} title="Next slide (→)">
                     ›
                   </button>
                 </div>
@@ -1283,7 +1283,7 @@ function PresentCreatePageInner() {
           {addSlideOpen && hoveredType ? (
             /* Show hovered slide type info */
             <div className="space-y-3">
-              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#4361EE' }}>Slide Preview</p>
+              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#0F1B3D' }}>Slide Preview</p>
               <div className="rounded-xl p-4 space-y-2" style={{
                 background: SLIDE_TYPE_META[hoveredType].bg,
                 border: `1.5px solid ${SLIDE_TYPE_META[hoveredType].color}30`,
@@ -1313,7 +1313,7 @@ function PresentCreatePageInner() {
           ) : activeSlide ? (
             /* Show current slide info */
             <div className="space-y-3">
-              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#4361EE' }}>Current Slide</p>
+              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#0F1B3D' }}>Current Slide</p>
               <div className="rounded-xl p-3" style={{
                 background: SLIDE_TYPE_META[activeSlide.type].bg,
                 border: `1px solid ${SLIDE_TYPE_META[activeSlide.type].color}20`,
@@ -1338,7 +1338,7 @@ function PresentCreatePageInner() {
             </div>
           ) : (
             <div className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#4361EE' }}>Slide Info</p>
+              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#0F1B3D' }}>Slide Info</p>
               <p className="text-xs" style={{ color: '#9CA3AF' }}>Hover a slide type on the left to see what it does.</p>
             </div>
           )}
@@ -1346,25 +1346,25 @@ function PresentCreatePageInner() {
       </div>
 
       {/* Mobile-only bottom action bar — hidden on md+ */}
-      <div className="md:hidden flex-shrink-0 border-t flex items-center gap-2 px-3 py-2.5" style={{ borderColor: '#DBEAFE', background: '#F0EDFF' }}>
+      <div className="md:hidden flex-shrink-0 border-t flex items-center gap-2 px-3 py-2.5" style={{ borderColor: '#DBEAFE', background: '#F3F4F6' }}>
         {/* Prev / counter / next */}
         <div className="flex items-center gap-1 flex-shrink-0">
           <button
             onClick={() => setActiveIndex(i => Math.max(0, i - 1))}
             disabled={activeIndex === 0}
             className="w-9 h-9 rounded-xl flex items-center justify-center text-lg font-bold disabled:opacity-30 transition-colors"
-            style={{ color: '#4361EE', background: '#fff', border: '1.5px solid #DBEAFE' }}>
+            style={{ color: '#0F1B3D', background: '#fff', border: '1.5px solid #DBEAFE' }}>
             ‹
           </button>
           <span className="text-sm font-bold px-2 py-2 rounded-xl text-center"
-            style={{ background: '#fff', color: '#4361EE', border: '1.5px solid #DBEAFE', minWidth: 56 }}>
+            style={{ background: '#fff', color: '#0F1B3D', border: '1.5px solid #DBEAFE', minWidth: 56 }}>
             {activeIndex + 1}/{presentation.slides.length}
           </span>
           <button
             onClick={() => setActiveIndex(i => Math.min(i + 1, presentation.slides.length - 1))}
             disabled={activeIndex === presentation.slides.length - 1}
             className="w-9 h-9 rounded-xl flex items-center justify-center text-lg font-bold disabled:opacity-30 transition-colors"
-            style={{ color: '#4361EE', background: '#fff', border: '1.5px solid #DBEAFE' }}>
+            style={{ color: '#0F1B3D', background: '#fff', border: '1.5px solid #DBEAFE' }}>
             ›
           </button>
         </div>
@@ -1373,7 +1373,7 @@ function PresentCreatePageInner() {
           <button
             onClick={() => { setAddSlideOpen(o => { if (o) setHoveredType(null); return !o }) }}
             className="w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 font-bold text-sm transition-all"
-            style={{ background: 'linear-gradient(135deg, #4361EE, #7C3AED)', color: '#fff' }}>
+            style={{ background: '#0F1B3D', color: '#fff' }}>
             <span>+</span> Add Slide
           </button>
           {addSlideOpen && (

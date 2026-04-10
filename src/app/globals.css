@@ -1,46 +1,57 @@
 @import "tailwindcss";
 
 :root {
-  /* ── Classroom Energy — Light theme (default) ────────────────────── */
-  --color-bg:           #FFFBF5;   /* warm cream */
-  --color-primary:      #4361EE;   /* electric blue */
-  --color-primary-dark: #3A56D4;
-  --color-secondary:    #FF6B6B;   /* coral */
-  --color-gold:         #FFD166;   /* soft gold */
-  --color-gold-dark:    #E6B84D;
-  --color-dark:         #1B2559;   /* deep navy */
+  /* ── Bold Knowledge — Light theme (default) ────────────────────── */
+  --color-bg:           #FFFFFF;   /* clean white */
+  --color-primary:      #0F1B3D;   /* deep navy */
+  --color-primary-dark: #0A1229;
+  --color-secondary:    #F5E642;   /* bold yellow */
+  --color-secondary-dark: #D4C535;
+  --color-dark:         #0F1B3D;   /* deep navy */
   --color-surface:      #FFFFFF;
-  --color-surface-tint: #FFF4EC;   /* warm cream tint — matches Outfit's warmth */
-  --color-border:       rgba(67,97,238,0.10);
+  --color-surface-tint: #F8F9FA;
+  --color-border:       rgba(15,27,61,0.10);
 
   /* Brand gradient */
-  --brand-gradient: linear-gradient(135deg, #FF6B6B, #4361EE);
+  --brand-gradient: linear-gradient(135deg, #0F1B3D, #F5E642);
+
+  /* Semantic colors */
+  --color-success:      #16A34A;
+  --color-error:        #DC2626;
+  --color-warning:      #CA8A04;
+  --color-info:         #2563EB;
+
+  /* Answer option colors */
+  --color-option-a:     #2D3A8C;   /* indigo */
+  --color-option-b:     #FF8A47;   /* orange */
+  --color-option-c:     #5BC0EB;   /* sky blue */
+  --color-option-d:     #E07A5F;   /* coral/terracotta */
 
   /* Text */
-  --color-text-primary:   #1B2559;
-  --color-text-secondary: #4A5568;
-  --color-text-muted:     #718096;
-  --color-text-subtle:    #A0AEC0;
+  --color-text-primary:   #0F1B3D;
+  --color-text-secondary: #374151;
+  --color-text-muted:     #6B7280;
+  --color-text-subtle:    #9CA3AF;
 
   /* Game / participant page dark bg */
-  --color-dark-bg:      #0F1629;
+  --color-dark-bg:      #0F1B3D;
 
   /* Fonts */
-  --font-heading: var(--font-outfit), 'Outfit', sans-serif;
-  --font-body:    var(--font-nunito-sans), 'Nunito Sans', sans-serif;
+  --font-heading: var(--font-space-grotesk), 'Space Grotesk', sans-serif;
+  --font-body:    var(--font-dm-sans), 'DM Sans', sans-serif;
 }
 
 /* ── Dark mode toggle ──────────────────────────────────────────────── */
 [data-theme="dark"] {
-  --color-bg:           #0F1629;
-  --color-primary:      #6B8AFF;   /* lighter blue */
-  --color-primary-dark: #4361EE;
-  --color-secondary:    #FF8A8A;   /* lighter coral */
+  --color-bg:           #0F1B3D;
+  --color-primary:      #F5E642;
+  --color-primary-dark: #D4C535;
+  --color-secondary:    #0F1B3D;
   --color-dark:         #F8FAFC;
-  --color-surface:      #1A2744;
-  --color-surface-tint: #152035;
-  --color-border:       rgba(107,138,255,0.2);
-  --brand-gradient:     linear-gradient(135deg, #FF8A8A, #6B8AFF);
+  --color-surface:      #162042;
+  --color-surface-tint: #1A2744;
+  --color-border:       rgba(245,230,66,0.15);
+  --brand-gradient:     linear-gradient(135deg, #F5E642, #0F1B3D);
   --color-text-primary:   #F8FAFC;
   --color-text-secondary: #94A3B8;
   --color-text-muted:     #64748B;
@@ -48,9 +59,14 @@
 }
 
 /* ── Animation keyframes ─────────────────────────────────────────────────── */
-@keyframes twinkle {
-  0%, 100% { opacity: 0.08; transform: scale(0.8); }
-  50%       { opacity: 0.65; transform: scale(1.15); }
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-10px) rotate(1deg); }
+}
+
+@keyframes float-medium {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
 }
 
 @keyframes drift {
@@ -58,38 +74,44 @@
   50%       { transform: translateY(-9px); }
 }
 
-@keyframes sparkle-burst {
-  0%, 100% { opacity: 0.15; transform: scale(0.9) rotate(0deg); }
-  50%       { opacity: 0.80; transform: scale(1.2) rotate(20deg); }
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.5); opacity: 0.4; }
 }
 
-@keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 4px 20px rgba(255,107,107,0.30); }
-  50%       { box-shadow: 0 6px 32px rgba(255,107,107,0.55); }
+@keyframes blink-live {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.2; }
 }
 
-@keyframes orb-drift {
-  0%, 100% { transform: translate(0, 0); }
-  50%       { transform: translate(20px, -15px); }
+@keyframes rotate-pattern {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
-@keyframes shimmer {
-  0%   { transform: translateX(-100%); }
-  100% { transform: translateX(200%); }
+@keyframes shrink-timer {
+  from { width: 100%; }
+  to   { width: 0%; }
 }
 
-@keyframes float-slow {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50%      { transform: translateY(-12px) rotate(2deg); }
-}
-
-@keyframes float-medium {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-8px); }
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes draw-path {
   to { stroke-dashoffset: 0; }
+}
+
+@keyframes marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes counter-tick {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.15); }
+  100% { transform: scale(1); }
 }
 
 @keyframes rise-fade {
@@ -97,15 +119,19 @@
   100% { opacity: 0; transform: translateY(-40px) scale(0.5); }
 }
 
-@keyframes flame-grow {
-  0%, 100% { transform: scaleY(1) scaleX(1); }
-  50%      { transform: scaleY(1.3) scaleX(0.9); }
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 4px 20px rgba(245,230,66,0.30); }
+  50%       { box-shadow: 0 6px 32px rgba(245,230,66,0.55); }
 }
 
-@keyframes counter-tick {
-  0%   { transform: scale(1); }
-  50%  { transform: scale(1.15); }
-  100% { transform: scale(1); }
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+@keyframes orb-drift {
+  0%, 100% { transform: translate(0, 0); }
+  50%       { transform: translate(20px, -15px); }
 }
 
 @theme inline {
@@ -118,6 +144,12 @@ body {
   background: var(--color-bg);
   color: var(--color-text-primary);
   font-family: var(--font-body);
+}
+
+/* ── Heading font utility ──────────────────────────────────────────── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  letter-spacing: -0.03em;
 }
 
 @media print {

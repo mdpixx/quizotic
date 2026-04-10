@@ -17,7 +17,7 @@ interface PodiumProps {
 
 const PODIUM_CONFIG = [
   { place: 2, height: 140, color: '#C0C0C0', label: '2nd', delay: '0.3s' },
-  { place: 1, height: 180, color: '#FFD166', label: '1st', delay: '0.6s' },
+  { place: 1, height: 180, color: '#F5E642', label: '1st', delay: '0.6s' },
   { place: 3, height: 100, color: '#CD7F32', label: '3rd', delay: '0s' },
 ]
 
@@ -69,14 +69,14 @@ export function Podium({ leaderboard, sessionMode, highlightName }: PodiumProps)
               <div className="flex flex-col items-center gap-1" style={{
                 animation: `fadeSlideUp 0.5s ease-out ${cfg.delay} both`,
               }}>
-                <div className={`rounded-full overflow-hidden ${isHighlighted ? 'ring-3 ring-blue-400' : ''}`}>
+                <div className={`rounded-full overflow-hidden ${isHighlighted ? 'ring-3' : ''}`} style={isHighlighted ? { '--tw-ring-color': '#F5E642' } as React.CSSProperties : undefined}>
                   <Avatar archetype={entry.archetype ?? entry.name} size={isWinner ? 64 : 52} />
                 </div>
                 <p className="text-sm font-bold text-center truncate w-full" style={{ color: '#1E1B4B' }}>
                   {entry.name}
                 </p>
                 {isCompetitive && (
-                  <p className="text-xs font-black tabular-nums" style={{ color: cfg.color === '#FFD166' ? '#92400E' : '#6B7280' }}>
+                  <p className="text-xs font-black tabular-nums" style={{ color: cfg.color === '#F5E642' ? '#92400E' : '#6B7280' }}>
                     {entry.score.toLocaleString()} pts
                   </p>
                 )}
@@ -104,7 +104,7 @@ export function Podium({ leaderboard, sessionMode, highlightName }: PodiumProps)
                       style={{
                         left: `${20 + Math.random() * 60}%`,
                         top: '50%',
-                        background: ['#4361EE', '#FF6B6B', '#FFD166', '#16A34A', '#7C3AED'][j % 5],
+                        background: ['#0F1B3D', '#F5E642', '#FF8A47', '#16A34A', '#2D3A8C'][j % 5],
                         animation: `podiumConfetti ${0.8 + Math.random() * 0.6}s ease-out ${Math.random() * 0.3}s forwards`,
                       }} />
                   ))}
@@ -126,8 +126,8 @@ export function Podium({ leaderboard, sessionMode, highlightName }: PodiumProps)
             const isHighlighted = highlightName && entry.name === highlightName
             return (
               <div key={entry.name}
-                className={`flex items-center gap-3 rounded-xl p-3 ${isHighlighted ? 'ring-2 ring-blue-400' : ''}`}
-                style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
+                className={`flex items-center gap-3 rounded-xl p-3 ${isHighlighted ? 'ring-2' : ''}`}
+                style={{ background: '#fff', border: '1px solid #E5E7EB', ...(isHighlighted ? { '--tw-ring-color': '#F5E642' } : {}) } as React.CSSProperties}>
                 <span className="text-sm font-black w-6 text-center" style={{ color: '#9CA3AF' }}>{i + 4}</span>
                 <Avatar archetype={entry.archetype ?? entry.name} size={36} />
                 <span className="flex-1 font-semibold text-sm" style={{ color: '#1E1B4B' }}>{entry.name}</span>

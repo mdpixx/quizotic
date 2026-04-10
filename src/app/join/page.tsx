@@ -46,12 +46,13 @@ interface LeaderboardEntry {
 }
 
 const OPTION_GRADIENTS = [
-  'bg-gradient-to-br from-pink-700 to-pink-500 shadow-[0_4px_16px_rgba(236,72,153,0.25)]',
-  'bg-gradient-to-br from-orange-700 to-orange-500 shadow-[0_4px_16px_rgba(249,115,22,0.25)]',
-  'bg-gradient-to-br from-blue-700 to-blue-500 shadow-[0_4px_16px_rgba(59,130,246,0.25)]',
-  'bg-gradient-to-br from-green-700 to-green-500 shadow-[0_4px_16px_rgba(34,197,94,0.25)]',
-  'bg-gradient-to-br from-purple-700 to-purple-500 shadow-[0_4px_16px_rgba(168,85,247,0.25)]',
+  'shadow-[0_4px_16px_rgba(45,58,140,0.25)]',
+  'shadow-[0_4px_16px_rgba(255,138,71,0.25)]',
+  'shadow-[0_4px_16px_rgba(91,192,235,0.25)]',
+  'shadow-[0_4px_16px_rgba(224,122,95,0.25)]',
+  'shadow-[0_4px_16px_rgba(15,27,61,0.25)]',
 ]
+const OPTION_COLORS = ['#2D3A8C', '#FF8A47', '#5BC0EB', '#E07A5F', '#0F1B3D']
 const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E']
 const TEXT_INPUT_TYPES = ['openended', 'wordcloud', 'qa']
 
@@ -97,7 +98,7 @@ function StarRating({ max, minLabel, maxLabel, textLight, onSubmit }: {
       <button onClick={() => { if (selected > 0) onSubmit(selected) }}
         disabled={selected === 0}
         className="w-full py-5 rounded-2xl text-xl font-black transition-all disabled:opacity-30"
-        style={{ background: 'var(--brand-gradient)', color: '#fff' }}>
+        style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>
         Submit
       </button>
     </div>
@@ -145,7 +146,7 @@ function PinpointInput({ imageUrl, onSubmit }: {
       <button onClick={() => { if (pin) onSubmit(pin) }}
         disabled={!pin}
         className="w-full py-5 rounded-2xl text-xl font-black transition-all disabled:opacity-30"
-        style={{ background: 'var(--brand-gradient)', color: '#fff' }}>
+        style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>
         {pin ? 'Submit Pin' : 'Tap the image first'}
       </button>
     </div>
@@ -174,8 +175,8 @@ function Grid2x2Input({ xMin, xMax, yMin, yMax, onSubmit }: {
       <div className="relative">
         {/* Y-axis label */}
         <div className="absolute -left-1 top-0 bottom-0 flex flex-col justify-between items-center py-1 z-10" style={{ width: 20 }}>
-          <span className="text-[10px] font-bold" style={{ color: '#6B8AFF' }}>{yMax || 'High'}</span>
-          <span className="text-[10px] font-bold" style={{ color: '#6B8AFF' }}>{yMin || 'Low'}</span>
+          <span className="text-[10px] font-bold" style={{ color: '#F5E642' }}>{yMax || 'High'}</span>
+          <span className="text-[10px] font-bold" style={{ color: '#F5E642' }}>{yMin || 'Low'}</span>
         </div>
         <div className="ml-6">
           {/* Grid area */}
@@ -197,15 +198,15 @@ function Grid2x2Input({ xMin, xMax, yMin, yMax, onSubmit }: {
           </div>
           {/* X-axis labels */}
           <div className="flex justify-between mt-1">
-            <span className="text-[10px] font-bold" style={{ color: '#6B8AFF' }}>{xMin || 'Low'}</span>
-            <span className="text-[10px] font-bold" style={{ color: '#6B8AFF' }}>{xMax || 'High'}</span>
+            <span className="text-[10px] font-bold" style={{ color: '#F5E642' }}>{xMin || 'Low'}</span>
+            <span className="text-[10px] font-bold" style={{ color: '#F5E642' }}>{xMax || 'High'}</span>
           </div>
         </div>
       </div>
       <button onClick={() => { if (pin) onSubmit(pin) }}
         disabled={!pin}
         className="w-full py-5 rounded-2xl text-xl font-black transition-all disabled:opacity-30"
-        style={{ background: 'var(--brand-gradient)', color: '#fff' }}>
+        style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>
         {pin ? 'Submit' : 'Tap the grid first'}
       </button>
     </div>
@@ -643,20 +644,20 @@ function JoinPageInner() {
     ]
     return (
       <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
-        style={{ background: '#0a0a1a' }}>
+        style={{ background: '#0F1B3D' }}>
 
         {/* Background glow + stars */}
         <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
           <div style={{
             position: 'absolute', top: '30%', left: '50%', transform: 'translateX(-50%)',
             width: 500, height: 500,
-            background: 'radial-gradient(circle, rgba(67,97,238,0.15) 0%, transparent 68%)',
+            background: 'radial-gradient(circle, rgba(245,230,66,0.08) 0%, transparent 68%)',
           }} />
           {STARS.map((star, i) => (
             <div key={i} style={{
               position: 'absolute', top: star.top, left: star.left,
               width: star.s, height: star.s, borderRadius: '50%',
-              background: star.amber ? '#6B8AFF' : 'white',
+              background: star.amber ? '#F5E642' : 'rgba(255,255,255,0.6)',
               opacity: star.o,
             }} />
           ))}
@@ -665,8 +666,8 @@ function JoinPageInner() {
         <div className="w-full max-w-md relative" style={{ zIndex: 10 }}>
           {/* Logo */}
           <div className="text-center mb-8">
-            <h1 className="text-5xl font-black tracking-tight">
-              <span style={{ color: 'white' }}>Quizo</span><span style={{ color: '#6B8AFF' }}>tic</span>
+            <h1 className="text-5xl font-black tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+              <span style={{ color: 'white' }}>Quizo</span><span style={{ color: '#F5E642' }}>tic</span>
             </h1>
             <p className="text-lg mt-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
               ready to play?
@@ -680,12 +681,13 @@ function JoinPageInner() {
               value={code}
               onChange={e => setCode(e.target.value)}
               disabled={phase === 'connecting'}
-              className="w-full rounded-xl px-5 py-4 text-2xl font-bold tracking-[0.3em] text-center outline-none transition-all placeholder:text-white/30 focus:ring-2 focus:ring-[#4361EE]/50"
+              className="w-full rounded-xl px-5 py-4 text-2xl font-bold tracking-[0.3em] text-center outline-none transition-all placeholder:text-white/30 focus:ring-2"
               style={{
                 background: 'rgba(255,255,255,0.07)',
                 border: '1.5px solid rgba(255,255,255,0.12)',
                 color: 'white',
-              }}
+                '--tw-ring-color': 'rgba(245,230,66,0.4)',
+              } as React.CSSProperties}
               maxLength={6}
             />
             <input
@@ -694,20 +696,21 @@ function JoinPageInner() {
               value={name}
               onChange={e => setName(e.target.value)}
               disabled={phase === 'connecting'}
-              className="w-full rounded-xl px-5 py-4 text-xl outline-none transition-all placeholder:text-white/30 focus:ring-2 focus:ring-[#4361EE]/50"
+              className="w-full rounded-xl px-5 py-4 text-xl outline-none transition-all placeholder:text-white/30 focus:ring-2"
               style={{
                 background: 'rgba(255,255,255,0.07)',
                 border: '1.5px solid rgba(255,255,255,0.12)',
                 color: 'white',
-              }}
+                '--tw-ring-color': 'rgba(245,230,66,0.4)',
+              } as React.CSSProperties}
               maxLength={24}
             />
             {error && <p className="text-red-400 text-lg text-center">{error}</p>}
             <button
               type="submit"
               disabled={phase === 'connecting'}
-              className="w-full font-black rounded-2xl py-5 text-xl transition-all disabled:opacity-50 hover:brightness-110"
-              style={{ background: 'var(--brand-gradient)', color: 'white' }}
+              className="w-full font-black rounded-full py-5 text-xl transition-all disabled:opacity-50 hover:opacity-90"
+              style={{ background: '#F5E642', color: '#0D0D0D', border: '3px solid #0D0D0D', boxShadow: '4px 4px 0 #0D0D0D', fontFamily: 'var(--font-heading)' }}
             >
               {phase === 'connecting' ? 'Joining…' : 'Join →'}
             </button>
@@ -729,7 +732,7 @@ function JoinPageInner() {
           <div className={`transition-all duration-500 mb-4 ${avatarRevealed ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`}>
             {archetype && (
               <div className="flex justify-center mb-3">
-                <div className="ring-4 ring-blue-100 rounded-full">
+                <div className="ring-4 rounded-full" style={{ '--tw-ring-color': 'rgba(245,230,66,0.3)' } as React.CSSProperties}>
                   <Avatar archetype={archetype} size={120} />
                 </div>
               </div>
@@ -737,18 +740,18 @@ function JoinPageInner() {
           </div>
           {archetype && (
             <>
-              <p className="font-black text-2xl" style={{ color: 'var(--color-primary)' }}>You are the {archetype}</p>
+              <p className="font-black text-2xl" style={{ color: '#0F1B3D' }}>You are the {archetype}</p>
               <p className="text-gray-500 text-lg mt-1">{name}</p>
             </>
           )}
           <div className="flex flex-wrap justify-center gap-2 mt-3">
             {sessionMode === 'reflection' && (
-              <span className="bg-blue-50 text-blue-600 text-base rounded-full px-4 py-1.5 font-semibold border border-blue-200">
+              <span className="text-base rounded-full px-4 py-1.5 font-semibold border" style={{ background: '#FFFDE6', color: '#0F1B3D', borderColor: 'rgba(245,230,66,0.4)' }}>
                 Reflection Mode — results at end
               </span>
             )}
             {anonymousMode && (
-              <span className="bg-gray-100 text-gray-600 text-base rounded-full px-4 py-1.5 font-semibold border border-gray-200">
+              <span className="text-base rounded-full px-4 py-1.5 font-semibold border" style={{ background: '#F8F9FA', color: '#0F1B3D', borderColor: '#E2E8F0' }}>
                 Anonymous — your name is hidden
               </span>
             )}
@@ -761,7 +764,7 @@ function JoinPageInner() {
           <p className="text-gray-500 text-lg mt-6 mb-3">Waiting for host to start</p>
           <div className="flex justify-center gap-2">
             {[0, 150, 300].map(delay => (
-              <div key={delay} className="w-3 h-3 rounded-full bg-blue-300 animate-bounce" style={{ animationDelay: `${delay}ms` }} />
+              <div key={delay} className="w-3 h-3 rounded-full animate-bounce" style={{ background: '#F5E642', animationDelay: `${delay}ms` }} />
             ))}
           </div>
           <p className="text-gray-400 text-lg mt-4 font-medium">{quizTitle}</p>
@@ -787,36 +790,36 @@ function JoinPageInner() {
         </div>
 
         {/* Progress bar */}
-        <div className="h-2 bg-blue-100 rounded-full overflow-hidden mb-4">
+        <div className="h-2 rounded-full overflow-hidden mb-4" style={{ background: 'rgba(15,27,61,0.1)' }}>
           <div
-            className={`h-full rounded-full transition-all duration-1000 ${timeLeft <= 5 ? 'bg-red-500' : 'bg-gradient-to-r from-blue-600 to-blue-400'}`}
-            style={{ width: `${(timeLeft / question.timerSeconds) * 100}%` }}
+            className="h-full rounded-full transition-all duration-1000"
+            style={{ width: `${(timeLeft / question.timerSeconds) * 100}%`, background: timeLeft <= 5 ? '#DC2626' : '#0F1B3D' }}
           />
         </div>
 
         {/* Scenario card — shown for 'case' type questions */}
         {question.type === 'case' && question.scenarioText && (
-          <div className="rounded-2xl p-5 mb-3 border" style={{ background: '#1B2559', borderColor: '#2D3A6E' }}>
-            <p className="text-base font-bold uppercase tracking-widest mb-2" style={{ color: '#6B8AFF' }}>Scenario</p>
+          <div className="rounded-2xl p-5 mb-3 border" style={{ background: '#0F1B3D', borderColor: '#2D3A8C' }}>
+            <p className="text-base font-bold uppercase tracking-widest mb-2" style={{ color: '#F5E642' }}>Scenario</p>
             <p className="text-lg leading-relaxed" style={{ color: '#E0E7FF' }}>{question.scenarioText}</p>
             {question.supportingDetail && (
-              <p className="mt-2 font-bold text-lg" style={{ color: '#FFD166' }}>{question.supportingDetail}</p>
+              <p className="mt-2 font-bold text-lg" style={{ color: '#F5E642' }}>{question.supportingDetail}</p>
             )}
           </div>
         )}
 
         {/* Question card */}
-        <div className={`bg-white rounded-2xl shadow-sm border p-6 mb-4 ${question.type === 'case' ? 'border-blue-200 border-t-4 border-t-blue-500' : 'border-gray-200 border-t-4 border-t-amber-400'}`}>
+        <div className={`bg-white rounded-2xl shadow-sm border p-6 mb-4 ${question.type === 'case' ? 'border-t-4' : 'border-gray-200 border-t-4'}`} style={{ borderTopColor: question.type === 'case' ? '#2D3A8C' : '#F5E642' }}>
           <div className="flex items-center justify-between mb-3">
             <span className="text-base text-gray-400 font-semibold">Q{question.index + 1} / {question.total}</span>
             {question.type !== 'case' && question.type !== 'poll' && (
-              <span className="text-base font-bold" style={{ color: 'var(--color-primary)' }}>{question.points} pts</span>
+              <span className="text-base font-bold" style={{ color: '#0F1B3D' }}>{question.points} pts</span>
             )}
             {question.type === 'case' && (
-              <span className="text-base font-semibold" style={{ color: 'var(--color-primary)' }}>Scenario</span>
+              <span className="text-base font-semibold" style={{ color: '#2D3A8C' }}>Scenario</span>
             )}
           </div>
-          <p className="font-bold text-2xl leading-snug" style={{ color: 'var(--color-dark)' }}>{question.text}</p>
+          <p className="font-bold text-2xl leading-snug" style={{ color: '#0F1B3D' }}>{question.text}</p>
           {question.imageUrl && (
             <img src={question.imageUrl} alt="" className="mt-3 rounded-xl max-h-48 w-full object-contain" loading="lazy" />
           )}
@@ -827,7 +830,7 @@ function JoinPageInner() {
           <div className="flex flex-col gap-3 flex-1">
             <textarea
               className={`w-full rounded-2xl border-2 p-4 text-lg resize-none focus:outline-none transition-colors min-h-[140px] ${
-                selectedAnswer !== null ? 'opacity-60 pointer-events-none border-gray-200 bg-gray-50' : 'border-gray-200 bg-white focus:border-blue-400'
+                selectedAnswer !== null ? 'opacity-60 pointer-events-none border-gray-200 bg-gray-50' : 'border-gray-200 bg-white'
               }`}
               placeholder={question.type === 'qa' ? 'Type your question…' : 'Type your answer…'}
               value={textAnswer}
@@ -837,8 +840,8 @@ function JoinPageInner() {
             <button
               onClick={submitTextAnswer}
               disabled={selectedAnswer !== null || !textAnswer.trim()}
-              className="w-full py-4 rounded-2xl text-white font-black text-xl transition-all disabled:opacity-40"
-              style={{ background: selectedAnswer !== null ? '#9ca3af' : 'var(--brand-gradient)' }}
+              className="w-full py-4 rounded-2xl font-black text-xl transition-all disabled:opacity-40"
+              style={{ background: selectedAnswer !== null ? '#9ca3af' : '#F5E642', color: selectedAnswer !== null ? '#fff' : '#0D0D0D', border: selectedAnswer !== null ? 'none' : '2px solid #0D0D0D' }}
             >
               {selectedAnswer !== null ? 'Submitted ✓' : 'Submit →'}
             </button>
@@ -867,6 +870,7 @@ function JoinPageInner() {
                     ${isSelected ? 'ring-4 ring-white scale-[0.97]' : ''}
                     ${isDisabled && !isSelected ? 'opacity-50 pointer-events-none' : ''}
                   `}
+                  style={{ background: OPTION_COLORS[idx] ?? '#0F1B3D' }}
                 >
                   {optImage && (
                     <img src={optImage} alt="" className="w-full h-20 object-cover rounded-xl mb-2" loading="lazy" />
@@ -889,13 +893,13 @@ function JoinPageInner() {
         {pendingAnswer !== null && confidence === null && (
           <div className="fixed inset-0 bg-black/40 flex items-end justify-center p-6 z-50">
             <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl text-center">
-              <p className="font-black text-2xl mb-2" style={{ color: 'var(--color-dark)' }}>How confident are you?</p>
+              <p className="font-black text-2xl mb-2" style={{ color: '#0F1B3D' }}>How confident are you?</p>
               <p className="text-gray-500 text-lg mb-6">Your answer is locked in — this is just for you.</p>
               <div className="flex gap-3">
                 <button
                   onClick={() => submitWithConfidence('sure')}
                   className="flex-1 text-white font-black rounded-xl py-5 text-xl hover:opacity-90 transition-colors"
-                  style={{ background: 'var(--color-primary)' }}
+                  style={{ background: '#0F1B3D' }}
                 >
                   Sure
                 </button>
@@ -933,7 +937,7 @@ function JoinPageInner() {
               <div key={i} className="absolute w-3 h-3 rounded-sm" style={{
                 left: `${10 + Math.random() * 80}%`,
                 top: '50%',
-                background: ['#4361EE', '#FF6B6B', '#FFD166', '#16A34A', '#7C3AED', '#F59E0B'][i % 6],
+                background: ['#0F1B3D', '#F5E642', '#FF8A47', '#16A34A', '#2D3A8C', '#5BC0EB'][i % 6],
                 animation: `confettiBurst ${0.8 + Math.random() * 0.8}s ease-out ${Math.random() * 0.2}s forwards`,
               }} />
             ))}
@@ -953,7 +957,7 @@ function JoinPageInner() {
           </div>
         )}
         {isNonScored ? (
-          <p className="font-black text-4xl" style={{ color: 'var(--color-primary)' }}>Recorded!</p>
+          <p className="font-black text-4xl" style={{ color: '#0F1B3D' }}>Recorded!</p>
         ) : (
           <p className={`font-black text-4xl ${isCorrect ? 'text-green-600' : 'text-red-500'}`}>
             {isCorrect ? 'Correct!' : 'Wrong!'}
@@ -963,20 +967,20 @@ function JoinPageInner() {
         {/* Streak badge */}
         {isCorrect && streak >= 2 && (
           <div className="flex items-center gap-2 px-4 py-2 rounded-full" style={{
-            background: streak >= 5 ? 'linear-gradient(135deg, #F59E0B, #EF4444)' : 'linear-gradient(135deg, #4361EE, #7C3AED)',
+            background: streak >= 5 ? 'linear-gradient(135deg, #F5E642, #FF8A47)' : '#0F1B3D',
             animation: 'correctPop 0.4s ease-out',
           }}>
-            <span className="text-white font-black text-xl">{streak} Streak!</span>
+            <span className="font-black text-xl" style={{ color: streak >= 5 ? '#0D0D0D' : '#F5E642' }}>{streak} Streak!</span>
           </div>
         )}
 
         {isCorrect && sessionMode === 'competitive' && (
-          <p className="font-bold text-2xl animate-pulse" style={{ color: 'var(--color-primary)' }}>+{pointsEarned} pts</p>
+          <p className="font-bold text-2xl animate-pulse" style={{ color: '#0F1B3D' }}>+{pointsEarned} pts</p>
         )}
         {sessionMode === 'competitive' && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 w-full">
             <p className="text-gray-500 text-lg">Your score</p>
-            <p className="text-6xl font-black" style={{ color: 'var(--color-primary)' }}>{totalScore}</p>
+            <p className="text-6xl font-black" style={{ color: '#0F1B3D' }}>{totalScore}</p>
           </div>
         )}
         {explanation && (
@@ -1019,17 +1023,17 @@ function JoinPageInner() {
   if (phase === 'ended') {
     return (
       <div className="min-h-screen p-4 max-w-md mx-auto">
-        <h2 className="text-4xl font-black mb-6 text-center" style={{ color: 'var(--color-dark)' }}>Quiz Over!</h2>
+        <h2 className="text-4xl font-black mb-6 text-center" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Quiz Over!</h2>
 
         {/* Team leaderboard */}
         {teamLeaderboard && teamLeaderboard.length > 0 && (
           <div className="space-y-2 mb-6">
-            <h3 className="text-lg font-black text-center" style={{ color: 'var(--color-dark)' }}>Team Standings</h3>
+            <h3 className="text-lg font-black text-center" style={{ color: '#0F1B3D' }}>Team Standings</h3>
             {teamLeaderboard.map((t, i) => {
               const isMyTeam = team && t.name === team.name
               return (
-                <div key={t.name} className={`flex items-center gap-3 rounded-xl p-3 ${isMyTeam ? 'ring-2 ring-blue-400' : ''}`}
-                  style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
+                <div key={t.name} className={`flex items-center gap-3 rounded-xl p-3 ${isMyTeam ? 'ring-2' : ''}`}
+                  style={{ background: '#fff', border: '1px solid #E5E7EB', ...(isMyTeam ? { '--tw-ring-color': '#F5E642' } as React.CSSProperties : {}) }}>
                   <span className="text-lg font-black w-6 text-center" style={{ color: t.color }}>
                     {i === 0 ? '🏆' : i + 1}
                   </span>
@@ -1074,7 +1078,7 @@ function JoinPageInner() {
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-base font-bold uppercase tracking-widest" style={{ color: 'var(--color-primary)' }}>{spLabel}</p>
+            <p className="text-base font-bold uppercase tracking-widest" style={{ color: '#0F1B3D' }}>{spLabel}</p>
             <p className="text-lg text-gray-500">{quizTitle}</p>
           </div>
           <span className="text-base text-gray-400">{spIndex + 1} / {spQuestions.length}</span>
@@ -1083,12 +1087,12 @@ function JoinPageInner() {
         {/* Progress bar */}
         <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-4">
           <div className="h-full rounded-full transition-all duration-300"
-            style={{ width: `${((spIndex + 1) / spQuestions.length) * 100}%`, background: 'var(--brand-gradient)' }} />
+            style={{ width: `${((spIndex + 1) / spQuestions.length) * 100}%`, background: '#0F1B3D' }} />
         </div>
 
         {/* Question */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-4 border-t-4 border-t-blue-500">
-          <p className="font-bold text-2xl leading-snug" style={{ color: 'var(--color-dark)' }}>{q.text}</p>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-4 border-t-4" style={{ borderTopColor: '#0F1B3D' }}>
+          <p className="font-bold text-2xl leading-snug" style={{ color: '#0F1B3D' }}>{q.text}</p>
           {q.imageUrl && (
             <img src={q.imageUrl} alt="" className="mt-3 rounded-xl max-h-48 w-full object-contain" loading="lazy" />
           )}
@@ -1146,8 +1150,8 @@ function JoinPageInner() {
             )}
             <button
               onClick={handleSpNext}
-              className="w-full py-4 rounded-xl font-bold text-lg transition-all hover:opacity-90"
-              style={{ background: 'var(--brand-gradient)', color: '#fff' }}
+              className="w-full py-4 rounded-full font-bold text-lg transition-all hover:opacity-90"
+              style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
             >
               {spIndex + 1 >= spQuestions.length ? 'See Results' : 'Next'}
             </button>
@@ -1166,14 +1170,14 @@ function JoinPageInner() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 max-w-md mx-auto text-center gap-5">
         <div className="w-28 h-28 rounded-full flex items-center justify-center text-5xl"
-          style={{ background: 'var(--brand-gradient)' }}>
+          style={{ background: '#0F1B3D' }}>
           <span style={{ color: '#fff' }}>{pct >= 80 ? '★' : pct >= 50 ? '✓' : '→'}</span>
         </div>
-        <p className="font-black text-4xl" style={{ color: 'var(--color-dark)' }}>{spScore} pts</p>
+        <p className="font-black text-4xl" style={{ color: '#0F1B3D' }}>{spScore} pts</p>
         <p className="text-gray-500 text-lg">{spLabel} complete · {pct}% accuracy</p>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 w-full text-left">
-          <p className="text-base font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--color-primary)' }}>Quiz</p>
-          <p className="font-bold text-xl" style={{ color: 'var(--color-dark)' }}>{quizTitle}</p>
+          <p className="text-base font-bold uppercase tracking-widest mb-1" style={{ color: '#0F1B3D' }}>Quiz</p>
+          <p className="font-bold text-xl" style={{ color: '#0F1B3D' }}>{quizTitle}</p>
           <p className="text-base text-gray-500 mt-1">{spQuestions.length} questions · spaced retrieval practice</p>
         </div>
         <button
@@ -1190,20 +1194,20 @@ function JoinPageInner() {
   if (phase === 'presenter-lobby') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 gap-6"
-        style={{ background: 'var(--color-bg)' }}>
+        style={{ background: '#0F1B3D' }}>
         <div className="text-center space-y-3">
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-            style={{ background: 'var(--brand-gradient)' }}>
-            <span className="text-3xl">🎯</span>
+            style={{ background: '#F5E642', border: '2px solid #0D0D0D' }}>
+            <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8"><rect x="3" y="3" width="18" height="14" rx="2" stroke="#0F1B3D" strokeWidth="2"/><path d="M8 21h8M12 17v4" stroke="#0F1B3D" strokeWidth="2" strokeLinecap="round"/></svg>
           </div>
-          <h1 className="text-3xl font-black" style={{ color: 'var(--color-dark)' }}>{presenterTitle}</h1>
-          <p className="text-lg" style={{ color: 'var(--color-text-muted)' }}>
+          <h1 className="text-3xl font-black" style={{ color: '#fff', fontFamily: 'var(--font-heading)' }}>{presenterTitle}</h1>
+          <p className="text-lg" style={{ color: '#94A3B8' }}>
             Waiting for the presenter to start...
           </p>
         </div>
         <div className="flex gap-2 items-center">
-          <div className="w-3 h-3 rounded-full animate-pulse" style={{ background: 'var(--color-primary)' }} />
-          <span className="text-lg font-semibold" style={{ color: 'var(--color-primary)' }}>Connected</span>
+          <div className="w-3 h-3 rounded-full animate-pulse" style={{ background: '#16A34A' }} />
+          <span className="text-lg font-semibold" style={{ color: '#16A34A' }}>Connected</span>
         </div>
       </div>
     )
@@ -1212,7 +1216,7 @@ function JoinPageInner() {
   // ─── Presenter Voting ──────────────────────────────────────────────────────
   if (phase === 'presenter-voting' && presenterCurrentSlide) {
     const slide = presenterCurrentSlide
-    const bgDark = '#0a0a1a'
+    const bgDark = '#0F1B3D'
     const textLight = 'white'
 
     function submitVote(response: string | number | { x: number; y: number }) {
@@ -1223,7 +1227,7 @@ function JoinPageInner() {
       })
     }
 
-    const OPTION_COLORS_P = ['#4361EE','#FF6B6B','#0891B2','#16A34A','#EA580C']
+    const OPTION_COLORS_P = ['#2D3A8C','#FF8A47','#5BC0EB','#E07A5F','#0F1B3D']
 
     return (
       <div className="min-h-screen flex flex-col p-4 gap-4" style={{ background: bgDark }}>
@@ -1232,7 +1236,7 @@ function JoinPageInner() {
           <span className="text-base font-bold opacity-40" style={{ color: textLight }}>
             Slide {presenterSlideIndex + 1} / {presenterTotalSlides}
           </span>
-          <span className="text-base font-semibold" style={{ color: '#6B8AFF' }}>{presenterTitle}</span>
+          <span className="text-base font-semibold" style={{ color: '#F5E642' }}>{presenterTitle}</span>
         </div>
 
         {/* Question */}
@@ -1293,7 +1297,7 @@ function JoinPageInner() {
                   if (input?.value.trim()) submitVote(input.value.trim())
                 }}
                 className="w-full py-5 rounded-2xl text-xl font-black"
-                style={{ background: 'var(--brand-gradient)', color: '#fff' }}>
+                style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>
                 Submit
               </button>
             </div>
@@ -1319,7 +1323,7 @@ function JoinPageInner() {
                   submitVote(Number(input?.value ?? 50))
                 }}
                 className="w-full py-5 rounded-2xl text-xl font-black"
-                style={{ background: 'var(--brand-gradient)', color: '#fff' }}>
+                style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>
                 Submit
               </button>
             </div>
@@ -1353,20 +1357,20 @@ function JoinPageInner() {
   if (phase === 'presenter-voted') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-6 p-6"
-        style={{ background: '#0a0a1a' }}>
+        style={{ background: '#0F1B3D' }}>
         <div className="w-20 h-20 rounded-full flex items-center justify-center"
-          style={{ background: 'var(--brand-gradient)' }}>
-          <span className="text-3xl">✓</span>
+          style={{ background: '#F5E642', border: '2px solid #0D0D0D' }}>
+          <span className="text-3xl" style={{ color: '#0D0D0D' }}>✓</span>
         </div>
         <div className="text-center space-y-2">
-          <p className="text-3xl font-black" style={{ color: 'white' }}>Vote counted!</p>
+          <p className="text-3xl font-black" style={{ color: 'white', fontFamily: 'var(--font-heading)' }}>Vote counted!</p>
           <p className="text-lg" style={{ color: 'rgba(255,255,255,0.4)' }}>
             Waiting for the presenter to move to the next slide...
           </p>
         </div>
         <div className="flex gap-2 items-center">
-          <div className="w-3 h-3 rounded-full animate-pulse" style={{ background: '#6B8AFF' }} />
-          <span className="text-base" style={{ color: '#6B8AFF' }}>Slide {presenterSlideIndex + 1} of {presenterTotalSlides}</span>
+          <div className="w-3 h-3 rounded-full animate-pulse" style={{ background: '#F5E642' }} />
+          <span className="text-base" style={{ color: '#F5E642' }}>Slide {presenterSlideIndex + 1} of {presenterTotalSlides}</span>
         </div>
       </div>
     )
@@ -1378,7 +1382,7 @@ function JoinPageInner() {
 // ─── Outer Wrapper (Suspense required for useSearchParams in Next.js 16) ──────
 export default function JoinPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0a0a1a]" />}>
+    <Suspense fallback={<div className="min-h-screen" style={{ background: '#0F1B3D' }} />}>
       <JoinPageInner />
     </Suspense>
   )

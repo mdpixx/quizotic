@@ -1,63 +1,30 @@
-'use client'
-
 import Link from 'next/link'
-import { motion } from 'framer-motion'
+
 export function CTASection() {
   return (
-    <section className="py-24 md:py-32" style={{ background: '#FFFBF5' }}>
-      <div className="max-w-[1280px] mx-auto px-6 md:px-12">
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-60px' }}
-          transition={{ duration: 0.5 }}
-          className="text-center max-w-2xl mx-auto"
-        >
-          <h2 className="text-3xl md:text-5xl font-black mb-4 leading-tight" style={{ fontFamily: 'var(--font-heading)', color: '#1B2559' }}>
-            Your next session{' '}
-            <span style={{ backgroundImage: 'linear-gradient(90deg, #FF6B6B, #4361EE)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              starts here
-            </span>
-          </h2>
-          <p className="text-lg mb-10" style={{ color: '#4A5568' }}>
-            Create your first quiz or presentation in under a minute. No credit card, no signup, free forever.
-          </p>
-
-          {/* Dual CTAs */}
-          <div className="flex flex-wrap gap-4 justify-center mb-6">
-            <Link
-              href="/host/create"
-              className="inline-flex items-center gap-2 text-lg font-bold px-10 py-4 rounded-2xl text-white transition-all hover:opacity-90 hover:scale-[1.02]"
-              style={{
-                background: 'linear-gradient(135deg, #4361EE, #3A56D4)',
-                fontFamily: 'var(--font-heading)',
-                boxShadow: '0 8px 40px rgba(67,97,238,0.3)',
-              }}
-            >
-              Create a Quiz
-              <svg className="w-5 h-5" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </Link>
-            <Link
-              href="/host/present/create"
-              className="inline-flex items-center gap-2 text-lg font-bold px-10 py-4 rounded-2xl text-white transition-all hover:opacity-90 hover:scale-[1.02]"
-              style={{
-                background: 'linear-gradient(135deg, #FF6B6B, #E05555)',
-                fontFamily: 'var(--font-heading)',
-                boxShadow: '0 8px 40px rgba(255,107,107,0.3)',
-              }}
-            >
-              Build a Presentation
-              <svg className="w-5 h-5" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </Link>
-          </div>
-
-          <div className="flex justify-center gap-6">
-            {['No credit card', 'No signup', 'Free forever'].map(text => (
-              <span key={text} className="text-sm font-semibold" style={{ color: '#718096' }}>{text}</span>
-            ))}
-          </div>
-        </motion.div>
+    <section style={{ padding: '100px 24px', background: '#F5E642', position: 'relative', overflow: 'hidden' }}>
+      {/* Decorative "!" watermark */}
+      <div style={{ position: 'absolute', right: '5%', top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 200, color: '#0F1B3D', opacity: 0.08, pointerEvents: 'none', lineHeight: 1, userSelect: 'none' }}>
+        !
       </div>
+
+      <div style={{ maxWidth: 800, margin: '0 auto', textAlign: 'center', position: 'relative', zIndex: 1 }}>
+        <h2 style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 'clamp(36px, 5vw, 60px)', color: '#0D0D0D', letterSpacing: '-0.03em', marginBottom: 16 }}>
+          Ready to teach with purpose?
+        </h2>
+        <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontWeight: 500, fontSize: 20, color: '#0D0D0D', marginBottom: 40, opacity: 0.8 }}>
+          Built on evidence. Designed for engagement. Free to start.
+        </p>
+        <Link href="/auth/signin" className="cta-navy-btn"
+          style={{ display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 18, color: '#fff', textDecoration: 'none', padding: '18px 40px', borderRadius: 12, background: '#0F1B3D', border: '3px solid #0D0D0D', boxShadow: '5px 5px 0 #0D0D0D' }}>
+          Start Teaching Free →
+        </Link>
+      </div>
+
+      <style>{`
+        .cta-navy-btn { transition: transform 0.15s, box-shadow 0.15s; }
+        .cta-navy-btn:hover { transform: translate(2px,2px); box-shadow: 3px 3px 0 #0D0D0D !important; }
+      `}</style>
     </section>
   )
 }
