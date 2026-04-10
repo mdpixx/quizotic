@@ -53,7 +53,7 @@ function Tile({ icon, label, selected, onClick }: {
 }
 
 export default function OnboardPage() {
-  const { data: session } = useSession()
+  const { data: session, update } = useSession()
   const router = useRouter()
   const [role, setRole] = useState<string | null>(null)
   const [orgType, setOrgType] = useState<string | null>(null)
@@ -82,7 +82,8 @@ export default function OnboardPage() {
             }
       ),
     })
-    // If this is a new user's first quiz, guide them to create
+    // Refresh the JWT so middleware knows onboarding is complete
+    await update({ onboarded: true })
     router.push('/host?welcome=1')
   }
 

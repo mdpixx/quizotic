@@ -1,6 +1,6 @@
 import NextAuth from 'next-auth'
 import Google from 'next-auth/providers/google'
-import Resend from 'next-auth/providers/resend'
+import Nodemailer from 'next-auth/providers/nodemailer'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import { prisma } from '@/lib/prisma'
 import { createUniqueReferralCode } from '@/lib/referral'
@@ -18,10 +18,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
-    ...(process.env.RESEND_API_KEY
-      ? [Resend({
-          apiKey: process.env.RESEND_API_KEY,
-          from: process.env.EMAIL_FROM ?? 'Quizotic <noreply@quizotic.live>',
+    ...(process.env.EMAIL_SMTP_USER && process.env.EMAIL_SMTP_PASS
+      ? [Nodemailer({
+          server: {
+            host: 'smtp.gmail.com',
+            port: 587,
+            auth: {
+              user: process.env.EMAIL_SMTP_USER,
+              pass: process.env.EMAIL_SMTP_PASS,
+            },
+          },
+          from: process.env.EMAIL_FROM ?? 'Quizotic <info@quizotic.live>',
         })]
       : []),
   ],
@@ -37,15 +44,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user?.id) {
         token.userId = user.id
+        const dbUser = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { onboarded: true },
+        })
+        token.onboarded = dbUser?.onboarded ?? false
+      }
+      // Allow client-side update({ onboarded: true }) to refresh the JWT
+      if (trigger === 'update' && session?.onboarded !== undefined) {
+        token.onboarded = session.onboarded
       }
       return token
     },
     async session({ session, token }) {
       if (token.userId && session.user) {
         session.user.id = token.userId as string
+        session.user.onboarded = (token.onboarded as boolean) ?? false
       }
       return session
     },

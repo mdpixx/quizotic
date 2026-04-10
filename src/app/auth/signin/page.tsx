@@ -26,9 +26,9 @@ export default function SignInPage() {
     setLoading(true)
     setError('')
     try {
-      const result = await signIn('resend', { email, callbackUrl: '/host', redirect: false })
+      const result = await signIn('nodemailer', { email, callbackUrl: '/host', redirect: false })
       if (result?.error) {
-        setError('Could not send the magic link. Please check your email and try again.')
+        setError('Magic link is unavailable right now. Please sign in with Google.')
         setLoading(false)
         return
       }
