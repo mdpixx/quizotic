@@ -165,7 +165,7 @@ function UspCard({ children, reverse = false }: { children: React.ReactNode; rev
 function UspText({ num, title, subtitle, body, citation, tags }: { num: string; title: string; subtitle: string; body: string; citation: string; tags: string[] }) {
   return (
     <div>
-      <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 48, color: 'rgba(255,255,255,0.15)', marginBottom: 8 }}>{num}</div>
+      <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 48, color: '#F5E642', marginBottom: 8 }}>{num}</div>
       <h3 style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 28, color: '#fff', marginBottom: 8, letterSpacing: '-0.02em' }}>{title}</h3>
       <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontWeight: 600, fontSize: 16, color: '#F5E642', marginBottom: 16 }}>{subtitle}</p>
       <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 15, color: 'rgba(255,255,255,0.7)', lineHeight: 1.7, marginBottom: 16 }}>{body}</p>

@@ -69,7 +69,7 @@ function BrowserQuiz() {
   const timerPct = (timeLeft / 10) * 100
 
   return (
-    <div style={{ borderRadius: 16, overflow: 'hidden', boxShadow: '0 16px 48px rgba(0,0,0,0.4)', border: '2px solid rgba(255,255,255,0.1)', background: '#fff', maxWidth: 420, width: '100%' }}>
+    <div style={{ borderRadius: 16, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.5)', border: '2px solid rgba(255,255,255,0.15)', background: '#fff', maxWidth: 480, width: '100%' }}>
       {/* Browser bar */}
       <div style={{ background: '#1A1A2E', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 6 }}>
         <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#FF5F57', display: 'inline-block' }} />
@@ -94,7 +94,7 @@ function BrowserQuiz() {
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#16A34A', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
                 24 participants live
               </div>
-              <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 22, color: '#0F1B3D', minWidth: 32, textAlign: 'center' }}>
+              <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 18, color: '#fff', background: '#0F1B3D', borderRadius: 7, width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {selected !== null ? '✓' : String(timeLeft).padStart(2, '0')}
               </div>
             </div>
@@ -172,7 +172,7 @@ export function Hero() {
           <div style={{ display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 12, color: '#F5E642', letterSpacing: '0.1em', border: '1px solid rgba(245,230,66,0.4)', borderRadius: 20, padding: '6px 14px', marginBottom: 24, textTransform: 'uppercase' }}>
             Quiz + Presentations Platform
           </div>
-          <h1 style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 'clamp(36px, 4.5vw, 56px)', color: '#fff', letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: 20 }}>
+          <h1 style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 'clamp(40px, 5vw, 64px)', color: '#fff', letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: 20 }}>
             Turn every <span style={{ color: '#F5E642' }}>session</span> into a learning moment.
           </h1>
           <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 18, color: 'rgba(255,255,255,0.7)', lineHeight: 1.7, marginBottom: 36, maxWidth: 480 }}>
