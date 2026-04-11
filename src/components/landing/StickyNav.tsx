@@ -49,12 +49,8 @@ export function StickyNav() {
             ))}
           </div>
 
-          {/* Right buttons desktop */}
+          {/* Right button desktop */}
           <div className="nav-right" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Link href="/auth/signin" className="nav-login"
-              style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.85)', textDecoration: 'none', padding: '8px 18px', borderRadius: 20, border: '1.5px solid rgba(255,255,255,0.25)' }}>
-              Log in
-            </Link>
             <Link href="/auth/signin" className="nav-start"
               style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontSize: 14, fontWeight: 700, color: '#0D0D0D', textDecoration: 'none', padding: '8px 20px', borderRadius: 10, background: '#F5E642', border: '2px solid #0D0D0D', boxShadow: '3px 3px 0 #0D0D0D' }}>
               Start Free →
@@ -87,10 +83,6 @@ export function StickyNav() {
           </a>
         ))}
         <Link href="/auth/signin" onClick={() => setMenuOpen(false)}
-          style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 16, fontWeight: 500, color: 'rgba(255,255,255,0.85)', textDecoration: 'none', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-          Log in
-        </Link>
-        <Link href="/auth/signin" onClick={() => setMenuOpen(false)}
           style={{ marginTop: 8, display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontSize: 16, fontWeight: 700, color: '#0D0D0D', textDecoration: 'none', padding: '12px 24px', borderRadius: 10, background: '#F5E642', border: '2px solid #0D0D0D', boxShadow: '3px 3px 0 #0D0D0D', textAlign: 'center' }}>
           Start Free →
         </Link>
@@ -98,7 +90,6 @@ export function StickyNav() {
 
       <style>{`
         .nav-link:hover { color: #fff !important; background: rgba(255,255,255,0.08); }
-        .nav-login:hover { border-color: rgba(255,255,255,0.6) !important; }
         .nav-start:hover { transform: translate(2px,2px); box-shadow: 1px 1px 0 #0D0D0D !important; }
         .nav-start { transition: transform 0.15s, box-shadow 0.15s; }
         @media (max-width: 768px) {

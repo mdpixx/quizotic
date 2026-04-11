@@ -63,6 +63,12 @@ export const SLIDE_CATEGORIES = [
 interface SlideBase {
   id: string
   type: SlideType
+  bgColor?: string
+  responseMode?: 'instant' | 'on_click' | 'private'
+  contentImageUrl?: string
+  backgroundImageUrl?: string
+  vizTextColor?: string
+  showQrCode?: boolean
 }
 
 export interface MultipleChoiceSlide extends SlideBase {
@@ -102,7 +108,8 @@ export interface RankingSlide extends SlideBase {
 export interface ImageChoiceSlide extends SlideBase {
   type: 'image_choice'
   question: string
-  options: string[]   // option labels (images handled separately)
+  options: string[]      // text labels
+  imageUrls: string[]    // parallel array — imageUrls[i] is the image for options[i]
 }
 
 export interface Scale100Slide extends SlideBase {
@@ -217,7 +224,7 @@ export function makeSlide(type: SlideType): Slide {
     case 'word_cloud':      return { id, type, question: '', maxWords: 1 }
     case 'rating_scale':    return { id, type, question: '', minLabel: 'Not at all', maxLabel: 'Extremely', maxRating: 5 }
     case 'ranking':         return { id, type, question: '', items: ['', '', ''] }
-    case 'image_choice':    return { id, type, question: '', options: ['', '', '', ''] }
+    case 'image_choice':    return { id, type, question: '', options: ['', '', '', ''], imageUrls: ['', '', '', ''] }
     case 'scale_100':       return { id, type, question: '', minLabel: 'Disagree', maxLabel: 'Agree' }
     case 'pinpoint':        return { id, type, question: '' }
     case 'grid_2x2':        return { id, type, question: '', xLabel: 'X Axis', yLabel: 'Y Axis', xMin: 'Low', xMax: 'High', yMin: 'Low', yMax: 'High' }
@@ -226,7 +233,7 @@ export function makeSlide(type: SlideType): Slide {
     case 'live_race':       return { id, type, question: '', options: ['', '', ''] }
     case 'emoji_pulse':     return { id, type, question: '', emojis: ['❤️', '😂', '🔥', '😮'] }
     case 'quick_fire':      return { id, type, question: '', options: ['', '', '', ''], durationSeconds: 5 }
-    case 'title':           return { id, type, heading: '', subheading: '', bgColor: '#0F1B3D' }
+    case 'title':           return { id, type, heading: '', subheading: '', bgColor: '#FAFAF8' }
     case 'bullets':         return { id, type, heading: '', bullets: ['', '', ''] }
     case 'quote':           return { id, type, quote: '', attribution: '' }
     case 'video':           return { id, type, url: '', caption: '' }

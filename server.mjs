@@ -182,6 +182,7 @@ app.prepare().then(() => {
         question,
         index: 0,
         total: session.quizData.questions.length,
+        serverTimestamp: session.questionStartedAt,
       })
 
       console.log(`[session] started: ${gameCode}`)
@@ -199,7 +200,10 @@ app.prepare().then(() => {
       const session = sessions.get(gameCode)
       if (!session || session.hostSocketId !== socket.id) return
       session.paused = false
-      io.to(`session:${gameCode}`).emit('quiz_resumed')
+      const elapsed = session.questionStartedAt ? Date.now() - session.questionStartedAt : 0
+      const timer = session.quizData?.questions[session.currentQuestionIndex]?.timerSeconds || 20
+      const remainingMs = Math.max(0, timer * 1000 - elapsed)
+      io.to(`session:${gameCode}`).emit('quiz_resumed', { remainingMs })
       console.log(`[session] resumed: ${gameCode}`)
     })
 
@@ -253,6 +257,7 @@ app.prepare().then(() => {
         question,
         index: currentQuestionIndex,
         total: quizData.questions.length,
+        serverTimestamp: session.questionStartedAt,
       })
     })
 
@@ -338,10 +343,12 @@ app.prepare().then(() => {
         session.aggregates[slideIndex] = { total: 0, counts: [], words: {}, scores: [], emojis: {}, pins: [] }
       }
 
+      const currentSlide = session.presentationData.slides[slideIndex]
       io.to(`session:${gameCode}`).emit('presenter_slide_changed', {
         slideIndex,
         total: session.presentationData.slides.length,
-        slide: session.presentationData.slides[slideIndex],
+        slide: currentSlide,
+        responseMode: currentSlide?.responseMode || 'instant',
       })
       console.log(`[presenter] ${gameCode} → slide ${slideIndex}`)
     })
@@ -351,10 +358,18 @@ app.prepare().then(() => {
       if (!session || session.hostSocketId !== socket.id || session.type !== 'presenter') return
 
       session.currentSlideIndex = slideIndex
+      // Reset aggregate so fresh votes can come in
+      session.aggregates[slideIndex] = { total: 0, counts: [], words: {}, scores: [], emojis: {}, pins: [] }
+      // Re-open voting for this slide for all participants
+      for (const p of session.participants.values()) {
+        if (p.votedSlides) delete p.votedSlides[slideIndex]
+      }
+      const currentSlide = session.presentationData.slides[slideIndex]
       io.to(`session:${gameCode}`).emit('presenter_slide_changed', {
         slideIndex,
         total: session.presentationData.slides.length,
-        slide: session.presentationData.slides[slideIndex],
+        slide: currentSlide,
+        responseMode: currentSlide?.responseMode || 'instant',
       })
     })
 
@@ -398,7 +413,29 @@ app.prepare().then(() => {
       }
 
       socket.emit('presenter_response_confirmed')
-      io.to(`host:${gameCode}`).emit('presenter_aggregate_updated', agg)
+
+      // Route aggregate updates based on responseMode
+      const responseMode = slide?.responseMode || 'instant'
+      if (responseMode === 'instant') {
+        // Broadcast to everyone (host + all participants)
+        io.to(`session:${gameCode}`).emit('presenter_aggregate_updated', agg)
+      } else {
+        // on_click and private: only host sees aggregates until revealed
+        io.to(`host:${gameCode}`).emit('presenter_aggregate_updated', agg)
+      }
+    })
+
+    // Host reveals results to participants (on_click mode)
+    socket.on('presenter_reveal_results', ({ gameCode }) => {
+      const session = sessions.get(gameCode)
+      if (!session || session.hostSocketId !== socket.id || session.type !== 'presenter') return
+
+      const slideIndex = session.currentSlideIndex
+      const agg = session.aggregates[slideIndex]
+      if (!agg) return
+
+      agg.revealed = true
+      io.to(`session:${gameCode}`).emit('presenter_results_revealed', agg)
     })
 
     socket.on('end_presenter_session', ({ gameCode }) => {
@@ -475,6 +512,7 @@ app.prepare().then(() => {
         currentSlideIndex: session.currentSlideIndex,
         totalSlides: session.presentationData.slides.length,
         currentSlide,
+        responseMode: currentSlide?.responseMode || 'instant',
       })
 
       io.to(`host:${gameCode}`).emit('presenter_participant_joined', {
@@ -545,7 +583,8 @@ app.prepare().then(() => {
 
     // ─── PARTICIPANT EVENTS ─────────────────────────────────────────
 
-    socket.on('join_session', async ({ gameCode, displayName }, callback) => {
+    socket.on('join_session', async ({ gameCode: rawCode, displayName }, callback) => {
+      const gameCode = String(rawCode ?? '').trim()
       const session = sessions.get(gameCode)
 
       if (!session) {
@@ -568,9 +607,38 @@ app.prepare().then(() => {
         return
       }
 
-      const archetype = assignArchetype()
       // Truncate display name server-side for safety
       const safeName = String(displayName ?? '').slice(0, 30).trim() || 'Anonymous'
+
+      // Check if this is a reconnecting participant (grace period recovery)
+      const disconnectedKey = safeName.toLowerCase()
+      const disconnectedEntry = session.disconnectedParticipants?.get(disconnectedKey)
+      if (disconnectedEntry) {
+        // Restore the participant under the new socket ID
+        const oldParticipant = disconnectedEntry.participant
+        session.participants.delete(disconnectedEntry.socketId)
+        delete oldParticipant.disconnectedAt
+        delete oldParticipant.disconnectedSocketId
+        session.participants.set(socket.id, oldParticipant)
+        session.disconnectedParticipants.delete(disconnectedKey)
+        socket.join(`session:${gameCode}`)
+        console.log(`[participant] ${safeName} reconnected to ${gameCode}`)
+        callback({
+          success: true,
+          status: session.status,
+          quizTitle: session.quizData.title,
+          archetype: oldParticipant.archetype,
+          sessionMode: session.sessionMode,
+          anonymousMode: session.anonymousMode,
+          team: oldParticipant.team,
+          showBranding: (session.hostPlan ?? 'free') !== 'pro',
+          reconnected: true,
+          score: oldParticipant.score,
+        })
+        return
+      }
+
+      const archetype = assignArchetype()
       // In anonymous mode, store archetype only (not the display name)
       const storedName = session.anonymousMode ? archetype : safeName
 
@@ -629,13 +697,14 @@ app.prepare().then(() => {
         }
       }
 
-      const isCorrect = checkAnswer(question, answer)
+      const isNonScored = ['poll', 'case', 'wordcloud', 'openended', 'qa', 'rating', 'ranking'].includes(question.type)
+      const isCorrect = isNonScored ? null : checkAnswer(question, answer)
       const points = isCorrect ? calcPoints(question.points || 1000, timeMs, question.timerSeconds || 20) : 0
 
       participant.answers[qi] = { answer, isCorrect, points, timeMs, confidence: confidence ?? 'unsure' }
       participant.score += points
 
-      socket.emit('answer_confirmed', { isCorrect, points, totalScore: participant.score })
+      socket.emit('answer_confirmed', { isCorrect, points, totalScore: participant.score, isNonScored })
 
       const numOptions = question.options?.length ?? 4
       io.to(`host:${gameCode}`).emit('answer_received', {
@@ -653,15 +722,31 @@ app.prepare().then(() => {
           io.to(`session:${code}`).emit('host_disconnected')
           sessions.delete(code)
           console.log(`[session] deleted (host left): ${code}`)
+          continue
         }
         if (session.participants.has(socket.id)) {
-          const name = session.participants.get(socket.id).name
-          session.participants.delete(socket.id)
-          if (session.type === 'presenter') {
-            io.to(`host:${code}`).emit('presenter_participant_left', { count: session.participants.size })
-          } else {
-            io.to(`host:${code}`).emit('participant_left', { name, count: session.participants.size })
-          }
+          const participant = session.participants.get(socket.id)
+          const name = participant.name
+          // Grace period: mark as disconnected, allow 30s to reconnect
+          participant.disconnectedAt = Date.now()
+          participant.disconnectedSocketId = socket.id
+          if (!session.disconnectedParticipants) session.disconnectedParticipants = new Map()
+          session.disconnectedParticipants.set(name.toLowerCase(), { socketId: socket.id, participant, gameCode: code })
+          console.log(`[participant] ${name} disconnected from ${code}, grace period 30s`)
+          // Remove after 30s if they haven't reconnected
+          setTimeout(() => {
+            const entry = session.disconnectedParticipants?.get(name.toLowerCase())
+            if (entry && entry.socketId === socket.id) {
+              session.disconnectedParticipants.delete(name.toLowerCase())
+              session.participants.delete(socket.id)
+              if (session.type === 'presenter') {
+                io.to(`host:${code}`).emit('presenter_participant_left', { count: session.participants.size })
+              } else {
+                io.to(`host:${code}`).emit('participant_left', { name, count: session.participants.size })
+              }
+              console.log(`[participant] ${name} removed from ${code} after grace period`)
+            }
+          }, 30000)
         }
       }
       console.log(`[socket] disconnected: ${socket.id}`)
@@ -746,9 +831,11 @@ function buildTeamLeaderboard(session) {
 function emitQuestionEnded(io, gameCode, session, questionIndex) {
   const q = session.quizData.questions[questionIndex]
   if (!q) return
+  const isNonScored = ['poll', 'case', 'wordcloud', 'openended', 'qa', 'rating', 'ranking'].includes(q.type)
   io.to(`session:${gameCode}`).emit('question_ended', {
-    correctAnswer: q.correctAnswer,
+    correctAnswer: isNonScored ? null : q.correctAnswer,
     explanation: q.explanation ?? null,
+    isNonScored,
   })
 }
 
@@ -756,12 +843,30 @@ function emitQuestionEnded(io, gameCode, session, questionIndex) {
 function buildQuestionStats(session) {
   const ps = Array.from(session.participants.values())
   return session.quizData.questions.map((q, i) => {
+    const isNonScored = ['poll', 'case', 'wordcloud', 'openended', 'qa', 'rating', 'ranking'].includes(q.type)
     const answered = ps.filter(p => p.answers[i] !== undefined)
     const total = answered.length
     if (total === 0) {
       return {
-        index: i, text: q.text, correctPct: 0, confidenceGrid: null,
+        index: i, text: q.text, type: q.type, correctPct: 0, confidenceGrid: null,
         bloomsLevel: q.bloomsLevel ?? null, explanation: q.explanation ?? null,
+        isNonScored, optionDistribution: null,
+      }
+    }
+
+    // For polls / non-scored: compute option distribution instead of correctness
+    if (isNonScored) {
+      const numOptions = q.options?.length ?? 0
+      const optionDistribution = Array(numOptions).fill(0)
+      for (const p of answered) {
+        const idx = Number(p.answers[i].answer)
+        if (idx >= 0 && idx < numOptions) optionDistribution[idx]++
+      }
+      return {
+        index: i, text: q.text, type: q.type, correctPct: null, confidenceGrid: null,
+        bloomsLevel: q.bloomsLevel ?? null, explanation: q.explanation ?? null,
+        isNonScored, optionDistribution,
+        options: q.options,
       }
     }
 
@@ -779,10 +884,12 @@ function buildQuestionStats(session) {
     return {
       index: i,
       text: q.text,
+      type: q.type,
       correctPct: Math.round((correct / total) * 100),
       confidenceGrid: { sureCorrect, sureWrong, unsureCorrect, unsureWrong },
       bloomsLevel: q.bloomsLevel ?? null,
       explanation: q.explanation ?? null,
+      isNonScored: false, optionDistribution: null,
     }
   })
 }

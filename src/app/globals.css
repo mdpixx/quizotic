@@ -134,6 +134,21 @@
   50%       { transform: translate(20px, -15px); }
 }
 
+/* Micro-interaction: button press feedback */
+.click-bounce {
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.click-bounce:active {
+  transform: scale(0.95);
+}
+
+.click-bounce-sm {
+  transition: transform 0.12s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.click-bounce-sm:active {
+  transform: scale(0.97);
+}
+
 @theme inline {
   --color-background: var(--color-bg);
   --color-foreground: var(--color-text-primary);

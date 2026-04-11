@@ -148,13 +148,14 @@ function SpeedWaveform({ recentVotes }: { recentVotes: number[] }) {
 // ─── Live vertical bar chart ──────────────────────────────────────────────────
 
 function LiveVerticalBars({
-  options, counts, total, colors, showResults,
+  options, counts, total, colors, showResults, correctIndex,
 }: {
   options: string[]
   counts: number[]
   total: number
   colors: string[]
   showResults: boolean
+  correctIndex?: number
 }) {
   const max = Math.max(...counts, 1)
 
@@ -165,13 +166,16 @@ function LiveVerticalBars({
         const pct = total > 0 ? Math.round((count / total) * 100) : 0
         const heightPct = count > 0 ? Math.max(3, (count / max) * 100) : 0
         const isLeading = count > 0 && count === Math.max(...counts)
-        const color = colors[i % colors.length]
+        const isCorrect = showResults && correctIndex === i
+        const color = isCorrect ? '#16A34A' : colors[i % colors.length]
 
         return (
           <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%' }}>
-            {/* Vote count badge above bar */}
+            {/* Correct badge or vote count */}
             <div style={{ height: 28, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', marginBottom: 4 }}>
-              {count > 0 && (
+              {isCorrect ? (
+                <span style={{ color: '#16A34A', fontWeight: 900, fontSize: 16 }}>✓</span>
+              ) : count > 0 && (
                 <span style={{ color, fontWeight: 800, fontSize: 17, lineHeight: 1 }}>
                   {count}
                 </span>
@@ -186,10 +190,13 @@ function LiveVerticalBars({
                   height: `${heightPct}%`,
                   minHeight: count > 0 ? 6 : 0,
                   borderRadius: '10px 10px 4px 4px',
-                  background: isLeading
+                  background: isCorrect
+                    ? `linear-gradient(180deg, #16A34A 0%, #15803D 100%)`
+                    : isLeading
                     ? `linear-gradient(180deg, ${color} 0%, ${color}cc 100%)`
                     : `linear-gradient(180deg, ${color}77 0%, ${color}44 100%)`,
-                  boxShadow: isLeading ? `0 0 20px ${color}55, 0 -2px 10px ${color}33` : 'none',
+                  boxShadow: isCorrect ? '0 0 20px #16A34A55' : isLeading ? `0 0 20px ${color}55, 0 -2px 10px ${color}33` : 'none',
+                  border: isCorrect ? '2px solid #16A34A' : 'none',
                   transition: 'height 0.65s cubic-bezier(0.34, 1.56, 0.64, 1)',
                 }}
               />
@@ -203,7 +210,7 @@ function LiveVerticalBars({
               <div style={{
                 fontSize: options.length > 4 ? 11 : 13,
                 fontWeight: 700,
-                color: '#0F1B3D',
+                color: isCorrect ? '#16A34A' : '#0F1B3D',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: options.length > 4 ? 'nowrap' : 'normal',
@@ -303,6 +310,18 @@ function WheelSpinner({ names, headingStyle, title }: { names: string[]; heading
   )
 }
 
+function getVideoEmbedUrl(url: string): string {
+  try {
+    const u = new URL(url)
+    const ytId = u.searchParams.get('v')
+      || (u.hostname === 'youtu.be' ? u.pathname.slice(1) : null)
+      || (u.pathname.includes('/shorts/') ? u.pathname.split('/shorts/')[1] : null)
+    if (ytId) return `https://www.youtube.com/embed/${ytId.split('?')[0]}`
+    if (u.hostname.includes('vimeo.com')) return `https://player.vimeo.com/video${u.pathname}`
+    return url.replace('watch?v=', 'embed/')
+  } catch { return url }
+}
+
 // ─── Slide content renderer ───────────────────────────────────────────────────
 
 function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggregate: AggregateData; showResults: boolean }) {
@@ -320,11 +339,12 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
         ? ['#2563EB', '#DC2626']
         : ['#0F1B3D','#FF8A47','#0891B2','#16A34A','#F59E0B']
       const counts = aggregate.counts ?? new Array(options.length).fill(0)
+      const typedSlide = slide as { question?: string; showCorrect?: boolean; correctIndex?: number }
 
       return (
         <div className="space-y-4">
           <h2 className="text-3xl leading-snug" style={headingStyle}>
-            {(slide as { question: string }).question || <span className="opacity-30">Question text...</span>}
+            {typedSlide.question || <span className="opacity-30">Question text...</span>}
           </h2>
           <LiveVerticalBars
             options={options}
@@ -332,6 +352,7 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
             total={aggregate.total}
             colors={barColors}
             showResults={showResults}
+            correctIndex={showResults && typedSlide.showCorrect ? typedSlide.correctIndex : undefined}
           />
         </div>
       )
@@ -483,7 +504,7 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
         <div className="space-y-3">
           {slide.url && (
             <div className="aspect-video rounded-2xl overflow-hidden bg-black">
-              <iframe src={slide.url.replace('watch?v=', 'embed/')} className="w-full h-full" allowFullScreen />
+              <iframe src={getVideoEmbedUrl(slide.url)} className="w-full h-full" allowFullScreen />
             </div>
           )}
           {slide.caption && <p className="text-sm text-center" style={{ color: '#6B7280' }}>{slide.caption}</p>}
@@ -594,6 +615,7 @@ export default function PresentSessionPage() {
   const [participantCount, setParticipantCount] = useState(0)
   const [aggregate, setAggregate] = useState<AggregateData>({ total: 0 })
   const [showResults, setShowResults] = useState(false)
+  const [revealed, setRevealed] = useState(false)
   const [soundOn, setSoundOn] = useState(true)
   const [floatingVoters, setFloatingVoters] = useState<FloatingVoter[]>([])
   const [toasts, setToasts] = useState<Toast[]>([])
@@ -603,6 +625,8 @@ export default function PresentSessionPage() {
   const [socketConnected, setSocketConnected] = useState(false)
   const [showWave, setShowWave] = useState(false)
   const waveTriggeredRef = useRef(false)
+  const endingRef = useRef(false)
+  const [plan, setPlan] = useState<'free' | 'pro'>('free')
 
   const currentSlide = presentation?.slides[slideIndex] ?? null
   const totalSlides = presentation?.slides.length ?? 0
@@ -615,6 +639,12 @@ export default function PresentSessionPage() {
       setPresentation(JSON.parse(raw))
       setPhase('idle')
     } catch { setPhase('error') }
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/billing/status').then(r => r.json()).then(d => {
+      if (d.plan === 'pro') setPlan('pro')
+    }).catch(() => {})
   }, [])
 
   // Connect socket ONCE after presentation is loaded
@@ -634,6 +664,12 @@ export default function PresentSessionPage() {
 
     socket.on('presenter_participant_left', ({ count }: { count: number }) => {
       setParticipantCount(count)
+    })
+
+    socket.on('presenter_results_revealed', (data: AggregateData) => {
+      setAggregate(data)
+      setShowResults(true)
+      setRevealed(true)
     })
 
     socket.on('presenter_aggregate_updated', (data: AggregateData) => {
@@ -699,6 +735,11 @@ export default function PresentSessionPage() {
         const existing = JSON.parse(localStorage.getItem('quizotic_presentation_sessions') || '[]')
         localStorage.setItem('quizotic_presentation_sessions', JSON.stringify([record, ...existing]))
       } catch { /* localStorage full or unavailable */ }
+
+      if (endingRef.current) {
+        endingRef.current = false
+        router.push('/host')
+      }
     })
 
     return () => { socket.disconnect() }
@@ -779,6 +820,9 @@ export default function PresentSessionPage() {
           setPhase('live')
           setSlideIndex(0)
           setAggregate({ total: 0 })
+          const firstMode = presentation!.slides[0]?.responseMode || 'instant'
+          setShowResults(firstMode === 'instant')
+          setRevealed(false)
         } else {
           const toast: Toast = { id: Date.now().toString(), message: res.error ?? 'Failed to create session.' }
           setToasts(prev => [...prev.slice(-2), toast])
@@ -791,9 +835,11 @@ export default function PresentSessionPage() {
   function nextSlide() {
     if (!presentation || slideIndex >= totalSlides - 1) return
     const newIndex = slideIndex + 1
+    const nextMode = presentation.slides[newIndex]?.responseMode || 'instant'
     setSlideIndex(newIndex)
     setAggregate({ total: 0 })
-    setShowResults(false)
+    setShowResults(nextMode === 'instant')
+    setRevealed(false)
     setShowWave(false)
     waveTriggeredRef.current = false
     reachedMilestonesRef.current.clear()
@@ -804,9 +850,11 @@ export default function PresentSessionPage() {
   function prevSlide() {
     if (slideIndex <= 0) return
     const newIndex = slideIndex - 1
+    const prevMode = presentation!.slides[newIndex]?.responseMode || 'instant'
     setSlideIndex(newIndex)
     setAggregate({ total: 0 })
-    setShowResults(false)
+    setShowResults(prevMode === 'instant')
+    setRevealed(false)
     setShowWave(false)
     waveTriggeredRef.current = false
     reachedMilestonesRef.current.clear()
@@ -814,9 +862,10 @@ export default function PresentSessionPage() {
   }
 
   function endSession() {
+    endingRef.current = true
     socketRef.current?.emit('end_presenter_session', { gameCode })
-    // Small delay so presenter_session_summary arrives before socket disconnects
-    setTimeout(() => router.push('/host'), 300)
+    // Safety fallback if summary doesn't arrive within 3s
+    setTimeout(() => { if (endingRef.current) router.push('/host') }, 3000)
   }
 
   if (phase === 'loading') {
@@ -866,7 +915,7 @@ export default function PresentSessionPage() {
 
   if (phase === 'idle' && presentation) {
     const interactiveCount = presentation.slides.filter(
-      s => !['title', 'bullets', 'quote', 'video'].includes(s.type)
+      s => SLIDE_TYPE_META[s.type]?.hasAudienceInput
     ).length
 
     return (
@@ -1059,8 +1108,13 @@ export default function PresentSessionPage() {
           </div>
 
           {/* Slide content */}
-          <div className="flex-1 flex flex-col justify-center max-w-2xl w-full mx-auto">
+          <div className="flex-1 flex flex-col justify-center max-w-2xl w-full mx-auto relative">
             <SlideContent slide={currentSlide} aggregate={aggregate} showResults={showResults} />
+            {plan === 'free' && (
+              <div className="absolute bottom-2 right-3 z-10">
+                <span className="text-[10px] font-bold opacity-30" style={{ color: '#fff' }}>quizotic.live</span>
+              </div>
+            )}
           </div>
 
           {/* Speed waveform */}
@@ -1163,18 +1217,49 @@ export default function PresentSessionPage() {
 
         {/* Right: show results + end */}
         <div className="flex items-center gap-2">
-          {meta.hasAudienceInput && (
-            <button
-              onClick={() => setShowResults(s => !s)}
-              className="px-5 py-3 rounded-xl text-base font-bold transition-all"
-              style={{
-                background: showResults ? '#F8F9FA' : '#fff',
-                color: showResults ? '#0F1B3D' : '#6B7280',
-                border: `1.5px solid ${showResults ? '#0F1B3D' : '#E5E7EB'}`,
-              }}>
-              {showResults ? 'Hide Results' : 'Show Results'}
-            </button>
-          )}
+          {meta.hasAudienceInput && (() => {
+            const mode = currentSlide?.responseMode || 'instant'
+            if (mode === 'instant') {
+              // Results always visible in instant mode — no button needed
+              return null
+            }
+            if (mode === 'on_click') {
+              return (
+                <button
+                  onClick={() => {
+                    if (!revealed) {
+                      socketRef.current?.emit('presenter_reveal_results', { gameCode })
+                      setShowResults(true)
+                      setRevealed(true)
+                    }
+                  }}
+                  disabled={revealed}
+                  className="px-5 py-3 rounded-xl text-base font-bold transition-all"
+                  style={{
+                    background: revealed ? '#DCFCE7' : '#F5E642',
+                    color: revealed ? '#16A34A' : '#0D0D0D',
+                    border: revealed ? '1.5px solid #86EFAC' : '1.5px solid #0D0D0D',
+                    cursor: revealed ? 'default' : 'pointer',
+                    opacity: revealed ? 0.8 : 1,
+                  }}>
+                  {revealed ? 'Results Revealed' : 'Reveal Results'}
+                </button>
+              )
+            }
+            // private mode — host-only toggle
+            return (
+              <button
+                onClick={() => setShowResults(s => !s)}
+                className="px-5 py-3 rounded-xl text-base font-bold transition-all"
+                style={{
+                  background: showResults ? '#F8F9FA' : '#fff',
+                  color: showResults ? '#0F1B3D' : '#6B7280',
+                  border: `1.5px solid ${showResults ? '#0F1B3D' : '#E5E7EB'}`,
+                }}>
+                {showResults ? 'Hide Results (Host Only)' : 'Show Results (Host Only)'}
+              </button>
+            )
+          })()}
           <button onClick={endSession}
             className="px-5 py-3 rounded-xl text-base font-bold border transition-colors hover:scale-[1.02]"
             style={{

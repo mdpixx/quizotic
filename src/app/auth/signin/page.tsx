@@ -1,6 +1,7 @@
 'use client'
 
 import { signIn } from 'next-auth/react'
+import Link from 'next/link'
 import { useState } from 'react'
 
 export default function SignInPage() {
@@ -25,24 +26,52 @@ export default function SignInPage() {
     if (!email.trim()) return
     setLoading(true)
     setError('')
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15000)
+
     try {
-      const result = await signIn('nodemailer', { email, callbackUrl: '/host', redirect: false })
-      if (result?.error) {
-        setError('Magic link is unavailable right now. Please sign in with Google.')
-        setLoading(false)
-        return
+      const csrfRes = await fetch('/api/auth/csrf', { signal: controller.signal })
+      const { csrfToken } = await csrfRes.json()
+      const res = await fetch('/api/auth/signin/nodemailer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ email, csrfToken, callbackUrl: '/host' }),
+        redirect: 'manual',
+        signal: controller.signal,
+      })
+      clearTimeout(timeout)
+
+      // redirect:'manual' turns 302 into type:'opaqueredirect' with status 0
+      if (res.ok || res.type === 'opaqueredirect' || res.status === 302 || res.status === 200) {
+        setEmailSent(true)
+      } else {
+        const text = await res.text().catch(() => '')
+        if (text.includes('Configuration') || res.status === 500) {
+          setError('Email sign-in is not available right now. Please sign in with Google.')
+        } else {
+          setError('Could not send magic link. Please try signing in with Google.')
+        }
       }
-      setEmailSent(true)
-    } catch {
-      setError('Something went wrong. Please try again.')
+    } catch (err) {
+      clearTimeout(timeout)
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setError('Email sign-in timed out. Please try signing in with Google instead.')
+      } else {
+        setError('Network error. Check your connection and try again.')
+      }
     }
     setLoading(false)
   }
 
   if (emailSent) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#0F1B3D' }}>
-        <div className="max-w-sm w-full text-center">
+      <div className="min-h-screen flex items-center justify-center p-6 relative" style={{ background: '#0F1B3D' }}>
+        <Link href="/" className="absolute top-5 left-5 flex items-center gap-1.5 text-sm font-semibold transition-opacity hover:opacity-80" style={{ color: '#94A3B8' }}>
+        <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clipRule="evenodd"/></svg>
+        Home
+      </Link>
+      <div className="max-w-sm w-full text-center">
           <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: '#F5E642', border: '2px solid #0D0D0D' }}>
             <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M3 8l9 6 9-6" stroke="#0F1B3D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><rect x="2" y="4" width="20" height="16" rx="2" stroke="#0F1B3D" strokeWidth="2"/></svg>
           </div>
@@ -65,7 +94,11 @@ export default function SignInPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#0F1B3D' }}>
+    <div className="min-h-screen flex items-center justify-center p-6 relative" style={{ background: '#0F1B3D' }}>
+      <Link href="/" className="absolute top-5 left-5 flex items-center gap-1.5 text-sm font-semibold transition-opacity hover:opacity-80" style={{ color: '#94A3B8' }}>
+        <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clipRule="evenodd"/></svg>
+        Home
+      </Link>
       <div className="max-w-sm w-full">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-6">
@@ -100,18 +133,22 @@ export default function SignInPage() {
 
           <div className="flex items-center gap-3 my-5">
             <div className="flex-1 h-px" style={{ background: '#E2E8F0' }} />
-            <span className="text-xs font-semibold" style={{ color: '#9CA3AF' }}>or</span>
+            <span className="text-xs font-semibold" style={{ color: '#9CA3AF' }}>or use email</span>
             <div className="flex-1 h-px" style={{ background: '#E2E8F0' }} />
           </div>
 
           <form onSubmit={handleEmailSignIn}>
+            <label htmlFor="signin-email" className="block text-xs font-semibold mb-1.5" style={{ color: '#64748B' }}>
+              Email address
+            </label>
             <input
+              id="signin-email"
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="your@email.com"
               required
-              className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all focus:ring-2"
+              className="w-full px-4 py-3 rounded-xl text-base outline-none transition-all focus:ring-2"
               style={{ background: '#F8FAFC', border: '1.5px solid #E2E8F0', color: '#0F1B3D', '--tw-ring-color': 'rgba(245,230,66,0.4)' } as React.CSSProperties}
             />
             <button

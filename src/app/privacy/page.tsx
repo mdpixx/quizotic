@@ -47,7 +47,7 @@ export default function PrivacyPolicyPage() {
             <h2 className="text-xl font-bold mb-3" style={{ color: '#0F1B3D' }}>4. Third-Party Services</h2>
             <ul className="list-disc pl-6 space-y-2">
               <li><strong>Google OAuth</strong> — for authentication</li>
-              <li><strong>Resend</strong> — for sending magic link emails</li>
+              <li><strong>Gmail API</strong> — for sending magic link emails</li>
               <li><strong>PostHog (EU)</strong> — for privacy-friendly product analytics</li>
               <li><strong>Razorpay</strong> — for payment processing (INR)</li>
               <li><strong>Cloudflare</strong> — for CDN and image delivery</li>

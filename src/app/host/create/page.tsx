@@ -6,6 +6,7 @@ import { saveQuiz, loadQuizzes, setActiveSession } from '@/lib/quiz-storage'
 import type { Question, QuestionType, BloomsLevel, Quiz, QuestionOption } from '@/lib/quiz-types'
 import { getOptionText, getOptionImage } from '@/lib/quiz-types'
 import { ImageUpload } from '@/components/ImageUpload'
+import QRCode from 'react-qr-code'
 
 type Tab = 'manual' | 'aitopic' | 'aiurl' | 'aidoc' | 'library' | 'csv'
 
@@ -22,13 +23,23 @@ interface TypeMix {
   truefalse: number
   poll: number
   openended: number
+  wordcloud: number
+  qa: number
+  rating: number
+  ranking: number
+  case: number
 }
 
-const TYPE_MIX_LABELS: { key: keyof TypeMix; label: string; color: string }[] = [
-  { key: 'mcq', label: 'MCQ (4 options)', color: '#2563EB' },
-  { key: 'truefalse', label: 'True / False', color: '#16A34A' },
-  { key: 'poll', label: 'Poll', color: '#0F1B3D' },
-  { key: 'openended', label: 'Open-ended', color: '#D97706' },
+const TYPE_MIX_LABELS: { key: keyof TypeMix; label: string; color: string; bg: string }[] = [
+  { key: 'mcq', label: 'MCQ', color: '#2563EB', bg: '#EFF6FF' },
+  { key: 'truefalse', label: 'True / False', color: '#16A34A', bg: '#F0FDF4' },
+  { key: 'poll', label: 'Poll', color: '#0F1B3D', bg: '#F3F4F6' },
+  { key: 'openended', label: 'Open-ended', color: '#D97706', bg: '#FFFBEB' },
+  { key: 'wordcloud', label: 'Word Cloud', color: '#FF8A47', bg: '#FFF7ED' },
+  { key: 'qa', label: 'Q&A', color: '#0891B2', bg: '#ECFEFF' },
+  { key: 'rating', label: 'Rating', color: '#EA580C', bg: '#FFF7ED' },
+  { key: 'ranking', label: 'Ranking', color: '#4F46E5', bg: '#EEF2FF' },
+  { key: 'case', label: 'Scenario', color: '#DC2626', bg: '#FFF1F2' },
 ]
 
 const TYPE_PILLS: { value: QuestionType; label: string; color: string; bg: string; svg: React.ReactNode; tooltip: string }[] = [
@@ -178,68 +189,106 @@ function QuestionPreview({
   question,
   index,
   total,
+  onChange,
+  plan,
 }: {
   question: Question
   index: number
   total: number
+  onChange: (q: Question) => void
+  plan: 'free' | 'pro'
 }) {
   const pill = getTypePill(question.type)
   const opts = question.options ?? []
 
+  function handleOptionChange(i: number, value: string) {
+    const options = [...(question.options ?? [])]
+    const existing = options[i]
+    const existingImage = getOptionImage(existing ?? '')
+    options[i] = existingImage ? { text: value, imageUrl: existingImage } : value
+    onChange({ ...question, options })
+  }
+
   return (
-    <div className="w-full max-w-[640px] rounded-2xl overflow-hidden" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.08)' }}>
-      {/* Header */}
-      <div className="px-6 py-5 text-center" style={{ background: '#0F1B3D' }}>
-        <p className="text-[11px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#94A3B8' }}>
+    <div className="w-full max-w-[800px] rounded-2xl overflow-hidden" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.08)' }}>
+      {/* Header — inline-editable question text */}
+      <div className="px-6 py-5 text-center" style={{ background: '#FAFAF8', borderBottom: '1px solid #EDE8E0' }}>
+        <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: '#94A3B8' }}>
           Question {index + 1} of {total}
         </p>
-        <p className="text-lg font-extrabold leading-snug" style={{ color: '#fff', fontFamily: 'var(--font-heading)' }}>
-          {question.text || 'Your question will appear here...'}
-        </p>
+        <textarea
+          value={question.text}
+          onChange={e => onChange({ ...question, text: e.target.value })}
+          placeholder="Type your question here..."
+          rows={2}
+          maxLength={300}
+          className="w-full text-xl font-extrabold leading-snug text-center bg-transparent outline-none resize-none border-0 focus:ring-2 focus:ring-blue-200 rounded-lg transition-all"
+          style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}
+        />
       </div>
 
       {/* Image area */}
       {question.imageUrl ? (
-        <div className="w-full h-44 bg-gray-800">
+        <div className="w-full h-44 bg-gray-100">
           <img src={question.imageUrl} alt="" className="w-full h-full object-cover" />
         </div>
       ) : (
-        <div className="w-full h-44 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #1a365d 0%, #334155 100%)' }}>
+        <div className="w-full h-44 flex items-center justify-center cursor-pointer"
+          style={{ background: '#F0EDE8' }}
+          onClick={() => (document.querySelector('#q-image-upload-wrapper') as HTMLElement)?.click()}>
           <div className="text-center">
-            <div className="text-2xl mb-1 opacity-40">&#128444;&#65039;</div>
-            <p className="text-xs" style={{ color: '#64748B' }}>Click to add image or let AI suggest</p>
+            <div className="text-2xl mb-1 opacity-30">&#128444;&#65039;</div>
+            <p className="text-xs" style={{ color: '#94A3B8' }}>Click to add image (or use Image panel →)</p>
           </div>
         </div>
       )}
 
-      {/* Options */}
+      {/* Options — inline-editable with bar visualization */}
       <div className="bg-white p-4">
         {(question.type === 'mcq' || question.type === 'truefalse' || question.type === 'poll' || question.type === 'case') && opts.length > 0 && (
           <div className="grid grid-cols-2 gap-2.5">
             {opts.map((opt, i) => {
               const c = OPTION_COLORS[i] ?? OPTION_COLORS[0]
               const isCorrect = question.correctAnswer === String(i) && hasCorrectAnswer(question.type)
+              const barWidths = [65, 40, 55, 30]
               return (
                 <div
                   key={i}
-                  className="flex items-center gap-3 rounded-xl px-4 py-3 transition-all"
+                  className="relative overflow-hidden rounded-xl transition-all"
                   style={{
-                    background: c.bg,
                     borderLeft: `4px solid ${c.border}`,
-                    color: c.text,
                     outline: isCorrect ? '2.5px solid #16A34A' : 'none',
                     outlineOffset: '-2px',
                     boxShadow: isCorrect ? '0 0 12px rgba(16,185,129,0.25)' : 'none',
                   }}
                 >
-                  <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white flex-shrink-0"
-                    style={{ background: c.badge }}
-                  >
-                    {c.letter}
+                  {/* Background bar visualization */}
+                  <div className="absolute inset-y-0 left-0 rounded-r-xl transition-all" style={{ width: `${barWidths[i % 4]}%`, background: c.border, opacity: 0.12 }} />
+                  {/* Option content */}
+                  <div className="relative flex items-center gap-3 px-4 py-3" style={{ background: `${c.bg}`, backgroundBlendMode: 'overlay' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (hasCorrectAnswer(question.type)) {
+                          onChange({ ...question, correctAnswer: String(i) })
+                        }
+                      }}
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white flex-shrink-0 transition-all hover:scale-110 click-bounce-sm"
+                      style={{ background: isCorrect ? '#16A34A' : c.badge }}
+                      title={hasCorrectAnswer(question.type) ? 'Click to mark correct' : undefined}
+                    >
+                      {isCorrect ? <span className="text-sm">&#10003;</span> : c.letter}
+                    </button>
+                    <input
+                      type="text"
+                      value={getOptionText(opt)}
+                      onChange={e => handleOptionChange(i, e.target.value)}
+                      placeholder={`Option ${c.letter}`}
+                      disabled={question.type === 'truefalse'}
+                      className="flex-1 text-sm font-bold bg-transparent outline-none border-0 disabled:opacity-60 placeholder:opacity-40"
+                      style={{ color: c.text }}
+                    />
                   </div>
-                  <span className="text-sm font-bold truncate">{getOptionText(opt) || `Option ${c.letter}`}</span>
-                  {isCorrect && <span className="ml-auto text-base font-black text-green-600">&#10003;</span>}
                 </div>
               )
             })}
@@ -259,18 +308,46 @@ function QuestionPreview({
             {opts.map((opt, i) => (
               <div key={i} className="flex items-center gap-2.5 bg-gray-50 rounded-lg px-3 py-2.5">
                 <span className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold" style={{ background: '#4F46E5', color: '#fff' }}>{i + 1}</span>
-                <span className="text-sm font-medium text-gray-700">{getOptionText(opt) || `Item ${i + 1}`}</span>
+                <input
+                  type="text"
+                  value={getOptionText(opt)}
+                  onChange={e => handleOptionChange(i, e.target.value)}
+                  placeholder={`Item ${i + 1}`}
+                  className="flex-1 text-sm font-medium bg-transparent outline-none border-0"
+                  style={{ color: '#374151' }}
+                />
               </div>
             ))}
           </div>
         )}
 
-        {(question.type === 'openended' || question.type === 'wordcloud' || question.type === 'qa') && (
-          <div className="py-6 text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-50">
-              {pill.svg}
-              <span className="text-sm font-semibold" style={{ color: pill.color }}>{pill.label} — participants respond live</span>
+        {question.type === 'wordcloud' && (
+          <div className="py-6 flex flex-wrap justify-center items-center gap-x-3 gap-y-1 px-8">
+            {['Ideas', 'Creativity', 'Team', 'Growth', 'Vision', 'Focus', 'Innovation', 'Energy'].map((w, i) => (
+              <span key={i} className="font-bold" style={{
+                color: '#9CA3AF',
+                fontSize: [22, 15, 26, 13, 19, 11, 17, 12][i],
+              }}>{w}</span>
+            ))}
+          </div>
+        )}
+
+        {question.type === 'openended' && (
+          <div className="py-4 px-6">
+            <div className="rounded-xl p-4 text-center" style={{ border: '1.5px dashed #D1D5DB' }}>
+              <span className="text-sm text-gray-300">Audience responses will appear here...</span>
             </div>
+          </div>
+        )}
+
+        {question.type === 'qa' && (
+          <div className="py-4 px-6 space-y-1.5">
+            {['How does this work?', 'Can you explain more?', 'What about...'].map((q, i) => (
+              <div key={i} className="flex items-center gap-2 rounded-lg px-3 py-2 bg-gray-50">
+                <span className="text-[10px] font-bold text-gray-300">Q</span>
+                <span className="text-xs text-gray-300">{q}</span>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -280,6 +357,9 @@ function QuestionPreview({
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: '#F1F5F9', color: '#64748B' }}>
           &#9201; {question.timerSeconds}s
         </div>
+        {plan === 'free' && (
+          <span className="text-[9px] font-bold opacity-40" style={{ color: '#0F1B3D' }}>quizotic.live</span>
+        )}
         {question.bloomsLevel && (
           <div className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide" style={{ background: '#EEF2FF', color: '#6366F1' }}>
             {question.bloomsLevel}
@@ -306,7 +386,7 @@ function QuestionEditor({
   onDelete: () => void
   onDuplicate: () => void
 }) {
-  const [showAdvanced, setShowAdvanced] = useState(false)
+
 
   function handleTypeChange(type: QuestionType) {
     const options = optionsForType(type)
@@ -344,10 +424,13 @@ function QuestionEditor({
         <button onClick={onDelete} className="text-xs text-gray-500 hover:text-red-500 transition-colors font-semibold px-2 py-1 rounded-md hover:bg-red-50">Remove</button>
       </div>
 
-      {/* Question Type */}
-      <div>
-        <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-2 block">Question Type</label>
-        <div className="grid grid-cols-3 gap-1.5">
+      {/* Question Type — Change type of this question */}
+      <div className="rounded-xl p-2.5" style={{ background: '#F8F9FA', border: '1px solid #E2E8F0' }}>
+        <label className="text-[9px] font-black uppercase tracking-wider mb-2 flex items-center gap-1" style={{ color: '#94A3B8' }}>
+          <svg viewBox="0 0 16 16" fill="none" className="w-3 h-3"><path d="M2 8h9M8 5l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          Change Type
+        </label>
+        <div className="flex flex-wrap gap-1">
           {TYPE_PILLS.map(t => {
             const active = question.type === t.value
             return (
@@ -356,17 +439,15 @@ function QuestionEditor({
                 type="button"
                 onClick={() => handleTypeChange(t.value)}
                 title={t.tooltip}
-                className="flex flex-col items-center gap-1 p-2 rounded-lg text-[10px] font-semibold transition-all"
+                className="flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-bold transition-all"
                 style={
                   active
-                    ? { border: `2px solid ${t.color}`, background: t.bg, color: t.color }
-                    : { border: '1.5px solid #E2E8F0', background: '#FAFBFC', color: '#64748B' }
+                    ? { border: `1.5px solid ${t.color}`, background: t.bg, color: t.color }
+                    : { border: '1.5px solid transparent', background: '#fff', color: '#94A3B8' }
                 }
               >
-                <span className="flex items-center justify-center rounded-md flex-shrink-0" style={{ width: 24, height: 24, background: active ? t.bg : '#f3f4f6' }}>
-                  {t.svg}
-                </span>
-                <span className="text-center leading-tight">{t.label}</span>
+                <span className="[&>svg]:w-3.5 [&>svg]:h-3.5">{t.svg}</span>
+                {t.label}
               </button>
             )
           })}
@@ -402,146 +483,25 @@ function QuestionEditor({
         </div>
       )}
 
-      {/* Question text */}
-      <div>
-        <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">
-          {question.type === 'case' ? 'Decision Question' : 'Question'}
-        </label>
-        <textarea
-          value={question.text}
-          onChange={e => onChange({ ...question, text: e.target.value })}
-          placeholder={question.type === 'case' ? 'e.g., "What should you do?"' : 'Enter your question...'}
-          rows={2}
-          className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none"
-        />
+      {/* Inline editing hint */}
+      <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
+        <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#16A34A' }}>
+          <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+        <p className="text-[10px] font-semibold" style={{ color: '#15803D' }}>Edit question & answers directly on the slide preview</p>
       </div>
-
-      {/* Options editor */}
-      {question.options && question.type !== 'rating' && question.type !== 'ranking' && (
-        <div>
-          <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-2 block">
-            Answers {hasCorrectAnswer(question.type) && <span className="normal-case text-green-600">&#9679; = correct</span>}
-          </label>
-          <div className="space-y-1.5">
-            {question.options.map((opt, i) => {
-              const c = OPTION_COLORS[i] ?? OPTION_COLORS[0]
-              return (
-                <div key={i} className="flex items-center gap-1.5">
-                  <div
-                    className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-black text-white"
-                    style={{ background: c.badge }}
-                  >
-                    {c.letter}
-                  </div>
-                  {getOptionImage(opt) && (
-                    <ImageUpload
-                      imageUrl={getOptionImage(opt)}
-                      onUpload={url => handleOptionImageUpload(i, url)}
-                      onRemove={() => handleOptionImageRemove(i)}
-                      variant="option"
-                    />
-                  )}
-                  <input
-                    type="text"
-                    value={getOptionText(opt)}
-                    onChange={e => handleOptionChange(i, e.target.value)}
-                    placeholder={`Option ${c.letter}`}
-                    disabled={question.type === 'truefalse'}
-                    className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:opacity-50"
-                  />
-                  {hasCorrectAnswer(question.type) && (
-                    <button
-                      type="button"
-                      onClick={() => onChange({ ...question, correctAnswer: String(i) })}
-                      className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
-                      style={
-                        question.correctAnswer === String(i)
-                          ? { borderColor: '#16A34A', background: '#16A34A' }
-                          : { borderColor: '#CBD5E1', background: 'transparent' }
-                      }
-                    >
-                      {question.correctAnswer === String(i) && (
-                        <span className="text-white text-[10px] font-bold">&#10003;</span>
-                      )}
-                    </button>
-                  )}
-                  {!getOptionImage(opt) && question.type !== 'truefalse' && (
-                    <ImageUpload
-                      imageUrl={undefined}
-                      onUpload={url => handleOptionImageUpload(i, url)}
-                      onRemove={() => handleOptionImageRemove(i)}
-                      variant="option"
-                    />
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Rating preview */}
-      {question.type === 'rating' && (
-        <div>
-          <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-2 block">Rating Scale (1-5 stars)</label>
-          <div className="flex items-center gap-1">
-            {[1, 2, 3, 4, 5].map(n => (
-              <span key={n} className="text-xl" style={{ color: '#EA580C' }}>&#9733;</span>
-            ))}
-          </div>
-          <p className="text-[10px] text-gray-400 mt-1">Participants rate on a 1-5 scale. Results shown as average.</p>
-        </div>
-      )}
-
-      {/* Ranking items editor */}
-      {question.type === 'ranking' && (
-        <div>
-          <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">Items to Rank</label>
-          <div className="space-y-1.5">
-            {(question.options ?? []).map((item, i) => (
-              <div key={i} className="flex items-center gap-1.5">
-                <span className="w-6 h-6 rounded-md flex-shrink-0 flex items-center justify-center text-[10px] font-bold bg-gray-100 text-gray-500">
-                  {i + 1}
-                </span>
-                <input
-                  type="text"
-                  value={getOptionText(item)}
-                  onChange={e => handleOptionChange(i, e.target.value)}
-                  placeholder={`Item ${i + 1}`}
-                  className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-200"
-                />
-                <button
-                  type="button"
-                  onClick={() => onChange({ ...question, options: (question.options ?? []).filter((_, j) => j !== i) })}
-                  className="w-6 h-6 rounded-md flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors text-xs"
-                >
-                  x
-                </button>
-              </div>
-            ))}
-          </div>
-          {(question.options ?? []).length < 6 && (
-            <button
-              type="button"
-              onClick={() => onChange({ ...question, options: [...(question.options ?? []), ''] })}
-              className="mt-2 text-xs font-medium transition-colors"
-              style={{ color: '#0F1B3D' }}
-            >
-              + Add item
-            </button>
-          )}
-        </div>
-      )}
 
       {/* Image */}
       <div>
         <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">Image</label>
-        <ImageUpload
-          imageUrl={question.imageUrl}
-          onUpload={url => onChange({ ...question, imageUrl: url })}
-          onRemove={() => onChange({ ...question, imageUrl: undefined })}
-          variant="question"
-        />
+        <div id="q-image-upload-wrapper">
+          <ImageUpload
+            imageUrl={question.imageUrl}
+            onUpload={url => onChange({ ...question, imageUrl: url })}
+            onRemove={() => onChange({ ...question, imageUrl: undefined })}
+            variant="question"
+          />
+        </div>
       </div>
 
       {/* Timer & Points */}
@@ -602,41 +562,45 @@ function QuestionEditor({
           placeholder={question.type === 'case' ? 'Expert reasoning — what\'s the right call and why?' : 'Why is this the correct answer?'}
           rows={2}
           maxLength={500}
-          className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+          className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none hover:border-blue-300 hover:bg-white transition-colors cursor-text"
         />
       </div>
 
-      {/* Advanced */}
-      <div className="border-t border-gray-100 pt-3">
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(s => !s)}
-          className="text-xs font-semibold flex items-center gap-1.5 transition-colors"
-          style={{ color: showAdvanced ? '#0F1B3D' : '#9CA3AF' }}
-        >
-          <svg viewBox="0 0 16 16" fill="none" className={`w-3.5 h-3.5 transition-transform ${showAdvanced ? 'rotate-90' : ''}`}>
-            <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      {/* Bloom's Taxonomy Level */}
+      <div>
+        <label className="text-[11px] font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5" style={{ color: '#6D28D9' }}>
+          <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5">
+            <path d="M8 2l1.5 3 3.5.5-2.5 2.5.6 3.5L8 10l-3.1 1.5.6-3.5L3 5.5 6.5 5z" fill="currentColor" fillOpacity="0.7" stroke="currentColor" strokeWidth="0.5" strokeLinejoin="round"/>
           </svg>
-          Advanced
-        </button>
-        {showAdvanced && (
-          <div className="mt-2">
-            <label className="text-xs font-medium text-gray-600 mb-1 block">Bloom&apos;s Level</label>
-            <select
-              value={question.bloomsLevel ?? ''}
-              onChange={e => onChange({ ...question, bloomsLevel: (e.target.value as BloomsLevel) || undefined })}
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-200"
-            >
-              <option value="">None</option>
-              <option value="remember">Remember</option>
-              <option value="understand">Understand</option>
-              <option value="apply">Apply</option>
-              <option value="analyse">Analyse</option>
-              <option value="evaluate">Evaluate</option>
-              <option value="create">Create</option>
-            </select>
-          </div>
-        )}
+          Bloom&apos;s Level
+        </label>
+        <div className="flex flex-wrap gap-1">
+          {[
+            { value: '', label: 'None', color: '#94A3B8' },
+            { value: 'remember', label: 'Remember', color: '#2563EB' },
+            { value: 'understand', label: 'Understand', color: '#0891B2' },
+            { value: 'apply', label: 'Apply', color: '#16A34A' },
+            { value: 'analyse', label: 'Analyse', color: '#D97706' },
+            { value: 'evaluate', label: 'Evaluate', color: '#DC2626' },
+            { value: 'create', label: 'Create', color: '#7C3AED' },
+          ].map(b => {
+            const active = (question.bloomsLevel ?? '') === b.value
+            return (
+              <button
+                key={b.value}
+                type="button"
+                onClick={() => onChange({ ...question, bloomsLevel: (b.value as BloomsLevel) || undefined })}
+                className="px-2 py-1 rounded-md text-[9px] font-bold transition-all"
+                style={active
+                  ? { background: b.color, color: '#fff', border: `1.5px solid ${b.color}` }
+                  : { background: '#fff', color: b.color, border: `1.5px solid ${b.color}40` }
+                }
+              >
+                {b.label}
+              </button>
+            )
+          })}
+        </div>
       </div>
     </div>
   )
@@ -655,8 +619,21 @@ function CreateQuizPageInner() {
   const [questions, setQuestions] = useState<Question[]>([makeQuestion()])
   const [saveError, setSaveError] = useState('')
   const [savedQuiz, setSavedQuiz] = useState<Quiz | null>(null)
+  const pendingLiveRef = useRef(false)
   const [activeIndex, setActiveIndex] = useState(0)
   const [saving, setSaving] = useState(false)
+  const [contextMenu, setContextMenu] = useState<{ index: number; x: number; y: number } | null>(null)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [mobileEditorOpen, setMobileEditorOpen] = useState(false)
+
+  // Navigate to live session when savedQuiz is set after "Start Live"
+  useEffect(() => {
+    if (savedQuiz && pendingLiveRef.current) {
+      pendingLiveRef.current = false
+      setActiveSession(savedQuiz)
+      router.push('/host/session')
+    }
+  }, [savedQuiz, router])
 
   // Plan state
   const [plan, setPlan] = useState<'free' | 'pro'>('free')
@@ -677,11 +654,11 @@ function CreateQuizPageInner() {
   // Shared AI settings
   const [aiCount, setAiCount] = useState(5)
   const [aiDifficulty, setAiDifficulty] = useState('medium')
-  const [typeMix, setTypeMix] = useState<TypeMix>({ mcq: 5, truefalse: 0, poll: 0, openended: 0 })
+  const [typeMix, setTypeMix] = useState<TypeMix>({ mcq: 5, truefalse: 0, poll: 0, openended: 0, wordcloud: 0, qa: 0, rating: 0, ranking: 0, case: 0 })
   const [quizLanguage, setQuizLanguage] = useState('English')
 
   useEffect(() => {
-    setTypeMix({ mcq: aiCount, truefalse: 0, poll: 0, openended: 0 })
+    setTypeMix({ mcq: aiCount, truefalse: 0, poll: 0, openended: 0, wordcloud: 0, qa: 0, rating: 0, ranking: 0, case: 0 })
   }, [aiCount])
 
   // AI generation state
@@ -736,7 +713,7 @@ function CreateQuizPageInner() {
 
   const isAiTab = tab === 'aitopic' || tab === 'aiurl' || tab === 'aidoc'
   const settingsLocked = generatedOnTab !== null
-  const typeMixSum = typeMix.mcq + typeMix.truefalse + typeMix.poll + typeMix.openended
+  const typeMixSum = Object.values(typeMix).reduce((a, b) => a + b, 0)
   const typeMixValid = typeMixSum === aiCount
   const countOptions = QUESTION_COUNT_OPTIONS[plan] ?? QUESTION_COUNT_OPTIONS.free
 
@@ -749,12 +726,110 @@ function CreateQuizPageInner() {
     return typeMix[key] + Math.max(0, remaining)
   }
 
+  function handleIncrement(key: keyof TypeMix) {
+    if (typeMixSum >= aiCount) {
+      // At cap — steal 1 from another type (MCQ first, then others in order)
+      const stealOrder: (keyof TypeMix)[] = ['mcq', 'truefalse', 'poll', 'openended', 'wordcloud', 'qa', 'rating', 'ranking', 'case']
+      const donor = stealOrder.find(k => k !== key && typeMix[k] > 0)
+      if (!donor) return
+      setTypeMix(prev => ({ ...prev, [donor]: prev[donor] - 1, [key]: prev[key] + 1 }))
+      return
+    }
+    setTypeMix(prev => ({ ...prev, [key]: prev[key] + 1 }))
+  }
+
+  function handleDecrement(key: keyof TypeMix) {
+    if (typeMix[key] <= 0) return
+    setTypeMix(prev => ({ ...prev, [key]: prev[key] - 1 }))
+  }
+
+  function handleAutoFill() {
+    const remaining = aiCount - typeMixSum
+    if (remaining <= 0) return
+    const activeKeys = (Object.keys(typeMix) as (keyof TypeMix)[]).filter(k => typeMix[k] > 0)
+    if (activeKeys.length === 0) {
+      setTypeMix(prev => ({ ...prev, mcq: prev.mcq + remaining }))
+    } else {
+      const each = Math.floor(remaining / activeKeys.length)
+      const extra = remaining % activeKeys.length
+      setTypeMix(prev => {
+        const next = { ...prev }
+        activeKeys.forEach((k, i) => { next[k] += each + (i < extra ? 1 : 0) })
+        return next
+      })
+    }
+  }
+
   // ── Question mutations ──────────────────────────────────────────────────────
 
-  function addQuestion() {
-    const newQ = makeQuestion()
+  function parseCSVLine(line: string): string[] {
+    const result: string[] = []
+    let cur = '', inQuote = false
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i]
+      if (ch === '"') { inQuote = !inQuote }
+      else if (ch === ',' && !inQuote) { result.push(cur.trim()); cur = '' }
+      else { cur += ch }
+    }
+    result.push(cur.trim())
+    return result
+  }
+
+  function processCsvText(text: string) {
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+    if (lines.length < 2) { alert('The CSV file appears to be empty or has only a header row.'); return }
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/['"]/g, ''))
+    const qIdx = headers.findIndex(h => h === 'question')
+    if (qIdx === -1) {
+      alert('This file does not match the Quizotic template.\n\nPlease download the template, fill it in, and upload that file.\n\nRequired column: "question"')
+      return
+    }
+    const aIdx = headers.findIndex(h => h === 'optiona' || h === 'option_a' || h === 'a')
+    const bIdx = headers.findIndex(h => h === 'optionb' || h === 'option_b' || h === 'b')
+    const cIdx = headers.findIndex(h => h === 'optionc' || h === 'option_c' || h === 'c')
+    const dIdx = headers.findIndex(h => h === 'optiond' || h === 'option_d' || h === 'd')
+    const correctIdx = headers.findIndex(h => h === 'correctanswer' || h === 'correct_answer' || h === 'correct' || h === 'answer')
+    const timerIdx = headers.findIndex(h => h === 'timer' || h === 'time')
+    const pointsIdx = headers.findIndex(h => h === 'points')
+    const parsed: Question[] = []
+    for (let i = 1; i < lines.length; i++) {
+      const cols = parseCSVLine(lines[i])
+      const questionText = cols[qIdx]
+      if (!questionText) continue
+      const options: string[] = []
+      if (aIdx >= 0 && cols[aIdx]) options.push(cols[aIdx])
+      if (bIdx >= 0 && cols[bIdx]) options.push(cols[bIdx])
+      if (cIdx >= 0 && cols[cIdx]) options.push(cols[cIdx])
+      if (dIdx >= 0 && cols[dIdx]) options.push(cols[dIdx])
+      const correctLetter = correctIdx >= 0 ? cols[correctIdx]?.toUpperCase() : undefined
+      const correctIndex = correctLetter ? ({ A: '0', B: '1', C: '2', D: '3' } as Record<string, string>)[correctLetter] : undefined
+      const timer = timerIdx >= 0 ? parseInt(cols[timerIdx]) : 20
+      const validTimer = [10, 15, 20, 30, 60].includes(timer) ? timer : 20
+      const pts = pointsIdx >= 0 ? parseInt(cols[pointsIdx]) : 1000
+      const validPts = [500, 1000, 2000].includes(pts) ? pts : 1000
+      parsed.push({
+        id: crypto.randomUUID(),
+        type: options.length > 0 ? 'mcq' : 'openended',
+        text: questionText,
+        options: options.length > 0 ? options : undefined,
+        correctAnswer: correctIndex,
+        timerSeconds: validTimer as 10 | 15 | 20 | 30 | 60,
+        points: validPts as 500 | 1000 | 2000,
+      })
+    }
+    if (parsed.length === 0) { alert('No valid questions found in the CSV. Make sure rows have content in the "question" column.'); return }
+    setQuestions(prev => [...prev, ...parsed])
+    setTab('manual')
+    setActiveIndex(0)
+  }
+
+  function addQuestion(type: QuestionType = 'mcq') {
+    const opts = optionsForType(type)
+    const correctAnswer = hasCorrectAnswer(type) ? '0' : undefined
+    const base = makeQuestion()
+    const newQ: Question = { ...base, type, options: opts, correctAnswer }
     setQuestions(prev => [...prev, newQ])
-    setActiveIndex(questions.length) // select the new question
+    setActiveIndex(questions.length)
   }
 
   function updateQuestion(index: number, q: Question) {
@@ -776,12 +851,22 @@ function CreateQuizPageInner() {
     setActiveIndex(index + 1)
   }
 
+  function moveQuestion(from: number, direction: 'up' | 'down') {
+    const to = direction === 'up' ? from - 1 : from + 1
+    if (to < 0 || to >= questions.length) return
+    const reordered = [...questions]
+    ;[reordered[from], reordered[to]] = [reordered[to], reordered[from]]
+    setQuestions(reordered)
+    setActiveIndex(to)
+  }
+
   function applyGeneratedQuestions(raw: Question[], forTab: Tab): Question[] {
     const withIds = raw.map(q => ({ ...q, id: crypto.randomUUID() }))
     setQuestions(withIds)
     setGeneratedOnTab(forTab)
     setSelectedQuestions(new Set(withIds.map(q => q.id)))
     setActiveIndex(0)
+    setTab('manual')
     return withIds
   }
 
@@ -973,9 +1058,17 @@ function CreateQuizPageInner() {
 
   // ── Save ────────────────────────────────────────────────────────────────────
 
+  function showSaveError(msg: string) { setSaveError(msg); setTimeout(() => setSaveError(''), 4000) }
+
   async function handleSave() {
-    if (!title.trim()) { setSaveError('Quiz title is required'); return }
-    if (questions.length === 0) { setSaveError('Add at least one question'); return }
+    if (!title.trim()) { showSaveError('Quiz title is required'); return }
+    if (questions.length === 0) { showSaveError('Add at least one question'); return }
+    const emptyQ = questions.find(q => !q.text.trim())
+    if (emptyQ) { showSaveError('All questions must have text'); return }
+    const emptyOpt = questions.find(q =>
+      ['mcq', 'poll', 'case'].includes(q.type) && q.options?.some((o: string | { text: string }) => !(typeof o === 'string' ? o : o.text).trim())
+    )
+    if (emptyOpt) { showSaveError('All answer options must have text'); return }
     setSaveError('')
     setSaving(true)
 
@@ -1034,19 +1127,58 @@ function CreateQuizPageInner() {
   const questionListRef = useRef<HTMLDivElement>(null)
   const scrollToQuestion = useCallback((index: number) => {
     setActiveIndex(index)
+    setTab('manual')
     const el = document.getElementById(`qthumb-${index}`)
     el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [])
 
   // ── Tabs ────────────────────────────────────────────────────────────────────
 
-  const tabs: { id: Tab; label: string; icon: string }[] = [
-    { id: 'manual',  label: 'Manual', icon: '&#9998;' },
-    { id: 'aitopic', label: 'AI Topic', icon: '&#10024;' },
-    { id: 'aiurl',   label: 'AI URL', icon: '&#128279;' },
-    { id: 'aidoc',   label: 'AI PDF', icon: '&#128196;' },
-    { id: 'csv',     label: 'CSV', icon: '&#128202;' },
-    { id: 'library', label: 'Library', icon: '&#128218;' },
+  const TAB_GROUPS: {
+    label: string
+    containerBg: string
+    labelColor: string
+    activeTabBg: string
+    activeTabColor: string
+    inactiveTabColor: string
+    tabs: { id: Tab; label: string; icon: string }[]
+  }[] = [
+    {
+      label: 'Write',
+      containerBg: '#1E293B',
+      labelColor: '#94A3B8',
+      activeTabBg: '#fff',
+      activeTabColor: '#1E293B',
+      inactiveTabColor: '#CBD5E1',
+      tabs: [
+        { id: 'manual', label: 'Manual', icon: '&#9998;' },
+      ],
+    },
+    {
+      label: 'AI Generate',
+      containerBg: '#5B21B6',
+      labelColor: '#C4B5FD',
+      activeTabBg: '#fff',
+      activeTabColor: '#5B21B6',
+      inactiveTabColor: '#DDD6FE',
+      tabs: [
+        { id: 'aitopic', label: 'AI Topic', icon: '&#10024;' },
+        { id: 'aiurl',   label: 'AI URL',   icon: '&#128279;' },
+        { id: 'aidoc',   label: 'AI PDF',   icon: '&#128196;' },
+      ],
+    },
+    {
+      label: 'Import',
+      containerBg: '#0E7490',
+      labelColor: '#A5F3FC',
+      activeTabBg: '#fff',
+      activeTabColor: '#0E7490',
+      inactiveTabColor: '#BAE6FD',
+      tabs: [
+        { id: 'csv',     label: 'CSV',     icon: '&#128202;' },
+        { id: 'library', label: 'Library', icon: '&#128218;' },
+      ],
+    },
   ]
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -1073,6 +1205,16 @@ function CreateQuizPageInner() {
 
       {/* ── Top Bar ── */}
       <header className="flex items-center gap-3 px-4 py-2.5 border-b" style={{ background: '#fff', borderColor: '#E2E8F0' }}>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black" style={{ background: '#F5E642', color: '#0D0D0D' }}>Q</div>
+          <span className="text-sm font-extrabold hidden sm:inline" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Quizotic</span>
+        </div>
+        {plan === 'free' && (
+          <button onClick={() => router.push('/host/billing')} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all hover:scale-105 click-bounce-sm flex-shrink-0" style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}>
+            <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3"><path d="M2.5 12.5h11v1.5h-11zM1 7l3-4 4 3 4-5 3 6H1z"/></svg>
+            Upgrade
+          </button>
+        )}
         <button onClick={() => router.push('/host')} className="w-9 h-9 rounded-lg border flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors flex-shrink-0" style={{ borderColor: '#E2E8F0' }}>
           <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4"><path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </button>
@@ -1088,7 +1230,12 @@ function CreateQuizPageInner() {
           <p className="text-[11px] text-gray-400">{questions.length} questions &middot; {subject || 'No subject'} &middot; ~{estMinutes} min</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <button onClick={handleSave} disabled={saving} className="px-4 py-2 rounded-lg text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50" style={{ background: '#F5E642', color: '#0D0D0D', border: '1.5px solid #0D0D0D' }}>
+          <button onClick={() => setShareOpen(true)} title="Share"
+            className="w-9 h-9 rounded-lg border flex items-center justify-center transition-all hover:bg-gray-50 click-bounce"
+            style={{ borderColor: '#E2E8F0', color: '#64748B' }}>
+            <svg viewBox="0 0 20 20" fill="none" className="w-4.5 h-4.5"><path d="M15 7a3 3 0 100-6 3 3 0 000 6zM5 13a3 3 0 100-6 3 3 0 000 6zM15 19a3 3 0 100-6 3 3 0 000 6zM7.59 11.51l4.83 2.98M12.41 5.51L7.59 8.49" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+          <button onClick={handleSave} disabled={saving} className="px-4 py-2 rounded-lg text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50 click-bounce" style={{ background: '#F5E642', color: '#0D0D0D', border: '1.5px solid #0D0D0D' }}>
             {saving ? (
               <span className="flex items-center gap-1.5">
                 <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" opacity="0.3"/><path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
@@ -1097,8 +1244,11 @@ function CreateQuizPageInner() {
             ) : 'Save'}
           </button>
           <button
-            onClick={() => { if (savedQuiz) { setActiveSession(savedQuiz); router.push('/host/session') } else { handleSave() } }}
-            className="px-4 py-2 rounded-lg text-sm font-bold transition-all hover:opacity-90"
+            onClick={() => {
+              if (savedQuiz) { setActiveSession(savedQuiz); router.push('/host/session') }
+              else { pendingLiveRef.current = true; handleSave() }
+            }}
+            className="px-4 py-2 rounded-lg text-sm font-bold transition-all hover:opacity-90 click-bounce"
             style={{ background: '#0F1B3D', color: '#F5E642', border: '1.5px solid #0F1B3D' }}
           >
             &#9654; Start Live
@@ -1107,21 +1257,28 @@ function CreateQuizPageInner() {
       </header>
 
       {/* ── Source Tabs ── */}
-      <div className="flex gap-1 px-4 py-2 border-b" style={{ background: '#FAFBFC', borderColor: '#E2E8F0' }}>
-        {tabs.map(t => (
-          <button
-            key={t.id}
-            onClick={() => { setTab(t.id); if (t.id === 'manual' && questions.length > 0) setActiveIndex(0) }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all"
-            style={
-              tab === t.id
-                ? { background: '#EEF2FF', border: '1.5px solid #6366F1', color: '#4F46E5' }
-                : { background: 'transparent', border: '1.5px solid transparent', color: '#64748B' }
-            }
-          >
-            <span dangerouslySetInnerHTML={{ __html: t.icon }} />
-            {t.label}
-          </button>
+      <div className="flex items-center gap-2 px-3 py-2 border-b overflow-x-auto flex-shrink-0" style={{ background: '#F0F2F5', borderColor: '#D1D5DB' }}>
+        {TAB_GROUPS.map(group => (
+          <div key={group.label} className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl flex-shrink-0" style={{ background: group.containerBg }}>
+            <span className="text-[10px] font-black uppercase tracking-widest pr-2 border-r mr-1" style={{ color: group.labelColor, borderColor: `${group.labelColor}40` }}>
+              {group.label}
+            </span>
+            {group.tabs.map(t => (
+              <button
+                key={t.id}
+                onClick={() => { setTab(t.id as Tab); if (t.id === 'manual' && questions.length > 0) setActiveIndex(0) }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold transition-all click-bounce-sm"
+                style={
+                  tab === t.id
+                    ? { background: group.activeTabBg, color: group.activeTabColor, boxShadow: '0 1px 4px rgba(0,0,0,0.18)' }
+                    : { background: 'transparent', color: group.inactiveTabColor }
+                }
+              >
+                <span dangerouslySetInnerHTML={{ __html: t.icon }} />
+                {t.label}
+              </button>
+            ))}
+          </div>
         ))}
       </div>
 
@@ -1129,7 +1286,7 @@ function CreateQuizPageInner() {
       <div className="flex-1 flex overflow-hidden">
 
         {/* ── LEFT PANEL: Question List ── */}
-        <div ref={questionListRef} className="w-56 flex-shrink-0 bg-white border-r overflow-y-auto flex flex-col" style={{ borderColor: '#E2E8F0' }}>
+        <div ref={questionListRef} className="hidden md:flex w-56 flex-shrink-0 bg-white border-r overflow-y-auto flex-col" style={{ borderColor: '#E2E8F0' }}>
           <div className="px-3 py-2">
             <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Questions ({questions.length})</p>
           </div>
@@ -1156,7 +1313,8 @@ function CreateQuizPageInner() {
                     dragIndex.current = null
                   }}
                   onClick={() => scrollToQuestion(i)}
-                  className={`flex items-center gap-2 px-2.5 py-2.5 rounded-lg cursor-pointer transition-all ${isActive ? '' : 'hover:bg-gray-50'}`}
+                  onContextMenu={e => { e.preventDefault(); setContextMenu({ index: i, x: e.clientX, y: e.clientY }) }}
+                  className={`relative group flex items-center gap-2 px-2.5 py-2.5 rounded-lg cursor-pointer transition-all click-bounce-sm ${isActive ? '' : 'hover:bg-gray-50'}`}
                   style={
                     isActive
                       ? { background: '#EEF2FF', border: '1.5px solid #6366F1' }
@@ -1175,16 +1333,40 @@ function CreateQuizPageInner() {
                     </div>
                     <p className="text-[11px] text-gray-500 truncate leading-tight">{q.text.slice(0, 40) || 'Untitled question'}</p>
                   </div>
+                  <button
+                    onClick={e => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setContextMenu({ index: i, x: r.right, y: r.bottom }) }}
+                    className="absolute top-1 right-1 w-5 h-5 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 shadow-sm text-gray-400 hover:text-gray-700 text-[11px] font-bold"
+                  >&#8230;</button>
                 </div>
               )
             })}
           </div>
 
-          {/* Bottom actions */}
-          <div className="p-2 border-t space-y-1" style={{ borderColor: '#E2E8F0' }}>
-            <button onClick={addQuestion} className="w-full flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-bold transition-all hover:bg-gray-50" style={{ border: '1.5px solid #E2E8F0', color: '#64748B' }}>
-              + Add
-            </button>
+          {/* Bottom: Add Question by Type */}
+          <div className="p-2 border-t" style={{ borderColor: '#E2E8F0', background: '#F8F9FF' }}>
+            <div className="flex items-center justify-center gap-1 mb-2">
+              <svg viewBox="0 0 16 16" fill="none" className="w-3 h-3" style={{ color: '#0F1B3D' }}>
+                <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+              </svg>
+              <p className="text-[9px] font-black uppercase tracking-wider" style={{ color: '#0F1B3D' }}>New Question</p>
+            </div>
+            <div className="grid grid-cols-3 gap-1 mb-1.5">
+              {TYPE_PILLS.map(t => (
+                <button
+                  key={t.value}
+                  onClick={() => addQuestion(t.value)}
+                  title={`Add new ${t.label} question`}
+                  className="flex flex-col items-center gap-0.5 p-1.5 rounded-lg transition-all hover:scale-105 hover:shadow-md group relative click-bounce-sm"
+                  style={{ border: `1.5px solid ${t.color}30`, background: t.bg }}
+                >
+                  <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full flex items-center justify-center text-white font-black text-[8px] opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: t.color }}>+</span>
+                  <span style={{ color: t.color }}>{t.svg}</span>
+                  <span className="text-[7px] font-bold text-center leading-tight" style={{ color: t.color }}>
+                    {t.label}
+                  </span>
+                </button>
+              ))}
+            </div>
             {generatedOnTab && deselectedCount > 0 && (
               <button
                 onClick={handleSelectiveRegenerate}
@@ -1203,17 +1385,46 @@ function CreateQuizPageInner() {
           </div>
         </div>
 
+        {/* Context menu dropdown */}
+        {contextMenu && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} onContextMenu={e => { e.preventDefault(); setContextMenu(null) }} />
+            <div
+              className="fixed z-50 w-44 py-1 bg-white rounded-xl shadow-xl border"
+              style={{ left: contextMenu.x, top: Math.min(contextMenu.y, (typeof window !== 'undefined' ? window.innerHeight - 200 : 600)), borderColor: '#E2E8F0' }}
+            >
+              {[
+                { label: 'Duplicate', icon: '\u2398', action: () => duplicateQuestion(contextMenu.index), disabled: false, danger: false },
+                { label: 'Move Up', icon: '\u2191', action: () => moveQuestion(contextMenu.index, 'up'), disabled: contextMenu.index === 0, danger: false },
+                { label: 'Move Down', icon: '\u2193', action: () => moveQuestion(contextMenu.index, 'down'), disabled: contextMenu.index >= questions.length - 1, danger: false },
+                { label: 'Delete', icon: '\u2715', action: () => removeQuestion(contextMenu.index), disabled: questions.length <= 1, danger: true },
+              ].map(item => (
+                <button
+                  key={item.label}
+                  onClick={() => { item.action(); setContextMenu(null) }}
+                  disabled={item.disabled}
+                  className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-[12px] font-semibold transition-colors click-bounce-sm disabled:opacity-30 disabled:cursor-not-allowed ${item.danger ? 'hover:bg-red-50 hover:text-red-500' : 'hover:bg-gray-50'}`}
+                  style={{ color: item.danger ? '#EF4444' : '#374151' }}
+                >
+                  <span className="w-4 text-center text-[11px]">{item.icon}</span>
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
         {/* ── CENTER PANEL: Preview / AI Settings / CSV / Library ── */}
         <div className="flex-1 overflow-y-auto flex items-center justify-center p-6" style={{ background: '#F0F2F5' }}>
 
           {/* Manual tab → show preview */}
           {tab === 'manual' && activeQuestion && (
-            <QuestionPreview question={activeQuestion} index={safeIndex} total={questions.length} />
+            <QuestionPreview question={activeQuestion} index={safeIndex} total={questions.length} onChange={u => updateQuestion(safeIndex, u)} plan={plan} />
           )}
 
           {/* AI Tabs → show settings */}
           {isAiTab && (
-            <div className="w-full max-w-lg space-y-4">
+            <div className="w-full max-w-4xl space-y-4">
               <h3 className="text-lg font-extrabold" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>
                 {tab === 'aitopic' ? 'Generate from Topic' : tab === 'aiurl' ? 'Generate from URL' : 'Generate from Document'}
               </h3>
@@ -1284,22 +1495,40 @@ function CreateQuizPageInner() {
                 </div>
 
                 <div>
-                  <label className="text-xs text-gray-500 mb-2 block">Type breakdown</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {TYPE_MIX_LABELS.map(({ key, label, color }) => (
-                      <div key={key} className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
-                        <span className="text-xs text-gray-600 flex-1 truncate">{label}</span>
-                        <select value={typeMix[key]} onChange={e => handleTypeMixChange(key, Number(e.target.value))} disabled={settingsLocked} className="w-14 bg-gray-50 border rounded-lg px-1.5 py-1 text-xs text-center focus:outline-none disabled:opacity-50" style={{ borderColor: '#E2E8F0' }}>
-                          {Array.from({ length: maxForType(key) + 1 }, (_, i) => <option key={i} value={i}>{i}</option>)}
-                        </select>
-                      </div>
-                    ))}
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#64748B' }}>Type Breakdown</label>
+                    <div className="flex items-center gap-2">
+                      {!settingsLocked && !typeMixValid && (
+                        <button onClick={handleAutoFill} className="text-xs font-bold px-3 py-1 rounded-lg transition-colors hover:opacity-80" style={{ background: '#EEF2FF', color: '#4F46E5' }}>
+                          Auto-fill
+                        </button>
+                      )}
+                      <span className="text-xs font-bold px-3 py-1 rounded-lg" style={typeMixValid ? { color: '#16A34A', background: '#F0FDF4' } : { color: '#D97706', background: '#FFFBEB' }}>
+                        {typeMixSum}/{aiCount} {typeMixValid ? '\u2713' : `(${aiCount - typeMixSum} left)`}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className={`text-xs font-medium ${typeMixValid ? 'text-green-600' : 'text-amber-600'}`}>Total: {typeMixSum}/{aiCount}</span>
-                    {typeMixValid && <span className="text-green-500 text-xs">&#10003;</span>}
-                    {!typeMixValid && <span className="text-amber-500 text-xs">({aiCount - typeMixSum} remaining)</span>}
+                  <div className="grid grid-cols-3 gap-2.5">
+                    {TYPE_MIX_LABELS.map(({ key, label, color, bg }) => {
+                      const count = typeMix[key]
+                      const hasCount = count > 0
+                      return (
+                        <div key={key} className="rounded-xl p-3 transition-all" style={{ border: `1.5px solid ${hasCount ? color : '#E2E8F0'}`, background: hasCount ? bg : '#FAFBFC' }}>
+                          <div className="flex items-center gap-2 mb-2.5">
+                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
+                            <span className="text-xs font-bold truncate" style={{ color: '#0F1B3D' }}>{label}</span>
+                          </div>
+                          <div className="flex items-stretch rounded-lg overflow-hidden" style={{ border: `1.5px solid ${hasCount ? color : '#E2E8F0'}`, background: '#fff' }}>
+                            <button type="button" onClick={() => handleDecrement(key)} disabled={settingsLocked || count <= 0} className="flex-1 py-2 flex items-center justify-center text-lg font-bold transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed" style={{ color: '#94A3B8' }}>&#8722;</button>
+                            <span className="w-10 text-center text-sm font-extrabold border-l border-r flex items-center justify-center" style={{ color: hasCount ? color : '#0F1B3D', borderColor: hasCount ? color : '#E2E8F0', fontFamily: 'var(--font-heading)' }}>{count}</span>
+                            <button type="button" onClick={() => handleIncrement(key)} disabled={settingsLocked || (typeMixSum >= aiCount && !Object.keys(typeMix).some(k => k !== key && typeMix[k as keyof TypeMix] > 0))} className="flex-1 py-2 flex items-center justify-center text-lg font-bold transition-colors hover:bg-green-50 hover:text-green-600 disabled:opacity-30 disabled:cursor-not-allowed" style={{ color: '#94A3B8' }}>&#43;</button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="text-center mt-2.5 text-xs font-semibold rounded-lg py-1.5" style={typeMixValid ? { color: '#16A34A', background: '#F0FDF4' } : { color: '#D97706', background: '#FFFBEB' }}>
+                    {typeMixValid ? `All ${aiCount} questions allocated \u2713` : `${aiCount - typeMixSum} questions remaining \u2014 tap + to allocate`}
                   </div>
                 </div>
 
@@ -1338,7 +1567,7 @@ function CreateQuizPageInner() {
                   style={{ background: '#F5E642', color: '#0D0D0D' }}
                 >
                   {aiGenerating && <svg className="animate-spin w-4 h-4" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" opacity="0.3"/><path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>}
-                  {aiGenerating ? 'Generating...' : translating ? 'Translating...' : tab === 'aiurl' ? 'Fetch & Generate' : tab === 'aidoc' ? 'Generate from Document' : 'Generate Questions'}
+                  {aiGenerating ? 'Generating...' : translating ? 'Translating...' : `Generate ${aiCount} Questions`}
                 </button>
               )}
 
@@ -1356,86 +1585,127 @@ function CreateQuizPageInner() {
 
           {/* CSV Tab */}
           {tab === 'csv' && (
-            <div className="w-full max-w-lg space-y-4">
+            <div className="w-full max-w-4xl space-y-4">
               <h3 className="text-lg font-extrabold" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Import from CSV</h3>
-              <div className="rounded-xl p-5 border bg-white" style={{ borderColor: '#E2E8F0' }}>
-                <p className="text-sm font-bold mb-2" style={{ color: '#0F1B3D' }}>Upload a CSV file</p>
-                <p className="text-xs mb-3" style={{ color: '#6B7280', lineHeight: 1.6 }}>
-                  Columns: <strong>question</strong>, <strong>optionA</strong>, <strong>optionB</strong>, <strong>optionC</strong>, <strong>optionD</strong>, <strong>correctAnswer</strong> (A/B/C/D), <strong>timer</strong> (optional), <strong>points</strong> (optional).
-                </p>
-                <input
-                  type="file"
-                  accept=".csv,text/csv"
-                  className="text-sm"
-                  onChange={e => {
-                    const file = e.target.files?.[0]
-                    if (!file) return
-                    const reader = new FileReader()
-                    reader.onload = () => {
-                      const text = reader.result as string
-                      const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
-                      if (lines.length < 2) return
-                      const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/['"]/g, ''))
-                      const qIdx = headers.findIndex(h => h === 'question')
-                      const aIdx = headers.findIndex(h => h === 'optiona' || h === 'option_a' || h === 'a')
-                      const bIdx = headers.findIndex(h => h === 'optionb' || h === 'option_b' || h === 'b')
-                      const cIdx = headers.findIndex(h => h === 'optionc' || h === 'option_c' || h === 'c')
-                      const dIdx = headers.findIndex(h => h === 'optiond' || h === 'option_d' || h === 'd')
-                      const correctIdx = headers.findIndex(h => h === 'correctanswer' || h === 'correct_answer' || h === 'correct' || h === 'answer')
-                      const timerIdx = headers.findIndex(h => h === 'timer' || h === 'time')
-                      const pointsIdx = headers.findIndex(h => h === 'points')
-                      if (qIdx === -1) { alert('CSV must have a "question" column'); return }
 
-                      const parsed: Question[] = []
-                      for (let i = 1; i < lines.length; i++) {
-                        const cols = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g)?.map(c => c.replace(/^"|"$/g, '').trim()) ?? lines[i].split(',').map(c => c.trim())
-                        const questionText = cols[qIdx]
-                        if (!questionText) continue
-                        const options: string[] = []
-                        if (aIdx >= 0 && cols[aIdx]) options.push(cols[aIdx])
-                        if (bIdx >= 0 && cols[bIdx]) options.push(cols[bIdx])
-                        if (cIdx >= 0 && cols[cIdx]) options.push(cols[cIdx])
-                        if (dIdx >= 0 && cols[dIdx]) options.push(cols[dIdx])
-                        const correctLetter = correctIdx >= 0 ? cols[correctIdx]?.toUpperCase() : undefined
-                        const correctIndex = correctLetter ? { A: '0', B: '1', C: '2', D: '3' }[correctLetter] : undefined
-                        const timer = timerIdx >= 0 ? parseInt(cols[timerIdx]) : 20
-                        const validTimer = [10, 15, 20, 30, 60].includes(timer) ? timer : 20
-                        const pts = pointsIdx >= 0 ? parseInt(cols[pointsIdx]) : 1000
-                        const validPts = [500, 1000, 2000].includes(pts) ? pts : 1000
-                        parsed.push({
-                          id: crypto.randomUUID(),
-                          type: options.length > 0 ? 'mcq' : 'openended',
-                          text: questionText,
-                          options: options.length > 0 ? options : undefined,
-                          correctAnswer: correctIndex,
-                          timerSeconds: validTimer as 10 | 15 | 20 | 30 | 60,
-                          points: validPts as 500 | 1000 | 2000,
-                        })
-                      }
-                      if (parsed.length === 0) { alert('No valid questions found in CSV'); return }
-                      setQuestions(prev => [...prev, ...parsed])
-                      setTab('manual')
-                      setActiveIndex(0)
-                    }
-                    reader.readAsText(file)
-                    e.target.value = ''
-                  }}
-                />
+              {/* Step 1: Download template */}
+              <div className="rounded-xl p-5 border" style={{ borderColor: '#0891B2', background: '#F0FDFE' }}>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-black text-sm text-white" style={{ background: '#0891B2' }}>1</div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold mb-1" style={{ color: '#0F1B3D' }}>Download the Quizotic template</p>
+                    <p className="text-xs mb-3" style={{ color: '#475569', lineHeight: 1.6 }}>
+                      Fill in this template exactly — do not rename or remove any columns. Supports MCQ, True/False, and Open-ended questions.
+                    </p>
+                    <button
+                      onClick={() => {
+                        const csv = [
+                          'question,optionA,optionB,optionC,optionD,correctAnswer,timer,points',
+                          '"What is 2+2?",3,4,5,6,B,20,1000',
+                          '"Is the Earth round?",True,False,,,A,15,500',
+                          '"Describe the water cycle.",,,,,,30,1000',
+                        ].join('\n')
+                        const blob = new Blob([csv], { type: 'text/csv' })
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = 'quizotic-template.csv'
+                        a.click()
+                        URL.revokeObjectURL(url)
+                      }}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all hover:opacity-90"
+                      style={{ background: '#0891B2', color: '#fff' }}
+                    >
+                      <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4">
+                        <path d="M8 3v7M5 7l3 3 3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M3 13h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                      </svg>
+                      Download Template (.csv)
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="rounded-xl p-4 border bg-white" style={{ borderColor: '#E2E8F0' }}>
-                <p className="text-xs font-bold mb-2" style={{ color: '#374151' }}>Example CSV:</p>
-                <pre className="text-xs font-mono overflow-x-auto p-3 rounded-lg" style={{ background: '#F8FAFC', color: '#374151' }}>
-{`question,optionA,optionB,optionC,optionD,correctAnswer,timer,points
-"What is 2+2?",3,4,5,6,B,20,1000
-"Capital of India?",Mumbai,Delhi,Chennai,Kolkata,B,15,500`}
-                </pre>
+
+              {/* Step 2: Upload */}
+              <div className="rounded-xl p-5 border bg-white" style={{ borderColor: '#E2E8F0' }}>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-black text-sm text-white" style={{ background: '#0F1B3D' }}>2</div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold mb-1" style={{ color: '#0F1B3D' }}>Upload your filled CSV</p>
+                    <p className="text-xs mb-3" style={{ color: '#6B7280' }}>Only files using the Quizotic template format will be accepted.</p>
+
+                    {/* Styled drop zone */}
+                    <label
+                      className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed cursor-pointer transition-colors p-8 hover:border-blue-400 hover:bg-blue-50"
+                      style={{ borderColor: '#CBD5E1', background: '#F8FAFC' }}
+                      onDragOver={e => e.preventDefault()}
+                      onDrop={e => {
+                        e.preventDefault()
+                        const file = e.dataTransfer.files?.[0]
+                        if (!file) return
+                        const event = { target: { files: e.dataTransfer.files, value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>
+                        void event
+                        const reader = new FileReader()
+                        reader.onload = () => {
+                          const text = reader.result as string
+                          processCsvText(text)
+                        }
+                        reader.readAsText(file)
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8" style={{ color: '#94A3B8' }}>
+                        <path d="M12 16V8M9 11l3-3 3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M20 16.7A4 4 0 0018 9h-1A6 6 0 104 14.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      <div className="text-center">
+                        <p className="text-sm font-semibold" style={{ color: '#475569' }}>Drag your CSV here, or click to browse</p>
+                        <p className="text-xs mt-1" style={{ color: '#94A3B8' }}>Only .csv files accepted</p>
+                      </div>
+                      <input
+                        type="file"
+                        accept=".csv,text/csv"
+                        className="hidden"
+                        onChange={e => {
+                          const file = e.target.files?.[0]
+                          if (!file) return
+                          const reader = new FileReader()
+                          reader.onload = () => processCsvText(reader.result as string)
+                          reader.readAsText(file)
+                          e.target.value = ''
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Template column reference */}
+              <div className="rounded-xl overflow-hidden border" style={{ borderColor: '#E2E8F0' }}>
+                <div className="px-4 py-2.5 border-b" style={{ background: '#F8FAFC', borderColor: '#E2E8F0' }}>
+                  <p className="text-xs font-bold" style={{ color: '#374151' }}>Required columns</p>
+                </div>
+                <div className="divide-y" style={{ borderColor: '#F3F4F6' }}>
+                  {[
+                    { col: 'question', desc: 'The question text', required: true },
+                    { col: 'optionA – optionD', desc: 'Answer options (leave empty for open-ended)', required: false },
+                    { col: 'correctAnswer', desc: 'A, B, C or D (leave empty for polls)', required: false },
+                    { col: 'timer', desc: '10, 15, 20, 30 or 60 seconds', required: false },
+                    { col: 'points', desc: '500, 1000 or 2000', required: false },
+                  ].map(row => (
+                    <div key={row.col} className="flex items-start gap-3 px-4 py-2.5">
+                      <code className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: '#EEF2FF', color: '#4F46E5' }}>{row.col}</code>
+                      <span className="text-xs flex-1" style={{ color: '#6B7280' }}>{row.desc}</span>
+                      <span className="text-[9px] font-bold flex-shrink-0" style={{ color: row.required ? '#DC2626' : '#94A3B8' }}>{row.required ? 'REQUIRED' : 'optional'}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
 
           {/* Library Tab */}
           {tab === 'library' && (
-            <div className="w-full max-w-lg space-y-3">
+            <div className="w-full max-w-4xl space-y-3">
               <h3 className="text-lg font-extrabold" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Your Quiz Library</h3>
               {savedQuizzes.length === 0 ? (
                 <div className="text-center py-16">
@@ -1468,7 +1738,7 @@ function CreateQuizPageInner() {
 
         {/* ── RIGHT PANEL: Question Editor ── */}
         {(tab === 'manual' || generatedOnTab) && activeQuestion && (
-          <div className="w-72 flex-shrink-0 bg-white border-l overflow-y-auto p-4" style={{ borderColor: '#E2E8F0' }}>
+          <div className="hidden md:flex md:w-72 flex-shrink-0 bg-white border-l overflow-y-auto flex-col p-4" style={{ borderColor: '#E2E8F0' }}>
             {generatedOnTab && (
               <div className="mb-3 flex items-center gap-2">
                 <label className="flex items-center gap-1.5 cursor-pointer">
@@ -1493,6 +1763,73 @@ function CreateQuizPageInner() {
           </div>
         )}
       </div>
+
+      {/* ── Mobile Bottom Bar (portrait) ── */}
+      <div className="md:hidden flex-shrink-0 border-t flex items-center gap-2 px-3 py-2.5"
+        style={{ borderColor: '#E2E8F0', background: '#F8FAFC' }}>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            onClick={() => setActiveIndex(i => Math.max(0, i - 1))}
+            disabled={safeIndex === 0}
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-lg font-bold disabled:opacity-30 transition-colors"
+            style={{ color: '#0F1B3D', background: '#fff', border: '1.5px solid #E2E8F0' }}>
+            &lsaquo;
+          </button>
+          <span className="text-sm font-bold px-2 py-2 rounded-xl text-center"
+            style={{ background: '#fff', color: '#0F1B3D', border: '1.5px solid #E2E8F0', minWidth: 56 }}>
+            {safeIndex + 1}/{questions.length}
+          </span>
+          <button
+            onClick={() => setActiveIndex(i => Math.min(i + 1, questions.length - 1))}
+            disabled={safeIndex === questions.length - 1}
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-lg font-bold disabled:opacity-30 transition-colors"
+            style={{ color: '#0F1B3D', background: '#fff', border: '1.5px solid #E2E8F0' }}>
+            &rsaquo;
+          </button>
+        </div>
+        <button
+          onClick={() => addQuestion()}
+          className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded-xl font-bold text-sm transition-all"
+          style={{ background: '#0F1B3D', color: '#fff' }}>
+          <span>+</span> Add
+        </button>
+        {activeQuestion && (tab === 'manual' || generatedOnTab) && (
+          <button
+            onClick={() => setMobileEditorOpen(true)}
+            className="flex items-center justify-center gap-1 px-3 py-2.5 rounded-xl font-bold text-sm flex-shrink-0"
+            style={{ background: '#F5E642', color: '#0D0D0D', border: '1.5px solid rgba(15,27,61,0.2)' }}>
+            ✏️ Edit
+          </button>
+        )}
+      </div>
+
+      {/* ── Mobile Editor Bottom Sheet ── */}
+      {mobileEditorOpen && activeQuestion && (
+        <div
+          className="md:hidden fixed inset-0 z-50 flex flex-col justify-end"
+          style={{ background: 'rgba(15,27,61,0.5)' }}
+          onClick={e => { if (e.target === e.currentTarget) setMobileEditorOpen(false) }}>
+          <div className="rounded-t-2xl overflow-y-auto p-4" style={{ background: '#fff', maxHeight: '80vh' }}>
+            <div className="flex items-center justify-between mb-4">
+              <span className="font-black text-base" style={{ color: '#0F1B3D' }}>Edit Question</span>
+              <button
+                onClick={() => setMobileEditorOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ background: '#F1F5F9' }}>
+                <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" style={{ color: '#374151' }}>
+                  <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/>
+                </svg>
+              </button>
+            </div>
+            <QuestionEditor
+              question={activeQuestion}
+              onChange={u => updateQuestion(safeIndex, u)}
+              onDelete={() => { removeQuestion(safeIndex); setMobileEditorOpen(false) }}
+              onDuplicate={() => { duplicateQuestion(safeIndex); setMobileEditorOpen(false) }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* ── Post-Save Success Modal ── */}
       {savedQuiz && (
@@ -1523,17 +1860,59 @@ function CreateQuizPageInner() {
                   const url = `${window.location.origin}/join`
                   navigator.clipboard.writeText(url)
                   const btn = document.activeElement as HTMLButtonElement
-                  if (btn) { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy Join Link' }, 1500) }
+                  if (btn) { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy Join Page' }, 1500) }
                 }}
                 className="py-3 text-sm font-semibold rounded-xl border-2 transition-colors"
                 style={{ borderColor: '#E5E7EB', color: '#0F1B3D' }}
               >
-                Copy Join Link
+                Copy Join Page
               </button>
             </div>
             <button onClick={() => setSavedQuiz(null)} className="w-full text-center text-sm text-gray-400 hover:text-gray-600 transition-colors">Continue editing</button>
           </div>
         </div>
+      )}
+
+      {/* ── Share Modal ── */}
+      {shareOpen && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/40" onClick={() => setShareOpen(false)} />
+          <div className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 space-y-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-extrabold" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Share Quiz</h3>
+              <button onClick={() => setShareOpen(false)} className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors text-gray-400 text-sm">&times;</button>
+            </div>
+            <div className="rounded-xl border p-4 text-center" style={{ borderColor: '#E2E8F0', background: '#F8FAFC' }}>
+              <p className="text-2xl mb-2">🔗</p>
+              <p className="text-sm font-semibold" style={{ color: '#0F1B3D' }}>Share after starting</p>
+              <p className="text-xs mt-1" style={{ color: '#6B7280' }}>A 6-digit code is generated when you start a live session</p>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1 block">Join Page</label>
+              <div className="flex items-center gap-2">
+                <input
+                  readOnly
+                  value={typeof window !== 'undefined' ? `${window.location.origin}/join` : 'quizotic.live/join'}
+                  className="flex-1 text-sm font-medium px-3 py-2 rounded-lg border bg-gray-50 outline-none"
+                  style={{ borderColor: '#E2E8F0', color: '#374151' }}
+                />
+                <button
+                  onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/join`); }}
+                  className="px-3 py-2 rounded-lg text-xs font-bold transition-all hover:opacity-90 click-bounce"
+                  style={{ background: '#0F1B3D', color: '#F5E642' }}
+                >Copy</button>
+              </div>
+            </div>
+            <div className="rounded-lg px-3 py-2.5 text-xs text-gray-500 bg-amber-50 border border-amber-200">
+              Start a live session to get a unique 6-digit access code for participants.
+            </div>
+            <button
+              onClick={() => { setShareOpen(false); if (savedQuiz) { setActiveSession(savedQuiz); router.push('/host/session') } else { handleSave() } }}
+              className="w-full py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 click-bounce"
+              style={{ background: '#0F1B3D', color: '#F5E642' }}
+            >&#9654; Start Live Session</button>
+          </div>
+        </>
       )}
 
       {/* ── Save Error Toast ── */}

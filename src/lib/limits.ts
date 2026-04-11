@@ -12,6 +12,7 @@ export const PLAN_LIMITS = {
     csvExport: false,
     spacedRetrieval: false,
     showBranding: true,
+    maxAiEnhancements: 10,     // AI-enhanced slides per month
   },
   pro: {
     maxParticipants: Infinity,
@@ -26,6 +27,7 @@ export const PLAN_LIMITS = {
     csvExport: true,
     spacedRetrieval: true,
     showBranding: false,
+    maxAiEnhancements: 50,     // AI-enhanced slides per month
   },
 } as const
 

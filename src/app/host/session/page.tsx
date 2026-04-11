@@ -61,6 +61,7 @@ export default function SessionPage() {
   const [paused, setPaused] = useState(false)
   const [hostTimeLeft, setHostTimeLeft] = useState(0)
   const hostTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [plan, setPlan] = useState<'free' | 'pro'>('free')
 
   const currentQuestion = quiz?.questions[questionIndex] ?? null
 
@@ -72,6 +73,12 @@ export default function SessionPage() {
     }
     setQuiz(session)
     setPhase('idle')
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/billing/status').then(r => r.json()).then(d => {
+      if (d.plan === 'pro') setPlan('pro')
+    }).catch(() => {})
   }, [])
 
   // Socket setup — run ONCE after quiz is loaded (empty deps, guarded by quiz check)
@@ -221,19 +228,23 @@ export default function SessionPage() {
     })
   }
 
-  function startHostTimer(seconds: number) {
+  const timerStartRef = useRef<number>(0)
+  const timerDurationRef = useRef<number>(0)
+
+  function startHostTimer(seconds: number, serverTimestamp?: number) {
     if (hostTimerRef.current) clearInterval(hostTimerRef.current)
+    timerDurationRef.current = seconds
+    timerStartRef.current = serverTimestamp ?? Date.now()
     setHostTimeLeft(seconds)
     hostTimerRef.current = setInterval(() => {
-      setHostTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(hostTimerRef.current!)
-          hostTimerRef.current = null
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
+      const elapsed = (Date.now() - timerStartRef.current) / 1000
+      const remaining = Math.max(0, Math.ceil(timerDurationRef.current - elapsed))
+      setHostTimeLeft(remaining)
+      if (remaining <= 0) {
+        clearInterval(hostTimerRef.current!)
+        hostTimerRef.current = null
+      }
+    }, 200) // Update 5x/sec for smooth countdown
   }
 
   function startQuiz() {
@@ -334,24 +345,27 @@ export default function SessionPage() {
             <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Session Mode</p>
             <div className="grid grid-cols-2 gap-3">
               {([
-                { mode: 'competitive' as const, label: 'Competitive', desc: 'Live leaderboard, speed scoring', icon: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z' },
-                { mode: 'reflection' as const, label: 'Reflection', desc: 'Calmer pace, results at end', icon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z' },
-                { mode: 'selfpaced' as const, label: 'Self-paced', desc: 'Homework mode — no timer, do anytime', icon: 'M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z' },
-                { mode: 'assessment' as const, label: 'Assessment', desc: 'Pass/fail with score threshold', icon: 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9l2 2 4-4' },
+                { mode: 'competitive' as const, label: 'Competitive', desc: 'Live leaderboard, speed scoring', icon: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z', comingSoon: false },
+                { mode: 'reflection' as const, label: 'Reflection', desc: 'Calmer pace, results at end', icon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z', comingSoon: false },
+                { mode: 'selfpaced' as const, label: 'Self-paced', desc: 'Coming soon', icon: 'M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z', comingSoon: true },
+                { mode: 'assessment' as const, label: 'Assessment', desc: 'Coming soon', icon: 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9l2 2 4-4', comingSoon: true },
               ]).map(opt => (
                 <button
                   key={opt.mode}
-                  onClick={() => setSessionMode(opt.mode)}
+                  onClick={() => !opt.comingSoon && setSessionMode(opt.mode)}
+                  disabled={opt.comingSoon}
                   className={`rounded-2xl p-4 border-2 text-left transition-all ${
-                    sessionMode === opt.mode
+                    opt.comingSoon
+                      ? 'border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed'
+                      : sessionMode === opt.mode
                       ? 'border-violet-500 bg-violet-50 shadow-sm'
                       : 'border-gray-200 bg-white'
                   }`}
                 >
-                  <svg className="w-6 h-6 mb-2" viewBox="0 0 24 24" fill="none" stroke={sessionMode === opt.mode ? '#0F1B3D' : '#9CA3AF'} strokeWidth="2">
+                  <svg className="w-6 h-6 mb-2" viewBox="0 0 24 24" fill="none" stroke={!opt.comingSoon && sessionMode === opt.mode ? '#0F1B3D' : '#9CA3AF'} strokeWidth="2">
                     <path d={opt.icon} strokeLinejoin="round" strokeLinecap="round"/>
                   </svg>
-                  <p className={`font-bold text-sm ${sessionMode === opt.mode ? 'text-violet-700' : 'text-gray-900'}`}>{opt.label}</p>
+                  <p className={`font-bold text-sm ${!opt.comingSoon && sessionMode === opt.mode ? 'text-violet-700' : 'text-gray-900'}`}>{opt.label}</p>
                   <p className="text-xs text-gray-500 mt-0.5 leading-tight">{opt.desc}</p>
                 </button>
               ))}
@@ -436,9 +450,13 @@ export default function SessionPage() {
               <span className={`text-base font-bold px-4 py-1.5 rounded-full border ${
                 sessionMode === 'reflection'
                   ? 'bg-blue-50 border-blue-200 text-blue-700'
+                  : sessionMode === 'selfpaced'
+                  ? 'bg-purple-50 border-purple-200 text-purple-700'
+                  : sessionMode === 'assessment'
+                  ? 'bg-orange-50 border-orange-200 text-orange-700'
                   : 'bg-green-50 border-green-200 text-green-700'
               }`}>
-                {sessionMode === 'reflection' ? 'Reflection' : 'Competitive'}
+                {{ competitive: 'Competitive', reflection: 'Reflection', selfpaced: 'Self-paced', assessment: 'Assessment' }[sessionMode] ?? 'Competitive'}
               </span>
               <span className="bg-green-50 border border-green-200 text-green-700 text-base font-bold px-4 py-1.5 rounded-full">
                 {participants.size} players
@@ -447,21 +465,22 @@ export default function SessionPage() {
           </div>
 
           {/* Game code + QR code */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 overflow-hidden">
-            <div className="flex gap-4 items-center min-w-0">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6 overflow-hidden">
+            <div className="flex flex-col sm:flex-row gap-4 items-center min-w-0">
               <div className="flex-1 min-w-0 text-center">
-                <p className="text-base font-bold text-gray-400 uppercase tracking-widest mb-3">Session Code</p>
-                <p className="text-8xl font-black tracking-[0.3em]" style={{ color: '#0F1B3D' }}>{gameCode}</p>
-                <p className="text-gray-400 text-base mt-3">quizotic.live</p>
+                <p className="text-sm sm:text-base font-bold text-gray-400 uppercase tracking-widest mb-2 sm:mb-3">Session Code</p>
+                <p className="text-5xl sm:text-6xl md:text-8xl font-black tracking-[0.15em] sm:tracking-[0.3em]" style={{ color: '#0F1B3D' }}>{gameCode}</p>
+                <p className="text-gray-400 text-sm sm:text-base mt-2 sm:mt-3">quizotic.live</p>
               </div>
               <div className="flex-shrink-0 text-center">
-                <p className="text-base font-bold text-gray-400 uppercase tracking-widest mb-3">Scan to Join</p>
-                <div className="bg-white rounded-2xl p-3 border border-gray-200">
+                <p className="text-sm sm:text-base font-bold text-gray-400 uppercase tracking-widest mb-2 sm:mb-3">Scan to Join</p>
+                <div className="bg-white rounded-2xl p-2 sm:p-3 border border-gray-200">
                   <QRCode
                     value={`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')}/join?code=${gameCode}`}
-                    size={128}
+                    size={100}
                     bgColor="#ffffff"
                     fgColor="#0F1B3D"
+                    className="sm:!w-[128px] sm:!h-[128px]"
                   />
                 </div>
               </div>
@@ -589,6 +608,13 @@ export default function SessionPage() {
               )
             })}
           </div>
+
+          {/* Quizotic watermark — free plan */}
+          {plan === 'free' && (
+            <div className="text-right mt-1">
+              <span className="text-[10px] font-bold opacity-30" style={{ color: '#64748B' }}>quizotic.live</span>
+            </div>
+          )}
 
           {/* Explanation / Debrief (shown after question_ended event) */}
           {explanation && (
@@ -757,9 +783,11 @@ export default function SessionPage() {
                 })
                 if (questionStats.length > 0) {
                   rows.push([])
-                  rows.push(['Question', 'Correct %', 'Text'])
+                  rows.push(['Question', 'Correct %', 'Type', 'Text'])
                   questionStats.forEach((stat, i) => {
-                    rows.push([`Q${i + 1}`, `${stat.correctPct}%`, `"${stat.text.replace(/"/g, '""')}"`])
+                    const pctStr = stat.isNonScored || stat.correctPct == null ? 'N/A' : `${stat.correctPct}%`
+                    const typeStr = stat.type || 'mcq'
+                    rows.push([`Q${i + 1}`, pctStr, typeStr, `"${stat.text.replace(/"/g, '""')}"`])
                   })
                 }
                 const csv = rows.map(r => r.join(',')).join('\n')

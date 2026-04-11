@@ -36,14 +36,23 @@ interface TypeMix {
   truefalse?: number
   poll?: number
   openended?: number
+  wordcloud?: number
+  qa?: number
+  rating?: number
+  ranking?: number
+  case?: number
 }
 
 function buildUserPrompt(text: string, questionCount: number, difficulty: string, typeMix?: TypeMix): string {
-  // Build type breakdown instructions
   const mcq = typeMix?.mcq ?? questionCount
   const tf = typeMix?.truefalse ?? 0
   const poll = typeMix?.poll ?? 0
   const open = typeMix?.openended ?? 0
+  const wc = typeMix?.wordcloud ?? 0
+  const qa = typeMix?.qa ?? 0
+  const rat = typeMix?.rating ?? 0
+  const rank = typeMix?.ranking ?? 0
+  const sc = typeMix?.case ?? 0
 
   let typeInstructions = ''
   const examples: string[] = []
@@ -61,8 +70,28 @@ function buildUserPrompt(text: string, questionCount: number, difficulty: string
     examples.push(`{"type":"poll","text":"Which subject do you enjoy most?","options":["Science","Mathematics","History","Literature"],"timerSeconds":20,"points":0}`)
   }
   if (open > 0) {
-    typeInstructions += `\n- ${open} Open-ended questions: type "openended", NO "options" field, NO "correctAnswer" field`
+    typeInstructions += `\n- ${open} Open-ended questions: type "openended", NO "options" field, NO "correctAnswer" field. Ask a thought-provoking discussion question.`
     examples.push(`{"type":"openended","text":"Explain the significance of the French Revolution in your own words.","timerSeconds":60,"points":1000}`)
+  }
+  if (wc > 0) {
+    typeInstructions += `\n- ${wc} Word Cloud questions: type "wordcloud", NO "options" field, NO "correctAnswer" field. Ask a question that invites single-word or short-phrase answers (1-3 words). The audience responses will form a word cloud.`
+    examples.push(`{"type":"wordcloud","text":"What is the first word that comes to mind when you think of climate change?","timerSeconds":20,"points":0}`)
+  }
+  if (qa > 0) {
+    typeInstructions += `\n- ${qa} Q&A questions: type "qa", NO "options" field, NO "correctAnswer" field. Frame a discussion question that invites longer, thoughtful answers from participants.`
+    examples.push(`{"type":"qa","text":"What challenges do you face when applying AI tools in your daily work?","timerSeconds":60,"points":0}`)
+  }
+  if (rat > 0) {
+    typeInstructions += `\n- ${rat} Rating questions: type "rating", NO "options" field, NO "correctAnswer" field. Include a "ratingLabel" field describing what is being rated (e.g. "Confidence Level"). Participants will rate on a 1-5 scale.`
+    examples.push(`{"type":"rating","text":"How confident are you in your understanding of machine learning basics?","ratingLabel":"Confidence Level","timerSeconds":20,"points":0}`)
+  }
+  if (rank > 0) {
+    typeInstructions += `\n- ${rank} Ranking questions: type "ranking", provide 3-5 items in "options" array that participants must rank in order, NO "correctAnswer" field.`
+    examples.push(`{"type":"ranking","text":"Rank these renewable energy sources from most to least promising:","options":["Solar","Wind","Nuclear","Hydroelectric"],"timerSeconds":30,"points":0}`)
+  }
+  if (sc > 0) {
+    typeInstructions += `\n- ${sc} Scenario questions: type "case", exactly 4 options, "correctAnswer" is a string index ("0","1","2","3"). Include a "scenarioText" field (situation narrative, max 500 chars) and optionally a "supportingDetail" field. The question text should ask what to do or decide given the scenario.`
+    examples.push(`{"type":"case","text":"What should the team lead do first?","scenarioText":"A software team discovers a critical security vulnerability in production just before a major demo to investors. The fix requires 4 hours but the demo is in 2 hours.","options":["Postpone the demo","Deploy a hotfix during demo","Proceed and disclose after","Notify investors immediately"],"correctAnswer":"3","timerSeconds":30,"points":1000}`)
   }
 
   return `Generate exactly ${questionCount} ${difficulty} quiz questions based on the following content.
@@ -70,11 +99,11 @@ function buildUserPrompt(text: string, questionCount: number, difficulty: string
 Return a JSON array with exactly ${questionCount} items in this breakdown:${typeInstructions}
 
 Examples of each type:
-${examples.map(e => e).join('\n')}
+${examples.join('\n')}
 
 Rules:
 - "timerSeconds" must be one of: 10, 15, 20, 30, 60
-- "points" must be one of: 0, 500, 1000, 2000 (use 0 only for poll type)
+- "points" must be one of: 0, 500, 1000, 2000 (use 0 for poll, wordcloud, qa, rating, and ranking types)
 - Each option must be a complete, meaningful answer — never blank, never a placeholder like "Option A"
 - Never reference the source material in questions. Don't say "according to the passage", "based on the content", "extracted from", "as mentioned in", "from the text", etc. Write each question as a standalone knowledge question.
 - Return nothing except the JSON array
@@ -134,6 +163,25 @@ function validateQuestions(data: unknown): boolean {
     }
     if (type === 'openended') {
       return true // text + timer + points is enough
+    }
+    if (type === 'wordcloud') {
+      return true // text + timer + points is enough
+    }
+    if (type === 'qa') {
+      return true // text + timer + points is enough
+    }
+    if (type === 'rating') {
+      return typeof item.ratingLabel === 'string' || true // ratingLabel optional in validation
+    }
+    if (type === 'ranking') {
+      return Array.isArray(item.options) && item.options.length >= 3 &&
+        (item.options as unknown[]).every((o: unknown) => typeof o === 'string' && (o as string).trim().length > 0)
+    }
+    if (type === 'case') {
+      return Array.isArray(item.options) && item.options.length >= 2 &&
+        (item.options as unknown[]).every((o: unknown) => typeof o === 'string' && (o as string).trim().length > 0) &&
+        typeof item.correctAnswer === 'string' &&
+        typeof item.scenarioText === 'string'
     }
 
     // Fallback: accept MCQ-shaped (backwards compat)

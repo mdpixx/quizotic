@@ -164,6 +164,7 @@ const SLIDE_TYPES = [
 
 function FlipCard({ s, index }: { s: typeof SLIDE_TYPES[0]; index: number }) {
   const [flipped, setFlipped] = useState(false)
+  const [hovered, setHovered] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleClick = () => {
@@ -176,18 +177,31 @@ function FlipCard({ s, index }: { s: typeof SLIDE_TYPES[0]; index: number }) {
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }
   }, [])
 
+  const transform = flipped
+    ? 'rotateY(180deg)'
+    : hovered
+    ? 'rotateY(8deg) scale(1.02)'
+    : 'rotateY(0deg)'
+
   return (
     <div
       onClick={handleClick}
-      style={{ perspective: 1000, cursor: 'pointer', height: 160 }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        perspective: 1000,
+        cursor: 'pointer',
+        height: 160,
+      }}
     >
       <div style={{
         position: 'relative',
         width: '100%',
         height: '100%',
         transformStyle: 'preserve-3d',
-        transition: 'transform 0.6s ease',
-        transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+        transition: 'transform 0.4s ease, box-shadow 0.4s ease',
+        transform,
+        filter: hovered && !flipped ? 'drop-shadow(0 8px 24px rgba(15,27,61,0.12))' : 'none',
       }}>
         {/* Front */}
         <div style={{

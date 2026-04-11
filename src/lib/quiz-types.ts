@@ -67,8 +67,12 @@ export interface ConfidenceGrid {
 export interface QuestionStat {
   index: number
   text: string
-  correctPct: number                     // 0–100
+  type?: string
+  correctPct: number | null              // 0–100, null for non-scored (poll, wordcloud, etc.)
   confidenceGrid: ConfidenceGrid | null  // null if no participants answered
   bloomsLevel: BloomsLevel | null
   explanation: string | null
+  isNonScored?: boolean
+  optionDistribution?: number[] | null
+  options?: string[]
 }

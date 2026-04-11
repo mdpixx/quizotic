@@ -90,17 +90,19 @@ interface SessionReportProps {
 export function SessionReport({ questionStats, quizTitle, participantCount, sessionDate, plan = 'free', sessionId }: SessionReportProps) {
   if (!questionStats || questionStats.length === 0) return null
 
-  const avgAccuracy = questionStats.length > 0
-    ? Math.round(questionStats.reduce((s, q) => s + q.correctPct, 0) / questionStats.length)
+  const scoredStats = questionStats.filter(q => !q.isNonScored && q.correctPct != null)
+  const avgAccuracy = scoredStats.length > 0
+    ? Math.round(scoredStats.reduce((s, q) => s + (q.correctPct ?? 0), 0) / scoredStats.length)
     : 0
 
-  const weakQuestions = questionStats.filter(q => q.correctPct < 50)
-  const strongQuestions = questionStats.filter(q => q.correctPct >= 80)
+  const weakQuestions = scoredStats.filter(q => (q.correctPct ?? 0) < 50)
+  const strongQuestions = scoredStats.filter(q => (q.correctPct ?? 0) >= 80)
 
   function handlePrint() {
-    const needsReview = questionStats.filter(s => s.correctPct < 50)
-    const mastered = questionStats.filter(s => s.correctPct >= 80)
-    const misconceptions = questionStats.filter(s => s.confidenceGrid && s.confidenceGrid.sureWrong > 0)
+    const scored = questionStats.filter(s => !s.isNonScored && s.correctPct != null)
+    const needsReview = scored.filter(s => (s.correctPct ?? 0) < 50)
+    const mastered = scored.filter(s => (s.correctPct ?? 0) >= 80)
+    const misconceptions = scored.filter(s => s.confidenceGrid && s.confidenceGrid.sureWrong > 0)
     const date = sessionDate || new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })
 
     // Insight summary sentence
@@ -124,16 +126,39 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
       </div>` : ''
 
     const rows = questionStats.map((stat, i) => {
-      const isWeak = stat.correctPct < 50
-      const isStrong = stat.correctPct >= 80
-      const pctColor = isWeak ? '#dc2626' : isStrong ? '#16a34a' : '#374151'
-      const cardBorder = isWeak ? '#fca5a5' : isStrong ? '#86efac' : '#e5e7eb'
-      const cardBg = isWeak ? '#fff5f5' : isStrong ? '#f0fdf4' : '#ffffff'
-      const badgeHtml = isWeak
+      const isNonScored = stat.isNonScored || stat.correctPct == null
+      const isWeak = !isNonScored && (stat.correctPct ?? 0) < 50
+      const isStrong = !isNonScored && (stat.correctPct ?? 0) >= 80
+      const pctColor = isNonScored ? '#7c3aed' : isWeak ? '#dc2626' : isStrong ? '#16a34a' : '#374151'
+      const cardBorder = isNonScored ? '#ddd6fe' : isWeak ? '#fca5a5' : isStrong ? '#86efac' : '#e5e7eb'
+      const cardBg = isNonScored ? '#faf5ff' : isWeak ? '#fff5f5' : isStrong ? '#f0fdf4' : '#ffffff'
+      const badgeHtml = isNonScored
+        ? `<span style="background:#ede9fe;color:#7c3aed;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:8px">${stat.type === 'poll' ? 'Poll' : stat.type === 'wordcloud' ? 'Word Cloud' : 'Unscored'}</span>`
+        : isWeak
         ? `<span style="background:#fee2e2;color:#dc2626;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:8px">Needs Review</span>`
         : isStrong
         ? `<span style="background:#dcfce7;color:#16a34a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:8px">Mastered</span>`
         : ''
+
+      // Option distribution bars for polls
+      let distributionHtml = ''
+      if (isNonScored && stat.optionDistribution && stat.options) {
+        const total = stat.optionDistribution.reduce((a, b) => a + b, 0)
+        distributionHtml = `<div style="margin-top:10px;">${stat.options.map((opt, oi) => {
+          const count = stat.optionDistribution![oi] ?? 0
+          const pct = total > 0 ? Math.round((count / total) * 100) : 0
+          return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:12px;">
+            <span style="color:#6b7280;width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(opt)}</span>
+            <div style="flex:1;height:14px;background:#f3f4f6;border-radius:99px;overflow:hidden"><div style="height:100%;width:${pct}%;background:#8B5CF6;border-radius:99px"></div></div>
+            <span style="color:#374151;font-weight:600;width:32px;text-align:right">${pct}%</span>
+          </div>`
+        }).join('')}</div>`
+      }
+
+      const rightSide = isNonScored
+        ? ''
+        : `<span style="font-size:26px;font-weight:900;color:${pctColor};white-space:nowrap">${stat.correctPct}%</span>`
+
       const grid = stat.confidenceGrid
       const gridHtml = grid ? `
         <table style="border-collapse:collapse;margin-top:10px;font-size:12px;">
@@ -159,10 +184,11 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
         <div style="border:1.5px solid ${cardBorder};border-radius:10px;padding:16px;margin-bottom:12px;background:${cardBg};page-break-inside:avoid;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
             <p style="font-size:13px;color:#1f2937;font-weight:600;margin:0;line-height:1.5;flex:1">Q${i + 1}. ${escapeHtml(stat.text)}${badgeHtml}</p>
-            <span style="font-size:26px;font-weight:900;color:${pctColor};white-space:nowrap">${stat.correctPct}%</span>
+            ${rightSide}
           </div>
-          ${grid ? gridHtml : ''}
-          ${misconceptionNote}
+          ${distributionHtml}
+          ${!isNonScored && grid ? gridHtml : ''}
+          ${!isNonScored ? misconceptionNote : ''}
           ${stat.explanation ? `<p style="margin-top:10px;font-size:12px;color:#0F1B3D;background:#F8F9FA;border-radius:6px;padding:8px 10px">💡 ${escapeHtml(stat.explanation)}</p>` : ''}
         </div>`
     }).join('')
@@ -335,8 +361,9 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
 
       <div className="space-y-4">
         {questionStats.map((stat) => {
-          const isWeak = stat.correctPct < 50
-          const isStrong = stat.correctPct >= 80
+          const isNonScored = stat.isNonScored || stat.correctPct == null
+          const isWeak = !isNonScored && (stat.correctPct ?? 0) < 50
+          const isStrong = !isNonScored && (stat.correctPct ?? 0) >= 80
           return (
             <div key={stat.index} className="border border-gray-100 rounded-xl p-4">
               {/* Question header */}
@@ -345,16 +372,44 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
                   Q{stat.index + 1}. {stat.text.length > 80 ? stat.text.slice(0, 80) + '…' : stat.text}
                 </p>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className={`text-2xl font-black ${isWeak ? 'text-red-500' : isStrong ? 'text-green-600' : 'text-gray-700'}`}>
-                    {stat.correctPct}%
-                  </span>
-                  {isWeak && (
-                    <span className="bg-amber-100 text-amber-700 rounded-full px-2 py-0.5 text-xs font-semibold">
-                      ⚠ Weak
+                  {isNonScored ? (
+                    <span className="bg-violet-100 text-violet-600 rounded-full px-2.5 py-0.5 text-xs font-bold">
+                      {stat.type === 'poll' ? 'Poll' : stat.type === 'wordcloud' ? 'Word Cloud' : stat.type === 'open' ? 'Open' : stat.type === 'qna' ? 'Q&A' : 'Unscored'}
                     </span>
+                  ) : (
+                    <>
+                      <span className={`text-2xl font-black ${isWeak ? 'text-red-500' : isStrong ? 'text-green-600' : 'text-gray-700'}`}>
+                        {stat.correctPct}%
+                      </span>
+                      {isWeak && (
+                        <span className="bg-amber-100 text-amber-700 rounded-full px-2 py-0.5 text-xs font-semibold">
+                          ⚠ Weak
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
+
+              {/* Option distribution for polls */}
+              {isNonScored && stat.optionDistribution && stat.options && (
+                <div className="mt-2 space-y-1.5">
+                  {stat.options.map((opt, oi) => {
+                    const count = stat.optionDistribution![oi] ?? 0
+                    const total = stat.optionDistribution!.reduce((a, b) => a + b, 0)
+                    const pct = total > 0 ? Math.round((count / total) * 100) : 0
+                    return (
+                      <div key={oi} className="flex items-center gap-2 text-xs">
+                        <span className="text-gray-500 w-20 truncate shrink-0">{opt}</span>
+                        <div className="flex-1 h-4 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: '#8B5CF6' }} />
+                        </div>
+                        <span className="text-gray-600 font-semibold w-8 text-right">{pct}%</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
 
               {/* Bloom's tag */}
               {stat.bloomsLevel && (

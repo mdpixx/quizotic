@@ -63,9 +63,13 @@ export async function GET(request: Request) {
   for (const s of sessions) {
     const results = s.results as SessionResults | null
     if (!results) continue
-    if (results.leaderboard?.length) {
-      const avg = results.leaderboard.reduce((sum, p) => sum + (p.score ?? 0), 0) / results.leaderboard.length
-      scoreSum += avg; scoreCount++
+    // Use correctPct from questionStats for accuracy-based avgScore (0–100 scale)
+    if (results.questionStats?.length) {
+      const scoredQs = results.questionStats.filter(qs => typeof qs.correctPct === 'number' && qs.correctPct != null)
+      if (scoredQs.length > 0) {
+        const sessionAccuracy = scoredQs.reduce((sum, q) => sum + (q.correctPct ?? 0), 0) / scoredQs.length
+        scoreSum += sessionAccuracy; scoreCount++
+      }
     }
     if (s.participantCount && results.leaderboard) {
       completionSum += (results.leaderboard.length / s.participantCount) * 100
@@ -93,9 +97,12 @@ export async function GET(request: Request) {
     const e = trendMap.get(day) ?? { sessions: 0, scoreSum: 0, scoreCount: 0, participants: 0 }
     e.sessions++; e.participants += s.participantCount ?? 0
     const results = s.results as SessionResults | null
-    if (results?.leaderboard?.length) {
-      const avg = results.leaderboard.reduce((sum, p) => sum + (p.score ?? 0), 0) / results.leaderboard.length
-      e.scoreSum += avg; e.scoreCount++
+    if (results?.questionStats?.length) {
+      const scoredQs = results.questionStats.filter(qs => typeof qs.correctPct === 'number' && qs.correctPct != null)
+      if (scoredQs.length > 0) {
+        const accuracy = scoredQs.reduce((sum, q) => sum + (q.correctPct ?? 0), 0) / scoredQs.length
+        e.scoreSum += accuracy; e.scoreCount++
+      }
     }
     trendMap.set(day, e)
   }
@@ -108,8 +115,9 @@ export async function GET(request: Request) {
   const recentSessions = sessions.slice(0, 8).map((s) => {
     const results = s.results as SessionResults | null
     const lboard = results?.leaderboard ?? []
-    const sessionAvgScore = lboard.length > 0
-      ? Math.round(lboard.reduce((sum, p) => sum + (p.score ?? 0), 0) / lboard.length) : null
+    const scoredQs = (results?.questionStats ?? []).filter(qs => typeof qs.correctPct === 'number' && qs.correctPct != null)
+    const sessionAvgScore = scoredQs.length > 0
+      ? Math.round(scoredQs.reduce((sum, q) => sum + (q.correctPct ?? 0), 0) / scoredQs.length) : null
     const completionPct = s.participantCount && lboard.length
       ? Math.round((lboard.length / s.participantCount) * 100) : null
     return {
@@ -132,9 +140,12 @@ export async function GET(request: Request) {
     const e = quizMap.get(s.quizId) ?? { title, sessions: 0, scoreSum: 0, scoreCount: 0, participants: 0 }
     e.sessions++; e.participants += s.participantCount ?? 0
     const results = s.results as SessionResults | null
-    if (results?.leaderboard?.length) {
-      const avg = results.leaderboard.reduce((sum, p) => sum + (p.score ?? 0), 0) / results.leaderboard.length
-      e.scoreSum += avg; e.scoreCount++
+    if (results?.questionStats?.length) {
+      const scoredQs = results.questionStats.filter(qs => typeof qs.correctPct === 'number' && qs.correctPct != null)
+      if (scoredQs.length > 0) {
+        const accuracy = scoredQs.reduce((sum, q) => sum + (q.correctPct ?? 0), 0) / scoredQs.length
+        e.scoreSum += accuracy; e.scoreCount++
+      }
     }
     quizMap.set(s.quizId, e)
   }
@@ -169,7 +180,8 @@ export async function GET(request: Request) {
       const recent = p.scores.slice(-2)
       const scoreChange = recent.length >= 2 ? recent[1] - recent[0] : null
       const lastTwo = p.scores.slice(-2)
-      const atRisk = lastTwo.length >= 2 && lastTwo.every(s => s < 60)
+      // atRisk: scored below 1000 pts twice in a row (< 1 correct answer equivalent in a standard quiz)
+      const atRisk = lastTwo.length >= 2 && lastTwo.every(s => s < 1000)
       return {
         name: p.name, archetype: p.archetype,
         sessions: p.sessionCount,

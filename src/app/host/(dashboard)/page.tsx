@@ -138,8 +138,20 @@ export default function HostDashboard() {
   // Question difficulty smart alert
   const hardQuestions = (data?.recentQuestionDifficulty?.questions ?? []).filter(q => q.correctPct < 50)
 
+  // ── Loading state — prevents dashboard flash with zero figures ─────────────
+  if (loading) {
+    return (
+      <div className="p-6 md:p-8 flex items-center justify-center" style={{ maxWidth: 1280, margin: '0 auto', minHeight: 400 }}>
+        <div className="text-center">
+          <div className="w-8 h-8 rounded-full animate-spin mx-auto mb-3" style={{ border: '3px solid #E2E8F0', borderTopColor: '#F5E642' }} />
+          <p className="text-sm font-medium" style={{ color: '#9CA3AF' }}>Loading dashboard...</p>
+        </div>
+      </div>
+    )
+  }
+
   // ── Empty-state onboarding for new users ──────────────────────────────────
-  if (!loading && data && data.summary.totalSessions === 0) {
+  if (data && data.summary.totalSessions === 0) {
     return (
       <div className="p-6 md:p-8" style={{ maxWidth: 900, margin: '0 auto' }}>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-8 pb-4">
@@ -199,6 +211,10 @@ export default function HostDashboard() {
             ))}
           </div>
         </motion.div>
+
+        <p className="text-center text-xs mt-6" style={{ color: '#9CA3AF' }}>
+          Your analytics dashboard will appear here once you run your first session.
+        </p>
       </div>
     )
   }
@@ -331,7 +347,7 @@ export default function HostDashboard() {
                     <div className="flex flex-col items-end gap-0.5">
                       <Sparkline scores={p.scores} />
                       <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-black" style={{ color: scoreColor(p.avgScore) }}>{p.avgScore}%</span>
+                        <span className="text-sm font-black" style={{ color: '#0F1B3D' }}>{p.avgScore.toLocaleString('en-IN')} pts</span>
                         <ScoreChange change={p.scoreChange} />
                       </div>
                     </div>
@@ -343,7 +359,7 @@ export default function HostDashboard() {
             {atRiskParticipants.length > 0 && (
               <div className="mx-4 mb-4 px-3 py-2.5 rounded-xl" style={{ background: '#FFF7ED', border: '1px solid #FED7AA' }}>
                 <p className="text-xs font-bold mb-0.5" style={{ color: '#C2410C' }}>
-                  ⚠ {atRiskParticipants.length} participant{atRiskParticipants.length > 1 ? 's' : ''} scored below 60% twice in a row
+                  ⚠ {atRiskParticipants.length} participant{atRiskParticipants.length > 1 ? 's' : ''} scored very low in their last 2 sessions
                 </p>
                 <p className="text-[10px]" style={{ color: '#EA580C' }}>
                   {atRiskParticipants.map(p => p.name).join(', ')} — may need follow-up

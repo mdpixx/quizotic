@@ -1,17 +1,28 @@
 'use client'
 
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { io, Socket } from 'socket.io-client'
-import { CircularTimer } from '@/components/CircularTimer'
+import type { Socket } from 'socket.io-client'
+import dynamic from 'next/dynamic'
 import { Avatar } from '@/components/Avatar'
-import { Podium } from '@/components/Podium'
-import { ReflectionMoment } from '@/components/ReflectionMoment'
-import { playTick, playCorrect, playWrong, playStreak } from '@/lib/sounds'
+import { playTick, playCorrect, playWrong, playStreak, playCelebration } from '@/lib/sounds'
+
+const CircularTimer = dynamic(() => import('@/components/CircularTimer').then(m => m.CircularTimer), { ssr: false })
+const Podium = dynamic(() => import('@/components/Podium').then(m => m.Podium), { ssr: false })
+const ReflectionMoment = dynamic(() => import('@/components/ReflectionMoment').then(m => m.ReflectionMoment), { ssr: false })
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Phase = 'form' | 'connecting' | 'lobby' | 'question' | 'answered' | 'ended' | 'selfpaced' | 'selfpaced-done'
-  | 'presenter-lobby' | 'presenter-voting' | 'presenter-voted'
+  | 'presenter-lobby' | 'presenter-voting' | 'presenter-voted' | 'presenter-results'
+
+interface PresenterAggregateData {
+  total: number
+  counts?: number[]
+  words?: Record<string, number>
+  scores?: number[]
+  emojis?: Record<string, number>
+  pins?: { x: number; y: number }[]
+}
 
 type QuestionOption = string | { text: string; imageUrl?: string }
 
@@ -223,6 +234,7 @@ function JoinPageInner() {
   const followupParam = searchParams.get('followup')
   const modeParam = searchParams.get('mode') // 'presenter' for presenter sessions
   const [phase, setPhase] = useState<Phase>(followupParam ? 'connecting' : 'form')
+  const phaseRef = useRef<Phase>(followupParam ? 'connecting' : 'form')
   const [code, setCode] = useState(searchParams.get('code') ?? '')
 
   // Presenter mode state
@@ -232,6 +244,12 @@ function JoinPageInner() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [presenterCurrentSlide, setPresenterCurrentSlide] = useState<any>(null)
   const [presenterVoted, setPresenterVoted] = useState(false)
+  const presenterVotedRef = useRef(false)
+  const [presenterResponseMode, setPresenterResponseMode] = useState<'instant' | 'on_click' | 'private'>('instant')
+  const presenterResponseModeRef = useRef<'instant' | 'on_click' | 'private'>('instant')
+  const [quickFireLeft, setQuickFireLeft] = useState<number | null>(null)
+  const quickFireTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [presenterAggregate, setPresenterAggregate] = useState<PresenterAggregateData>({ total: 0 })
   const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [quizTitle, setQuizTitle] = useState('')
@@ -247,6 +265,7 @@ function JoinPageInner() {
   // Question
   const [question, setQuestion] = useState<Question | null>(null)
   const [timeLeft, setTimeLeft] = useState(0)
+  const timeLeftRef = useRef(0)
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
 
   // Text answer (for open-ended, word cloud, Q&A)
@@ -287,6 +306,9 @@ function JoinPageInner() {
 
   const [reflectionVisible, setReflectionVisible] = useState(false)
 
+  useEffect(() => { phaseRef.current = phase }, [phase])
+  useEffect(() => { timeLeftRef.current = timeLeft }, [timeLeft])
+
   useEffect(() => {
     if (phase === 'ended') {
       const t = setTimeout(() => setReflectionVisible(true), 2500)
@@ -296,8 +318,12 @@ function JoinPageInner() {
     }
   }, [phase])
 
-  useEffect(() => {
-    const socket = io({
+  // ─── Deferred Socket.io — connect only when user joins ─────────────────────
+  const initSocket = useCallback(() => {
+    if (socketRef.current) return socketRef.current
+    // Dynamic import to keep socket.io-client out of the initial form bundle
+    const { io: ioConnect } = require('socket.io-client') as typeof import('socket.io-client')
+    const socket: Socket = ioConnect({
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
@@ -306,8 +332,7 @@ function JoinPageInner() {
     socketRef.current = socket
 
     socket.on('connect', () => {
-      // Re-join session on reconnect if we were already in a game
-      if (gameCodeRef.current && displayNameRef.current && phase !== 'form') {
+      if (gameCodeRef.current && displayNameRef.current) {
         socket.emit('join_session', {
           gameCode: gameCodeRef.current,
           displayName: displayNameRef.current,
@@ -316,16 +341,11 @@ function JoinPageInner() {
     })
 
     socket.on('disconnect', () => {
-      // Show reconnecting indicator if in an active session
-      if (phase !== 'form' && phase !== 'ended') {
-        setError('Connection lost. Reconnecting...')
-      }
+      setError('Connection lost. Reconnecting...')
     })
 
     socket.on('connect_error', () => {
-      if (phase !== 'form') {
-        setError('Connection lost. Reconnecting...')
-      }
+      setError('Connection lost. Reconnecting...')
     })
 
     socket.on('question_show', ({ question, index, total }: { question: Omit<Question, 'index' | 'total'>; index: number; total: number }) => {
@@ -346,7 +366,6 @@ function JoinPageInner() {
       timerRef.current = setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 1) { clearInterval(timerRef.current!); return 0 }
-          // Tick sound in last 5 seconds
           if (prev <= 6 && prev > 1) playTick()
           return prev - 1
         })
@@ -360,7 +379,6 @@ function JoinPageInner() {
       setTotalScore(totalScore)
       setPhase('answered')
 
-      // Sound + visual reactions
       if (isCorrect) {
         setStreak(prev => {
           const next = prev + 1
@@ -393,14 +411,24 @@ function JoinPageInner() {
       const rank = leaderboard.findIndex(e => e.name === displayNameRef.current) + 1
       setMyRank(rank)
       setPhase('ended')
+      playCelebration()
+      setShowConfetti(true)
+      setTimeout(() => setShowConfetti(false), 4000)
     })
 
     socket.on('quiz_paused', () => {
       if (timerRef.current) clearInterval(timerRef.current)
     })
 
-    socket.on('quiz_resumed', () => {
-      if (phase === 'question' && timeLeft > 0) {
+    socket.on('quiz_resumed', ({ remainingMs }: { remainingMs?: number }) => {
+      if (phaseRef.current !== 'question') return
+      if (remainingMs !== undefined) {
+        const secs = Math.round(remainingMs / 1000)
+        setTimeLeft(secs)
+        timeLeftRef.current = secs
+      }
+      const remaining = remainingMs !== undefined ? Math.round(remainingMs / 1000) : timeLeftRef.current
+      if (remaining > 0) {
         timerRef.current = setInterval(() => {
           setTimeLeft(prev => {
             if (prev <= 1) { clearInterval(timerRef.current!); return 0 }
@@ -416,28 +444,72 @@ function JoinPageInner() {
       setPhase('form')
     })
 
-    // Presenter mode events
-    socket.on('presenter_slide_changed', ({ slideIndex, total, slide }: { slideIndex: number; total: number; slide?: unknown }) => {
+    socket.on('presenter_slide_changed', ({ slideIndex, total, slide, responseMode }: { slideIndex: number; total: number; slide?: unknown; responseMode?: string }) => {
       setPresenterSlideIndex(slideIndex)
       setPresenterTotalSlides(total)
       if (slide !== undefined) setPresenterCurrentSlide(slide)
       setPresenterVoted(false)
+      presenterVotedRef.current = false
+      setPresenterAggregate({ total: 0 })
+      const mode = (responseMode as 'instant' | 'on_click' | 'private') || 'instant'
+      setPresenterResponseMode(mode)
+      presenterResponseModeRef.current = mode
+      // Clear any previous quickfire timer
+      if (quickFireTimerRef.current) { clearInterval(quickFireTimerRef.current); quickFireTimerRef.current = null }
+      setQuickFireLeft(null)
       const nonInteractiveTypes = ['title', 'bullets', 'quote', 'video', 'wheel', 'image']
       const sType = (slide as Record<string, unknown>)?.type as string | undefined
       setPhase(sType && !nonInteractiveTypes.includes(sType) ? 'presenter-voting' : 'presenter-lobby')
+      // Start quickfire countdown if applicable
+      if (sType === 'quick_fire') {
+        const dur = ((slide as Record<string, unknown>)?.durationSeconds as number) || 5
+        setQuickFireLeft(dur)
+        quickFireTimerRef.current = setInterval(() => {
+          setQuickFireLeft(prev => {
+            if (prev === null || prev <= 1) { clearInterval(quickFireTimerRef.current!); quickFireTimerRef.current = null; return 0 }
+            return prev - 1
+          })
+        }, 1000)
+      }
     })
 
     socket.on('presenter_response_confirmed', () => {
       setPresenterVoted(true)
-      setPhase('presenter-voted')
+      presenterVotedRef.current = true
+      if (presenterResponseModeRef.current === 'instant') {
+        setPhase('presenter-results')
+      } else {
+        setPhase('presenter-voted')
+      }
+    })
+
+    // Receive live aggregate updates (instant mode broadcasts to everyone)
+    socket.on('presenter_aggregate_updated', (data: PresenterAggregateData) => {
+      setPresenterAggregate(data)
+      // If already voted and in instant mode, ensure results screen is shown
+      if (presenterVotedRef.current && presenterResponseModeRef.current === 'instant') {
+        setPhase('presenter-results')
+      }
+    })
+
+    // Host revealed results (on_click mode)
+    socket.on('presenter_results_revealed', (data: PresenterAggregateData) => {
+      setPresenterAggregate(data)
+      setPhase('presenter-results')
     })
 
     socket.on('presenter_ended', () => {
       setPhase('form')
     })
 
-    // Auto-join follow-up session if ?followup= param is present
+    return socket
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Auto-join follow-up session if ?followup= param is present
+  useEffect(() => {
     if (followupParam) {
+      const socket = initSocket()
       followupCodeRef.current = followupParam
       socket.emit('join_followup', { code: followupParam }, (res: {
         success: boolean; error?: string;
@@ -461,33 +533,35 @@ function JoinPageInner() {
     }
 
     return () => {
-      socket.off('connect')
-      socket.off('disconnect')
-      socket.off('connect_error')
-      socket.off('question_show')
-      socket.off('answer_confirmed')
-      socket.off('question_ended')
-      socket.off('session_ended')
-      socket.off('host_disconnected')
-      socket.off('quiz_paused')
-      socket.off('quiz_resumed')
-      socket.off('presenter_slide_changed')
-      socket.off('presenter_response_confirmed')
-      socket.off('presenter_ended')
-      socket.disconnect()
+      if (socketRef.current) {
+        socketRef.current.disconnect()
+        socketRef.current = null
+      }
     }
-  }, [])
+  }, [followupParam, initSocket])
 
   function handleJoin(e: React.FormEvent) {
     e.preventDefault()
     const trimmedName = name.trim()
     const trimmedCode = code.trim()
-    if (!trimmedName || !trimmedCode) {
-      setError(trimmedName ? 'Enter a session code' : 'Enter your name')
+    if (!trimmedName && !trimmedCode) {
+      setError('Enter your name and session code')
+      return
+    }
+    if (!trimmedName) {
+      setError('Enter your name')
+      return
+    }
+    if (!trimmedCode) {
+      setError('Enter a session code')
       return
     }
     if (trimmedName.length > 30) {
       setError('Name must be 30 characters or less')
+      return
+    }
+    if (!/^\d{6}$/.test(trimmedCode)) {
+      setError('Session code must be a 6-digit number')
       return
     }
     setError('')
@@ -496,9 +570,12 @@ function JoinPageInner() {
     gameCodeRef.current = trimmedCode
     displayNameRef.current = trimmedName
 
+    // Connect socket on first join (deferred from page load)
+    const socket = initSocket()
+
     // Route to presenter join if mode=presenter
     if (modeParam === 'presenter') {
-      socketRef.current?.emit('join_presenter_session', {
+      socket.emit('join_presenter_session', {
         gameCode: trimmedCode,
         displayName: trimmedName,
       }, (res: {
@@ -508,9 +585,10 @@ function JoinPageInner() {
         totalSlides?: number;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         currentSlide?: any;
+        responseMode?: string;
       }) => {
         if (!res.success) {
-          setError(res.error ?? 'Could not join. Try again.')
+          setError(res.error ?? 'Session not found. Check your 6-digit code and try again.')
           setPhase('form')
           return
         }
@@ -519,7 +597,9 @@ function JoinPageInner() {
         setPresenterTotalSlides(res.totalSlides ?? 0)
         setPresenterCurrentSlide(res.currentSlide ?? null)
         setPresenterVoted(false)
-        // If joining mid-presentation on an interactive slide, go straight to voting
+        presenterVotedRef.current = false
+        setPresenterAggregate({ total: 0 })
+        setPresenterResponseMode((res.responseMode as 'instant' | 'on_click' | 'private') || 'instant')
         const nonInteractive = ['title', 'bullets', 'quote', 'video', 'wheel', 'image']
         const slideType = res.currentSlide?.type
         setPhase(slideType && !nonInteractive.includes(slideType) ? 'presenter-voting' : 'presenter-lobby')
@@ -527,12 +607,12 @@ function JoinPageInner() {
       return
     }
 
-    socketRef.current?.emit('join_session', {
+    socket.emit('join_session', {
       gameCode: trimmedCode,
       displayName: trimmedName,
     }, (res: { success: boolean; error?: string; status?: string; quizTitle?: string; archetype?: string; sessionMode?: 'competitive' | 'reflection'; anonymousMode?: boolean; team?: { index: number; name: string; color: string } | null }) => {
       if (!res.success) {
-        setError(res.error ?? 'Could not join. Try again.')
+        setError(res.error ?? 'Session not found. Check your 6-digit code and try again.')
         setPhase('form')
         return
       }
@@ -1022,7 +1102,30 @@ function JoinPageInner() {
   // ─── Ended Phase ───────────────────────────────────────────────────────────
   if (phase === 'ended') {
     return (
-      <div className="min-h-screen p-4 max-w-md mx-auto">
+      <div className="min-h-screen p-4 max-w-md mx-auto relative">
+        {/* Celebration confetti */}
+        {showConfetti && (
+          <div className="fixed inset-0 pointer-events-none z-50">
+            {Array.from({ length: 60 }).map((_, i) => (
+              <div key={i} className="absolute rounded-sm" style={{
+                width: i % 3 === 0 ? 10 : 6,
+                height: i % 3 === 0 ? 10 : 6,
+                left: `${5 + Math.random() * 90}%`,
+                top: '-5%',
+                background: ['#0F1B3D', '#F5E642', '#FF8A47', '#16A34A', '#2D3A8C', '#5BC0EB', '#E07A5F', '#DC2626'][i % 8],
+                animation: `confettiRain ${1.5 + Math.random() * 2}s ease-in ${Math.random() * 0.5}s forwards`,
+                transform: `rotate(${Math.random() * 360}deg)`,
+              }} />
+            ))}
+            <style>{`
+              @keyframes confettiRain {
+                0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+                80% { opacity: 1; }
+                100% { transform: translateY(100vh) rotate(${360 + Math.random() * 360}deg); opacity: 0; }
+              }
+            `}</style>
+          </div>
+        )}
         <h2 className="text-4xl font-black mb-6 text-center" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Quiz Over!</h2>
 
         {/* Team leaderboard */}
@@ -1246,18 +1349,54 @@ function JoinPageInner() {
 
         {/* Vote area by type */}
         <div className="flex-1 flex flex-col justify-center gap-3">
-          {(slide.type === 'multiple_choice' || slide.type === 'quick_fire' || slide.type === 'image_choice') && (
-            (slide.options as string[]).map((opt: string, i: number) => (
-              <button key={i} onClick={() => submitVote(i)}
-                className="w-full py-5 rounded-2xl text-left px-6 text-xl font-bold transition-all active:scale-[0.98]"
-                style={{ background: OPTION_COLORS_P[i % OPTION_COLORS_P.length], color: '#fff' }}>
-                <span className="w-9 h-9 rounded-lg inline-flex items-center justify-center text-lg mr-3 font-black"
-                  style={{ background: 'rgba(255,255,255,0.2)' }}>
-                  {['A','B','C','D','E'][i]}
-                </span>
-                {opt || `Option ${i+1}`}
-              </button>
-            ))
+          {slide.type === 'image_choice' && (
+            <div className="grid grid-cols-2 gap-3">
+              {(slide.options as string[]).map((opt: string, i: number) => {
+                const imgUrl = (slide.imageUrls as string[])?.[i]
+                return (
+                  <button key={i} onClick={() => submitVote(i)}
+                    className="rounded-2xl overflow-hidden transition-all active:scale-[0.97] border-2 border-transparent"
+                    style={{ background: OPTION_COLORS_P[i % OPTION_COLORS_P.length] }}>
+                    {imgUrl ? (
+                      <img src={imgUrl} alt={opt} className="w-full h-28 object-cover" />
+                    ) : (
+                      <div className="w-full h-28 flex items-center justify-center opacity-30 text-white text-3xl">🖼</div>
+                    )}
+                    <div className="px-3 py-2 text-white font-bold text-sm text-center">{opt || `Option ${i+1}`}</div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {(slide.type === 'multiple_choice' || slide.type === 'quick_fire') && (
+            <>
+              {slide.type === 'quick_fire' && quickFireLeft !== null && (
+                <div className="w-full text-center mb-2">
+                  <p className="text-4xl font-black" style={{ color: quickFireLeft <= 2 ? '#EF4444' : '#F5E642' }}>
+                    {quickFireLeft}
+                  </p>
+                  <div className="h-2 rounded-full w-full mt-2" style={{ background: 'rgba(255,255,255,0.15)' }}>
+                    <div className="h-full rounded-full transition-all" style={{
+                      width: `${(quickFireLeft / (((presenterCurrentSlide as Record<string, unknown>)?.durationSeconds as number) || 5)) * 100}%`,
+                      background: quickFireLeft <= 2 ? '#EF4444' : '#F5E642',
+                    }} />
+                  </div>
+                </div>
+              )}
+              {(slide.options as string[]).map((opt: string, i: number) => (
+                <button key={i} onClick={() => submitVote(i)}
+                  disabled={slide.type === 'quick_fire' && quickFireLeft === 0}
+                  className="w-full py-5 rounded-2xl text-left px-6 text-xl font-bold transition-all active:scale-[0.98]"
+                  style={{ background: OPTION_COLORS_P[i % OPTION_COLORS_P.length], color: '#fff', opacity: slide.type === 'quick_fire' && quickFireLeft === 0 ? 0.5 : 1 }}>
+                  <span className="w-9 h-9 rounded-lg inline-flex items-center justify-center text-lg mr-3 font-black"
+                    style={{ background: 'rgba(255,255,255,0.2)' }}>
+                    {['A','B','C','D','E'][i]}
+                  </span>
+                  {opt || `Option ${i+1}`}
+                </button>
+              ))}
+            </>
           )}
 
           {slide.type === 'word_duel' && (
@@ -1273,28 +1412,46 @@ function JoinPageInner() {
           )}
 
           {(slide.type === 'live_race' || slide.type === 'ranking') && (
-            (slide.options || slide.items || []).map((opt: string, i: number) => (
-              <button key={i} onClick={() => submitVote(i)}
-                className="w-full py-4 rounded-2xl text-left px-5 text-base font-bold transition-all active:scale-[0.98]"
-                style={{ background: OPTION_COLORS_P[i % OPTION_COLORS_P.length], color: '#fff' }}>
-                {opt || `Option ${i+1}`}
-              </button>
-            ))
+            <div className="space-y-3">
+              {slide.type === 'ranking' && (
+                <p className="text-sm text-center" style={{ color: 'rgba(255,255,255,0.5)' }}>Vote for your top choice</p>
+              )}
+              {(slide.options || slide.items || []).map((opt: string, i: number) => (
+                <button key={i} onClick={() => submitVote(i)}
+                  className="w-full py-4 rounded-2xl text-left px-5 text-base font-bold transition-all active:scale-[0.98]"
+                  style={{ background: OPTION_COLORS_P[i % OPTION_COLORS_P.length], color: '#fff' }}>
+                  {opt || `Option ${i+1}`}
+                </button>
+              ))}
+            </div>
           )}
 
           {(slide.type === 'word_cloud' || slide.type === 'open_text') && (
             <div className="space-y-4">
               <input
                 type="text"
-                placeholder={slide.type === 'word_cloud' ? 'Type a word...' : 'Type your response...'}
+                placeholder={slide.type === 'word_cloud' ? `Type ${(slide.maxWords || 1) === 1 ? 'a word' : `up to ${slide.maxWords} words`}...` : 'Type your response...'}
                 id="presenter-text-input"
+                maxLength={slide.type === 'word_cloud' ? 50 : 300}
                 className="w-full rounded-xl px-5 py-4 text-xl outline-none focus:ring-2 focus:ring-blue-400"
                 style={{ background: 'rgba(255,255,255,0.08)', border: '1.5px solid rgba(255,255,255,0.15)', color: '#fff' }}
               />
+              {slide.type === 'word_cloud' && (slide.maxWords === 1 || !slide.maxWords) && (
+                <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>One word only</p>
+              )}
               <button
                 onClick={() => {
                   const input = document.getElementById('presenter-text-input') as HTMLInputElement
-                  if (input?.value.trim()) submitVote(input.value.trim())
+                  const raw = input?.value.trim()
+                  if (!raw) return
+                  if (slide.type === 'word_cloud') {
+                    const words = raw.split(/\s+/)
+                    const maxW = (slide.maxWords as number) || 1
+                    const toSubmit = words.slice(0, maxW).join(' ')
+                    submitVote(toSubmit)
+                  } else {
+                    submitVote(raw)
+                  }
                 }}
                 className="w-full py-5 rounded-2xl text-xl font-black"
                 style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>
@@ -1353,7 +1510,7 @@ function JoinPageInner() {
     )
   }
 
-  // ─── Presenter Voted (waiting for next slide) ──────────────────────────────
+  // ─── Presenter Voted (waiting for next slide or results) ────────────────────
   if (phase === 'presenter-voted') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-6 p-6"
@@ -1365,12 +1522,244 @@ function JoinPageInner() {
         <div className="text-center space-y-2">
           <p className="text-3xl font-black" style={{ color: 'white', fontFamily: 'var(--font-heading)' }}>Vote counted!</p>
           <p className="text-lg" style={{ color: 'rgba(255,255,255,0.4)' }}>
-            Waiting for the presenter to move to the next slide...
+            {presenterResponseMode === 'on_click'
+              ? 'Waiting for the presenter to reveal results...'
+              : presenterResponseMode === 'private'
+              ? 'Your response has been recorded.'
+              : 'Waiting for the presenter to move to the next slide...'}
           </p>
         </div>
         <div className="flex gap-2 items-center">
           <div className="w-3 h-3 rounded-full animate-pulse" style={{ background: '#F5E642' }} />
           <span className="text-base" style={{ color: '#F5E642' }}>Slide {presenterSlideIndex + 1} of {presenterTotalSlides}</span>
+        </div>
+      </div>
+    )
+  }
+
+  // ─── Presenter Results (live or revealed) ─────────────────────────────────
+  if (phase === 'presenter-results' && presenterCurrentSlide) {
+    const slide = presenterCurrentSlide
+    const agg = presenterAggregate
+    const bgDark = '#0F1B3D'
+    const textLight = 'white'
+    const BAR_COLORS = ['#2D3A8C', '#FF8A47', '#5BC0EB', '#E07A5F', '#0F1B3D', '#16A34A']
+
+    function renderParticipantResults() {
+      const slideType = slide.type as string
+
+      // Image choice: show thumbnails with bars
+      if (slideType === 'image_choice') {
+        const options: string[] = slide.options || []
+        const imgUrls: string[] = (slide.imageUrls as string[]) || []
+        const counts = agg.counts ?? new Array(options.length).fill(0)
+        const maxCount = Math.max(1, ...counts)
+        return (
+          <div className="grid grid-cols-2 gap-3 w-full">
+            {options.map((opt: string, i: number) => {
+              const count = counts[i] ?? 0
+              const pct = (count / maxCount) * 100
+              return (
+                <div key={i} className="rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                  {imgUrls[i] && <img src={imgUrls[i]} alt={opt} className="w-full h-20 object-cover" />}
+                  <div className="p-2">
+                    <div className="text-xs font-bold text-white truncate">{opt || `Option ${i+1}`}</div>
+                    <div className="h-2 rounded-full mt-1" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: BAR_COLORS[i % BAR_COLORS.length] }} />
+                    </div>
+                    <div className="text-xs opacity-50 mt-0.5" style={{ color: textLight }}>{count}</div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )
+      }
+
+      // Bar chart types
+      if (['multiple_choice', 'quick_fire', 'live_race'].includes(slideType)) {
+        const options: string[] = slide.options || []
+        const counts = agg.counts ?? new Array(options.length).fill(0)
+        const maxCount = Math.max(1, ...counts)
+        return (
+          <div className="space-y-3 w-full">
+            {options.map((opt: string, i: number) => {
+              const count = counts[i] ?? 0
+              const pct = maxCount > 0 ? (count / maxCount) * 100 : 0
+              return (
+                <div key={i} className="space-y-1">
+                  <div className="flex items-center justify-between text-sm font-semibold" style={{ color: textLight }}>
+                    <span className="truncate mr-2">{opt || `Option ${i + 1}`}</span>
+                    <span style={{ color: 'rgba(255,255,255,0.5)' }}>{count}</span>
+                  </div>
+                  <div className="h-3 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                    <div className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${pct}%`, background: BAR_COLORS[i % BAR_COLORS.length], minWidth: count > 0 ? 8 : 0 }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )
+      }
+
+      if (slideType === 'word_duel') {
+        const options = [slide.optionA, slide.optionB]
+        const counts = agg.counts ?? [0, 0]
+        const colors = ['#2563EB', '#DC2626']
+        const total = Math.max(1, (counts[0] ?? 0) + (counts[1] ?? 0))
+        return (
+          <div className="space-y-4 w-full">
+            {options.map((opt: string, i: number) => {
+              const count = counts[i] ?? 0
+              const pct = Math.round((count / total) * 100)
+              return (
+                <div key={i} className="rounded-2xl p-4" style={{ background: colors[i], opacity: 0.9 }}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xl font-black" style={{ color: '#fff' }}>{opt || (i === 0 ? 'Side A' : 'Side B')}</span>
+                    <span className="text-2xl font-black" style={{ color: '#fff' }}>{pct}%</span>
+                  </div>
+                  <span className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>{count} vote{count !== 1 ? 's' : ''}</span>
+                </div>
+              )
+            })}
+          </div>
+        )
+      }
+
+      if (slideType === 'ranking') {
+        const items: string[] = slide.items || []
+        const counts = agg.counts ?? new Array(items.length).fill(0)
+        const maxCount = Math.max(1, ...counts)
+        return (
+          <div className="space-y-3 w-full">
+            {items.map((item: string, i: number) => {
+              const count = counts[i] ?? 0
+              const pct = maxCount > 0 ? (count / maxCount) * 100 : 0
+              return (
+                <div key={i} className="space-y-1">
+                  <div className="flex items-center justify-between text-sm font-semibold" style={{ color: textLight }}>
+                    <span className="truncate mr-2">{item || `Item ${i + 1}`}</span>
+                    <span style={{ color: 'rgba(255,255,255,0.5)' }}>{count}</span>
+                  </div>
+                  <div className="h-3 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                    <div className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${pct}%`, background: '#4F46E5', minWidth: count > 0 ? 8 : 0 }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )
+      }
+
+      // Word cloud / open text
+      if (slideType === 'word_cloud' || slideType === 'open_text') {
+        const words = agg.words ?? {}
+        const entries = Object.entries(words).sort((a, b) => b[1] - a[1]).slice(0, 20)
+        const maxFreq = entries.length > 0 ? entries[0][1] : 1
+        if (entries.length === 0) {
+          return <p className="text-lg text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>Waiting for responses...</p>
+        }
+        return (
+          <div className="flex flex-wrap gap-2 justify-center w-full">
+            {entries.map(([word, freq]) => {
+              const scale = 0.75 + (freq / maxFreq) * 0.75
+              return (
+                <span key={word} className="px-3 py-1.5 rounded-full font-bold transition-all"
+                  style={{
+                    background: 'rgba(255,255,255,0.1)',
+                    color: '#F5E642',
+                    fontSize: `${scale}rem`,
+                    border: '1px solid rgba(255,255,255,0.15)',
+                  }}>
+                  {word} <span style={{ color: 'rgba(255,255,255,0.4)' }}>{freq}</span>
+                </span>
+              )
+            })}
+          </div>
+        )
+      }
+
+      // Rating scale / scale_100
+      if (slideType === 'rating_scale' || slideType === 'scale_100') {
+        const scores = agg.scores ?? []
+        if (scores.length === 0) {
+          return <p className="text-lg text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>Waiting for responses...</p>
+        }
+        const avg = scores.reduce((a: number, b: number) => a + b, 0) / scores.length
+        const display = slideType === 'scale_100' ? Math.round(avg) : avg.toFixed(1)
+        return (
+          <div className="text-center w-full space-y-2">
+            <p className="text-6xl font-black" style={{ color: '#F5E642', fontFamily: 'var(--font-heading)' }}>{display}</p>
+            <p className="text-base" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              average {slideType === 'rating_scale' ? 'rating' : 'score'} from {agg.total} response{agg.total !== 1 ? 's' : ''}
+            </p>
+          </div>
+        )
+      }
+
+      // Emoji pulse
+      if (slideType === 'emoji_pulse') {
+        const emojis: string[] = slide.emojis || []
+        const emojiCounts = agg.emojis ?? {}
+        return (
+          <div className="flex flex-wrap gap-6 justify-center w-full">
+            {emojis.map((em: string) => (
+              <div key={em} className="flex flex-col items-center gap-1">
+                <span className="text-4xl">{em}</span>
+                <span className="text-xl font-black" style={{ color: '#F5E642' }}>{emojiCounts[em] ?? 0}</span>
+              </div>
+            ))}
+          </div>
+        )
+      }
+
+      // Pinpoint / grid_2x2 — just show count on mobile
+      if (slideType === 'pinpoint' || slideType === 'grid_2x2') {
+        const pinCount = agg.pins?.length ?? 0
+        return (
+          <div className="text-center w-full space-y-2">
+            <p className="text-5xl font-black" style={{ color: '#F5E642', fontFamily: 'var(--font-heading)' }}>{pinCount}</p>
+            <p className="text-base" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              response{pinCount !== 1 ? 's' : ''} placed
+            </p>
+          </div>
+        )
+      }
+
+      return <p className="text-lg text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>{agg.total} response{agg.total !== 1 ? 's' : ''}</p>
+    }
+
+    return (
+      <div className="min-h-screen flex flex-col p-4 gap-4" style={{ background: bgDark }}>
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <span className="text-base font-bold opacity-40" style={{ color: textLight }}>
+            Slide {presenterSlideIndex + 1} / {presenterTotalSlides}
+          </span>
+          <span className="text-base font-semibold" style={{ color: '#F5E642' }}>{presenterTitle}</span>
+        </div>
+
+        {/* Question */}
+        <h2 className="text-2xl font-black leading-snug" style={{ color: textLight }}>
+          {slide.question || slide.heading || slide.title || ''}
+        </h2>
+
+        {/* Results */}
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 px-2">
+          {/* Vote confirmed badge */}
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full" style={{ background: 'rgba(245,230,66,0.15)' }}>
+            <span className="text-sm font-bold" style={{ color: '#F5E642' }}>Your vote is in</span>
+            <span style={{ color: '#F5E642' }}>✓</span>
+          </div>
+
+          {/* Total responses */}
+          <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            {agg.total} response{agg.total !== 1 ? 's' : ''}
+          </p>
+
+          {renderParticipantResults()}
         </div>
       </div>
     )

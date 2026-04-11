@@ -253,9 +253,9 @@ export function LearningScience() {
             num="03"
             title="Spaced Retrieval"
             subtitle="The science behind remembering longer"
-            body="Without revision, most learners forget 70% of new knowledge within a week. Quizotic auto-schedules follow-up sessions at the optimal intervals — Day 1, Day 7, Day 30 — moving knowledge from short-term to long-term memory."
+            body="Without revision, most learners forget 70% of new knowledge within a week. After every session, Quizotic generates 3 ready-to-share follow-up quizzes — timed at Day 1, Day 7, and Day 30 — so you can reinforce what was taught at the intervals that matter most."
             citation="Ebbinghaus Forgetting Curve, 1885 — replicated in 100+ modern studies"
-            tags={["Auto-scheduling", "Retention tracking"]}
+            tags={["Follow-up quizzes", "Spaced practice"]}
           />
           <div ref={curveRef} style={{ display: 'flex', justifyContent: 'center' }}>
             <ForgettingCurve animate={curveAnimate} />
