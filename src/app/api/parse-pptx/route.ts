@@ -89,7 +89,7 @@ async function processPptx(buffer: Buffer): Promise<PythonSlideOutput[]> {
 
     const { stdout, stderr } = await execFileAsync('python3', [
       path.join(process.cwd(), 'scripts/parse_pptx.py'), tmpPath, tmpDir
-    ], { timeout: 120000, maxBuffer: 10 * 1024 * 1024 })
+    ], { timeout: 300000, maxBuffer: 10 * 1024 * 1024 })
 
     if (!stdout.trim()) {
       throw new Error(stderr || 'Python script produced no output')

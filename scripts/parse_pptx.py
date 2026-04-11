@@ -27,7 +27,7 @@ def render_slides_as_images(pptx_path, output_dir):
     result = subprocess.run([
         'libreoffice', '--headless', '--norestore', '--convert-to', 'pdf',
         '--outdir', output_dir, pptx_path
-    ], capture_output=True, text=True, timeout=60)
+    ], capture_output=True, text=True, timeout=120)
 
     if result.returncode != 0:
         print(f'LibreOffice error (rc={result.returncode}): {result.stderr}', file=sys.stderr)
@@ -42,11 +42,11 @@ def render_slides_as_images(pptx_path, output_dir):
         print(f'PDF not created. LibreOffice stdout: {result.stdout}, stderr: {result.stderr}', file=sys.stderr)
         return []
 
-    # Step 2: PDF -> PNG images via pdftoppm
+    # Step 2: PDF -> PNG images via pdftoppm (150 DPI balances quality vs speed)
     pdf_result = subprocess.run([
-        'pdftoppm', '-png', '-r', '200', pdf_path,
+        'pdftoppm', '-png', '-r', '150', pdf_path,
         os.path.join(output_dir, 'slide')
-    ], capture_output=True, text=True, timeout=60)
+    ], capture_output=True, text=True, timeout=180)
 
     if pdf_result.returncode != 0:
         print(f'pdftoppm error (rc={pdf_result.returncode}): {pdf_result.stderr}', file=sys.stderr)
