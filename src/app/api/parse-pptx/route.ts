@@ -76,32 +76,32 @@ async function uploadToR2(
 
 // ─── Python subprocess ──────────────────────────────────────────────────────
 
-async function processPptx(buffer: Buffer): Promise<PythonSlideOutput[]> {
+interface ProcessedPptx {
+  slides: PythonSlideOutput[]
+  tmpDir: string
+}
+
+async function processPptx(buffer: Buffer): Promise<ProcessedPptx> {
   const uuid = crypto.randomUUID()
   const tmpDir = path.join(tmpdir(), `pptx-${uuid}`)
   const tmpPath = path.join(tmpDir, 'input.pptx')
 
-  try {
-    // Create temp directory and write file
-    const { mkdir } = await import('fs/promises')
-    await mkdir(tmpDir, { recursive: true })
-    await writeFile(tmpPath, buffer)
+  const { mkdir } = await import('fs/promises')
+  await mkdir(tmpDir, { recursive: true })
+  await writeFile(tmpPath, buffer)
 
-    console.log('[parse-pptx] Running Python script with 300s timeout...')
-    const { stdout, stderr } = await execFileAsync('python3', [
-      path.join(process.cwd(), 'scripts/parse_pptx.py'), tmpPath, tmpDir
-    ], { timeout: 300000, maxBuffer: 10 * 1024 * 1024 })
-    console.log('[parse-pptx] Python stdout length:', stdout.length, 'stderr:', stderr || '(none)')
+  console.log('[parse-pptx] Running Python script with 300s timeout...')
+  const { stdout, stderr } = await execFileAsync('python3', [
+    path.join(process.cwd(), 'scripts/parse_pptx.py'), tmpPath, tmpDir
+  ], { timeout: 300000, maxBuffer: 10 * 1024 * 1024 })
+  console.log('[parse-pptx] Python stdout length:', stdout.length, 'stderr:', stderr || '(none)')
 
-    if (!stdout.trim()) {
-      throw new Error(stderr || 'Python script produced no output')
-    }
-
-    return JSON.parse(stdout)
-  } finally {
-    // Clean up temp directory
+  if (!stdout.trim()) {
     await rm(tmpDir, { recursive: true, force: true }).catch(() => {})
+    throw new Error(stderr || 'Python script produced no output')
   }
+
+  return { slides: JSON.parse(stdout), tmpDir }
 }
 
 // ─── API handler ────────────────────────────────────────────────────────────
@@ -133,9 +133,12 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  let tmpDir: string | undefined
   try {
     const buffer = Buffer.from(await file.arrayBuffer())
-    const pySlides = await processPptx(buffer)
+    const result = await processPptx(buffer)
+    const pySlides = result.slides
+    tmpDir = result.tmpDir
 
     if (pySlides.length > MAX_SLIDES) {
       return NextResponse.json(
@@ -181,14 +184,15 @@ export async function POST(req: NextRequest) {
               aiContext: slide.fullText || undefined,
               originalIndex: slide.index,
             }
-          } catch {
+          } catch (uploadErr) {
+            console.error(`[parse-pptx] Failed to upload slide ${slide.index}:`, uploadErr)
             return null
           }
         })
       )
 
-      for (const result of results) {
-        if (result) mappedSlides.push(result)
+      for (const r of results) {
+        if (r) mappedSlides.push(r)
       }
     }
 
@@ -210,5 +214,8 @@ export async function POST(req: NextRequest) {
       { success: false, error: 'Failed to process PPTX file. The file may be corrupted or in an unsupported format.' },
       { status: 500 }
     )
+  } finally {
+    // Clean up temp directory after images have been read and uploaded
+    if (tmpDir) await rm(tmpDir, { recursive: true, force: true }).catch(() => {})
   }
 }
