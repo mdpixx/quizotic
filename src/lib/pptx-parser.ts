@@ -104,16 +104,16 @@ function extractTableText(tableXml: string): string {
 /** Parse relationship file to build rId → target path map */
 function parseRels(relsXml: string): Map<string, { target: string; type: string }> {
   const map = new Map<string, { target: string; type: string }>()
-  const regex = /<Relationship\s[^>]*Id="(rId\d+)"[^>]*Target="([^"]+)"[^>]*Type="([^"]+)"[^>]*\/>/g
+  // Match <Relationship ...> or <Relationship .../> — any attribute order
+  const tagRegex = /<Relationship\s([^>]*?)\/?>/g
   let m: RegExpExecArray | null
-  while ((m = regex.exec(relsXml)) !== null) {
-    map.set(m[1], { target: m[2], type: m[3] })
-  }
-  // Also handle different attribute ordering
-  const regex2 = /<Relationship\s[^>]*Type="([^"]+)"[^>]*Target="([^"]+)"[^>]*Id="(rId\d+)"[^>]*\/>/g
-  while ((m = regex2.exec(relsXml)) !== null) {
-    if (!map.has(m[3])) {
-      map.set(m[3], { target: m[2], type: m[1] })
+  while ((m = tagRegex.exec(relsXml)) !== null) {
+    const attrs = m[1]
+    const id = attrs.match(/Id="([^"]+)"/)
+    const target = attrs.match(/Target="([^"]+)"/)
+    const type = attrs.match(/Type="([^"]+)"/)
+    if (id && target && type) {
+      map.set(id[1], { target: target[1], type: type[1] })
     }
   }
   return map
@@ -122,10 +122,12 @@ function parseRels(relsXml: string): Map<string, { target: string; type: string 
 /** Get slide order from presentation.xml */
 function getSlideOrder(presentationXml: string): string[] {
   const ids: string[] = []
-  const regex = /<p:sldId[^>]*r:id="(rId\d+)"[^>]*\/>/g
+  // Match <p:sldId ...> or <p:sldId .../> — both self-closing and non-self-closing
+  const regex = /<p:sldId\s([^>]*?)\/?>/g
   let m: RegExpExecArray | null
   while ((m = regex.exec(presentationXml)) !== null) {
-    ids.push(m[1])
+    const rId = m[1].match(/r:id="([^"]+)"/)
+    if (rId) ids.push(rId[1])
   }
   return ids
 }
@@ -188,6 +190,18 @@ export async function parsePptx(buffer: Buffer): Promise<ParsedPresentation> {
       const path = rel.target.startsWith('/') ? rel.target.slice(1) : `ppt/${rel.target}`
       slidePaths.push(path)
     }
+  }
+
+  // Fallback: if presentation.xml parsing found no slides, enumerate ZIP entries directly
+  if (slidePaths.length === 0) {
+    const slideFiles = Object.keys(zip.files)
+      .filter(f => /^ppt\/slides\/slide\d+\.xml$/i.test(f))
+      .sort((a, b) => {
+        const na = parseInt(a.match(/slide(\d+)/i)?.[1] || '0')
+        const nb = parseInt(b.match(/slide(\d+)/i)?.[1] || '0')
+        return na - nb
+      })
+    slidePaths.push(...slideFiles)
   }
 
   // 3. Parse each slide
