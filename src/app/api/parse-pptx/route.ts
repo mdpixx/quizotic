@@ -87,9 +87,11 @@ async function processPptx(buffer: Buffer): Promise<PythonSlideOutput[]> {
     await mkdir(tmpDir, { recursive: true })
     await writeFile(tmpPath, buffer)
 
+    console.log('[parse-pptx] Running Python script with 300s timeout...')
     const { stdout, stderr } = await execFileAsync('python3', [
       path.join(process.cwd(), 'scripts/parse_pptx.py'), tmpPath, tmpDir
     ], { timeout: 300000, maxBuffer: 10 * 1024 * 1024 })
+    console.log('[parse-pptx] Python stdout length:', stdout.length, 'stderr:', stderr || '(none)')
 
     if (!stdout.trim()) {
       throw new Error(stderr || 'Python script produced no output')
