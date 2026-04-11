@@ -2,8 +2,15 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-# Add Python for PPTX/PDF parsing
-RUN apk add --no-cache python3 py3-pip
+# Add Python + LibreOffice + poppler for PPTX slide rendering
+RUN apk add --no-cache \
+  python3 py3-pip \
+  libreoffice-still \
+  poppler-utils \
+  font-noto \
+  ttf-dejavu \
+  ttf-liberation
+
 COPY requirements.txt ./
 RUN pip3 install --break-system-packages -r requirements.txt
 

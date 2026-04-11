@@ -33,6 +33,10 @@ type Level = 'light' | 'moderate' | 'heavy' | 'custom'
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function getSlideTextContent(slide: Slide): string {
+  // Use hidden AI context from PPTX import if available (extracted text from original slides)
+  const aiContext = (slide as unknown as Record<string, unknown>)._aiContext as string | undefined
+  if (aiContext) return aiContext
+
   switch (slide.type) {
     case 'title': return `${slide.heading} ${slide.subheading}`.trim()
     case 'bullets': return `${slide.heading} ${slide.bullets.join(' ')}`.trim()

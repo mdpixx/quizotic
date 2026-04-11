@@ -5,10 +5,9 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 import { getCurrentUser } from '@/lib/auth-helpers'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
-import { writeFile, unlink } from 'fs/promises'
+import { writeFile, unlink, readFile, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import path from 'path'
-import JSZip from 'jszip'
 
 const execFileAsync = promisify(execFile)
 
@@ -17,40 +16,25 @@ const MAX_SLIDES = 50
 
 // ─── Python output types ────────────────────────────────────────────────────
 
-interface PythonParagraph {
-  text: string
-  level: number
-  bold: boolean
-  fontSize: number | null
-}
-
-interface PythonSlide {
+interface PythonSlideOutput {
   index: number
-  slideType: 'title' | 'section' | 'content' | 'image_dominant' | 'table' | 'blank'
   title: string | null
   subtitle: string | null
-  bodyParagraphs: PythonParagraph[]
-  tableData: string[][] | null
+  bodyText: string
   speakerNotes: string | null
-  imageCount: number
-  hasChart: boolean
-  hasSmartArt: boolean
+  fullText: string
   layoutName: string
+  imagePath: string | null
 }
 
 // ─── Mapped slide output ────────────────────────────────────────────────────
 
 interface MappedSlide {
-  suggestedType: 'title' | 'bullets' | 'image'
-  title?: string
-  subheading?: string
-  bullets?: string[]
-  imageUrl?: string
-  contentImageUrl?: string
-  caption?: string
-  speakerNotes?: string
+  suggestedType: 'image'
+  imageUrl: string
+  caption: string
+  aiContext?: string // hidden text for AI enhancement
   originalIndex: number
-  warnings?: string[]
 }
 
 // ─── R2 upload helper ───────────────────────────────────────────────────────
@@ -73,9 +57,8 @@ async function uploadToR2(
 ): Promise<string> {
   const now = new Date()
   const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  const ext = contentType.split('/')[1] === 'jpeg' ? 'jpg' : contentType.split('/')[1]
   const uuid = crypto.randomUUID()
-  const key = `images/${userId}/${yearMonth}/pptx-${uuid}.${ext}`
+  const key = `images/${userId}/${yearMonth}/pptx-${uuid}.png`
 
   const r2 = getR2Client()
   await r2.send(
@@ -91,288 +74,31 @@ async function uploadToR2(
   return `${process.env.R2_PUBLIC_URL}/${key}`
 }
 
-// ─── Image extraction from ZIP ──────────────────────────────────────────────
-
-const IMAGE_TYPES: Record<string, string> = {
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.webp': 'image/webp',
-}
-
-function isUploadableImage(filename: string): boolean {
-  const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase()
-  return ext in IMAGE_TYPES
-}
-
-function getImageContentType(filename: string): string {
-  const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase()
-  return IMAGE_TYPES[ext] || 'image/png'
-}
-
-async function extractImagesFromZip(buffer: Buffer): Promise<Map<number, { data: Buffer; contentType: string }[]>> {
-  const zip = await JSZip.loadAsync(buffer)
-  const slideImages = new Map<number, { data: Buffer; contentType: string }[]>()
-
-  // Parse presentation rels to get slide order
-  const presRelsXml = await zip.file('ppt/_rels/presentation.xml.rels')?.async('string')
-  if (!presRelsXml) return slideImages
-
-  // Get slide filenames in order
-  const slideFiles: string[] = []
-  const presXml = await zip.file('ppt/presentation.xml')?.async('string')
-  if (presXml) {
-    // Extract rIds from slide list
-    const sldIdRegex = /<p:sldId\s([^>]*?)\/?>/g
-    let m: RegExpExecArray | null
-    const rIds: string[] = []
-    while ((m = sldIdRegex.exec(presXml)) !== null) {
-      const rId = m[1].match(/r:id="([^"]+)"/)
-      if (rId) rIds.push(rId[1])
-    }
-
-    // Map rIds to file paths
-    const relRegex = /<Relationship\s([^>]*?)\/?>/g
-    const rels = new Map<string, string>()
-    let rm: RegExpExecArray | null
-    while ((rm = relRegex.exec(presRelsXml)) !== null) {
-      const id = rm[1].match(/Id="([^"]+)"/)
-      const target = rm[1].match(/Target="([^"]+)"/)
-      if (id && target) rels.set(id[1], target[1])
-    }
-
-    for (const rId of rIds) {
-      const target = rels.get(rId)
-      if (target) {
-        const filePath = target.startsWith('/') ? target.slice(1) : `ppt/${target}`
-        slideFiles.push(filePath)
-      }
-    }
-  }
-
-  // Fallback: enumerate ZIP entries
-  if (slideFiles.length === 0) {
-    const files = Object.keys(zip.files)
-      .filter(f => /^ppt\/slides\/slide\d+\.xml$/i.test(f))
-      .sort((a, b) => {
-        const na = parseInt(a.match(/slide(\d+)/i)?.[1] || '0')
-        const nb = parseInt(b.match(/slide(\d+)/i)?.[1] || '0')
-        return na - nb
-      })
-    slideFiles.push(...files)
-  }
-
-  // For each slide, extract images via relationships
-  for (let i = 0; i < slideFiles.length; i++) {
-    const slidePath = slideFiles[i]
-    const slideXml = await zip.file(slidePath)?.async('string')
-    if (!slideXml) continue
-
-    const slideDir = slidePath.substring(0, slidePath.lastIndexOf('/'))
-    const slideFilename = slidePath.substring(slidePath.lastIndexOf('/') + 1)
-    const relsPath = `${slideDir}/_rels/${slideFilename}.rels`
-    const slideRelsXml = await zip.file(relsPath)?.async('string')
-    if (!slideRelsXml) continue
-
-    // Parse slide rels
-    const relRegex = /<Relationship\s([^>]*?)\/?>/g
-    const slideRels = new Map<string, { target: string; type: string }>()
-    let rm: RegExpExecArray | null
-    while ((rm = relRegex.exec(slideRelsXml)) !== null) {
-      const id = rm[1].match(/Id="([^"]+)"/)
-      const target = rm[1].match(/Target="([^"]+)"/)
-      const type = rm[1].match(/Type="([^"]+)"/)
-      if (id && target && type) {
-        slideRels.set(id[1], { target: target[1], type: type[1] })
-      }
-    }
-
-    // Find image rIds in slide XML
-    const imageRIds: string[] = []
-    const embedRegex = /r:embed="([^"]+)"/g
-    let em: RegExpExecArray | null
-    while ((em = embedRegex.exec(slideXml)) !== null) {
-      imageRIds.push(em[1])
-    }
-
-    const images: { data: Buffer; contentType: string }[] = []
-    const seen = new Set<string>()
-
-    for (const rId of imageRIds) {
-      const rel = slideRels.get(rId)
-      if (!rel || !rel.type.includes('image')) continue
-
-      const imgPath = rel.target.startsWith('/')
-        ? rel.target.slice(1)
-        : `${slideDir}/${rel.target}`.replace(/\/slides\/\.\.\//, '/')
-      const normalizedPath = imgPath.replace(/[^/]+\/\.\.\//g, '')
-
-      if (seen.has(normalizedPath)) continue
-      seen.add(normalizedPath)
-
-      const imgFilename = normalizedPath.substring(normalizedPath.lastIndexOf('/') + 1)
-      if (!isUploadableImage(imgFilename)) continue
-
-      const imgFile = zip.file(normalizedPath)
-      if (!imgFile) continue
-
-      const data = Buffer.from(await imgFile.async('uint8array'))
-      const contentType = getImageContentType(imgFilename)
-      images.push({ data, contentType })
-    }
-
-    if (images.length > 0) {
-      slideImages.set(i, images)
-    }
-  }
-
-  return slideImages
-}
-
 // ─── Python subprocess ──────────────────────────────────────────────────────
 
-async function parsePptxWithPython(buffer: Buffer): Promise<PythonSlide[]> {
-  const tmpPath = path.join(tmpdir(), `pptx-${crypto.randomUUID()}.pptx`)
+async function processPptx(buffer: Buffer): Promise<PythonSlideOutput[]> {
+  const uuid = crypto.randomUUID()
+  const tmpDir = path.join(tmpdir(), `pptx-${uuid}`)
+  const tmpPath = path.join(tmpDir, 'input.pptx')
+
   try {
+    // Create temp directory and write file
+    const { mkdir } = await import('fs/promises')
+    await mkdir(tmpDir, { recursive: true })
     await writeFile(tmpPath, buffer)
-    const { stdout } = await execFileAsync('python3', [
-      path.join(process.cwd(), 'scripts/parse_pptx.py'), tmpPath
-    ], { timeout: 30000, maxBuffer: 10 * 1024 * 1024 })
+
+    const { stdout, stderr } = await execFileAsync('python3', [
+      path.join(process.cwd(), 'scripts/parse_pptx.py'), tmpPath, tmpDir
+    ], { timeout: 120000, maxBuffer: 10 * 1024 * 1024 })
+
+    if (!stdout.trim()) {
+      throw new Error(stderr || 'Python script produced no output')
+    }
+
     return JSON.parse(stdout)
   } finally {
-    await unlink(tmpPath).catch(() => {})
-  }
-}
-
-// ─── Slide mapping ──────────────────────────────────────────────────────────
-
-function formatTableAsBullets(tableData: string[][]): string[] {
-  if (tableData.length === 0) return []
-  const header = tableData[0]
-  const lines: string[] = []
-
-  if (tableData.length === 1) {
-    // Single row — just join cells
-    lines.push(header.join(' | '))
-    return lines
-  }
-
-  // Header row as first bullet
-  lines.push(header.join(' | '))
-  // Data rows
-  for (let r = 1; r < tableData.length; r++) {
-    lines.push(tableData[r].join(' | '))
-  }
-  return lines
-}
-
-function formatBodyParagraphs(paragraphs: PythonParagraph[]): string[] {
-  return paragraphs.map(p => {
-    const indent = p.level > 0 ? '  '.repeat(p.level) : ''
-    return `${indent}${p.text}`
-  })
-}
-
-async function mapSlide(
-  pySlide: PythonSlide,
-  userId: string,
-  slideImages: Map<number, { data: Buffer; contentType: string }[]>,
-): Promise<MappedSlide | null> {
-  const warnings: string[] = []
-  const idx = pySlide.index
-
-  // Upload first image if available
-  let imageUrl: string | undefined
-  const images = slideImages.get(idx)
-  if (images && images.length > 0) {
-    imageUrl = await uploadToR2(images[0].data, images[0].contentType, userId)
-  }
-
-  if (pySlide.hasChart) warnings.push('Chart detected — converted to text summary')
-  if (pySlide.hasSmartArt) warnings.push('SmartArt detected — text extracted')
-
-  // Skip blank slides
-  if (pySlide.slideType === 'blank') return null
-
-  const hasText = (pySlide.title && pySlide.title.length > 0) || pySlide.bodyParagraphs.length > 0
-  if (!hasText && !imageUrl && !pySlide.tableData) return null
-
-  // Map based on Python-detected slide type
-  switch (pySlide.slideType) {
-    case 'title':
-    case 'section':
-      return {
-        suggestedType: 'title',
-        title: pySlide.title || '',
-        subheading: pySlide.subtitle || '',
-        speakerNotes: pySlide.speakerNotes || undefined,
-        originalIndex: idx,
-        ...(imageUrl ? { contentImageUrl: imageUrl } : {}),
-        warnings: warnings.length > 0 ? warnings : undefined,
-      }
-
-    case 'image_dominant':
-      if (imageUrl) {
-        return {
-          suggestedType: 'image',
-          imageUrl,
-          caption: pySlide.title || '',
-          speakerNotes: pySlide.speakerNotes || undefined,
-          originalIndex: idx,
-          warnings: warnings.length > 0 ? warnings : undefined,
-        }
-      }
-      // Fallback to bullets if no image uploaded
-      return {
-        suggestedType: 'bullets',
-        title: pySlide.title || '',
-        bullets: formatBodyParagraphs(pySlide.bodyParagraphs),
-        speakerNotes: pySlide.speakerNotes || undefined,
-        originalIndex: idx,
-        warnings: warnings.length > 0 ? warnings : undefined,
-      }
-
-    case 'table': {
-      const tableBullets = pySlide.tableData ? formatTableAsBullets(pySlide.tableData) : []
-      const bodyBullets = formatBodyParagraphs(pySlide.bodyParagraphs)
-      return {
-        suggestedType: 'bullets',
-        title: pySlide.title || '',
-        bullets: [...bodyBullets, ...(tableBullets.length > 0 ? ['[Table]', ...tableBullets] : [])],
-        speakerNotes: pySlide.speakerNotes || undefined,
-        originalIndex: idx,
-        ...(imageUrl ? { contentImageUrl: imageUrl } : {}),
-        warnings: warnings.length > 0 ? warnings : undefined,
-      }
-    }
-
-    case 'content':
-    default: {
-      const bullets = formatBodyParagraphs(pySlide.bodyParagraphs)
-      // If no body but has title only, make it a title slide
-      if (bullets.length === 0 && pySlide.title) {
-        return {
-          suggestedType: 'title',
-          title: pySlide.title,
-          subheading: pySlide.subtitle || '',
-          speakerNotes: pySlide.speakerNotes || undefined,
-          originalIndex: idx,
-          ...(imageUrl ? { contentImageUrl: imageUrl } : {}),
-          warnings: warnings.length > 0 ? warnings : undefined,
-        }
-      }
-
-      return {
-        suggestedType: 'bullets',
-        title: pySlide.title || '',
-        bullets: bullets.length > 0 ? bullets : [''],
-        contentImageUrl: imageUrl,
-        speakerNotes: pySlide.speakerNotes || undefined,
-        originalIndex: idx,
-        warnings: warnings.length > 0 ? warnings : undefined,
-      }
-    }
+    // Clean up temp directory
+    await rm(tmpDir, { recursive: true, force: true }).catch(() => {})
   }
 }
 
@@ -407,12 +133,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer())
-
-    // Parse structure with Python (text, hierarchy, metadata)
-    const pySlides = await parsePptxWithPython(buffer)
-
-    // Extract images from ZIP (Node.js — reuse existing R2 upload)
-    const slideImages = await extractImagesFromZip(buffer)
+    const pySlides = await processPptx(buffer)
 
     if (pySlides.length > MAX_SLIDES) {
       return NextResponse.json(
@@ -428,23 +149,52 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Get presentation title from first title slide
+    // Get presentation title from first slide with a title
     let presTitle: string | undefined
-    const titleSlide = pySlides.find(s => s.slideType === 'title')
-    if (titleSlide?.title) presTitle = titleSlide.title
+    for (const s of pySlides) {
+      if (s.title && s.title.length > 0) {
+        presTitle = s.title
+        break
+      }
+    }
 
-    // Map slides (batch image uploads)
+    // Upload slide images to R2 in batches
     const BATCH_SIZE = 5
     const mappedSlides: MappedSlide[] = []
 
     for (let i = 0; i < pySlides.length; i += BATCH_SIZE) {
       const batch = pySlides.slice(i, i + BATCH_SIZE)
       const results = await Promise.all(
-        batch.map(s => mapSlide(s, user.id, slideImages))
+        batch.map(async (slide): Promise<MappedSlide | null> => {
+          if (!slide.imagePath) return null
+
+          try {
+            const imageData = await readFile(slide.imagePath)
+            const imageUrl = await uploadToR2(imageData, 'image/png', user.id)
+
+            return {
+              suggestedType: 'image',
+              imageUrl,
+              caption: slide.title || `Slide ${slide.index + 1}`,
+              aiContext: slide.fullText || undefined,
+              originalIndex: slide.index,
+            }
+          } catch {
+            return null
+          }
+        })
       )
+
       for (const result of results) {
         if (result) mappedSlides.push(result)
       }
+    }
+
+    if (mappedSlides.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Could not render slides. The file may be corrupted.' },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({
@@ -455,7 +205,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error('PPTX parse error:', err)
     return NextResponse.json(
-      { success: false, error: 'Failed to parse PPTX file. The file may be corrupted or in an unsupported format.' },
+      { success: false, error: 'Failed to process PPTX file. The file may be corrupted or in an unsupported format.' },
       { status: 500 }
     )
   }

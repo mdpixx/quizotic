@@ -1421,11 +1421,6 @@ function PresentCreatePageInner() {
   const [activeIndex, setActiveIndex] = useState(0)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [pdfImporting, setPdfImporting] = useState(false)
-  const [pdfProgress, setPdfProgress] = useState('')
-  const [pdfCurrent, setPdfCurrent] = useState(0)
-  const [pdfTotal, setPdfTotal] = useState(0)
-  const [pdfImportedCount, setPdfImportedCount] = useState(0)
   const [pptxImporting, setPptxImporting] = useState(false)
   const [pptxProgress, setPptxProgress] = useState('')
   const [pptxImportedCount, setPptxImportedCount] = useState(0)
@@ -1599,162 +1594,11 @@ function PresentCreatePageInner() {
   }, [activeIndex])
 
 
-  async function importPdfAsImages(file: File) {
-    const pdfjsLib = await import('pdfjs-dist')
-    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
-
-    const arrayBuffer = await file.arrayBuffer()
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-    const pageCount = pdf.numPages
-
-    if (pageCount > 50) {
-      alert('PDF must have 50 pages or fewer')
-      return []
-    }
-
-    setPdfTotal(pageCount)
-    const newSlides: Slide[] = []
-
-    for (let i = 1; i <= pageCount; i++) {
-      setPdfCurrent(i)
-      setPdfProgress(`Rendering page ${i} of ${pageCount}`)
-      const page = await pdf.getPage(i)
-      const viewport = page.getViewport({ scale: 2 })
-
-      const canvas = document.createElement('canvas')
-      canvas.width = viewport.width
-      canvas.height = viewport.height
-      const ctx = canvas.getContext('2d')!
-      await page.render({ canvas, canvasContext: ctx, viewport }).promise
-
-      const blob: Blob = await new Promise(resolve => canvas.toBlob(b => resolve(b!), 'image/jpeg', 0.85))
-
-      setPdfProgress(`Uploading page ${i} of ${pageCount}`)
-      const formData = new FormData()
-      formData.append('file', blob, `page-${i}.jpg`)
-
-      const res = await fetch('/api/upload-image', { method: 'POST', body: formData })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Upload failed' }))
-        throw new Error(err.error || `Failed to upload page ${i}`)
-      }
-      const { url } = await res.json()
-
-      newSlides.push({
-        id: crypto.randomUUID(),
-        type: 'image' as const,
-        imageUrl: url,
-        caption: `Slide ${i}`,
-      })
-    }
-
-    return newSlides
-  }
-
-  async function importPdf(file: File) {
-    if (file.size > 10 * 1024 * 1024) {
-      alert('PDF must be under 10 MB')
-      return
-    }
-    setPdfImporting(true)
-    setPdfProgress('Extracting text from PDF...')
-    setPdfCurrent(0)
-    setPdfTotal(0)
-
-    try {
-      // Try server-side text extraction first
-      let newSlides: Slide[] = []
-      let usedTextExtraction = false
-
-      try {
-        const formData = new FormData()
-        formData.append('file', file)
-        const res = await fetch('/api/parse-pdf', { method: 'POST', body: formData })
-
-        if (res.ok) {
-          const { pages, hasText } = await res.json() as {
-            pages: { index: number; text: string; title: string | null; bodyLines: string[]; hasImages: boolean }[]
-            hasText: boolean
-            totalPages: number
-          }
-
-          if (hasText && pages.length > 0) {
-            // Text extraction succeeded — create editable slides
-            setPdfTotal(pages.length)
-            usedTextExtraction = true
-
-            for (const page of pages) {
-              setPdfCurrent(page.index + 1)
-              setPdfProgress(`Creating slide ${page.index + 1} of ${pages.length}`)
-
-              // Skip pages with no meaningful content
-              if (page.text.trim().length < 10) continue
-
-              if (page.bodyLines.length === 0 && page.title) {
-                // Title-only page
-                newSlides.push({
-                  id: crypto.randomUUID(),
-                  type: 'title' as const,
-                  heading: page.title,
-                  subheading: '',
-                  bgColor: '#FAFAF8',
-                })
-              } else {
-                // Content page with bullets
-                const bullets = page.bodyLines.length > 0
-                  ? page.bodyLines.filter(l => l.trim().length > 0)
-                  : [page.text.slice(0, 500)]
-
-                newSlides.push({
-                  id: crypto.randomUUID(),
-                  type: 'bullets' as const,
-                  heading: page.title || `Page ${page.index + 1}`,
-                  bullets: bullets.length > 0 ? bullets : [''],
-                })
-              }
-            }
-          }
-        }
-      } catch {
-        // Text extraction failed — fall through to image fallback
-      }
-
-      // Fallback: render as images if text extraction didn't work
-      if (!usedTextExtraction || newSlides.length === 0) {
-        setPdfProgress('Rendering PDF as images...')
-        newSlides = await importPdfAsImages(file)
-      }
-
-      if (newSlides.length === 0) {
-        alert('No content could be extracted from the PDF')
-        return
-      }
-
-      const insertAt = activeIndex + 1
-      setPresentation(prev => {
-        const slides = [...prev.slides]
-        slides.splice(insertAt, 0, ...newSlides)
-        return { ...prev, slides, updatedAt: new Date().toISOString() }
-      })
-      setActiveIndex(insertAt)
-      setPdfImportedCount(prev => prev + newSlides.length)
-      setPdfProgress('')
-      // Prompt to enhance with AI after import
-      if (newSlides.length >= 3) setShowEnhancePrompt(true)
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'PDF import failed')
-    } finally {
-      setPdfImporting(false)
-      setPdfProgress('')
-      setPdfCurrent(0)
-      setPdfTotal(0)
-    }
-  }
 
   async function importPptx(file: File) {
     if (file.size > 20 * 1024 * 1024) { alert('PPTX must be under 20 MB'); return }
     setPptxImporting(true)
-    setPptxProgress('Parsing presentation...')
+    setPptxProgress('Rendering slides...')
     try {
       const formData = new FormData()
       formData.append('file', file)
@@ -1764,29 +1608,19 @@ function PresentCreatePageInner() {
         throw new Error(err.error || 'PPTX import failed')
       }
       const { slides: mappedSlides, title } = await res.json() as {
-        slides: { suggestedType: string; title?: string; subheading?: string; bullets?: string[]; imageUrl?: string; contentImageUrl?: string; caption?: string; speakerNotes?: string; originalIndex: number }[]
+        slides: { suggestedType: 'image'; imageUrl: string; caption: string; aiContext?: string; originalIndex: number }[]
         title?: string
       }
       setPptxProgress(`Creating ${mappedSlides.length} slides...`)
 
-      const newSlides: Slide[] = mappedSlides.map(ms => {
-        const base = makeSlide(ms.suggestedType as SlideType)
-        switch (ms.suggestedType) {
-          case 'title':
-            return { ...base, heading: ms.title || '', subheading: ms.subheading || '' } as Slide
-          case 'bullets':
-            return {
-              ...base,
-              heading: ms.title || '',
-              bullets: ms.bullets?.length ? ms.bullets : [''],
-              ...(ms.contentImageUrl ? { contentImageUrl: ms.contentImageUrl } : {}),
-            } as Slide
-          case 'image':
-            return { ...base, imageUrl: ms.imageUrl || '', caption: ms.caption || '' } as Slide
-          default:
-            return base
-        }
-      })
+      const newSlides: Slide[] = mappedSlides.map(ms => ({
+        id: crypto.randomUUID(),
+        type: 'image' as const,
+        imageUrl: ms.imageUrl,
+        caption: ms.caption,
+        // Store extracted text as hidden metadata for AI enhancement
+        ...(ms.aiContext ? { _aiContext: ms.aiContext } : {}),
+      }))
 
       const insertAt = activeIndex + 1
       setPresentation(prev => {
@@ -1909,37 +1743,6 @@ function PresentCreatePageInner() {
 
           {/* Top action bar */}
           <div className="flex-shrink-0 border-b p-2.5 space-y-2" style={{ borderColor: '#E2E8F0' }}>
-            {/* PDF Import */}
-            {pdfImporting ? (
-              <div className="rounded-xl border p-2.5" style={{ borderColor: '#E2E8F0', background: '#fff' }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-3.5 h-3.5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#0F1B3D', borderTopColor: 'transparent' }} />
-                  <span className="text-[10px] font-semibold" style={{ color: '#0F1B3D' }}>{pdfProgress}</span>
-                </div>
-                <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: '#E2E8F0' }}>
-                  <div className="h-full rounded-full transition-all duration-300 ease-out"
-                    style={{ width: pdfTotal > 0 ? `${(pdfCurrent / pdfTotal) * 100}%` : '0%', background: '#0F1B3D' }} />
-                </div>
-                <p className="text-[9px] mt-1 text-center" style={{ color: '#94A3B8' }}>
-                  {pdfCurrent} of {pdfTotal} pages
-                </p>
-              </div>
-            ) : (
-              <label className="flex items-center justify-center gap-1.5 rounded-xl py-2 font-bold text-[11px] cursor-pointer transition-all hover:scale-[1.02]"
-                style={{ background: '#0F1B3D', color: '#fff' }}>
-                <svg viewBox="0 0 20 20" fill="none" className="w-3.5 h-3.5">
-                  <path d="M10 3v10m0 0l-3-3m3 3l3-3M4 14v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                {pdfImportedCount > 0 ? `Import PDF (${pdfImportedCount} added)` : 'Import PDF'}
-                <input type="file" accept=".pdf" className="hidden"
-                  onChange={e => {
-                    const file = e.target.files?.[0]
-                    if (file) importPdf(file)
-                    e.target.value = ''
-                  }} />
-              </label>
-            )}
-
             {/* PPTX Import */}
             {pptxImporting ? (
               <div className="rounded-xl border p-2.5" style={{ borderColor: '#E2E8F0', background: '#fff' }}>
