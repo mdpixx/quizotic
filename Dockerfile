@@ -5,7 +5,7 @@ WORKDIR /app
 # Add Python + LibreOffice + poppler for PPTX slide rendering
 RUN apk add --no-cache \
   python3 py3-pip \
-  libreoffice-impress \
+  libreoffice \
   poppler-utils \
   font-noto \
   ttf-liberation

@@ -25,9 +25,12 @@ def render_slides_as_images(pptx_path, output_dir):
 
     # Step 1: PPTX -> PDF via LibreOffice
     result = subprocess.run([
-        'libreoffice', '--headless', '--convert-to', 'pdf',
+        'libreoffice', '--headless', '--norestore', '--convert-to', 'pdf',
         '--outdir', output_dir, pptx_path
     ], capture_output=True, text=True, timeout=60)
+
+    if result.returncode != 0:
+        print(f'LibreOffice error (rc={result.returncode}): {result.stderr}', file=sys.stderr)
 
     # LibreOffice names the output based on input filename
     input_name = Path(pptx_path).stem
@@ -36,13 +39,17 @@ def render_slides_as_images(pptx_path, output_dir):
         os.rename(lo_pdf, pdf_path)
 
     if not os.path.exists(pdf_path):
+        print(f'PDF not created. LibreOffice stdout: {result.stdout}, stderr: {result.stderr}', file=sys.stderr)
         return []
 
     # Step 2: PDF -> PNG images via pdftoppm
-    subprocess.run([
+    pdf_result = subprocess.run([
         'pdftoppm', '-png', '-r', '200', pdf_path,
         os.path.join(output_dir, 'slide')
-    ], capture_output=True, timeout=60)
+    ], capture_output=True, text=True, timeout=60)
+
+    if pdf_result.returncode != 0:
+        print(f'pdftoppm error (rc={pdf_result.returncode}): {pdf_result.stderr}', file=sys.stderr)
 
     # Collect generated images in order
     images = sorted(
