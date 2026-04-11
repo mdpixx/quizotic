@@ -1599,64 +1599,135 @@ function PresentCreatePageInner() {
   }, [activeIndex])
 
 
+  async function importPdfAsImages(file: File) {
+    const pdfjsLib = await import('pdfjs-dist')
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
+
+    const arrayBuffer = await file.arrayBuffer()
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+    const pageCount = pdf.numPages
+
+    if (pageCount > 50) {
+      alert('PDF must have 50 pages or fewer')
+      return []
+    }
+
+    setPdfTotal(pageCount)
+    const newSlides: Slide[] = []
+
+    for (let i = 1; i <= pageCount; i++) {
+      setPdfCurrent(i)
+      setPdfProgress(`Rendering page ${i} of ${pageCount}`)
+      const page = await pdf.getPage(i)
+      const viewport = page.getViewport({ scale: 2 })
+
+      const canvas = document.createElement('canvas')
+      canvas.width = viewport.width
+      canvas.height = viewport.height
+      const ctx = canvas.getContext('2d')!
+      await page.render({ canvas, canvasContext: ctx, viewport }).promise
+
+      const blob: Blob = await new Promise(resolve => canvas.toBlob(b => resolve(b!), 'image/jpeg', 0.85))
+
+      setPdfProgress(`Uploading page ${i} of ${pageCount}`)
+      const formData = new FormData()
+      formData.append('file', blob, `page-${i}.jpg`)
+
+      const res = await fetch('/api/upload-image', { method: 'POST', body: formData })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Upload failed' }))
+        throw new Error(err.error || `Failed to upload page ${i}`)
+      }
+      const { url } = await res.json()
+
+      newSlides.push({
+        id: crypto.randomUUID(),
+        type: 'image' as const,
+        imageUrl: url,
+        caption: `Slide ${i}`,
+      })
+    }
+
+    return newSlides
+  }
+
   async function importPdf(file: File) {
     if (file.size > 10 * 1024 * 1024) {
       alert('PDF must be under 10 MB')
       return
     }
     setPdfImporting(true)
-    setPdfProgress('Loading PDF...')
+    setPdfProgress('Extracting text from PDF...')
     setPdfCurrent(0)
     setPdfTotal(0)
 
     try {
-      const pdfjsLib = await import('pdfjs-dist')
-      pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
+      // Try server-side text extraction first
+      let newSlides: Slide[] = []
+      let usedTextExtraction = false
 
-      const arrayBuffer = await file.arrayBuffer()
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-      const pageCount = pdf.numPages
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+        const res = await fetch('/api/parse-pdf', { method: 'POST', body: formData })
 
-      if (pageCount > 50) {
-        alert('PDF must have 50 pages or fewer')
-        setPdfImporting(false)
-        return
+        if (res.ok) {
+          const { pages, hasText } = await res.json() as {
+            pages: { index: number; text: string; title: string | null; bodyLines: string[]; hasImages: boolean }[]
+            hasText: boolean
+            totalPages: number
+          }
+
+          if (hasText && pages.length > 0) {
+            // Text extraction succeeded — create editable slides
+            setPdfTotal(pages.length)
+            usedTextExtraction = true
+
+            for (const page of pages) {
+              setPdfCurrent(page.index + 1)
+              setPdfProgress(`Creating slide ${page.index + 1} of ${pages.length}`)
+
+              // Skip pages with no meaningful content
+              if (page.text.trim().length < 10) continue
+
+              if (page.bodyLines.length === 0 && page.title) {
+                // Title-only page
+                newSlides.push({
+                  id: crypto.randomUUID(),
+                  type: 'title' as const,
+                  heading: page.title,
+                  subheading: '',
+                  bgColor: '#FAFAF8',
+                })
+              } else {
+                // Content page with bullets
+                const bullets = page.bodyLines.length > 0
+                  ? page.bodyLines.filter(l => l.trim().length > 0)
+                  : [page.text.slice(0, 500)]
+
+                newSlides.push({
+                  id: crypto.randomUUID(),
+                  type: 'bullets' as const,
+                  heading: page.title || `Page ${page.index + 1}`,
+                  bullets: bullets.length > 0 ? bullets : [''],
+                })
+              }
+            }
+          }
+        }
+      } catch {
+        // Text extraction failed — fall through to image fallback
       }
 
-      setPdfTotal(pageCount)
-      const newSlides: Slide[] = []
+      // Fallback: render as images if text extraction didn't work
+      if (!usedTextExtraction || newSlides.length === 0) {
+        setPdfProgress('Rendering PDF as images...')
+        newSlides = await importPdfAsImages(file)
+      }
 
-      for (let i = 1; i <= pageCount; i++) {
-        setPdfCurrent(i)
-        setPdfProgress(`Rendering page ${i} of ${pageCount}`)
-        const page = await pdf.getPage(i)
-        const viewport = page.getViewport({ scale: 2 })
-
-        const canvas = document.createElement('canvas')
-        canvas.width = viewport.width
-        canvas.height = viewport.height
-        const ctx = canvas.getContext('2d')!
-        await page.render({ canvas, canvasContext: ctx, viewport }).promise
-
-        const blob: Blob = await new Promise(resolve => canvas.toBlob(b => resolve(b!), 'image/jpeg', 0.85))
-
-        setPdfProgress(`Uploading page ${i} of ${pageCount}`)
-        const formData = new FormData()
-        formData.append('file', blob, `page-${i}.jpg`)
-
-        const res = await fetch('/api/upload-image', { method: 'POST', body: formData })
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({ error: 'Upload failed' }))
-          throw new Error(err.error || `Failed to upload page ${i}`)
-        }
-        const { url } = await res.json()
-
-        newSlides.push({
-          id: crypto.randomUUID(),
-          type: 'image' as const,
-          imageUrl: url,
-          caption: `Slide ${i}`,
-        })
+      if (newSlides.length === 0) {
+        alert('No content could be extracted from the PDF')
+        return
       }
 
       const insertAt = activeIndex + 1
@@ -1666,8 +1737,10 @@ function PresentCreatePageInner() {
         return { ...prev, slides, updatedAt: new Date().toISOString() }
       })
       setActiveIndex(insertAt)
-      setPdfImportedCount(prev => prev + pageCount)
+      setPdfImportedCount(prev => prev + newSlides.length)
       setPdfProgress('')
+      // Prompt to enhance with AI after import
+      if (newSlides.length >= 3) setShowEnhancePrompt(true)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'PDF import failed')
     } finally {

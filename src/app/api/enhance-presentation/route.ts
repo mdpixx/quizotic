@@ -29,61 +29,176 @@ interface AiSuggestion {
   rationale: string
 }
 
-// ─── AI Prompt ───────────────────────────────────────────────────────────────
+interface DeckAnalysis {
+  topic: string
+  audience: string
+  contentType: string
+  keyTopics: string[]
+  narrativeArc: string
+}
 
-const SYSTEM_PROMPT = `You are an interactive presentation designer for Quizotic, a live quiz and presentation platform used in classrooms and corporate training sessions.
+// ─── Pass 1: Deck Understanding ─────────────────────────────────────────────
 
-Given a list of content slides from a presentation, suggest interactive slides to INSERT AFTER specific content slides to increase audience engagement and learning retention.
+const ANALYSIS_PROMPT = `You are a presentation analyst. Given a list of slide titles and content summaries, output a brief JSON analysis of the deck.
 
-Available interactive slide types and the JSON fields each one needs:
+Output ONLY this JSON (no markdown, no explanation):
+{
+  "topic": "main topic of the presentation",
+  "audience": "likely target audience",
+  "contentType": "factual | procedural | conceptual | persuasive | mixed",
+  "keyTopics": ["topic1", "topic2", "topic3"],
+  "narrativeArc": "brief description of how the deck flows, e.g. intro -> concepts -> examples -> conclusion"
+}`
+
+function buildAnalysisPrompt(slides: SlideInput[]): string {
+  const summary = slides.map(s => {
+    const text = s.textContent.slice(0, 200)
+    return `[Slide ${s.index}] ${text}`
+  }).join('\n')
+
+  return `Analyze this ${slides.length}-slide presentation:\n\n${summary}`
+}
+
+async function analyzeDeck(slides: SlideInput[]): Promise<DeckAnalysis> {
+  const response = await client.chat.completions.create({
+    model: MODEL,
+    messages: [
+      { role: 'system', content: ANALYSIS_PROMPT },
+      { role: 'user', content: buildAnalysisPrompt(slides) },
+    ],
+    temperature: 0.3,
+    max_tokens: 500,
+  })
+
+  const raw = response.choices[0]?.message?.content?.trim() ?? ''
+  const cleaned = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
+
+  try {
+    return JSON.parse(cleaned) as DeckAnalysis
+  } catch {
+    return {
+      topic: 'Unknown',
+      audience: 'general',
+      contentType: 'mixed',
+      keyTopics: [],
+      narrativeArc: 'linear',
+    }
+  }
+}
+
+// ─── Pass 2: Suggestion Generation ──────────────────────────────────────────
+
+const SYSTEM_PROMPT = `You are an expert interactive presentation designer for Quizotic, a live quiz and presentation platform used in Indian classrooms and corporate training.
+
+Your job: suggest interactive slides to INSERT between content slides to maximize audience engagement and learning retention.
+
+## Available Interactive Types
 
 1. multiple_choice — { "question": "...", "options": ["A","B","C","D"], "showCorrect": true, "correctIndex": 0 }
-   Use for: factual recall, testing understanding of concepts just taught
+   Best for: factual recall, testing comprehension of just-taught concepts (Bloom's: Remember, Understand)
+
 2. open_text — { "question": "...", "maxChars": 200 }
-   Use for: reflection, personal opinions, open-ended responses
+   Best for: reflection, application, personal experience sharing (Bloom's: Apply, Evaluate)
+
 3. word_cloud — { "question": "...", "maxWords": 1 }
-   Use for: brainstorming, gauging associations, ice-breakers before a topic
+   Best for: brainstorming, gauging prior knowledge before a topic, association checks
+
 4. rating_scale — { "question": "...", "minLabel": "Not at all", "maxLabel": "Extremely", "maxRating": 5 }
-   Use for: opinion gauging, self-assessment, confidence checks
+   Best for: self-assessment, confidence checks, opinion gauging
+
 5. ranking — { "question": "...", "items": ["Item1", "Item2", "Item3"] }
-   Use for: prioritization, ordering concepts, preference ranking
+   Best for: prioritization exercises, ordering concepts, comparing importance (Bloom's: Analyze, Evaluate)
+
 6. word_duel — { "question": "...", "optionA": "...", "optionB": "..." }
-   Use for: binary comparisons, debate starters, "which is more important"
+   Best for: binary comparisons, debate starters, forcing a stance
+
 7. emoji_pulse — { "question": "...", "emojis": ["👍","👎","🤔","🔥"] }
-   Use for: quick mood checks, reactions, energy reads
+   Best for: quick energy/mood checks, reactions to a statement, temperature reads
+
 8. quick_fire — { "question": "...", "options": ["A","B","C","D"], "durationSeconds": 10 }
-   Use for: speed recall, competition moments, energizers
+   Best for: competitive recall under time pressure, energizer moments (Bloom's: Remember)
 
-Rules:
-- Each suggestion MUST relate directly to the content of the slide it follows
-- Vary the interactive types — do NOT use the same type twice in a row
-- For factual/technical content → prefer multiple_choice or quick_fire
-- For opinion/discussion content → prefer word_cloud, rating_scale, open_text, emoji_pulse
-- For comparison/prioritization content → prefer word_duel or ranking
-- Generate pedagogically sound questions — not trivial, not trick questions
+## Pedagogical Rules
+
+### Match interactivity to cognitive level (Bloom's Taxonomy):
+- REMEMBER (recall facts) → multiple_choice, quick_fire
+- UNDERSTAND (explain concepts) → word_cloud, rating_scale
+- APPLY (use in new situations) → open_text
+- ANALYZE (compare, differentiate) → ranking, word_duel
+- EVALUATE (judge, critique) → rating_scale, open_text
+
+### Spacing and flow:
+- Do NOT suggest interactivity after every slide — respect the presenter's natural flow
+- Space interactive slides at least 2-3 content slides apart
+- Place word_cloud or emoji_pulse BEFORE a new topic section (gauge prior knowledge)
+- Place multiple_choice or quick_fire AFTER a section with specific facts
+- Never interrupt a logical sequence of related content slides
+
+### Content quality:
+- Questions MUST reference specific concepts, terms, or examples from the slide content
+- Options in multiple_choice must be plausible — avoid obviously wrong answers
 - Keep questions concise (under 120 characters)
-- For multiple_choice: always provide exactly 4 plausible options, set correctIndex to the correct one (0-indexed)
-- Return ONLY valid JSON — no markdown fences, no explanation, no preamble`
+- For multiple_choice: exactly 4 options, correctIndex 0-indexed
 
-function buildUserPrompt(slides: SlideInput[], targetCount: number): string {
-  const slideList = slides.map(s =>
-    `[Slide ${s.index}] ${s.textContent.slice(0, 500)}`
-  ).join('\n\n')
+### BAD vs GOOD examples:
+- BAD: "What do you think about this topic?" (generic, could apply to any presentation)
+- GOOD: "Which fire extinguisher type is correct for an electrical fire?" (specific to content)
+- BAD: "Rate your understanding" after every slide (repetitive, annoying)
+- GOOD: "Rate your confidence in identifying fire types" after the fire classification section
+- BAD: word_cloud asking "What comes to mind?" with no context
+- GOOD: word_cloud asking "What's your biggest workplace fire safety concern?" before the solutions section
 
-  return `Here are ${slides.length} content slides from a training presentation. Suggest exactly ${targetCount} interactive slides to add.
+Return ONLY valid JSON — no markdown fences, no explanation, no preamble.`
 
-For each suggestion, specify:
-- "afterSlideIndex": the slide index this interactive should be inserted AFTER
-- "type": one of the 8 interactive types listed
-- "slideData": the complete data object for that type (see fields above)
-- "rationale": one sentence explaining why this interactivity fits here (for the trainer to understand)
+function getSlidePosition(index: number, total: number): string {
+  const pct = index / total
+  if (pct < 0.15) return 'opening'
+  if (pct < 0.4) return 'early'
+  if (pct < 0.7) return 'middle'
+  if (pct < 0.9) return 'late'
+  return 'closing'
+}
 
-Spread the interactivities evenly across the presentation — don't cluster them all at the beginning or end.
+function buildUserPrompt(
+  slides: SlideInput[],
+  targetCount: number,
+  analysis: DeckAnalysis,
+): string {
+  const deckContext = `## Deck Analysis
+Topic: ${analysis.topic}
+Audience: ${analysis.audience}
+Content type: ${analysis.contentType}
+Key topics: ${analysis.keyTopics.join(', ')}
+Narrative arc: ${analysis.narrativeArc}
+Total slides: ${slides.length}
+`
 
-SLIDES:
+  const slideList = slides.map((s, i) => {
+    const position = getSlidePosition(s.index, slides.length)
+    const prevTitle = i > 0 ? slides[i - 1].textContent.split('\n')[0].slice(0, 60) : '(start)'
+    const nextTitle = i < slides.length - 1 ? slides[i + 1].textContent.split('\n')[0].slice(0, 60) : '(end)'
+
+    return `[Slide ${s.index} of ${slides.length}] (${s.type} slide, position: ${position})
+Content: ${s.textContent.slice(0, 600)}
+Previous: "${prevTitle}"
+Next: "${nextTitle}"`
+  }).join('\n\n')
+
+  return `${deckContext}
+
+## Slides
 ${slideList}
 
-Return a JSON array of suggestions:
+## Task
+Suggest exactly ${targetCount} interactive slides. For each:
+- "afterSlideIndex": the slide index to insert AFTER
+- "type": one of the 8 interactive types
+- "slideData": complete data object with all required fields
+- "rationale": one sentence explaining WHY this interactivity fits at this point
+
+Space them evenly. Match the type to the content's cognitive level. Reference specific content from the slides.
+
+Return a JSON array:
 [
   { "afterSlideIndex": 2, "type": "word_cloud", "slideData": { "question": "...", "maxWords": 1 }, "rationale": "..." },
   ...
@@ -178,30 +293,33 @@ export async function POST(req: NextRequest) {
   const targetCount = getTargetCount(contentSlides.length, level)
 
   try {
+    // Pass 1: Analyze the deck for topic, audience, and narrative
+    const analysis = await analyzeDeck(contentSlides)
+
+    // Pass 2: Generate suggestions with full context
     const response = await client.chat.completions.create({
       model: MODEL,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: buildUserPrompt(contentSlides, targetCount) },
+        { role: 'user', content: buildUserPrompt(contentSlides, targetCount, analysis) },
       ],
       temperature: 0.7,
       max_tokens: 4000,
     })
 
     const raw = response.choices[0]?.message?.content?.trim() ?? ''
-    // Strip markdown fences if present
     const cleaned = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
 
     let parsed: unknown
     try {
       parsed = JSON.parse(cleaned)
     } catch {
-      // Retry once
+      // Retry once with lower temperature
       const retry = await client.chat.completions.create({
         model: MODEL,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: buildUserPrompt(contentSlides, targetCount) },
+          { role: 'user', content: buildUserPrompt(contentSlides, targetCount, analysis) },
           { role: 'assistant', content: raw },
           { role: 'user', content: 'That was not valid JSON. Please return ONLY a valid JSON array, nothing else.' },
         ],
