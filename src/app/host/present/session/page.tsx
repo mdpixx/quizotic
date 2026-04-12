@@ -160,7 +160,7 @@ function LiveVerticalBars({
   const max = Math.max(...counts, 1)
 
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 220 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flex: 1, minHeight: 200 }}>
       {options.map((opt, i) => {
         const count = counts[i] ?? 0
         const pct = total > 0 ? Math.round((count / total) * 100) : 0
@@ -172,11 +172,11 @@ function LiveVerticalBars({
         return (
           <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%' }}>
             {/* Correct badge or vote count */}
-            <div style={{ height: 28, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', marginBottom: 4 }}>
+            <div style={{ height: 32, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', marginBottom: 6 }}>
               {isCorrect ? (
-                <span style={{ color: '#16A34A', fontWeight: 900, fontSize: 16 }}>✓</span>
+                <span style={{ color: '#16A34A', fontWeight: 900, fontSize: 22 }}>✓</span>
               ) : count > 0 && (
-                <span style={{ color, fontWeight: 800, fontSize: 17, lineHeight: 1 }}>
+                <span style={{ color, fontWeight: 800, fontSize: 22, lineHeight: 1 }}>
                   {count}
                 </span>
               )}
@@ -206,21 +206,21 @@ function LiveVerticalBars({
             <div style={{ width: '100%', height: 2, background: 'rgba(0,0,0,0.08)', borderRadius: 1, margin: '3px 0' }} />
 
             {/* Option label */}
-            <div style={{ textAlign: 'center', maxWidth: '100%', paddingTop: 2 }}>
+            <div style={{ textAlign: 'center', maxWidth: '100%', paddingTop: 4 }}>
               <div style={{
-                fontSize: options.length > 4 ? 11 : 13,
+                fontSize: options.length > 4 ? 15 : 18,
                 fontWeight: 700,
                 color: isCorrect ? '#16A34A' : '#0F1B3D',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                whiteSpace: options.length > 4 ? 'nowrap' : 'normal',
+                whiteSpace: options.length > 6 ? 'nowrap' : 'normal',
                 maxWidth: '100%',
-                lineHeight: 1.2,
+                lineHeight: 1.3,
               }}>
                 {opt || `Option ${i + 1}`}
               </div>
               {showResults && total > 0 && (
-                <div style={{ fontSize: 12, color, fontWeight: 700, marginTop: 2 }}>
+                <div style={{ fontSize: 15, color, fontWeight: 700, marginTop: 3 }}>
                   {pct}%
                 </div>
               )}
@@ -342,8 +342,8 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
       const typedSlide = slide as { question?: string; showCorrect?: boolean; correctIndex?: number }
 
       return (
-        <div className="space-y-4">
-          <h2 className="text-3xl leading-snug" style={headingStyle}>
+        <div className="flex flex-col h-full gap-4">
+          <h2 className="text-3xl leading-snug flex-shrink-0" style={headingStyle}>
             {typedSlide.question || <span className="opacity-30">Question text...</span>}
           </h2>
           <LiveVerticalBars
@@ -360,103 +360,115 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
 
     case 'open_text':
       return (
-        <div className="space-y-4">
-          <h2 className="text-4xl leading-snug" style={headingStyle}>
+        <div className="flex flex-col h-full gap-4">
+          <h2 className="text-4xl leading-snug flex-shrink-0" style={headingStyle}>
             {slide.question || <span className="opacity-30">Question text...</span>}
           </h2>
-          {showResults && aggregate.words && (
-            <WordCloud words={aggregate.words} />
-          )}
+          <div className="flex-1 flex items-center justify-center">
+            {showResults && aggregate.words && (
+              <WordCloud words={aggregate.words} />
+            )}
+          </div>
         </div>
       )
 
     case 'word_cloud':
       return (
-        <div className="space-y-4">
-          <h2 className="text-4xl leading-snug" style={headingStyle}>
+        <div className="flex flex-col h-full gap-4">
+          <h2 className="text-4xl leading-snug flex-shrink-0" style={headingStyle}>
             {slide.question || <span className="opacity-30">Question text...</span>}
           </h2>
-          {showResults && aggregate.words && <WordCloud words={aggregate.words} />}
+          <div className="flex-1 flex items-center justify-center">
+            {showResults && aggregate.words && <WordCloud words={aggregate.words} />}
+          </div>
         </div>
       )
 
     case 'rating_scale':
       return (
-        <div className="space-y-5">
-          <h2 className="text-4xl leading-snug" style={headingStyle}>
+        <div className="flex flex-col h-full gap-5">
+          <h2 className="text-4xl leading-snug flex-shrink-0" style={headingStyle}>
             {slide.question || <span className="opacity-30">Question text...</span>}
           </h2>
-          <div className="flex items-center justify-between text-xl font-semibold" style={{ color: '#9CA3AF' }}>
+          <div className="flex items-center justify-between text-xl font-semibold flex-shrink-0" style={{ color: '#9CA3AF' }}>
             <span>{slide.minLabel}</span>
             <span>{slide.maxLabel}</span>
           </div>
-          {showResults && aggregate.scores && aggregate.scores.length > 0 && (
-            <div className="text-center">
-              <p className="text-5xl font-black" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>
-                {(aggregate.scores.reduce((a, b) => a + b, 0) / aggregate.scores.length).toFixed(1)}
-              </p>
-              <p className="text-lg" style={{ color: '#6B7280' }}>average rating · {aggregate.total} responses</p>
-            </div>
-          )}
+          <div className="flex-1 flex items-center justify-center">
+            {showResults && aggregate.scores && aggregate.scores.length > 0 && (
+              <div className="text-center">
+                <p className="text-7xl font-black" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>
+                  {(aggregate.scores.reduce((a, b) => a + b, 0) / aggregate.scores.length).toFixed(1)}
+                </p>
+                <p className="text-xl mt-2" style={{ color: '#6B7280' }}>average rating · {aggregate.total} responses</p>
+              </div>
+            )}
+          </div>
         </div>
       )
 
     case 'emoji_pulse':
       return (
-        <div className="space-y-5">
-          <h2 className="text-4xl leading-snug" style={headingStyle}>
+        <div className="flex flex-col h-full gap-5">
+          <h2 className="text-4xl leading-snug flex-shrink-0" style={headingStyle}>
             {slide.question || <span className="opacity-30">Prompt text...</span>}
           </h2>
-          {showResults && aggregate.emojis && (
-            <div className="flex flex-wrap gap-4 justify-center">
-              {slide.emojis.map(em => (
-                <div key={em} className="flex flex-col items-center gap-1">
-                  <span className="text-4xl">{em}</span>
-                  <span className="text-lg font-black" style={{ color: '#0F1B3D' }}>
-                    {aggregate.emojis?.[em] ?? 0}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="flex-1 flex items-center justify-center">
+            {showResults && aggregate.emojis && (
+              <div className="flex flex-wrap gap-8 justify-center">
+                {slide.emojis.map(em => (
+                  <div key={em} className="flex flex-col items-center gap-2">
+                    <span className="text-6xl">{em}</span>
+                    <span className="text-2xl font-black" style={{ color: '#0F1B3D' }}>
+                      {aggregate.emojis?.[em] ?? 0}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )
 
     case 'ranking':
       return (
-        <div className="space-y-4">
-          <h2 className="text-4xl leading-snug" style={headingStyle}>
+        <div className="flex flex-col h-full gap-4">
+          <h2 className="text-4xl leading-snug flex-shrink-0" style={headingStyle}>
             {slide.question || <span className="opacity-30">Question text...</span>}
           </h2>
-          {showResults && aggregate.counts && (
-            <div className="space-y-3">
-              {slide.items.map((item, i) => (
-                <PollBar key={i} label={item || `Item ${i+1}`}
-                  count={aggregate.counts?.[i] ?? 0} total={aggregate.total} color="#4F46E5" />
-              ))}
-            </div>
-          )}
+          <div className="flex-1 flex flex-col justify-center">
+            {showResults && aggregate.counts && (
+              <div className="space-y-3">
+                {slide.items.map((item, i) => (
+                  <PollBar key={i} label={item || `Item ${i+1}`}
+                    count={aggregate.counts?.[i] ?? 0} total={aggregate.total} color="#4F46E5" />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )
 
     case 'scale_100':
       return (
-        <div className="space-y-5">
-          <h2 className="text-4xl leading-snug" style={headingStyle}>
+        <div className="flex flex-col h-full gap-5">
+          <h2 className="text-4xl leading-snug flex-shrink-0" style={headingStyle}>
             {slide.question || <span className="opacity-30">Question text...</span>}
           </h2>
-          <div className="flex items-center justify-between text-xl font-semibold" style={{ color: '#9CA3AF' }}>
+          <div className="flex items-center justify-between text-xl font-semibold flex-shrink-0" style={{ color: '#9CA3AF' }}>
             <span>0 · {slide.minLabel}</span>
             <span>{slide.maxLabel} · 100</span>
           </div>
-          {showResults && aggregate.scores && aggregate.scores.length > 0 && (
-            <div className="text-center">
-              <p className="text-5xl font-black" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>
-                {Math.round(aggregate.scores.reduce((a, b) => a + b, 0) / aggregate.scores.length)}
-              </p>
-              <p className="text-lg" style={{ color: '#6B7280' }}>average · {aggregate.total} responses</p>
-            </div>
-          )}
+          <div className="flex-1 flex items-center justify-center">
+            {showResults && aggregate.scores && aggregate.scores.length > 0 && (
+              <div className="text-center">
+                <p className="text-7xl font-black" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>
+                  {Math.round(aggregate.scores.reduce((a, b) => a + b, 0) / aggregate.scores.length)}
+                </p>
+                <p className="text-xl mt-2" style={{ color: '#6B7280' }}>average · {aggregate.total} responses</p>
+              </div>
+            )}
+          </div>
         </div>
       )
 
@@ -1166,7 +1178,7 @@ export default function PresentSessionPage() {
           </div>
 
           {/* Slide content */}
-          <div className="flex-1 flex flex-col justify-center max-w-5xl w-full mx-auto relative">
+          <div className="flex-1 flex flex-col max-w-5xl w-full mx-auto relative min-h-0">
             <SlideContent slide={currentSlide} aggregate={aggregate} showResults={showResults} correctRevealed={correctRevealed} />
             {plan === 'free' && (
               <div className="absolute bottom-2 right-3 z-10">
