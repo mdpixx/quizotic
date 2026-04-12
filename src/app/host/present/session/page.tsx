@@ -324,7 +324,7 @@ function getVideoEmbedUrl(url: string): string {
 
 // ─── Slide content renderer ───────────────────────────────────────────────────
 
-function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggregate: AggregateData; showResults: boolean }) {
+function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slide: Slide; aggregate: AggregateData; showResults: boolean; correctRevealed: boolean }) {
   const headingStyle: React.CSSProperties = { fontFamily: 'var(--font-heading)', color: '#0F1B3D', fontWeight: 900 }
 
   switch (slide.type) {
@@ -352,7 +352,7 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
             total={aggregate.total}
             colors={barColors}
             showResults={showResults}
-            correctIndex={showResults && typedSlide.showCorrect ? typedSlide.correctIndex : undefined}
+            correctIndex={correctRevealed && typedSlide.showCorrect ? typedSlide.correctIndex : undefined}
           />
         </div>
       )
@@ -462,12 +462,12 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
 
     case 'title':
       return (
-        <div className="rounded-2xl p-8 text-center space-y-3" style={{ background: slide.bgColor + '18' }}>
-          <h1 className="text-4xl font-black leading-tight" style={{ ...headingStyle, color: slide.bgColor }}>
+        <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+          <h1 className="text-5xl font-black leading-tight" style={{ ...headingStyle, color: slide.bgColor || '#0F1B3D' }}>
             {slide.heading || 'Title'}
           </h1>
           {slide.subheading && (
-            <p className="text-xl" style={{ color: slide.bgColor + 'cc' }}>{slide.subheading}</p>
+            <p className="text-2xl" style={{ color: (slide.bgColor || '#0F1B3D') + 'cc' }}>{slide.subheading}</p>
           )}
         </div>
       )
@@ -513,11 +513,11 @@ function SlideContent({ slide, aggregate, showResults }: { slide: Slide; aggrega
 
     case 'image':
       return (
-        <div className="flex flex-col items-center justify-center gap-3">
+        <div className="flex flex-col items-center justify-center h-full gap-3">
           {slide.imageUrl && (
-            <img src={slide.imageUrl} alt="" className="max-h-[70vh] w-full object-contain rounded-2xl" />
+            <img src={slide.imageUrl} alt="" className="max-h-full max-w-full object-contain rounded-2xl flex-1 min-h-0" />
           )}
-          {slide.caption && <p className="text-lg font-medium text-center" style={{ color: '#374151' }}>{slide.caption}</p>}
+          {slide.caption && <p className="text-lg font-medium text-center flex-shrink-0" style={{ color: '#374151' }}>{slide.caption}</p>}
         </div>
       )
 
@@ -616,6 +616,7 @@ export default function PresentSessionPage() {
   const [aggregate, setAggregate] = useState<AggregateData>({ total: 0 })
   const [showResults, setShowResults] = useState(false)
   const [revealed, setRevealed] = useState(false)
+  const [correctRevealed, setCorrectRevealed] = useState(false)
   const [soundOn, setSoundOn] = useState(true)
   const [floatingVoters, setFloatingVoters] = useState<FloatingVoter[]>([])
   const [toasts, setToasts] = useState<Toast[]>([])
@@ -624,6 +625,7 @@ export default function PresentSessionPage() {
   const [confetti, setConfetti] = useState(false)
   const [socketConnected, setSocketConnected] = useState(false)
   const [showWave, setShowWave] = useState(false)
+  const [showQR, setShowQR] = useState(false)
   const waveTriggeredRef = useRef(false)
   const endingRef = useRef(false)
   const [plan, setPlan] = useState<'free' | 'pro'>('free')
@@ -670,6 +672,7 @@ export default function PresentSessionPage() {
       setAggregate(data)
       setShowResults(true)
       setRevealed(true)
+      setCorrectRevealed(true)
     })
 
     socket.on('presenter_aggregate_updated', (data: AggregateData) => {
@@ -823,6 +826,7 @@ export default function PresentSessionPage() {
           const firstMode = presentation!.slides[0]?.responseMode || 'instant'
           setShowResults(firstMode === 'instant')
           setRevealed(false)
+          setCorrectRevealed(false)
         } else {
           const toast: Toast = { id: Date.now().toString(), message: res.error ?? 'Failed to create session.' }
           setToasts(prev => [...prev.slice(-2), toast])
@@ -840,6 +844,7 @@ export default function PresentSessionPage() {
     setAggregate({ total: 0 })
     setShowResults(nextMode === 'instant')
     setRevealed(false)
+    setCorrectRevealed(false)
     setShowWave(false)
     waveTriggeredRef.current = false
     reachedMilestonesRef.current.clear()
@@ -855,6 +860,7 @@ export default function PresentSessionPage() {
     setAggregate({ total: 0 })
     setShowResults(prevMode === 'instant')
     setRevealed(false)
+    setCorrectRevealed(false)
     setShowWave(false)
     waveTriggeredRef.current = false
     reachedMilestonesRef.current.clear()
@@ -1060,10 +1066,62 @@ export default function PresentSessionPage() {
       )}
 
       {/* ── Main projected slide area ─────────────────────────────────────── */}
-      <div className="flex flex-1" style={{ minHeight: 0 }}>
+      <div className="flex-1 relative overflow-hidden" style={{ minHeight: 0 }}>
 
-        {/* LEFT: slide content */}
-        <div className="flex-1 p-8 flex flex-col relative overflow-hidden">
+        {/* Floating top-right bar: votes + participants + game code + QR toggle */}
+        <div className="absolute top-4 right-4 flex items-center gap-2 z-30">
+          {meta.hasAudienceInput && (
+            <div className="flex items-center gap-1.5 rounded-full px-3 py-1.5" style={{ background: 'rgba(15,27,61,0.85)' }}>
+              <span className="text-sm font-black text-white">{aggregate.total}</span>
+              <span className="text-xs text-white/60">votes</span>
+            </div>
+          )}
+          <div className="flex items-center gap-1.5 rounded-full px-3 py-1.5" style={{ background: 'rgba(15,27,61,0.85)' }}>
+            <span className="text-sm font-bold text-white">{participantCount}</span>
+            <span className="text-xs text-white/60">joined</span>
+          </div>
+          <div className="rounded-full px-3 py-1.5 font-mono font-black text-sm tracking-[0.15em]"
+            style={{ background: '#F5E642', color: '#0D0D0D' }}>
+            {gameCode}
+          </div>
+          <button onClick={() => setShowQR(s => !s)}
+            className="rounded-full px-3 py-1.5 text-sm font-bold transition-all hover:scale-105"
+            style={{ background: showQR ? '#0F1B3D' : '#fff', color: showQR ? '#fff' : '#0F1B3D', border: '1.5px solid #0F1B3D' }}>
+            {showQR ? 'Hide QR' : 'Show QR'}
+          </button>
+        </div>
+
+        {/* QR overlay (on-demand) */}
+        {showQR && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}
+            onClick={() => setShowQR(false)}>
+            <div className="rounded-3xl p-8 flex flex-col items-center gap-4 shadow-2xl"
+              style={{ background: '#fff' }}
+              onClick={e => e.stopPropagation()}>
+              <p className="text-lg font-bold" style={{ color: '#0F1B3D' }}>Scan to join</p>
+              <div className="rounded-2xl p-4" style={{ background: '#F8F7FF', border: '2px solid #E9E2FF' }}>
+                <QRCode
+                  value={`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')}/join?code=${gameCode}&mode=presenter`}
+                  size={220}
+                  bgColor="#F8F7FF"
+                  fgColor="#0F1B3D"
+                />
+              </div>
+              <p className="text-3xl font-black tracking-[0.2em] font-mono" style={{ color: '#0F1B3D' }}>
+                {gameCode}
+              </p>
+              <p className="text-sm" style={{ color: '#6B7280' }}>or visit <span className="font-bold">quizotic.live/join</span></p>
+              <button onClick={() => setShowQR(false)}
+                className="mt-2 px-6 py-2 rounded-xl text-sm font-bold"
+                style={{ background: '#F3F4F6', color: '#374151' }}>
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Full-width slide content */}
+        <div className="h-full p-8 flex flex-col relative">
 
           {/* Floating voter avatars */}
           <div className="absolute bottom-16 left-0 right-0 h-40 pointer-events-none overflow-hidden">
@@ -1081,7 +1139,7 @@ export default function PresentSessionPage() {
           </div>
 
           {/* Toast notifications */}
-          <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
+          <div className="absolute top-16 right-4 flex flex-col gap-2 z-20">
             {toasts.map(t => (
               <div key={t.id} className="rounded-xl px-4 py-2 text-sm font-bold shadow-lg text-white"
                 style={{ background: '#0F1B3D' }}>
@@ -1108,8 +1166,8 @@ export default function PresentSessionPage() {
           </div>
 
           {/* Slide content */}
-          <div className="flex-1 flex flex-col justify-center max-w-2xl w-full mx-auto relative">
-            <SlideContent slide={currentSlide} aggregate={aggregate} showResults={showResults} />
+          <div className="flex-1 flex flex-col justify-center max-w-5xl w-full mx-auto relative">
+            <SlideContent slide={currentSlide} aggregate={aggregate} showResults={showResults} correctRevealed={correctRevealed} />
             {plan === 'free' && (
               <div className="absolute bottom-2 right-3 z-10">
                 <span className="text-[10px] font-bold opacity-30" style={{ color: '#fff' }}>quizotic.live</span>
@@ -1126,59 +1184,6 @@ export default function PresentSessionPage() {
               <SpeedWaveform recentVotes={waveformData} />
             </div>
           )}
-        </div>
-
-        {/* RIGHT: QR panel (200px) */}
-        <div className="w-52 flex-shrink-0 border-l flex flex-col items-center py-6 px-4 gap-5"
-          style={{ borderColor: '#E9E2FF', background: '#F8F7FF' }}>
-
-          {/* Vote counter ring */}
-          <div className="relative flex items-center justify-center" style={{ width: 96, height: 96 }}>
-            <svg width="96" height="96" viewBox="0 0 96 96" fill="none">
-              <circle cx="48" cy="48" r="40" stroke="#E9E2FF" strokeWidth="8" fill="none"/>
-              <circle cx="48" cy="48" r="40" fill="none"
-                stroke="url(#voteGrad)" strokeWidth="8" strokeLinecap="round"
-                strokeDasharray={`${2 * Math.PI * 40}`}
-                strokeDashoffset={`${2 * Math.PI * 40 * (1 - Math.min(aggregate.total, 100) / 100)}`}
-                transform="rotate(-90 48 48)"
-                style={{ transition: 'stroke-dashoffset 0.5s cubic-bezier(0.34,1.56,0.64,1)' }}
-              />
-              <defs>
-                <linearGradient id="voteGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#FF8A47"/>
-                  <stop offset="100%" stopColor="#0F1B3D"/>
-                </linearGradient>
-              </defs>
-            </svg>
-            <div className="absolute text-center">
-              <p className="text-3xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
-                {aggregate.total}
-              </p>
-              <p className="text-xs font-semibold" style={{ color: '#6B7280' }}>votes</p>
-            </div>
-          </div>
-
-          {/* Participant count */}
-          <p className="text-base font-semibold" style={{ color: '#6B7280' }}>
-            {participantCount} participant{participantCount !== 1 ? 's' : ''} joined
-          </p>
-
-          {/* QR code */}
-          <div className="flex flex-col items-center gap-2">
-            <div className="rounded-[18px] p-3 bg-white" style={{ border: '1.5px solid #E5E7EB', boxShadow: '0 2px 12px rgba(67,97,238,0.08)' }}>
-              <QRCode
-                value={`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')}/join?code=${gameCode}&mode=presenter`}
-                size={140}
-                bgColor="#ffffff"
-                fgColor="#0F1B3D"
-                style={{ borderRadius: 8 }}
-              />
-            </div>
-            <p className="text-base font-bold tracking-[0.2em] font-mono" style={{ color: '#0F1B3D' }}>
-              {gameCode}
-            </p>
-            <p className="text-xs" style={{ color: '#6B7280' }}>scan to join</p>
-          </div>
         </div>
       </div>
 
@@ -1219,9 +1224,25 @@ export default function PresentSessionPage() {
         <div className="flex items-center gap-2">
           {meta.hasAudienceInput && (() => {
             const mode = currentSlide?.responseMode || 'instant'
+            const hasCorrectAnswer = (currentSlide as { showCorrect?: boolean })?.showCorrect
             if (mode === 'instant') {
-              // Results always visible in instant mode — no button needed
-              return null
+              // In instant mode, results are live but correct answer needs explicit reveal
+              if (!hasCorrectAnswer) return null
+              return (
+                <button
+                  onClick={() => setCorrectRevealed(true)}
+                  disabled={correctRevealed}
+                  className="px-5 py-3 rounded-xl text-base font-bold transition-all"
+                  style={{
+                    background: correctRevealed ? '#DCFCE7' : '#16A34A',
+                    color: correctRevealed ? '#16A34A' : '#fff',
+                    border: correctRevealed ? '1.5px solid #86EFAC' : '1.5px solid #16A34A',
+                    cursor: correctRevealed ? 'default' : 'pointer',
+                    opacity: correctRevealed ? 0.8 : 1,
+                  }}>
+                  {correctRevealed ? 'Answer Revealed' : 'Reveal Answer'}
+                </button>
+              )
             }
             if (mode === 'on_click') {
               return (
@@ -1231,6 +1252,7 @@ export default function PresentSessionPage() {
                       socketRef.current?.emit('presenter_reveal_results', { gameCode })
                       setShowResults(true)
                       setRevealed(true)
+                      setCorrectRevealed(true)
                     }
                   }}
                   disabled={revealed}
