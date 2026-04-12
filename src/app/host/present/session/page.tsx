@@ -346,14 +346,16 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
           <h2 className="text-3xl leading-snug flex-shrink-0" style={headingStyle}>
             {typedSlide.question || <span className="opacity-30">Question text...</span>}
           </h2>
-          <LiveVerticalBars
-            options={options}
-            counts={counts}
-            total={aggregate.total}
-            colors={barColors}
-            showResults={showResults}
-            correctIndex={correctRevealed && typedSlide.showCorrect ? typedSlide.correctIndex : undefined}
-          />
+          <div className="flex-1 min-h-0 flex flex-col justify-end">
+            <LiveVerticalBars
+              options={options}
+              counts={counts}
+              total={aggregate.total}
+              colors={barColors}
+              showResults={showResults}
+              correctIndex={correctRevealed && typedSlide.showCorrect ? typedSlide.correctIndex : undefined}
+            />
+          </div>
         </div>
       )
     }
@@ -1027,7 +1029,7 @@ export default function PresentSessionPage() {
   const meta = SLIDE_TYPE_META[currentSlide.type]
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#FDFBFF', fontFamily: 'var(--font-body)' }}>
+    <div className="h-screen flex flex-col overflow-hidden" style={{ background: '#FDFBFF', fontFamily: 'var(--font-body)' }}>
 
       {/* ── Confetti overlay ─────────────────────────────────────────────────── */}
       {confetti && (
@@ -1187,9 +1189,9 @@ export default function PresentSessionPage() {
             )}
           </div>
 
-          {/* Speed waveform */}
+          {/* Speed waveform — pinned at bottom, tight under bars */}
           {meta.hasAudienceInput && (
-            <div className="flex-shrink-0 mt-4">
+            <div className="flex-shrink-0 mt-2">
               <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#C4B5FD' }}>
                 Vote velocity
               </p>
