@@ -515,7 +515,12 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
 
       case 'image': {
         const url = (slide as { imageUrl: string }).imageUrl
-        if (url) return <img src={url} alt="" className="max-w-full max-h-full rounded-lg object-contain" />
+        if (url) return (
+          <img src={url} alt="" className="max-w-full max-h-full rounded-lg object-contain"
+            loading="eager"
+            onLoad={e => { (e.target as HTMLImageElement).style.opacity = '1' }}
+            style={{ opacity: 0, transition: 'opacity 0.3s ease' }} />
+        )
         return (
           <div className="w-full aspect-video rounded-lg flex items-center justify-center"
             style={{ background: 'rgba(0,0,0,0.08)', border: '1px dashed rgba(0,0,0,0.2)' }}>
@@ -580,16 +585,16 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
       )}
 
       {/* Question / heading + visualization */}
-      <div className="absolute inset-0 flex flex-col px-6 py-5">
+      <div className={`absolute inset-0 flex flex-col px-6 py-5${slide.type === 'title' ? ' justify-center items-center text-center' : ''}`}>
         {slide.type !== 'quote' && (
-          <p className="text-xl font-bold text-left leading-snug flex-shrink-0" style={{ color: textColor, fontFamily: 'var(--font-heading)' }}>
+          <p className={`font-bold leading-snug flex-shrink-0${slide.type === 'title' ? ' text-2xl' : ' text-xl text-left'}`} style={{ color: textColor, fontFamily: 'var(--font-heading)' }}>
             {getQuestionText()}
           </p>
         )}
 
         {/* Title slide: subheading directly below heading */}
         {slide.type === 'title' && (
-          <p className="text-sm opacity-60 text-left mt-1 flex-shrink-0" style={{ color: textColor }}>
+          <p className="text-sm opacity-60 mt-1 flex-shrink-0" style={{ color: textColor }}>
             {(slide as { subheading: string }).subheading || 'Subtitle goes here'}
           </p>
         )}
@@ -1296,11 +1301,15 @@ function SlideThumbnail({ slide, index, active, onClick }: {
         boxShadow: active ? `0 0 0 2px ${meta.color}30` : 'none',
       }}>
       {/* Mini 16:9 preview */}
-      <div className="w-full aspect-video rounded-t-lg flex items-center justify-center px-2 py-1.5 relative"
+      <div className="w-full aspect-video rounded-t-lg flex items-center justify-center px-2 py-1.5 relative overflow-hidden"
         style={{ background: gradient }}>
-        <p className="text-[9px] font-bold text-center leading-tight line-clamp-2" style={{ color: textColor }}>
-          {getLabel()}
-        </p>
+        {slide.type === 'image' && (slide as { imageUrl?: string }).imageUrl ? (
+          <img src={(slide as { imageUrl: string }).imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+        ) : (
+          <p className="text-[9px] font-bold text-center leading-tight line-clamp-2" style={{ color: textColor }}>
+            {getLabel()}
+          </p>
+        )}
         <span className="absolute top-1 left-1.5 text-[8px] font-black px-1 py-0.5 rounded"
           style={{ background: 'rgba(255,255,255,0.85)', color: '#0F1B3D' }}>
           {index + 1}
@@ -1423,6 +1432,7 @@ function PresentCreatePageInner() {
   const [saved, setSaved] = useState(false)
   const [pptxImporting, setPptxImporting] = useState(false)
   const [pptxProgress, setPptxProgress] = useState('')
+  const [pptxPercent, setPptxPercent] = useState(0)
   const [pptxImportedCount, setPptxImportedCount] = useState(0)
   const [enhanceOpen, setEnhanceOpen] = useState(false)
   const [showEnhancePrompt, setShowEnhancePrompt] = useState(false)
@@ -1598,19 +1608,33 @@ function PresentCreatePageInner() {
   async function importPptx(file: File) {
     if (file.size > 20 * 1024 * 1024) { alert('PPTX must be under 20 MB'); return }
     setPptxImporting(true)
-    setPptxProgress('Rendering slides...')
+    setPptxPercent(5)
+    setPptxProgress('Uploading file...')
     try {
       const formData = new FormData()
       formData.append('file', file)
+
+      // Simulate progress while server processes (rendering takes time)
+      setPptxPercent(10)
+      setPptxProgress('Converting slides...')
+      const progressTimer = setInterval(() => {
+        setPptxPercent(prev => Math.min(prev + 2, 85))
+      }, 1500)
+
       const res = await fetch('/api/parse-pptx', { method: 'POST', body: formData })
+      clearInterval(progressTimer)
+
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Import failed' }))
         throw new Error(err.error || 'PPTX import failed')
       }
+      setPptxPercent(90)
+      setPptxProgress('Loading slides...')
       const { slides: mappedSlides, title } = await res.json() as {
         slides: { suggestedType: 'image'; imageUrl: string; caption: string; aiContext?: string; originalIndex: number }[]
         title?: string
       }
+      setPptxPercent(95)
       setPptxProgress(`Creating ${mappedSlides.length} slides...`)
 
       const newSlides: Slide[] = mappedSlides.map(ms => ({
@@ -1633,11 +1657,13 @@ function PresentCreatePageInner() {
       setPptxImportedCount(prev => prev + newSlides.length)
       // Prompt to enhance with AI after import
       if (newSlides.length >= 3) setShowEnhancePrompt(true)
+      setPptxPercent(100)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'PPTX import failed')
     } finally {
       setPptxImporting(false)
       setPptxProgress('')
+      setPptxPercent(0)
     }
   }
 
@@ -1751,7 +1777,7 @@ function PresentCreatePageInner() {
                   <span className="text-[10px] font-semibold" style={{ color: '#0F1B3D' }}>{pptxProgress}</span>
                 </div>
                 <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: '#E2E8F0' }}>
-                  <div className="h-full rounded-full animate-pulse" style={{ width: '60%', background: '#4F46E5' }} />
+                  <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${pptxPercent}%`, background: '#4F46E5' }} />
                 </div>
               </div>
             ) : (
