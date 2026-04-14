@@ -1,6 +1,9 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import imageCompression from 'browser-image-compression'
+
+const MAX_INPUT_BYTES = 10 * 1024 * 1024
 
 interface ImageUploadProps {
   imageUrl?: string
@@ -12,13 +15,14 @@ interface ImageUploadProps {
 export function ImageUpload({ imageUrl, onUpload, onRemove, variant = 'question' }: ImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
+  const [compressing, setCompressing] = useState(false)
   const [error, setError] = useState('')
 
   async function handleFile(file: File) {
     setError('')
 
-    if (file.size > 2 * 1024 * 1024) {
-      setError('Max 2MB')
+    if (file.size > MAX_INPUT_BYTES) {
+      setError('Image too large (max 10MB). Try a smaller file.')
       return
     }
 
@@ -27,12 +31,30 @@ export function ImageUpload({ imageUrl, onUpload, onRemove, variant = 'question'
       return
     }
 
+    let uploadFile: File = file
+    if (file.type !== 'image/gif') {
+      setCompressing(true)
+      try {
+        uploadFile = await imageCompression(file, {
+          maxSizeMB: 1.5,
+          maxWidthOrHeight: 1920,
+          useWebWorker: true,
+          fileType: 'image/webp',
+          initialQuality: 0.85,
+        })
+      } catch {
+        uploadFile = file
+      } finally {
+        setCompressing(false)
+      }
+    }
+
     setUploading(true)
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 15000)
     try {
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', uploadFile)
       formData.append('context', variant)
 
       const res = await fetch('/api/upload-image', { method: 'POST', body: formData, signal: controller.signal })
@@ -89,7 +111,7 @@ export function ImageUpload({ imageUrl, onUpload, onRemove, variant = 'question'
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          disabled={uploading}
+          disabled={uploading || compressing}
           className="w-8 h-8 rounded-lg flex items-center justify-center border border-gray-200 hover:border-violet-300 hover:bg-violet-50 transition-colors flex-shrink-0"
           title="Add image to option"
         >
@@ -135,7 +157,7 @@ export function ImageUpload({ imageUrl, onUpload, onRemove, variant = 'question'
           </svg>
         )}
         <span className="text-sm text-gray-500">
-          {uploading ? 'Uploading...' : 'Add image (drag or click) — max 2MB'}
+          {compressing ? 'Compressing…' : uploading ? 'Uploading...' : 'Add image (drag or click) — max 10MB, auto-compressed'}
         </span>
       </div>
       <input

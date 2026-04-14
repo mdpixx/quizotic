@@ -112,14 +112,24 @@ function PollBar({ label, count, total, color }: { label: string; count: number;
 function WordCloud({ words }: { words: Record<string, number> }) {
   const entries = Object.entries(words).sort((a, b) => b[1] - a[1]).slice(0, 30)
   const max = entries[0]?.[1] ?? 1
-  const colors = ['#0F1B3D','#FF8A47','#0891B2','#16A34A','#EA580C','#6B8AFF']
+  const colors = ['#0F1B3D', '#FF8A47', '#0891B2', '#16A34A', '#EA580C', '#6B8AFF', '#DC2626', '#7C3AED']
+  // Interleave by rank so the biggest words land near the middle of the flex-wrap flow
+  const ordered: [string, number, number][] = []
+  entries.forEach(([w, c], i) => ordered.push([w, c, i]))
+  const arranged: [string, number, number][] = []
+  const mid = Math.floor(ordered.length / 2)
+  ordered.forEach((item, idx) => {
+    const offset = idx % 2 === 0 ? idx / 2 : -Math.ceil(idx / 2)
+    arranged[mid + offset] = item
+  })
   return (
-    <div className="flex flex-wrap gap-2 items-center justify-center min-h-[80px]">
-      {entries.map(([word, count], i) => {
-        const size = 14 + Math.round((count / max) * 26)
+    <div className="flex flex-wrap items-center justify-center w-full h-full gap-x-8 gap-y-3 px-6 py-4">
+      {arranged.filter(Boolean).map(([word, count, rank]) => {
+        const ratio = count / max
+        const size = 28 + Math.round(ratio * 82) // 28px → 110px range
         return (
-          <span key={word} className="font-bold leading-tight transition-all duration-500"
-            style={{ fontSize: size, color: colors[i % colors.length] }}>
+          <span key={word} className="font-black leading-none transition-all duration-500"
+            style={{ fontSize: size, color: colors[rank % colors.length], fontFamily: 'var(--font-heading)' }}>
             {word}
           </span>
         )
@@ -171,19 +181,13 @@ function LiveVerticalBars({
 
         return (
           <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%' }}>
-            {/* Correct badge or vote count */}
-            <div style={{ height: 32, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', marginBottom: 6 }}>
+            {/* Bar area: count label sits directly above the bar */}
+            <div style={{ flex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end' }}>
               {isCorrect ? (
-                <span style={{ color: '#16A34A', fontWeight: 900, fontSize: 22 }}>✓</span>
-              ) : count > 0 && (
-                <span style={{ color, fontWeight: 800, fontSize: 22, lineHeight: 1 }}>
-                  {count}
-                </span>
-              )}
-            </div>
-
-            {/* Bar grows from bottom */}
-            <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', width: '100%' }}>
+                <span style={{ color: '#16A34A', fontWeight: 900, fontSize: 22, lineHeight: 1, marginBottom: 4 }}>✓</span>
+              ) : count > 0 ? (
+                <span style={{ color, fontWeight: 800, fontSize: 22, lineHeight: 1, marginBottom: 4 }}>{count}</span>
+              ) : null}
               <div
                 style={{
                   width: '100%',
@@ -538,15 +542,19 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
     case 'pinpoint': {
       const pins = aggregate.pins ?? []
       return (
-        <div className="space-y-3">
-          <h2 className="text-2xl" style={headingStyle}>{slide.question}</h2>
-          <div className="relative rounded-2xl overflow-hidden border" style={{ aspectRatio: '4/3', background: slide.imageUrl ? '#000' : '#F3F4F6', borderColor: '#DBEAFE' }}>
-            {slide.imageUrl && <img src={slide.imageUrl} alt="" className="w-full h-full object-contain pointer-events-none" />}
-            {!slide.imageUrl && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <svg viewBox="0 0 24 24" className="w-12 h-12 opacity-10">
-                  <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <div className="flex flex-col h-full min-h-0 gap-3">
+          <h2 className="text-2xl flex-shrink-0" style={headingStyle}>{slide.question}</h2>
+          <div className="relative rounded-2xl overflow-hidden border flex-1 min-h-0 flex items-center justify-center"
+            style={{ background: slide.imageUrl ? '#000' : '#F3F4F6', borderColor: '#DBEAFE' }}>
+            {slide.imageUrl ? (
+              <img src={slide.imageUrl} alt="" className="max-w-full max-h-full object-contain pointer-events-none" />
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-2 text-center px-6">
+                <svg viewBox="0 0 24 24" className="w-12 h-12" style={{ color: '#94A3B8' }}>
+                  <path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinejoin="round" />
+                  <circle cx="12" cy="9" r="2.3" stroke="currentColor" strokeWidth="1.5" fill="none" />
                 </svg>
+                <p className="text-sm font-semibold" style={{ color: '#64748B' }}>No background image — edit the slide to upload one</p>
               </div>
             )}
             {showResults && pins.map((pin, i) => (
@@ -554,7 +562,16 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
                 style={{ left: `${pin.x}%`, top: `${pin.y}%`, background: VOTER_COLORS[i % VOTER_COLORS.length], opacity: 0.85 }} />
             ))}
           </div>
-          {showResults && <p className="text-sm text-center" style={{ color: '#9CA3AF' }}>{pins.length} pin{pins.length !== 1 ? 's' : ''} placed</p>}
+          <div className="flex-shrink-0 text-center">
+            {showResults ? (
+              <p className="text-sm" style={{ color: '#9CA3AF' }}>
+                <span className="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style={{ background: VOTER_COLORS[0] }} />
+                {pins.length} pin{pins.length !== 1 ? 's' : ''} placed
+              </p>
+            ) : slide.imageUrl ? (
+              <p className="text-sm font-semibold" style={{ color: '#64748B' }}>Participants: tap anywhere on the image to drop your pin</p>
+            ) : null}
+          </div>
         </div>
       )
     }

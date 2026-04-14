@@ -133,25 +133,36 @@ function PinpointInput({ imageUrl, onSubmit }: {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-center opacity-50" style={{ color: 'white' }}>Tap to place your pin</p>
-      <div ref={containerRef} onPointerDown={handleTap}
+      <div className="flex items-center justify-center gap-2 py-2 px-3 rounded-xl"
+        style={{ background: 'rgba(245,230,66,0.12)', border: '1px solid rgba(245,230,66,0.35)' }}>
+        <svg viewBox="0 0 24 24" className="w-4 h-4" style={{ color: '#F5E642' }}>
+          <path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinejoin="round" />
+          <circle cx="12" cy="9" r="2.3" stroke="currentColor" strokeWidth="1.8" fill="none" />
+        </svg>
+        <p className="text-sm font-bold" style={{ color: '#F5E642' }}>
+          {pin ? 'Tap again to move your pin' : 'Tap the image to drop your pin'}
+        </p>
+      </div>
+      <div ref={containerRef} onPointerDown={imageUrl ? handleTap : undefined}
         className="relative rounded-2xl overflow-hidden border"
         style={{
-          aspectRatio: '4/3', cursor: 'crosshair',
+          aspectRatio: '4/3', cursor: imageUrl ? 'crosshair' : 'not-allowed',
           background: imageUrl ? '#000' : 'rgba(255,255,255,0.05)',
           borderColor: 'rgba(255,255,255,0.15)',
         }}>
-        {imageUrl && <img src={imageUrl} alt="" className="w-full h-full object-contain pointer-events-none" />}
-        {!imageUrl && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <svg viewBox="0 0 24 24" className="w-8 h-8 opacity-20" style={{ color: 'white' }}>
-              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        {imageUrl ? (
+          <img src={imageUrl} alt="" className="w-full h-full object-contain pointer-events-none" />
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center">
+            <svg viewBox="0 0 24 24" className="w-8 h-8 opacity-30" style={{ color: 'white' }}>
+              <path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinejoin="round" />
             </svg>
+            <p className="text-xs opacity-50" style={{ color: 'white' }}>Waiting for image...</p>
           </div>
         )}
         {pin && (
-          <div className="absolute w-5 h-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white"
-            style={{ left: `${pin.x}%`, top: `${pin.y}%`, background: '#EF4444', boxShadow: '0 0 8px rgba(239,68,68,0.6)' }} />
+          <div className="absolute w-6 h-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white pointer-events-none"
+            style={{ left: `${pin.x}%`, top: `${pin.y}%`, background: '#EF4444', boxShadow: '0 0 12px rgba(239,68,68,0.7)' }} />
         )}
       </div>
       <button onClick={() => { if (pin) onSubmit(pin) }}

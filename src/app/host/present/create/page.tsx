@@ -8,6 +8,7 @@ import {
 } from '@/lib/presentation-types'
 import QRCode from 'react-qr-code'
 import { EnhanceWithAI } from '@/components/EnhanceWithAI'
+import { ImageUpload } from '@/components/ImageUpload'
 
 // ─── Slide type SVG icons ─────────────────────────────────────────────────────
 
@@ -352,26 +353,26 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
         const quadColors = ['#3B82F620', '#10B98120', '#F59E0B20', '#EF444420']
         const quadBorders = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444']
         return (
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="flex items-center gap-1 h-full" style={{ maxHeight: '100%' }}>
+          <div className="w-full h-full flex items-center justify-center p-2">
+            <div className="flex items-stretch gap-3 h-full w-full">
               {/* Y axis label */}
-              <div className="flex flex-col items-center justify-between h-full py-1 flex-shrink-0">
-                <span className="text-[8px] font-bold" style={{ color: '#64748B' }}>{s.yMax || 'High'}</span>
-                <span className="text-[8px] font-bold -rotate-90 whitespace-nowrap" style={{ color: '#94A3B8' }}>{s.yLabel || 'Y Axis'}</span>
-                <span className="text-[8px] font-bold" style={{ color: '#64748B' }}>{s.yMin || 'Low'}</span>
+              <div className="flex flex-col items-center justify-between py-2 flex-shrink-0" style={{ width: 40 }}>
+                <span className="text-sm font-bold" style={{ color: '#64748B' }}>{s.yMax || 'High'}</span>
+                <span className="text-sm font-bold whitespace-nowrap" style={{ color: '#94A3B8', writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>{s.yLabel || 'Y Axis'}</span>
+                <span className="text-sm font-bold" style={{ color: '#64748B' }}>{s.yMin || 'Low'}</span>
               </div>
-              {/* Grid */}
-              <div className="flex flex-col flex-1 min-w-0" style={{ aspectRatio: '1', maxHeight: '100%' }}>
-                <div className="grid grid-cols-2 gap-1 flex-1">
+              {/* Grid column takes all remaining space */}
+              <div className="flex-1 flex flex-col min-w-0">
+                <div className="grid grid-cols-2 gap-2 flex-1 min-h-0">
                   {quadColors.map((bg, i) => (
-                    <div key={i} className="rounded-lg" style={{ background: bg, border: `1.5px solid ${quadBorders[i]}30` }} />
+                    <div key={i} className="rounded-xl" style={{ background: bg, border: `2px solid ${quadBorders[i]}40` }} />
                   ))}
                 </div>
                 {/* X axis labels */}
-                <div className="flex justify-between mt-1 px-1">
-                  <span className="text-[8px] font-bold" style={{ color: '#64748B' }}>{s.xMin || 'Low'}</span>
-                  <span className="text-[8px] font-bold" style={{ color: '#94A3B8' }}>{s.xLabel || 'X Axis'}</span>
-                  <span className="text-[8px] font-bold" style={{ color: '#64748B' }}>{s.xMax || 'High'}</span>
+                <div className="flex justify-between mt-2 px-1 flex-shrink-0">
+                  <span className="text-sm font-bold" style={{ color: '#64748B' }}>{s.xMin || 'Low'}</span>
+                  <span className="text-sm font-bold" style={{ color: '#94A3B8' }}>{s.xLabel || 'X Axis'}</span>
+                  <span className="text-sm font-bold" style={{ color: '#64748B' }}>{s.xMax || 'High'}</span>
                 </div>
               </div>
             </div>
@@ -531,12 +532,27 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
 
       case 'pinpoint': {
         const url = (slide as { imageUrl?: string }).imageUrl
+        if (!url) {
+          return (
+            <div className="w-full h-full rounded-lg flex flex-col items-center justify-center gap-2 p-4 text-center"
+              style={{ background: viz.subtle, border: `1.5px dashed ${viz.track}` }}>
+              <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8" style={{ color: textColor, opacity: 0.35 }}>
+                <path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+                <circle cx="12" cy="9" r="2.3" stroke="currentColor" strokeWidth="1.6" />
+              </svg>
+              <p className="text-[11px] font-semibold" style={{ color: textColor, opacity: 0.7 }}>Upload a background image</p>
+              <p className="text-[10px]" style={{ color: textColor, opacity: 0.45 }}>Participants tap the image to drop their pin</p>
+            </div>
+          )
+        }
         return (
-          <div className="w-full aspect-video rounded-lg relative overflow-hidden"
-            style={{ background: url ? undefined : viz.subtle, border: `1px solid ${viz.track}` }}>
-            {url && <img src={url} alt="" className="w-full h-full object-cover" />}
-            <div className="absolute" style={{ top: '30%', left: '40%', width: 10, height: 10, borderRadius: '50%', background: '#EF4444', border: '2px solid #fff' }} />
-            <div className="absolute" style={{ top: '55%', left: '60%', width: 10, height: 10, borderRadius: '50%', background: '#3B82F6', border: '2px solid #fff' }} />
+          <div className="w-full h-full rounded-lg relative overflow-hidden flex items-center justify-center"
+            style={{ background: '#000', border: `1px solid ${viz.track}` }}>
+            <img src={url} alt="" className="max-w-full max-h-full object-contain" />
+            <div className="absolute bottom-1 left-1 right-1 text-center px-2 py-0.5 rounded"
+              style={{ background: 'rgba(0,0,0,0.55)' }}>
+              <span className="text-[9px] font-semibold text-white">Participants tap to drop a pin</span>
+            </div>
           </div>
         )
       }
@@ -1049,53 +1065,24 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
         <div>
           <label className={labelClass} style={labelStyle}>Question</label>
           <textarea className={inputClass} style={inputStyle} rows={2} value={slide.question}
-            onChange={e => update({ question: e.target.value })} placeholder="Where on the image is...?" />
+            onChange={e => update({ question: e.target.value })} placeholder="e.g. Tap where the Taj Mahal is on this map" />
         </div>
         <div>
-          <label className={labelClass} style={labelStyle}>Background image (optional)</label>
-          <div className="flex gap-2">
-            <input className={inputClass} style={{ ...inputStyle, flex: 1 }} value={slide.imageUrl?.startsWith('data:') ? '(uploaded image)' : slide.imageUrl ?? ''}
-              onChange={e => update({ imageUrl: e.target.value || undefined })}
-              placeholder="https://example.com/diagram.jpg"
-              readOnly={slide.imageUrl?.startsWith('data:')} />
-            <label className="px-4 py-2 rounded-lg text-sm font-bold cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5 flex-shrink-0"
-              style={{ background: '#F3F4F6', color: '#0F1B3D', border: '1.5px solid #DBEAFE' }}>
-              <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4">
-                <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-              Upload
-              <input type="file" accept="image/*" className="hidden" onChange={async e => {
-                const file = e.target.files?.[0]
-                if (!file) return
-                if (file.size > 2 * 1024 * 1024) { alert('Image must be under 2 MB'); return }
-                const form = new FormData()
-                form.append('file', file)
-                try {
-                  const res = await fetch('/api/upload-image', { method: 'POST', body: form })
-                  const data = await res.json()
-                  if (data.success) update({ imageUrl: data.url })
-                  else alert('Upload failed')
-                } catch { alert('Upload failed') }
-                e.target.value = ''
-              }} />
-            </label>
-            {slide.imageUrl && (
-              <button onClick={() => update({ imageUrl: undefined })}
-                className="px-3 py-2 rounded-lg text-sm font-bold transition-colors hover:bg-red-50 flex-shrink-0"
-                style={{ color: '#EF4444', border: '1.5px solid #FCA5A5' }}>
-                x
-              </button>
-            )}
-          </div>
-          <p className="text-xs mt-1.5" style={{ color: '#9CA3AF' }}>
-            Paste a URL or upload an image (max 2 MB). Leave blank for a plain canvas.
+          <label className={labelClass} style={labelStyle}>Background image <span className="text-red-500">*</span></label>
+          <p className="text-xs mb-2" style={{ color: '#9CA3AF' }}>
+            Required — participants tap this image to drop their pin. Use a map, diagram, photo, or chart.
           </p>
+          <ImageUpload
+            imageUrl={slide.imageUrl}
+            onUpload={url => update({ imageUrl: url })}
+            onRemove={() => update({ imageUrl: undefined })}
+          />
+          {!slide.imageUrl && (
+            <p className="text-xs mt-2 font-semibold" style={{ color: '#EF4444' }}>
+              Add an image — pinpoint needs something to pin.
+            </p>
+          )}
         </div>
-        {slide.imageUrl && (
-          <div className="rounded-xl overflow-hidden border" style={{ borderColor: '#E2E8F0' }}>
-            <img src={slide.imageUrl} alt="Pinpoint background" className="w-full object-contain max-h-40" />
-          </div>
-        )}
       </div>
     )
 

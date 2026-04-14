@@ -8,7 +8,7 @@ import { getUserPlan } from '@/lib/billing'
 import { PLAN_LIMITS } from '@/lib/limits'
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-const MAX_SIZE = 2 * 1024 * 1024 // 2MB
+const MAX_SIZE = 10 * 1024 * 1024 // 10MB (client compresses JPEG/PNG/WebP before upload; GIFs pass through)
 
 function getR2Client(): S3Client {
   return new S3Client({
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
   // Validate file size
   if (file.size > MAX_SIZE) {
     return NextResponse.json(
-      { success: false, error: 'File too large. Maximum size is 2MB.' },
+      { success: false, error: 'File too large. Maximum size is 10MB.' },
       { status: 400 },
     )
   }
