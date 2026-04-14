@@ -19,6 +19,7 @@
     "@dicebear/pixel-art": "^9.4.2",
     "@prisma/adapter-pg": "^7.6.0",
     "@prisma/client": "^7.6.0",
+    "browser-image-compression": "^2.0.2",
     "framer-motion": "^12.38.0",
     "jszip": "^3.10.1",
     "mammoth": "^1.12.0",
