@@ -150,7 +150,7 @@ export default function OnboardPage() {
             onChange={e => setOrganization(e.target.value)}
             placeholder="e.g. Delhi Public School, Infosys, IIT Delhi"
             className="w-full px-4 py-3 rounded-xl text-sm border focus:outline-none focus:ring-2 transition-all"
-            style={{ borderColor: '#E5E7EB', color: '#0F1B3D', '--tw-ring-color': 'rgba(245,230,66,0.4)' } as React.CSSProperties}
+            style={{ background: '#fff', borderColor: '#E5E7EB', color: '#0F1B3D', '--tw-ring-color': 'rgba(245,230,66,0.4)' } as React.CSSProperties}
           />
         </div>
 
@@ -185,7 +185,7 @@ export default function OnboardPage() {
                 onChange={e => setReferralCode(e.target.value)}
                 placeholder="e.g. priya-k7x2"
                 className="w-full px-4 py-3 rounded-xl text-sm border focus:outline-none focus:ring-2 transition-all"
-                style={{ borderColor: '#E5E7EB', color: '#0F1B3D', '--tw-ring-color': 'rgba(245,230,66,0.4)' } as React.CSSProperties}
+                style={{ background: '#fff', borderColor: '#E5E7EB', color: '#0F1B3D', '--tw-ring-color': 'rgba(245,230,66,0.4)' } as React.CSSProperties}
               />
             </div>
           )}
