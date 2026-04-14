@@ -53,7 +53,7 @@ function buildMagicLinkHtml(url: string): string {
         </td></tr>
         <!-- Footer -->
         <tr><td style="background:#F8FAFC;padding:16px 32px;border-top:1px solid #E2E8F0;">
-          <p style="margin:0;font-size:12px;color:#94A3B8;text-align:center;">Quizotic — Live quizzes &amp; interactive presentations<br><a href="https://quizotic.live" style="color:#64748B;text-decoration:none;">quizotic.live</a></p>
+          <p style="margin:0;font-size:12px;color:#94A3B8;text-align:center;">Quizotic — Live quizzes &amp; interactive presentations<br><a href="https://www.quizotic.live" style="color:#64748B;text-decoration:none;">quizotic.live</a></p>
         </td></tr>
       </table>
     </td></tr>
@@ -114,7 +114,7 @@ function buildWelcomeHtml(name: string | null): string {
         </div>
       </td></tr>
       <tr><td style="padding:32px 36px 12px;"><table cellpadding="0" cellspacing="0" width="100%"><tr><td align="center">
-        <a href="https://quizotic.live/host" style="display:inline-block;background:#F5E642;color:#0D0D0D;text-decoration:none;padding:17px 44px;border-radius:12px;font-size:16px;font-weight:900;border:2px solid #0D0D0D;letter-spacing:0.2px;">Create your first lesson →</a>
+        <a href="https://www.quizotic.live/host" style="display:inline-block;background:#F5E642;color:#0D0D0D;text-decoration:none;padding:17px 44px;border-radius:12px;font-size:16px;font-weight:900;border:2px solid #0D0D0D;letter-spacing:0.2px;">Create your first lesson →</a>
       </td></tr></table>
       <p style="margin:18px 0 0;font-size:12px;color:#94A3B8;text-align:center;">⏱ Takes under 2 minutes · AI can draft the questions for you</p>
       </td></tr>
@@ -133,9 +133,9 @@ function buildWelcomeHtml(name: string | null): string {
       </td></tr>
       <tr><td style="background:#0F1B3D;padding:22px 36px;">
         <p style="margin:0;font-size:12px;color:#94A3B8;text-align:center;line-height:1.6;">
-          <a href="https://quizotic.live" style="color:#F5E642;text-decoration:none;font-weight:700;">quizotic.live</a>
-          &nbsp;·&nbsp; <a href="https://quizotic.live/host" style="color:#CBD5E1;text-decoration:none;">Dashboard</a>
-          &nbsp;·&nbsp; <a href="https://quizotic.live/pricing" style="color:#CBD5E1;text-decoration:none;">Pricing</a>
+          <a href="https://www.quizotic.live" style="color:#F5E642;text-decoration:none;font-weight:700;">quizotic.live</a>
+          &nbsp;·&nbsp; <a href="https://www.quizotic.live/host" style="color:#CBD5E1;text-decoration:none;">Dashboard</a>
+          &nbsp;·&nbsp; <a href="https://www.quizotic.live/pricing" style="color:#CBD5E1;text-decoration:none;">Pricing</a>
         </p>
         <p style="margin:10px 0 0;font-size:11px;color:#64748B;text-align:center;">You're receiving this because you signed up at quizotic.live</p>
       </td></tr>
