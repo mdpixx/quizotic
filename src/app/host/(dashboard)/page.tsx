@@ -10,7 +10,7 @@ import {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface AnalyticsData {
-  summary: { totalSessions: number; totalParticipants: number; avgScore: number | null; completionRate: number | null }
+  summary: { totalSessions: number; totalParticipants: number; avgScore: number | null; completionRate: number | null; presentationCount: number; presentationSessionCount: number }
   trend: Array<{ date: string; sessions: number; participants: number; avgScore: number | null }>
   recentSessions: Array<{ id: string; type: string; title: string; date: string; participants: number; avgScore: number | null; completionPct: number | null; duration: number | null; status: string }>
   confidenceGrid: { sureCorrect: number; sureWrong: number; unsureCorrect: number; unsureWrong: number }
@@ -240,12 +240,13 @@ export default function HostDashboard() {
       </div>
 
       {/* ── KPI strip ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         {[
-          { icon: '⚡', label: 'Total Sessions', value: loading ? '—' : s?.totalSessions ?? 0, color: '#0F1B3D' },
-          { icon: '👥', label: 'Participants', value: loading ? '—' : s?.totalParticipants ?? 0, color: '#7C3AED' },
-          { icon: '🎯', label: 'Avg Score', value: loading ? '—' : s?.avgScore != null ? `${s.avgScore}%` : 'N/A', color: '#D97706' },
-          { icon: '✅', label: 'Completion Rate', value: loading ? '—' : s?.completionRate != null ? `${s.completionRate}%` : 'N/A', color: '#059669' },
+          { icon: '⚡', label: 'Total Sessions', value: loading ? '—' : s?.totalSessions ?? 0, color: '#0F1B3D', subtitle: null as string | null },
+          { icon: '👥', label: 'Participants', value: loading ? '—' : s?.totalParticipants ?? 0, color: '#7C3AED', subtitle: null },
+          { icon: '🎯', label: 'Avg Score', value: loading ? '—' : s?.avgScore != null ? `${s.avgScore}%` : 'N/A', color: '#D97706', subtitle: null },
+          { icon: '✅', label: 'Completion Rate', value: loading ? '—' : s?.completionRate != null ? `${s.completionRate}%` : 'N/A', color: '#059669', subtitle: null },
+          { icon: '📽', label: 'Presentations', value: loading ? '—' : s?.presentationCount ?? 0, color: '#0EA5E9', subtitle: loading ? null : `${s?.presentationSessionCount ?? 0} sessions run` },
         ].map((kpi, i) => (
           <motion.div key={kpi.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
             className="rounded-2xl p-4 border flex items-center gap-3" style={{ background: '#fff', borderColor: '#E2E8F0' }}>
@@ -253,6 +254,7 @@ export default function HostDashboard() {
             <div>
               <p className="text-2xl font-black leading-tight" style={{ fontFamily: 'var(--font-heading)', color: kpi.color }}>{kpi.value}</p>
               <p className="text-xs font-semibold mt-0.5" style={{ color: '#64748B' }}>{kpi.label}</p>
+              {kpi.subtitle && <p className="text-[10px] font-medium mt-0.5" style={{ color: '#94A3B8' }}>{kpi.subtitle}</p>}
             </div>
           </motion.div>
         ))}

@@ -44,6 +44,13 @@ export async function GET(request: Request) {
   const since = new Date(Date.now() - range * 24 * 60 * 60 * 1000)
   const userId = session.user.id
 
+  const [presentationCount, presentationSessionCount] = await Promise.all([
+    prisma.presentation.count({ where: { userId } }),
+    prisma.gameSession.count({
+      where: { userId, presentationId: { not: null }, createdAt: { gte: since } },
+    }),
+  ])
+
   const sessions = await prisma.gameSession.findMany({
     where: { userId, createdAt: { gte: since } },
     orderBy: { createdAt: 'desc' },
@@ -264,7 +271,7 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json({
-    summary: { totalSessions, totalParticipants, avgScore, completionRate },
+    summary: { totalSessions, totalParticipants, avgScore, completionRate, presentationCount, presentationSessionCount },
     trend,
     recentSessions,
     confidenceGrid,

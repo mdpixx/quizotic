@@ -66,6 +66,19 @@ export default function SessionPage() {
   const [plan, setPlan] = useState<'free' | 'pro'>('free')
   const [questionStartedAt, setQuestionStartedAt] = useState<number | null>(null)
   const [rankingSubmissions, setRankingSubmissions] = useState<number[][]>([])
+  const [attendees, setAttendees] = useState<Array<{ joinedAt: string; leftAt: string | null; durationSec: number | null }>>([])
+
+  useEffect(() => {
+    if (phase !== 'ended' || !gameCode) return
+    let cancelled = false
+    fetch(`/api/sessions/${gameCode}/attendees`)
+      .then(r => r.ok ? r.json() : null)
+      .then(json => {
+        if (!cancelled && json?.success && Array.isArray(json.data)) setAttendees(json.data)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [phase, gameCode])
 
   const currentQuestion = quiz?.questions[questionIndex] ?? null
 
@@ -757,6 +770,7 @@ export default function SessionPage() {
             quizTitle={quiz?.title}
             participantCount={leaderboard.length}
             sessionDate={new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
+            attendees={attendees}
           />
 
           {/* Reflection Insights */}

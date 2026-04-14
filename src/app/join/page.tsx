@@ -291,6 +291,8 @@ function JoinPageInner() {
   const [rankingOrder, setRankingOrder] = useState<number[]>([])
   const rankingSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [showEmailInput, setShowEmailInput] = useState(false)
   const [error, setError] = useState('')
   const [quizTitle, setQuizTitle] = useState('')
 
@@ -650,6 +652,7 @@ function JoinPageInner() {
       socket.emit('join_presenter_session', {
         gameCode: trimmedCode,
         displayName: trimmedName,
+        email: email.trim() || undefined,
       }, (res: {
         success: boolean; error?: string;
         presentationTitle?: string;
@@ -706,6 +709,7 @@ function JoinPageInner() {
     socket.emit(joinEvent, {
       gameCode: trimmedCode,
       displayName: trimmedName,
+      email: email.trim() || undefined,
     }, (res: { success: boolean; error?: string; status?: string; quizTitle?: string; archetype?: string; sessionMode?: 'competitive' | 'reflection'; anonymousMode?: boolean; team?: { index: number; name: string; color: string } | null; presentationTitle?: string; currentSlideIndex?: number; totalSlides?: number; currentSlide?: unknown; responseMode?: string }) => {
       if (settled) return
       settled = true
@@ -902,6 +906,32 @@ function JoinPageInner() {
               } as React.CSSProperties}
               maxLength={24}
             />
+            {!showEmailInput ? (
+              <button
+                type="button"
+                onClick={() => setShowEmailInput(true)}
+                className="text-sm underline"
+                style={{ color: 'rgba(255,255,255,0.45)' }}
+              >
+                Add email (optional, for attendance)
+              </button>
+            ) : (
+              <input
+                type="email"
+                placeholder="you@example.com (optional)"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                disabled={phase === 'connecting'}
+                className="w-full rounded-xl px-5 py-3 text-base outline-none transition-all placeholder:text-white/30 focus:ring-2"
+                style={{
+                  background: 'rgba(255,255,255,0.07)',
+                  border: '1.5px solid rgba(255,255,255,0.12)',
+                  color: 'white',
+                  '--tw-ring-color': 'rgba(245,230,66,0.4)',
+                } as React.CSSProperties}
+                maxLength={120}
+              />
+            )}
             {error && <p className="text-red-400 text-lg text-center">{error}</p>}
             <button
               type="submit"

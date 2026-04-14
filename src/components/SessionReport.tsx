@@ -79,6 +79,12 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;')
 }
 
+interface AttendeeSummary {
+  joinedAt: string | Date
+  leftAt?: string | Date | null
+  durationSec?: number | null
+}
+
 interface SessionReportProps {
   questionStats: QuestionStat[]
   quizTitle?: string
@@ -86,9 +92,65 @@ interface SessionReportProps {
   sessionDate?: string
   plan?: 'free' | 'pro'
   sessionId?: string
+  attendees?: AttendeeSummary[]
 }
 
-export function SessionReport({ questionStats, quizTitle, participantCount, sessionDate, plan = 'free', sessionId }: SessionReportProps) {
+function formatDuration(totalSec: number): string {
+  const s = Math.max(0, Math.round(totalSec))
+  const m = Math.floor(s / 60)
+  const r = s % 60
+  return `${m} min ${r} sec`
+}
+
+function formatTime(d: Date): string {
+  return d.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
+
+function AttendanceSummary({ attendees }: { attendees: AttendeeSummary[] }) {
+  if (!attendees || attendees.length === 0) return null
+
+  const durations = attendees.map(a => a.durationSec).filter((v): v is number => typeof v === 'number')
+  const avgSec = durations.length > 0 ? durations.reduce((s, v) => s + v, 0) / durations.length : 0
+
+  const joinTimes = attendees.map(a => new Date(a.joinedAt).getTime()).filter(n => !Number.isNaN(n))
+  const earliestJoin = joinTimes.length > 0 ? new Date(Math.min(...joinTimes)) : null
+
+  const leftTimes = attendees.map(a => a.leftAt ? new Date(a.leftAt).getTime() : NaN).filter(n => !Number.isNaN(n))
+  const anyStillIn = attendees.some(a => !a.leftAt)
+  const latestLeave = !anyStillIn && leftTimes.length > 0 ? new Date(Math.max(...leftTimes)) : null
+
+  return (
+    <div className="mt-4 mb-5 rounded-xl border border-gray-200 bg-white p-4">
+      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Attendance</p>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div>
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Total Attendees</p>
+          <p className="text-2xl font-black text-gray-900">{attendees.length}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Avg Duration</p>
+          <p className="text-2xl font-black text-gray-900">{durations.length > 0 ? formatDuration(avgSec) : '—'}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Earliest Join</p>
+          <p className="text-sm font-bold text-gray-900 mt-1">{earliestJoin ? formatTime(earliestJoin) : '—'}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Latest Leave</p>
+          <p className="text-sm font-bold text-gray-900 mt-1">{latestLeave ? formatTime(latestLeave) : 'in progress'}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function SessionReport({ questionStats, quizTitle, participantCount, sessionDate, plan = 'free', sessionId, attendees }: SessionReportProps) {
   if (!questionStats || questionStats.length === 0) return null
 
   const scoredStats = questionStats.filter(q => !q.isNonScored && q.correctPct != null)
@@ -357,6 +419,8 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
           </button>
         </div>
       </div>
+
+      {attendees && attendees.length > 0 && <AttendanceSummary attendees={attendees} />}
 
       <BloomsDistribution stats={questionStats} />
 

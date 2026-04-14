@@ -1436,6 +1436,8 @@ function PresentCreatePageInner() {
   const [activeIndex, setActiveIndex] = useState(0)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [starting, setStarting] = useState(false)
+  const [startError, setStartError] = useState<string | null>(null)
   const [pptxImporting, setPptxImporting] = useState(false)
   const [pptxProgress, setPptxProgress] = useState('')
   const [pptxPercent, setPptxPercent] = useState(0)
@@ -1532,11 +1534,12 @@ function PresentCreatePageInner() {
   async function savePresentation() {
     setSaving(true)
     try {
-      await fetch('/api/presentations', {
+      const res = await fetch('/api/presentations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(presentation),
       })
+      if (!res.ok) throw new Error(`Save failed (${res.status})`)
       const existing = JSON.parse(localStorage.getItem('quizotic_presentations') ?? '[]')
       const idx = existing.findIndex((p: Presentation) => p.id === presentation.id)
       if (idx >= 0) existing[idx] = presentation
@@ -1576,6 +1579,22 @@ function PresentCreatePageInner() {
     localStorage.setItem('quizotic_active_presentation', JSON.stringify(presentation))
     lastSavedRef.current = JSON.stringify(presentation)
     router.push('/host/present/session')
+  }
+
+  async function handleSaveAndPresent() {
+    if (starting) return
+    setStarting(true)
+    setStartError(null)
+    try {
+      await savePresentation()
+      startPresentation()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to save. Please try again.'
+      setStartError(msg)
+      if (typeof window !== 'undefined') window.alert(msg)
+    } finally {
+      setStarting(false)
+    }
   }
 
   // Mark as loaded
@@ -1807,10 +1826,15 @@ function PresentCreatePageInner() {
                 </span>
               ) : saved ? 'Saved' : 'Save'}
             </button>
-            <button onClick={async () => { await savePresentation(); startPresentation() }}
-              className="text-xs md:text-sm font-bold px-3 py-1.5 md:px-5 md:py-2 rounded-xl transition-all hover:scale-[1.02] click-bounce"
+            <button onClick={handleSaveAndPresent} disabled={starting}
+              className="text-xs md:text-sm font-bold px-3 py-1.5 md:px-5 md:py-2 rounded-xl transition-all hover:scale-[1.02] click-bounce disabled:opacity-60"
               style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}>
-              <span className="hidden sm:inline">Save & </span>Present
+              {starting ? (
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  Saving…
+                </span>
+              ) : (<><span className="hidden sm:inline">Save & </span>Present</>)}
             </button>
           </div>
         </div>
@@ -2449,10 +2473,11 @@ function PresentCreatePageInner() {
               Start presenting first, then share the 6-digit code with participants.
             </div>
             <button
-              onClick={async () => { setShareOpen(false); await savePresentation(); startPresentation() }}
-              className="w-full py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 click-bounce"
+              onClick={async () => { setShareOpen(false); await handleSaveAndPresent() }}
+              disabled={starting}
+              className="w-full py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 click-bounce disabled:opacity-60"
               style={{ background: '#0F1B3D', color: '#F5E642' }}
-            >&#9654; Save &amp; Present</button>
+            >{starting ? 'Saving…' : <>&#9654; Save &amp; Present</>}</button>
           </div>
         </>
       )}

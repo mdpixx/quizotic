@@ -180,8 +180,28 @@ model GameSession {
   quiz         Quiz?         @relation(fields: [quizId], references: [id])
   presentation Presentation? @relation(fields: [presentationId], references: [id])
   user         User?         @relation(fields: [userId], references: [id])
+  attendees    Attendee[]
 
   @@index([userId])
+}
+
+model Attendee {
+  id          String      @id @default(cuid())
+  sessionId   String
+  session     GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  nickname    String
+  realName    String?
+  email       String?
+  archetype   String?
+  socketId    String?
+  joinedAt    DateTime    @default(now())
+  leftAt      DateTime?
+  durationSec Int?
+  finalScore  Int         @default(0)
+  team        String?
+
+  @@index([sessionId])
+  @@index([email])
 }
 
 // ─── Referral (reward tracking) ─────────────────────────────────

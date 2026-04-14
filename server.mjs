@@ -4,6 +4,7 @@ import { Server } from 'socket.io'
 import { assignArchetype } from './src/lib/archetypes.mjs'
 import pg from 'pg'
 import { parse as parseCookie } from 'cookie'
+import { randomUUID } from 'crypto'
 
 // ─── Startup env var validation ────────────────────────────────
 if (process.env.NODE_ENV === 'production') {
@@ -29,19 +30,117 @@ if (process.env.DATABASE_URL) {
 
 async function persistGameSession(data, attempt = 1) {
   if (!dbPool) return
-  const { code, type, quizId, presentationId, userId, hostName, status, participantCount, results } = data
+  const { code, type, quizId, presentationId, userId, hostName, status, participantCount, results, sessionId } = data
   try {
-    await dbPool.query(
-      `INSERT INTO "GameSession" (id, code, type, "quizId", "presentationId", "userId", "hostName", status, "participantCount", results, "createdAt", "endedAt")
-       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, now(), now())`,
-      [code, type, quizId || null, presentationId || null, userId || null, hostName || null, status, participantCount, JSON.stringify(results)]
-    )
+    if (sessionId) {
+      // Row was pre-created at first-join; update with final results.
+      await dbPool.query(
+        `UPDATE "GameSession"
+         SET status = $1, "participantCount" = $2, results = $3::jsonb, "endedAt" = now()
+         WHERE id = $4`,
+        [status, participantCount, JSON.stringify(results), sessionId]
+      )
+    } else {
+      await dbPool.query(
+        `INSERT INTO "GameSession" (id, code, type, "quizId", "presentationId", "userId", "hostName", status, "participantCount", results, "createdAt", "endedAt")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, now(), now())`,
+        [randomUUID(), code, type, quizId || null, presentationId || null, userId || null, hostName || null, status, participantCount, JSON.stringify(results)]
+      )
+    }
     console.log(`[db] persisted ${type} session: ${code}`)
   } catch (err) {
     console.error(`[db] session persist failed (attempt ${attempt}):`, err.message)
     if (attempt < 3) {
       setTimeout(() => persistGameSession(data, attempt + 1), attempt * 2000)
     }
+  }
+}
+
+// Lazily insert a GameSession row the first time a participant joins so
+// per-attendee inserts can reference it. Returns the row id (or null on failure).
+async function ensureGameSessionRow(session, code, type) {
+  if (!dbPool) return null
+  if (session.dbId) return session.dbId
+  if (session._dbInsertPromise) return session._dbInsertPromise
+  const id = randomUUID()
+  session._dbInsertPromise = (async () => {
+    try {
+      await dbPool.query(
+        `INSERT INTO "GameSession" (id, code, type, "quizId", "presentationId", "userId", "hostName", status, "participantCount", "createdAt")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'active', 0, now())`,
+        [
+          id,
+          code,
+          type,
+          type === 'quiz' ? (session.quizData?.id || null) : null,
+          type === 'presentation' ? (session.presentationData?.id || null) : null,
+          session.userId || null,
+          session.hostName || null,
+        ]
+      )
+      session.dbId = id
+      return id
+    } catch (err) {
+      console.error('[db] ensureGameSessionRow failed:', err.message)
+      session._dbInsertPromise = null
+      return null
+    }
+  })()
+  return session._dbInsertPromise
+}
+
+function sanitizeEmail(raw) {
+  if (!raw || typeof raw !== 'string') return null
+  const trimmed = raw.trim().toLowerCase().slice(0, 120)
+  if (!trimmed) return null
+  if (!/.+@.+\..+/.test(trimmed)) return null
+  return trimmed
+}
+
+async function insertAttendee(sessionDbId, { nickname, realName, email, archetype, socketId }) {
+  if (!dbPool || !sessionDbId) return null
+  try {
+    const id = randomUUID()
+    await dbPool.query(
+      `INSERT INTO "Attendee" (id, "sessionId", nickname, "realName", email, archetype, "socketId", "joinedAt", "finalScore")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, now(), 0)`,
+      [id, sessionDbId, nickname, realName || null, email || null, archetype || null, socketId || null]
+    )
+    return id
+  } catch (err) {
+    console.error('[db] attendee insert failed:', err.message)
+    return null
+  }
+}
+
+async function updateAttendeeOnLeave(attendeeId, joinedAt) {
+  if (!dbPool || !attendeeId) return
+  try {
+    const durationSec = joinedAt ? Math.round((Date.now() - new Date(joinedAt).getTime()) / 1000) : null
+    await dbPool.query(
+      `UPDATE "Attendee" SET "leftAt" = COALESCE("leftAt", now()), "durationSec" = COALESCE("durationSec", $1) WHERE id = $2`,
+      [durationSec, attendeeId]
+    )
+  } catch (err) {
+    console.error('[db] attendee leave update failed:', err.message)
+  }
+}
+
+async function finalizeAttendee(attendeeId, { joinedAt, finalScore, team }) {
+  if (!dbPool || !attendeeId) return
+  try {
+    const durationSec = joinedAt ? Math.round((Date.now() - new Date(joinedAt).getTime()) / 1000) : null
+    await dbPool.query(
+      `UPDATE "Attendee"
+       SET "leftAt" = COALESCE("leftAt", now()),
+           "durationSec" = COALESCE("durationSec", $1),
+           "finalScore" = $2,
+           team = $3
+       WHERE id = $4`,
+      [durationSec, Number(finalScore) || 0, team || null, attendeeId]
+    )
+  } catch (err) {
+    console.error('[db] attendee finalize failed:', err.message)
   }
 }
 
@@ -266,6 +365,7 @@ app.prepare().then(() => {
           hostName: session.hostName || null,
           status: 'ended',
           participantCount: session.participants.size,
+          sessionId: session.dbId || null,
           results: {
             leaderboard,
             teamLeaderboard,
@@ -293,7 +393,7 @@ app.prepare().then(() => {
       })
     })
 
-    socket.on('end_session', ({ gameCode }) => {
+    socket.on('end_session', async ({ gameCode }) => {
       const session = sessions.get(gameCode)
       if (!session || session.hostSocketId !== socket.id) return
 
@@ -309,6 +409,20 @@ app.prepare().then(() => {
       socket.to(`session:${gameCode}`).emit('session_ended', { leaderboard, teamLeaderboard, sessionMode: session.sessionMode })
       console.log(`[session] force-ended: ${gameCode}`)
 
+      // Finalize Attendee rows for every still-tracked participant.
+      if (session.dbId) {
+        const updates = []
+        for (const p of session.participants.values()) {
+          if (!p.attendeeId) continue
+          updates.push(finalizeAttendee(p.attendeeId, {
+            joinedAt: p.joinedAt,
+            finalScore: p.score || 0,
+            team: p.team?.name || null,
+          }).catch(console.error))
+        }
+        await Promise.all(updates)
+      }
+
       // Persist to DB (with retry)
       persistGameSession({
         code: gameCode,
@@ -319,6 +433,7 @@ app.prepare().then(() => {
         hostName: session.hostName || null,
         status: 'ended',
         participantCount: session.participants.size,
+        sessionId: session.dbId || null,
         results: {
           leaderboard,
           teamLeaderboard,
@@ -470,7 +585,7 @@ app.prepare().then(() => {
       io.to(`session:${gameCode}`).emit('presenter_results_revealed', agg)
     })
 
-    socket.on('end_presenter_session', ({ gameCode }) => {
+    socket.on('end_presenter_session', async ({ gameCode }) => {
       const session = sessions.get(gameCode)
       if (!session || session.hostSocketId !== socket.id || session.type !== 'presenter') return
 
@@ -485,6 +600,20 @@ app.prepare().then(() => {
 
       io.to(`session:${gameCode}`).emit('presenter_ended')
 
+      // Finalize Attendee rows for presenter participants.
+      if (session.dbId) {
+        const updates = []
+        for (const p of session.participants.values()) {
+          if (!p.attendeeId) continue
+          updates.push(finalizeAttendee(p.attendeeId, {
+            joinedAt: p.joinedAt,
+            finalScore: 0,
+            team: null,
+          }).catch(console.error))
+        }
+        await Promise.all(updates)
+      }
+
       // Persist to DB (with retry)
       persistGameSession({
         code: gameCode,
@@ -495,6 +624,7 @@ app.prepare().then(() => {
         hostName: session.hostName || null,
         status: 'ended',
         participantCount: session.participants.size,
+        sessionId: session.dbId || null,
         results: {
           aggregates: session.aggregates,
           presentationTitle: session.presentationData.title,
@@ -507,7 +637,7 @@ app.prepare().then(() => {
       console.log(`[presenter] ended: ${gameCode}`)
     })
 
-    socket.on('join_presenter_session', async ({ gameCode, displayName }, callback) => {
+    socket.on('join_presenter_session', async ({ gameCode, displayName, email }, callback) => {
       const session = sessions.get(gameCode)
       if (!session || session.type !== 'presenter') {
         callback({ success: false, error: 'Presenter session not found.' })
@@ -529,14 +659,33 @@ app.prepare().then(() => {
       }
 
       const safeName = String(displayName ?? '').slice(0, 30).trim() || 'Anonymous'
+      const safeEmail = sanitizeEmail(email)
       const archetype = assignArchetype()
       const participant = {
         name: safeName,
         archetype,
         votedSlides: {},
+        joinedAt: new Date(),
       }
       session.participants.set(socket.id, participant)
       socket.join(`session:${gameCode}`)
+
+      // Persist attendee record (best-effort, don't block join on DB error).
+      try {
+        const dbId = await ensureGameSessionRow(session, gameCode, 'presentation')
+        if (dbId) {
+          const attendeeId = await insertAttendee(dbId, {
+            nickname: safeName,
+            realName: safeName,
+            email: safeEmail,
+            archetype,
+            socketId: socket.id,
+          })
+          if (attendeeId) participant.attendeeId = attendeeId
+        }
+      } catch (err) {
+        console.error('[db] presenter attendee persist failed:', err)
+      }
 
       const currentSlide = session.presentationData.slides[session.currentSlideIndex]
 
@@ -620,7 +769,7 @@ app.prepare().then(() => {
 
     // ─── PARTICIPANT EVENTS ─────────────────────────────────────────
 
-    socket.on('join_session', async ({ gameCode: rawCode, displayName }, callback) => {
+    socket.on('join_session', async ({ gameCode: rawCode, displayName, email }, callback) => {
       const gameCode = String(rawCode ?? '').trim()
       const session = sessions.get(gameCode)
 
@@ -688,9 +837,27 @@ app.prepare().then(() => {
         session.teamJoinCounter++
       }
 
-      const participant = { name: displayStoredName, realName: safeName, archetype, score: 0, answers: [], team }
+      const participant = { name: displayStoredName, realName: safeName, archetype, score: 0, answers: [], team, joinedAt: new Date() }
       session.participants.set(socket.id, participant)
       socket.join(`session:${gameCode}`)
+
+      // Persist attendee record (best-effort, don't block join on DB error).
+      const safeEmail = sanitizeEmail(email)
+      try {
+        const dbId = await ensureGameSessionRow(session, gameCode, 'quiz')
+        if (dbId) {
+          const attendeeId = await insertAttendee(dbId, {
+            nickname: displayStoredName,
+            realName: safeName,
+            email: safeEmail,
+            archetype,
+            socketId: socket.id,
+          })
+          if (attendeeId) participant.attendeeId = attendeeId
+        }
+      } catch (err) {
+        console.error('[db] attendee persist failed:', err)
+      }
 
       callback({
         success: true,
@@ -792,6 +959,9 @@ app.prepare().then(() => {
             if (entry && entry.socketId === socket.id) {
               session.disconnectedParticipants.delete(name.toLowerCase())
               session.participants.delete(socket.id)
+              if (participant.attendeeId) {
+                updateAttendeeOnLeave(participant.attendeeId, participant.joinedAt).catch(console.error)
+              }
               if (session.type === 'presenter') {
                 io.to(`host:${code}`).emit('presenter_participant_left', { count: session.participants.size })
               } else {

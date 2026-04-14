@@ -81,6 +81,26 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       }
     }
 
+    // Attendance section
+    const attendees = await prisma.attendee.findMany({
+      where: { sessionId: id },
+      orderBy: { joinedAt: 'asc' },
+    })
+
+    lines.push('')
+    lines.push('Attendance')
+    lines.push('Nickname,Email,Joined At,Left At,Duration (sec),Final Score,Team')
+    for (const a of attendees) {
+      const nickname = escapeCsv(a.nickname ?? '')
+      const email = escapeCsv(a.email ?? '')
+      const joinedAt = a.joinedAt ? a.joinedAt.toISOString() : ''
+      const leftAt = a.leftAt ? a.leftAt.toISOString() : ''
+      const duration = a.durationSec ?? ''
+      const finalScore = a.finalScore ?? ''
+      const team = escapeCsv(a.team ?? '')
+      lines.push(`${nickname},${email},${joinedAt},${leftAt},${duration},${finalScore},${team}`)
+    }
+
     const csv = lines.join('\n')
     const filename = `quizotic-${quizTitle.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}-${session.createdAt.toISOString().split('T')[0]}.csv`
 
