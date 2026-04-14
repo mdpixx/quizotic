@@ -601,7 +601,7 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
       )}
 
       {/* Question / heading + visualization */}
-      <div className={`absolute inset-0 flex flex-col px-6 py-5${slide.type === 'title' ? ' justify-center items-center text-center' : ''}`}>
+      <div className={`absolute inset-0 flex flex-col px-6${slide.type === 'title' ? ' justify-center items-center text-center gap-3' : ' py-5'}`}>
         {slide.type !== 'quote' && (
           <p className={`font-bold leading-snug flex-shrink-0${slide.type === 'title' ? ' text-2xl' : ' text-xl text-left'}`} style={{ color: textColor, fontFamily: 'var(--font-heading)' }}>
             {getQuestionText()}
@@ -610,7 +610,7 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
 
         {/* Title slide: subheading directly below heading */}
         {slide.type === 'title' && (
-          <p className="text-sm opacity-60 mt-1 flex-shrink-0" style={{ color: textColor }}>
+          <p className="text-sm opacity-60 flex-shrink-0" style={{ color: textColor }}>
             {(slide as { subheading: string }).subheading || 'Subtitle goes here'}
           </p>
         )}

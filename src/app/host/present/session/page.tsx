@@ -6,6 +6,7 @@ import { io, Socket } from 'socket.io-client'
 import QRCode from 'react-qr-code'
 import type { Slide, Presentation } from '@/lib/presentation-types'
 import { SLIDE_TYPE_META } from '@/lib/presentation-types'
+import { QuizoticLogo } from '@/components/QuizoticLogo'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -679,6 +680,57 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
   }
 }
 
+// ─── Intro slide (synthetic pre-slide shown before slide 0) ───────────────────
+
+function IntroSlide({ title, gameCode }: { title: string; gameCode: string }) {
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? origin
+  const joinUrl = `${appUrl}/join?code=${gameCode}&mode=presenter`
+  const joinHost = (() => {
+    try { return new URL(appUrl).host + '/join' } catch { return 'quizotic.live/join' }
+  })()
+  return (
+    <div className="absolute inset-0 flex flex-col p-8" style={{ background: '#fff' }}>
+      <div className="flex-shrink-0 flex items-center justify-between">
+        <QuizoticLogo variant="onLight" />
+        <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#9CA3AF' }}>
+          Welcome
+        </span>
+      </div>
+
+      <div className="flex-1 flex items-center justify-between gap-10 min-h-0">
+        <div className="flex-1 flex flex-col justify-center">
+          <p className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: '#8B5CF6' }}>
+            We&apos;ll begin shortly
+          </p>
+          <h1 className="text-5xl font-black leading-tight" style={{ color: '#0F1B3D' }}>
+            {title}
+          </h1>
+          <p className="text-lg mt-5" style={{ color: '#6B7280' }}>
+            Engage — respond to polls, quizzes and Q&amp;A in real time.
+          </p>
+        </div>
+
+        <div className="flex-shrink-0 flex flex-col items-center gap-3 p-6 rounded-3xl"
+             style={{ background: '#F8F9FA', border: '1.5px solid #E5E7EB' }}>
+          <QRCode value={joinUrl} size={220} />
+          <div className="text-center">
+            <p className="font-mono text-sm" style={{ color: '#6B7280' }}>{joinHost}</p>
+            <p className="text-4xl font-black tracking-[0.3em] mt-1" style={{ color: '#0F1B3D' }}>
+              {gameCode}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-shrink-0 text-center text-sm font-semibold uppercase tracking-widest pt-3"
+           style={{ color: '#9CA3AF' }}>
+        Scan the QR or visit {joinHost} — enter PIN {gameCode}
+      </div>
+    </div>
+  )
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function PresentSessionPage() {
@@ -694,6 +746,8 @@ export default function PresentSessionPage() {
   const [presentation, setPresentation] = useState<Presentation | null>(null)
   const [gameCode, setGameCode] = useState('')
   const [slideIndex, setSlideIndex] = useState(0)
+  const [showIntro, setShowIntro] = useState(false)
+  const [skipIntro, setSkipIntro] = useState(false)
   const [participantCount, setParticipantCount] = useState(0)
   const [aggregate, setAggregate] = useState<AggregateData>({ total: 0 })
   const [showResults, setShowResults] = useState(false)
@@ -723,6 +777,7 @@ export default function PresentSessionPage() {
       setPresentation(JSON.parse(raw))
       setPhase('idle')
     } catch { setPhase('error') }
+    setSkipIntro(localStorage.getItem('quizotic_skip_intro') === 'true')
   }, [])
 
   useEffect(() => {
@@ -904,6 +959,7 @@ export default function PresentSessionPage() {
           setGameCode(res.gameCode)
           setPhase('live')
           setSlideIndex(0)
+          setShowIntro(!skipIntro)
           setAggregate({ total: 0 })
           const firstMode = presentation!.slides[0]?.responseMode || 'instant'
           setShowResults(firstMode === 'instant')
@@ -919,6 +975,10 @@ export default function PresentSessionPage() {
   }
 
   function nextSlide() {
+    if (showIntro) {
+      setShowIntro(false)
+      return
+    }
     if (!presentation || slideIndex >= totalSlides - 1) return
     const newIndex = slideIndex + 1
     const nextMode = presentation.slides[newIndex]?.responseMode || 'instant'
@@ -935,7 +995,11 @@ export default function PresentSessionPage() {
   }
 
   function prevSlide() {
-    if (slideIndex <= 0) return
+    if (showIntro) return
+    if (slideIndex <= 0) {
+      setShowIntro(true)
+      return
+    }
     const newIndex = slideIndex - 1
     const prevMode = presentation!.slides[newIndex]?.responseMode || 'instant'
     setSlideIndex(newIndex)
@@ -1065,6 +1129,19 @@ export default function PresentSessionPage() {
               }}>
               {socketConnected ? 'Start Presentation' : 'Connecting…'}
             </button>
+
+            <label className="flex items-center justify-center gap-2 mt-4 text-xs font-medium cursor-pointer" style={{ color: '#9CA3AF' }}>
+              <input
+                type="checkbox"
+                checked={skipIntro}
+                onChange={e => {
+                  setSkipIntro(e.target.checked)
+                  localStorage.setItem('quizotic_skip_intro', e.target.checked ? 'true' : 'false')
+                }}
+                className="w-3.5 h-3.5"
+              />
+              Skip welcome screen
+            </label>
           </div>
 
           {/* Actions below card */}
@@ -1236,20 +1313,24 @@ export default function PresentSessionPage() {
               {Array.from({ length: totalSlides }).map((_, i) => (
                 <div key={i} className="rounded-full transition-all"
                   style={{
-                    width: i === slideIndex ? 20 : 6,
+                    width: !showIntro && i === slideIndex ? 20 : 6,
                     height: 6,
-                    background: i === slideIndex ? meta.color : `${meta.color}33`,
+                    background: !showIntro && i === slideIndex ? meta.color : `${meta.color}33`,
                   }} />
               ))}
             </div>
             <span className="text-xs font-semibold ml-1" style={{ color: '#9CA3AF' }}>
-              {slideIndex + 1} / {totalSlides}
+              {showIntro ? `Intro · 0 / ${totalSlides}` : `${slideIndex + 1} / ${totalSlides}`}
             </span>
           </div>
 
           {/* Slide content */}
           <div className="flex-1 flex flex-col max-w-5xl w-full mx-auto relative min-h-0">
-            <SlideContent slide={currentSlide} aggregate={aggregate} showResults={showResults} correctRevealed={correctRevealed} />
+            {showIntro ? (
+              <IntroSlide title={presentation?.title || 'Presentation'} gameCode={gameCode} />
+            ) : (
+              <SlideContent slide={currentSlide} aggregate={aggregate} showResults={showResults} correctRevealed={correctRevealed} />
+            )}
             {plan === 'free' && (
               <div className="absolute bottom-2 right-3 z-10">
                 <span className="text-[10px] font-bold opacity-30" style={{ color: '#fff' }}>quizotic.live</span>
@@ -1258,7 +1339,7 @@ export default function PresentSessionPage() {
           </div>
 
           {/* Speed waveform — pinned at bottom, tight under bars */}
-          {meta.hasAudienceInput && (
+          {!showIntro && meta.hasAudienceInput && (
             <div className="flex-shrink-0 mt-2">
               <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#C4B5FD' }}>
                 Vote velocity
@@ -1287,15 +1368,15 @@ export default function PresentSessionPage() {
 
         {/* Center: navigation */}
         <div className="flex items-center gap-3">
-          <button onClick={prevSlide} disabled={slideIndex <= 0}
+          <button onClick={prevSlide} disabled={showIntro}
             className="px-7 py-3 rounded-xl text-base font-bold border transition-all disabled:opacity-30"
             style={{ borderColor: '#E5E7EB', color: '#0F1B3D', background: '#fff' }}>
             Prev
           </button>
           <span className="text-lg font-bold tabular-nums" style={{ color: '#6B7280', minWidth: 56, textAlign: 'center' }}>
-            {slideIndex + 1} / {totalSlides}
+            {showIntro ? `Intro` : `${slideIndex + 1} / ${totalSlides}`}
           </span>
-          <button onClick={nextSlide} disabled={slideIndex >= totalSlides - 1}
+          <button onClick={nextSlide} disabled={!showIntro && slideIndex >= totalSlides - 1}
             className="px-7 py-3 rounded-xl text-base font-bold transition-all disabled:opacity-30 hover:scale-[1.02]"
             style={{ background: '#F5E642', color: '#0D0D0D', border: 'none', fontFamily: 'var(--font-heading)' }}>
             Next
