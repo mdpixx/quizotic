@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   type Slide, type SlideType, type Presentation,
   SLIDE_TYPE_META, makeSlide,
@@ -150,6 +150,21 @@ export function EnhanceWithAI({ presentation, onComplete, onCancel }: EnhanceWit
 
   const contentCount = getContentSlideCount(presentation)
   const estimate = getEstimate(contentCount, level)
+  const limitReached = usageInfo !== null && usageInfo.limit !== Infinity && usageInfo.used >= usageInfo.limit
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/enhance-presentation/usage')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (cancelled || !d?.success) return
+        // JSON serializes Infinity → null; restore it
+        const limit = (d.limit === null || d.limit === undefined) ? Infinity : d.limit
+        setUsageInfo({ used: d.used, limit })
+      })
+      .catch(() => { /* non-fatal */ })
+    return () => { cancelled = true }
+  }, [])
 
   // ── Step 1: Analyze ──
 
@@ -274,6 +289,19 @@ export function EnhanceWithAI({ presentation, onComplete, onCancel }: EnhanceWit
                 <p className="text-xs" style={{ color: '#6B7280' }}>
                   {contentCount} content slide{contentCount !== 1 ? 's' : ''} found
                 </p>
+                {usageInfo && (
+                  <p className="text-xs mt-1" style={{ color: limitReached ? '#DC2626' : '#94A3B8' }}>
+                    AI enhancements this month: {usageInfo.used}/{usageInfo.limit === Infinity ? 'unlimited' : usageInfo.limit}
+                    {limitReached && (
+                      <>
+                        {' — '}
+                        <a href="/pricing" className="font-semibold underline" style={{ color: '#4F46E5' }}>
+                          Upgrade to Pro
+                        </a>
+                      </>
+                    )}
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-4 gap-3">
@@ -302,10 +330,10 @@ export function EnhanceWithAI({ presentation, onComplete, onCancel }: EnhanceWit
                   ~{estimate} interactive slide{estimate !== 1 ? 's' : ''} will be suggested
                 </p>
                 <button onClick={analyze}
-                  className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all hover:scale-[1.02]"
+                  className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                   style={{ background: '#4F46E5', color: '#fff' }}
-                  disabled={contentCount === 0}>
-                  Analyze Slides
+                  disabled={contentCount === 0 || limitReached}>
+                  {limitReached ? 'Limit Reached' : 'Analyze Slides'}
                 </button>
               </div>
 

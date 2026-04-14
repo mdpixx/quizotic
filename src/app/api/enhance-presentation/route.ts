@@ -12,7 +12,8 @@ const client = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY ?? '',
 })
 
-const MODEL = process.env.QUIZ_AI_MODEL ?? 'google/gemini-2.0-flash-001'
+const MODEL = process.env.QUIZ_AI_MODEL ?? 'google/gemini-2.5-pro'
+const ANALYZER_MODEL = process.env.QUIZ_AI_ANALYZER_MODEL ?? 'google/gemini-2.0-flash-001'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -61,7 +62,7 @@ function buildAnalysisPrompt(slides: SlideInput[]): string {
 
 async function analyzeDeck(slides: SlideInput[]): Promise<DeckAnalysis> {
   const response = await client.chat.completions.create({
-    model: MODEL,
+    model: ANALYZER_MODEL,
     messages: [
       { role: 'system', content: ANALYSIS_PROMPT },
       { role: 'user', content: buildAnalysisPrompt(slides) },
@@ -148,6 +149,12 @@ Your job: suggest interactive slides to INSERT between content slides to maximiz
 - BAD: word_cloud asking "What comes to mind?" with no context
 - GOOD: word_cloud asking "What's your biggest workplace fire safety concern?" before the solutions section
 
+## Grounding requirements (STRICT)
+- Every question MUST quote or paraphrase at least one specific term, number, named entity, or concept that appears verbatim in the referenced slide's content. If you cannot, do not suggest that slide.
+- For multiple_choice, distractors must be plausible alternatives drawn from the domain implied by the slide (not obviously wrong fillers like "None of the above", "All of the above", or unrelated terms).
+- Reject any suggestion whose question would make equal sense on an unrelated deck. When in doubt, drop that suggestion rather than produce a generic one.
+- The "rationale" field must name the specific slide phrase that anchored the question.
+
 Return ONLY valid JSON — no markdown fences, no explanation, no preamble.`
 
 function getSlidePosition(index: number, total: number): string {
@@ -179,7 +186,7 @@ Total slides: ${slides.length}
     const nextTitle = i < slides.length - 1 ? slides[i + 1].textContent.split('\n')[0].slice(0, 60) : '(end)'
 
     return `[Slide ${s.index} of ${slides.length}] (${s.type} slide, position: ${position})
-Content: ${s.textContent.slice(0, 600)}
+Content: ${s.textContent.slice(0, 2500)}
 Previous: "${prevTitle}"
 Next: "${nextTitle}"`
   }).join('\n\n')
@@ -303,7 +310,7 @@ export async function POST(req: NextRequest) {
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: buildUserPrompt(contentSlides, targetCount, analysis) },
       ],
-      temperature: 0.7,
+      temperature: 0.5,
       max_tokens: 4000,
     })
 

@@ -1672,6 +1672,10 @@ function PresentCreatePageInner() {
   }
 
   const interactiveCount = presentation.slides.filter(s => SLIDE_TYPE_META[s.type].hasAudienceInput).length
+  const hasPptxContent = presentation.slides.some(s => {
+    const ctx = (s as unknown as Record<string, unknown>)._aiContext
+    return typeof ctx === 'string' && ctx.length > 20
+  })
 
   return (
     <div className="h-screen flex flex-col" style={{ background: '#FAFBFC', fontFamily: 'var(--font-body)' }}>
@@ -1718,12 +1722,14 @@ function PresentCreatePageInner() {
               {saving && <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#0F1B3D' }} />}
               {saving ? 'Saving...' : saved ? 'Saved' : ''}
             </span>
-            <button onClick={() => setEnhanceOpen(true)} title="Enhance with AI"
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all hover:scale-[1.02] click-bounce"
-              style={{ background: '#EEF2FF', color: '#4F46E5', border: '1.5px solid #C7D2FE' }}>
-              <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3"><path d="M8 1l1.5 3.5L13 6l-3.5 1.5L8 11 6.5 7.5 3 6l3.5-1.5L8 1zM3 11l.75 1.75L5.5 13.5l-1.75.75L3 16l-.75-1.75L.5 13.5l1.75-.75L3 11z"/></svg>
-              Enhance with AI
-            </button>
+            {hasPptxContent && (
+              <button onClick={() => setEnhanceOpen(true)} title="Enhance with AI"
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all hover:scale-[1.02] click-bounce"
+                style={{ background: '#EEF2FF', color: '#4F46E5', border: '1.5px solid #C7D2FE' }}>
+                <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3"><path d="M8 1l1.5 3.5L13 6l-3.5 1.5L8 11 6.5 7.5 3 6l3.5-1.5L8 1zM3 11l.75 1.75L5.5 13.5l-1.75.75L3 16l-.75-1.75L.5 13.5l1.75-.75L3 11z"/></svg>
+                Enhance with AI
+              </button>
+            )}
             <button onClick={() => setShareOpen(true)} title="Share"
               className="w-8 h-8 md:w-9 md:h-9 rounded-lg border flex items-center justify-center transition-all hover:bg-gray-50 click-bounce"
               style={{ borderColor: '#E2E8F0', color: '#64748B' }}>
