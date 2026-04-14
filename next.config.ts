@@ -8,6 +8,16 @@ const nextConfig: NextConfig = {
     },
     proxyClientMaxBodySize: 20 * 1024 * 1024, // 20MB in bytes
   },
+  async redirects() {
+    return [
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'quizotic.live' }],
+        destination: 'https://www.quizotic.live/:path*',
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

@@ -15,6 +15,8 @@ if (typeof window !== 'undefined' && POSTHOG_KEY) {
     capture_pageview: true,
     capture_pageleave: true,
     autocapture: true,
+    advanced_disable_feature_flags: true,
+    loaded: (ph) => ph.debug(false),
   })
 }
 

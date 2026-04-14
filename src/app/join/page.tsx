@@ -6,6 +6,9 @@ import type { Socket } from 'socket.io-client'
 import dynamic from 'next/dynamic'
 import { Avatar } from '@/components/Avatar'
 import { playTick, playCorrect, playWrong, playStreak, playCelebration } from '@/lib/sounds'
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 const CircularTimer = dynamic(() => import('@/components/CircularTimer').then(m => m.CircularTimer), { ssr: false })
 const Podium = dynamic(() => import('@/components/Podium').then(m => m.Podium), { ssr: false })
@@ -68,14 +71,16 @@ const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E']
 const TEXT_INPUT_TYPES = ['openended', 'wordcloud', 'qa']
 
 // ─── Star Rating Component ───────────────────────────────────────────────────
-function StarRating({ max, minLabel, maxLabel, textLight, onSubmit }: {
+function StarRating({ max, minLabel, maxLabel, textLight, onSubmit, disabled, onDisabledClick }: {
   max: number; minLabel?: string; maxLabel?: string; textLight: string
   onSubmit: (value: number) => void
+  disabled?: boolean
+  onDisabledClick?: () => void
 }) {
   const [hovered, setHovered] = useState(0)
   const [selected, setSelected] = useState(0)
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${disabled ? 'opacity-50' : ''}`} style={disabled ? { filter: 'grayscale(1)' } : undefined}>
       <div className="flex items-center justify-between text-sm opacity-50" style={{ color: textLight }}>
         <span>{minLabel}</span>
         <span>{maxLabel}</span>
@@ -86,9 +91,9 @@ function StarRating({ max, minLabel, maxLabel, textLight, onSubmit }: {
           const size = max <= 5 ? 'w-12 h-12' : max <= 7 ? 'w-10 h-10' : 'w-8 h-8'
           return (
             <button key={n}
-              onPointerEnter={() => setHovered(n)}
+              onPointerEnter={() => { if (!disabled) setHovered(n) }}
               onPointerLeave={() => setHovered(0)}
-              onClick={() => setSelected(n)}
+              onClick={() => { if (disabled) { onDisabledClick?.(); return } setSelected(n) }}
               className={`transition-all duration-150 active:scale-90 ${size}`}
               style={{ transform: active ? 'scale(1.15)' : 'scale(1)' }}>
               <svg viewBox="0 0 24 24" className="w-full h-full" style={{ filter: active ? 'drop-shadow(0 0 6px rgba(250,204,21,0.5))' : 'none' }}>
@@ -106,8 +111,8 @@ function StarRating({ max, minLabel, maxLabel, textLight, onSubmit }: {
           {selected > 0 ? `${selected} / ${max}` : 'Tap a star'}
         </span>
       </div>
-      <button onClick={() => { if (selected > 0) onSubmit(selected) }}
-        disabled={selected === 0}
+      <button onClick={() => { if (disabled) { onDisabledClick?.(); return } if (selected > 0) onSubmit(selected) }}
+        disabled={selected === 0 || disabled}
         className="w-full py-5 rounded-2xl text-xl font-black transition-all disabled:opacity-30"
         style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>
         Submit
@@ -235,6 +240,28 @@ function Grid2x2Input({ xMin, xMax, yMin, yMax, onSubmit }: {
   )
 }
 
+// ─── Sortable Ranking Item ───────────────────────────────────────────────────
+function SortableRankingItem({ id, index, label, color }: { id: string; index: number; label: string; color: string }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    background: color,
+    opacity: isDragging ? 0.85 : 1,
+    cursor: 'grab',
+    touchAction: 'none',
+  }
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}
+      className="w-full py-4 rounded-2xl text-left px-5 text-base font-bold text-white flex items-center gap-3 select-none">
+      <span className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-sm font-black"
+        style={{ background: 'rgba(255,255,255,0.2)' }}>{index + 1}</span>
+      <span className="flex-1">{label}</span>
+      <span className="opacity-60 text-lg">⋮⋮</span>
+    </div>
+  )
+}
+
 // ─── Inner Component (uses useSearchParams — requires Suspense) ───────────────
 function JoinPageInner() {
   const searchParams = useSearchParams()
@@ -261,6 +288,8 @@ function JoinPageInner() {
   const [quickFireLeft, setQuickFireLeft] = useState<number | null>(null)
   const quickFireTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [presenterAggregate, setPresenterAggregate] = useState<PresenterAggregateData>({ total: 0 })
+  const [rankingOrder, setRankingOrder] = useState<number[]>([])
+  const rankingSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [quizTitle, setQuizTitle] = useState('')
@@ -276,6 +305,7 @@ function JoinPageInner() {
   // Question
   const [question, setQuestion] = useState<Question | null>(null)
   const [timeLeft, setTimeLeft] = useState(0)
+  const [getReadyVisible, setGetReadyVisible] = useState(false)
   const timeLeftRef = useRef(0)
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
 
@@ -359,28 +389,53 @@ function JoinPageInner() {
       setError('Connection lost. Reconnecting...')
     })
 
-    socket.on('question_show', ({ question, index, total }: { question: Omit<Question, 'index' | 'total'>; index: number; total: number }) => {
+    socket.on('question_show', ({ question, index, total, startAt }: { question: Omit<Question, 'index' | 'total'>; index: number; total: number; startAt?: number }) => {
       shownQuestionsRef.current.push({ index, text: question.text })
-      setQuestion({ ...question, index, total })
+      // M3: reset prior-question state before showing the new one
+      setExplanation(null)
       setSelectedAnswer(null)
+      setIsCorrect(false)
+      setError('')
+      setQuestion({ ...question, index, total })
       setPendingAnswer(null)
       setConfidence(null)
-      setExplanation(null)
       setTextAnswer('')
       setShowConfetti(false)
       setShowRedFlash(false)
-      setTimeLeft(question.timerSeconds)
       setPhase('question')
-      answerTimeRef.current = Date.now()
+
+      const effectiveStartAt = typeof startAt === 'number' ? startAt : Date.now()
+      const endAt = effectiveStartAt + question.timerSeconds * 1000
+      const initialLeft = Math.max(0, Math.ceil((endAt - Date.now()) / 1000))
+      setTimeLeft(initialLeft)
+      setGetReadyVisible(Date.now() < effectiveStartAt)
+      answerTimeRef.current = effectiveStartAt
 
       if (timerRef.current) clearInterval(timerRef.current)
-      timerRef.current = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) { clearInterval(timerRef.current!); return 0 }
-          if (prev <= 6 && prev > 1) playTick()
-          return prev - 1
-        })
-      }, 1000)
+
+      const startTick = () => {
+        if (timerRef.current) clearInterval(timerRef.current)
+        timerRef.current = setInterval(() => {
+          const now = Date.now()
+          const left = Math.max(0, Math.ceil((endAt - now) / 1000))
+          setTimeLeft(prev => {
+            if (left <= 0) { clearInterval(timerRef.current!); return 0 }
+            if (left <= 6 && left > 0 && left < prev) playTick()
+            return left
+          })
+        }, 250)
+      }
+
+      const delay = effectiveStartAt - Date.now()
+      if (delay > 0) {
+        setTimeout(() => {
+          setGetReadyVisible(false)
+          answerTimeRef.current = Date.now()
+          startTick()
+        }, delay)
+      } else {
+        startTick()
+      }
     })
 
     socket.on('answer_confirmed', ({ isCorrect, points, totalScore }: { isCorrect: boolean; points: number; totalScore: number }) => {
@@ -462,6 +517,12 @@ function JoinPageInner() {
       setPresenterVoted(false)
       presenterVotedRef.current = false
       setPresenterAggregate({ total: 0 })
+      // Reset ranking order based on new slide's options
+      {
+        const slideRec = slide as Record<string, unknown> | undefined
+        const opts = (slideRec?.options as unknown[] | undefined) || (slideRec?.items as unknown[] | undefined) || []
+        setRankingOrder(opts.map((_, i) => i))
+      }
       const mode = (responseMode as 'instant' | 'on_click' | 'private') || 'instant'
       setPresenterResponseMode(mode)
       presenterResponseModeRef.current = mode
@@ -551,7 +612,7 @@ function JoinPageInner() {
     }
   }, [followupParam, initSocket])
 
-  function handleJoin(e: React.FormEvent) {
+  async function handleJoin(e: React.FormEvent) {
     e.preventDefault()
     const trimmedName = name.trim()
     const trimmedCode = code.trim()
@@ -618,15 +679,60 @@ function JoinPageInner() {
       return
     }
 
-    socket.emit('join_session', {
+    // Determine join event via session lookup (quiz vs presenter)
+    let joinEvent = 'join_session'
+    try {
+      const r = await fetch('/api/session/lookup?code=' + encodeURIComponent(trimmedCode))
+      if (r.ok) {
+        const data = await r.json().catch(() => null)
+        if (data && data.type === 'presenter') joinEvent = 'join_presenter_session'
+      }
+    } catch {
+      // Ignore lookup failures and fall back to join_session
+    }
+
+    let settled = false
+    const timeoutId = setTimeout(() => {
+      if (settled) return
+      settled = true
+      if (socketRef.current) {
+        socketRef.current.disconnect()
+        socketRef.current = null
+      }
+      setError("Couldn't join. Check your code or try again.")
+      setPhase('form')
+    }, 8000)
+
+    socket.emit(joinEvent, {
       gameCode: trimmedCode,
       displayName: trimmedName,
-    }, (res: { success: boolean; error?: string; status?: string; quizTitle?: string; archetype?: string; sessionMode?: 'competitive' | 'reflection'; anonymousMode?: boolean; team?: { index: number; name: string; color: string } | null }) => {
+    }, (res: { success: boolean; error?: string; status?: string; quizTitle?: string; archetype?: string; sessionMode?: 'competitive' | 'reflection'; anonymousMode?: boolean; team?: { index: number; name: string; color: string } | null; presentationTitle?: string; currentSlideIndex?: number; totalSlides?: number; currentSlide?: unknown; responseMode?: string }) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeoutId)
       if (!res.success) {
         setError(res.error ?? 'Session not found. Check your 6-digit code and try again.')
         setPhase('form')
         return
       }
+
+      if (joinEvent === 'join_presenter_session') {
+        setPresenterTitle(res.presentationTitle ?? '')
+        setPresenterSlideIndex(res.currentSlideIndex ?? 0)
+        setPresenterTotalSlides(res.totalSlides ?? 0)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setPresenterCurrentSlide((res.currentSlide as any) ?? null)
+        setPresenterVoted(false)
+        presenterVotedRef.current = false
+        setPresenterAggregate({ total: 0 })
+        setPresenterResponseMode((res.responseMode as 'instant' | 'on_click' | 'private') || 'instant')
+        const nonInteractive = ['title', 'bullets', 'quote', 'video', 'wheel', 'image']
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const slideType = (res.currentSlide as any)?.type
+        setPhase(slideType && !nonInteractive.includes(slideType) ? 'presenter-voting' : 'presenter-lobby')
+        return
+      }
+
       setQuizTitle(res.quizTitle ?? '')
       setArchetype(res.archetype ?? null)
       if (res.sessionMode) setSessionMode(res.sessionMode)
@@ -868,6 +974,17 @@ function JoinPageInner() {
   if (phase === 'question' && question) {
     return (
       <div className="min-h-screen p-4 flex flex-col max-w-xl mx-auto">
+        {getReadyVisible && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ background: 'rgba(15,27,61,0.92)' }}>
+            <div className="text-center">
+              <p className="text-4xl font-black mb-3" style={{ color: '#F5E642', fontFamily: 'var(--font-heading)' }}>
+                Get ready
+                <span className="inline-block ml-1 animate-pulse">…</span>
+              </p>
+              <div className="w-4 h-4 rounded-full mx-auto animate-bounce" style={{ background: '#F5E642' }} />
+            </div>
+          </div>
+        )}
         {/* Top bar */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -1333,7 +1450,7 @@ function JoinPageInner() {
     const bgDark = '#0F1B3D'
     const textLight = 'white'
 
-    function submitVote(response: string | number | { x: number; y: number }) {
+    function submitVote(response: string | number | number[] | { x: number; y: number }) {
       socketRef.current?.emit('submit_presenter_response', {
         gameCode: gameCodeRef.current,
         slideIndex: presenterSlideIndex,
@@ -1422,11 +1539,8 @@ function JoinPageInner() {
             </div>
           )}
 
-          {(slide.type === 'live_race' || slide.type === 'ranking') && (
+          {slide.type === 'live_race' && (
             <div className="space-y-3">
-              {slide.type === 'ranking' && (
-                <p className="text-sm text-center" style={{ color: 'rgba(255,255,255,0.5)' }}>Vote for your top choice</p>
-              )}
               {(slide.options || slide.items || []).map((opt: string, i: number) => (
                 <button key={i} onClick={() => submitVote(i)}
                   className="w-full py-4 rounded-2xl text-left px-5 text-base font-bold transition-all active:scale-[0.98]"
@@ -1436,6 +1550,47 @@ function JoinPageInner() {
               ))}
             </div>
           )}
+
+          {slide.type === 'ranking' && (() => {
+            const rankOpts = ((slide.options || slide.items || []) as string[])
+            const order = rankingOrder.length === rankOpts.length && rankingOrder.length > 0
+              ? rankingOrder
+              : rankOpts.map((_, i) => i)
+            const ids = order.map(i => `rank-${i}`)
+            return (
+              <div className="space-y-3">
+                <p className="text-sm text-center" style={{ color: 'rgba(255,255,255,0.5)' }}>Drag to rank your order</p>
+                <DndContext sensors={rankingSensors} collisionDetection={closestCenter} onDragEnd={(e: DragEndEvent) => {
+                  const { active, over } = e
+                  if (!over || active.id === over.id) return
+                  const oldIndex = ids.indexOf(String(active.id))
+                  const newIndex = ids.indexOf(String(over.id))
+                  if (oldIndex < 0 || newIndex < 0) return
+                  setRankingOrder(arrayMove(order, oldIndex, newIndex))
+                }}>
+                  <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-3">
+                      {order.map((origIdx, pos) => (
+                        <SortableRankingItem
+                          key={`rank-${origIdx}`}
+                          id={`rank-${origIdx}`}
+                          index={pos}
+                          label={rankOpts[origIdx] || `Option ${origIdx + 1}`}
+                          color={OPTION_COLORS_P[origIdx % OPTION_COLORS_P.length]}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+                <button
+                  onClick={() => submitVote(order)}
+                  className="w-full py-5 rounded-2xl text-xl font-black"
+                  style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>
+                  Submit order
+                </button>
+              </div>
+            )
+          })()}
 
           {(slide.type === 'word_cloud' || slide.type === 'open_text') && (
             <div className="space-y-4">
@@ -1473,7 +1628,9 @@ function JoinPageInner() {
 
           {slide.type === 'rating_scale' && (
             <StarRating max={slide.maxRating || 5} minLabel={slide.minLabel} maxLabel={slide.maxLabel}
-              textLight={textLight} onSubmit={submitVote} />
+              textLight={textLight} onSubmit={submitVote}
+              disabled={false}
+              onDisabledClick={() => setError("Time's up for this question")} />
           )}
 
           {slide.type === 'scale_100' && (

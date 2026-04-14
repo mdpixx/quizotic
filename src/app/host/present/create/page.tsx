@@ -1314,11 +1314,14 @@ function SlideThumbnail({ slide, index, active, onClick }: {
 
 function SlideTypePicker({ onPick }: { onPick: (type: SlideType) => void }) {
   const [hoveredType, setHoveredType] = useState<SlideType | null>(null)
+  const [showBeta, setShowBeta] = useState(false)
 
-  const allByCategory = SLIDE_CATEGORIES.map(cat => ({
-    ...cat,
-    types: (Object.keys(SLIDE_TYPE_META) as SlideType[]).filter(t => SLIDE_TYPE_META[t].category === cat.id),
-  }))
+  const allByCategory = SLIDE_CATEGORIES.map(cat => {
+    const allTypes = (Object.keys(SLIDE_TYPE_META) as SlideType[]).filter(t => SLIDE_TYPE_META[t].category === cat.id)
+    const visibleTypes = allTypes.filter(t => showBeta || SLIDE_TYPE_META[t].status !== 'coming_soon')
+    const readyCount = allTypes.filter(t => SLIDE_TYPE_META[t].status !== 'coming_soon').length
+    return { ...cat, types: visibleTypes, readyCount }
+  })
 
   const hoveredMeta = hoveredType ? SLIDE_TYPE_META[hoveredType] : null
   const hoveredCat = hoveredType ? SLIDE_CATEGORIES.find(c => c.id === hoveredMeta?.category) : null
@@ -1327,20 +1330,30 @@ function SlideTypePicker({ onPick }: { onPick: (type: SlideType) => void }) {
     <div className="flex gap-0 min-h-[420px]">
       {/* Left panel — type list */}
       <div className="flex-1 overflow-y-auto pr-3 space-y-2">
+        <label className="flex items-center gap-2 px-1 py-1 text-xs font-semibold cursor-pointer select-none" style={{ color: '#64748B' }}>
+          <input
+            type="checkbox"
+            checked={showBeta}
+            onChange={e => setShowBeta(e.target.checked)}
+            className="w-3.5 h-3.5 cursor-pointer"
+          />
+          Show beta slides
+        </label>
         {allByCategory.map((cat, ci) => (
           <div key={cat.id}>
             {ci > 0 && <div className="h-px my-2" style={{ background: '#E2E8F0' }} />}
             <p className="text-xs font-black uppercase tracking-widest px-1 py-1.5" style={{ color: cat.color }}>
-              {cat.label}
+              {cat.label} ({cat.readyCount})
             </p>
             <div className="grid grid-cols-2 gap-1.5">
               {cat.types.map(type => {
                 const meta = SLIDE_TYPE_META[type]
                 const isHovered = hoveredType === type
+                const isBeta = meta.status === 'coming_soon' || meta.status === 'beta'
                 return (
                   <button key={type} onClick={() => onPick(type)}
                     onMouseEnter={() => setHoveredType(type)}
-                    className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-left transition-all hover:scale-[1.03] hover:shadow-md"
+                    className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-left transition-all hover:scale-[1.03] hover:shadow-md relative"
                     style={{
                       background: isHovered ? meta.color : meta.bg,
                       color: isHovered ? '#fff' : meta.color,
@@ -1348,6 +1361,12 @@ function SlideTypePicker({ onPick }: { onPick: (type: SlideType) => void }) {
                     }}>
                     <span className="flex-shrink-0 [&>svg]:w-6 [&>svg]:h-6">{SLIDE_ICONS[type]}</span>
                     <span className="text-xs font-bold truncate">{meta.label}</span>
+                    {isBeta && (
+                      <span className="ml-auto flex-shrink-0 px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider"
+                        style={{ background: isHovered ? '#fff' : meta.color, color: isHovered ? meta.color : '#fff' }}>
+                        BETA
+                      </span>
+                    )}
                   </button>
                 )
               })}
@@ -1531,6 +1550,29 @@ function PresentCreatePageInner() {
   }
 
   function startPresentation() {
+    // Placeholder-text guard: warn before presenting with unfilled content
+    const placeholderPrompts = new Set(['', 'Title Slide', 'Question text...', 'Prompt text...'])
+    const placeholderOption = 'Option 1'
+    let flagged = 0
+    for (const s of presentation.slides) {
+      const anyS = s as unknown as {
+        question?: string; heading?: string; title?: string; quote?: string; caption?: string
+        options?: string[]
+      }
+      const mainPrompt = (anyS.question ?? anyS.heading ?? anyS.title ?? anyS.quote ?? anyS.caption ?? '').trim()
+      if (placeholderPrompts.has(mainPrompt)) {
+        flagged++
+        continue
+      }
+      if (Array.isArray(anyS.options) && anyS.options.length > 0
+        && anyS.options.every((o, i) => (o ?? '').trim() === `Option ${i + 1}` || (o ?? '').trim() === placeholderOption)) {
+        flagged++
+      }
+    }
+    if (flagged > 0) {
+      const ok = window.confirm(`${flagged} slides still have placeholder text. Present anyway?`)
+      if (!ok) return
+    }
     localStorage.setItem('quizotic_active_presentation', JSON.stringify(presentation))
     lastSavedRef.current = JSON.stringify(presentation)
     router.push('/host/present/session')
@@ -1542,6 +1584,26 @@ function PresentCreatePageInner() {
     lastSavedRef.current = JSON.stringify(presentation)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Sync title to the live session (if any) on 500ms debounce.
+  // The session page reads `quizotic_active_presentation` from localStorage;
+  // we keep it in sync so the live header reflects title edits. We also emit
+  // a `storage` event so any open session tab picks it up immediately.
+  useEffect(() => {
+    if (!hasLoadedRef.current) return
+    const timer = setTimeout(() => {
+      try {
+        const raw = localStorage.getItem('quizotic_active_presentation')
+        if (!raw) return // session not live
+        const active = JSON.parse(raw)
+        if (active?.id !== presentation.id) return
+        if (active.title === presentation.title) return
+        const next = { ...active, title: presentation.title }
+        localStorage.setItem('quizotic_active_presentation', JSON.stringify(next))
+      } catch { /* ignore */ }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [presentation.title, presentation.id])
 
   // Auto-save with 3s debounce
   useEffect(() => {

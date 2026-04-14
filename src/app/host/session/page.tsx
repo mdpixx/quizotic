@@ -12,6 +12,7 @@ import type { Quiz, QuestionStat, SessionMode } from '@/lib/quiz-types'
 import { ReflectionInsights } from '@/components/ReflectionInsights'
 import { getOptionText, getOptionImage } from '@/lib/quiz-types'
 import { CircularTimer } from '@/components/CircularTimer'
+import { QuizoticLogo } from '@/components/QuizoticLogo'
 
 type Phase = 'loading' | 'error' | 'idle' | 'lobby' | 'question' | 'ended'
 
@@ -26,9 +27,10 @@ const OPTION_COLORS = [
   'bg-orange-500',
   'bg-blue-600',
   'bg-green-600',
+  'bg-violet-500', // #8B5CF6
 ]
 
-const OPTION_LABELS = ['A', 'B', 'C', 'D']
+const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E']
 
 export default function SessionPage() {
   const router = useRouter()
@@ -62,6 +64,8 @@ export default function SessionPage() {
   const [hostTimeLeft, setHostTimeLeft] = useState(0)
   const hostTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [plan, setPlan] = useState<'free' | 'pro'>('free')
+  const [questionStartedAt, setQuestionStartedAt] = useState<number | null>(null)
+  const [rankingSubmissions, setRankingSubmissions] = useState<number[][]>([])
 
   const currentQuestion = quiz?.questions[questionIndex] ?? null
 
@@ -117,6 +121,18 @@ export default function SessionPage() {
       if (counts) setOptionCounts(counts)
     })
 
+    socket.on('question_started', ({ startAt }: { startAt?: number }) => {
+      if (typeof startAt === 'number') setQuestionStartedAt(startAt)
+      else setQuestionStartedAt(Date.now())
+      setRankingSubmissions([])
+    })
+
+    socket.on('ranking_submission', ({ ranking }: { ranking: number[] }) => {
+      if (Array.isArray(ranking)) {
+        setRankingSubmissions(prev => [...prev, ranking])
+      }
+    })
+
     socket.on('question_ended', ({ explanation: exp }: { correctAnswer: string; explanation: string | null }) => {
       setExplanation(exp)
       if (hostTimerRef.current) { clearInterval(hostTimerRef.current); hostTimerRef.current = null }
@@ -169,6 +185,8 @@ export default function SessionPage() {
       socket.off('participant_joined')
       socket.off('participant_left')
       socket.off('answer_received')
+      socket.off('question_started')
+      socket.off('ranking_submission')
       socket.off('question_ended')
       socket.off('session_ended')
       socket.disconnect()
@@ -257,6 +275,8 @@ export default function SessionPage() {
     socketRef.current.emit('start_quiz', { gameCode })
     setAnswered(0)
     setOptionCounts([])
+    setQuestionStartedAt(null)
+    setRankingSubmissions([])
     setQuestionIndex(0)
     setPhase('question')
     if (quiz?.questions[0]?.timerSeconds) startHostTimer(quiz.questions[0].timerSeconds)
@@ -274,6 +294,8 @@ export default function SessionPage() {
       setQuestionIndex(nextIndex)
       setAnswered(0)
       setOptionCounts([])
+      setQuestionStartedAt(null)
+      setRankingSubmissions([])
       if (quiz.questions[nextIndex]?.timerSeconds) startHostTimer(quiz.questions[nextIndex].timerSeconds)
     }
   }
@@ -347,8 +369,6 @@ export default function SessionPage() {
               {([
                 { mode: 'competitive' as const, label: 'Competitive', desc: 'Live leaderboard, speed scoring', icon: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z', comingSoon: false },
                 { mode: 'reflection' as const, label: 'Reflection', desc: 'Calmer pace, results at end', icon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z', comingSoon: false },
-                { mode: 'selfpaced' as const, label: 'Self-paced', desc: 'Coming soon', icon: 'M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z', comingSoon: true },
-                { mode: 'assessment' as const, label: 'Assessment', desc: 'Coming soon', icon: 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9l2 2 4-4', comingSoon: true },
               ]).map(opt => (
                 <button
                   key={opt.mode}
@@ -370,6 +390,7 @@ export default function SessionPage() {
                 </button>
               ))}
             </div>
+            <p className="text-xs text-gray-400 mt-2">More modes coming — see the roadmap.</p>
           </div>
 
           {/* Anonymous mode toggle */}
@@ -445,7 +466,7 @@ export default function SessionPage() {
       {phase === 'lobby' && (
         <div className="p-4 max-w-2xl mx-auto py-8 space-y-4">
           <div className="flex items-center justify-between mb-2">
-            <h1 className="text-2xl font-black" style={{ color: '#0F1B3D' }}>Quizo<span style={{ color: '#F5E642' }}>tic</span></h1>
+            <QuizoticLogo variant="onLight" className="text-2xl" />
             <div className="flex items-center gap-2">
               <span className={`text-base font-bold px-4 py-1.5 rounded-full border ${
                 sessionMode === 'reflection'
@@ -465,25 +486,21 @@ export default function SessionPage() {
           </div>
 
           {/* Game code + QR code */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6 overflow-hidden">
-            <div className="flex flex-col sm:flex-row gap-4 items-center min-w-0">
-              <div className="flex-1 min-w-0 text-center">
-                <p className="text-sm sm:text-base font-bold text-gray-400 uppercase tracking-widest mb-2 sm:mb-3">Session Code</p>
-                <p className="text-5xl sm:text-6xl md:text-8xl font-black tracking-[0.15em] sm:tracking-[0.3em]" style={{ color: '#0F1B3D' }}>{gameCode}</p>
-                <p className="text-gray-400 text-sm sm:text-base mt-2 sm:mt-3">quizotic.live</p>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-10">
+            <div className="flex flex-col items-center gap-6">
+              <p className="text-xs tracking-[0.3em] text-gray-500 uppercase">Session Code</p>
+              <p className="text-6xl sm:text-8xl font-black" style={{ color: '#0F1B3D', letterSpacing: '0.15em' }}>{gameCode}</p>
+              <div className="h-px w-20 bg-gray-200" />
+              <p className="text-xs tracking-[0.2em] text-gray-500 uppercase">Scan to join</p>
+              <div className="p-3 bg-white rounded-xl border border-gray-100">
+                <QRCode
+                  value={`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')}/join?code=${gameCode}`}
+                  size={128}
+                  bgColor="#ffffff"
+                  fgColor="#0F1B3D"
+                />
               </div>
-              <div className="flex-shrink-0 text-center">
-                <p className="text-sm sm:text-base font-bold text-gray-400 uppercase tracking-widest mb-2 sm:mb-3">Scan to Join</p>
-                <div className="bg-white rounded-2xl p-2 sm:p-3 border border-gray-200">
-                  <QRCode
-                    value={`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')}/join?code=${gameCode}`}
-                    size={100}
-                    bgColor="#ffffff"
-                    fgColor="#0F1B3D"
-                    className="sm:!w-[128px] sm:!h-[128px]"
-                  />
-                </div>
-              </div>
+              <p className="text-sm text-gray-600">quizotic.live/join · code <span className="font-mono font-bold">{gameCode}</span></p>
             </div>
           </div>
 
@@ -538,7 +555,11 @@ export default function SessionPage() {
             <span className="text-xl text-gray-500 font-semibold">Q{questionIndex + 1} / {quiz.questions.length}</span>
             <div className="flex items-center gap-3">
               {currentQuestion.timerSeconds > 0 && (
-                <CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} />
+                questionStartedAt == null || Date.now() < questionStartedAt ? (
+                  <span className="text-sm font-semibold text-gray-400 animate-pulse px-3 py-1">Loading…</span>
+                ) : (
+                  <CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} />
+                )
               )}
               <span className="bg-blue-50 border border-blue-100 rounded-full px-5 py-2 text-xl font-bold" style={{ color: '#0F1B3D' }}>
                 {answered} / {participants.size} answered
@@ -573,7 +594,46 @@ export default function SessionPage() {
             )}
           </div>
 
-          {/* Options with live vote bars */}
+          {/* Ranking: show average rank per option */}
+          {currentQuestion.type === 'ranking' ? (
+            (() => {
+              const numOpts = currentQuestion.options?.length ?? 0
+              const sums = Array(numOpts).fill(0)
+              const counts = Array(numOpts).fill(0)
+              for (const arr of rankingSubmissions) {
+                if (!Array.isArray(arr)) continue
+                for (let pos = 0; pos < arr.length; pos++) {
+                  const optIdx = arr[pos]
+                  if (typeof optIdx === 'number' && optIdx >= 0 && optIdx < numOpts) {
+                    sums[optIdx] += pos + 1
+                    counts[optIdx] += 1
+                  }
+                }
+              }
+              const rows = (currentQuestion.options ?? []).map((opt, i) => ({
+                i,
+                label: OPTION_LABELS[i] ?? String(i + 1),
+                text: getOptionText(opt),
+                avg: counts[i] > 0 ? sums[i] / counts[i] : Number.POSITIVE_INFINITY,
+                hasData: counts[i] > 0,
+              })).sort((a, b) => a.avg - b.avg)
+              return (
+                <div className="space-y-2">
+                  {rows.map(row => (
+                    <div key={row.i} className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl p-3">
+                      <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ${OPTION_COLORS[row.i]}`}>
+                        {row.label}
+                      </span>
+                      <span className="flex-1 text-base text-gray-800 font-medium">{row.text}</span>
+                      <span className="text-sm font-bold text-gray-600 tabular-nums">
+                        {row.hasData ? `avg rank ${row.avg.toFixed(1)}` : 'avg rank —'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()
+          ) : (
           <div className="grid grid-cols-2 gap-4">
             {currentQuestion.options?.map((opt, i) => {
               const votes = optionCounts[i] ?? 0
@@ -608,6 +668,7 @@ export default function SessionPage() {
               )
             })}
           </div>
+          )}
 
           {/* Quizotic watermark — free plan */}
           {plan === 'free' && (

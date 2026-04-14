@@ -29,6 +29,7 @@ export const SLIDE_TYPE_META: Record<SlideType, {
   color: string
   bg: string
   hasAudienceInput: boolean
+  status?: 'beta' | 'coming_soon'
 }> = {
   multiple_choice: { label: 'Multiple Choice',  category: 'interactive', color: '#2563EB', bg: '#EFF6FF', hasAudienceInput: true },
   open_text:       { label: 'Open Text',         category: 'interactive', color: '#2D3A8C', bg: '#F0F4FF', hasAudienceInput: true },
@@ -39,7 +40,7 @@ export const SLIDE_TYPE_META: Record<SlideType, {
   scale_100:       { label: '100-Point Scale',   category: 'interactive', color: '#16A34A', bg: '#F0FDF4', hasAudienceInput: true },
   pinpoint:        { label: 'Pinpoint',          category: 'spatial',     color: '#9333EA', bg: '#FAF5FF', hasAudienceInput: true },
   grid_2x2:        { label: '2×2 Grid',          category: 'spatial',     color: '#0D9488', bg: '#F0FDFA', hasAudienceInput: true },
-  wheel:           { label: 'Wheel of Names',    category: 'spatial',     color: '#F59E0B', bg: '#FFFBEB', hasAudienceInput: false },
+  wheel:           { label: 'Wheel of Names',    category: 'spatial',     color: '#F59E0B', bg: '#FFFBEB', hasAudienceInput: false, status: 'coming_soon' },
   word_duel:       { label: 'Word Duel',         category: 'energy',      color: '#DC2626', bg: '#FEF2F2', hasAudienceInput: true },
   live_race:       { label: 'Live Race',         category: 'energy',      color: '#B45309', bg: '#FFFBEB', hasAudienceInput: true },
   emoji_pulse:     { label: 'Emoji Pulse',       category: 'energy',      color: '#0F1B3D', bg: '#F8F9FA', hasAudienceInput: true },

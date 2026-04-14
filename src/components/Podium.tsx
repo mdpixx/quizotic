@@ -72,9 +72,14 @@ export function Podium({ leaderboard, sessionMode, highlightName }: PodiumProps)
                 <div className={`rounded-full overflow-hidden ${isHighlighted ? 'ring-3' : ''}`} style={isHighlighted ? { '--tw-ring-color': '#F5E642' } as React.CSSProperties : undefined}>
                   <Avatar archetype={entry.archetype ?? entry.name} size={isWinner ? 64 : 52} />
                 </div>
-                <p className="text-sm font-bold text-center truncate w-full" style={{ color: '#1E1B4B' }}>
-                  {entry.name}
-                </p>
+                <div className="flex flex-col items-center w-full">
+                  <span className="text-sm font-bold text-center truncate w-full" style={{ color: '#1E1B4B' }}>
+                    {entry.name || entry.archetype}
+                  </span>
+                  {entry.name && entry.archetype && (
+                    <span className="text-xs text-gray-500 mt-0.5 truncate w-full text-center">{entry.archetype}</span>
+                  )}
+                </div>
                 {isCompetitive && (
                   <p className="text-xs font-black tabular-nums" style={{ color: cfg.color === '#F5E642' ? '#92400E' : '#6B7280' }}>
                     {entry.score.toLocaleString()} pts

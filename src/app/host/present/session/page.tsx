@@ -618,13 +618,64 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
       return <WheelSpinner names={names} headingStyle={headingStyle} title={slide.title} />
     }
 
-    default:
+    case 'image_choice': {
+      const options = slide.options ?? []
+      const imageUrls = slide.imageUrls ?? []
+      const counts = aggregate.counts ?? new Array(options.length).fill(0)
+      const colors = ['#0F1B3D','#FF8A47','#0891B2','#16A34A','#F59E0B']
+      return (
+        <div className="flex flex-col h-full gap-4">
+          <h2 className="text-3xl leading-snug flex-shrink-0" style={headingStyle}>
+            {slide.question || <span className="opacity-30">Question text...</span>}
+          </h2>
+          <div className="flex-1 min-h-0 grid gap-4" style={{ gridTemplateColumns: `repeat(${Math.max(options.length, 1)}, minmax(0, 1fr))` }}>
+            {options.map((opt, i) => {
+              const count = counts[i] ?? 0
+              const pct = aggregate.total > 0 ? Math.round((count / aggregate.total) * 100) : 0
+              const color = colors[i % colors.length]
+              return (
+                <div key={i} className="flex flex-col gap-2 min-h-0">
+                  <div className="flex-1 min-h-0 rounded-2xl overflow-hidden border flex items-center justify-center"
+                    style={{ background: '#F3F4F6', borderColor: '#E2E8F0' }}>
+                    {imageUrls[i] ? (
+                      <img src={imageUrls[i]} alt={opt} className="max-w-full max-h-full object-contain" />
+                    ) : (
+                      <span className="text-xs" style={{ color: '#94A3B8' }}>No image</span>
+                    )}
+                  </div>
+                  <div className="flex-shrink-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-semibold truncate" style={{ color: '#0F1B3D' }}>{opt || `Option ${i + 1}`}</span>
+                      <span className="text-sm font-bold tabular-nums" style={{ color }}>
+                        {showResults ? count : 0} <span className="text-xs font-normal opacity-60">({showResults ? pct : 0}%)</span>
+                      </span>
+                    </div>
+                    <div className="h-3 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.06)' }}>
+                      <div className="h-full rounded-full"
+                        style={{
+                          width: `${showResults ? pct : 0}%`,
+                          background: `linear-gradient(90deg, ${color}, ${color}cc)`,
+                          transition: 'width 0.6s cubic-bezier(0.34,1.56,0.64,1)',
+                        }} />
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )
+    }
+
+    default: {
+      const fallback = slide as Slide
       return (
         <div className="text-center py-12">
-          <p className="text-lg font-bold" style={{ color: '#0F1B3D' }}>{SLIDE_TYPE_META[slide.type].label}</p>
+          <p className="text-lg font-bold" style={{ color: '#0F1B3D' }}>{SLIDE_TYPE_META[fallback.type].label}</p>
           <p className="text-sm mt-2" style={{ color: '#9CA3AF' }}>Live view coming soon</p>
         </div>
       )
+    }
   }
 }
 

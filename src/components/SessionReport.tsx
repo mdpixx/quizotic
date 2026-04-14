@@ -1,4 +1,5 @@
 import type { QuestionStat, BloomsLevel } from '@/lib/quiz-types'
+import { QuizoticLogo } from './QuizoticLogo'
 
 const BLOOMS_COLORS: Record<BloomsLevel, string> = {
   remember: 'bg-blue-400',
@@ -281,7 +282,7 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
           </div>
           <div className="text-right">
             <p className="text-sm text-gray-500">Powered by</p>
-            <p className="text-lg font-black text-gray-900">Quizotic</p>
+            <QuizoticLogo variant="onLight" className="text-lg" />
           </div>
         </div>
         {/* Summary row */}

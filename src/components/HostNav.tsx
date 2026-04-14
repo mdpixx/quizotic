@@ -5,6 +5,7 @@ import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Avatar } from './Avatar'
+import { QuizoticLogo } from './QuizoticLogo'
 
 export function HostNav() {
   const { data: session } = useSession()
@@ -40,9 +41,8 @@ export function HostNav() {
           >
             Q
           </div>
-          <span className="text-lg font-black tracking-tight" style={{ fontFamily: 'var(--font-heading)', color: '#fff' }}>
-            Quizo<span style={{ color: '#F5E642' }}>tic</span><span className="text-[10px] font-bold tracking-wide ml-0.5 animate-pulse" style={{ color: '#22C55E', verticalAlign: 'super' }}>.live</span>
-          </span>
+          <QuizoticLogo variant="onDark" className="text-lg" />
+          <span className="text-[10px] font-bold tracking-wide ml-0.5 animate-pulse" style={{ color: '#22C55E', verticalAlign: 'super' }}>.live</span>
         </Link>
 
         {/* Center nav links — desktop */}

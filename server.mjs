@@ -107,6 +107,34 @@ function generateGameCode() {
 
 app.prepare().then(() => {
   const httpServer = createServer((req, res) => {
+    // Short-circuit: session lookup API (no auth, reads in-memory sessions Map)
+    if (req.method === 'GET' && req.url && req.url.startsWith('/api/session/lookup')) {
+      try {
+        const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`)
+        const code = String(url.searchParams.get('code') || '').trim()
+        res.setHeader('Content-Type', 'application/json')
+        res.setHeader('Cache-Control', 'no-store')
+        if (!/^\d{6}$/.test(code)) {
+          res.statusCode = 200
+          res.end(JSON.stringify({ ok: true, exists: false }))
+          return
+        }
+        const session = sessions.get(code)
+        if (!session) {
+          res.statusCode = 200
+          res.end(JSON.stringify({ ok: true, exists: false }))
+          return
+        }
+        const type = session.type === 'presenter' ? 'presenter' : 'quiz'
+        res.statusCode = 200
+        res.end(JSON.stringify({ ok: true, exists: true, type, status: session.status }))
+      } catch (err) {
+        res.statusCode = 200
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify({ ok: true, exists: false }))
+      }
+      return
+    }
     handle(req, res)
   })
 
@@ -176,13 +204,15 @@ app.prepare().then(() => {
       session.status = 'active'
       session.currentQuestionIndex = 0
       const question = sanitizeQuestion(session.quizData.questions[0])
-      session.questionStartedAt = Date.now()
+      const startAt = Date.now() + 500
+      session.questionStartedAt = startAt
 
       io.to(`session:${gameCode}`).emit('question_show', {
         question,
         index: 0,
         total: session.quizData.questions.length,
         serverTimestamp: session.questionStartedAt,
+        startAt,
       })
 
       console.log(`[session] started: ${gameCode}`)
@@ -251,13 +281,15 @@ app.prepare().then(() => {
 
       emitQuestionEnded(io, gameCode, session, currentQuestionIndex - 1)
 
-      session.questionStartedAt = Date.now()
+      const startAt = Date.now() + 500
+      session.questionStartedAt = startAt
       const question = sanitizeQuestion(quizData.questions[currentQuestionIndex])
       io.to(`session:${gameCode}`).emit('question_show', {
         question,
         index: currentQuestionIndex,
         total: quizData.questions.length,
         serverTimestamp: session.questionStartedAt,
+        startAt,
       })
     })
 
@@ -496,9 +528,11 @@ app.prepare().then(() => {
         return
       }
 
+      const safeName = String(displayName ?? '').slice(0, 30).trim() || 'Anonymous'
+      const archetype = assignArchetype()
       const participant = {
-        name: String(displayName ?? '').slice(0, 30).trim() || 'Anonymous',
-        archetype: '',
+        name: safeName,
+        archetype,
         votedSlides: {},
       }
       session.participants.set(socket.id, participant)
@@ -513,9 +547,12 @@ app.prepare().then(() => {
         totalSlides: session.presentationData.slides.length,
         currentSlide,
         responseMode: currentSlide?.responseMode || 'instant',
+        archetype,
       })
 
       io.to(`host:${gameCode}`).emit('presenter_participant_joined', {
+        name: safeName,
+        archetype,
         count: session.participants.size,
       })
       console.log(`[presenter] ${displayName} joined ${gameCode}`)
@@ -639,8 +676,9 @@ app.prepare().then(() => {
       }
 
       const archetype = assignArchetype()
-      // In anonymous mode, store archetype only (not the display name)
-      const storedName = session.anonymousMode ? archetype : safeName
+      // Display name shown to others: archetype in anonymous mode, else user name.
+      // Always store BOTH original `name` and `archetype` on the participant.
+      const displayStoredName = session.anonymousMode ? archetype : safeName
 
       // Team assignment (round-robin)
       let team = null
@@ -650,7 +688,7 @@ app.prepare().then(() => {
         session.teamJoinCounter++
       }
 
-      const participant = { name: storedName, archetype, score: 0, answers: [], team }
+      const participant = { name: displayStoredName, realName: safeName, archetype, score: 0, answers: [], team }
       session.participants.set(socket.id, participant)
       socket.join(`session:${gameCode}`)
 
@@ -666,7 +704,7 @@ app.prepare().then(() => {
       })
 
       io.to(`host:${gameCode}`).emit('participant_joined', {
-        name: storedName,
+        name: displayStoredName,
         archetype,
         count: session.participants.size,
         team,
@@ -687,7 +725,8 @@ app.prepare().then(() => {
 
       if (participant.answers[qi] !== undefined) return
 
-      // Enforce timer: reject answers after timer + 2s grace period
+      // Enforce timer: reject only when Date.now() > questionStartedAt + timer*1000 + 2000ms grace.
+      // The 500ms warm-up in questionStartedAt is absorbed by this grace window.
       if (session.questionStartedAt) {
         const elapsed = Date.now() - session.questionStartedAt
         const deadline = (question.timerSeconds || 20) * 1000 + 2000
@@ -695,6 +734,20 @@ app.prepare().then(() => {
           socket.emit('answer_confirmed', { isCorrect: false, points: 0, totalScore: participant.score, late: true })
           return
         }
+      }
+
+      // Ranking questions: accept an array of option indices, store raw, do not score.
+      if (question.type === 'ranking' && Array.isArray(answer)) {
+        participant.answers[qi] = answer
+        socket.emit('answer_confirmed', { isCorrect: null, points: 0, totalScore: participant.score, isNonScored: true })
+        const numOptions = question.options?.length ?? 4
+        io.to(`host:${gameCode}`).emit('answer_received', {
+          count: countAnswers(session, qi),
+          total: session.participants.size,
+          optionCounts: countAnswersByOption(session, qi, numOptions),
+        })
+        io.to(`host:${gameCode}`).emit('ranking_submission', { order: answer })
+        return
       }
 
       const isNonScored = ['poll', 'case', 'wordcloud', 'openended', 'qa', 'rating', 'ranking'].includes(question.type)
