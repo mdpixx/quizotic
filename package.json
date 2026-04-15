@@ -9,7 +9,8 @@
     "dev": "node server.mjs",
     "build": "next build",
     "start": "NODE_ENV=production node server.mjs",
-    "lint": "eslint"
+    "lint": "eslint",
+    "deploy": "bash scripts/deploy-to-railway.sh"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
