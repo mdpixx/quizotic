@@ -32,6 +32,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { id, title, slides } = body
 
+    if (!id || typeof id !== 'string') {
+      return NextResponse.json({ success: false, error: 'id is required' }, { status: 400 })
+    }
     if (!title || !slides) {
       return NextResponse.json({ success: false, error: 'title and slides are required' }, { status: 400 })
     }
@@ -46,13 +49,9 @@ export async function POST(req: NextRequest) {
       }, { status: 403 })
     }
 
-    let presentation
-    if (id) {
-      const existing = await prisma.presentation.findFirst({ where: { id, userId: user.id } })
-      if (!existing) return NextResponse.json({ success: false, error: 'Presentation not found' }, { status: 404 })
-      presentation = await prisma.presentation.update({ where: { id }, data: { title, slides } })
-    } else {
-      // Check saved presentation limit
+    // Check whether this is a new row (upsert — use client-generated id)
+    const existing = await prisma.presentation.findFirst({ where: { id, userId: user.id } })
+    if (!existing) {
       const maxSaved = PLAN_LIMITS[plan].maxSavedPresentations
       if (maxSaved !== Infinity) {
         const count = await prisma.presentation.count({ where: { userId: user.id } })
@@ -63,8 +62,13 @@ export async function POST(req: NextRequest) {
           }, { status: 403 })
         }
       }
-      presentation = await prisma.presentation.create({ data: { title, slides, userId: user.id } })
     }
+
+    const presentation = await prisma.presentation.upsert({
+      where: { id },
+      create: { id, title, slides, userId: user.id },
+      update: { title, slides },
+    })
 
     return NextResponse.json({ success: true, data: presentation })
   } catch {

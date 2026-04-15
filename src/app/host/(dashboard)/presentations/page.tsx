@@ -5,6 +5,19 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const sec = Math.floor(diff / 1000)
+  if (sec < 60) return 'just now'
+  const min = Math.floor(sec / 60)
+  if (min < 60) return `${min}m ago`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr}h ago`
+  const days = Math.floor(hr / 24)
+  if (days < 7) return `${days}d ago`
+  return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
 interface PresentationRecord {
   id: string
   title: string
@@ -158,8 +171,8 @@ export default function PresentationsPage() {
                   </div>
                 </div>
 
-                <p className="text-[11px] mb-4" style={{ color: '#CBD5E1' }}>
-                  Updated {new Date(pres.updatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                <p className="text-[11px] mb-4 flex items-center gap-1.5" style={{ color: '#94A3B8' }}>
+                  Last edited {relativeTime(pres.updatedAt)}
                 </p>
 
                 {/* Actions */}

@@ -36,18 +36,16 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { id, title, subject, language, questions } = body
 
+    if (!id || typeof id !== 'string') {
+      return NextResponse.json({ success: false, error: 'id is required' }, { status: 400 })
+    }
     if (!title || !questions) {
       return NextResponse.json({ success: false, error: 'title and questions are required' }, { status: 400 })
     }
 
-    let quiz
-    if (id) {
-      // Update — verify ownership
-      const existing = await prisma.quiz.findFirst({ where: { id, userId: user.id } })
-      if (!existing) return NextResponse.json({ success: false, error: 'Quiz not found' }, { status: 404 })
-      quiz = await prisma.quiz.update({ where: { id }, data: { title, subject, language, questions } })
-    } else {
-      // Create — check save limit
+    // Check whether this is a new row (upsert — use client-generated id)
+    const existing = await prisma.quiz.findFirst({ where: { id, userId: user.id } })
+    if (!existing) {
       const plan = await getUserPlan(user.id)
       const limit = PLAN_LIMITS[plan].maxSavedQuizzes
       if (limit !== Infinity) {
@@ -59,8 +57,13 @@ export async function POST(req: NextRequest) {
           }, { status: 403 })
         }
       }
-      quiz = await prisma.quiz.create({ data: { title, subject, language, questions, userId: user.id } })
     }
+
+    const quiz = await prisma.quiz.upsert({
+      where: { id },
+      create: { id, title, subject, language, questions, userId: user.id },
+      update: { title, subject, language, questions },
+    })
 
     return NextResponse.json({ success: true, data: quiz })
   } catch {

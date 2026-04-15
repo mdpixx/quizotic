@@ -54,11 +54,12 @@ if git diff --cached --quiet; then
   exit 0
 fi
 
-# Commit message: arg if given, else latest monorepo commit message
+# Commit message: arg if given, else a predictable deploy marker with monorepo sha
 if [ "${1:-}" != "" ]; then
   MSG="$1"
 else
-  MSG=$(git -C "$SRC_DIR" log -1 --pretty=%B -- .)
+  MONOREPO_SHA=$(git -C "$SRC_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+  MSG="deploy: sync from monorepo @ $MONOREPO_SHA"
 fi
 
 echo "→ Committing:"

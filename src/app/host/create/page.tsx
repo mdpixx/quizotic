@@ -1133,7 +1133,7 @@ function CreateQuizPageInner() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: editId || undefined,
+          id: quizData.id,
           title: quizData.title,
           subject: quizData.subject,
           language: quizData.language,
@@ -1142,8 +1142,8 @@ function CreateQuizPageInner() {
       })
       if (res.ok) {
         const { data } = await res.json()
-        if (data?.id && data.id !== quizData.id) {
-          finalQuiz = { ...quizData, id: data.id } as Quiz
+        if (data?.id) {
+          finalQuiz = { ...quizData, id: data.id, updatedAt: data.updatedAt ?? quizData.updatedAt } as Quiz
           saveQuiz(finalQuiz)
         }
       }

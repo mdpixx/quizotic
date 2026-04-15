@@ -1437,6 +1437,7 @@ function PresentCreatePageInner() {
   const [activeIndex, setActiveIndex] = useState(0)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [starting, setStarting] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
   const [pptxImporting, setPptxImporting] = useState(false)
@@ -1467,21 +1468,62 @@ function PresentCreatePageInner() {
     const params = new URLSearchParams(window.location.search)
     const editId = params.get('id')
     if (editId) {
-      // Prefer a newer draft over the saved copy
       const dk = draftKey('presentation', editId)
       const draft = readDraft<Presentation>(dk)
+
+      // Try to get the cached copy from localStorage
+      let localSaved: Presentation | undefined
       try {
         const all = JSON.parse(localStorage.getItem('quizotic_presentations') ?? '[]')
-        const saved = all.find((p: Presentation) => p.id === editId) as Presentation | undefined
-        if (draft && saved && draft.savedAt > new Date(saved.updatedAt).getTime()) {
-          setPresentation(draft.value)
-          setRecoveredDraft({ savedAt: draft.savedAt })
-          setActiveIndex(0)
-          return
-        }
-        if (saved) { setPresentation(saved); setActiveIndex(0); return }
+        localSaved = all.find((p: Presentation) => p.id === editId) as Presentation | undefined
       } catch { /* ignore */ }
-      // Fallback: use draft if saved list failed
+
+      // A local draft that is newer than the cached copy takes priority
+      if (draft && (!localSaved || draft.savedAt > new Date(localSaved.updatedAt).getTime())) {
+        setPresentation(draft.value)
+        setRecoveredDraft({ savedAt: draft.savedAt })
+        setActiveIndex(0)
+        return
+      }
+      if (localSaved) {
+        setPresentation(localSaved)
+        setActiveIndex(0)
+        // Also fetch from server in background to sync latest updatedAt
+        fetch(`/api/presentations/${editId}`)
+          .then(r => r.ok ? r.json() : null)
+          .then((d: { success: boolean; data?: Presentation } | null) => {
+            if (!d?.success || !d.data) return
+            const serverPresentation = d.data
+            const serverTime = new Date(serverPresentation.updatedAt).getTime()
+            const localTime = localSaved ? new Date(localSaved.updatedAt).getTime() : 0
+            // Only adopt server copy if it is strictly newer (another tab/device saved it)
+            if (serverTime > localTime) {
+              setPresentation(serverPresentation)
+              const existing = JSON.parse(localStorage.getItem('quizotic_presentations') ?? '[]')
+              const idx = existing.findIndex((p: Presentation) => p.id === serverPresentation.id)
+              if (idx >= 0) existing[idx] = serverPresentation
+              else existing.unshift(serverPresentation)
+              localStorage.setItem('quizotic_presentations', JSON.stringify(existing))
+            }
+          })
+          .catch(() => {})
+        return
+      }
+      // Nothing in localStorage — fetch from server directly
+      fetch(`/api/presentations/${editId}`)
+        .then(r => r.ok ? r.json() : null)
+        .then((d: { success: boolean; data?: Presentation } | null) => {
+          if (!d?.success || !d.data) return
+          setPresentation(d.data)
+          setActiveIndex(0)
+          try {
+            const existing = JSON.parse(localStorage.getItem('quizotic_presentations') ?? '[]')
+            existing.unshift(d.data)
+            localStorage.setItem('quizotic_presentations', JSON.stringify(existing))
+          } catch { /* ignore */ }
+        })
+        .catch(() => {})
+      // Fallback: use draft if server fetch also fails
       if (draft) { setPresentation(draft.value); setActiveIndex(0) }
       return
     }
@@ -1552,8 +1594,9 @@ function PresentCreatePageInner() {
     setActiveIndex(i + 1)
   }
 
-  async function savePresentation() {
+  async function savePresentation(): Promise<boolean> {
     setSaving(true)
+    setSaveError(null)
     // Write crash-safe draft FIRST (synchronous, always succeeds).
     // This ensures a refresh can recover work even if the API call fails.
     const dk = draftKey('presentation', presentation.id)
@@ -1564,20 +1607,31 @@ function PresentCreatePageInner() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(presentation),
       })
-      if (!res.ok) throw new Error(`Save failed (${res.status})`)
-      const existing = JSON.parse(localStorage.getItem('quizotic_presentations') ?? '[]')
-      const idx = existing.findIndex((p: Presentation) => p.id === presentation.id)
-      if (idx >= 0) existing[idx] = presentation
-      else existing.unshift(presentation)
-      localStorage.setItem('quizotic_presentations', JSON.stringify(existing))
+      const json = await res.json() as { success: boolean; data?: Presentation; error?: string }
+      if (!res.ok || !json.success) throw new Error(json.error ?? `Save failed (${res.status})`)
+      // Adopt server-returned id/timestamps so future autosaves update the correct row
+      if (json.data) {
+        setPresentation(prev => {
+          if (prev.id === json.data!.id && prev.updatedAt === json.data!.updatedAt) return prev
+          return { ...prev, id: json.data!.id, updatedAt: json.data!.updatedAt }
+        })
+        const saved = json.data
+        const existing = JSON.parse(localStorage.getItem('quizotic_presentations') ?? '[]')
+        const idx = existing.findIndex((p: Presentation) => p.id === saved.id)
+        if (idx >= 0) existing[idx] = saved
+        else existing.unshift(saved)
+        localStorage.setItem('quizotic_presentations', JSON.stringify(existing))
+      }
       // Server save succeeded — draft is no longer needed
       clearDraft(dk)
       setRecoveredDraft(null)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
-    } catch {
-      // Server save failed but draft is already persisted locally — surface nothing to the user
-      // (the autosave loop will retry on the next change)
+      return true
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Save failed'
+      setSaveError(msg)
+      return false
     } finally {
       setSaving(false)
     }
@@ -1662,12 +1716,12 @@ function PresentCreatePageInner() {
     return () => clearTimeout(timer)
   }, [presentation.title, presentation.id])
 
-  // Auto-save with 3s debounce (via shared hook)
+  // Auto-save with 3s debounce (via shared hook); returns false on failure → hook retries
   useAutosave(presentation, (snap) => {
     if (!hasLoadedRef.current) return
     if (JSON.stringify(snap) === lastSavedRef.current) return
     lastSavedRef.current = JSON.stringify(snap)
-    savePresentation()
+    return savePresentation()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, { delayMs: 3000 })
 
@@ -1856,10 +1910,18 @@ function PresentCreatePageInner() {
 
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* Auto-save indicator */}
-            <span className="text-xs font-medium flex items-center gap-1.5 mr-1" style={{ color: saving ? '#0F1B3D' : saved ? '#16A34A' : 'transparent' }}>
-              {saving && <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#0F1B3D' }} />}
-              {saving ? 'Saving...' : saved ? 'Saved' : ''}
-            </span>
+            {saveError ? (
+              <span className="text-xs font-medium flex items-center gap-1.5 mr-1" style={{ color: '#DC2626' }}>
+                <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 flex-shrink-0"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3.5a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3A.75.75 0 018 4.5zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
+                <span className="hidden sm:inline">Couldn&apos;t save.</span>
+                <button onClick={() => { setSaveError(null); savePresentation() }} className="underline font-bold hover:no-underline">Retry</button>
+              </span>
+            ) : (
+              <span className="text-xs font-medium flex items-center gap-1.5 mr-1" style={{ color: saving ? '#0F1B3D' : saved ? '#16A34A' : 'transparent' }}>
+                {saving && <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#0F1B3D' }} />}
+                {saving ? 'Saving...' : saved ? 'Saved' : ''}
+              </span>
+            )}
             {hasPptxContent && (
               <button onClick={() => setEnhanceOpen(true)} title="Enhance with AI"
                 className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all hover:scale-[1.02] click-bounce"
@@ -1873,15 +1935,15 @@ function PresentCreatePageInner() {
               style={{ borderColor: '#E2E8F0', color: '#64748B' }}>
               <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><path d="M15 7a3 3 0 100-6 3 3 0 000 6zM5 13a3 3 0 100-6 3 3 0 000 6zM15 19a3 3 0 100-6 3 3 0 000 6zM7.59 11.51l4.83 2.98M12.41 5.51L7.59 8.49" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
-            <button onClick={savePresentation} disabled={saving}
+            <button onClick={() => { setSaveError(null); savePresentation() }} disabled={saving}
               className="text-xs md:text-sm font-bold px-3 py-1.5 md:px-5 md:py-2 rounded-xl border-2 transition-all disabled:opacity-50 click-bounce"
-              style={{ borderColor: saved ? '#16A34A' : '#E2E8F0', color: saved ? '#16A34A' : '#0F1B3D', background: saved ? '#F0FDF4' : '#fff' }}>
+              style={{ borderColor: saveError ? '#DC2626' : saved ? '#16A34A' : '#E2E8F0', color: saveError ? '#DC2626' : saved ? '#16A34A' : '#0F1B3D', background: saveError ? '#FEF2F2' : saved ? '#F0FDF4' : '#fff' }}>
               {saving ? (
                 <span className="flex items-center gap-1.5">
                   <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
                   Saving
                 </span>
-              ) : saved ? 'Saved' : 'Save'}
+              ) : saveError ? 'Retry' : saved ? 'Saved' : 'Save'}
             </button>
             <button onClick={handleSaveAndPresent} disabled={starting}
               className="text-xs md:text-sm font-bold px-3 py-1.5 md:px-5 md:py-2 rounded-xl transition-all hover:scale-[1.02] click-bounce disabled:opacity-60"
