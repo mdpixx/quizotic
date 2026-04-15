@@ -14,6 +14,7 @@ interface SessionRecord {
     leaderboard?: { name: string; score: number }[]
     duration?: number
     questionCount?: number
+    maxScore?: number
   } | null
   createdAt: string
   endedAt: string | null
@@ -26,16 +27,25 @@ function fmtDate(iso: string) {
 }
 
 function fmtDuration(secs: number | null | undefined) {
-  if (!secs) return '—'
+  if (secs == null) return '—'
   const m = Math.floor(secs / 60)
   const s = secs % 60
   return m > 0 ? `${m}m ${s}s` : `${s}s`
 }
 
+// Returns the session's average score as a 0–100 percentage, or null if unscoreable.
+// `results.score` is a raw Kahoot-style point total (up to ~1000 per scoreable question).
+// We normalize by `maxScore` (new) or fall back to `questionCount * 1000` for legacy rows.
 function getAvgScore(results: SessionRecord['results']): number | null {
   const lb = results?.leaderboard
   if (!lb || lb.length === 0) return null
-  return Math.round(lb.reduce((s, p) => s + (p.score ?? 0), 0) / lb.length)
+  const maxScore = results?.maxScore
+    ?? (results?.questionCount != null ? results.questionCount * 1000 : null)
+  if (!maxScore || maxScore <= 0) return null
+  const avgRaw = lb.reduce((s, p) => s + (p.score ?? 0), 0) / lb.length
+  const pct = (avgRaw / maxScore) * 100
+  // Clamp to [0, 100] in case legacy data has custom point weights we can't detect
+  return Math.max(0, Math.min(100, Math.round(pct)))
 }
 
 function getTitle(session: SessionRecord): string {
@@ -219,10 +229,21 @@ export default function SessionsPage() {
                       </td>
                       <td className="px-4 py-3 text-xs" style={{ color: '#64748B' }}>{fmtDuration(s.results?.duration)}</td>
                       <td className="px-4 py-3">
-                        <span className="text-xs font-bold px-2 py-1 rounded-full capitalize"
-                          style={{ background: s.status === 'ended' ? '#F0FDF4' : '#FEF3C7', color: s.status === 'ended' ? '#16A34A' : '#D97706' }}>
-                          {s.status}
-                        </span>
+                        {(() => {
+                          const statusStyles: Record<string, { bg: string; fg: string }> = {
+                            ended: { bg: '#F0FDF4', fg: '#16A34A' },
+                            active: { bg: '#DBEAFE', fg: '#2563EB' },
+                            lobby: { bg: '#FEF3C7', fg: '#D97706' },
+                            abandoned: { bg: '#FEE2E2', fg: '#DC2626' },
+                          }
+                          const style = statusStyles[s.status] ?? { bg: '#F1F5F9', fg: '#64748B' }
+                          return (
+                            <span className="text-xs font-bold px-2 py-1 rounded-full capitalize"
+                              style={{ background: style.bg, color: style.fg }}>
+                              {s.status}
+                            </span>
+                          )
+                        })()}
                       </td>
                     </tr>
                   )

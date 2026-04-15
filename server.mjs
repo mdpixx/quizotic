@@ -372,6 +372,7 @@ app.prepare().then(() => {
             questionStats,
             quizTitle: session.quizData.title,
             questionCount: session.quizData.questions.length,
+            maxScore: computeMaxScore(session),
             duration: Math.round((Date.now() - (session.startedAt || Date.now())) / 1000),
           },
         })
@@ -440,6 +441,7 @@ app.prepare().then(() => {
           questionStats,
           quizTitle: session.quizData.title,
           questionCount: session.quizData.questions.length,
+          maxScore: computeMaxScore(session),
           duration: Math.round((Date.now() - (session.startedAt || Date.now())) / 1000),
         },
       })
@@ -1032,6 +1034,16 @@ function buildLeaderboard(participants) {
   return Array.from(participants.values())
     .sort((a, b) => b.score - a.score)
     .map(p => ({ name: p.name, archetype: p.archetype, score: p.score, team: p.team ?? null }))
+}
+
+// Sum of max points across scoreable questions in a session.
+// Mirrors the non-scored filter used in emitQuestionEnded / buildQuestionStats.
+function computeMaxScore(session) {
+  const nonScored = new Set(['poll', 'case', 'wordcloud', 'openended', 'qa', 'rating', 'ranking'])
+  return session.quizData.questions.reduce((sum, q) => {
+    if (nonScored.has(q.type)) return sum
+    return sum + (q.points || 1000)
+  }, 0)
 }
 
 function buildTeamLeaderboard(session) {
