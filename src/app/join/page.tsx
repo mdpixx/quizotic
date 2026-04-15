@@ -6,11 +6,13 @@ import type { Socket } from 'socket.io-client'
 import dynamic from 'next/dynamic'
 import { Avatar } from '@/components/Avatar'
 import { playTick, playCorrect, playWrong, playStreak, playCelebration } from '@/lib/sounds'
+import { useI18n } from '@/lib/use-i18n'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
 const CircularTimer = dynamic(() => import('@/components/CircularTimer').then(m => m.CircularTimer), { ssr: false })
+const DrawingCanvas = dynamic(() => import('@/components/DrawingCanvas').then(m => m.DrawingCanvas), { ssr: false })
 const Podium = dynamic(() => import('@/components/Podium').then(m => m.Podium), { ssr: false })
 const ReflectionMoment = dynamic(() => import('@/components/ReflectionMoment').then(m => m.ReflectionMoment), { ssr: false })
 
@@ -69,6 +71,47 @@ const OPTION_GRADIENTS = [
 const OPTION_COLORS = ['#2D3A8C', '#FF8A47', '#5BC0EB', '#E07A5F', '#0F1B3D']
 const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E']
 const TEXT_INPUT_TYPES = ['openended', 'wordcloud', 'qa']
+
+// ─── Countdown Number (for get-ready overlay) ────────────────────────────────
+function CountdownNumber({ targetTime }: { targetTime: number }) {
+  const [val, setVal] = useState(() => Math.max(1, Math.ceil((targetTime - Date.now()) / 1000)))
+  const prevVal = useRef(val)
+  useEffect(() => {
+    const tick = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((targetTime - Date.now()) / 1000))
+      setVal(remaining)
+      if (remaining <= 0) clearInterval(tick)
+    }, 100)
+    return () => clearInterval(tick)
+  }, [targetTime])
+  const changed = val !== prevVal.current
+  prevVal.current = val
+  return (
+    <div className="relative">
+      <div
+        key={changed ? val : undefined}
+        style={{
+          fontSize: 120,
+          lineHeight: 1,
+          fontFamily: 'var(--font-heading)',
+          color: '#F5E642',
+          fontWeight: 900,
+          animation: changed ? 'countdownPop 0.9s ease-out forwards' : undefined,
+        }}
+      >
+        {val > 0 ? val : ''}
+      </div>
+      <style>{`
+        @keyframes countdownPop {
+          0%   { transform: scale(1.4); opacity: 0.6; }
+          30%  { transform: scale(1.0); opacity: 1; }
+          80%  { transform: scale(1.0); opacity: 1; }
+          100% { transform: scale(0.7); opacity: 0; }
+        }
+      `}</style>
+    </div>
+  )
+}
 
 // ─── Star Rating Component ───────────────────────────────────────────────────
 function StarRating({ max, minLabel, maxLabel, textLight, onSubmit, disabled, onDisabledClick }: {
@@ -264,6 +307,7 @@ function SortableRankingItem({ id, index, label, color }: { id: string; index: n
 
 // ─── Inner Component (uses useSearchParams — requires Suspense) ───────────────
 function JoinPageInner() {
+  const { t, locale, setLocale } = useI18n()
   const searchParams = useSearchParams()
   const socketRef = useRef<Socket | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -333,6 +377,13 @@ function JoinPageInner() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [myRank, setMyRank] = useState<number>(0)
 
+  // Intermediate leaderboard (between questions)
+  const [intermediateLeaderboard, setIntermediateLeaderboard] = useState<LeaderboardEntry[]>([])
+  const [intermediateRank, setIntermediateRank] = useState<number | null>(null)
+
+  // Multiselect
+  const [multiselectChosen, setMultiselectChosen] = useState<Set<number>>(new Set())
+
   // Self-paced follow-up state
   const [spQuestions, setSpQuestions] = useState<Question[]>([])
   const [spIndex, setSpIndex] = useState(0)
@@ -375,6 +426,8 @@ function JoinPageInner() {
     socketRef.current = socket
 
     socket.on('connect', () => {
+      // RTT clock-sync handshake — server uses this for authoritative scoring
+      socket.emit('ping_time', { clientTime: Date.now() }, () => {})
       if (gameCodeRef.current && displayNameRef.current) {
         socket.emit('join_session', {
           gameCode: gameCodeRef.current,
@@ -404,6 +457,8 @@ function JoinPageInner() {
       setTextAnswer('')
       setShowConfetti(false)
       setShowRedFlash(false)
+      setMultiselectChosen(new Set())
+      setIntermediateRank(null)
       setPhase('question')
 
       const effectiveStartAt = typeof startAt === 'number' ? startAt : Date.now()
@@ -440,7 +495,7 @@ function JoinPageInner() {
       }
     })
 
-    socket.on('answer_confirmed', ({ isCorrect, points, totalScore }: { isCorrect: boolean; points: number; totalScore: number }) => {
+    socket.on('answer_confirmed', ({ isCorrect, points, totalScore, streakCount }: { isCorrect: boolean; points: number; totalScore: number; streakCount?: number }) => {
       if (timerRef.current) clearInterval(timerRef.current)
       setIsCorrect(isCorrect)
       setPointsEarned(points)
@@ -448,12 +503,10 @@ function JoinPageInner() {
       setPhase('answered')
 
       if (isCorrect) {
-        setStreak(prev => {
-          const next = prev + 1
-          if (next >= 3) playStreak()
-          else playCorrect()
-          return next
-        })
+        const newStreak = streakCount ?? 1
+        setStreak(newStreak)
+        if (newStreak >= 3) playStreak()
+        else playCorrect()
         setShowConfetti(true)
         setTimeout(() => setShowConfetti(false), 2000)
       } else {
@@ -466,6 +519,20 @@ function JoinPageInner() {
 
     socket.on('question_ended', ({ explanation: exp }: { correctAnswer: string; explanation: string | null }) => {
       setExplanation(exp)
+    })
+
+    socket.on('leaderboard_update', ({ top }: { top: LeaderboardEntry[] }) => {
+      setIntermediateLeaderboard(top)
+    })
+
+    socket.on('answer_overridden', ({ isCorrect, pointsDelta, totalScore }: { questionIndex: number; isCorrect: boolean; pointsDelta: number; totalScore: number }) => {
+      setIsCorrect(isCorrect)
+      setTotalScore(totalScore)
+      if (pointsDelta > 0) setPointsEarned(prev => prev + pointsDelta)
+    })
+
+    socket.on('my_rank_update', ({ rank }: { rank: number }) => {
+      setIntermediateRank(rank)
     })
 
     socket.on('session_ended', ({ leaderboard, teamLeaderboard: tlb, sessionMode: sm }: {
@@ -753,9 +820,31 @@ function JoinPageInner() {
   }
 
   function handleAnswerTap(idx: number) {
+    if (question?.type === 'multiselect') {
+      if (selectedAnswer !== null || timeLeft <= 0) return
+      setMultiselectChosen(prev => {
+        const next = new Set(prev)
+        if (next.has(idx)) next.delete(idx)
+        else next.add(idx)
+        return next
+      })
+      return
+    }
     if (selectedAnswer !== null || pendingAnswer !== null || timeLeft <= 0) return
     setSelectedAnswer(String(idx))
     setPendingAnswer(idx)
+  }
+
+  function submitMultiselect() {
+    if (multiselectChosen.size === 0 || selectedAnswer !== null || timeLeft <= 0) return
+    setSelectedAnswer('multi')
+    const timeMs = Date.now() - answerTimeRef.current
+    socketRef.current?.emit('submit_answer', {
+      gameCode: gameCodeRef.current,
+      answer: Array.from(multiselectChosen).map(String),
+      timeMs,
+      confidence: null,
+    })
   }
 
   function submitWithConfidence(level: 'sure' | 'unsure') {
@@ -779,6 +868,15 @@ function JoinPageInner() {
       answer: textAnswer.trim(),
       timeMs,
       confidence: null,
+    })
+  }
+
+  function submitDrawing(dataUrl: string) {
+    if (selectedAnswer !== null || timeLeft <= 0) return
+    setSelectedAnswer('drawing')
+    socketRef.current?.emit('submit_drawing', {
+      gameCode: gameCodeRef.current,
+      dataUrl,
     })
   }
 
@@ -871,14 +969,35 @@ function JoinPageInner() {
               <span style={{ color: 'white' }}>Quizo</span><span style={{ color: '#F5E642' }}>tic</span>
             </h1>
             <p className="text-lg mt-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
-              ready to play?
+              {t('join.title')}
             </p>
+            {/* Language toggle */}
+            <div className="flex justify-center gap-2 mt-1">
+              <button
+                type="button"
+                onClick={() => setLocale('en')}
+                aria-label="Switch to English"
+                className={`text-xs font-bold px-3 py-1 rounded-full transition-all ${locale === 'en' ? 'bg-white/20 text-white' : 'text-white/40 hover:text-white/60'}`}
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                onClick={() => setLocale('hi')}
+                aria-label="हिंदी में बदलें"
+                className={`text-xs font-bold px-3 py-1 rounded-full transition-all ${locale === 'hi' ? 'bg-white/20 text-white' : 'text-white/40 hover:text-white/60'}`}
+              >
+                हिंदी
+              </button>
+            </div>
           </div>
 
           <form onSubmit={handleJoin} className="space-y-4">
             <input
               type="text"
-              placeholder="Session code"
+              placeholder={t('join.codePlaceholder')}
+              aria-label={t('join.codePlaceholder')}
+              autoComplete="off"
               value={code}
               onChange={e => setCode(e.target.value)}
               disabled={phase === 'connecting'}
@@ -893,7 +1012,9 @@ function JoinPageInner() {
             />
             <input
               type="text"
-              placeholder="Your name"
+              placeholder={t('join.namePlaceholder')}
+              aria-label={t('join.namePlaceholder')}
+              autoComplete="nickname"
               value={name}
               onChange={e => setName(e.target.value)}
               disabled={phase === 'connecting'}
@@ -913,12 +1034,12 @@ function JoinPageInner() {
                 className="text-sm underline"
                 style={{ color: 'rgba(255,255,255,0.45)' }}
               >
-                Add email (optional, for attendance)
+                {t('join.addEmail')}
               </button>
             ) : (
               <input
                 type="email"
-                placeholder="you@example.com (optional)"
+                placeholder={t('join.emailPlaceholder')}
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 disabled={phase === 'connecting'}
@@ -939,7 +1060,7 @@ function JoinPageInner() {
               className="w-full font-black rounded-full py-5 text-xl transition-all disabled:opacity-50 hover:opacity-90"
               style={{ background: '#F5E642', color: '#0D0D0D', border: '3px solid #0D0D0D', boxShadow: '4px 4px 0 #0D0D0D', fontFamily: 'var(--font-heading)' }}
             >
-              {phase === 'connecting' ? 'Joining…' : 'Join →'}
+              {phase === 'connecting' ? t('join.joining') : t('join.submitBtn')}
             </button>
           </form>
 
@@ -1007,11 +1128,8 @@ function JoinPageInner() {
         {getReadyVisible && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ background: 'rgba(15,27,61,0.92)' }}>
             <div className="text-center">
-              <p className="text-4xl font-black mb-3" style={{ color: '#F5E642', fontFamily: 'var(--font-heading)' }}>
-                Get ready
-                <span className="inline-block ml-1 animate-pulse">…</span>
-              </p>
-              <div className="w-4 h-4 rounded-full mx-auto animate-bounce" style={{ background: '#F5E642' }} />
+              <CountdownNumber targetTime={answerTimeRef.current} />
+              <p className="text-xl font-bold mt-4" style={{ color: 'rgba(255,255,255,0.7)' }}>Get ready!</p>
             </div>
           </div>
         )}
@@ -1063,8 +1181,19 @@ function JoinPageInner() {
           )}
         </div>
 
-        {/* Answer options / text input */}
-        {TEXT_INPUT_TYPES.includes(question.type) ? (
+        {/* Answer options / text input / drawing */}
+        {question.type === 'drawing' ? (
+          <div className="flex flex-col gap-3 flex-1">
+            {selectedAnswer !== null ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-8">
+                <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center text-3xl">✓</div>
+                <p className="font-black text-2xl text-green-600">Drawing submitted!</p>
+              </div>
+            ) : (
+              <DrawingCanvas onSubmit={submitDrawing} disabled={selectedAnswer !== null || timeLeft <= 0} />
+            )}
+          </div>
+        ) : TEXT_INPUT_TYPES.includes(question.type) ? (
           <div className="flex flex-col gap-3 flex-1">
             <textarea
               className={`w-full rounded-2xl border-2 p-4 text-lg resize-none focus:outline-none transition-colors min-h-[140px] ${
@@ -1093,8 +1222,10 @@ function JoinPageInner() {
               : 'grid grid-cols-2'
           }`}>
             {question.options?.map((opt, idx) => {
-              const isSelected = selectedAnswer === String(idx)
-              const isDisabled = selectedAnswer !== null || timeLeft <= 0
+              const isSelected = question.type === 'multiselect'
+                ? multiselectChosen.has(idx)
+                : selectedAnswer === String(idx)
+              const isDisabled = (question.type === 'multiselect' ? selectedAnswer !== null : (selectedAnswer !== null || pendingAnswer !== null)) || timeLeft <= 0
               const optText = getOptText(opt)
               const optImage = getOptImage(opt)
               const isTwoOption = (question.options?.length ?? 0) === 2
@@ -1103,7 +1234,9 @@ function JoinPageInner() {
                   key={idx}
                   onClick={() => handleAnswerTap(idx)}
                   disabled={isDisabled}
-                  className={`${OPTION_GRADIENTS[idx]} rounded-2xl p-4 text-white text-left transition-all
+                  aria-label={`Option ${OPTION_LABELS[idx]}: ${optText}`}
+                  aria-pressed={isSelected}
+                  className={`${OPTION_GRADIENTS[idx]} rounded-2xl p-4 text-white text-left transition-all focus-visible:outline focus-visible:outline-4 focus-visible:outline-white
                     ${isTwoOption ? 'flex items-center gap-4 py-5' : 'min-h-[90px]'}
                     ${isSelected ? 'ring-4 ring-white scale-[0.97]' : ''}
                     ${isDisabled && !isSelected ? 'opacity-50 pointer-events-none' : ''}
@@ -1127,25 +1260,37 @@ function JoinPageInner() {
           </div>
         )}
 
+        {/* Multiselect submit button */}
+        {question.type === 'multiselect' && selectedAnswer === null && (
+          <button
+            onClick={submitMultiselect}
+            disabled={multiselectChosen.size === 0 || timeLeft <= 0}
+            className="w-full py-4 mt-1 rounded-2xl font-black text-xl transition-all disabled:opacity-40"
+            style={{ background: multiselectChosen.size > 0 ? '#F5E642' : '#e5e7eb', color: '#0D0D0D', border: multiselectChosen.size > 0 ? '2px solid #0D0D0D' : 'none' }}
+          >
+            {multiselectChosen.size > 0 ? t('join.submit', { n: multiselectChosen.size }) : t('join.selectAll')}
+          </button>
+        )}
+
         {/* Confidence overlay */}
         {pendingAnswer !== null && confidence === null && (
           <div className="fixed inset-0 bg-black/40 flex items-end justify-center p-6 z-50">
             <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl text-center">
-              <p className="font-black text-2xl mb-2" style={{ color: '#0F1B3D' }}>How confident are you?</p>
-              <p className="text-gray-500 text-lg mb-6">Your answer is locked in — this is just for you.</p>
+              <p className="font-black text-2xl mb-2" style={{ color: '#0F1B3D' }}>{t('join.confident')}</p>
+              <p className="text-gray-500 text-lg mb-6">{t('join.confidenceSubtitle')}</p>
               <div className="flex gap-3">
                 <button
                   onClick={() => submitWithConfidence('sure')}
                   className="flex-1 text-white font-black rounded-xl py-5 text-xl hover:opacity-90 transition-colors"
                   style={{ background: '#0F1B3D' }}
                 >
-                  Sure
+                  {t('join.sure')}
                 </button>
                 <button
                   onClick={() => submitWithConfidence('unsure')}
                   className="flex-1 border-2 border-gray-300 text-gray-700 font-black rounded-xl py-5 text-xl hover:border-gray-400 transition-colors"
                 >
-                  Not Sure
+                  {t('join.notSure')}
                 </button>
               </div>
             </div>
@@ -1157,9 +1302,13 @@ function JoinPageInner() {
 
   // ─── Answered Phase ────────────────────────────────────────────────────────
   if (phase === 'answered') {
-    const isNonScored = question?.type === 'case' || question?.type === 'poll' || TEXT_INPUT_TYPES.includes(question?.type ?? '') || question?.type === 'ranking'
+    const isNonScored = question?.type === 'case' || question?.type === 'poll' || TEXT_INPUT_TYPES.includes(question?.type ?? '') || question?.type === 'ranking' || question?.type === 'drawing'
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 max-w-md mx-auto text-center gap-5 relative overflow-hidden">
+        {/* Screen-reader live announcement for result */}
+        <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+          {isNonScored ? 'Response recorded.' : isCorrect ? `Correct! You earned ${pointsEarned} points. Total score: ${totalScore}.` : `Incorrect. Total score: ${totalScore}.`}
+        </div>
         {/* Red flash overlay on wrong answer */}
         {showRedFlash && (
           <div className="fixed inset-0 pointer-events-none z-50" style={{
@@ -1195,10 +1344,10 @@ function JoinPageInner() {
           </div>
         )}
         {isNonScored ? (
-          <p className="font-black text-4xl" style={{ color: '#0F1B3D' }}>Recorded!</p>
+          <p className="font-black text-4xl" style={{ color: '#0F1B3D' }}>{t('join.recorded')}</p>
         ) : (
           <p className={`font-black text-4xl ${isCorrect ? 'text-green-600' : 'text-red-500'}`}>
-            {isCorrect ? 'Correct!' : 'Wrong!'}
+            {isCorrect ? t('join.correct') : t('join.wrong')}
           </p>
         )}
 
@@ -1208,16 +1357,16 @@ function JoinPageInner() {
             background: streak >= 5 ? 'linear-gradient(135deg, #F5E642, #FF8A47)' : '#0F1B3D',
             animation: 'correctPop 0.4s ease-out',
           }}>
-            <span className="font-black text-xl" style={{ color: streak >= 5 ? '#0D0D0D' : '#F5E642' }}>{streak} Streak!</span>
+            <span className="font-black text-xl" style={{ color: streak >= 5 ? '#0D0D0D' : '#F5E642' }}>{t('join.streak', { n: streak })}</span>
           </div>
         )}
 
         {isCorrect && sessionMode === 'competitive' && (
-          <p className="font-bold text-2xl animate-pulse" style={{ color: '#0F1B3D' }}>+{pointsEarned} pts</p>
+          <p className="font-bold text-2xl animate-pulse" style={{ color: '#0F1B3D' }}>{t('join.pts', { n: pointsEarned })}</p>
         )}
         {sessionMode === 'competitive' && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 w-full">
-            <p className="text-gray-500 text-lg">Your score</p>
+            <p className="text-gray-500 text-lg">{t('join.yourScore')}</p>
             <p className="text-6xl font-black" style={{ color: '#0F1B3D' }}>{totalScore}</p>
           </div>
         )}
@@ -1229,6 +1378,27 @@ function JoinPageInner() {
             <p>{explanation}</p>
           </div>
         )}
+
+        {/* Intermediate rank + mini leaderboard */}
+        {sessionMode === 'competitive' && intermediateRank !== null && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 w-full flex items-center justify-between">
+            <p className="text-gray-500 text-sm font-semibold">Your rank</p>
+            <p className="text-3xl font-black" style={{ color: '#0F1B3D' }}>#{intermediateRank}</p>
+          </div>
+        )}
+        {sessionMode === 'competitive' && intermediateLeaderboard.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 w-full">
+            <p className="text-xs font-bold mb-3 uppercase tracking-widest text-gray-400">Leaderboard</p>
+            {intermediateLeaderboard.slice(0, 5).map((entry, i) => (
+              <div key={entry.name} className="flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-0">
+                <span className="w-6 text-center font-black text-sm" style={{ color: '#0F1B3D' }}>{i + 1}</span>
+                <span className="flex-1 font-semibold text-sm truncate" style={{ color: '#0F1B3D' }}>{entry.name}</span>
+                <span className="font-black text-sm" style={{ color: '#0F1B3D' }}>{entry.score}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         <p className="text-gray-400 text-lg">Waiting for next question…</p>
 
         <style>{`

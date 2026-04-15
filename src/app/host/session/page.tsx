@@ -32,6 +32,124 @@ const OPTION_COLORS = [
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E']
 
+// P3.1 — Share / LMS links for lobby
+function ShareLinks({ gameCode, quizTitle }: { gameCode: string; quizTitle: string }) {
+  const [copied, setCopied] = useState(false)
+  const joinUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/join?code=${gameCode}`
+    : `https://quizotic.live/join?code=${gameCode}`
+
+  function copyLink() {
+    navigator.clipboard.writeText(joinUrl).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  const classroomUrl = `https://classroom.google.com/share?url=${encodeURIComponent(joinUrl)}&title=${encodeURIComponent(`Join "${quizTitle}" on Quizotic — code ${gameCode}`)}`
+  const moodleMsg = encodeURIComponent(`Join the live quiz "${quizTitle}" on Quizotic!\n${joinUrl}\nGame code: ${gameCode}`)
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+      <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Share with students</p>
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={copyLink}
+          className="flex-1 min-w-[120px] text-sm font-semibold rounded-xl py-2.5 border-2 transition-all hover:scale-[1.02]"
+          style={{ borderColor: '#DBEAFE', color: '#1D4ED8' }}
+        >
+          {copied ? 'Copied!' : 'Copy Link'}
+        </button>
+        <a
+          href={classroomUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-1 min-w-[120px] text-sm font-semibold rounded-xl py-2.5 border-2 transition-all hover:scale-[1.02] text-center"
+          style={{ borderColor: '#BBF7D0', color: '#15803D' }}
+        >
+          Google Classroom
+        </a>
+        <a
+          href={`https://wa.me/?text=${moodleMsg}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-1 min-w-[120px] text-sm font-semibold rounded-xl py-2.5 border-2 transition-all hover:scale-[1.02] text-center"
+          style={{ borderColor: '#D1FAE5', color: '#065F46' }}
+        >
+          WhatsApp
+        </a>
+        <a
+          href={`mailto:?subject=${encodeURIComponent(`Join "${quizTitle}" on Quizotic`)}&body=${moodleMsg}`}
+          className="flex-1 min-w-[120px] text-sm font-semibold rounded-xl py-2.5 border-2 transition-all hover:scale-[1.02] text-center"
+          style={{ borderColor: '#FDE68A', color: '#92400E' }}
+        >
+          Email
+        </a>
+      </div>
+    </div>
+  )
+}
+
+// P2.1 — Push session results to Google Sheets
+function PushToSheetsButton({ gameCode }: { gameCode: string }) {
+  const [loading, setLoading] = useState(false)
+  const [sheetUrl, setSheetUrl] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleClick() {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/sessions/${gameCode}/export/sheets`, { method: 'POST' })
+      const json = await res.json() as { success?: boolean; url?: string; error?: string }
+      if (!res.ok) {
+        if (json.error === 'google_sheets_not_connected') {
+          setError('Google Sheets not connected. Sign out and sign in with Google to enable.')
+        } else {
+          setError(json.error ?? 'Export failed')
+        }
+        return
+      }
+      if (json.url) {
+        setSheetUrl(json.url)
+        window.open(json.url, '_blank', 'noopener')
+      }
+    } catch {
+      setError('Network error. Try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (sheetUrl) {
+    return (
+      <a
+        href={sheetUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex-1 font-bold rounded-xl py-3 text-base border-2 transition-all hover:scale-[1.02] text-center"
+        style={{ borderColor: '#BBF7D0', color: '#15803D' }}
+      >
+        Open Sheet
+      </a>
+    )
+  }
+
+  return (
+    <div className="flex-1 flex flex-col gap-1">
+      <button
+        onClick={handleClick}
+        disabled={loading}
+        className="w-full font-bold rounded-xl py-3 text-base border-2 transition-all hover:scale-[1.02] disabled:opacity-50"
+        style={{ borderColor: '#BBF7D0', color: '#15803D' }}
+      >
+        {loading ? 'Exporting…' : 'Push to Sheets'}
+      </button>
+      {error && <p className="text-xs text-red-500 text-center">{error}</p>}
+    </div>
+  )
+}
+
 export default function SessionPage() {
   const router = useRouter()
   const socketRef = useRef<Socket | null>(null)
@@ -67,6 +185,19 @@ export default function SessionPage() {
   const [questionStartedAt, setQuestionStartedAt] = useState<number | null>(null)
   const [rankingSubmissions, setRankingSubmissions] = useState<number[][]>([])
   const [attendees, setAttendees] = useState<Array<{ joinedAt: string; leftAt: string | null; durationSec: number | null }>>([])
+  const [intermediateLeaderboard, setIntermediateLeaderboard] = useState<LeaderboardEntry[]>([])
+  const [countdownValue, setCountdownValue] = useState<number | null>(null)
+  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // P2.2 — Manual answer override
+  const [showOverride, setShowOverride] = useState(false)
+  const [overrideName, setOverrideName] = useState('')
+  const [overrideResult, setOverrideResult] = useState<string | null>(null)
+  // P3.4 — Drawing question gallery
+  const [drawings, setDrawings] = useState<Array<{ name: string; archetype: string; dataUrl: string }>>([])
+  // P2.5 — Ghost Mode
+  const [ghostMode, setGhostMode] = useState(false)
+  const [ghostSessionId, setGhostSessionId] = useState('')
+  const [ghostCandidates, setGhostCandidates] = useState<Array<{ id: string; date: string; participantCount: number; topScore: number; topName: string }>>([])
 
   useEffect(() => {
     if (phase !== 'ended' || !gameCode) return
@@ -97,6 +228,18 @@ export default function SessionPage() {
       if (d.plan === 'pro') setPlan('pro')
     }).catch(() => {})
   }, [])
+
+  // Load ghost candidates when ghost mode is enabled
+  useEffect(() => {
+    if (!ghostMode || !quiz) return
+    const quizId = quiz.id ? `?quizId=${quiz.id}` : ''
+    fetch(`/api/sessions/ghost-candidates${quizId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(json => {
+        if (json?.success) setGhostCandidates(json.data ?? [])
+      })
+      .catch(() => {})
+  }, [ghostMode, quiz])
 
   // Socket setup — run ONCE after quiz is loaded (empty deps, guarded by quiz check)
   const socketInitialized = useRef(false)
@@ -134,10 +277,37 @@ export default function SessionPage() {
       if (counts) setOptionCounts(counts)
     })
 
-    socket.on('question_started', ({ startAt }: { startAt?: number }) => {
-      if (typeof startAt === 'number') setQuestionStartedAt(startAt)
-      else setQuestionStartedAt(Date.now())
+    // question_show fires for host too (host is in session: room).
+    // Use it to synchronize the host timer with server's startAt and show 3-2-1 countdown.
+    socket.on('question_show', ({ startAt, index }: { startAt?: number; index: number; question: unknown; total: number }) => {
+      const effectiveStart = typeof startAt === 'number' ? startAt : Date.now()
+      setQuestionStartedAt(effectiveStart)
       setRankingSubmissions([])
+      setDrawings([]) // reset drawing gallery for each new question
+
+      const msUntilStart = Math.max(0, effectiveStart - Date.now())
+      const timerSeconds = quiz?.questions[index]?.timerSeconds ?? 20
+
+      if (msUntilStart > 500) {
+        // 3-2-1 countdown, then start host timer
+        if (countdownTimerRef.current) clearInterval(countdownTimerRef.current)
+        const startCount = Math.min(3, Math.ceil(msUntilStart / 1000))
+        setCountdownValue(startCount)
+        let current = startCount
+        countdownTimerRef.current = setInterval(() => {
+          current -= 1
+          if (current <= 0) {
+            clearInterval(countdownTimerRef.current!)
+            countdownTimerRef.current = null
+            setCountdownValue(null)
+            startHostTimer(timerSeconds, effectiveStart)
+          } else {
+            setCountdownValue(current)
+          }
+        }, 1000)
+      } else {
+        startHostTimer(timerSeconds, effectiveStart)
+      }
     })
 
     socket.on('ranking_submission', ({ ranking }: { ranking: number[] }) => {
@@ -150,6 +320,19 @@ export default function SessionPage() {
       setExplanation(exp)
       if (hostTimerRef.current) { clearInterval(hostTimerRef.current); hostTimerRef.current = null }
       setHostTimeLeft(0)
+    })
+
+    socket.on('leaderboard_update', ({ top }: { top: LeaderboardEntry[] }) => {
+      setIntermediateLeaderboard(top)
+    })
+
+    socket.on('drawing_submitted', (entry: { name: string; archetype: string; dataUrl: string }) => {
+      setDrawings(prev => [...prev, entry])
+    })
+
+    socket.on('override_confirmed', ({ participantName, isCorrect }: { participantName: string; questionIndex: number; isCorrect: boolean; newScore: number }) => {
+      setOverrideResult(`${participantName} marked ${isCorrect ? 'correct ✓' : 'incorrect ✗'}`)
+      setTimeout(() => setOverrideResult(null), 3000)
     })
 
     socket.on('session_ended', ({ leaderboard: lb, teamLeaderboard: tlb, questionStats: qs, sessionMode: sm }: {
@@ -200,8 +383,12 @@ export default function SessionPage() {
       socket.off('answer_received')
       socket.off('question_started')
       socket.off('ranking_submission')
+      socket.off('question_show')
       socket.off('question_ended')
       socket.off('session_ended')
+      socket.off('leaderboard_update')
+      socket.off('override_confirmed')
+      socket.off('drawing_submitted')
       socket.disconnect()
     }
   }, [quiz])
@@ -247,7 +434,7 @@ export default function SessionPage() {
       setCreating(false)
     }, 8000)
 
-    socketRef.current.emit('create_session', { quizData: quizDataForSession, sessionMode, anonymousMode, teamMode, teamCount }, (res: { success: boolean; gameCode: string; error?: string }) => {
+    socketRef.current.emit('create_session', { quizData: quizDataForSession, sessionMode, anonymousMode, teamMode, teamCount, ghostSessionId: ghostMode && ghostSessionId ? ghostSessionId : undefined }, (res: { success: boolean; gameCode: string; error?: string }) => {
       clearTimeout(timeout)
       setCreating(false)
       if (res.success) {
@@ -292,7 +479,7 @@ export default function SessionPage() {
     setRankingSubmissions([])
     setQuestionIndex(0)
     setPhase('question')
-    if (quiz?.questions[0]?.timerSeconds) startHostTimer(quiz.questions[0].timerSeconds)
+    // Host timer starts via question_show socket event (synchronized with server startAt)
   }
 
   function nextQuestion() {
@@ -309,7 +496,7 @@ export default function SessionPage() {
       setOptionCounts([])
       setQuestionStartedAt(null)
       setRankingSubmissions([])
-      if (quiz.questions[nextIndex]?.timerSeconds) startHostTimer(quiz.questions[nextIndex].timerSeconds)
+      // Host timer starts via question_show socket event (synchronized with server startAt)
     }
   }
 
@@ -415,7 +602,9 @@ export default function SessionPage() {
             </div>
             <button
               onClick={() => setAnonymousMode(m => !m)}
-              className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0"
+              aria-pressed={anonymousMode}
+              aria-label="Toggle anonymous mode"
+              className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
               style={{ background: anonymousMode ? '#0F1B3D' : '#E5E7EB' }}
             >
               <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${anonymousMode ? 'translate-x-6' : 'translate-x-0.5'}`} />
@@ -431,7 +620,9 @@ export default function SessionPage() {
               </div>
               <button
                 onClick={() => setTeamMode(m => !m)}
-                className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0"
+                aria-pressed={teamMode}
+                aria-label="Toggle team mode"
+                className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
                 style={{ background: teamMode ? '#0F1B3D' : '#E5E7EB' }}
               >
                 <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${teamMode ? 'translate-x-6' : 'translate-x-0.5'}`} />
@@ -457,6 +648,47 @@ export default function SessionPage() {
               </div>
             )}
           </div>
+
+          {/* Ghost Mode toggle */}
+          {plan === 'pro' && (
+            <div className="bg-white rounded-xl border p-4 shadow-sm" style={{ borderColor: '#E0E7FF' }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-bold text-sm" style={{ color: '#1E1B4B' }}>Ghost Mode</p>
+                  <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Race against top players from a past session</p>
+                </div>
+                <button
+                  onClick={() => setGhostMode(m => !m)}
+                  aria-pressed={ghostMode}
+                  aria-label="Toggle ghost mode"
+                  className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+                  style={{ background: ghostMode ? '#7C3AED' : '#E5E7EB' }}
+                >
+                  <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${ghostMode ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+              {ghostMode && (
+                <div className="mt-3">
+                  {ghostCandidates.length === 0 ? (
+                    <p className="text-xs text-gray-400">No past sessions found for this quiz.</p>
+                  ) : (
+                    <select
+                      value={ghostSessionId}
+                      onChange={e => setGhostSessionId(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                    >
+                      <option value="">Select a session to ghost…</option>
+                      {ghostCandidates.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.date} · {c.participantCount} players · Top: {c.topName} ({c.topScore} pts)
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {sessionError && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 text-sm font-medium">
@@ -517,6 +749,11 @@ export default function SessionPage() {
             </div>
           </div>
 
+          {/* P3.1 — Share / LMS links */}
+          {gameCode && (
+            <ShareLinks gameCode={gameCode} quizTitle={quiz?.title ?? ''} />
+          )}
+
           {/* Avatar grid */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
             <p className="text-base font-bold text-gray-400 uppercase tracking-wide mb-3">
@@ -564,6 +801,36 @@ export default function SessionPage() {
       {/* QUESTION */}
       {phase === 'question' && currentQuestion && quiz && (
         <div className="p-4 max-w-2xl mx-auto py-8 space-y-4">
+          {/* 3-2-1 Countdown overlay */}
+          {countdownValue !== null && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(15,27,61,0.92)' }}>
+              <div className="text-center">
+                <div
+                  key={countdownValue}
+                  className="text-white font-black"
+                  style={{
+                    fontSize: 200,
+                    lineHeight: 1,
+                    fontFamily: 'var(--font-heading)',
+                    color: '#F5E642',
+                    animation: 'countdownPop 0.9s ease-out forwards',
+                  }}
+                >
+                  {countdownValue}
+                </div>
+                <p className="text-2xl font-bold mt-4" style={{ color: 'rgba(255,255,255,0.7)' }}>Get ready!</p>
+              </div>
+              <style>{`
+                @keyframes countdownPop {
+                  0%   { transform: scale(1.4); opacity: 0.6; }
+                  30%  { transform: scale(1.0); opacity: 1; }
+                  80%  { transform: scale(1.0); opacity: 1; }
+                  100% { transform: scale(0.7); opacity: 0; }
+                }
+              `}</style>
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
             <span className="text-xl text-gray-500 font-semibold">Q{questionIndex + 1} / {quiz.questions.length}</span>
             <div className="flex items-center gap-3">
@@ -683,10 +950,47 @@ export default function SessionPage() {
           </div>
           )}
 
+          {/* Drawing gallery — P3.4 */}
+          {currentQuestion.type === 'drawing' && (
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
+                Drawings received ({drawings.length})
+              </p>
+              {drawings.length === 0 ? (
+                <p className="text-sm text-gray-400">Waiting for participants to draw…</p>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {drawings.map((d, i) => (
+                    <div key={i} className="rounded-xl border border-gray-100 overflow-hidden">
+                      <img src={d.dataUrl} alt={`Drawing by ${d.name}`} className="w-full object-cover" />
+                      <p className="text-xs font-semibold text-center text-gray-600 py-1 px-2 truncate">{d.name}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Quizotic watermark — free plan */}
           {plan === 'free' && (
             <div className="text-right mt-1">
               <span className="text-[10px] font-bold opacity-30" style={{ color: '#64748B' }}>quizotic.live</span>
+            </div>
+          )}
+
+          {/* Live leaderboard snapshot (updates as answers come in) */}
+          {sessionMode === 'competitive' && intermediateLeaderboard.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Live Standings</p>
+              <div className="space-y-1.5">
+                {intermediateLeaderboard.slice(0, 5).map((entry, i) => (
+                  <div key={entry.name} className="flex items-center gap-3">
+                    <span className="w-6 text-center text-sm font-black" style={{ color: '#0F1B3D' }}>{i + 1}</span>
+                    <span className="flex-1 text-sm font-semibold truncate" style={{ color: '#0F1B3D' }}>{entry.name}</span>
+                    <span className="text-sm font-black tabular-nums" style={{ color: '#0F1B3D' }}>{entry.score}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -699,6 +1003,58 @@ export default function SessionPage() {
               {explanation}
             </div>
           )}
+
+          {/* Manual answer override — host can correct a participant's score */}
+          <div className="border border-gray-200 rounded-xl overflow-hidden">
+            <button
+              onClick={() => { setShowOverride(v => !v); setOverrideName(''); setOverrideResult(null) }}
+              className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              <span>Override answer</span>
+              <span className="text-gray-400 text-xs">{showOverride ? '▲' : '▼'}</span>
+            </button>
+            {showOverride && (
+              <div className="border-t border-gray-100 p-4 space-y-3 bg-gray-50">
+                <p className="text-xs text-gray-500">Mark a participant&#39;s answer correct or incorrect. Useful for open-ended questions or borderline cases.</p>
+                <input
+                  type="text"
+                  placeholder="Participant name (exact)"
+                  value={overrideName}
+                  onChange={e => setOverrideName(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  list="participant-names"
+                />
+                <datalist id="participant-names">
+                  {Array.from(participants.keys()).map(n => <option key={n} value={n} />)}
+                </datalist>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (!overrideName.trim()) return
+                      socketRef.current?.emit('override_answer', { gameCode, participantName: overrideName.trim(), questionIndex, isCorrect: true })
+                    }}
+                    disabled={!overrideName.trim()}
+                    className="flex-1 py-2 rounded-lg text-sm font-bold bg-green-50 border border-green-200 text-green-700 hover:bg-green-100 disabled:opacity-40 transition-colors"
+                  >
+                    Mark Correct ✓
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!overrideName.trim()) return
+                      socketRef.current?.emit('override_answer', { gameCode, participantName: overrideName.trim(), questionIndex, isCorrect: false })
+                    }}
+                    disabled={!overrideName.trim()}
+                    className="flex-1 py-2 rounded-lg text-sm font-bold bg-red-50 border border-red-200 text-red-700 hover:bg-red-100 disabled:opacity-40 transition-colors"
+                  >
+                    Mark Wrong ✗
+                  </button>
+                </div>
+                {overrideResult && (
+                  <p className="text-sm font-bold text-center" style={{ color: '#0F1B3D' }}>{overrideResult}</p>
+                )}
+              </div>
+            )}
+          </div>
 
           <div className="flex gap-3">
             <button
@@ -879,6 +1235,27 @@ export default function SessionPage() {
             >
               Export CSV
             </button>
+            {plan === 'pro' && gameCode && (
+              <>
+                <a
+                  href={`/api/sessions/${gameCode}/export/xlsx`}
+                  download
+                  className="flex-1 font-bold rounded-xl py-3 text-base border-2 transition-all hover:scale-[1.02] text-center"
+                  style={{ borderColor: '#BFDBFE', color: '#1D4ED8' }}
+                >
+                  Export XLSX
+                </a>
+                <a
+                  href={`/api/sessions/${gameCode}/export/pdf`}
+                  download
+                  className="flex-1 font-bold rounded-xl py-3 text-base border-2 transition-all hover:scale-[1.02] text-center"
+                  style={{ borderColor: '#FDE68A', color: '#92400E' }}
+                >
+                  Export PDF
+                </a>
+                <PushToSheetsButton gameCode={gameCode} />
+              </>
+            )}
           </div>
           <button
             onClick={goBackToLibrary}

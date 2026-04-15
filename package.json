@@ -10,6 +10,8 @@
     "build": "next build",
     "start": "NODE_ENV=production node server.mjs",
     "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "deploy": "bash scripts/deploy-to-railway.sh"
   },
   "dependencies": {
@@ -22,14 +24,18 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@prisma/adapter-pg": "^7.6.0",
     "@prisma/client": "^7.6.0",
+    "@socket.io/redis-adapter": "^8.3.0",
     "browser-image-compression": "^2.0.2",
+    "exceljs": "^4.4.0",
     "framer-motion": "^12.38.0",
+    "ioredis": "^5.10.1",
     "jszip": "^3.10.1",
     "mammoth": "^1.12.0",
     "next": "16.2.0",
     "next-auth": "^5.0.0-beta.30",
     "nodemailer": "^7.0.7",
     "openai": "^6.32.0",
+    "pdf-lib": "^1.17.1",
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^5.6.205",
     "pg": "^8.20.0",
@@ -43,7 +49,8 @@
     "resend": "^6.10.0",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
-    "stripe": "^22.0.0"
+    "stripe": "^22.0.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -54,6 +61,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.4"
   }
 }

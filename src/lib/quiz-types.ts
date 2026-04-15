@@ -1,5 +1,6 @@
 export type QuestionType =
   | 'mcq'
+  | 'multiselect'
   | 'truefalse'
   | 'poll'
   | 'openended'
@@ -8,6 +9,7 @@ export type QuestionType =
   | 'rating'
   | 'ranking'
   | 'case'
+  | 'drawing'
 
 // All six levels of Anderson & Krathwohl's revised Bloom's Taxonomy (2001)
 export type BloomsLevel = 'remember' | 'understand' | 'apply' | 'analyse' | 'evaluate' | 'create'
@@ -34,7 +36,8 @@ export interface Question {
   text: string
   imageUrl?: string         // question context image (CDN URL)
   options?: QuestionOption[] // undefined for openended/wordcloud/qa
-  correctAnswer?: string    // string index "0"/"1"/"2"/"3"; undefined for poll/openended/etc
+  correctAnswer?: string    // string index "0"/"1"/"2"/"3"; undefined for poll/openended/etc (legacy single-correct)
+  correctAnswers?: string[] // multiselect: array of option-index strings (e.g. ["0","2"])
   timerSeconds: 10 | 15 | 20 | 30 | 60
   points: 500 | 1000 | 2000
   explanation?: string      // shown to host + participant after answer reveal; for 'case' type = debrief text

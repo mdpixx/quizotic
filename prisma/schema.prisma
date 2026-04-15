@@ -23,6 +23,7 @@ model User {
   referralCode     String?   @unique // "mahesh-k7x2"
   referredByCode   String?           // code used at signup
   discoveryChannel String?           // "google" | "social" | "friend" | "event" | "other"
+  apiKey           String?   @unique    // Bearer token for Public REST API v1
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 

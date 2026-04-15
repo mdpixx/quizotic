@@ -204,7 +204,7 @@ function generateGameCode() {
   return Math.floor(100000 + Math.random() * 900000).toString()
 }
 
-app.prepare().then(() => {
+app.prepare().then(async () => {
   const httpServer = createServer((req, res) => {
     // Short-circuit: session lookup API (no auth, reads in-memory sessions Map)
     if (req.method === 'GET' && req.url && req.url.startsWith('/api/session/lookup')) {
@@ -246,6 +246,33 @@ app.prepare().then(() => {
     },
   })
 
+  // ─── REDIS ADAPTER (optional) ──────────────────────────────────
+  // When REDIS_URL is set, cross-instance event broadcasting is enabled.
+  // Note: session state still lives in the in-memory `sessions` Map on each
+  // instance — Railway sticky sessions keep a given client pinned to one
+  // process. The Redis adapter only relays broadcasts. A future phase will
+  // migrate session state to Redis for fully-stateless instances.
+  if (process.env.REDIS_URL) {
+    try {
+      const [{ Redis }, { createAdapter }] = await Promise.all([
+        import('ioredis'),
+        import('@socket.io/redis-adapter'),
+      ])
+      const pubClient = new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: null, enableReadyCheck: false })
+      const subClient = pubClient.duplicate()
+      await Promise.all([
+        new Promise((res, rej) => pubClient.once('ready', res).once('error', rej)),
+        new Promise((res, rej) => subClient.once('ready', res).once('error', rej)),
+      ])
+      io.adapter(createAdapter(pubClient, subClient))
+      console.log('[socket.io] Redis adapter attached — cross-instance broadcast enabled')
+    } catch (err) {
+      console.error('[socket.io] Redis adapter failed to attach, falling back to in-memory:', err.message)
+    }
+  } else {
+    console.log('[socket.io] Running with in-memory adapter (single-instance). Set REDIS_URL to enable horizontal scale.')
+  }
+
   // Verify auth on socket connection — attach userId to socket.data
   io.use(async (socket, next) => {
     socket.data.userId = await getSocketUserId(socket)
@@ -257,7 +284,7 @@ app.prepare().then(() => {
 
     // ─── HOST EVENTS ───────────────────────────────────────────────
 
-    socket.on('create_session', async ({ quizData, sessionMode, anonymousMode, teamMode, teamCount }, callback) => {
+    socket.on('create_session', async ({ quizData, sessionMode, anonymousMode, teamMode, teamCount, ghostSessionId }, callback) => {
       if (sessions.size >= MAX_CONCURRENT_SESSIONS) {
         callback({ success: false, error: 'Server capacity reached. Try again in a few minutes.' })
         return
@@ -270,6 +297,34 @@ app.prepare().then(() => {
       const numTeams = Math.min(Math.max(teamCount ?? 2, 2), 6)
 
       const hostName = await getHostName(socket.data.userId)
+
+      // Load ghost players from a past session if requested (Ghost Mode).
+      let ghostPlayers = []
+      if (ghostSessionId && dbPool) {
+        try {
+          const { rows } = await dbPool.query(
+            'SELECT results FROM "GameSession" WHERE id = $1 AND "userId" = $2',
+            [ghostSessionId, socket.data.userId || null]
+          )
+          if (rows[0]?.results) {
+            const pastResults = typeof rows[0].results === 'string'
+              ? JSON.parse(rows[0].results)
+              : rows[0].results
+            const pastLeaderboard = Array.isArray(pastResults.leaderboard) ? pastResults.leaderboard : []
+            const totalQ = quizData.questions.length || 1
+            ghostPlayers = pastLeaderboard.slice(0, 3).map((entry, i) => ({
+              ghostId: `ghost::${i}`,
+              name: `👻 ${entry.name || 'Ghost'}`,
+              finalScore: entry.score || 0,
+              perQuestionScore: Math.round((entry.score || 0) / totalQ),
+              archetype: entry.archetype || 'ghost',
+              score: 0,
+            }))
+          }
+        } catch (err) {
+          console.error('[ghost] failed to load ghost session:', err.message)
+        }
+      }
 
       sessions.set(gameCode, {
         hostSocketId: socket.id,
@@ -288,6 +343,7 @@ app.prepare().then(() => {
         hostName,
         hostPlan: null,
         startedAt: Date.now(),
+        ghostPlayers,            // Ghost Mode — synthetic leaderboard entries
       })
 
       socket.join(`session:${gameCode}`)
@@ -303,7 +359,7 @@ app.prepare().then(() => {
       session.status = 'active'
       session.currentQuestionIndex = 0
       const question = sanitizeQuestion(session.quizData.questions[0])
-      const startAt = Date.now() + 500
+      const startAt = Date.now() + 3500  // 3-second countdown window
       session.questionStartedAt = startAt
 
       io.to(`session:${gameCode}`).emit('question_show', {
@@ -364,7 +420,7 @@ app.prepare().then(() => {
           userId: session.userId,
           hostName: session.hostName || null,
           status: 'ended',
-          participantCount: session.participants.size,
+          participantCount: realParticipantCount(session.participants),
           sessionId: session.dbId || null,
           results: {
             leaderboard,
@@ -382,7 +438,7 @@ app.prepare().then(() => {
 
       emitQuestionEnded(io, gameCode, session, currentQuestionIndex - 1)
 
-      const startAt = Date.now() + 500
+      const startAt = Date.now() + 3500  // 3-second countdown window
       session.questionStartedAt = startAt
       const question = sanitizeQuestion(quizData.questions[currentQuestionIndex])
       io.to(`session:${gameCode}`).emit('question_show', {
@@ -392,6 +448,92 @@ app.prepare().then(() => {
         serverTimestamp: session.questionStartedAt,
         startAt,
       })
+    })
+
+    // P3.4 — Drawing question type: participant submits a drawing (base64 JPEG).
+    // The drawing is stored in their answer record and relayed to the host for gallery display.
+    // Payload limited server-side: dataUrl is truncated at 100 KB to prevent abuse.
+    socket.on('submit_drawing', ({ gameCode, dataUrl }) => {
+      const session = sessions.get(gameCode)
+      if (!session) return
+      const participant = session.participants.get(socket.id)
+      if (!participant) return
+      const qi = session.currentQuestionIndex
+      const q = session.quizData.questions[qi]
+      if (!q || q.type !== 'drawing') return
+      if (participant.answers[qi] !== undefined) return // already submitted
+
+      const safeDataUrl = typeof dataUrl === 'string' ? dataUrl.slice(0, 102400) : ''
+      participant.answers[qi] = { answer: 'drawing', dataUrl: safeDataUrl, timeMs: 0 }
+
+      // Relay to host for live gallery
+      io.to(`host:${gameCode}`).emit('drawing_submitted', {
+        name: participant.name,
+        archetype: participant.archetype,
+        dataUrl: safeDataUrl,
+      })
+
+      socket.emit('answer_confirmed', {
+        isCorrect: false,
+        pointsEarned: 0,
+        totalScore: participant.score,
+        streakCount: 0,
+      })
+
+      io.to(`host:${gameCode}`).emit('answer_received', {
+        total: session.participants.size,
+        answered: countAnswers(session, qi),
+      })
+    })
+
+    // Host can manually mark a participant's answer correct/incorrect for a question.
+    // Useful for typos in open-ended, keyword mismatches, or borderline cases.
+    socket.on('override_answer', ({ gameCode, participantName, questionIndex: qi, isCorrect: overrideCorrect }) => {
+      const session = sessions.get(gameCode)
+      if (!session || session.hostSocketId !== socket.id) return
+
+      const question = session.quizData.questions[qi]
+      if (!question) return
+
+      // Find participant by name
+      let targetSocketId = null
+      let participant = null
+      for (const [sid, p] of session.participants.entries()) {
+        if (p.name === participantName) { targetSocketId = sid; participant = p; break }
+      }
+      if (!participant || !targetSocketId) return
+
+      const existingAnswer = participant.answers[qi]
+      if (!existingAnswer) return
+
+      const wasCorrect = existingAnswer.isCorrect
+      if (wasCorrect === overrideCorrect) return  // no change needed
+
+      // Recalculate points delta
+      const basePoints = overrideCorrect
+        ? calcPoints(question.points || 1000, existingAnswer.timeMs || 0, question.timerSeconds || 20)
+        : 0
+      const pointsDelta = basePoints - (existingAnswer.basePoints || 0)
+
+      participant.score = Math.max(0, participant.score + pointsDelta)
+      participant.answers[qi] = {
+        ...existingAnswer,
+        isCorrect: overrideCorrect,
+        points: basePoints + (existingAnswer.streakBonus || 0),
+        basePoints,
+        overriddenByHost: true,
+      }
+
+      // Notify the participant of the correction
+      io.to(targetSocketId).emit('answer_overridden', {
+        questionIndex: qi,
+        isCorrect: overrideCorrect,
+        pointsDelta,
+        totalScore: participant.score,
+      })
+
+      // Confirm to host
+      socket.emit('override_confirmed', { participantName, questionIndex: qi, isCorrect: overrideCorrect, newScore: participant.score })
     })
 
     socket.on('end_session', async ({ gameCode }) => {
@@ -433,7 +575,7 @@ app.prepare().then(() => {
         userId: session.userId,
         hostName: session.hostName || null,
         status: 'ended',
-        participantCount: session.participants.size,
+        participantCount: realParticipantCount(session.participants),
         sessionId: session.dbId || null,
         results: {
           leaderboard,
@@ -596,7 +738,7 @@ app.prepare().then(() => {
       // Send aggregates to host before cleanup so client can persist analytics
       socket.emit('presenter_session_summary', {
         aggregates: session.aggregates,
-        participantCount: session.participants.size,
+        participantCount: realParticipantCount(session.participants),
         slides: session.presentationData.slides,
       })
 
@@ -625,7 +767,7 @@ app.prepare().then(() => {
         userId: session.userId,
         hostName: session.hostName || null,
         status: 'ended',
-        participantCount: session.participants.size,
+        participantCount: realParticipantCount(session.participants),
         sessionId: session.dbId || null,
         results: {
           aggregates: session.aggregates,
@@ -882,7 +1024,8 @@ app.prepare().then(() => {
       console.log(`[session] ${displayName} (${archetype}${team ? `, Team ${team.name}` : ''}) joined ${gameCode}`)
     })
 
-    socket.on('submit_answer', ({ gameCode, answer, timeMs, confidence }) => {
+    socket.on('submit_answer', ({ gameCode, answer, timeMs: clientReportedTimeMs, confidence }) => {
+      const receivedAt = Date.now()
       const session = sessions.get(gameCode)
       if (!session || session.status !== 'active') return
 
@@ -894,12 +1037,21 @@ app.prepare().then(() => {
 
       if (participant.answers[qi] !== undefined) return
 
-      // Enforce timer: reject only when Date.now() > questionStartedAt + timer*1000 + 2000ms grace.
-      // The 500ms warm-up in questionStartedAt is absorbed by this grace window.
+      // ─── SERVER-AUTHORITATIVE TIMING ────────────────────────────────────
+      // Compute timeMs from the server's own question-start timestamp, not from
+      // client-reported values. Client-reported timeMs is retained only for audit.
+      // Subtract half of the measured socket round-trip as a network-lag correction
+      // so high-latency players aren't penalized for transport time.
+      const timerMs = (question.timerSeconds || 20) * 1000
+      const rttMs = Number(socket.data.rttMs) || 0
+      const rawElapsed = session.questionStartedAt ? receivedAt - session.questionStartedAt : 0
+      const networkAdjusted = Math.max(0, rawElapsed - Math.floor(rttMs / 2))
+      const serverTimeMs = Math.min(timerMs, networkAdjusted)
+
+      // Enforce deadline using server-authoritative timing (2s grace window).
       if (session.questionStartedAt) {
-        const elapsed = Date.now() - session.questionStartedAt
-        const deadline = (question.timerSeconds || 20) * 1000 + 2000
-        if (elapsed > deadline) {
+        const deadline = timerMs + 2000
+        if (rawElapsed > deadline) {
           socket.emit('answer_confirmed', { isCorrect: false, points: 0, totalScore: participant.score, late: true })
           return
         }
@@ -907,7 +1059,7 @@ app.prepare().then(() => {
 
       // Ranking questions: accept an array of option indices, store raw, do not score.
       if (question.type === 'ranking' && Array.isArray(answer)) {
-        participant.answers[qi] = answer
+        participant.answers[qi] = { answer, timeMs: serverTimeMs, clientReportedTimeMs, confidence: confidence ?? 'unsure', isNonScored: true }
         socket.emit('answer_confirmed', { isCorrect: null, points: 0, totalScore: participant.score, isNonScored: true })
         const numOptions = question.options?.length ?? 4
         io.to(`host:${gameCode}`).emit('answer_received', {
@@ -919,14 +1071,34 @@ app.prepare().then(() => {
         return
       }
 
-      const isNonScored = ['poll', 'case', 'wordcloud', 'openended', 'qa', 'rating', 'ranking'].includes(question.type)
+      const isNonScored = ['poll', 'case', 'wordcloud', 'openended', 'qa', 'rating', 'ranking', 'drawing'].includes(question.type)
       const isCorrect = isNonScored ? null : checkAnswer(question, answer)
-      const points = isCorrect ? calcPoints(question.points || 1000, timeMs, question.timerSeconds || 20) : 0
+      // Base points + speed bonus, then streak bonus layered on top (see applyStreak).
+      const basePoints = isCorrect ? calcPoints(question.points || 1000, serverTimeMs, question.timerSeconds || 20) : 0
+      const streakBonus = applyStreak(participant, isCorrect, isNonScored)
+      const points = basePoints + streakBonus
 
-      participant.answers[qi] = { answer, isCorrect, points, timeMs, confidence: confidence ?? 'unsure' }
+      participant.answers[qi] = {
+        answer,
+        isCorrect,
+        points,
+        basePoints,
+        streakBonus,
+        timeMs: serverTimeMs,
+        clientReportedTimeMs,
+        confidence: confidence ?? 'unsure',
+      }
       participant.score += points
 
-      socket.emit('answer_confirmed', { isCorrect, points, totalScore: participant.score, isNonScored })
+      socket.emit('answer_confirmed', {
+        isCorrect,
+        points,
+        basePoints,
+        streakBonus,
+        streakCount: participant.streakCount || 0,
+        totalScore: participant.score,
+        isNonScored,
+      })
 
       const numOptions = question.options?.length ?? 4
       io.to(`host:${gameCode}`).emit('answer_received', {
@@ -934,6 +1106,25 @@ app.prepare().then(() => {
         total: session.participants.size,
         optionCounts: countAnswersByOption(session, qi, numOptions),
       })
+    })
+
+    // ─── CLOCK SYNC HANDSHAKE ──────────────────────────────────────
+    // Client pings, server echoes with receiveTime and replyTime so client can
+    // compute offset + rtt. Server records the last-measured rtt on socket.data
+    // for use in server-authoritative scoring (see submit_answer).
+    socket.on('ping_time', ({ clientTime }, callback) => {
+      const receiveTime = Date.now()
+      try {
+        if (typeof clientTime === 'number' && Number.isFinite(clientTime)) {
+          // rtt estimate = (now - clientTime) when clocks are roughly aligned.
+          // We don't trust clientTime for scoring; just use it to seed rttMs.
+          const estimatedRtt = Math.max(0, receiveTime - clientTime)
+          socket.data.rttMs = Math.min(estimatedRtt, 5000) // cap at 5s sanity
+        }
+      } catch { /* ignore */ }
+      if (typeof callback === 'function') {
+        callback({ receiveTime, replyTime: Date.now() })
+      }
     })
 
     // ─── DISCONNECT ─────────────────────────────────────────────────
@@ -995,9 +1186,17 @@ function checkAnswer(question, answer) {
     return String(answer) === String(question.correctAnswer)
   }
   if (question.type === 'multiselect') {
-    const correct = [...question.correctAnswer].sort().join(',')
-    const given = [...answer].sort().join(',')
-    return correct === given
+    // Correct answers can come in as either `correctAnswers` (new array field)
+    // or legacy `correctAnswer` (string or array). Answer from client is an
+    // array of option-index strings. Match requires exact set equality.
+    const correctRaw = question.correctAnswers ?? question.correctAnswer
+    if (!correctRaw) return false
+    const correctArr = Array.isArray(correctRaw) ? correctRaw : [correctRaw]
+    const givenArr = Array.isArray(answer) ? answer : [answer]
+    if (correctArr.length === 0 || givenArr.length === 0) return false
+    const correctSet = [...correctArr].map(String).sort().join(',')
+    const givenSet = [...givenArr].map(String).sort().join(',')
+    return correctSet === givenSet
   }
   return false
 }
@@ -1007,6 +1206,51 @@ function calcPoints(base, timeMs, timerSeconds) {
   const speedRatio = Math.max(0, 1 - timeMs / maxMs)
   const speedBonus = Math.round(500 * speedRatio)
   return base + speedBonus
+}
+
+// Streak bonuses — Kahoot-inspired:
+//   2 correct in a row → +100
+//   3 correct in a row → +200
+//   4+ correct in a row → +500 (capped)
+// Wrong answer resets the streak. Non-scored questions do not touch the streak.
+// Returns the bonus points to award for this answer, and mutates participant.streakCount.
+function applyStreak(participant, isCorrect, isNonScored) {
+  if (isNonScored) return 0
+  if (!isCorrect) {
+    participant.streakCount = 0
+    return 0
+  }
+  participant.streakCount = (participant.streakCount || 0) + 1
+  const s = participant.streakCount
+  if (s >= 4) return 500
+  if (s === 3) return 200
+  if (s === 2) return 100
+  return 0
+}
+
+// Compact leaderboard snapshot for emit between questions (top N only, with rank).
+function buildLeaderboardSnapshot(participants, limit = 5) {
+  return Array.from(participants.values())
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((p, i) => ({
+      rank: i + 1,
+      name: p.name,
+      archetype: p.archetype,
+      score: p.score,
+      streakCount: p.streakCount || 0,
+      team: p.team ?? null,
+    }))
+}
+
+// Per-player rank lookup — returns {rank, total, score} for a given participant.
+function getParticipantRank(participants, targetId) {
+  const sorted = Array.from(participants.entries())
+    .sort(([, a], [, b]) => b.score - a.score)
+  const idx = sorted.findIndex(([sid]) => sid === targetId)
+  if (idx === -1) return null
+  const [, p] = sorted[idx]
+  return { rank: idx + 1, total: sorted.length, score: p.score }
 }
 
 function countAnswers(session, questionIndex) {
@@ -1033,13 +1277,22 @@ function countAnswersByOption(session, questionIndex, numOptions) {
 function buildLeaderboard(participants) {
   return Array.from(participants.values())
     .sort((a, b) => b.score - a.score)
-    .map(p => ({ name: p.name, archetype: p.archetype, score: p.score, team: p.team ?? null }))
+    .map(p => ({ name: p.name, archetype: p.archetype, score: p.score, team: p.team ?? null, isGhost: p.isGhost ?? false }))
+}
+
+// Count of real (non-ghost) participants
+function realParticipantCount(participants) {
+  let count = 0
+  for (const [sid] of participants.entries()) {
+    if (!sid.startsWith('ghost::')) count++
+  }
+  return count
 }
 
 // Sum of max points across scoreable questions in a session.
 // Mirrors the non-scored filter used in emitQuestionEnded / buildQuestionStats.
 function computeMaxScore(session) {
-  const nonScored = new Set(['poll', 'case', 'wordcloud', 'openended', 'qa', 'rating', 'ranking'])
+  const nonScored = new Set(['poll', 'case', 'wordcloud', 'openended', 'qa', 'rating', 'ranking', 'drawing'])
   return session.quizData.questions.reduce((sum, q) => {
     if (nonScored.has(q.type)) return sum
     return sum + (q.points || 1000)
@@ -1062,23 +1315,72 @@ function buildTeamLeaderboard(session) {
   return Array.from(teamScores.values()).sort((a, b) => b.score - a.score)
 }
 
-// Emit question_ended to the whole room (reveal moment — correctAnswer intentionally exposed)
+// Emit question_ended to the whole room (reveal moment — correctAnswer intentionally exposed).
+// Also emits a top-5 leaderboard snapshot to the room for the "between questions" moment,
+// and a personalized rank to each individual participant.
 function emitQuestionEnded(io, gameCode, session, questionIndex) {
   const q = session.quizData.questions[questionIndex]
   if (!q) return
-  const isNonScored = ['poll', 'case', 'wordcloud', 'openended', 'qa', 'rating', 'ranking'].includes(q.type)
+  const isNonScored = ['poll', 'case', 'wordcloud', 'openended', 'qa', 'rating', 'ranking', 'drawing'].includes(q.type)
+  const correctAnswer = isNonScored
+    ? null
+    : (q.correctAnswers ?? q.correctAnswer ?? null)
+
   io.to(`session:${gameCode}`).emit('question_ended', {
-    correctAnswer: isNonScored ? null : q.correctAnswer,
+    correctAnswer,
     explanation: q.explanation ?? null,
     isNonScored,
   })
+
+  // Ghost Mode — advance ghost player scores by their per-question allocation.
+  if (session.ghostPlayers?.length && !isNonScored) {
+    const totalQ = session.quizData.questions.length
+    for (const ghost of session.ghostPlayers) {
+      // Distribute final score evenly, but give last question the remainder.
+      const isLast = questionIndex === totalQ - 1
+      const increment = isLast
+        ? ghost.finalScore - ghost.score
+        : ghost.perQuestionScore
+      ghost.score = Math.max(0, ghost.score + increment)
+      // Keep participant map in sync so buildLeaderboardSnapshot picks them up.
+      session.participants.set(ghost.ghostId, {
+        name: ghost.name,
+        archetype: ghost.archetype,
+        score: ghost.score,
+        answers: {},
+        team: null,
+        streakCount: 0,
+        isGhost: true,
+      })
+    }
+  }
+
+  // Intermediate leaderboard — skip on non-scored questions so we don't spam
+  // uninteresting snapshots during polls / word clouds.
+  if (session.sessionMode !== 'reflection' && !isNonScored) {
+    const top = buildLeaderboardSnapshot(session.participants, 5)
+    io.to(`session:${gameCode}`).emit('leaderboard_update', {
+      top,
+      totalPlayers: realParticipantCount(session.participants),
+      questionIndex,
+    })
+
+    // Personalized rank delta to each participant (their own rank, not in top-5).
+    for (const [socketId] of session.participants.entries()) {
+      if (socketId.startsWith('ghost::')) continue // skip ghost entries
+      const rankInfo = getParticipantRank(session.participants, socketId)
+      if (rankInfo) {
+        io.to(socketId).emit('my_rank_update', rankInfo)
+      }
+    }
+  }
 }
 
 // Compute per-question stats from participant answers for the session report
 function buildQuestionStats(session) {
   const ps = Array.from(session.participants.values())
   return session.quizData.questions.map((q, i) => {
-    const isNonScored = ['poll', 'case', 'wordcloud', 'openended', 'qa', 'rating', 'ranking'].includes(q.type)
+    const isNonScored = ['poll', 'case', 'wordcloud', 'openended', 'qa', 'rating', 'ranking', 'drawing'].includes(q.type)
     const answered = ps.filter(p => p.answers[i] !== undefined)
     const total = answered.length
     if (total === 0) {
