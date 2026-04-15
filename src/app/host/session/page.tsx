@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { signIn } from 'next-auth/react'
 import { io, Socket } from 'socket.io-client'
 import QRCode from 'react-qr-code'
 import { Avatar } from '@/components/Avatar'
@@ -91,23 +92,18 @@ function ShareLinks({ gameCode, quizTitle }: { gameCode: string; quizTitle: stri
 }
 
 // P2.1 — Push session results to Google Sheets
-function PushToSheetsButton({ gameCode }: { gameCode: string }) {
+function PushToSheetsButton({ gameCode, onError }: { gameCode: string; onError: (code: string | null) => void }) {
   const [loading, setLoading] = useState(false)
   const [sheetUrl, setSheetUrl] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
 
   async function handleClick() {
     setLoading(true)
-    setError(null)
+    onError(null)
     try {
       const res = await fetch(`/api/sessions/${gameCode}/export/sheets`, { method: 'POST' })
       const json = await res.json() as { success?: boolean; url?: string; error?: string }
       if (!res.ok) {
-        if (json.error === 'google_sheets_not_connected') {
-          setError('Google Sheets not connected. Sign out and sign in with Google to enable.')
-        } else {
-          setError(json.error ?? 'Export failed')
-        }
+        onError(json.error ?? 'export_failed')
         return
       }
       if (json.url) {
@@ -115,7 +111,7 @@ function PushToSheetsButton({ gameCode }: { gameCode: string }) {
         window.open(json.url, '_blank', 'noopener')
       }
     } catch {
-      setError('Network error. Try again.')
+      onError('network_error')
     } finally {
       setLoading(false)
     }
@@ -127,8 +123,7 @@ function PushToSheetsButton({ gameCode }: { gameCode: string }) {
         href={sheetUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex-1 font-bold rounded-xl py-3 text-base border-2 transition-all hover:scale-[1.02] text-center"
-        style={{ borderColor: '#BBF7D0', color: '#15803D' }}
+        className="w-full font-semibold rounded-xl py-2.5 text-sm border border-gray-200 hover:border-gray-400 transition-all text-center text-gray-700 bg-white"
       >
         Open Sheet
       </a>
@@ -136,17 +131,13 @@ function PushToSheetsButton({ gameCode }: { gameCode: string }) {
   }
 
   return (
-    <div className="flex-1 flex flex-col gap-1">
-      <button
-        onClick={handleClick}
-        disabled={loading}
-        className="w-full font-bold rounded-xl py-3 text-base border-2 transition-all hover:scale-[1.02] disabled:opacity-50"
-        style={{ borderColor: '#BBF7D0', color: '#15803D' }}
-      >
-        {loading ? 'Exporting…' : 'Push to Sheets'}
-      </button>
-      {error && <p className="text-xs text-red-500 text-center">{error}</p>}
-    </div>
+    <button
+      onClick={handleClick}
+      disabled={loading}
+      className="w-full font-semibold rounded-xl py-2.5 text-sm border border-gray-200 hover:border-gray-400 transition-all text-gray-700 bg-white disabled:opacity-50"
+    >
+      {loading ? 'Exporting…' : 'Sheets'}
+    </button>
   )
 }
 
@@ -196,6 +187,8 @@ export default function SessionPage() {
   const [drawings, setDrawings] = useState<Array<{ name: string; archetype: string; dataUrl: string }>>([])
   // P2.5 — Ghost Mode
   const [ghostMode, setGhostMode] = useState(false)
+  // Session-complete — Sheets export error surfaced from PushToSheetsButton
+  const [sheetsError, setSheetsError] = useState<string | null>(null)
   const [ghostSessionId, setGhostSessionId] = useState('')
   const [ghostCandidates, setGhostCandidates] = useState<Array<{ id: string; date: string; participantCount: number; topScore: number; topName: string }>>([])
 
@@ -1202,7 +1195,8 @@ export default function SessionPage() {
           </div>
 
           {/* Action buttons */}
-          <div className="flex gap-3 mt-2">
+          <div className="flex flex-col gap-3 mt-2">
+            {/* Row 1: Primary CTA */}
             <button
               onClick={() => {
                 if (quiz) {
@@ -1218,66 +1212,90 @@ export default function SessionPage() {
                   setFollowups([])
                   setParticipants(new Map())
                   setGameCode('')
+                  setSheetsError(null)
                   socketInitialized.current = false
                 }
               }}
-              className="flex-1 font-bold rounded-xl py-3 text-base transition-all hover:scale-[1.02]"
+              className="w-full font-bold rounded-xl py-4 text-lg transition-all hover:scale-[1.02]"
               style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
             >
               Play Again
             </button>
-            <button
-              onClick={() => {
-                if (!quiz || leaderboard.length === 0) return
-                const rows = [['Rank', 'Name', 'Score']]
-                leaderboard.forEach((entry, i) => {
-                  rows.push([String(i + 1), entry.name, String(entry.score)])
-                })
-                if (questionStats.length > 0) {
-                  rows.push([])
-                  rows.push(['Question', 'Correct %', 'Type', 'Text'])
-                  questionStats.forEach((stat, i) => {
-                    const pctStr = stat.isNonScored || stat.correctPct == null ? 'N/A' : `${stat.correctPct}%`
-                    const typeStr = stat.type || 'mcq'
-                    rows.push([`Q${i + 1}`, pctStr, typeStr, `"${stat.text.replace(/"/g, '""')}"`])
+
+            {/* Row 2: Export grid */}
+            <div className={`grid gap-2 ${plan === 'pro' && gameCode ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1'}`}>
+              <button
+                onClick={() => {
+                  if (!quiz || leaderboard.length === 0) return
+                  const rows = [['Rank', 'Name', 'Score']]
+                  leaderboard.forEach((entry, i) => {
+                    rows.push([String(i + 1), entry.name, String(entry.score)])
                   })
-                }
-                const csv = rows.map(r => r.join(',')).join('\n')
-                const blob = new Blob([csv], { type: 'text/csv' })
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement('a')
-                a.href = url
-                a.download = `${quiz.title.replace(/[^a-zA-Z0-9]/g, '_')}_results.csv`
-                a.click()
-                URL.revokeObjectURL(url)
-              }}
-              className="flex-1 font-bold rounded-xl py-3 text-base border-2 transition-all hover:scale-[1.02]"
-              style={{ borderColor: '#D1FAE5', color: '#16a34a' }}
-            >
-              Export CSV
-            </button>
-            {plan === 'pro' && gameCode && (
-              <>
-                <a
-                  href={`/api/sessions/${gameCode}/export/xlsx`}
-                  download
-                  className="flex-1 font-bold rounded-xl py-3 text-base border-2 transition-all hover:scale-[1.02] text-center"
-                  style={{ borderColor: '#BFDBFE', color: '#1D4ED8' }}
-                >
-                  Export XLSX
-                </a>
-                <a
-                  href={`/api/sessions/${gameCode}/export/pdf`}
-                  download
-                  className="flex-1 font-bold rounded-xl py-3 text-base border-2 transition-all hover:scale-[1.02] text-center"
-                  style={{ borderColor: '#FDE68A', color: '#92400E' }}
-                >
-                  Export PDF
-                </a>
-                <PushToSheetsButton gameCode={gameCode} />
-              </>
+                  if (questionStats.length > 0) {
+                    rows.push([])
+                    rows.push(['Question', 'Correct %', 'Type', 'Text'])
+                    questionStats.forEach((stat, i) => {
+                      const pctStr = stat.isNonScored || stat.correctPct == null ? 'N/A' : `${stat.correctPct}%`
+                      const typeStr = stat.type || 'mcq'
+                      rows.push([`Q${i + 1}`, pctStr, typeStr, `"${stat.text.replace(/"/g, '""')}"`])
+                    })
+                  }
+                  const csv = rows.map(r => r.join(',')).join('\n')
+                  const blob = new Blob([csv], { type: 'text/csv' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `${quiz.title.replace(/[^a-zA-Z0-9]/g, '_')}_results.csv`
+                  a.click()
+                  URL.revokeObjectURL(url)
+                }}
+                className="w-full font-semibold rounded-xl py-2.5 text-sm border border-gray-200 hover:border-gray-400 transition-all text-gray-700 bg-white"
+              >
+                CSV
+              </button>
+              {plan === 'pro' && gameCode && (
+                <>
+                  <a
+                    href={`/api/sessions/${gameCode}/export/xlsx`}
+                    download
+                    className="w-full font-semibold rounded-xl py-2.5 text-sm border border-gray-200 hover:border-gray-400 transition-all text-center text-gray-700 bg-white"
+                  >
+                    XLSX
+                  </a>
+                  <a
+                    href={`/api/sessions/${gameCode}/export/pdf`}
+                    download
+                    className="w-full font-semibold rounded-xl py-2.5 text-sm border border-gray-200 hover:border-gray-400 transition-all text-center text-gray-700 bg-white"
+                  >
+                    PDF
+                  </a>
+                  <PushToSheetsButton gameCode={gameCode} onError={setSheetsError} />
+                </>
+              )}
+            </div>
+
+            {/* Row 3: Sheets error message */}
+            {sheetsError && (
+              <p className="text-sm text-center">
+                {sheetsError === 'google_sheets_not_connected' ? (
+                  <span className="text-gray-600">
+                    Connect Google Sheets access to export.{' '}
+                    <button
+                      onClick={() => signIn('google', { callbackUrl: window.location.href })}
+                      className="text-blue-600 font-semibold hover:underline"
+                    >
+                      Connect Google →
+                    </button>
+                  </span>
+                ) : (
+                  <span className="text-red-500">
+                    {sheetsError === 'network_error' ? 'Network error. Try again.' : 'Export failed. Try again.'}
+                  </span>
+                )}
+              </p>
             )}
           </div>
+
           <button
             onClick={goBackToLibrary}
             className="w-full border border-gray-300 text-gray-600 rounded-xl py-3 hover:border-gray-400 transition-colors font-semibold"
