@@ -322,8 +322,12 @@ export default function SessionPage() {
       setHostTimeLeft(0)
     })
 
-    socket.on('leaderboard_update', ({ top }: { top: LeaderboardEntry[] }) => {
+    socket.on('leaderboard_update', ({ top, teamLeaderboard: tlb }: {
+      top: LeaderboardEntry[];
+      teamLeaderboard?: { name: string; color: string; score: number; members: number }[] | null;
+    }) => {
       setIntermediateLeaderboard(top)
+      if (tlb) setTeamLeaderboard(tlb)
     })
 
     socket.on('drawing_submitted', (entry: { name: string; archetype: string; dataUrl: string }) => {
@@ -988,6 +992,23 @@ export default function SessionPage() {
                     <span className="w-6 text-center text-sm font-black" style={{ color: '#0F1B3D' }}>{i + 1}</span>
                     <span className="flex-1 text-sm font-semibold truncate" style={{ color: '#0F1B3D' }}>{entry.name}</span>
                     <span className="text-sm font-black tabular-nums" style={{ color: '#0F1B3D' }}>{entry.score}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Live team standings (team mode only) */}
+          {sessionMode === 'competitive' && teamMode && teamLeaderboard && teamLeaderboard.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Team Standings</p>
+              <div className="space-y-2">
+                {teamLeaderboard.map((team, i) => (
+                  <div key={team.name} className="flex items-center gap-3">
+                    <span className="w-6 text-center text-sm font-black" style={{ color: '#0F1B3D' }}>{i + 1}</span>
+                    <span className="text-white text-xs rounded-full px-2.5 py-0.5 font-bold" style={{ background: team.color }}>{team.name}</span>
+                    <span className="flex-1 text-xs text-gray-400">{team.members} {team.members === 1 ? 'member' : 'members'}</span>
+                    <span className="text-sm font-black tabular-nums" style={{ color: '#0F1B3D' }}>{team.score}</span>
                   </div>
                 ))}
               </div>

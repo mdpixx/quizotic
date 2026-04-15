@@ -521,8 +521,12 @@ function JoinPageInner() {
       setExplanation(exp)
     })
 
-    socket.on('leaderboard_update', ({ top }: { top: LeaderboardEntry[] }) => {
+    socket.on('leaderboard_update', ({ top, teamLeaderboard: tlb }: {
+      top: LeaderboardEntry[];
+      teamLeaderboard?: { name: string; color: string; score: number; members: number }[] | null;
+    }) => {
       setIntermediateLeaderboard(top)
+      if (tlb) setTeamLeaderboard(tlb)
     })
 
     socket.on('answer_overridden', ({ isCorrect, pointsDelta, totalScore }: { questionIndex: number; isCorrect: boolean; pointsDelta: number; totalScore: number }) => {
@@ -1396,6 +1400,23 @@ function JoinPageInner() {
                 <span className="font-black text-sm" style={{ color: '#0F1B3D' }}>{entry.score}</span>
               </div>
             ))}
+          </div>
+        )}
+        {sessionMode === 'competitive' && team && teamLeaderboard && teamLeaderboard.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 w-full">
+            <p className="text-xs font-bold mb-3 uppercase tracking-widest text-gray-400">Team Standings</p>
+            {teamLeaderboard.map((t, i) => {
+              const isMyTeam = t.name === team.name
+              return (
+                <div key={t.name} className={`flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-0 ${isMyTeam ? 'bg-yellow-50 -mx-4 px-4' : ''}`}>
+                  <span className="w-6 text-center font-black text-sm" style={{ color: '#0F1B3D' }}>{i + 1}</span>
+                  <span className="text-white text-xs rounded-full px-2 py-0.5 font-bold" style={{ background: t.color }}>{t.name}</span>
+                  {isMyTeam && <span className="text-xs text-gray-400 font-semibold">You</span>}
+                  <span className="flex-1" />
+                  <span className="font-black text-sm" style={{ color: '#0F1B3D' }}>{t.score}</span>
+                </div>
+              )
+            })}
           </div>
         )}
 

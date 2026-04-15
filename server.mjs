@@ -1359,8 +1359,10 @@ function emitQuestionEnded(io, gameCode, session, questionIndex) {
   // uninteresting snapshots during polls / word clouds.
   if (session.sessionMode !== 'reflection' && !isNonScored) {
     const top = buildLeaderboardSnapshot(session.participants, 5)
+    const teamLeaderboard = buildTeamLeaderboard(session)
     io.to(`session:${gameCode}`).emit('leaderboard_update', {
       top,
+      teamLeaderboard,
       totalPlayers: realParticipantCount(session.participants),
       questionIndex,
     })
