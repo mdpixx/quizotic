@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useEffect, useRef, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import {
   type Slide, type SlideType, type Presentation,
   SLIDE_TYPE_META, SLIDE_CATEGORIES, makeSlide,
@@ -9,6 +9,8 @@ import {
 import QRCode from 'react-qr-code'
 import { EnhanceWithAI } from '@/components/EnhanceWithAI'
 import { ImageUpload } from '@/components/ImageUpload'
+import { draftKey, readDraft, writeDraft, clearDraft, formatDraftAge } from '@/lib/draft-storage'
+import { useAutosave } from '@/lib/use-autosave'
 
 // ─── Slide type SVG icons ─────────────────────────────────────────────────────
 
@@ -1431,7 +1433,6 @@ function makePresentation(): Presentation {
 
 function PresentCreatePageInner() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [presentation, setPresentation] = useState<Presentation>(makePresentation)
   const [activeIndex, setActiveIndex] = useState(0)
   const [saving, setSaving] = useState(false)
@@ -1450,28 +1451,48 @@ function PresentCreatePageInner() {
   const [mobileSlideEditorOpen, setMobileSlideEditorOpen] = useState(false)
   const [plan, setPlan] = useState<'free' | 'pro'>('free')
   const [bgHexInput, setBgHexInput] = useState('')
+  const [recoveredDraft, setRecoveredDraft] = useState<{ savedAt: number } | null>(null)
   const hasLoadedRef = useRef(false)
   const lastSavedRef = useRef(JSON.stringify(makePresentation()))
   const sidebarScrollRef = useRef<HTMLDivElement>(null)
+  // Stable ref to the current presentation id so autosave can write the draft key
+  const presentationIdRef = useRef<string>('')
 
-  // Load existing presentation when editing
+  // Load existing presentation when editing — runs ONCE on mount only.
+  // Reading searchParams imperatively here avoids subscribing to the param as
+  // a dep, which would re-run this effect on every Next.js re-render and
+  // overwrite unsaved in-memory edits with the stale localStorage snapshot.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const editId = searchParams.get('id')
+    const params = new URLSearchParams(window.location.search)
+    const editId = params.get('id')
     if (editId) {
+      // Prefer a newer draft over the saved copy
+      const dk = draftKey('presentation', editId)
+      const draft = readDraft<Presentation>(dk)
       try {
         const all = JSON.parse(localStorage.getItem('quizotic_presentations') ?? '[]')
-        const found = all.find((p: Presentation) => p.id === editId)
-        if (found) { setPresentation(found); setActiveIndex(0); return }
+        const saved = all.find((p: Presentation) => p.id === editId) as Presentation | undefined
+        if (draft && saved && draft.savedAt > new Date(saved.updatedAt).getTime()) {
+          setPresentation(draft.value)
+          setRecoveredDraft({ savedAt: draft.savedAt })
+          setActiveIndex(0)
+          return
+        }
+        if (saved) { setPresentation(saved); setActiveIndex(0); return }
       } catch { /* ignore */ }
+      // Fallback: use draft if saved list failed
+      if (draft) { setPresentation(draft.value); setActiveIndex(0) }
+      return
     }
-    const editFlag = searchParams.get('edit')
+    const editFlag = params.get('edit')
     if (editFlag === 'active') {
       try {
         const raw = localStorage.getItem('quizotic_active_presentation')
         if (raw) { setPresentation(JSON.parse(raw)); setActiveIndex(0) }
       } catch { /* ignore */ }
     }
-  }, [searchParams])
+  }, []) // intentionally empty — one-shot load on mount
 
   useEffect(() => {
     fetch('/api/billing/status').then(r => r.json()).then(d => {
@@ -1533,6 +1554,10 @@ function PresentCreatePageInner() {
 
   async function savePresentation() {
     setSaving(true)
+    // Write crash-safe draft FIRST (synchronous, always succeeds).
+    // This ensures a refresh can recover work even if the API call fails.
+    const dk = draftKey('presentation', presentation.id)
+    writeDraft(dk, presentation)
     try {
       const res = await fetch('/api/presentations', {
         method: 'POST',
@@ -1545,8 +1570,14 @@ function PresentCreatePageInner() {
       if (idx >= 0) existing[idx] = presentation
       else existing.unshift(presentation)
       localStorage.setItem('quizotic_presentations', JSON.stringify(existing))
+      // Server save succeeded — draft is no longer needed
+      clearDraft(dk)
+      setRecoveredDraft(null)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
+    } catch {
+      // Server save failed but draft is already persisted locally — surface nothing to the user
+      // (the autosave loop will retry on the next change)
     } finally {
       setSaving(false)
     }
@@ -1578,6 +1609,7 @@ function PresentCreatePageInner() {
     }
     localStorage.setItem('quizotic_active_presentation', JSON.stringify(presentation))
     lastSavedRef.current = JSON.stringify(presentation)
+    clearDraft(draftKey('presentation', presentation.id))
     router.push('/host/present/session')
   }
 
@@ -1597,12 +1629,18 @@ function PresentCreatePageInner() {
     }
   }
 
-  // Mark as loaded
+  // Mark as loaded and track presentation id for draft writes
   useEffect(() => {
     hasLoadedRef.current = true
     lastSavedRef.current = JSON.stringify(presentation)
+    presentationIdRef.current = presentation.id
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Keep id ref in sync when presentation changes (e.g. after load)
+  useEffect(() => {
+    presentationIdRef.current = presentation.id
+  }, [presentation.id])
 
   // Sync title to the live session (if any) on 500ms debounce.
   // The session page reads `quizotic_active_presentation` from localStorage;
@@ -1624,17 +1662,14 @@ function PresentCreatePageInner() {
     return () => clearTimeout(timer)
   }, [presentation.title, presentation.id])
 
-  // Auto-save with 3s debounce
-  useEffect(() => {
+  // Auto-save with 3s debounce (via shared hook)
+  useAutosave(presentation, (snap) => {
     if (!hasLoadedRef.current) return
-    if (JSON.stringify(presentation) === lastSavedRef.current) return
-    const timer = setTimeout(() => {
-      lastSavedRef.current = JSON.stringify(presentation)
-      savePresentation()
-    }, 3000)
-    return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [presentation])
+    if (JSON.stringify(snap) === lastSavedRef.current) return
+    lastSavedRef.current = JSON.stringify(snap)
+    savePresentation()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, { delayMs: 3000 })
 
   // Warn before leaving with unsaved changes
   useEffect(() => {
@@ -1760,6 +1795,28 @@ function PresentCreatePageInner() {
 
   return (
     <div className="h-screen flex flex-col" style={{ background: '#FAFBFC', fontFamily: 'var(--font-body)' }}>
+
+      {/* ── Draft recovery banner ── */}
+      {recoveredDraft && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2 text-sm font-medium" style={{ background: '#FEF3C7', color: '#92400E', borderBottom: '1px solid #FDE68A' }}>
+          <span>Unsaved draft recovered from {formatDraftAge(recoveredDraft.savedAt)}</span>
+          <button
+            onClick={() => {
+              clearDraft(draftKey('presentation', presentation.id))
+              setRecoveredDraft(null)
+              // Reload saved version from localStorage
+              try {
+                const all = JSON.parse(localStorage.getItem('quizotic_presentations') ?? '[]')
+                const saved = all.find((p: Presentation) => p.id === presentation.id)
+                if (saved) setPresentation(saved)
+              } catch { /* ignore */ }
+            }}
+            className="underline text-xs opacity-75 hover:opacity-100 flex-shrink-0"
+          >
+            Discard draft
+          </button>
+        </div>
+      )}
 
       {/* ── Header ── */}
       <header className="sticky top-0 z-20 border-b" style={{ background: 'rgba(250,251,252,0.96)', backdropFilter: 'blur(8px)', borderColor: '#E2E8F0' }}>

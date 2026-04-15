@@ -3,6 +3,8 @@
 import React, { useState, useRef, useEffect, Suspense, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { saveQuiz, loadQuizzes, setActiveSession } from '@/lib/quiz-storage'
+import { draftKey, readDraft, writeDraft, clearDraft, formatDraftAge } from '@/lib/draft-storage'
+import { useAutosave } from '@/lib/use-autosave'
 import type { Question, QuestionType, BloomsLevel, Quiz, QuestionOption } from '@/lib/quiz-types'
 import { getOptionText, getOptionImage } from '@/lib/quiz-types'
 import { ImageUpload } from '@/components/ImageUpload'
@@ -619,7 +621,10 @@ function CreateQuizPageInner() {
   const [questions, setQuestions] = useState<Question[]>([makeQuestion()])
   const [saveError, setSaveError] = useState('')
   const [savedQuiz, setSavedQuiz] = useState<Quiz | null>(null)
+  const [recoveredDraft, setRecoveredDraft] = useState<{ savedAt: number; quizId: string } | null>(null)
   const pendingLiveRef = useRef(false)
+  // Stable id for the quiz being edited — used by autosave to write the draft key
+  const quizIdRef = useRef<string>(editId ?? '')
   const [activeIndex, setActiveIndex] = useState(0)
   const [saving, setSaving] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ index: number; x: number; y: number } | null>(null)
@@ -687,14 +692,25 @@ function CreateQuizPageInner() {
   const [modalTitle, setModalTitle] = useState('')
   const [modalSubject, setModalSubject] = useState('')
 
-  // Load existing quiz when editing
+  // Load existing quiz when editing — prefer a newer draft if one exists
   useEffect(() => {
     if (!editId) return
-    const quiz = loadQuizzes().find(q => q.id === editId)
-    if (!quiz) return
-    setTitle(quiz.title)
-    setSubject(quiz.subject ?? '')
-    setQuestions(quiz.questions)
+    quizIdRef.current = editId
+    const dk = draftKey('quiz', editId)
+    const draft = readDraft<{ title: string; subject: string; questions: Question[] }>(dk)
+    const saved = loadQuizzes().find(q => q.id === editId)
+    if (draft && saved && draft.savedAt > new Date(saved.updatedAt).getTime()) {
+      setTitle(draft.value.title)
+      setSubject(draft.value.subject)
+      setQuestions(draft.value.questions)
+      setRecoveredDraft({ savedAt: draft.savedAt, quizId: editId })
+      setShowTitleModal(false)
+      return
+    }
+    if (!saved) return
+    setTitle(saved.title)
+    setSubject(saved.subject ?? '')
+    setQuestions(saved.questions)
     setShowTitleModal(false)
   }, [editId])
 
@@ -1056,6 +1072,31 @@ function CreateQuizPageInner() {
     }
   }
 
+  // ── Autosave draft (3s debounce) ────────────────────────────────────────────
+  // Snapshot for dirty-check to power the beforeunload warn
+  const lastSavedSnapshotRef = useRef('')
+
+  useAutosave(
+    { title, subject, questions },
+    (snap) => {
+      if (!quizIdRef.current) return
+      writeDraft(draftKey('quiz', quizIdRef.current), snap)
+    },
+    { delayMs: 3000 },
+  )
+
+  // Warn before leaving with unsaved changes
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      const current = JSON.stringify({ title, subject, questions })
+      if (current !== lastSavedSnapshotRef.current) {
+        e.preventDefault()
+      }
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [title, subject, questions])
+
   // ── Save ────────────────────────────────────────────────────────────────────
 
   function showSaveError(msg: string) { setSaveError(msg); setTimeout(() => setSaveError(''), 4000) }
@@ -1109,6 +1150,13 @@ function CreateQuizPageInner() {
     } catch {
       // DB save failed silently — localStorage is fallback
     }
+
+    // Clear draft — quiz is now properly saved
+    const savedId = finalQuiz.id
+    clearDraft(draftKey('quiz', savedId))
+    quizIdRef.current = savedId
+    setRecoveredDraft(null)
+    lastSavedSnapshotRef.current = JSON.stringify({ title: quizData.title, subject: quizData.subject ?? '', questions: quizData.questions })
 
     setSaving(false)
     setSavedQuiz(finalQuiz)
@@ -1185,6 +1233,29 @@ function CreateQuizPageInner() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden" style={{ background: '#F0F2F5' }}>
+
+      {/* ── Draft recovery banner ── */}
+      {recoveredDraft && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2 text-sm font-medium" style={{ background: '#FEF3C7', color: '#92400E', borderBottom: '1px solid #FDE68A' }}>
+          <span>Unsaved draft recovered from {formatDraftAge(recoveredDraft.savedAt)}</span>
+          <button
+            onClick={() => {
+              clearDraft(draftKey('quiz', recoveredDraft.quizId))
+              setRecoveredDraft(null)
+              // Reload saved version
+              const saved = loadQuizzes().find(q => q.id === recoveredDraft.quizId)
+              if (saved) {
+                setTitle(saved.title)
+                setSubject(saved.subject ?? '')
+                setQuestions(saved.questions)
+              }
+            }}
+            className="underline text-xs opacity-75 hover:opacity-100 flex-shrink-0"
+          >
+            Discard draft
+          </button>
+        </div>
+      )}
 
       {/* ── Title-first modal ── */}
       {showTitleModal && (
