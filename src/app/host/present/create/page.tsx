@@ -1927,7 +1927,7 @@ function PresentCreatePageInner() {
               className="w-full text-sm font-bold bg-transparent focus:outline-none"
               style={{ color: '#0F1B3D' }}
             />
-            <p className="text-[11px]" style={{ color: '#94A3B8' }}>
+            <p className="text-xs" style={{ color: '#94A3B8' }}>
               {presentation.slides.length} slide{presentation.slides.length !== 1 ? 's' : ''} &middot; {interactiveCount} interactive
             </p>
           </div>
@@ -1987,7 +1987,7 @@ function PresentCreatePageInner() {
       <div className="flex flex-1 overflow-hidden">
 
         {/* LEFT: Slide thumbnails + actions */}
-        <div className="hidden md:flex w-52 flex-shrink-0 border-r flex-col" style={{ borderColor: '#E2E8F0', background: '#F8FAFC' }}>
+        <div className="hidden md:flex w-60 flex-shrink-0 border-r flex-col" style={{ borderColor: '#E2E8F0', background: '#F8FAFC' }}>
 
           {/* Top action bar */}
           <div className="flex-shrink-0 border-b p-2.5 space-y-2" style={{ borderColor: '#E2E8F0' }}>
@@ -2080,7 +2080,7 @@ function PresentCreatePageInner() {
         {/* CENTER: WYSIWYG Preview */}
         <div className="flex-1 flex flex-col items-center justify-center overflow-y-auto" style={{ background: '#E8ECF0' }}>
           {activeSlide ? (
-            <div className="w-full max-w-4xl px-4 py-4">
+            <div className="w-full max-w-[1400px] px-4 md:px-8 lg:px-12 py-4">
               {/* Slide preview */}
               <SlidePreview slide={activeSlide} plan={plan} />
 
@@ -2129,7 +2129,7 @@ function PresentCreatePageInner() {
         </div>
 
         {/* RIGHT: Editor panel */}
-        <div className="hidden md:flex md:w-80 flex-shrink-0 border-l flex-col overflow-hidden" style={{ borderColor: '#E2E8F0', background: '#fff' }}>
+        <div className="hidden md:flex md:w-96 flex-shrink-0 border-l flex-col overflow-hidden" style={{ borderColor: '#E2E8F0', background: '#fff' }}>
           {activeSlide ? (
             <>
               {/* Editor header */}

@@ -212,7 +212,7 @@ function QuestionPreview({
   }
 
   return (
-    <div className="w-full max-w-[800px] rounded-2xl overflow-hidden" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.08)' }}>
+    <div className="w-full max-w-[1400px] rounded-2xl overflow-hidden" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.08)' }}>
       {/* Header — inline-editable question text */}
       <div className="px-6 py-5 text-center" style={{ background: '#FAFAF8', borderBottom: '1px solid #EDE8E0' }}>
         <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: '#94A3B8' }}>
@@ -495,7 +495,7 @@ function QuestionEditor({
 
       {/* Image */}
       <div>
-        <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">Image</label>
+        <label className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">Image</label>
         <div id="q-image-upload-wrapper">
           <ImageUpload
             imageUrl={question.imageUrl}
@@ -508,7 +508,7 @@ function QuestionEditor({
 
       {/* Timer & Points */}
       <div>
-        <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-2 block">Settings</label>
+        <label className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2 block">Settings</label>
         <div className="flex gap-3">
           <div className="flex-1">
             <label className="text-[10px] font-semibold text-gray-500 mb-1 block">Timer</label>
@@ -555,7 +555,7 @@ function QuestionEditor({
 
       {/* Explanation */}
       <div>
-        <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">
+        <label className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">
           {question.type === 'case' ? 'Debrief' : 'Explanation'} <span className="normal-case text-gray-300 font-normal">(shown after answer)</span>
         </label>
         <textarea
@@ -570,7 +570,7 @@ function QuestionEditor({
 
       {/* Bloom's Taxonomy Level */}
       <div>
-        <label className="text-[11px] font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5" style={{ color: '#6D28D9' }}>
+        <label className="text-xs font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5" style={{ color: '#6D28D9' }}>
           <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5">
             <path d="M8 2l1.5 3 3.5.5-2.5 2.5.6 3.5L8 10l-3.1 1.5.6-3.5L3 5.5 6.5 5z" fill="currentColor" fillOpacity="0.7" stroke="currentColor" strokeWidth="0.5" strokeLinejoin="round"/>
           </svg>
@@ -1292,7 +1292,7 @@ function CreateQuizPageInner() {
             className="w-full text-base font-extrabold bg-transparent outline-none truncate"
             style={{ color: '#0F1B3D' }}
           />
-          <p className="text-[11px] text-gray-400">{questions.length} questions &middot; {subject || 'No subject'} &middot; ~{estMinutes} min</p>
+          <p className="text-xs text-gray-400">{questions.length} questions &middot; {subject || 'No subject'} &middot; ~{estMinutes} min</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button onClick={() => setShareOpen(true)} title="Share"
@@ -1351,7 +1351,7 @@ function CreateQuizPageInner() {
       <div className="flex-1 flex overflow-hidden">
 
         {/* ── LEFT PANEL: Question List ── */}
-        <div ref={questionListRef} className="hidden md:flex w-56 flex-shrink-0 bg-white border-r overflow-y-auto flex-col" style={{ borderColor: '#E2E8F0' }}>
+        <div ref={questionListRef} className="hidden md:flex w-64 flex-shrink-0 bg-white border-r overflow-y-auto flex-col" style={{ borderColor: '#E2E8F0' }}>
           <div className="px-3 py-2">
             <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Questions ({questions.length})</p>
           </div>
@@ -1396,7 +1396,7 @@ function CreateQuizPageInner() {
                     <div className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded inline-block mb-0.5" style={{ background: pill.bg, color: pill.color }}>
                       {pill.label}
                     </div>
-                    <p className="text-[11px] text-gray-500 truncate leading-tight">{q.text.slice(0, 40) || 'Untitled question'}</p>
+                    <p className="text-xs text-gray-500 truncate leading-tight">{q.text.slice(0, 40) || 'Untitled question'}</p>
                   </div>
                   <button
                     onClick={e => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setContextMenu({ index: i, x: r.right, y: r.bottom }) }}
@@ -1480,7 +1480,7 @@ function CreateQuizPageInner() {
         )}
 
         {/* ── CENTER PANEL: Preview / AI Settings / CSV / Library ── */}
-        <div className="flex-1 overflow-y-auto flex items-center justify-center p-6" style={{ background: '#F0F2F5' }}>
+        <div className="flex-1 overflow-y-auto flex items-center justify-center px-4 md:px-8 lg:px-12 py-6" style={{ background: '#F0F2F5' }}>
 
           {/* Manual tab → show preview */}
           {tab === 'manual' && activeQuestion && (
@@ -1489,7 +1489,7 @@ function CreateQuizPageInner() {
 
           {/* AI Tabs → show settings */}
           {isAiTab && (
-            <div className="w-full max-w-4xl space-y-4">
+            <div className="w-full max-w-5xl space-y-4">
               <h3 className="text-lg font-extrabold" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>
                 {tab === 'aitopic' ? 'Generate from Topic' : tab === 'aiurl' ? 'Generate from URL' : 'Generate from Document'}
               </h3>
@@ -1647,7 +1647,7 @@ function CreateQuizPageInner() {
 
           {/* CSV Tab */}
           {tab === 'csv' && (
-            <div className="w-full max-w-4xl space-y-4">
+            <div className="w-full max-w-5xl space-y-4">
               <h3 className="text-lg font-extrabold" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Import from CSV</h3>
 
               {/* Step 1: Download template */}
@@ -1800,7 +1800,7 @@ function CreateQuizPageInner() {
 
         {/* ── RIGHT PANEL: Question Editor ── */}
         {(tab === 'manual' || generatedOnTab) && activeQuestion && (
-          <div className="hidden md:flex md:w-72 flex-shrink-0 bg-white border-l overflow-y-auto flex-col p-4" style={{ borderColor: '#E2E8F0' }}>
+          <div className="hidden md:flex md:w-80 flex-shrink-0 bg-white border-l overflow-y-auto flex-col p-4" style={{ borderColor: '#E2E8F0' }}>
             {generatedOnTab && (
               <div className="mb-3 flex items-center gap-2">
                 <label className="flex items-center gap-1.5 cursor-pointer">
