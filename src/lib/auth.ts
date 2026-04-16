@@ -218,9 +218,23 @@ async function sendMagicLinkEmail(to: string, magicLinkUrl: string) {
 
 const emailFrom = process.env.EMAIL_FROM || 'Quizotic <info@quizotic.live>'
 
+// One-shot startup diagnostic — logs at boot so Railway logs show env presence.
+console.log('[auth] boot diagnostics:', JSON.stringify({
+  hasGoogleId: !!process.env.GOOGLE_CLIENT_ID,
+  hasGoogleSecret: !!process.env.GOOGLE_CLIENT_SECRET,
+  hasAuthSecret: !!(process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET),
+  hasDatabaseUrl: !!process.env.DATABASE_URL,
+  hasNextauthUrl: !!process.env.NEXTAUTH_URL,
+  hasAuthUrl: !!process.env.AUTH_URL,
+  hasAuthTrustHost: !!process.env.AUTH_TRUST_HOST,
+  hasGmailRefresh: !!process.env.GMAIL_API_REFRESH_TOKEN,
+  nodeEnv: process.env.NODE_ENV,
+}))
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   trustHost: true,
+  debug: true,
   session: { strategy: 'jwt' },
   pages: {
     signIn: '/auth/signin',
