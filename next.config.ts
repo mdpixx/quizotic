@@ -39,6 +39,8 @@ const nextConfig: NextConfig = {
               "connect-src 'self' wss: https://api.razorpay.com https://lux-gateway.razorpay.com https://eu.i.posthog.com https://eu-assets.i.posthog.com",
               "frame-src https://api.razorpay.com https://checkout.razorpay.com",
               "frame-ancestors 'none'",
+              "worker-src 'self'",
+              "manifest-src 'self'",
             ].join('; '),
           },
         ],
