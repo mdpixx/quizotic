@@ -3,10 +3,11 @@
 import Link from 'next/link'
 
 const FOOTER_LINKS = [
-  { href: '#features', label: 'Features' },
+  { href: '/features', label: 'Features' },
+  { href: '/pricing', label: 'Pricing' },
+  { href: '/faq', label: 'FAQ' },
+  { href: '/about', label: 'About' },
   { href: '#methodology', label: 'Methodology' },
-  { href: '#slide-types', label: 'Slide Types' },
-  { href: '#dashboard', label: 'Dashboard' },
   { href: '/auth/signin', label: 'Sign In' },
   { href: '/privacy', label: 'Privacy' },
   { href: '/terms', label: 'Terms' },
