@@ -44,6 +44,7 @@ rsync -a --delete \
   --exclude='.claude/' \
   --exclude='.cursor/' \
   --exclude='.vscode/' \
+  --exclude='remotion/' \
   "$SRC_DIR/" "$CACHE_DIR/"
 
 # Stage and detect changes
