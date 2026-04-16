@@ -51,7 +51,7 @@ export function HostNav() {
             Dashboard
           </Link>
           <Link href="/host/billing" className="text-sm font-semibold transition-colors hover:text-[#F5E642]" style={{ color: 'rgba(255,255,255,0.7)' }}>
-            Pricing
+            Plan
           </Link>
           <Link href="/join" className="text-sm font-semibold transition-colors hover:text-[#F5E642]" style={{ color: 'rgba(255,255,255,0.7)' }}>
             Join Quiz
@@ -112,7 +112,7 @@ export function HostNav() {
                     <Link href="/host/billing" onClick={() => setMenuOpen(false)}
                       className="block px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-50"
                       style={{ color: '#374151' }}>
-                      Pricing
+                      Plan
                     </Link>
                   </div>
 

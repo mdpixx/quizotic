@@ -397,13 +397,12 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
                 Export CSV
               </a>
             ) : (
-              <span className="flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-xl border-2 border-gray-200 text-gray-400 cursor-not-allowed" title="Upgrade to Pro for CSV export">
+              <span className="flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-xl border-2 border-gray-200 text-gray-400 cursor-not-allowed" title="CSV export — email info@quizotic.live if you need it">
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                   <path d="M14 2v6h6M8 13h8M8 17h8M8 9h2" />
                 </svg>
                 CSV
-                <span className="text-[10px] font-bold bg-violet-100 text-violet-600 px-1.5 py-0.5 rounded-full">PRO</span>
               </span>
             )
           )}

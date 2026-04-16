@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
         if (count >= limit) {
           return NextResponse.json({
             success: false,
-            error: `You've reached the limit of ${limit} saved quizzes. ${plan === 'free' ? 'Upgrade to Pro for unlimited quizzes.' : 'Delete some quizzes to save new ones.'}`,
+            error: `You've reached the limit of ${limit} saved quizzes. Delete some quizzes to save new ones, or email info@quizotic.live if you need more — we review every request.`,
           }, { status: 403 })
         }
       }

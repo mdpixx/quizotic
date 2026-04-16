@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     if (Array.isArray(slides) && maxSlides !== Infinity && slides.length > maxSlides) {
       return NextResponse.json({
         success: false,
-        error: `Free plan allows up to ${maxSlides} slides per presentation. ${plan === 'free' ? 'Upgrade to Pro for unlimited slides.' : ''}`,
+        error: `Free plan allows up to ${maxSlides} slides per presentation. Email info@quizotic.live if you need more — we review every request.`,
       }, { status: 403 })
     }
 
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
         if (count >= maxSaved) {
           return NextResponse.json({
             success: false,
-            error: `You've reached the limit of ${maxSaved} saved presentations. ${plan === 'free' ? 'Upgrade to Pro for unlimited presentations.' : 'Delete some presentations to save new ones.'}`,
+            error: `You've reached the limit of ${maxSaved} saved presentations. Delete some presentations to save new ones, or email info@quizotic.live if you need more — we review every request.`,
           }, { status: 403 })
         }
       }

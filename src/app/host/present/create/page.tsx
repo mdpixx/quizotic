@@ -1909,12 +1909,6 @@ function PresentCreatePageInner() {
             <div className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black" style={{ background: '#F5E642', color: '#0D0D0D' }}>Q</div>
             <span className="text-sm font-extrabold hidden sm:inline" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Quizotic</span>
           </div>
-          {plan === 'free' && (
-            <button onClick={() => router.push('/host/billing')} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all hover:scale-105 click-bounce-sm flex-shrink-0" style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}>
-              <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3"><path d="M2.5 12.5h11v1.5h-11zM1 7l3-4 4 3 4-5 3 6H1z"/></svg>
-              Upgrade
-            </button>
-          )}
           <button onClick={() => router.push('/host')}
             className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-semibold transition-colors hover:bg-gray-100"
             style={{ color: '#9CA3AF' }}>

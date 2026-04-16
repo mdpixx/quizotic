@@ -13,7 +13,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const plan = await getUserPlan(user.id)
 
     if (plan !== 'pro') {
-      return NextResponse.json({ error: 'PDF export is a Pro feature. Upgrade to access.' }, { status: 403 })
+      return NextResponse.json({ error: 'PDF export is not enabled on your account. Email info@quizotic.live if you need it — we review every request.' }, { status: 403 })
     }
 
     const { id } = await params

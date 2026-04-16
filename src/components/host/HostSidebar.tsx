@@ -144,7 +144,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
             style={{ color: 'rgba(255,255,255,0.6)' }}
           >
             <span className="text-base leading-none">💳</span>
-            <span>Billing</span>
+            <span>Plan</span>
           </Link>
           <Link
             href="/join"

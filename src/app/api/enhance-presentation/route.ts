@@ -274,7 +274,7 @@ export async function POST(req: NextRequest) {
 
     if (usageCount >= limit) {
       return NextResponse.json(
-        { success: false, error: `AI enhancement limit reached (${limit}/month). Upgrade to Pro for more.`, usage: { used: usageCount, limit } },
+        { success: false, error: `AI enhancement limit reached (${limit}/month). Email info@quizotic.live if you need more — we review every request.`, usage: { used: usageCount, limit } },
         { status: 429 }
       )
     }

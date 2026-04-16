@@ -1280,12 +1280,6 @@ function CreateQuizPageInner() {
           <div className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black" style={{ background: '#F5E642', color: '#0D0D0D' }}>Q</div>
           <span className="text-sm font-extrabold hidden sm:inline" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Quizotic</span>
         </div>
-        {plan === 'free' && (
-          <button onClick={() => router.push('/host/billing')} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all hover:scale-105 click-bounce-sm flex-shrink-0" style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}>
-            <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3"><path d="M2.5 12.5h11v1.5h-11zM1 7l3-4 4 3 4-5 3 6H1z"/></svg>
-            Upgrade
-          </button>
-        )}
         <button onClick={() => router.push('/host')} className="w-9 h-9 rounded-lg border flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors flex-shrink-0" style={{ borderColor: '#E2E8F0' }}>
           <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4"><path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </button>
@@ -1623,9 +1617,6 @@ function CreateQuizPageInner() {
               {aiGenError && (
                 <div className="rounded-xl p-4 border" style={{ background: '#FEF2F2', borderColor: '#FECACA' }}>
                   <p className="text-sm font-semibold" style={{ color: '#DC2626' }}>{aiGenError}</p>
-                  {aiGenError.includes('Upgrade') && (
-                    <button onClick={() => router.push('/host/billing')} className="mt-2 text-sm font-bold px-4 py-1.5 rounded-lg text-white" style={{ background: '#0F1B3D' }}>View Pro Plans</button>
-                  )}
                 </div>
               )}
 

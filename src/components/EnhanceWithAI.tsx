@@ -295,8 +295,8 @@ export function EnhanceWithAI({ presentation, onComplete, onCancel }: EnhanceWit
                     {limitReached && (
                       <>
                         {' — '}
-                        <a href="/pricing" className="font-semibold underline" style={{ color: '#4F46E5' }}>
-                          Upgrade to Pro
+                        <a href="mailto:info@quizotic.live" className="font-semibold underline" style={{ color: '#4F46E5' }}>
+                          Let us know if you need more
                         </a>
                       </>
                     )}

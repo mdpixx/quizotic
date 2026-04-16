@@ -223,7 +223,7 @@ export async function POST(req: NextRequest) {
   const limit = PLAN_LIMITS[plan].maxAiQuestions + bonusCredits
   if (questionsUsed >= limit) {
     return NextResponse.json({
-      error: `You've used all ${limit} AI question credits this month (${questionsUsed}/${limit}). ${plan === 'free' ? 'Upgrade to Pro for 750 AI questions per month.' : 'Limit resets next month.'}`,
+      error: `You've used all ${limit} AI question credits this month (${questionsUsed}/${limit}). Email info@quizotic.live if you need more — we review every request. Limit resets next month.`,
     }, { status: 429 })
   }
 

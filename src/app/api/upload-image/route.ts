@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
     if (uploadCount >= limit) {
       return NextResponse.json(
-        { success: false, error: `Image upload limit reached (${limit}/month). Upgrade to Pro for more.` },
+        { success: false, error: `Image upload limit reached (${limit}/month). Email info@quizotic.live if you need more — we review every request.` },
         { status: 429 },
       )
     }
