@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { signIn } from 'next-auth/react'
+
 import { io, Socket } from 'socket.io-client'
 import QRCode from 'react-qr-code'
 import { Avatar } from '@/components/Avatar'
@@ -91,55 +91,6 @@ function ShareLinks({ gameCode, quizTitle }: { gameCode: string; quizTitle: stri
   )
 }
 
-// P2.1 — Push session results to Google Sheets
-function PushToSheetsButton({ gameCode, onError }: { gameCode: string; onError: (code: string | null) => void }) {
-  const [loading, setLoading] = useState(false)
-  const [sheetUrl, setSheetUrl] = useState<string | null>(null)
-
-  async function handleClick() {
-    setLoading(true)
-    onError(null)
-    try {
-      const res = await fetch(`/api/sessions/${gameCode}/export/sheets`, { method: 'POST' })
-      const json = await res.json() as { success?: boolean; url?: string; error?: string }
-      if (!res.ok) {
-        onError(json.error ?? 'export_failed')
-        return
-      }
-      if (json.url) {
-        setSheetUrl(json.url)
-        window.open(json.url, '_blank', 'noopener')
-      }
-    } catch {
-      onError('network_error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (sheetUrl) {
-    return (
-      <a
-        href={sheetUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="w-full font-semibold rounded-xl py-2.5 text-sm border border-gray-200 hover:border-gray-400 transition-all text-center text-gray-700 bg-white"
-      >
-        Open Sheet
-      </a>
-    )
-  }
-
-  return (
-    <button
-      onClick={handleClick}
-      disabled={loading}
-      className="w-full font-semibold rounded-xl py-2.5 text-sm border border-gray-200 hover:border-gray-400 transition-all text-gray-700 bg-white disabled:opacity-50"
-    >
-      {loading ? 'Exporting…' : 'Sheets'}
-    </button>
-  )
-}
 
 export default function SessionPage() {
   const router = useRouter()
@@ -187,8 +138,7 @@ export default function SessionPage() {
   const [drawings, setDrawings] = useState<Array<{ name: string; archetype: string; dataUrl: string }>>([])
   // P2.5 — Ghost Mode
   const [ghostMode, setGhostMode] = useState(false)
-  // Session-complete — Sheets export error surfaced from PushToSheetsButton
-  const [sheetsError, setSheetsError] = useState<string | null>(null)
+
   const [ghostSessionId, setGhostSessionId] = useState('')
   const [ghostCandidates, setGhostCandidates] = useState<Array<{ id: string; date: string; participantCount: number; topScore: number; topName: string }>>([])
 
@@ -1212,7 +1162,6 @@ export default function SessionPage() {
                   setFollowups([])
                   setParticipants(new Map())
                   setGameCode('')
-                  setSheetsError(null)
                   socketInitialized.current = false
                 }
               }}
@@ -1269,31 +1218,9 @@ export default function SessionPage() {
                   >
                     PDF
                   </a>
-                  <PushToSheetsButton gameCode={gameCode} onError={setSheetsError} />
                 </>
               )}
             </div>
-
-            {/* Row 3: Sheets error message */}
-            {sheetsError && (
-              <p className="text-sm text-center">
-                {sheetsError === 'google_sheets_not_connected' ? (
-                  <span className="text-gray-600">
-                    Connect Google Sheets access to export.{' '}
-                    <button
-                      onClick={() => signIn('google', { callbackUrl: window.location.href })}
-                      className="text-blue-600 font-semibold hover:underline"
-                    >
-                      Connect Google →
-                    </button>
-                  </span>
-                ) : (
-                  <span className="text-red-500">
-                    {sheetsError === 'network_error' ? 'Network error. Try again.' : 'Export failed. Try again.'}
-                  </span>
-                )}
-              </p>
-            )}
           </div>
 
           <button
