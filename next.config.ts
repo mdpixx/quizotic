@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   serverExternalPackages: ['pdf-parse', 'mammoth', 'openai', '@aws-sdk/client-s3', 'jszip'],
   experimental: {
     serverActions: {

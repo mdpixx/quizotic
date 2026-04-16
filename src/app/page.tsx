@@ -28,6 +28,20 @@ const jsonLd = {
   },
 }
 
+const organizationLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'Quizotic',
+  url: 'https://www.quizotic.live',
+  logo: 'https://www.quizotic.live/icon.svg',
+  description: 'India-first live quiz and interactive presentation platform for schools, coaching institutes, colleges, and corporate trainers. Free to start, INR billing, UPI payments.',
+  foundingLocation: {
+    '@type': 'Place',
+    addressCountry: 'IN',
+  },
+  sameAs: [],
+}
+
 export default async function Home() {
   const session = await auth()
   if (session?.user) redirect('/host')
@@ -37,6 +51,10 @@ export default async function Home() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd) }}
       />
       <StickyNav />
       <main>

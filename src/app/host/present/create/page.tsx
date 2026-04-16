@@ -617,10 +617,17 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
           </p>
         )}
 
-        {/* Content image — shown on slide when uploaded */}
+        {/* Content image — shown on slide when uploaded.
+            When a visualization also exists, stack image (top) + viz (bottom)
+            so the host sees both, matching Kahoot-style layout. */}
         {slide.contentImageUrl ? (
-          <div className="flex-1 flex items-center justify-center min-h-0 mt-3">
-            <img src={slide.contentImageUrl} alt="Content" className="max-w-full max-h-full rounded-lg object-contain" />
+          <div className="flex-1 flex flex-col min-h-0 mt-3 gap-2">
+            <div className="flex-[1.1] flex items-center justify-center min-h-0">
+              <img src={slide.contentImageUrl} alt="Content" className="max-w-full max-h-full rounded-lg object-contain" />
+            </div>
+            <div className="flex-[1] flex items-center justify-center min-h-0">
+              {renderVisualization()}
+            </div>
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center min-h-0 mt-3">
@@ -1294,6 +1301,23 @@ function SlideThumbnail({ slide, index, active, onClick }: {
         style={{ background: gradient }}>
         {slide.type === 'image' && (slide as { imageUrl?: string }).imageUrl ? (
           <img src={(slide as { imageUrl: string }).imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+        ) : slide.backgroundImageUrl ? (
+          <>
+            <img src={slide.backgroundImageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+            {slide.contentImageUrl && (
+              <img src={slide.contentImageUrl} alt="" className="absolute inset-1.5 w-[calc(100%-12px)] h-[calc(100%-12px)] object-contain" loading="lazy" />
+            )}
+            <p className="relative text-[9px] font-bold text-center leading-tight line-clamp-2 px-1 py-0.5 rounded" style={{ color: '#0F1B3D', background: 'rgba(255,255,255,0.8)' }}>
+              {getLabel()}
+            </p>
+          </>
+        ) : slide.contentImageUrl ? (
+          <>
+            <img src={slide.contentImageUrl} alt="" className="absolute inset-0 w-full h-full object-contain" loading="lazy" />
+            <p className="relative text-[9px] font-bold text-center leading-tight line-clamp-2 px-1 py-0.5 rounded" style={{ color: '#0F1B3D', background: 'rgba(255,255,255,0.8)' }}>
+              {getLabel()}
+            </p>
+          </>
         ) : (
           <p className="text-[9px] font-bold text-center leading-tight line-clamp-2" style={{ color: textColor }}>
             {getLabel()}
@@ -1625,8 +1649,9 @@ function PresentCreatePageInner() {
       // Server save succeeded — draft is no longer needed
       clearDraft(dk)
       setRecoveredDraft(null)
+      // Keep "All changes saved" persistent until the next edit kicks off a save.
+      // Avoids the Saving → Saved → blank flash cycle on every keystroke pause.
       setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
       return true
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Save failed'
@@ -1716,14 +1741,19 @@ function PresentCreatePageInner() {
     return () => clearTimeout(timer)
   }, [presentation.title, presentation.id])
 
-  // Auto-save with 3s debounce (via shared hook); returns false on failure → hook retries
+  // Auto-save with 5s debounce (matches Notion/Canva). Returns false on failure → hook retries.
+  // Changed from 3s to 5s to reduce flashing and server load; the localStorage draft layer
+  // still fires on every change so a crash loses 0 data regardless.
   useAutosave(presentation, (snap) => {
     if (!hasLoadedRef.current) return
     if (JSON.stringify(snap) === lastSavedRef.current) return
     lastSavedRef.current = JSON.stringify(snap)
+    // A new edit has arrived after a previous save — clear the "Saved" indicator
+    // so the subtle "Saving…" state appears briefly on the next successful write.
+    setSaved(false)
     return savePresentation()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, { delayMs: 3000 })
+  }, { delayMs: 5000 })
 
   // Warn before leaving with unsaved changes
   useEffect(() => {
@@ -1909,19 +1939,19 @@ function PresentCreatePageInner() {
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Auto-save indicator */}
+            {/* Auto-save indicator — quiet, no flashing (Notion/Canva style).
+                Error state stays prominent. Normal state shows persistent muted text. */}
             {saveError ? (
               <span className="text-xs font-medium flex items-center gap-1.5 mr-1" style={{ color: '#DC2626' }}>
                 <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 flex-shrink-0"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3.5a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3A.75.75 0 018 4.5zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
                 <span className="hidden sm:inline">Couldn&apos;t save.</span>
                 <button onClick={() => { setSaveError(null); savePresentation() }} className="underline font-bold hover:no-underline">Retry</button>
               </span>
-            ) : (
-              <span className="text-xs font-medium flex items-center gap-1.5 mr-1" style={{ color: saving ? '#0F1B3D' : saved ? '#16A34A' : 'transparent' }}>
-                {saving && <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#0F1B3D' }} />}
-                {saving ? 'Saving...' : saved ? 'Saved' : ''}
+            ) : (saving || saved) ? (
+              <span className="text-xs mr-1 hidden sm:inline" style={{ color: '#94A3B8' }}>
+                {saving ? 'Saving…' : 'All changes saved'}
               </span>
-            )}
+            ) : null}
             {hasPptxContent && (
               <button onClick={() => setEnhanceOpen(true)} title="Enhance with AI"
                 className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all hover:scale-[1.02] click-bounce"

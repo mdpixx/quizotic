@@ -231,8 +231,8 @@ function QuestionPreview({
 
       {/* Image area */}
       {question.imageUrl ? (
-        <div className="w-full h-44 bg-gray-100">
-          <img src={question.imageUrl} alt="" className="w-full h-full object-cover" />
+        <div className="w-full h-44 flex items-center justify-center" style={{ background: '#F0EDE8' }}>
+          <img src={question.imageUrl} alt="" className="max-w-full max-h-full object-contain" />
         </div>
       ) : (
         <div className="w-full h-44 flex items-center justify-center cursor-pointer"
@@ -1082,7 +1082,7 @@ function CreateQuizPageInner() {
       if (!quizIdRef.current) return
       writeDraft(draftKey('quiz', quizIdRef.current), snap)
     },
-    { delayMs: 3000 },
+    { delayMs: 5000 },
   )
 
   // Warn before leaving with unsaved changes

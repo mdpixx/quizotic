@@ -4,6 +4,7 @@ import Link from 'next/link'
 export const metadata: Metadata = {
   title: 'Terms of Service',
   description: 'Quizotic terms of service — rules and conditions for using the platform.',
+  alternates: { canonical: '/terms' },
 }
 
 export default function TermsOfServicePage() {
