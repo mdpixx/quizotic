@@ -234,7 +234,6 @@ console.log('[auth] boot diagnostics:', JSON.stringify({
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   trustHost: true,
-  debug: true,
   session: { strategy: 'jwt' },
   pages: {
     signIn: '/auth/signin',

@@ -26,4 +26,6 @@ RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npm run build
 
 EXPOSE 4000
 
-CMD ["node", "server.mjs"]
+# Auto-apply pending migrations on boot, then start the server.
+# Prevents schema drift between the repo and the production DB.
+CMD ["sh", "-c", "npx prisma migrate deploy && node server.mjs"]
