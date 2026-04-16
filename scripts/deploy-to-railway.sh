@@ -27,6 +27,11 @@ else
   git -C "$CACHE_DIR" reset --hard "origin/$BRANCH"
 fi
 
+# Remove folders that exist on destination but shouldn't (rsync --exclude
+# doesn't delete already-present excluded files, and --delete-excluded is
+# too aggressive because it would also nuke .git).
+rm -rf "$CACHE_DIR/remotion"
+
 # Rsync source files (exclude everything the standalone repo doesn't need)
 echo "→ Syncing files from $SRC_DIR → $CACHE_DIR"
 rsync -a --delete \
