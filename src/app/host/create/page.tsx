@@ -630,6 +630,7 @@ function CreateQuizPageInner() {
   const [contextMenu, setContextMenu] = useState<{ index: number; x: number; y: number } | null>(null)
   const [shareOpen, setShareOpen] = useState(false)
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false)
+  const [mobileSlidesOpen, setMobileSlidesOpen] = useState(false)
 
   // Navigate to live session when savedQuiz is set after "Start Live"
   useEffect(() => {
@@ -1850,6 +1851,12 @@ function CreateQuizPageInner() {
           </button>
         </div>
         <button
+          onClick={() => setMobileSlidesOpen(true)}
+          className="flex items-center justify-center gap-1 px-3 py-2.5 rounded-xl font-bold text-sm flex-shrink-0"
+          style={{ background: '#fff', color: '#0F1B3D', border: '1.5px solid #E2E8F0' }}>
+          ☰ Slides
+        </button>
+        <button
           onClick={() => addQuestion()}
           className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded-xl font-bold text-sm transition-all"
           style={{ background: '#0F1B3D', color: '#fff' }}>
@@ -1864,6 +1871,75 @@ function CreateQuizPageInner() {
           </button>
         )}
       </div>
+
+      {/* ── Mobile Slides List Bottom Sheet ── */}
+      {mobileSlidesOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-50 flex flex-col justify-end"
+          style={{ background: 'rgba(15,27,61,0.5)' }}
+          onClick={e => { if (e.target === e.currentTarget) setMobileSlidesOpen(false) }}>
+          <div className="rounded-t-2xl overflow-hidden flex flex-col" style={{ background: '#fff', maxHeight: '80vh' }}>
+            <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0" style={{ borderColor: '#E2E8F0' }}>
+              <span className="font-black text-base" style={{ color: '#0F1B3D' }}>Questions ({questions.length})</span>
+              <button
+                onClick={() => setMobileSlidesOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ background: '#F1F5F9' }}>
+                <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" style={{ color: '#374151' }}>
+                  <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/>
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+              {questions.map((q, i) => {
+                const pill = getTypePill(q.type)
+                const isActive = i === safeIndex
+                return (
+                  <div
+                    key={q.id}
+                    onClick={() => { setActiveIndex(i); setMobileSlidesOpen(false) }}
+                    className="flex items-center gap-2 px-3 py-3 rounded-lg transition-colors"
+                    style={
+                      isActive
+                        ? { background: '#EEF2FF', border: '1.5px solid #6366F1' }
+                        : { border: '1.5px solid #E2E8F0', background: '#fff' }
+                    }
+                  >
+                    <div
+                      className="w-8 h-8 rounded-md flex items-center justify-center text-xs font-extrabold flex-shrink-0"
+                      style={isActive ? { background: '#6366F1', color: '#fff' } : { background: '#E2E8F0', color: '#64748B' }}
+                    >
+                      {i + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded inline-block mb-1" style={{ background: pill.bg, color: pill.color }}>
+                        {pill.label}
+                      </div>
+                      <p className="text-sm text-gray-700 truncate leading-tight">{q.text.slice(0, 60) || 'Untitled question'}</p>
+                    </div>
+                    <button
+                      onClick={e => { e.stopPropagation(); removeQuestion(i); if (questions.length <= 1) setMobileSlidesOpen(false) }}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-red-500 flex-shrink-0 hover:bg-red-50"
+                      aria-label="Delete question">
+                      <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                        <path d="M8.75 1a.75.75 0 000 1.5h2.5a.75.75 0 000-1.5h-2.5zM5 5a1 1 0 011-1h8a1 1 0 011 1v1H5V5zm.5 2.5a.5.5 0 00-.5.5v9a2 2 0 002 2h6a2 2 0 002-2v-9a.5.5 0 00-.5-.5h-9z"/>
+                      </svg>
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="flex-shrink-0 border-t px-4 py-3" style={{ borderColor: '#E2E8F0' }}>
+              <button
+                onClick={() => { addQuestion(); setMobileSlidesOpen(false) }}
+                className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm"
+                style={{ background: '#0F1B3D', color: '#fff' }}>
+                <span>+</span> Add question
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Mobile Editor Bottom Sheet ── */}
       {mobileEditorOpen && activeQuestion && (

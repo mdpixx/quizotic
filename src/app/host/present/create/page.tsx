@@ -1474,6 +1474,7 @@ function PresentCreatePageInner() {
   const [contextMenu, setContextMenu] = useState<{ index: number; x: number; y: number } | null>(null)
   const [shareOpen, setShareOpen] = useState(false)
   const [mobileSlideEditorOpen, setMobileSlideEditorOpen] = useState(false)
+  const [mobileSlidesOpen, setMobileSlidesOpen] = useState(false)
   const [plan, setPlan] = useState<'free' | 'pro'>('free')
   const [bgHexInput, setBgHexInput] = useState('')
   const [recoveredDraft, setRecoveredDraft] = useState<{ savedAt: number } | null>(null)
@@ -2507,10 +2508,16 @@ function PresentCreatePageInner() {
           </button>
         </div>
         <button
+          onClick={() => setMobileSlidesOpen(true)}
+          className="flex items-center justify-center gap-1 px-3 py-2.5 rounded-xl font-bold text-sm flex-shrink-0"
+          style={{ background: '#fff', color: '#0F1B3D', border: '1.5px solid #E2E8F0' }}>
+          ☰ Slides
+        </button>
+        <button
           onClick={() => setAddSlideOpen(true)}
           className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 font-bold text-sm transition-all"
           style={{ background: '#0F1B3D', color: '#fff' }}>
-          <span>+</span> Add Slide
+          <span>+</span> Add
         </button>
         {activeSlide && (
           <button
@@ -2521,6 +2528,75 @@ function PresentCreatePageInner() {
           </button>
         )}
       </div>
+
+      {/* ── Mobile Slides List Bottom Sheet ── */}
+      {mobileSlidesOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-50 flex flex-col justify-end"
+          style={{ background: 'rgba(15,27,61,0.5)' }}
+          onClick={e => { if (e.target === e.currentTarget) setMobileSlidesOpen(false) }}>
+          <div className="rounded-t-2xl overflow-hidden flex flex-col" style={{ background: '#fff', maxHeight: '80vh' }}>
+            <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0" style={{ borderColor: '#E2E8F0' }}>
+              <span className="font-black text-base" style={{ color: '#0F1B3D' }}>Slides ({presentation.slides.length})</span>
+              <button
+                onClick={() => setMobileSlidesOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ background: '#F1F5F9' }}>
+                <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" style={{ color: '#374151' }}>
+                  <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/>
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+              {presentation.slides.map((s, i) => {
+                const meta = SLIDE_TYPE_META[s.type]
+                const isActive = i === activeIndex
+                const title = 'title' in s && s.title ? s.title : 'question' in s && typeof s.question === 'string' ? s.question : meta.label
+                return (
+                  <div
+                    key={s.id}
+                    onClick={() => { setActiveIndex(i); setMobileSlidesOpen(false) }}
+                    className="flex items-center gap-2 px-3 py-3 rounded-lg"
+                    style={
+                      isActive
+                        ? { background: '#EEF2FF', border: '1.5px solid #6366F1' }
+                        : { border: '1.5px solid #E2E8F0', background: '#fff' }
+                    }
+                  >
+                    <div className="w-8 h-8 rounded-md flex items-center justify-center text-xs font-extrabold flex-shrink-0"
+                      style={isActive ? { background: '#6366F1', color: '#fff' } : { background: meta.bg, color: meta.color }}>
+                      {SLIDE_ICONS[s.type]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[10px] font-bold uppercase tracking-wide" style={{ color: meta.color }}>
+                        Slide {i + 1} &middot; {meta.label}
+                      </div>
+                      <p className="text-sm text-gray-700 truncate leading-tight">{String(title).slice(0, 60) || 'Untitled'}</p>
+                    </div>
+                    <button
+                      onClick={e => { e.stopPropagation(); deleteSlide(i); if (presentation.slides.length <= 1) setMobileSlidesOpen(false) }}
+                      disabled={presentation.slides.length <= 1}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-red-500 flex-shrink-0 hover:bg-red-50 disabled:opacity-30"
+                      aria-label="Delete slide">
+                      <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                        <path d="M8.75 1a.75.75 0 000 1.5h2.5a.75.75 0 000-1.5h-2.5zM5 5a1 1 0 011-1h8a1 1 0 011 1v1H5V5zm.5 2.5a.5.5 0 00-.5.5v9a2 2 0 002 2h6a2 2 0 002-2v-9a.5.5 0 00-.5-.5h-9z"/>
+                      </svg>
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="flex-shrink-0 border-t px-4 py-3" style={{ borderColor: '#E2E8F0' }}>
+              <button
+                onClick={() => { setAddSlideOpen(true); setMobileSlidesOpen(false) }}
+                className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm"
+                style={{ background: '#0F1B3D', color: '#fff' }}>
+                <span>+</span> Add slide
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Mobile Slide Editor Bottom Sheet ── */}
       {mobileSlideEditorOpen && activeSlide && (
