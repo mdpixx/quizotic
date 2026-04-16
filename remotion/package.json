@@ -1,0 +1,22 @@
+{
+  "name": "quizotic-remotion",
+  "version": "1.0.0",
+  "description": "Remotion video workspace for Quizotic — quiz intros, result reels, score cards",
+  "scripts": {
+    "start": "remotion studio",
+    "build": "remotion render src/index.ts MyComposition out/video.mp4",
+    "render": "remotion render src/index.ts MyComposition",
+    "upgrade": "remotion upgrade"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.448",
+    "remotion": "4.0.448",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "typescript": "^5.3.0"
+  }
+}

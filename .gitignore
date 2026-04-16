@@ -44,3 +44,9 @@ next-env.d.ts
 .worktrees/
 .superpowers/
 .worktrees/
+
+# Remotion
+remotion/node_modules
+remotion/out
+remotion/.cache
+

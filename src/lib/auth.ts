@@ -220,6 +220,7 @@ const emailFrom = process.env.EMAIL_FROM || 'Quizotic <info@quizotic.live>'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
+  trustHost: true,
   session: { strategy: 'jwt' },
   pages: {
     signIn: '/auth/signin',
