@@ -13,6 +13,21 @@ interface SessionResults {
   leaderboard?: LeaderboardEntry[]
   quizTitle?: string
   duration?: number
+  maxScore?: number
+  questionCount?: number
+}
+
+// Per-session max raw-point total. Falls back to questionCount * 1000 for legacy
+// rows that were persisted before `maxScore` was added to results. Returns null
+// when neither is derivable — caller should skip scoring for that session.
+function deriveSessionMax(results: SessionResults): number | null {
+  if (typeof results.maxScore === 'number' && results.maxScore > 0) return results.maxScore
+  if (typeof results.questionCount === 'number' && results.questionCount > 0) return results.questionCount * 1000
+  return null
+}
+
+function clampPct(n: number): number {
+  return Math.max(0, Math.min(100, Math.round(n)))
 }
 
 export async function GET() {
@@ -27,15 +42,16 @@ export async function GET() {
     select: { id: true, results: true, createdAt: true },
   })
 
-  // Build participant stats from leaderboard entries across all sessions
+  // Build participant stats from leaderboard entries across all sessions.
+  // avgScore is a weighted % across sessions: sum(rawScore) / sum(sessionMax) * 100.
   const participantMap = new Map<
     string,
     {
       name: string
       archetype: string | undefined
       sessions: number
-      totalScore: number
-      scoreCount: number
+      totalRawScore: number
+      totalMaxScore: number
       lastSeen: string
       scores: number[]
     }
@@ -44,6 +60,7 @@ export async function GET() {
   for (const s of sessions) {
     const results = s.results as SessionResults | null
     if (!results?.leaderboard) continue
+    const sessionMax = deriveSessionMax(results)
 
     for (const entry of results.leaderboard) {
       const key = entry.name.toLowerCase().trim()
@@ -51,19 +68,18 @@ export async function GET() {
         name: entry.name,
         archetype: entry.archetype,
         sessions: 0,
-        totalScore: 0,
-        scoreCount: 0,
+        totalRawScore: 0,
+        totalMaxScore: 0,
         lastSeen: s.createdAt.toISOString(),
         scores: [],
       }
 
       existing.sessions++
-      if (entry.score != null) {
-        existing.totalScore += entry.score
-        existing.scoreCount++
-        existing.scores.push(entry.score)
+      if (entry.score != null && sessionMax != null) {
+        existing.totalRawScore += entry.score
+        existing.totalMaxScore += sessionMax
+        existing.scores.push(clampPct((entry.score / sessionMax) * 100))
       }
-      // Keep most recent session date
       if (s.createdAt.toISOString() > existing.lastSeen) {
         existing.lastSeen = s.createdAt.toISOString()
       }
@@ -77,9 +93,9 @@ export async function GET() {
       name: p.name,
       archetype: p.archetype,
       sessions: p.sessions,
-      avgScore: p.scoreCount > 0 ? Math.round(p.totalScore / p.scoreCount) : null,
+      avgScore: p.totalMaxScore > 0 ? clampPct((p.totalRawScore / p.totalMaxScore) * 100) : null,
       lastSeen: p.lastSeen,
-      scores: p.scores.slice(-5), // last 5 scores for sparkline
+      scores: p.scores.slice(-5),
     }))
     .sort((a, b) => b.sessions - a.sessions)
 
