@@ -1,12 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
+import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 import type Stripe from 'stripe'
+import type { Prisma } from '@prisma/client'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type EventObject = Record<string, any>
 
+// Race-safe payment insert: relies on @@unique([providerEventId]) to dedupe
+// concurrent deliveries (two workers replaying the same event). Returns true
+// when the row was newly inserted, false when it was already present.
+async function createPaymentIdempotent(data: Prisma.PaymentUncheckedCreateInput): Promise<boolean> {
+  try {
+    await prisma.payment.create({ data })
+    return true
+  } catch (err) {
+    // Prisma P2002 = unique constraint violation. Any of providerEventId,
+    // providerPaymentId collisions count as "already processed".
+    if (err && typeof err === 'object' && 'code' in err && (err as { code: string }).code === 'P2002') {
+      return false
+    }
+    throw err
+  }
+}
+
 export async function POST(req: NextRequest) {
+  // IP-only pre-signature throttle: blunts unsigned-payload floods before we
+  // burn CPU on HMAC verification. Legitimate Stripe volume is far below this.
+  const rl = await rateLimitRequest(req, {
+    bucket: 'stripe-webhook',
+    ipLimit: 240,
+    windowMs: 60_000,
+  })
+  if (!rl.ok) return rateLimitResponse(rl)
+
   const body = await req.text()
   const signature = req.headers.get('stripe-signature')
 
@@ -32,12 +60,27 @@ export async function POST(req: NextRequest) {
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
-        const userId = obj.metadata?.userId as string | undefined
-        if (!userId) break
-
-        const subscriptionId = obj.subscription as string
         const customerId = obj.customer as string
-        const plan = (obj.metadata?.plan as string) ?? 'pro_monthly'
+        const subscriptionId = obj.subscription as string
+
+        // Resolve userId via the customer→user mapping persisted at checkout.
+        // Never trust obj.metadata.userId — metadata is only a fallback if our
+        // mapping is missing, and we log when that happens.
+        const mapped = customerId
+          ? await prisma.subscription.findFirst({
+              where: { providerCustomerId: customerId, provider: 'stripe' },
+            })
+          : null
+        const userId = mapped?.userId ?? (obj.metadata?.userId as string | undefined)
+        if (!userId) {
+          console.warn(`[stripe-webhook] no user mapping for customer ${customerId} — skipping`)
+          break
+        }
+        if (mapped && obj.metadata?.userId && mapped.userId !== obj.metadata.userId) {
+          console.error(`[stripe-webhook] userId mismatch: mapped=${mapped.userId} metadata=${obj.metadata.userId} — using mapped`)
+        }
+
+        const plan = (mapped?.plan as string) || (obj.metadata?.plan as string) || 'pro_monthly'
 
         // Fetch subscription details for period dates
         const stripeSub = await stripe.subscriptions.retrieve(subscriptionId)
@@ -75,19 +118,17 @@ export async function POST(req: NextRequest) {
 
         const dbSub = await prisma.subscription.findUnique({ where: { userId } })
 
-        await prisma.payment.create({
-          data: {
-            userId,
-            subscriptionId: dbSub?.id,
-            provider: 'stripe',
-            providerPaymentId: (obj.payment_intent as string) ?? `checkout_${obj.id}`,
-            providerEventId: event.id,
-            amount: obj.amount_total ?? 0,
-            currency: obj.currency ?? 'usd',
-            status: 'succeeded',
-            invoiceUrl: null,
-            metadata: JSON.parse(JSON.stringify(event)),
-          },
+        await createPaymentIdempotent({
+          userId,
+          subscriptionId: dbSub?.id,
+          provider: 'stripe',
+          providerPaymentId: (obj.payment_intent as string) ?? `checkout_${obj.id}`,
+          providerEventId: event.id,
+          amount: obj.amount_total ?? 0,
+          currency: obj.currency ?? 'usd',
+          status: 'succeeded',
+          invoiceUrl: null,
+          metadata: JSON.parse(JSON.stringify(event)),
         })
         break
       }
@@ -113,19 +154,17 @@ export async function POST(req: NextRequest) {
           })
         }
 
-        await prisma.payment.create({
-          data: {
-            userId: sub.userId,
-            subscriptionId: sub.id,
-            provider: 'stripe',
-            providerPaymentId: (obj.payment_intent as string) ?? `inv_${obj.id}`,
-            providerEventId: event.id,
-            amount: obj.amount_paid ?? 0,
-            currency: obj.currency ?? 'usd',
-            status: 'succeeded',
-            invoiceUrl: obj.hosted_invoice_url ?? null,
-            metadata: JSON.parse(JSON.stringify(event)),
-          },
+        await createPaymentIdempotent({
+          userId: sub.userId,
+          subscriptionId: sub.id,
+          provider: 'stripe',
+          providerPaymentId: (obj.payment_intent as string) ?? `inv_${obj.id}`,
+          providerEventId: event.id,
+          amount: obj.amount_paid ?? 0,
+          currency: obj.currency ?? 'usd',
+          status: 'succeeded',
+          invoiceUrl: obj.hosted_invoice_url ?? null,
+          metadata: JSON.parse(JSON.stringify(event)),
         })
         break
       }

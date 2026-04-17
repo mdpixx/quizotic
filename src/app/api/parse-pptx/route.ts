@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 import { getCurrentUser } from '@/lib/auth-helpers'
+import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { writeFile, unlink, readFile, rm } from 'fs/promises'
@@ -111,6 +112,15 @@ export async function POST(req: NextRequest) {
   if (!user) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
   }
+
+  const rl = await rateLimitRequest(req, {
+    bucket: 'parse-pptx',
+    userId: user.id,
+    userLimit: 10,
+    ipLimit: 15,
+    windowMs: 60_000,
+  })
+  if (!rl.ok) return rateLimitResponse(rl)
 
   const formData = await req.formData()
   const file = formData.get('file') as File | null

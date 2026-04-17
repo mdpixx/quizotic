@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { authenticateApiKey } from '@/lib/api-key-auth'
+import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
  * GET /api/v1/sessions/:id/results
@@ -15,6 +16,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized. Pass your API key as: Authorization: Bearer <key>' }, { status: 401 })
   }
+
+  const rl = await rateLimitRequest(req, {
+    bucket: 'v1-session-results',
+    userId: user.id,
+    userLimit: 60,
+    ipLimit: 120,
+    windowMs: 60_000,
+  })
+  if (!rl.ok) return rateLimitResponse(rl)
 
   const { id } = await params
   const session = await prisma.gameSession.findFirst({

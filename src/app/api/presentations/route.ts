@@ -49,9 +49,15 @@ export async function POST(req: NextRequest) {
       }, { status: 403 })
     }
 
-    // Check whether this is a new row (upsert — use client-generated id)
+    // Ownership-scoped lookup — id alone is attacker-controlled.
     const existing = await prisma.presentation.findFirst({ where: { id, userId: user.id } })
+
     if (!existing) {
+      const foreign = await prisma.presentation.findUnique({ where: { id }, select: { id: true } })
+      if (foreign) {
+        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+      }
+
       const maxSaved = PLAN_LIMITS[plan].maxSavedPresentations
       if (maxSaved !== Infinity) {
         const count = await prisma.presentation.count({ where: { userId: user.id } })
@@ -62,12 +68,16 @@ export async function POST(req: NextRequest) {
           }, { status: 403 })
         }
       }
+
+      const presentation = await prisma.presentation.create({
+        data: { id, title, slides, userId: user.id },
+      })
+      return NextResponse.json({ success: true, data: presentation })
     }
 
-    const presentation = await prisma.presentation.upsert({
-      where: { id },
-      create: { id, title, slides, userId: user.id },
-      update: { title, slides },
+    const presentation = await prisma.presentation.update({
+      where: { id: existing.id },
+      data: { title, slides },
     })
 
     return NextResponse.json({ success: true, data: presentation })

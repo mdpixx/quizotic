@@ -207,3 +207,20 @@ h1, h2, h3, h4, h5, h6 {
     size: A4 portrait;
   }
 }
+
+/* WCAG 2.3.3 — honor the user's OS-level motion preference. Kills all
+   keyframe animations, transitions, and smooth-scroll for users who opt out.
+   Components that need behavioral adjustments (skipping intro phases, etc.)
+   should also read window.matchMedia('(prefers-reduced-motion: reduce)').
+   Values of 0.001ms (not 0) keep the `animationend` / `transitionend` events
+   firing so JS state machines that depend on them don't stall. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

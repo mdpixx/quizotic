@@ -104,7 +104,7 @@ model Payment {
   subscriptionId    String?
   provider          String   // "stripe" | "razorpay"
   providerPaymentId String   @unique
-  providerEventId   String?  // webhook event ID for idempotency
+  providerEventId   String?  @unique // webhook event ID for idempotency (race-safe dedupe)
   amount            Int      // in smallest unit: cents (USD) or paise (INR)
   currency          String   // "usd" | "inr"
   status            String   // "succeeded" | "failed" | "refunded"

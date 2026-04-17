@@ -318,6 +318,7 @@ function JoinPageInner() {
   const [phase, setPhase] = useState<Phase>(followupParam ? 'connecting' : 'form')
   const phaseRef = useRef<Phase>(followupParam ? 'connecting' : 'form')
   const [code, setCode] = useState(searchParams.get('code') ?? '')
+  const nameInputRef = useRef<HTMLInputElement>(null)
 
   // Presenter mode state
   const [presenterTitle, setPresenterTitle] = useState('')
@@ -999,22 +1000,35 @@ function JoinPageInner() {
           <form onSubmit={handleJoin} className="space-y-4">
             <input
               type="text"
+              inputMode="numeric"
+              pattern="[0-9]{6}"
               placeholder={t('join.codePlaceholder')}
               aria-label={t('join.codePlaceholder')}
-              autoComplete="off"
+              autoComplete="one-time-code"
               value={code}
-              onChange={e => setCode(e.target.value)}
+              onChange={e => {
+                // Strip non-digits, cap at 6. When the 6th digit lands, jump
+                // focus to the name field so the user flows straight into it.
+                const digits = e.target.value.replace(/\D/g, '').slice(0, 6)
+                setCode(digits)
+                if (digits.length === 6 && code.length < 6) {
+                  nameInputRef.current?.focus()
+                }
+              }}
               disabled={phase === 'connecting'}
               className="w-full rounded-xl px-5 py-4 text-2xl font-bold tracking-[0.3em] text-center outline-none transition-all placeholder:text-white/30 focus:ring-2"
               style={{
                 background: 'rgba(255,255,255,0.07)',
-                border: '1.5px solid rgba(255,255,255,0.12)',
+                border: code.length === 6
+                  ? '1.5px solid rgba(34,197,94,0.9)' // valid → green border
+                  : '1.5px solid rgba(255,255,255,0.12)',
                 color: 'white',
                 '--tw-ring-color': 'rgba(245,230,66,0.4)',
               } as React.CSSProperties}
               maxLength={6}
             />
             <input
+              ref={nameInputRef}
               type="text"
               placeholder={t('join.namePlaceholder')}
               aria-label={t('join.namePlaceholder')}

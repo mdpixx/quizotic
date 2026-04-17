@@ -185,6 +185,44 @@ function getTypePill(type: QuestionType) {
   return TYPE_PILLS.find(t => t.value === type) ?? TYPE_PILLS[0]
 }
 
+// ─── Autosave Badge ──────────────────────────────────────────────────────────
+
+function AutosaveBadge({ state }: { state: { status: 'idle' | 'saving' | 'saved' | 'error'; lastSavedAt: number | null } }) {
+  const [, tick] = useState(0)
+  useEffect(() => {
+    if (state.status !== 'saved' || !state.lastSavedAt) return
+    const id = setInterval(() => tick(v => v + 1), 15_000)
+    return () => clearInterval(id)
+  }, [state.status, state.lastSavedAt])
+
+  if (state.status === 'idle') return null
+
+  const base = 'hidden sm:flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md'
+  if (state.status === 'saving') {
+    return (
+      <span className={base} style={{ background: '#FEF3C7', color: '#92400E' }}>
+        <svg className="animate-spin w-3 h-3" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" opacity="0.3"/><path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+        Saving…
+      </span>
+    )
+  }
+  if (state.status === 'error') {
+    return (
+      <span className={base} title="We'll retry automatically" style={{ background: '#FEE2E2', color: '#991B1B' }}>
+        Couldn&apos;t save — retrying
+      </span>
+    )
+  }
+  // saved
+  const secs = state.lastSavedAt ? Math.max(1, Math.round((Date.now() - state.lastSavedAt) / 1000)) : 0
+  const label = secs < 60 ? `Saved ${secs}s ago` : `Saved ${Math.round(secs / 60)}m ago`
+  return (
+    <span className={base} style={{ background: '#DCFCE7', color: '#14532D' }}>
+      {label}
+    </span>
+  )
+}
+
 // ─── Visual Preview Card (Center Panel) ────────────────────────────────────────
 
 function QuestionPreview({
@@ -1077,11 +1115,16 @@ function CreateQuizPageInner() {
   // Snapshot for dirty-check to power the beforeunload warn
   const lastSavedSnapshotRef = useRef('')
 
-  useAutosave(
+  const autosaveState = useAutosave(
     { title, subject, questions },
     (snap) => {
-      if (!quizIdRef.current) return
-      writeDraft(draftKey('quiz', quizIdRef.current), snap)
+      if (!quizIdRef.current) return false
+      try {
+        writeDraft(draftKey('quiz', quizIdRef.current), snap)
+        return true
+      } catch {
+        return false
+      }
     },
     { delayMs: 5000 },
   )
@@ -1296,6 +1339,7 @@ function CreateQuizPageInner() {
           <p className="text-xs text-gray-400">{questions.length} questions &middot; {subject || 'No subject'} &middot; ~{estMinutes} min</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          <AutosaveBadge state={autosaveState} />
           <button onClick={() => setShareOpen(true)} title="Share"
             className="w-9 h-9 rounded-lg border flex items-center justify-center transition-all hover:bg-gray-50 click-bounce"
             style={{ borderColor: '#E2E8F0', color: '#64748B' }}>

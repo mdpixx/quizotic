@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { authenticateApiKey } from '@/lib/api-key-auth'
+import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
  * GET /api/v1/sessions
@@ -18,6 +19,15 @@ export async function GET(req: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized. Pass your API key as: Authorization: Bearer <key>' }, { status: 401 })
   }
+
+  const rl = await rateLimitRequest(req, {
+    bucket: 'v1-sessions',
+    userId: user.id,
+    userLimit: 60,
+    ipLimit: 120,
+    windowMs: 60_000,
+  })
+  if (!rl.ok) return rateLimitResponse(rl)
 
   const { searchParams } = new URL(req.url)
   const limit = Math.min(200, Math.max(1, Number(searchParams.get('limit') ?? 50)))

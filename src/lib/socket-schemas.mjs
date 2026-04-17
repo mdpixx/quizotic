@@ -1,7 +1,6 @@
-// SYNC: keep in sync with socket-schemas.mjs (the runtime copy used by server.mjs).
-// This .ts file exists for type-checking and tests only.
+// SYNC: keep in sync with socket-schemas.ts
+// Pure ESM JS — imported by server.mjs (cannot import TypeScript).
 import { z } from 'zod'
-import type { Socket } from 'socket.io'
 
 // ─── Participant payloads ───────────────────────────────────────────────────
 
@@ -89,16 +88,18 @@ export const PingTimeSchema = z.object({
   clientTime: z.number(),
 })
 
-// ─── Helper ────────────────────────────────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────────────
 
 /**
  * Pure-result helper (for unit tests): validate a payload and return either
  * { success: true, data } or { success: false, error }. No socket side-effects.
+ *
+ * @template T
+ * @param {import('zod').ZodType<T>} schema
+ * @param {unknown} payload
+ * @returns {{ success: true, data: T } | { success: false, error: string }}
  */
-export function safeParseSocket<T>(
-  schema: z.ZodType<T>,
-  payload: unknown,
-): { success: true; data: T } | { success: false; error: string } {
+export function safeParseSocket(schema, payload) {
   const result = schema.safeParse(payload)
   if (result.success) return { success: true, data: result.data }
   return {
@@ -108,21 +109,25 @@ export function safeParseSocket<T>(
 }
 
 /**
- * Runtime helper (for server.mjs): validate, reply with an error envelope on
- * failure via callback or 'invalid_payload' event, and return parsed data or null.
+ * Runtime helper: validate a socket payload against a schema.
+ * Invokes callback (if provided) with an error envelope on failure, or emits
+ * a generic 'invalid_payload' event back to the socket. Returns parsed data
+ * on success, or null on failure (caller should early-return).
+ *
+ * @template T
+ * @param {import('socket.io').Socket} socket
+ * @param {import('zod').ZodType<T>} schema
+ * @param {unknown} payload
+ * @param {((res: { success: false; error: string }) => void) | undefined} callback
+ * @param {string} eventName — for logging
+ * @returns {T | null}
  */
-export function validateSocketPayload<T>(
-  socket: Socket,
-  schema: z.ZodType<T>,
-  payload: unknown,
-  callback: ((res: { success: false; error: string }) => void) | undefined,
-  eventName: string,
-): T | null {
+export function validateSocketPayload(socket, schema, payload, callback, eventName) {
   const parsed = safeParseSocket(schema, payload)
   if (parsed.success) return parsed.data
   console.warn(`[socket:${eventName}] rejected payload from ${socket.id}: ${parsed.error}`)
   if (typeof callback === 'function') {
-    try { callback({ success: false, error: 'Invalid payload' }) } catch { /* noop */ }
+    try { callback({ success: false, error: 'Invalid payload' }) } catch {}
   } else {
     socket.emit('invalid_payload', { event: eventName, error: 'Invalid payload' })
   }

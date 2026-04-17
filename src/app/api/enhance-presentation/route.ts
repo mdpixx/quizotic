@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { getUserPlan } from '@/lib/billing'
 import { PLAN_LIMITS } from '@/lib/limits'
+import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 
 const client = new OpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
@@ -337,6 +338,15 @@ export async function POST(req: NextRequest) {
   if (!user) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
   }
+
+  const rl = await rateLimitRequest(req, {
+    bucket: 'enhance-presentation',
+    userId: user.id,
+    userLimit: 15,
+    ipLimit: 20,
+    windowMs: 60_000,
+  })
+  if (!rl.ok) return rateLimitResponse(rl)
 
   // Rate limit check
   const plan = await getUserPlan(user.id)

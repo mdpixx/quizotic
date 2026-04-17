@@ -6,10 +6,20 @@ import { stripe } from '@/lib/stripe'
 import { razorpay } from '@/lib/razorpay'
 import { prisma } from '@/lib/prisma'
 import { PRICES } from '@/lib/billing'
+import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const rl = await rateLimitRequest(req, {
+    bucket: 'billing-checkout',
+    userId: user.id,
+    userLimit: 10,
+    ipLimit: 20,
+    windowMs: 60_000,
+  })
+  if (!rl.ok) return rateLimitResponse(rl)
 
   const { provider, plan }: { provider: 'stripe' | 'razorpay'; plan: 'pro_monthly' | 'pro_yearly' } = await req.json()
 
@@ -37,6 +47,24 @@ export async function POST(req: NextRequest) {
       customerId = customer.id
     }
 
+    // Persist the customer→user mapping immediately so the webhook can resolve
+    // userId via providerCustomerId (trusted) and never need to trust metadata.
+    await prisma.subscription.upsert({
+      where: { userId },
+      create: {
+        userId,
+        plan,
+        status: 'pending',
+        provider: 'stripe',
+        providerCustomerId: customerId,
+      },
+      update: {
+        plan,
+        provider: 'stripe',
+        providerCustomerId: customerId,
+      },
+    })
+
     const priceId = plan === 'pro_yearly' ? PRICES.stripe.yearly : PRICES.stripe.monthly
 
     const session = await stripe.checkout.sessions.create({
@@ -58,6 +86,25 @@ export async function POST(req: NextRequest) {
       plan_id: planId,
       total_count: plan === 'pro_yearly' ? 10 : 120, // 10 years or 10 years of monthly
       notes: { userId, plan },
+    })
+
+    // Persist a pending mapping so the webhook can resolve userId from
+    // providerSubscriptionId (trusted) instead of webhook notes (attacker-controlled).
+    await prisma.subscription.upsert({
+      where: { userId },
+      create: {
+        userId,
+        plan,
+        status: 'pending',
+        provider: 'razorpay',
+        providerSubscriptionId: subscription.id,
+      },
+      update: {
+        plan,
+        status: 'pending',
+        provider: 'razorpay',
+        providerSubscriptionId: subscription.id,
+      },
     })
 
     return NextResponse.json({

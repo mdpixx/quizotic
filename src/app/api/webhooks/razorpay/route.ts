@@ -1,13 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 import crypto from 'crypto'
+import type { Prisma } from '@prisma/client'
 
 function verifySignature(body: string, signature: string, secret: string): boolean {
   const expected = crypto.createHmac('sha256', secret).update(body).digest('hex')
   return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
 }
 
+// Race-safe insert: relies on @@unique([providerEventId]) + providerPaymentId
+// to dedupe concurrent deliveries. Returns true on new insert, false on
+// duplicate (already processed).
+async function createPaymentIdempotent(data: Prisma.PaymentUncheckedCreateInput): Promise<boolean> {
+  try {
+    await prisma.payment.create({ data })
+    return true
+  } catch (err) {
+    if (err && typeof err === 'object' && 'code' in err && (err as { code: string }).code === 'P2002') {
+      return false
+    }
+    throw err
+  }
+}
+
 export async function POST(req: NextRequest) {
+  const rl = await rateLimitRequest(req, {
+    bucket: 'razorpay-webhook',
+    ipLimit: 240,
+    windowMs: 60_000,
+  })
+  if (!rl.ok) return rateLimitResponse(rl)
+
   const body = await req.text()
   const signature = req.headers.get('x-razorpay-signature')
 
@@ -23,13 +47,16 @@ export async function POST(req: NextRequest) {
   const eventId = event.event ?? ''
   const payload = event.payload ?? {}
 
-  // Idempotency check using the event's entity ID + event type as a composite key
+  // Idempotency key: event type + entity ID + event timestamp. Including the
+  // timestamp means a legitimate second charge reusing the same payment.id is
+  // treated distinctly, but a raw replay of the same webhook delivery dedupes.
   const entityId = payload.payment?.entity?.id ?? payload.subscription?.entity?.id
   if (!entityId) {
     // Unknown event type with no entity ID — acknowledge but skip processing
     return NextResponse.json({ received: true })
   }
-  const providerEventId = `${eventId}_${entityId}`
+  const eventCreatedAt: number = typeof event.created_at === 'number' ? event.created_at : 0
+  const providerEventId = `${eventId}_${entityId}_${eventCreatedAt}`
 
   const existing = await prisma.payment.findFirst({ where: { providerEventId } })
   if (existing) {
@@ -42,14 +69,22 @@ export async function POST(req: NextRequest) {
         const sub = payload.subscription?.entity
         if (!sub) break
 
-        const userId = sub.notes?.userId
-        if (!userId) break
+        // Trusted lookup: we created a pending Subscription row at checkout keyed on
+        // providerSubscriptionId. Never trust sub.notes.userId — it's attacker-controlled
+        // metadata that can be forged when creating a subscription outside our flow.
+        const pending = await prisma.subscription.findFirst({
+          where: { providerSubscriptionId: sub.id, provider: 'razorpay' },
+        })
+        if (!pending) {
+          console.warn(`[razorpay-webhook] no pending subscription row for ${sub.id} — refusing to activate`)
+          break
+        }
+        const userId = pending.userId
+        const plan = pending.plan || sub.notes?.plan || 'pro_monthly'
 
-        const plan = sub.notes?.plan ?? 'pro_monthly'
-
-        await prisma.subscription.upsert({
+        await prisma.subscription.update({
           where: { userId },
-          update: {
+          data: {
             plan,
             status: 'active',
             provider: 'razorpay',
@@ -58,16 +93,6 @@ export async function POST(req: NextRequest) {
             currentPeriodStart: sub.current_start ? new Date(sub.current_start * 1000) : new Date(),
             currentPeriodEnd: sub.current_end ? new Date(sub.current_end * 1000) : null,
             cancelledAt: null,
-          },
-          create: {
-            userId,
-            plan,
-            status: 'active',
-            provider: 'razorpay',
-            providerSubscriptionId: sub.id,
-            providerCustomerId: sub.customer_id ?? null,
-            currentPeriodStart: sub.current_start ? new Date(sub.current_start * 1000) : new Date(),
-            currentPeriodEnd: sub.current_end ? new Date(sub.current_end * 1000) : null,
           },
         })
         break
@@ -78,7 +103,8 @@ export async function POST(req: NextRequest) {
         const payment = payload.payment?.entity
         if (!payment) break
 
-        // Find the subscription for this payment
+        // Resolve userId ONLY via providerSubscriptionId → our DB mapping.
+        // payment.notes is attacker-controlled; never trust it.
         const subscriptionId = payment.subscription_id
         const sub = subscriptionId
           ? await prisma.subscription.findFirst({
@@ -86,22 +112,23 @@ export async function POST(req: NextRequest) {
             })
           : null
 
-        const userId = sub?.userId ?? payment.notes?.userId
-        if (!userId) break
+        if (!sub) {
+          console.warn(`[razorpay-webhook] no subscription mapping for payment ${payment.id} — skipping`)
+          break
+        }
+        const userId = sub.userId
 
-        await prisma.payment.create({
-          data: {
-            userId,
-            subscriptionId: sub?.id ?? null,
-            provider: 'razorpay',
-            providerPaymentId: payment.id,
-            providerEventId,
-            amount: payment.amount ?? 0,
-            currency: payment.currency ?? 'inr',
-            status: 'succeeded',
-            invoiceUrl: payment.invoice_id ? `https://api.razorpay.com/v1/invoices/${payment.invoice_id}` : null,
-            metadata: event,
-          },
+        await createPaymentIdempotent({
+          userId,
+          subscriptionId: sub.id,
+          provider: 'razorpay',
+          providerPaymentId: payment.id,
+          providerEventId,
+          amount: payment.amount ?? 0,
+          currency: payment.currency ?? 'inr',
+          status: 'succeeded',
+          invoiceUrl: payment.invoice_id ? `https://api.razorpay.com/v1/invoices/${payment.invoice_id}` : null,
+          metadata: event,
         })
 
         // Update subscription period if available

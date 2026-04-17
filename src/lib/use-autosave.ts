@@ -1,6 +1,13 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const RETRY_DELAYS = [5_000, 15_000, 60_000] // ms between retries on failure
+
+export type AutosaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+
+export interface AutosaveState {
+  status: AutosaveStatus
+  lastSavedAt: number | null
+}
 
 /**
  * Debounced autosave hook with retry-on-failure.
@@ -8,19 +15,23 @@ const RETRY_DELAYS = [5_000, 15_000, 60_000] // ms between retries on failure
  * If `onSave` returns `false` (or a rejected Promise), retries at 5s / 15s / 60s.
  * A new change arriving during a retry window cancels all pending retries.
  * The first render is skipped (no save on mount).
+ *
+ * Returns a reactive status badge input: `{ status, lastSavedAt }`.
  */
 export function useAutosave<T>(
   value: T,
   onSave: (value: T) => Promise<boolean> | boolean | void,
   { delayMs = 3000 }: { delayMs?: number } = {},
-): void {
+): AutosaveState {
   const onSaveRef = useRef(onSave)
   onSaveRef.current = onSave
 
   const initializedRef = useRef(false)
   const retryTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
 
-  // Cancel all pending retry timers
+  const [status, setStatus] = useState<AutosaveStatus>('idle')
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
+
   function cancelRetries() {
     for (const t of retryTimersRef.current) clearTimeout(t)
     retryTimersRef.current = []
@@ -32,10 +43,10 @@ export function useAutosave<T>(
       return
     }
 
-    // New change cancels any pending retries from the previous attempt
     cancelRetries()
 
     const debounceTimer = setTimeout(async () => {
+      setStatus('saving')
       let succeeded: boolean
       try {
         const result = await onSaveRef.current(value)
@@ -44,19 +55,28 @@ export function useAutosave<T>(
         succeeded = false
       }
 
-      if (succeeded) return
+      if (succeeded) {
+        setStatus('saved')
+        setLastSavedAt(Date.now())
+        return
+      }
 
-      // Schedule retries with increasing delays
+      setStatus('error')
       let retryCount = 0
       function scheduleRetry() {
         if (retryCount >= RETRY_DELAYS.length) return
         const t = setTimeout(async () => {
-          // Remove this timer from the list
           retryTimersRef.current = retryTimersRef.current.filter(x => x !== t)
+          setStatus('saving')
           try {
             const result = await onSaveRef.current(value)
-            if (result !== false) return // succeeded — stop retrying
+            if (result !== false) {
+              setStatus('saved')
+              setLastSavedAt(Date.now())
+              return
+            }
           } catch { /* ignore */ }
+          setStatus('error')
           retryCount++
           scheduleRetry()
         }, RETRY_DELAYS[retryCount])
@@ -70,6 +90,7 @@ export function useAutosave<T>(
       clearTimeout(debounceTimer)
       cancelRetries()
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, delayMs])
+
+  return { status, lastSavedAt }
 }

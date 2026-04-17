@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { getUserPlan, getReferralBonusCredits } from '@/lib/billing'
 import { PLAN_LIMITS } from '@/lib/limits'
+import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 
 const client = new OpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
@@ -25,6 +26,15 @@ export async function POST(req: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  const rl = await rateLimitRequest(req, {
+    bucket: 'translate-quiz',
+    userId: user.id,
+    userLimit: 15,
+    ipLimit: 20,
+    windowMs: 60_000,
+  })
+  if (!rl.ok) return rateLimitResponse(rl)
 
   // AI rate limiting — proportional (count questions, not calls)
   const startOfMonth = new Date()

@@ -43,9 +43,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'title and questions are required' }, { status: 400 })
     }
 
-    // Check whether this is a new row (upsert — use client-generated id)
+    // Ownership-scoped lookup — id alone is attacker-controlled.
     const existing = await prisma.quiz.findFirst({ where: { id, userId: user.id } })
+
+    // Reject writes to an id that exists but belongs to another user.
     if (!existing) {
+      const foreign = await prisma.quiz.findUnique({ where: { id }, select: { id: true } })
+      if (foreign) {
+        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+      }
+
       const plan = await getUserPlan(user.id)
       const limit = PLAN_LIMITS[plan].maxSavedQuizzes
       if (limit !== Infinity) {
@@ -57,12 +64,16 @@ export async function POST(req: NextRequest) {
           }, { status: 403 })
         }
       }
+
+      const quiz = await prisma.quiz.create({
+        data: { id, title, subject, language, questions, userId: user.id },
+      })
+      return NextResponse.json({ success: true, data: quiz })
     }
 
-    const quiz = await prisma.quiz.upsert({
-      where: { id },
-      create: { id, title, subject, language, questions, userId: user.id },
-      update: { title, subject, language, questions },
+    const quiz = await prisma.quiz.update({
+      where: { id: existing.id },
+      data: { title, subject, language, questions },
     })
 
     return NextResponse.json({ success: true, data: quiz })

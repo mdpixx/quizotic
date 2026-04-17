@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { getUserPlan } from '@/lib/billing'
 import { PLAN_LIMITS } from '@/lib/limits'
+import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const MAX_SIZE = 10 * 1024 * 1024 // 10MB (client compresses JPEG/PNG/WebP before upload; GIFs pass through)
@@ -26,6 +27,15 @@ export async function POST(req: NextRequest) {
   if (!user) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
   }
+
+  const rl = await rateLimitRequest(req, {
+    bucket: 'upload-image',
+    userId: user.id,
+    userLimit: 30,
+    ipLimit: 60,
+    windowMs: 60_000,
+  })
+  if (!rl.ok) return rateLimitResponse(rl)
 
   // Check plan limits
   const plan = await getUserPlan(user.id)

@@ -1,29 +1,29 @@
 import { describe, it, expect } from 'vitest'
-import { SubmitAnswerSchema, JoinSessionSchema, CreateSessionSchema, safeParseSocket } from '../lib/socket-schemas'
+import { SubmitAnswerSchema, JoinSessionSchema, safeParseSocket } from '../lib/socket-schemas'
 
 describe('JoinSessionSchema', () => {
   it('accepts valid join payload', () => {
-    const r = JoinSessionSchema.safeParse({ gameCode: 'ABCD12', name: 'Alice' })
+    const r = JoinSessionSchema.safeParse({ gameCode: 'ABCD12', displayName: 'Alice' })
     expect(r.success).toBe(true)
   })
 
-  it('rejects name over 24 chars', () => {
-    const r = JoinSessionSchema.safeParse({ gameCode: 'ABCD12', name: 'A'.repeat(25) })
+  it('rejects displayName over 24 chars', () => {
+    const r = JoinSessionSchema.safeParse({ gameCode: 'ABCD12', displayName: 'A'.repeat(25) })
     expect(r.success).toBe(false)
   })
 
-  it('rejects empty name', () => {
-    const r = JoinSessionSchema.safeParse({ gameCode: 'ABCD12', name: '' })
+  it('rejects empty displayName', () => {
+    const r = JoinSessionSchema.safeParse({ gameCode: 'ABCD12', displayName: '' })
     expect(r.success).toBe(false)
   })
 
   it('accepts valid email', () => {
-    const r = JoinSessionSchema.safeParse({ gameCode: 'ABCD12', name: 'Bob', email: 'bob@example.com' })
+    const r = JoinSessionSchema.safeParse({ gameCode: 'ABCD12', displayName: 'Bob', email: 'bob@example.com' })
     expect(r.success).toBe(true)
   })
 
   it('rejects invalid email', () => {
-    const r = JoinSessionSchema.safeParse({ gameCode: 'ABCD12', name: 'Bob', email: 'not-an-email' })
+    const r = JoinSessionSchema.safeParse({ gameCode: 'ABCD12', displayName: 'Bob', email: 'not-an-email' })
     expect(r.success).toBe(false)
   })
 })
@@ -52,13 +52,13 @@ describe('SubmitAnswerSchema', () => {
 
 describe('safeParseSocket helper', () => {
   it('returns success for valid payload', () => {
-    const result = safeParseSocket(JoinSessionSchema, { gameCode: 'ABC123', name: 'Tester' })
+    const result = safeParseSocket(JoinSessionSchema, { gameCode: 'ABC123', displayName: 'Tester' })
     expect(result.success).toBe(true)
-    if (result.success) expect(result.data.name).toBe('Tester')
+    if (result.success) expect(result.data.displayName).toBe('Tester')
   })
 
   it('returns error string for invalid payload', () => {
-    const result = safeParseSocket(JoinSessionSchema, { gameCode: 'AB', name: '' })
+    const result = safeParseSocket(JoinSessionSchema, { gameCode: 'AB', displayName: '' })
     expect(result.success).toBe(false)
     if (!result.success) expect(typeof result.error).toBe('string')
   })

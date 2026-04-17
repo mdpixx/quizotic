@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Avatar } from './Avatar'
 
 interface PodiumEntry {
@@ -21,17 +21,37 @@ const PODIUM_CONFIG = [
   { place: 3, height: 100, color: '#CD7F32', label: '3rd', delay: '0s' },
 ]
 
+function subscribeReducedMotion(cb: () => void) {
+  if (typeof window === 'undefined') return () => {}
+  const m = window.matchMedia('(prefers-reduced-motion: reduce)')
+  m.addEventListener('change', cb)
+  return () => m.removeEventListener('change', cb)
+}
+function getReducedMotion() {
+  if (typeof window === 'undefined') return false
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+function usePrefersReducedMotion(): boolean {
+  return useSyncExternalStore(subscribeReducedMotion, getReducedMotion, () => false)
+}
+
 export function Podium({ leaderboard, sessionMode, highlightName }: PodiumProps) {
-  const [phase, setPhase] = useState<'bars' | 'confetti' | 'rest'>('bars')
+  const reduced = usePrefersReducedMotion()
+  const [rawPhase, setPhase] = useState<'bars' | 'confetti' | 'rest'>('bars')
+  // Derived: reduced-motion users always see the final 'rest' state.
+  const phase: 'bars' | 'confetti' | 'rest' = reduced ? 'rest' : rawPhase
   const isCompetitive = sessionMode === 'competitive'
   const top3 = leaderboard.slice(0, 3)
   const rest = leaderboard.slice(3)
 
   useEffect(() => {
+    if (reduced) return
     const t1 = setTimeout(() => setPhase('confetti'), 2000)
     const t2 = setTimeout(() => setPhase('rest'), 3000)
     return () => { clearTimeout(t1); clearTimeout(t2) }
-  }, [])
+  }, [reduced])
+
+  const skip = () => setPhase('rest')
 
   // Reorder for display: [2nd, 1st, 3rd]
   const ordered = top3.length >= 3
@@ -47,7 +67,19 @@ export function Podium({ leaderboard, sessionMode, highlightName }: PodiumProps)
       : [PODIUM_CONFIG[1]]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Skip intro animation — visible during bars/confetti phases only */}
+      {phase !== 'rest' && (
+        <button
+          type="button"
+          onClick={skip}
+          className="absolute top-0 right-0 z-10 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+          style={{ background: 'rgba(255,255,255,0.9)', color: '#1E1B4B', border: '1px solid #E5E7EB' }}
+          aria-label="Skip podium animation"
+        >
+          Skip →
+        </button>
+      )}
       {/* Podium */}
       <div className="flex items-end justify-center gap-3 relative" style={{ minHeight: 280 }}>
         {ordered.map((entry, i) => {

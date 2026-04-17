@@ -2,6 +2,20 @@ import { createServer } from 'http'
 import next from 'next'
 import { Server } from 'socket.io'
 import { assignArchetype } from './src/lib/archetypes.mjs'
+import {
+  CreateSessionSchema,
+  CreatePresenterSessionSchema,
+  GameCodeOnlySchema,
+  JoinFollowupSchema,
+  JoinSessionSchema,
+  OverrideAnswerSchema,
+  PingTimeSchema,
+  PresenterResponseSchema,
+  PresenterSlideSchema,
+  SubmitAnswerSchema,
+  SubmitDrawingSchema,
+  validateSocketPayload,
+} from './src/lib/socket-schemas.mjs'
 import pg from 'pg'
 import { parse as parseCookie } from 'cookie'
 import { randomUUID } from 'crypto'
@@ -166,6 +180,43 @@ async function getHostPlan(userId) {
   } catch { return 'free' }
 }
 
+// Returns the session's host plan, refreshing from DB if the cached value is
+// stale (older than HOST_PLAN_TTL_MS). Prevents Pro features from lingering
+// after a mid-session cancellation.
+const HOST_PLAN_TTL_MS = 60_000
+async function getSessionHostPlan(session) {
+  const now = Date.now()
+  if (session.hostPlan !== null && session.hostPlanFetchedAt && (now - session.hostPlanFetchedAt) < HOST_PLAN_TTL_MS) {
+    return session.hostPlan
+  }
+  session.hostPlan = await getHostPlan(session.userId)
+  session.hostPlanFetchedAt = now
+  return session.hostPlan
+}
+
+// Verifies that `userId` owns the content with `id` in the given table.
+// Returns 'ok' (allow), 'foreign' (owned by someone else — reject), or
+// 'unknown' (not found — allow, lets new drafts pass through).
+// Anonymous sockets (userId=null) cannot claim any existing id: if the id
+// resolves to an owned row, we return 'foreign'.
+async function verifyOwnership(table, id, userId) {
+  if (!dbPool || !id) return 'ok'
+  try {
+    const result = await dbPool.query(
+      `SELECT "userId" FROM "${table}" WHERE id = $1 LIMIT 1`,
+      [id]
+    )
+    const row = result.rows[0]
+    if (!row) return 'unknown'
+    if (row.userId === null) return 'ok'
+    if (userId && row.userId === userId) return 'ok'
+    return 'foreign'
+  } catch (err) {
+    console.error(`[ownership] ${table} lookup failed:`, err.message)
+    return 'ok'
+  }
+}
+
 // ─── Socket.io auth: verify NextAuth JWT from cookie ──────────
 async function getSocketUserId(socket) {
   try {
@@ -284,7 +335,18 @@ app.prepare().then(async () => {
 
     // ─── HOST EVENTS ───────────────────────────────────────────────
 
-    socket.on('create_session', async ({ quizData, sessionMode, anonymousMode, teamMode, teamCount, ghostSessionId }, callback) => {
+    socket.on('create_session', async (rawPayload, callback) => {
+      const parsed = validateSocketPayload(socket, CreateSessionSchema, rawPayload, callback, 'create_session')
+      if (!parsed) return
+      const { quizData, sessionMode, anonymousMode, teamMode, teamCount, ghostSessionId } = parsed
+      if (quizData.id) {
+        const ownership = await verifyOwnership('Quiz', quizData.id, socket.data.userId)
+        if (ownership === 'foreign') {
+          console.warn(`[socket:create_session] ownership rejected for user=${socket.data.userId ?? 'anon'} quizId=${quizData.id}`)
+          callback({ success: false, error: 'You do not own this quiz.' })
+          return
+        }
+      }
       if (sessions.size >= MAX_CONCURRENT_SESSIONS) {
         callback({ success: false, error: 'Server capacity reached. Try again in a few minutes.' })
         return
@@ -352,7 +414,10 @@ app.prepare().then(async () => {
       callback({ success: true, gameCode })
     })
 
-    socket.on('start_quiz', ({ gameCode }) => {
+    socket.on('start_quiz', (rawPayload) => {
+      const parsed = validateSocketPayload(socket, GameCodeOnlySchema, rawPayload, undefined, 'start_quiz')
+      if (!parsed) return
+      const { gameCode } = parsed
       const session = sessions.get(gameCode)
       if (!session || session.hostSocketId !== socket.id) return
 
@@ -373,7 +438,10 @@ app.prepare().then(async () => {
       console.log(`[session] started: ${gameCode}`)
     })
 
-    socket.on('pause_quiz', ({ gameCode }) => {
+    socket.on('pause_quiz', (rawPayload) => {
+      const parsed = validateSocketPayload(socket, GameCodeOnlySchema, rawPayload, undefined, 'pause_quiz')
+      if (!parsed) return
+      const { gameCode } = parsed
       const session = sessions.get(gameCode)
       if (!session || session.hostSocketId !== socket.id) return
       session.paused = true
@@ -381,7 +449,10 @@ app.prepare().then(async () => {
       console.log(`[session] paused: ${gameCode}`)
     })
 
-    socket.on('resume_quiz', ({ gameCode }) => {
+    socket.on('resume_quiz', (rawPayload) => {
+      const parsed = validateSocketPayload(socket, GameCodeOnlySchema, rawPayload, undefined, 'resume_quiz')
+      if (!parsed) return
+      const { gameCode } = parsed
       const session = sessions.get(gameCode)
       if (!session || session.hostSocketId !== socket.id) return
       session.paused = false
@@ -392,7 +463,10 @@ app.prepare().then(async () => {
       console.log(`[session] resumed: ${gameCode}`)
     })
 
-    socket.on('next_question', ({ gameCode }) => {
+    socket.on('next_question', (rawPayload) => {
+      const parsed = validateSocketPayload(socket, GameCodeOnlySchema, rawPayload, undefined, 'next_question')
+      if (!parsed) return
+      const { gameCode } = parsed
       const session = sessions.get(gameCode)
       if (!session || session.hostSocketId !== socket.id) return
 
@@ -453,7 +527,10 @@ app.prepare().then(async () => {
     // P3.4 — Drawing question type: participant submits a drawing (base64 JPEG).
     // The drawing is stored in their answer record and relayed to the host for gallery display.
     // Payload limited server-side: dataUrl is truncated at 100 KB to prevent abuse.
-    socket.on('submit_drawing', ({ gameCode, dataUrl }) => {
+    socket.on('submit_drawing', (rawPayload) => {
+      const parsed = validateSocketPayload(socket, SubmitDrawingSchema, rawPayload, undefined, 'submit_drawing')
+      if (!parsed) return
+      const { gameCode, dataUrl } = parsed
       const session = sessions.get(gameCode)
       if (!session) return
       const participant = session.participants.get(socket.id)
@@ -488,7 +565,10 @@ app.prepare().then(async () => {
 
     // Host can manually mark a participant's answer correct/incorrect for a question.
     // Useful for typos in open-ended, keyword mismatches, or borderline cases.
-    socket.on('override_answer', ({ gameCode, participantName, questionIndex: qi, isCorrect: overrideCorrect }) => {
+    socket.on('override_answer', (rawPayload) => {
+      const parsed = validateSocketPayload(socket, OverrideAnswerSchema, rawPayload, undefined, 'override_answer')
+      if (!parsed) return
+      const { gameCode, participantName, questionIndex: qi, isCorrect: overrideCorrect } = parsed
       const session = sessions.get(gameCode)
       if (!session || session.hostSocketId !== socket.id) return
 
@@ -536,7 +616,10 @@ app.prepare().then(async () => {
       socket.emit('override_confirmed', { participantName, questionIndex: qi, isCorrect: overrideCorrect, newScore: participant.score })
     })
 
-    socket.on('end_session', async ({ gameCode }) => {
+    socket.on('end_session', async (rawPayload) => {
+      const parsed = validateSocketPayload(socket, GameCodeOnlySchema, rawPayload, undefined, 'end_session')
+      if (!parsed) return
+      const { gameCode } = parsed
       const session = sessions.get(gameCode)
       if (!session || session.hostSocketId !== socket.id) return
 
@@ -594,7 +677,18 @@ app.prepare().then(async () => {
 
     // ─── PRESENTER MODE EVENTS ─────────────────────────────────────
 
-    socket.on('create_presenter_session', async ({ presentationData }, callback) => {
+    socket.on('create_presenter_session', async (rawPayload, callback) => {
+      const parsed = validateSocketPayload(socket, CreatePresenterSessionSchema, rawPayload, callback, 'create_presenter_session')
+      if (!parsed) return
+      const { presentationData } = parsed
+      if (presentationData.id) {
+        const ownership = await verifyOwnership('Presentation', presentationData.id, socket.data.userId)
+        if (ownership === 'foreign') {
+          console.warn(`[socket:create_presenter_session] ownership rejected for user=${socket.data.userId ?? 'anon'} presentationId=${presentationData.id}`)
+          callback({ success: false, error: 'You do not own this presentation.' })
+          return
+        }
+      }
       if (sessions.size >= MAX_CONCURRENT_SESSIONS) {
         callback({ success: false, error: 'Server capacity reached. Try again in a few minutes.' })
         return
@@ -625,7 +719,10 @@ app.prepare().then(async () => {
       callback({ success: true, gameCode })
     })
 
-    socket.on('presenter_next_slide', ({ gameCode, slideIndex }) => {
+    socket.on('presenter_next_slide', (rawPayload) => {
+      const parsed = validateSocketPayload(socket, PresenterSlideSchema, rawPayload, undefined, 'presenter_next_slide')
+      if (!parsed) return
+      const { gameCode, slideIndex } = parsed
       const session = sessions.get(gameCode)
       if (!session || session.hostSocketId !== socket.id || session.type !== 'presenter') return
 
@@ -644,7 +741,10 @@ app.prepare().then(async () => {
       console.log(`[presenter] ${gameCode} → slide ${slideIndex}`)
     })
 
-    socket.on('presenter_prev_slide', ({ gameCode, slideIndex }) => {
+    socket.on('presenter_prev_slide', (rawPayload) => {
+      const parsed = validateSocketPayload(socket, PresenterSlideSchema, rawPayload, undefined, 'presenter_prev_slide')
+      if (!parsed) return
+      const { gameCode, slideIndex } = parsed
       const session = sessions.get(gameCode)
       if (!session || session.hostSocketId !== socket.id || session.type !== 'presenter') return
 
@@ -664,7 +764,10 @@ app.prepare().then(async () => {
       })
     })
 
-    socket.on('submit_presenter_response', ({ gameCode, slideIndex, response }) => {
+    socket.on('submit_presenter_response', (rawPayload) => {
+      const parsed = validateSocketPayload(socket, PresenterResponseSchema, rawPayload, undefined, 'submit_presenter_response')
+      if (!parsed) return
+      const { gameCode, slideIndex, response } = parsed
       const session = sessions.get(gameCode)
       if (!session || session.type !== 'presenter') return
 
@@ -717,7 +820,10 @@ app.prepare().then(async () => {
     })
 
     // Host reveals results to participants (on_click mode)
-    socket.on('presenter_reveal_results', ({ gameCode }) => {
+    socket.on('presenter_reveal_results', (rawPayload) => {
+      const parsed = validateSocketPayload(socket, GameCodeOnlySchema, rawPayload, undefined, 'presenter_reveal_results')
+      if (!parsed) return
+      const { gameCode } = parsed
       const session = sessions.get(gameCode)
       if (!session || session.hostSocketId !== socket.id || session.type !== 'presenter') return
 
@@ -729,7 +835,10 @@ app.prepare().then(async () => {
       io.to(`session:${gameCode}`).emit('presenter_results_revealed', agg)
     })
 
-    socket.on('end_presenter_session', async ({ gameCode }) => {
+    socket.on('end_presenter_session', async (rawPayload) => {
+      const parsed = validateSocketPayload(socket, GameCodeOnlySchema, rawPayload, undefined, 'end_presenter_session')
+      if (!parsed) return
+      const { gameCode } = parsed
       const session = sessions.get(gameCode)
       if (!session || session.hostSocketId !== socket.id || session.type !== 'presenter') return
 
@@ -781,7 +890,10 @@ app.prepare().then(async () => {
       console.log(`[presenter] ended: ${gameCode}`)
     })
 
-    socket.on('join_presenter_session', async ({ gameCode, displayName, email }, callback) => {
+    socket.on('join_presenter_session', async (rawPayload, callback) => {
+      const parsed = validateSocketPayload(socket, JoinSessionSchema, rawPayload, callback, 'join_presenter_session')
+      if (!parsed) return
+      const { gameCode, displayName, email } = parsed
       const session = sessions.get(gameCode)
       if (!session || session.type !== 'presenter') {
         callback({ success: false, error: 'Presenter session not found.' })
@@ -793,10 +905,8 @@ app.prepare().then(async () => {
       }
 
       // Participant limit check for presenter sessions
-      if (session.hostPlan === null) {
-        session.hostPlan = await getHostPlan(session.userId)
-      }
-      const presenterMaxP = session.hostPlan === 'pro' ? Infinity : 50
+      const presenterPlan = await getSessionHostPlan(session)
+      const presenterMaxP = presenterPlan === 'pro' ? Infinity : 50
       if (session.participants.size >= presenterMaxP) {
         callback({ success: false, error: 'This session is full (max 50 participants on Free plan). The host can upgrade to Pro for unlimited participants.' })
         return
@@ -853,18 +963,19 @@ app.prepare().then(async () => {
 
     // ─── FOLLOW-UP EVENTS ───────────────────────────────────────────
 
-    socket.on('generate_followup', async ({ gameCode }, callback) => {
+    socket.on('generate_followup', async (rawPayload, callback) => {
+      const parsed = validateSocketPayload(socket, GameCodeOnlySchema, rawPayload, callback, 'generate_followup')
+      if (!parsed) return
+      const { gameCode } = parsed
       const session = sessions.get(gameCode)
       if (!session || session.hostSocketId !== socket.id) {
         callback({ success: false, error: 'Session not found.' })
         return
       }
 
-      // Pro-only feature — use cached plan
-      if (session.hostPlan === null) {
-        session.hostPlan = await getHostPlan(session.userId)
-      }
-      if (session.hostPlan !== 'pro') {
+      // Pro-only feature — re-query with TTL so cancellations take effect mid-session
+      const followupPlan = await getSessionHostPlan(session)
+      if (followupPlan !== 'pro') {
         callback({ success: false, error: 'Spaced retrieval follow-ups are a Pro feature. Upgrade to access.' })
         return
       }
@@ -897,7 +1008,10 @@ app.prepare().then(async () => {
       callback({ success: true, followups })
     })
 
-    socket.on('join_followup', ({ code }, callback) => {
+    socket.on('join_followup', (rawPayload, callback) => {
+      const parsed = validateSocketPayload(socket, JoinFollowupSchema, rawPayload, callback, 'join_followup')
+      if (!parsed) return
+      const { code } = parsed
       const followup = followupSessions.get(code)
       if (!followup) {
         callback({ success: false, error: 'Follow-up not found or expired.' })
@@ -913,8 +1027,19 @@ app.prepare().then(async () => {
 
     // ─── PARTICIPANT EVENTS ─────────────────────────────────────────
 
-    socket.on('join_session', async ({ gameCode: rawCode, displayName, email }, callback) => {
-      const gameCode = String(rawCode ?? '').trim()
+    socket.on('join_session', async (rawPayload, callback) => {
+      // Map legacy field (gameCode + displayName) through the schema so we
+      // don't drop existing clients that send the canonical keys.
+      const normalised = rawPayload && typeof rawPayload === 'object'
+        ? {
+            gameCode: String(rawPayload.gameCode ?? '').trim(),
+            displayName: String(rawPayload.displayName ?? '').trim(),
+            email: rawPayload.email ?? '',
+          }
+        : rawPayload
+      const parsed = validateSocketPayload(socket, JoinSessionSchema, normalised, callback, 'join_session')
+      if (!parsed) return
+      const { gameCode, displayName, email } = parsed
       const session = sessions.get(gameCode)
 
       if (!session) {
@@ -926,11 +1051,8 @@ app.prepare().then(async () => {
         return
       }
 
-      // Participant limit check — cache plan on first join
-      if (session.hostPlan === null) {
-        session.hostPlan = await getHostPlan(session.userId)
-      }
-      const hostPlan = session.hostPlan
+      // Participant limit check — re-query with TTL so cancellations take effect mid-session
+      const hostPlan = await getSessionHostPlan(session)
       const maxParticipants = hostPlan === 'pro' ? Infinity : 50
       if (session.participants.size >= maxParticipants) {
         callback({ success: false, error: 'This session is full (max 50 participants on Free plan). The host can upgrade to Pro for unlimited participants.' })
@@ -1024,7 +1146,10 @@ app.prepare().then(async () => {
       console.log(`[session] ${displayName} (${archetype}${team ? `, Team ${team.name}` : ''}) joined ${gameCode}`)
     })
 
-    socket.on('submit_answer', ({ gameCode, answer, timeMs: clientReportedTimeMs, confidence }) => {
+    socket.on('submit_answer', (rawPayload) => {
+      const parsed = validateSocketPayload(socket, SubmitAnswerSchema, rawPayload, undefined, 'submit_answer')
+      if (!parsed) return
+      const { gameCode, answer, timeMs: clientReportedTimeMs, confidence } = parsed
       const receivedAt = Date.now()
       const session = sessions.get(gameCode)
       if (!session || session.status !== 'active') return
@@ -1112,7 +1237,10 @@ app.prepare().then(async () => {
     // Client pings, server echoes with receiveTime and replyTime so client can
     // compute offset + rtt. Server records the last-measured rtt on socket.data
     // for use in server-authoritative scoring (see submit_answer).
-    socket.on('ping_time', ({ clientTime }, callback) => {
+    socket.on('ping_time', (rawPayload, callback) => {
+      const parsed = validateSocketPayload(socket, PingTimeSchema, rawPayload, callback, 'ping_time')
+      if (!parsed) return
+      const { clientTime } = parsed
       const receiveTime = Date.now()
       try {
         if (typeof clientTime === 'number' && Number.isFinite(clientTime)) {

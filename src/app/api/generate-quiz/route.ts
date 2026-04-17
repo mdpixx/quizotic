@@ -7,19 +7,89 @@ import { getCurrentUser } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { getUserPlan, getReferralBonusCredits } from '@/lib/billing'
 import { PLAN_LIMITS } from '@/lib/limits'
+import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 
-const PRIVATE_IP_PATTERNS = [
-  /^10\./, /^172\.(1[6-9]|2\d|3[01])\./, /^192\.168\./, /^127\./, /^0\./, /^169\.254\./,
-  /^::1$/, /^fc00:/, /^fe80:/, /^fd/,
+const PRIVATE_IPV4_PATTERNS = [
+  /^10\./,
+  /^172\.(1[6-9]|2\d|3[01])\./,
+  /^192\.168\./,
+  /^127\./,
+  /^0\./,
+  /^169\.254\./, // link-local (includes cloud metadata 169.254.169.254)
+  /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./, // CGNAT 100.64.0.0/10
+  /^198\.(1[8-9])\./, // benchmarking 198.18.0.0/15
+  /^192\.0\.2\./, /^198\.51\.100\./, /^203\.0\.113\./, // TEST-NETs
+  /^224\./, /^239\./, // multicast
+  /^255\.255\.255\.255$/,
 ]
+
+const PRIVATE_IPV6_PATTERNS = [
+  /^::1$/,
+  /^::$/,
+  /^fc[0-9a-f]{2}:/i, /^fd[0-9a-f]{2}:/i, // unique local fc00::/7
+  /^fe[89ab][0-9a-f]:/i, // link-local fe80::/10
+  /^ff[0-9a-f]{2}:/i, // multicast ff00::/8
+]
+
+function normalizeIpv4Mapped(addr: string): string {
+  // ::ffff:a.b.c.d → a.b.c.d ; ::ffff:aabb:ccdd → a.b.c.d
+  const m1 = addr.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i)
+  if (m1) return m1[1]
+  const m2 = addr.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i)
+  if (m2) {
+    const hi = parseInt(m2[1], 16)
+    const lo = parseInt(m2[2], 16)
+    return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`
+  }
+  return addr
+}
+
+function isPrivateAddress(addr: string): boolean {
+  const normalized = normalizeIpv4Mapped(addr)
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(normalized)) {
+    return PRIVATE_IPV4_PATTERNS.some(p => p.test(normalized))
+  }
+  return PRIVATE_IPV6_PATTERNS.some(p => p.test(normalized))
+}
 
 async function isSafeUrl(urlStr: string): Promise<boolean> {
   try {
-    const { hostname } = new URL(urlStr)
-    if (hostname === 'localhost' || hostname.endsWith('.internal') || hostname.endsWith('.local')) return false
-    const addresses = await dns.resolve(hostname)
-    return addresses.every(addr => !PRIVATE_IP_PATTERNS.some(p => p.test(addr)))
+    const { hostname, protocol } = new URL(urlStr)
+    if (protocol !== 'https:') return false
+    const host = hostname.toLowerCase()
+    if (host === 'localhost' || host.endsWith('.internal') || host.endsWith('.local') || host.endsWith('.localhost')) return false
+    // Reject bare IP literals that are already private without needing DNS
+    if (isPrivateAddress(host)) return false
+    const [ipv4, ipv6] = await Promise.all([
+      dns.resolve4(host).catch(() => [] as string[]),
+      dns.resolve6(host).catch(() => [] as string[]),
+    ])
+    const all = [...ipv4, ...ipv6]
+    if (all.length === 0) return false
+    return all.every(addr => !isPrivateAddress(addr))
   } catch { return false }
+}
+
+async function safeFetchFollowRedirects(
+  url: string,
+  signal: AbortSignal,
+  maxRedirects = 3,
+): Promise<Response> {
+  let current = url
+  for (let i = 0; i <= maxRedirects; i++) {
+    if (!await isSafeUrl(current)) {
+      throw new Error('Unsafe URL')
+    }
+    const res = await fetch(current, { signal, redirect: 'manual' })
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get('location')
+      if (!loc) return res
+      current = new URL(loc, current).toString()
+      continue
+    }
+    return res
+  }
+  throw new Error('Too many redirects')
 }
 
 const client = new OpenAI({
@@ -201,6 +271,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // Abuse rate-limit: cheap per-user + per-IP throttle BEFORE we touch OpenAI.
+  // Blocks credential-sharing bursts and anonymous-IP abuse even if monthly
+  // question budget is not yet exhausted.
+  const rl = await rateLimitRequest(req, {
+    bucket: 'generate-quiz',
+    userId: user.id,
+    userLimit: 20,
+    ipLimit: 30,
+    windowMs: 60_000,
+  })
+  if (!rl.ok) return rateLimitResponse(rl)
+
   // AI rate limiting — proportional (count questions, not calls)
   const startOfMonth = new Date()
   startOfMonth.setDate(1)
@@ -293,7 +375,7 @@ export async function POST(req: NextRequest) {
         const timeout = setTimeout(() => controller.abort(), 5000)
         let html: string
         try {
-          const res = await fetch(url, { signal: controller.signal })
+          const res = await safeFetchFollowRedirects(url, controller.signal)
           html = await res.text()
         } catch {
           return NextResponse.json({ error: 'Could not fetch URL — try another' }, { status: 400 })
