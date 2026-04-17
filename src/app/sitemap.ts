@@ -1,4 +1,7 @@
 import { MetadataRoute } from 'next'
+import { ALTERNATIVE_SLUGS } from '@/content/alternatives'
+import { VS_SLUGS } from '@/content/vs'
+import { USE_CASE_SLUGS } from '@/content/for'
 
 const SITE = 'https://www.quizotic.live'
 
@@ -44,11 +47,25 @@ function solutionRoutes(): Entry[] {
 }
 
 function comparisonRoutes(): Entry[] {
-  return []
+  const alternatives = ALTERNATIVE_SLUGS.map(slug => ({
+    path: `/alternatives/${slug}`,
+    changeFrequency: 'monthly' as ChangeFreq,
+    priority: 0.8,
+  }))
+  const vs = VS_SLUGS.map(slug => ({
+    path: `/vs/${slug}`,
+    changeFrequency: 'monthly' as ChangeFreq,
+    priority: 0.8,
+  }))
+  return [...alternatives, ...vs]
 }
 
 function useCaseRoutes(): Entry[] {
-  return []
+  return USE_CASE_SLUGS.map(slug => ({
+    path: `/for/${slug}`,
+    changeFrequency: 'monthly' as ChangeFreq,
+    priority: 0.8,
+  }))
 }
 
 function learnRoutes(): Entry[] {

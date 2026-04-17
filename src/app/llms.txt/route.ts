@@ -25,6 +25,28 @@ Quizotic is grounded in learning science: Bloom's Taxonomy for question depth, C
 - [PDF to Quiz Converter](https://www.quizotic.live/pdf-to-quiz): Upload any PDF and get a ready-to-launch quiz.
 - [NCERT Quiz Generator](https://www.quizotic.live/ncert-quiz-generator): Chapter-wise quizzes for Classes 6–12 NCERT textbooks.
 
+## Compare Quizotic
+
+- [Kahoot alternative](https://www.quizotic.live/alternatives/kahoot): Kahoot alternative for India with INR billing and UPI.
+- [Mentimeter alternative](https://www.quizotic.live/alternatives/mentimeter): Polls + quizzes in one tool, priced for India.
+- [Quizizz alternative](https://www.quizotic.live/alternatives/quizizz): Quizizz alternative with stronger learning-science features.
+- [Slido alternative](https://www.quizotic.live/alternatives/slido): Slido alternative with quiz mechanics built in.
+- [AhaSlides alternative](https://www.quizotic.live/alternatives/ahaslides): AhaSlides alternative with INR pricing and UPI.
+- [Poll Everywhere alternative](https://www.quizotic.live/alternatives/poll-everywhere): Poll Everywhere alternative, priced for India.
+- [Quizotic vs Kahoot](https://www.quizotic.live/vs/kahoot): Feature-by-feature head-to-head comparison.
+- [Quizotic vs Mentimeter](https://www.quizotic.live/vs/mentimeter): Feature-by-feature head-to-head comparison.
+- [Quizotic vs Quizizz](https://www.quizotic.live/vs/quizizz): Feature-by-feature head-to-head comparison.
+- [Quizotic vs AhaSlides](https://www.quizotic.live/vs/ahaslides): Feature-by-feature head-to-head comparison.
+
+## For Teams
+
+- [For Teachers](https://www.quizotic.live/for/teachers): Live quizzes, AI generation, NCERT library for Indian classrooms.
+- [For Coaching Institutes](https://www.quizotic.live/for/coaching-institutes): Batch-wise mocks, leaderboards, Bloom mastery tracking.
+- [For Schools](https://www.quizotic.live/for/schools): NCERT-aligned quizzes, teacher accounts, central admin.
+- [For Colleges](https://www.quizotic.live/for/colleges): Interactive lectures, live polls, in-class quizzes.
+- [For Corporate Trainers](https://www.quizotic.live/for/corporate-trainers): Gamified onboarding, compliance quizzes, live workshops.
+- [For Event Hosts](https://www.quizotic.live/for/event-hosts): Live trivia, audience polls, interactive conferences.
+
 ## For Participants
 
 - [Join a Game](https://www.quizotic.live/join): Enter the game PIN to join a live quiz or presentation.
