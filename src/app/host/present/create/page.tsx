@@ -602,39 +602,43 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
         <img src={slide.backgroundImageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
       )}
 
-      {/* Question / heading + visualization */}
-      <div className={`absolute inset-0 flex flex-col px-6${slide.type === 'title' ? ' justify-center items-center text-center gap-3' : ' py-5'}`}>
-        {slide.type !== 'quote' && (
-          <p className={`font-bold leading-snug flex-shrink-0${slide.type === 'title' ? ' text-2xl' : ' text-xl text-left'}`} style={{ color: textColor, fontFamily: 'var(--font-heading)' }}>
-            {getQuestionText()}
-          </p>
-        )}
+      {slide.type === 'image' && (slide as { imageUrl?: string }).imageUrl ? (
+        // Image slide (incl. PPTX-imported): render the slide image full-bleed so
+        // the host sees exactly what they uploaded. Caption is edit-only (sidebar).
+        <div className="absolute inset-0 flex items-center justify-center" style={{ background: '#fff' }}>
+          <img src={(slide as { imageUrl: string }).imageUrl} alt={(slide as { caption?: string }).caption || ''}
+            className="w-full h-full object-contain" loading="eager" />
+        </div>
+      ) : (
+        <div className={`absolute inset-0 flex flex-col px-6${slide.type === 'title' ? ' justify-center items-center text-center gap-3' : ' py-5'}`}>
+          {slide.type !== 'quote' && (
+            <p className={`font-bold leading-snug flex-shrink-0${slide.type === 'title' ? ' text-2xl' : ' text-xl text-left'}`} style={{ color: textColor, fontFamily: 'var(--font-heading)' }}>
+              {getQuestionText()}
+            </p>
+          )}
 
-        {/* Title slide: subheading directly below heading */}
-        {slide.type === 'title' && (
-          <p className="text-sm opacity-60 flex-shrink-0" style={{ color: textColor }}>
-            {(slide as { subheading: string }).subheading || 'Subtitle goes here'}
-          </p>
-        )}
+          {slide.type === 'title' && (
+            <p className="text-sm opacity-60 flex-shrink-0" style={{ color: textColor }}>
+              {(slide as { subheading: string }).subheading || 'Subtitle goes here'}
+            </p>
+          )}
 
-        {/* Content image — shown on slide when uploaded.
-            When a visualization also exists, stack image (top) + viz (bottom)
-            so the host sees both, matching Kahoot-style layout. */}
-        {slide.contentImageUrl ? (
-          <div className="flex-1 flex flex-col min-h-0 mt-3 gap-2">
-            <div className="flex-[1.1] flex items-center justify-center min-h-0">
-              <img src={slide.contentImageUrl} alt="Content" className="max-w-full max-h-full rounded-lg object-contain" />
+          {slide.contentImageUrl ? (
+            <div className="flex-1 flex flex-col min-h-0 mt-3 gap-2">
+              <div className="flex-[1.1] flex items-center justify-center min-h-0">
+                <img src={slide.contentImageUrl} alt="Content" className="max-w-full max-h-full rounded-lg object-contain" />
+              </div>
+              <div className="flex-[1] flex items-center justify-center min-h-0">
+                {renderVisualization()}
+              </div>
             </div>
-            <div className="flex-[1] flex items-center justify-center min-h-0">
+          ) : (
+            <div className="flex-1 flex items-center justify-center min-h-0 mt-3">
               {renderVisualization()}
             </div>
-          </div>
-        ) : (
-          <div className="flex-1 flex items-center justify-center min-h-0 mt-3">
-            {renderVisualization()}
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* QR code overlay */}
       {slide.showQrCode && (
