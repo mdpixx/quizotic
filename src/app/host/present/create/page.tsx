@@ -623,19 +623,21 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
             </p>
           )}
 
-          {slide.contentImageUrl ? (
-            <div className="flex-1 flex flex-col min-h-0 mt-3 gap-2">
-              <div className="flex-[1.1] flex items-center justify-center min-h-0">
-                <img src={slide.contentImageUrl} alt="Content" className="max-w-full max-h-full rounded-lg object-contain" />
+          {slide.type !== 'title' && (
+            slide.contentImageUrl ? (
+              <div className="flex-1 flex flex-col min-h-0 mt-3 gap-2">
+                <div className="flex-[1.1] flex items-center justify-center min-h-0">
+                  <img src={slide.contentImageUrl} alt="Content" className="max-w-full max-h-full rounded-lg object-contain" />
+                </div>
+                <div className="flex-[1] flex items-center justify-center min-h-0">
+                  {renderVisualization()}
+                </div>
               </div>
-              <div className="flex-[1] flex items-center justify-center min-h-0">
+            ) : (
+              <div className="flex-1 flex items-center justify-center min-h-0 mt-3">
                 {renderVisualization()}
               </div>
-            </div>
-          ) : (
-            <div className="flex-1 flex items-center justify-center min-h-0 mt-3">
-              {renderVisualization()}
-            </div>
+            )
           )}
         </div>
       )}
