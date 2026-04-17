@@ -5,6 +5,8 @@ import { useSearchParams } from 'next/navigation'
 import type { Socket } from 'socket.io-client'
 import dynamic from 'next/dynamic'
 import { Avatar } from '@/components/Avatar'
+import { BrandWatermark } from '@/components/BrandWatermark'
+import { ShareQuizotic } from '@/components/ShareQuizotic'
 import { playTick, playCorrect, playWrong, playStreak, playCelebration } from '@/lib/sounds'
 import { useI18n } from '@/lib/use-i18n'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
@@ -1085,6 +1087,10 @@ function JoinPageInner() {
           <p className="text-center text-base mt-5" style={{ color: 'rgba(255,255,255,0.28)' }}>
             You&apos;ll get a unique character when you join
           </p>
+
+          <div className="text-center mt-6">
+            <ShareQuizotic context="join" tone="dark" />
+          </div>
         </div>
       </div>
     )
@@ -1532,6 +1538,10 @@ function JoinPageInner() {
         >
           Attempt Again
         </button>
+
+        <div className="text-center mt-4">
+          <ShareQuizotic context="participant-ended" />
+        </div>
       </div>
     )
   }
@@ -2170,6 +2180,7 @@ export default function JoinPage() {
   return (
     <Suspense fallback={<div className="min-h-screen" style={{ background: '#0F1B3D' }} />}>
       <JoinPageInner />
+      <BrandWatermark placement="participant" />
     </Suspense>
   )
 }

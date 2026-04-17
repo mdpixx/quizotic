@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
+import { ShareQuizotic } from '@/components/ShareQuizotic'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell, RadarChart, PolarGrid, PolarAngleAxis, Radar,
@@ -258,6 +259,11 @@ export default function HostDashboard() {
             </div>
           </motion.div>
         ))}
+      </div>
+
+      {/* ── Share banner ── */}
+      <div className="mb-5">
+        <ShareQuizotic context="dashboard" size="sm" />
       </div>
 
       {/* ── Row 2: Session History + Top Participants ── */}

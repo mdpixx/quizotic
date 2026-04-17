@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { PLAN_LIMITS } from '@/lib/limits'
+import { ShareQuizotic } from '@/components/ShareQuizotic'
 
 export const metadata: Metadata = {
   title: 'Pricing — Free While We Grow',
@@ -176,6 +177,11 @@ export default function PricingPage() {
                 </span>
               </div>
             </div>
+          </div>
+
+          {/* Help us grow — share */}
+          <div className="mb-8">
+            <ShareQuizotic context="pricing" />
           </div>
 
           {/* Feedback CTA */}

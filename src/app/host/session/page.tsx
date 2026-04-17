@@ -14,6 +14,8 @@ import { ReflectionInsights } from '@/components/ReflectionInsights'
 import { getOptionText, getOptionImage } from '@/lib/quiz-types'
 import { CircularTimer } from '@/components/CircularTimer'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
+import { BrandWatermark } from '@/components/BrandWatermark'
+import { ShareQuizotic } from '@/components/ShareQuizotic'
 
 type Phase = 'loading' | 'error' | 'idle' | 'lobby' | 'question' | 'ended'
 
@@ -492,6 +494,7 @@ export default function SessionPage() {
 
   return (
     <div className="min-h-screen text-gray-900">
+      <BrandWatermark placement="host" />
 
       {/* IDLE */}
       {phase === 'idle' && quiz && (
@@ -1095,6 +1098,9 @@ export default function SessionPage() {
 
           {/* Reflection Insights */}
           <ReflectionInsights gameCode={gameCode} questionStats={questionStats} />
+
+          {/* Share Quizotic with colleagues */}
+          <ShareQuizotic context="host-ended" />
 
           {/* Spaced Follow-up Series */}
           <div className="rounded-2xl border p-5" style={{ borderColor: '#DBEAFE', background: '#F3F4F6' }}>
