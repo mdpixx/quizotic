@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
+import { JsonLd } from '@/components/seo/JsonLd'
 import { StickyNav } from '@/components/landing/StickyNav'
 import { Hero } from '@/components/landing/Hero'
 import { QuizVsPresentation } from '@/components/landing/QuizVsPresentation'
@@ -48,14 +49,7 @@ export default async function Home() {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd) }}
-      />
+      <JsonLd data={[jsonLd, organizationLd]} />
       <StickyNav />
       <main>
         <Hero />
