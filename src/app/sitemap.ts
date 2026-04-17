@@ -26,7 +26,21 @@ const STATIC_ROUTES: Entry[] = [
 // Extension point for Waves 2-5. Each wave returns a list of Entry; merge them
 // into the sitemap below.
 function solutionRoutes(): Entry[] {
-  return []
+  const slugs = [
+    'live-quiz',
+    'interactive-presentation',
+    'ai-quiz-generator',
+    'gamified-learning',
+    'live-polling',
+    'quiz-maker',
+    'pdf-to-quiz',
+    'ncert-quiz-generator',
+  ]
+  return slugs.map(slug => ({
+    path: `/${slug}`,
+    changeFrequency: 'monthly' as ChangeFreq,
+    priority: 0.9,
+  }))
 }
 
 function comparisonRoutes(): Entry[] {

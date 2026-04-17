@@ -14,6 +14,17 @@ Quizotic is grounded in learning science: Bloom's Taxonomy for question depth, C
 - [Pricing](https://www.quizotic.live/pricing): Free, Pro, and Team plans. INR billing, UPI-first.
 - [FAQ](https://www.quizotic.live/faq): Common questions about hosting, joining, payments, data.
 
+## Solutions
+
+- [Live Quiz Platform](https://www.quizotic.live/live-quiz): Host live multiplayer quizzes. Kahoot-style competition with 11 question types.
+- [Interactive Presentation Tool](https://www.quizotic.live/interactive-presentation): Polls, word clouds, Q&A, and quizzes in one deck. Mentimeter alternative.
+- [AI Quiz Generator](https://www.quizotic.live/ai-quiz-generator): Generate Bloom-tagged quizzes from topics, PDFs, or notes.
+- [Gamified Learning Platform](https://www.quizotic.live/gamified-learning): Speed bonus, streaks, and spaced retrieval on a learning-science foundation.
+- [Live Polling Tool](https://www.quizotic.live/live-polling): Real-time audience polls — single-choice, multi-select, rating, word cloud, ranking.
+- [Quiz Maker](https://www.quizotic.live/quiz-maker): Free online quiz builder with 11 question types, AI assist, and multiple launch modes.
+- [PDF to Quiz Converter](https://www.quizotic.live/pdf-to-quiz): Upload any PDF and get a ready-to-launch quiz.
+- [NCERT Quiz Generator](https://www.quizotic.live/ncert-quiz-generator): Chapter-wise quizzes for Classes 6–12 NCERT textbooks.
+
 ## For Participants
 
 - [Join a Game](https://www.quizotic.live/join): Enter the game PIN to join a live quiz or presentation.
