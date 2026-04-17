@@ -42,9 +42,9 @@ def render_slides_as_images(pptx_path, output_dir):
         print(f'PDF not created. LibreOffice stdout: {result.stdout}, stderr: {result.stderr}', file=sys.stderr)
         return []
 
-    # Step 2: PDF -> PNG images via pdftoppm (150 DPI balances quality vs speed)
+    # Step 2: PDF -> PNG images via pdftoppm (200 DPI balances quality vs speed)
     pdf_result = subprocess.run([
-        'pdftoppm', '-png', '-r', '150', pdf_path,
+        'pdftoppm', '-png', '-r', '200', pdf_path,
         os.path.join(output_dir, 'slide')
     ], capture_output=True, text=True, timeout=180)
 
@@ -83,7 +83,10 @@ def extract_text(pptx_path):
             if ph_type in (PP_PLACEHOLDER.TITLE, PP_PLACEHOLDER.CENTER_TITLE) or ph_idx == 0:
                 text = ph.text_frame.text.strip()
                 if text:
-                    title = text
+                    # Use only the first non-empty line and cap length — prevents
+                    # multi-block title placeholders from becoming one mashed blob
+                    first_line = next((line.strip() for line in text.splitlines() if line.strip()), text)
+                    title = first_line[:120]
             elif ph_type == PP_PLACEHOLDER.SUBTITLE or ph_idx == 1:
                 text = ph.text_frame.text.strip()
                 if text:

@@ -1683,16 +1683,13 @@ function JoinPageInner() {
 
     return (
       <div className="min-h-screen flex flex-col p-4 gap-4" style={{ background: bgDark }}>
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <span className="text-base font-bold opacity-40" style={{ color: textLight }}>
-            Slide {presenterSlideIndex + 1} / {presenterTotalSlides}
-          </span>
-          <span className="text-base font-semibold" style={{ color: '#F5E642' }}>{presenterTitle}</span>
+        {/* Header — compact slide counter only; deck title omitted to save mobile space */}
+        <div className="text-[11px] font-semibold opacity-50 tracking-[0.15em] uppercase" style={{ color: textLight }}>
+          Slide {presenterSlideIndex + 1} / {presenterTotalSlides}
         </div>
 
         {/* Question */}
-        <h2 className="text-3xl font-black leading-snug" style={{ color: textLight }}>
+        <h2 className="text-2xl md:text-3xl font-black leading-snug" style={{ color: textLight }}>
           {slide.question || slide.heading || slide.title || ''}
         </h2>
 
@@ -1919,8 +1916,8 @@ function JoinPageInner() {
           </p>
         </div>
         <div className="flex gap-2 items-center">
-          <div className="w-3 h-3 rounded-full animate-pulse" style={{ background: '#F5E642' }} />
-          <span className="text-base" style={{ color: '#F5E642' }}>Slide {presenterSlideIndex + 1} of {presenterTotalSlides}</span>
+          <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#F5E642' }} />
+          <span className="text-xs font-semibold opacity-60 tracking-wider uppercase" style={{ color: 'white' }}>Slide {presenterSlideIndex + 1} / {presenterTotalSlides}</span>
         </div>
       </div>
     )
@@ -2122,16 +2119,13 @@ function JoinPageInner() {
 
     return (
       <div className="min-h-screen flex flex-col p-4 gap-4" style={{ background: bgDark }}>
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <span className="text-base font-bold opacity-40" style={{ color: textLight }}>
-            Slide {presenterSlideIndex + 1} / {presenterTotalSlides}
-          </span>
-          <span className="text-base font-semibold" style={{ color: '#F5E642' }}>{presenterTitle}</span>
+        {/* Header — compact slide counter only; deck title omitted to save mobile space */}
+        <div className="text-[11px] font-semibold opacity-50 tracking-[0.15em] uppercase" style={{ color: textLight }}>
+          Slide {presenterSlideIndex + 1} / {presenterTotalSlides}
         </div>
 
         {/* Question */}
-        <h2 className="text-2xl font-black leading-snug" style={{ color: textLight }}>
+        <h2 className="text-xl md:text-2xl font-black leading-snug" style={{ color: textLight }}>
           {slide.question || slide.heading || slide.title || ''}
         </h2>
 

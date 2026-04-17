@@ -1462,6 +1462,7 @@ function PresentCreatePageInner() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [planLimitBlocked, setPlanLimitBlocked] = useState<string | null>(null) // message from API when 403 on save
   const [starting, setStarting] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
   const [pptxImporting, setPptxImporting] = useState(false)
@@ -1620,6 +1621,8 @@ function PresentCreatePageInner() {
   }
 
   async function savePresentation(): Promise<boolean> {
+    // Skip entirely if already blocked by plan limit — prevents autosave retry loop on 403
+    if (planLimitBlocked) return true
     setSaving(true)
     setSaveError(null)
     // Write crash-safe draft FIRST (synchronous, always succeeds).
@@ -1633,6 +1636,11 @@ function PresentCreatePageInner() {
         body: JSON.stringify(presentation),
       })
       const json = await res.json() as { success: boolean; data?: Presentation; error?: string }
+      if (res.status === 403) {
+        // Plan-limit hit — stop autosave loop, surface upgrade modal
+        setPlanLimitBlocked(json.error ?? 'You have exceeded your plan limit.')
+        return true // return true so useAutosave does NOT retry
+      }
       if (!res.ok || !json.success) throw new Error(json.error ?? `Save failed (${res.status})`)
       // Adopt server-returned id/timestamps so future autosaves update the correct row
       if (json.data) {
@@ -1838,7 +1846,9 @@ function PresentCreatePageInner() {
       setPresentation(prev => {
         const slides = [...prev.slides]
         slides.splice(insertAt, 0, ...newSlides)
-        const newTitle = title && prev.title === 'Untitled Presentation' ? title : prev.title
+        // Truncate imported title defensively in case a mashed title slipped through
+        const cleanTitle = title ? title.slice(0, 80).trim() : undefined
+        const newTitle = cleanTitle && prev.title === 'Untitled Presentation' ? cleanTitle : prev.title
         return { ...prev, title: newTitle, slides, updatedAt: new Date().toISOString() }
       })
       setActiveIndex(insertAt)
@@ -2732,6 +2742,40 @@ function PresentCreatePageInner() {
           onComplete={handleEnhanceComplete}
           onCancel={() => setEnhanceOpen(false)}
         />
+      )}
+
+      {/* ── Plan-limit blocked Modal (403 on save) ── */}
+      {planLimitBlocked && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(15,27,61,0.55)' }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#FEF3C7' }}>
+                <svg viewBox="0 0 20 20" fill="#D97706" className="w-5 h-5"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 3.5a.75.75 0 01.75.75v4a.75.75 0 01-1.5 0v-4A.75.75 0 0110 5.5zm0 9a1 1 0 110-2 1 1 0 010 2z"/></svg>
+              </div>
+              <h3 className="text-lg font-extrabold" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Plan limit reached</h3>
+            </div>
+            <p className="text-sm leading-relaxed" style={{ color: '#374151' }}>
+              {planLimitBlocked}
+            </p>
+            <p className="text-xs" style={{ color: '#6B7280' }}>
+              Your work is safe — a local draft is preserved until you reduce the slide count or upgrade.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                onClick={() => setPlanLimitBlocked(null)}
+                className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors hover:bg-gray-100"
+                style={{ color: '#64748B' }}>
+                Dismiss
+              </button>
+              <a
+                href="/pricing"
+                className="px-4 py-2 rounded-xl text-sm font-bold transition-all hover:scale-[1.02]"
+                style={{ background: '#0F1B3D', color: '#F5E642' }}>
+                Upgrade to Pro
+              </a>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

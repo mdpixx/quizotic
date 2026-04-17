@@ -5,7 +5,7 @@ export const PLAN_LIMITS = {
     maxQuestionsPerGeneration: 10,
     maxSavedQuizzes: 5,
     maxSavedPresentations: 3,
-    maxSlidesPerPresentation: 10,
+    maxSlidesPerPresentation: 50,
     maxSessionHistory: 3,
     maxImageUploads: 20,     // image uploads per month
     pdfExport: false,

@@ -154,11 +154,21 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Get presentation title from first slide with a title
+    // Get presentation title from first slide with a title.
+    // Defensive truncation in case Python returned a long mashed title anyway.
     let presTitle: string | undefined
     for (const s of pySlides) {
       if (s.title && s.title.length > 0) {
-        presTitle = s.title
+        let t = s.title
+        if (t.length > 100) {
+          const breakAt = t.search(/[.\n]/)
+          t = (breakAt > 10 ? t.slice(0, breakAt) : t.slice(0, 100)).trim()
+        }
+        // Fall back to filename if title is still too long / looks concatenated
+        if (t.length > 100) {
+          t = file.name.replace(/\.pptx$/i, '').slice(0, 80)
+        }
+        presTitle = t
         break
       }
     }

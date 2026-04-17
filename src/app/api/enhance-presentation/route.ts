@@ -155,6 +155,12 @@ Your job: suggest interactive slides to INSERT between content slides to maximiz
 - Reject any suggestion whose question would make equal sense on an unrelated deck. When in doubt, drop that suggestion rather than produce a generic one.
 - The "rationale" field must name the specific slide phrase that anchored the question.
 
+## Spelling fidelity (STRICT)
+- NEVER invent, misspell, or mangle words. If you quote a term from the slide, copy it character-for-character from the source.
+- If a source word looks unusual — domain jargon, PSU / government / petroleum terminology, legal language, Hindi / Hinglish — treat it as intentional. Do NOT "correct", paraphrase its letters, or swap it for a similar-sounding word.
+- For Word Duel / Ranking / MCQ options: prefer direct quotes from the slide over re-worded alternatives. If the slide says "derecognize", your option must say "derecognize" — never "deregognize", "de-recognise", or similar.
+- Any acronym or proper noun (LOI, OMC, RO, MCI, IOCL, etc.) must be preserved in its exact source casing.
+
 Return ONLY valid JSON — no markdown fences, no explanation, no preamble.`
 
 function getSlidePosition(index: number, total: number): string {
@@ -222,6 +228,82 @@ function getTargetCount(totalContent: number, level: string): number {
     case 'custom':   return Math.max(1, Math.min(totalContent, Math.round(totalContent * 0.5)))
     default:         return Math.max(1, Math.round(totalContent * 0.25))
   }
+}
+
+// ─── Mangled-word detection (defends against AI typo-ing source words) ─────
+
+// Common English suffix / pattern heuristic — fast pre-filter for real words.
+const DICTIONARY_PATTERN = /^(?:[a-z]+(?:tion|ment|ness|ity|ance|ence|ship|able|ible|ous|ive|ary|ory|ize|ise|ise|ing|ed|er|est|ly|ful|less|al|ic|ism|ist|age|ate|ure|hood|dom)|[a-z]{1,5})$/i
+
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0
+  if (!a.length) return b.length
+  if (!b.length) return a.length
+  const dp = Array.from({ length: a.length + 1 }, (_, i) => i)
+  for (let j = 1; j <= b.length; j++) {
+    let prev = dp[0]
+    dp[0] = j
+    for (let i = 1; i <= a.length; i++) {
+      const tmp = dp[i]
+      dp[i] = a[i - 1] === b[j - 1]
+        ? prev
+        : 1 + Math.min(prev, dp[i - 1], dp[i])
+      prev = tmp
+    }
+  }
+  return dp[a.length]
+}
+
+function extractCandidateWords(obj: Record<string, unknown>): string[] {
+  const words: string[] = []
+  const push = (v: unknown) => {
+    if (typeof v === 'string') {
+      for (const w of v.split(/[^A-Za-z'-]+/)) {
+        if (w.length >= 6) words.push(w)
+      }
+    } else if (Array.isArray(v)) {
+      for (const item of v) push(item)
+    }
+  }
+  push(obj.question)
+  push(obj.optionA)
+  push(obj.optionB)
+  push(obj.options)
+  push(obj.items)
+  return words
+}
+
+/**
+ * Detects words in a suggestion that look like AI mangled a source term.
+ * Returns the list of mangled words; empty array = clean suggestion.
+ *
+ * A word is "mangled" when it meets ALL of:
+ * 1. Not a substring (case-insensitive) of any source slide's text
+ * 2. Fails the English-suffix dictionary heuristic
+ * 3. Has Levenshtein distance ≤ 2 to some source token (length ≥ 6)
+ *
+ * The combination (near-miss to a source word, not in source, not a plain English word)
+ * is a strong signal the AI corrupted a quoted term (e.g. "derecognize" → "Deregognize").
+ */
+function detectMangledWords(suggestion: AiSuggestion, sourceSlides: SlideInput[]): string[] {
+  const sourceText = sourceSlides.map(s => s.textContent).join('\n').toLowerCase()
+  const sourceTokens = new Set(
+    sourceText.split(/[^a-z'-]+/).filter(w => w.length >= 6)
+  )
+  const candidates = extractCandidateWords(suggestion.slideData as Record<string, unknown>)
+  const mangled: string[] = []
+  for (const word of candidates) {
+    const lower = word.toLowerCase()
+    if (sourceText.includes(lower)) continue                    // quoted verbatim → OK
+    if (DICTIONARY_PATTERN.test(lower)) continue                // real English word → OK
+    let nearMiss = false
+    for (const tok of sourceTokens) {
+      if (Math.abs(tok.length - lower.length) > 2) continue
+      if (levenshtein(lower, tok) <= 2) { nearMiss = true; break }
+    }
+    if (nearMiss) mangled.push(word)
+  }
+  return mangled
 }
 
 // ─── Validation ──────────────────────────────────────────────────────────────
@@ -342,10 +424,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'AI returned unexpected format. Please try again.' }, { status: 500 })
     }
 
-    const suggestions = validateSuggestions(parsed)
+    let suggestions = validateSuggestions(parsed)
 
     if (suggestions.length === 0) {
       return NextResponse.json({ success: false, error: 'AI could not generate valid suggestions. Please try again.' }, { status: 500 })
+    }
+
+    // ─── Anti-mangling guard: detect suggestions where AI typo-ed a source word ──
+    const mangledReport = suggestions.map(s => ({ sug: s, bad: detectMangledWords(s, contentSlides) }))
+    const offenders = mangledReport.filter(r => r.bad.length > 0)
+    if (offenders.length > 0) {
+      const allBad = Array.from(new Set(offenders.flatMap(o => o.bad)))
+      console.warn('[enhance] mangled word(s) detected — retrying:', allBad)
+      try {
+        const retry = await client.chat.completions.create({
+          model: MODEL,
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'user', content: buildUserPrompt(contentSlides, targetCount, analysis) },
+            { role: 'assistant', content: raw },
+            { role: 'user', content: `Your previous output contained words that do not appear in the source slides and look like misspellings of source terms: ${allBad.join(', ')}. Re-generate the ENTIRE array. Use exact source spellings only. Do not invent variant spellings. Return ONLY the JSON array.` },
+          ],
+          temperature: 0.2,
+          max_tokens: 4000,
+        })
+        const retryRaw = retry.choices[0]?.message?.content?.trim() ?? ''
+        const retryCleaned = retryRaw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
+        const retryParsed = JSON.parse(retryCleaned)
+        if (Array.isArray(retryParsed)) {
+          const retrySuggestions = validateSuggestions(retryParsed)
+          if (retrySuggestions.length > 0) suggestions = retrySuggestions
+        }
+      } catch (retryErr) {
+        console.warn('[enhance] retry failed, dropping offenders:', retryErr)
+      }
+      // After retry, drop any suggestion that is STILL mangled rather than show bad output
+      suggestions = suggestions.filter(s => detectMangledWords(s, contentSlides).length === 0)
+      if (suggestions.length === 0) {
+        return NextResponse.json({ success: false, error: 'AI could not generate clean suggestions. Please try again.' }, { status: 500 })
+      }
     }
 
     // Log usage
