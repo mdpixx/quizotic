@@ -1624,10 +1624,10 @@ function PresentCreatePageInner() {
     setActiveIndex(i + 1)
   }
 
-  async function savePresentation(): Promise<boolean> {
+  async function savePresentation(isManual = false): Promise<boolean> {
     // Skip entirely if already blocked by plan limit — prevents autosave retry loop on 403
     if (planLimitBlocked) return true
-    setSaving(true)
+    if (isManual) setSaving(true)
     setSaveError(null)
     // Write crash-safe draft FIRST (synchronous, always succeeds).
     // This ensures a refresh can recover work even if the API call fails.
@@ -1662,16 +1662,16 @@ function PresentCreatePageInner() {
       // Server save succeeded — draft is no longer needed
       clearDraft(dk)
       setRecoveredDraft(null)
-      // Keep "All changes saved" persistent until the next edit kicks off a save.
-      // Avoids the Saving → Saved → blank flash cycle on every keystroke pause.
-      setSaved(true)
+      // Manual save: show "Saved" confirmation. Autosave stays silent — the button
+      // does not flip text or color, matching Notion/Canva's background-save UX.
+      if (isManual) setSaved(true)
       return true
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Save failed'
       setSaveError(msg)
       return false
     } finally {
-      setSaving(false)
+      if (isManual) setSaving(false)
     }
   }
 
@@ -1761,10 +1761,8 @@ function PresentCreatePageInner() {
     if (!hasLoadedRef.current) return
     if (JSON.stringify(snap) === lastSavedRef.current) return
     lastSavedRef.current = JSON.stringify(snap)
-    // A new edit has arrived after a previous save — clear the "Saved" indicator
-    // so the subtle "Saving…" state appears briefly on the next successful write.
-    setSaved(false)
-    return savePresentation()
+    // Silent autosave — no button state flipping. Errors still surface via saveError.
+    return savePresentation(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, { delayMs: 5000 })
 
@@ -1954,7 +1952,7 @@ function PresentCreatePageInner() {
               <span className="text-xs font-medium flex items-center gap-1.5 mr-1" style={{ color: '#DC2626' }}>
                 <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 flex-shrink-0"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3.5a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3A.75.75 0 018 4.5zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
                 <span className="hidden sm:inline">Couldn&apos;t save.</span>
-                <button onClick={() => { setSaveError(null); savePresentation() }} className="underline font-bold hover:no-underline">Retry</button>
+                <button onClick={() => { setSaveError(null); savePresentation(true) }} className="underline font-bold hover:no-underline">Retry</button>
               </span>
             ) : (saving || saved) ? (
               <span className="text-xs mr-1 hidden sm:inline" style={{ color: '#94A3B8' }}>
@@ -1974,7 +1972,7 @@ function PresentCreatePageInner() {
               style={{ borderColor: '#E2E8F0', color: '#64748B' }}>
               <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><path d="M15 7a3 3 0 100-6 3 3 0 000 6zM5 13a3 3 0 100-6 3 3 0 000 6zM15 19a3 3 0 100-6 3 3 0 000 6zM7.59 11.51l4.83 2.98M12.41 5.51L7.59 8.49" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
-            <button onClick={() => { setSaveError(null); savePresentation() }} disabled={saving}
+            <button onClick={() => { setSaveError(null); savePresentation(true) }} disabled={saving}
               className="text-xs md:text-sm font-bold px-3 py-1.5 md:px-5 md:py-2 rounded-xl border-2 transition-all disabled:opacity-50 click-bounce"
               style={{ borderColor: saveError ? '#DC2626' : saved ? '#16A34A' : '#E2E8F0', color: saveError ? '#DC2626' : saved ? '#16A34A' : '#0F1B3D', background: saveError ? '#FEF2F2' : saved ? '#F0FDF4' : '#fff' }}>
               {saving ? (
