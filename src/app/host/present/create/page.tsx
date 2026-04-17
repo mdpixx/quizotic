@@ -1942,7 +1942,7 @@ function PresentCreatePageInner() {
               className="w-full text-sm font-bold bg-transparent focus:outline-none"
               style={{ color: '#0F1B3D' }}
             />
-            <p className="text-xs" style={{ color: '#94A3B8' }}>
+            <p className="hidden sm:block text-xs" style={{ color: '#94A3B8' }}>
               {presentation.slides.length} slide{presentation.slides.length !== 1 ? 's' : ''} &middot; {interactiveCount} interactive
             </p>
           </div>
@@ -1970,7 +1970,7 @@ function PresentCreatePageInner() {
               </button>
             )}
             <button onClick={() => setShareOpen(true)} title="Share"
-              className="w-8 h-8 md:w-9 md:h-9 rounded-lg border flex items-center justify-center transition-all hover:bg-gray-50 click-bounce"
+              className="hidden sm:flex w-8 h-8 md:w-9 md:h-9 rounded-lg border items-center justify-center transition-all hover:bg-gray-50 click-bounce"
               style={{ borderColor: '#E2E8F0', color: '#64748B' }}>
               <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><path d="M15 7a3 3 0 100-6 3 3 0 000 6zM5 13a3 3 0 100-6 3 3 0 000 6zM15 19a3 3 0 100-6 3 3 0 000 6zM7.59 11.51l4.83 2.98M12.41 5.51L7.59 8.49" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>

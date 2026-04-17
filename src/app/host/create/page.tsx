@@ -1336,16 +1336,18 @@ function CreateQuizPageInner() {
             className="w-full text-base font-extrabold bg-transparent outline-none truncate"
             style={{ color: '#0F1B3D' }}
           />
-          <p className="text-xs text-gray-400">{questions.length} questions &middot; {subject || 'No subject'} &middot; ~{estMinutes} min</p>
+          <p className="hidden sm:block text-xs text-gray-400">{questions.length} questions &middot; {subject || 'No subject'} &middot; ~{estMinutes} min</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <AutosaveBadge state={autosaveState} />
+          <span className="hidden md:inline-flex">
+            <AutosaveBadge state={autosaveState} />
+          </span>
           <button onClick={() => setShareOpen(true)} title="Share"
-            className="w-9 h-9 rounded-lg border flex items-center justify-center transition-all hover:bg-gray-50 click-bounce"
+            className="hidden sm:flex w-9 h-9 rounded-lg border items-center justify-center transition-all hover:bg-gray-50 click-bounce"
             style={{ borderColor: '#E2E8F0', color: '#64748B' }}>
             <svg viewBox="0 0 20 20" fill="none" className="w-4.5 h-4.5"><path d="M15 7a3 3 0 100-6 3 3 0 000 6zM5 13a3 3 0 100-6 3 3 0 000 6zM15 19a3 3 0 100-6 3 3 0 000 6zM7.59 11.51l4.83 2.98M12.41 5.51L7.59 8.49" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
-          <button onClick={handleSave} disabled={saving} className="px-4 py-2 rounded-lg text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50 click-bounce" style={{ background: '#F5E642', color: '#0D0D0D', border: '1.5px solid #0D0D0D' }}>
+          <button onClick={handleSave} disabled={saving} className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50 click-bounce" style={{ background: '#F5E642', color: '#0D0D0D', border: '1.5px solid #0D0D0D' }}>
             {saving ? (
               <span className="flex items-center gap-1.5">
                 <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" opacity="0.3"/><path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
@@ -1358,7 +1360,7 @@ function CreateQuizPageInner() {
               if (savedQuiz) { setActiveSession(savedQuiz); router.push('/host/session') }
               else { pendingLiveRef.current = true; handleSave() }
             }}
-            className="px-4 py-2 rounded-lg text-sm font-bold transition-all hover:opacity-90 click-bounce"
+            className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all hover:opacity-90 click-bounce"
             style={{ background: '#0F1B3D', color: '#F5E642', border: '1.5px solid #0F1B3D' }}
           >
             &#9654; Start Live

@@ -1800,7 +1800,7 @@ function JoinPageInner() {
               : rankOpts.map((_, i) => i)
             const ids = order.map(i => `rank-${i}`)
             return (
-              <div className="space-y-3">
+              <div className="space-y-3 overflow-x-hidden">
                 <p className="text-sm text-center" style={{ color: 'rgba(255,255,255,0.5)' }}>Drag to rank your order</p>
                 <DndContext sensors={rankingSensors} collisionDetection={closestCenter} onDragEnd={(e: DragEndEvent) => {
                   const { active, over } = e
