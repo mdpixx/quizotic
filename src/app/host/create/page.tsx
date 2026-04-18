@@ -669,6 +669,7 @@ function CreateQuizPageInner() {
   const [shareOpen, setShareOpen] = useState(false)
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false)
   const [mobileSlidesOpen, setMobileSlidesOpen] = useState(false)
+  const [mobileAddOpen, setMobileAddOpen] = useState(false)
 
   // Navigate to live session when savedQuiz is set after "Start Live"
   useEffect(() => {
@@ -1903,7 +1904,7 @@ function CreateQuizPageInner() {
           ☰ Slides
         </button>
         <button
-          onClick={() => addQuestion()}
+          onClick={() => setMobileAddOpen(true)}
           className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded-xl font-bold text-sm transition-all"
           style={{ background: '#0F1B3D', color: '#fff' }}>
           <span>+</span> Add
@@ -1977,11 +1978,57 @@ function CreateQuizPageInner() {
             </div>
             <div className="flex-shrink-0 border-t px-4 py-3" style={{ borderColor: '#E2E8F0' }}>
               <button
-                onClick={() => { addQuestion(); setMobileSlidesOpen(false) }}
+                onClick={() => { setMobileSlidesOpen(false); setMobileAddOpen(true) }}
                 className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm"
                 style={{ background: '#0F1B3D', color: '#fff' }}>
                 <span>+</span> Add question
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Mobile Add-Question Type Picker Sheet ── */}
+      {mobileAddOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-50 flex flex-col justify-end"
+          style={{ background: 'rgba(15,27,61,0.5)' }}
+          onClick={e => { if (e.target === e.currentTarget) setMobileAddOpen(false) }}>
+          <div className="rounded-t-2xl overflow-hidden flex flex-col" style={{ background: '#fff', maxHeight: '85vh' }}>
+            <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0" style={{ borderColor: '#E2E8F0' }}>
+              <div>
+                <span className="font-black text-base block" style={{ color: '#0F1B3D' }}>Add a question</span>
+                <span className="text-xs" style={{ color: '#94A3B8' }}>Pick a question type</span>
+              </div>
+              <button
+                onClick={() => setMobileAddOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: '#F1F5F9' }}>
+                <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" style={{ color: '#374151' }}>
+                  <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/>
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">
+              <div className="grid grid-cols-2 gap-2">
+                {TYPE_PILLS.map(t => (
+                  <button
+                    key={t.value}
+                    onClick={() => {
+                      addQuestion(t.value)
+                      setMobileAddOpen(false)
+                      setMobileEditorOpen(true)
+                    }}
+                    className="flex items-start gap-2.5 p-3 rounded-xl text-left transition-all active:scale-[0.98]"
+                    style={{ border: `1.5px solid ${t.color}30`, background: t.bg }}>
+                    <span className="flex-shrink-0 mt-0.5" style={{ color: t.color }}>{t.svg}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold leading-tight" style={{ color: t.color }}>{t.label}</p>
+                      <p className="text-[10px] mt-0.5 leading-snug" style={{ color: '#64748B' }}>{t.tooltip}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
