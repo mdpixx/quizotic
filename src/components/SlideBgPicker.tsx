@@ -186,7 +186,7 @@ export function SlideBgPicker({ slide, onChange }: SlideBgPickerProps) {
         </button>
       </div>
 
-      <div className="flex justify-center">
+      <div className="hidden md:flex justify-center">
         <svg
           ref={svgRef}
           viewBox="-100 -100 200 200"
