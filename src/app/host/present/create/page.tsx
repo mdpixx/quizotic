@@ -1334,6 +1334,17 @@ function SlideThumbnail({ slide, index, active, onClick }: {
           style={{ background: 'rgba(255,255,255,0.85)', color: '#0F1B3D' }}>
           {index + 1}
         </span>
+        {meta.hasAudienceInput && (
+          <span
+            aria-label="Interactive slide"
+            title="Interactive slide"
+            className="absolute top-1 right-1 w-4 h-4 flex items-center justify-center opacity-100 group-hover:opacity-0 transition-opacity pointer-events-none"
+          >
+            <svg viewBox="0 0 20 20" fill="#FACC15" className="w-3.5 h-3.5 drop-shadow" aria-hidden>
+              <path d="M10 0l3.09 6.26L20 7.18l-5 4.87 1.18 6.88L10 15.77l-6.18 3.16L5 11.05 0 7.18l6.91-1.13z" />
+            </svg>
+          </span>
+        )}
         <span className="absolute bottom-1 right-1.5 text-[7px] font-bold uppercase tracking-wider px-1 py-0.5 rounded"
           style={{ background: meta.bg, color: meta.color }}>
           {meta.label.split(' ')[0]}
@@ -1488,6 +1499,9 @@ function PresentCreatePageInner() {
   const hasLoadedRef = useRef(false)
   const lastSavedRef = useRef(JSON.stringify(makePresentation()))
   const sidebarScrollRef = useRef<HTMLDivElement>(null)
+  // Blocks autosave (and suppresses its error toast) while PPTX import is in flight.
+  // One explicit post-import save runs in importPptx's finally — so genuine errors still surface then.
+  const importingRef = useRef(false)
   // Stable ref to the current presentation id so autosave can write the draft key
   const presentationIdRef = useRef<string>('')
 
@@ -1670,7 +1684,13 @@ function PresentCreatePageInner() {
       return true
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Save failed'
-      setSaveError(msg)
+      // Suppress the error toast for autosaves that race with an ongoing PPTX import —
+      // those transient failures clear themselves when the post-import manual save runs.
+      if (importingRef.current && !isManual) {
+        console.warn('[autosave suppressed during import]', msg)
+      } else {
+        setSaveError(msg)
+      }
       return false
     } finally {
       if (isManual) setSaving(false)
@@ -1761,6 +1781,7 @@ function PresentCreatePageInner() {
   // still fires on every change so a crash loses 0 data regardless.
   useAutosave(presentation, (snap) => {
     if (!hasLoadedRef.current) return
+    if (importingRef.current) return
     if (JSON.stringify(snap) === lastSavedRef.current) return
     lastSavedRef.current = JSON.stringify(snap)
     // Silent autosave — no button state flipping. Errors still surface via saveError.
@@ -1810,6 +1831,7 @@ function PresentCreatePageInner() {
     setPptxImporting(true)
     setPptxPercent(5)
     setPptxProgress('Uploading file...')
+    importingRef.current = true
     try {
       const formData = new FormData()
       formData.append('file', file)
@@ -1866,6 +1888,10 @@ function PresentCreatePageInner() {
       setPptxImporting(false)
       setPptxProgress('')
       setPptxPercent(0)
+      // Release the guard, then do ONE explicit save. Any genuine persistence error
+      // surfaces normally via setSaveError (isManual=false but importingRef is now false).
+      importingRef.current = false
+      void savePresentation(false)
     }
   }
 

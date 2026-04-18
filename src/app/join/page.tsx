@@ -12,6 +12,13 @@ import { useI18n } from '@/lib/use-i18n'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { isContentSlideType, isInteractiveSlideType } from '@/lib/presentation-types'
+
+function phaseForPresenterSlide(slideType: string | undefined): 'presenter-voting' | 'presenter-content' | 'presenter-lobby' {
+  if (isInteractiveSlideType(slideType)) return 'presenter-voting'
+  if (isContentSlideType(slideType)) return 'presenter-content'
+  return 'presenter-lobby'
+}
 
 const CircularTimer = dynamic(() => import('@/components/CircularTimer').then(m => m.CircularTimer), { ssr: false })
 const DrawingCanvas = dynamic(() => import('@/components/DrawingCanvas').then(m => m.DrawingCanvas), { ssr: false })
@@ -20,7 +27,7 @@ const ReflectionMoment = dynamic(() => import('@/components/ReflectionMoment').t
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Phase = 'form' | 'connecting' | 'lobby' | 'question' | 'answered' | 'ended' | 'selfpaced' | 'selfpaced-done'
-  | 'presenter-lobby' | 'presenter-voting' | 'presenter-voted' | 'presenter-results'
+  | 'presenter-lobby' | 'presenter-content' | 'presenter-voting' | 'presenter-voted' | 'presenter-results'
 
 interface PresenterAggregateData {
   total: number
@@ -605,9 +612,8 @@ function JoinPageInner() {
       // Clear any previous quickfire timer
       if (quickFireTimerRef.current) { clearInterval(quickFireTimerRef.current); quickFireTimerRef.current = null }
       setQuickFireLeft(null)
-      const nonInteractiveTypes = ['title', 'bullets', 'quote', 'video', 'wheel', 'image']
       const sType = (slide as Record<string, unknown>)?.type as string | undefined
-      setPhase(sType && !nonInteractiveTypes.includes(sType) ? 'presenter-voting' : 'presenter-lobby')
+      setPhase(phaseForPresenterSlide(sType))
       // Start quickfire countdown if applicable
       if (sType === 'quick_fire') {
         const dur = ((slide as Record<string, unknown>)?.durationSeconds as number) || 5
@@ -749,9 +755,8 @@ function JoinPageInner() {
         presenterVotedRef.current = false
         setPresenterAggregate({ total: 0 })
         setPresenterResponseMode((res.responseMode as 'instant' | 'on_click' | 'private') || 'instant')
-        const nonInteractive = ['title', 'bullets', 'quote', 'video', 'wheel', 'image']
         const slideType = res.currentSlide?.type
-        setPhase(slideType && !nonInteractive.includes(slideType) ? 'presenter-voting' : 'presenter-lobby')
+        setPhase(phaseForPresenterSlide(slideType))
       })
       return
     }
@@ -804,10 +809,9 @@ function JoinPageInner() {
         presenterVotedRef.current = false
         setPresenterAggregate({ total: 0 })
         setPresenterResponseMode((res.responseMode as 'instant' | 'on_click' | 'private') || 'instant')
-        const nonInteractive = ['title', 'bullets', 'quote', 'video', 'wheel', 'image']
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const slideType = (res.currentSlide as any)?.type
-        setPhase(slideType && !nonInteractive.includes(slideType) ? 'presenter-voting' : 'presenter-lobby')
+        setPhase(phaseForPresenterSlide(slideType))
         return
       }
 
@@ -1684,6 +1688,65 @@ function JoinPageInner() {
         <div className="flex gap-2 items-center">
           <div className="w-3 h-3 rounded-full animate-pulse" style={{ background: '#16A34A' }} />
           <span className="text-lg font-semibold" style={{ color: '#16A34A' }}>Connected</span>
+        </div>
+      </div>
+    )
+  }
+
+  // ─── Presenter Content (imported/text slides — follow along) ───────────────
+  if (phase === 'presenter-content' && presenterCurrentSlide) {
+    const slide = presenterCurrentSlide as Record<string, unknown>
+    const sType = slide.type as string | undefined
+    const imageUrl = typeof slide.imageUrl === 'string' ? slide.imageUrl : ''
+    const heading = typeof slide.heading === 'string' ? slide.heading : ''
+    const subheading = typeof slide.subheading === 'string' ? slide.subheading : ''
+    const bullets = Array.isArray(slide.bullets) ? (slide.bullets as unknown[]).filter((b): b is string => typeof b === 'string') : []
+    const quote = typeof slide.quote === 'string' ? slide.quote : ''
+    const attribution = typeof slide.attribution === 'string' ? slide.attribution : ''
+    const videoUrl = typeof slide.url === 'string' ? slide.url : ''
+
+    return (
+      <div className="min-h-screen flex flex-col" style={{ background: '#0F1B3D' }}>
+        <div className="px-4 pt-4 pb-2 flex items-center justify-between text-xs" style={{ color: '#94A3B8' }}>
+          <span className="font-semibold truncate">{presenterTitle}</span>
+          <span>{presenterSlideIndex + 1} / {presenterTotalSlides}</span>
+        </div>
+        <div className="flex-1 flex items-center justify-center p-4">
+          {sType === 'image' && imageUrl && (
+            <img src={imageUrl} alt="" className="max-h-full max-w-full object-contain rounded-xl" />
+          )}
+          {sType === 'title' && (
+            <div className="text-center space-y-3">
+              {heading && <h1 className="text-2xl font-black" style={{ color: '#fff', fontFamily: 'var(--font-heading)' }}>{heading}</h1>}
+              {subheading && <p className="text-base" style={{ color: '#CBD5E1' }}>{subheading}</p>}
+            </div>
+          )}
+          {sType === 'bullets' && (
+            <div className="w-full max-w-md space-y-3">
+              {heading && <h2 className="text-xl font-bold" style={{ color: '#fff' }}>{heading}</h2>}
+              <ul className="space-y-2">
+                {bullets.map((b, i) => (
+                  <li key={i} className="text-base flex gap-2" style={{ color: '#E2E8F0' }}>
+                    <span style={{ color: '#F5E642' }}>•</span>
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {sType === 'quote' && (
+            <div className="text-center max-w-md space-y-3 px-2">
+              {quote && <p className="text-xl italic leading-relaxed" style={{ color: '#fff' }}>&ldquo;{quote}&rdquo;</p>}
+              {attribution && <p className="text-sm" style={{ color: '#94A3B8' }}>— {attribution}</p>}
+            </div>
+          )}
+          {sType === 'video' && videoUrl && (
+            <p className="text-sm text-center" style={{ color: '#94A3B8' }}>Video playing on the host screen.</p>
+          )}
+        </div>
+        <div className="px-4 py-2 flex items-center justify-center gap-2" style={{ color: '#94A3B8' }}>
+          <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#16A34A' }} />
+          <span className="text-xs">Live</span>
         </div>
       </div>
     )

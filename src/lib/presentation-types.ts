@@ -59,6 +59,19 @@ export const SLIDE_CATEGORIES = [
   { id: 'content'     as const, label: 'Content',     color: '#374151' },
 ]
 
+export const CONTENT_SLIDE_TYPES = ['title', 'bullets', 'quote', 'video', 'image'] as const
+export type ContentSlideType = typeof CONTENT_SLIDE_TYPES[number]
+
+export function isContentSlideType(type: SlideType | string | undefined): boolean {
+  return !!type && (CONTENT_SLIDE_TYPES as readonly string[]).includes(type)
+}
+
+export function isInteractiveSlideType(type: SlideType | string | undefined): boolean {
+  if (!type) return false
+  const meta = SLIDE_TYPE_META[type as SlideType]
+  return !!meta && meta.hasAudienceInput === true
+}
+
 // ─── Slide data shapes ────────────────────────────────────────────────────────
 
 interface SlideBase {

@@ -530,15 +530,18 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
         </div>
       )
 
-    case 'image':
+    case 'image': {
+      const isImported = typeof (slide as unknown as Record<string, unknown>)._aiContext === 'string'
+      const showCaption = !isImported && !!slide.caption && slide.caption.length <= 80
       return (
         <div className="flex flex-col items-center justify-center h-full gap-3">
           {slide.imageUrl && (
             <img src={slide.imageUrl} alt="" className="max-h-full max-w-full object-contain rounded-2xl flex-1 min-h-0" />
           )}
-          {slide.caption && <p className="text-lg font-medium text-center flex-shrink-0" style={{ color: '#374151' }}>{slide.caption}</p>}
+          {showCaption && <p className="text-lg font-medium text-center flex-shrink-0" style={{ color: '#374151' }}>{slide.caption}</p>}
         </div>
       )
+    }
 
     case 'pinpoint': {
       const pins = aggregate.pins ?? []
