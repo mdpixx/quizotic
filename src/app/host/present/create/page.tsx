@@ -9,6 +9,7 @@ import {
 import QRCode from 'react-qr-code'
 import { EnhanceWithAI } from '@/components/EnhanceWithAI'
 import { ImageUpload } from '@/components/ImageUpload'
+import { SlideBgPicker } from '@/components/SlideBgPicker'
 import { draftKey, readDraft, writeDraft, clearDraft, formatDraftAge } from '@/lib/draft-storage'
 import { useAutosave } from '@/lib/use-autosave'
 
@@ -1483,7 +1484,6 @@ function PresentCreatePageInner() {
   const [mobileSlideEditorOpen, setMobileSlideEditorOpen] = useState(false)
   const [mobileSlidesOpen, setMobileSlidesOpen] = useState(false)
   const [plan, setPlan] = useState<'free' | 'pro'>('free')
-  const [bgHexInput, setBgHexInput] = useState('')
   const [recoveredDraft, setRecoveredDraft] = useState<{ savedAt: number } | null>(null)
   const hasLoadedRef = useRef(false)
   const lastSavedRef = useRef(JSON.stringify(makePresentation()))
@@ -2169,86 +2169,7 @@ function PresentCreatePageInner() {
               <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
                 <SlideEditor slide={activeSlide} onChange={updateSlide} />
 
-                {/* Background color picker (all slides) */}
-                <div className="border-t pt-4 space-y-3" style={{ borderColor: '#E2E8F0' }}>
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold" style={{ color: '#64748B' }}>Background</label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const copy = { ...activeSlide }
-                        if (activeSlide.type === 'title') {
-                          updateSlide({ ...copy, bgColor: '#FAFAF8' } as Slide)
-                        } else {
-                          delete (copy as Record<string, unknown>).bgColor
-                          updateSlide(copy as Slide)
-                        }
-                      }}
-                      className="px-2.5 py-1 rounded-md text-[11px] font-bold transition-all"
-                      style={
-                        !activeSlide.bgColor || (activeSlide.type === 'title' && activeSlide.bgColor === '#FAFAF8')
-                          ? { background: '#0F1B3D', color: '#F5E642', border: '1.5px solid #0F1B3D' }
-                          : { background: '#fff', color: '#64748B', border: '1.5px solid #CBD5E1' }
-                      }
-                    >
-                      Auto
-                    </button>
-                  </div>
-
-                  {/* Preset swatches */}
-                  <div className="flex flex-wrap gap-1.5">
-                    {['#0F1B3D','#1E293B','#FFFFFF','#FAFAF8','#E8F0FE','#F3E8FF','#DCFCE7','#FEE2E2','#FEF3C7','#E0F2FE','#FFE4E6','#EEF2FF'].map(color => {
-                      const isActive = activeSlide.bgColor?.toUpperCase() === color.toUpperCase()
-                      return (
-                        <button
-                          key={color}
-                          type="button"
-                          title={color}
-                          onClick={() => updateSlide({ ...activeSlide, bgColor: color } as Slide)}
-                          className="w-7 h-7 rounded-full transition-all hover:scale-110"
-                          style={{
-                            background: color,
-                            border: isActive ? '2.5px solid #0F1B3D' : '1.5px solid #CBD5E1',
-                            boxShadow: isActive ? `0 0 0 2px #fff, 0 0 0 4px #0F1B3D` : undefined,
-                            outline: color === '#FFFFFF' || color === '#FAFAF8' ? '1px solid #E2E8F0' : undefined,
-                          }}
-                        />
-                      )
-                    })}
-                  </div>
-
-                  {/* Hex input + color picker */}
-                  <div className="flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: '#F8FAFC', border: '1.5px solid #E2E8F0' }}>
-                    <label className="w-5 h-5 rounded flex-shrink-0 cursor-pointer overflow-hidden relative" style={{ border: '1px solid #CBD5E1' }}>
-                      <div className="absolute inset-0" style={{ background: activeSlide.bgColor || '#ffffff' }} />
-                      <input
-                        type="color"
-                        value={activeSlide.bgColor || '#ffffff'}
-                        onChange={e => updateSlide({ ...activeSlide, bgColor: e.target.value } as Slide)}
-                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                      />
-                    </label>
-                    <span className="text-xs font-mono font-bold" style={{ color: '#94A3B8' }}>#</span>
-                    <input
-                      type="text"
-                      maxLength={6}
-                      value={bgHexInput !== '' ? bgHexInput : (activeSlide.bgColor || '#ffffff').replace('#', '').toUpperCase()}
-                      onFocus={() => setBgHexInput((activeSlide.bgColor || '#ffffff').replace('#', '').toUpperCase())}
-                      onBlur={() => setBgHexInput('')}
-                      onChange={e => {
-                        const raw = e.target.value.replace(/[^0-9A-Fa-f]/g, '')
-                        setBgHexInput(raw.toUpperCase())
-                        if (raw.length === 6) {
-                          updateSlide({ ...activeSlide, bgColor: `#${raw}` } as Slide)
-                          setBgHexInput('')
-                        }
-                      }}
-                      className="flex-1 bg-transparent text-xs font-mono font-bold outline-none uppercase"
-                      style={{ color: '#374151' }}
-                      placeholder="000000"
-                    />
-                  </div>
-                </div>
+                <SlideBgPicker slide={activeSlide} onChange={updateSlide} />
 
                 {/* ── Show Responses (interactive slides only) ── */}
                 {SLIDE_TYPE_META[activeSlide.type].hasAudienceInput && (
@@ -2639,6 +2560,7 @@ function PresentCreatePageInner() {
               </button>
             </div>
             <SlideEditor slide={activeSlide} onChange={updateSlide} />
+            <SlideBgPicker slide={activeSlide} onChange={updateSlide} />
           </div>
         </div>
       )}
