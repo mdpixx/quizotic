@@ -1285,8 +1285,8 @@ export default function PresentSessionPage() {
         {/* Full-width slide content */}
         <div className="h-full p-8 flex flex-col relative">
 
-          {/* Floating voter avatars */}
-          <div className="absolute bottom-16 left-0 right-0 h-40 pointer-events-none overflow-hidden">
+          {/* Floating voter avatars — no overflow clip, so emojis rise freely */}
+          <div className="absolute bottom-16 left-0 right-0 pointer-events-none" style={{ height: 0 }}>
             {floatingVoters.map(v => (
               <div key={v.id} className="absolute bottom-0"
                 style={{
