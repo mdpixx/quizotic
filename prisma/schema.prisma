@@ -182,6 +182,7 @@ model GameSession {
   presentation Presentation? @relation(fields: [presentationId], references: [id])
   user         User?         @relation(fields: [userId], references: [id])
   attendees    Attendee[]
+  answers      Answer[]
 
   @@index([userId])
 }
@@ -203,6 +204,32 @@ model Attendee {
 
   @@index([sessionId])
   @@index([email])
+}
+
+// Per-question answer audit log. Persisted at submit time (best-effort,
+// fire-and-forget) so scores can be reconstructed if RAM state is lost
+// (server restart, redeploy mid-game). The unique constraint also serves as
+// anti-replay protection — client outbox retries are safe.
+model Answer {
+  id            String      @id @default(cuid())
+  sessionId     String
+  attendeeId    String?
+  participantId String      // client-generated UUID, stable across reconnects
+  questionIndex Int
+  answer        Json        // raw answer (string | number | array)
+  isCorrect     Boolean?
+  basePoints    Int         @default(0)
+  streakBonus   Int         @default(0)
+  points        Int         @default(0)
+  timeMs        Int         @default(0)
+  confidence    String?     // 'sure' | 'unsure' | null
+  submittedAt   DateTime    @default(now())
+
+  session GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, participantId, questionIndex])
+  @@index([sessionId])
+  @@index([attendeeId])
 }
 
 // ─── Referral (reward tracking) ─────────────────────────────────

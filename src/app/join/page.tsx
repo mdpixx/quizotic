@@ -315,12 +315,78 @@ function SortableRankingItem({ id, index, label, color }: { id: string; index: n
 }
 
 // ─── Inner Component (uses useSearchParams — requires Suspense) ───────────────
+// Outbox payload — buffered answer submissions that retry on reconnect.
+// `confidence` may be a number (multi-question level) on the wire; the server
+// validates via SubmitAnswerSchema.
+type SubmitAnswerPayload = {
+  gameCode: string
+  participantId?: string
+  answer: string | number | (string | number)[]
+  timeMs: number
+  confidence: 'sure' | 'unsure' | null
+}
+type OutboxItem = {
+  id: string
+  questionIndex: number
+  payload: SubmitAnswerPayload
+  ts: number
+}
+
+// Durable per-game participant identity. localStorage survives socket drops,
+// tab close, and browser restarts — server matches this UUID against
+// session.participantsById, so a participant can disconnect for hours and
+// still come back as themselves with their score intact. 6h TTL prevents
+// cross-quiz collisions if someone reuses a code.
+function getOrCreateParticipantId(gameCode: string): string {
+  if (typeof window === 'undefined' || !gameCode) return ''
+  const key = `quizotic_pid_${gameCode}`
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as { id: string; ts: number }
+        if (parsed?.id && Date.now() - parsed.ts < 6 * 60 * 60 * 1000) return parsed.id
+      } catch { /* fall through to regen */ }
+    }
+    const id = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`
+    window.localStorage.setItem(key, JSON.stringify({ id, ts: Date.now() }))
+    return id
+  } catch {
+    return ''
+  }
+}
+
+function setParticipantId(gameCode: string, id: string): void {
+  if (typeof window === 'undefined' || !gameCode || !id) return
+  try {
+    window.localStorage.setItem(`quizotic_pid_${gameCode}`, JSON.stringify({ id, ts: Date.now() }))
+  } catch { /* noop */ }
+}
+
+function clearParticipantId(gameCode: string): void {
+  if (typeof window === 'undefined' || !gameCode) return
+  try {
+    window.localStorage.removeItem(`quizotic_pid_${gameCode}`)
+  } catch { /* noop */ }
+}
+
 function JoinPageInner() {
   const { t, locale, setLocale } = useI18n()
   const searchParams = useSearchParams()
   const socketRef = useRef<Socket | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const answerTimeRef = useRef<number>(0)
+  // Outbox of unconfirmed answer submissions. Cleared on answer_confirmed,
+  // re-flushed on socket reconnect or after a forced re-join. This is the
+  // single safety net against the silent-drop class of bugs.
+  const outboxRef = useRef<Map<string, OutboxItem>>(new Map())
+  // Indirection so initSocket's stable closure can call the latest flush impl.
+  const flushAnswerOutboxRef = useRef<() => void>(() => {})
+  // Durable participant identity (Layer 2). Set when the user joins or when
+  // the server echoes back a participantId in the join callback.
+  const participantIdRef = useRef<string>('')
 
   const followupParam = searchParams.get('followup')
   const modeParam = searchParams.get('mode') // 'presenter' for presenter sessions
@@ -413,6 +479,47 @@ function JoinPageInner() {
   useEffect(() => { phaseRef.current = phase }, [phase])
   useEffect(() => { timeLeftRef.current = timeLeft }, [timeLeft])
 
+  // Mobile lifecycle (Layer 2.7): when the tab regains visibility (user
+  // unlocks phone, switches back from another app), force a liveness check
+  // on the socket. iOS Safari often kills idle WebSockets in the background
+  // without notifying the JS layer, so this also triggers a manual reconnect
+  // if needed. Without this, a returning participant's first answer can hit
+  // the silent-drop path before Socket.IO's own keepalive notices the gap.
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      const s = socketRef.current
+      if (!s) return
+      if (!s.connected) {
+        try { s.connect() } catch { /* noop */ }
+      } else {
+        try { s.emit('ping_time', { clientTime: Date.now() }, () => {}) } catch { /* noop */ }
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('pageshow', onVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('pageshow', onVisible)
+    }
+  }, [])
+
+  // Application-level heartbeat (Layer 3.2): defeats NAT/router idle timeouts
+  // and surfaces dead sockets faster than Socket.IO's pingInterval alone.
+  // Runs every 30s while a session is in flight (lobby or question phase),
+  // tiny payload, negligible bandwidth. Critical for long presentations
+  // where participants might sit idle on a slide for many minutes.
+  useEffect(() => {
+    if (phase !== 'lobby' && phase !== 'question' && phase !== 'answered' && phase !== 'connecting') return
+    const id = window.setInterval(() => {
+      const s = socketRef.current
+      if (!s || !s.connected) return
+      try { s.emit('ping_time', { clientTime: Date.now() }, () => {}) } catch { /* noop */ }
+    }, 30000)
+    return () => window.clearInterval(id)
+  }, [phase])
+
   useEffect(() => {
     if (phase === 'ended') {
       const t = setTimeout(() => setReflectionVisible(true), 2500)
@@ -421,6 +528,37 @@ function JoinPageInner() {
       setReflectionVisible(false)
     }
   }, [phase])
+
+  // ─── Answer outbox helpers ─────────────────────────────────────────────────
+  // Buffered submissions retried on reconnect / after forced re-join. Refs only,
+  // so closures stay stable and useCallback deps stay empty.
+  const trySendAnswer = useCallback((item: OutboxItem) => {
+    const s = socketRef.current
+    if (!s || !s.connected) return
+    s.emit('submit_answer', item.payload)
+  }, [])
+
+  const enqueueAnswer = useCallback((payload: SubmitAnswerPayload, questionIndex: number) => {
+    const id = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const withPid: SubmitAnswerPayload = participantIdRef.current
+      ? { ...payload, participantId: participantIdRef.current }
+      : payload
+    const item: OutboxItem = { id, questionIndex, payload: withPid, ts: Date.now() }
+    outboxRef.current.set(id, item)
+    trySendAnswer(item)
+  }, [trySendAnswer])
+
+  const flushAnswerOutbox = useCallback(() => {
+    for (const item of outboxRef.current.values()) {
+      trySendAnswer(item)
+    }
+  }, [trySendAnswer])
+
+  useEffect(() => {
+    flushAnswerOutboxRef.current = flushAnswerOutbox
+  }, [flushAnswerOutbox])
 
   // ─── Deferred Socket.io — connect only when user joins ─────────────────────
   const initSocket = useCallback(() => {
@@ -439,10 +577,23 @@ function JoinPageInner() {
       // RTT clock-sync handshake — server uses this for authoritative scoring
       socket.emit('ping_time', { clientTime: Date.now() }, () => {})
       if (gameCodeRef.current && displayNameRef.current) {
+        const pid = participantIdRef.current || getOrCreateParticipantId(gameCodeRef.current)
+        if (pid) participantIdRef.current = pid
         socket.emit('join_session', {
           gameCode: gameCodeRef.current,
           displayName: displayNameRef.current,
-        }, () => {})
+          participantId: pid || undefined,
+        }, (res?: { success?: boolean; participantId?: string }) => {
+          if (res?.participantId) {
+            participantIdRef.current = res.participantId
+            setParticipantId(gameCodeRef.current, res.participantId)
+          }
+          // Re-flush any unconfirmed answers after a successful (re)join.
+          flushAnswerOutboxRef.current()
+        })
+      } else {
+        // No active game yet, but a reconnect could still need the outbox flushed.
+        flushAnswerOutboxRef.current()
       }
     })
 
@@ -452,6 +603,64 @@ function JoinPageInner() {
 
     socket.on('connect_error', () => {
       setError('Connection lost. Reconnecting...')
+    })
+
+    // Server-side rejection of an answer. The most important case is
+    // `unknown_participant` — it means our socket.id is no longer in the
+    // server's participant Map (typical after a long lobby idle on mobile).
+    // We force a clean re-join, then re-flush the outbox so the answer lands.
+    socket.on('answer_rejected', ({ reason, gameCode: rcvGameCode }: { reason: string; gameCode?: string }) => {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[answer_rejected]', reason, rcvGameCode)
+      }
+      if (reason === 'duplicate') {
+        // Server already has this answer; drop the matching outbox entry.
+        // Conservative: clear the entry for the most-recent question.
+        if (question?.index !== undefined) {
+          for (const [id, item] of outboxRef.current.entries()) {
+            if (item.questionIndex === question.index) outboxRef.current.delete(id)
+          }
+        }
+        return
+      }
+      if (reason === 'unknown_participant' || reason === 'no_session') {
+        if (gameCodeRef.current && displayNameRef.current) {
+          const pid = participantIdRef.current || getOrCreateParticipantId(gameCodeRef.current)
+          if (pid) participantIdRef.current = pid
+          socket.emit('join_session', {
+            gameCode: gameCodeRef.current,
+            displayName: displayNameRef.current,
+            participantId: pid || undefined,
+          }, (res?: { success?: boolean; participantId?: string }) => {
+            if (res?.participantId) {
+              participantIdRef.current = res.participantId
+              setParticipantId(gameCodeRef.current, res.participantId)
+            }
+            flushAnswerOutboxRef.current()
+          })
+        }
+        return
+      }
+      if (reason === 'not_active' || reason === 'no_question') {
+        // Question moved on. Don't keep retrying a stale answer.
+        if (question?.index !== undefined) {
+          for (const [id, item] of outboxRef.current.entries()) {
+            if (item.questionIndex === question.index) outboxRef.current.delete(id)
+          }
+        }
+        setError('Question already closed.')
+        return
+      }
+      // Fallback: surface a retry hint without trapping the user.
+      setError('Submit failed — tap an option to retry.')
+      setSelectedAnswer(null)
+      setPendingAnswer(null)
+    })
+
+    socket.on('invalid_payload', ({ event, error: pErr }: { event: string; error: string }) => {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[invalid_payload]', event, pErr)
+      }
     })
 
     socket.on('question_show', ({ question, index, total, startAt }: { question: Omit<Question, 'index' | 'total'>; index: number; total: number; startAt?: number }) => {
@@ -507,6 +716,13 @@ function JoinPageInner() {
 
     socket.on('answer_confirmed', ({ isCorrect, points, totalScore, streakCount }: { isCorrect: boolean; points: number; totalScore: number; streakCount?: number }) => {
       if (timerRef.current) clearInterval(timerRef.current)
+      // Server has accepted at least one answer — drop outbox entries for the
+      // current question so we don't double-submit on later reconnects.
+      if (question?.index !== undefined) {
+        for (const [id, item] of outboxRef.current.entries()) {
+          if (item.questionIndex === question.index) outboxRef.current.delete(id)
+        }
+      }
       setIsCorrect(isCorrect)
       setPointsEarned(points)
       setTotalScore(totalScore)
@@ -563,6 +779,10 @@ function JoinPageInner() {
       playCelebration()
       setShowConfetti(true)
       setTimeout(() => setShowConfetti(false), 4000)
+      // Clear durable identity for this game code so a fresh re-join starts clean.
+      if (gameCodeRef.current) clearParticipantId(gameCodeRef.current)
+      participantIdRef.current = ''
+      outboxRef.current.clear()
     })
 
     socket.on('quiz_paused', () => {
@@ -723,6 +943,9 @@ function JoinPageInner() {
 
     gameCodeRef.current = trimmedCode
     displayNameRef.current = trimmedName
+    // Bootstrap durable identity for this game code (Layer 2). Server will
+    // either honor this UUID (reconnect) or echo back its own (first join).
+    participantIdRef.current = getOrCreateParticipantId(trimmedCode)
 
     // Connect socket on first join (deferred from page load)
     const socket = initSocket()
@@ -789,7 +1012,8 @@ function JoinPageInner() {
       gameCode: trimmedCode,
       displayName: trimmedName,
       email: email.trim() || undefined,
-    }, (res: { success: boolean; error?: string; status?: string; quizTitle?: string; archetype?: string; sessionMode?: 'competitive' | 'reflection'; anonymousMode?: boolean; team?: { index: number; name: string; color: string } | null; presentationTitle?: string; currentSlideIndex?: number; totalSlides?: number; currentSlide?: unknown; responseMode?: string }) => {
+      participantId: participantIdRef.current || undefined,
+    }, (res: { success: boolean; error?: string; status?: string; quizTitle?: string; archetype?: string; sessionMode?: 'competitive' | 'reflection'; anonymousMode?: boolean; team?: { index: number; name: string; color: string } | null; presentationTitle?: string; currentSlideIndex?: number; totalSlides?: number; currentSlide?: unknown; responseMode?: string; participantId?: string }) => {
       if (settled) return
       settled = true
       clearTimeout(timeoutId)
@@ -797,6 +1021,13 @@ function JoinPageInner() {
         setError(res.error ?? 'Session not found. Check your 6-digit code and try again.')
         setPhase('form')
         return
+      }
+
+      // Server may echo back an authoritative participantId — persist it so
+      // future reconnects (and answer submissions) carry the same identity.
+      if (res.participantId) {
+        participantIdRef.current = res.participantId
+        setParticipantId(trimmedCode, res.participantId)
       }
 
       if (joinEvent === 'join_presenter_session') {
@@ -850,36 +1081,36 @@ function JoinPageInner() {
     if (multiselectChosen.size === 0 || selectedAnswer !== null || timeLeft <= 0) return
     setSelectedAnswer('multi')
     const timeMs = Date.now() - answerTimeRef.current
-    socketRef.current?.emit('submit_answer', {
+    enqueueAnswer({
       gameCode: gameCodeRef.current,
       answer: Array.from(multiselectChosen).map(String),
       timeMs,
       confidence: null,
-    })
+    }, question?.index ?? -1)
   }
 
   function submitWithConfidence(level: 'sure' | 'unsure') {
     if (pendingAnswer === null) return
     setConfidence(level)
     const timeMs = Date.now() - answerTimeRef.current
-    socketRef.current?.emit('submit_answer', {
+    enqueueAnswer({
       gameCode: gameCodeRef.current,
       answer: pendingAnswer,
       timeMs,
       confidence: level,
-    })
+    }, question?.index ?? -1)
   }
 
   function submitTextAnswer() {
     if (!textAnswer.trim() || selectedAnswer !== null || timeLeft <= 0) return
     setSelectedAnswer('text')
     const timeMs = Date.now() - answerTimeRef.current
-    socketRef.current?.emit('submit_answer', {
+    enqueueAnswer({
       gameCode: gameCodeRef.current,
       answer: textAnswer.trim(),
       timeMs,
       confidence: null,
-    })
+    }, question?.index ?? -1)
   }
 
   function submitDrawing(dataUrl: string) {

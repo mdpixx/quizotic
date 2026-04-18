@@ -94,10 +94,32 @@ function ShareLinks({ gameCode, quizTitle }: { gameCode: string; quizTitle: stri
 }
 
 
+// Layer 3.3 — host re-attach. Token survives a tab reload but is scoped to
+// this browser tab (sessionStorage). Server issues it at create_session and
+// validates on host_resume to rebind hostSocketId without losing the live game.
+function getHostResumeToken(gameCode: string): string {
+  if (typeof window === 'undefined' || !gameCode) return ''
+  try { return window.sessionStorage.getItem(`quizotic_host_token_${gameCode}`) || '' }
+  catch { return '' }
+}
+function setHostResumeToken(gameCode: string, token: string): void {
+  if (typeof window === 'undefined' || !gameCode || !token) return
+  try { window.sessionStorage.setItem(`quizotic_host_token_${gameCode}`, token) }
+  catch { /* noop */ }
+}
+function clearHostResumeToken(gameCode: string): void {
+  if (typeof window === 'undefined' || !gameCode) return
+  try { window.sessionStorage.removeItem(`quizotic_host_token_${gameCode}`) }
+  catch { /* noop */ }
+}
+
 export default function SessionPage() {
   const router = useRouter()
   const socketRef = useRef<Socket | null>(null)
   const sessionStartTimeRef = useRef<number>(0)
+  // Refs that initSocket's stable closure needs to read on reconnect.
+  const gameCodeRef = useRef<string>('')
+  const hostResumeTokenRef = useRef<string>('')
 
   const [phase, setPhase] = useState<Phase>('loading')
   const [quiz, setQuiz] = useState<Quiz | null>(null)
@@ -198,6 +220,19 @@ export default function SessionPage() {
     socket.on('connect', () => {
       setSocketConnected(true)
       setSessionError('')
+      // Layer 3.3 — if we already had a session, try to reclaim it. Server
+      // accepts within the 5-minute host disconnect grace window.
+      const code = gameCodeRef.current
+      const token = hostResumeTokenRef.current
+      if (code && token) {
+        socket.emit('host_resume', { gameCode: code, token }, (res?: { success?: boolean; error?: string }) => {
+          if (res?.success) {
+            console.log('[host_resume] reattached to', code)
+          } else if (res?.error) {
+            console.warn('[host_resume] failed:', res.error)
+          }
+        })
+      }
     })
 
     socket.on('disconnect', () => {
@@ -295,6 +330,9 @@ export default function SessionPage() {
       setTeamLeaderboard(tlb ?? null)
       setQuestionStats(qs ?? [])
       setPhase('ended')
+      // Game over — invalidate the host resume token for this gameCode.
+      if (gameCodeRef.current) clearHostResumeToken(gameCodeRef.current)
+      hostResumeTokenRef.current = ''
 
       // Save session record for analytics
       if (quiz && lb.length > 0) {
@@ -383,11 +421,16 @@ export default function SessionPage() {
       setCreating(false)
     }, 8000)
 
-    socketRef.current.emit('create_session', { quizData: quizDataForSession, sessionMode, anonymousMode, teamMode, teamCount, ghostSessionId: ghostMode && ghostSessionId ? ghostSessionId : undefined }, (res: { success: boolean; gameCode: string; error?: string }) => {
+    socketRef.current.emit('create_session', { quizData: quizDataForSession, sessionMode, anonymousMode, teamMode, teamCount, ghostSessionId: ghostMode && ghostSessionId ? ghostSessionId : undefined }, (res: { success: boolean; gameCode: string; error?: string; hostResumeToken?: string }) => {
       clearTimeout(timeout)
       setCreating(false)
       if (res.success) {
         setGameCode(res.gameCode)
+        gameCodeRef.current = res.gameCode
+        if (res.hostResumeToken) {
+          hostResumeTokenRef.current = res.hostResumeToken
+          setHostResumeToken(res.gameCode, res.hostResumeToken)
+        }
         setPhase('lobby')
       } else {
         setSessionError(res.error ?? 'Failed to create session. Please try again.')

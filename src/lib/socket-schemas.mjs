@@ -8,13 +8,21 @@ export const JoinSessionSchema = z.object({
   gameCode: z.string().min(4).max(10),
   displayName: z.string().min(1).max(24).trim(),
   email: z.string().email().max(120).optional().or(z.literal('')),
+  // participantId — client-generated UUID stored in localStorage. Optional for
+  // back-compat; when present, server matches it before falling back to
+  // name-based reconnect lookup. Survives socket drops, tab close, even
+  // browser restarts (as long as localStorage is intact).
+  participantId: z.string().uuid().optional(),
 })
 
 export const SubmitAnswerSchema = z.object({
   gameCode: z.string().min(4).max(10),
+  participantId: z.string().uuid().optional(),
   answer: z.union([
     z.string().max(2048),
+    z.number(),
     z.array(z.string()).max(10),
+    z.array(z.number()).max(10),
   ]),
   timeMs: z.number().int().min(0).max(600000),
   confidence: z.enum(['sure', 'unsure']).nullable().optional(),
@@ -22,6 +30,7 @@ export const SubmitAnswerSchema = z.object({
 
 export const SubmitDrawingSchema = z.object({
   gameCode: z.string().min(4).max(10),
+  participantId: z.string().uuid().optional(),
   dataUrl: z.string().max(102400), // 100 KB max
 })
 
@@ -86,6 +95,15 @@ export const JoinFollowupSchema = z.object({
 
 export const PingTimeSchema = z.object({
   clientTime: z.number(),
+})
+
+// Host re-attach: when a host's tab reconnects after a network blip or
+// browser refresh, this lets them reclaim the host slot of an existing
+// session without losing the live game. Token is server-issued at
+// create_session time and stored in sessionStorage on the host client.
+export const HostResumeSchema = z.object({
+  gameCode: z.string().min(4).max(10),
+  token: z.string().min(8).max(128),
 })
 
 // ─── Helpers ───────────────────────────────────────────────────────────────

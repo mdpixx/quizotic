@@ -6,6 +6,7 @@ import {
   CreateSessionSchema,
   CreatePresenterSessionSchema,
   GameCodeOnlySchema,
+  HostResumeSchema,
   JoinFollowupSchema,
   JoinSessionSchema,
   OverrideAnswerSchema,
@@ -123,6 +124,53 @@ async function insertAttendee(sessionDbId, { nickname, realName, email, archetyp
     return id
   } catch (err) {
     console.error('[db] attendee insert failed:', err.message)
+    return null
+  }
+}
+
+// Persist a single answer to the audit log. Fire-and-forget — never blocks
+// the submit_answer hot path. Idempotent via the (sessionId, participantId,
+// questionIndex) unique constraint, so client outbox retries are safe.
+function persistAnswer({ sessionDbId, attendeeId, participantId, questionIndex, answer, isCorrect, basePoints, streakBonus, points, timeMs, confidence }) {
+  if (!dbPool || !sessionDbId || !participantId) return
+  dbPool.query(
+    `INSERT INTO "Answer" (id, "sessionId", "attendeeId", "participantId", "questionIndex", answer, "isCorrect", "basePoints", "streakBonus", points, "timeMs", confidence, "submittedAt")
+     VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, $12, now())
+     ON CONFLICT ("sessionId", "participantId", "questionIndex") DO NOTHING`,
+    [
+      randomUUID(),
+      sessionDbId,
+      attendeeId || null,
+      participantId,
+      Number(questionIndex) || 0,
+      JSON.stringify(answer ?? null),
+      isCorrect == null ? null : Boolean(isCorrect),
+      Number(basePoints) || 0,
+      Number(streakBonus) || 0,
+      Number(points) || 0,
+      Number(timeMs) || 0,
+      confidence == null ? null : String(confidence),
+    ]
+  ).catch(err => console.error('[db] answer insert failed:', err.message))
+}
+
+// Recovery path used at session end. If RAM scores look wrong (lost participant
+// state, partial restart, etc.) we recompute from the Answer audit log.
+async function recomputeScoresFromAnswers(sessionDbId) {
+  if (!dbPool || !sessionDbId) return null
+  try {
+    const { rows } = await dbPool.query(
+      `SELECT "participantId", SUM(points)::int AS total
+         FROM "Answer"
+        WHERE "sessionId" = $1
+        GROUP BY "participantId"`,
+      [sessionDbId]
+    )
+    const totals = new Map()
+    for (const row of rows) totals.set(row.participantId, Number(row.total) || 0)
+    return totals
+  } catch (err) {
+    console.error('[db] recomputeScoresFromAnswers failed:', err.message)
     return null
   }
 }
@@ -295,6 +343,11 @@ app.prepare().then(async () => {
         : '*',
       methods: ['GET', 'POST'],
     },
+    // Mobile-friendly ping: tolerate brief tab backgrounding, still detect
+    // a true zombie within ~45s. Defaults (25s/20s) were too aggressive for
+    // iOS Safari background tabs and caused silent drops during lobby idle.
+    pingInterval: 20000,
+    pingTimeout: 25000,
   })
 
   // ─── REDIS ADAPTER (optional) ──────────────────────────────────
@@ -388,8 +441,10 @@ app.prepare().then(async () => {
         }
       }
 
+      const hostResumeToken = randomUUID()
       sessions.set(gameCode, {
         hostSocketId: socket.id,
+        hostResumeToken,         // Layer 3.3 — used by host_resume to reclaim session
         quizData,
         currentQuestionIndex: -1,
         participants: new Map(), // socketId → { name, archetype, score, answers, team }
@@ -411,7 +466,49 @@ app.prepare().then(async () => {
       socket.join(`session:${gameCode}`)
       socket.join(`host:${gameCode}`)
       console.log(`[session] created: ${gameCode}${teamMode ? ` (teams: ${numTeams})` : ''}`)
-      callback({ success: true, gameCode })
+      callback({ success: true, gameCode, hostResumeToken })
+    })
+
+    // Layer 3.3 — host re-attach. Host's tab refreshes or socket dies and the
+    // 5-min host disconnect grace (server.mjs disconnect handler) is still
+    // running. The host client presents its session token from sessionStorage;
+    // server rebinds hostSocketId to the new socket and the host UI keeps the
+    // live game.
+    socket.on('host_resume', (rawPayload, callback) => {
+      const parsed = validateSocketPayload(socket, HostResumeSchema, rawPayload, callback, 'host_resume')
+      if (!parsed) return
+      const { gameCode, token } = parsed
+      const session = sessions.get(gameCode)
+      if (!session) {
+        callback({ success: false, error: 'Session not found.' })
+        return
+      }
+      if (!session.hostResumeToken || session.hostResumeToken !== token) {
+        console.warn(`[host_resume] token mismatch code=${gameCode} sid=${socket.id}`)
+        callback({ success: false, error: 'Invalid host resume token.' })
+        return
+      }
+      // Optional defense: require same userId if both sides have one
+      if (session.userId && socket.data.userId && session.userId !== socket.data.userId) {
+        console.warn(`[host_resume] userId mismatch code=${gameCode}`)
+        callback({ success: false, error: 'User mismatch.' })
+        return
+      }
+      session.hostSocketId = socket.id
+      delete session.hostDisconnectedAt
+      delete session.hostDisconnectedSocketId
+      socket.join(`session:${gameCode}`)
+      socket.join(`host:${gameCode}`)
+      console.log(`[host_resume] reattached code=${gameCode} sid=${socket.id}`)
+      callback({
+        success: true,
+        gameCode,
+        type: session.type || 'quiz',
+        status: session.status,
+        currentQuestionIndex: session.currentQuestionIndex,
+        currentSlideIndex: session.currentSlideIndex,
+        participantCount: session.participants.size,
+      })
     })
 
     socket.on('start_quiz', (rawPayload) => {
@@ -530,15 +627,28 @@ app.prepare().then(async () => {
     socket.on('submit_drawing', (rawPayload) => {
       const parsed = validateSocketPayload(socket, SubmitDrawingSchema, rawPayload, undefined, 'submit_drawing')
       if (!parsed) return
-      const { gameCode, dataUrl } = parsed
+      const { gameCode, participantId: incomingPid, dataUrl } = parsed
       const session = sessions.get(gameCode)
-      if (!session) return
-      const participant = session.participants.get(socket.id)
-      if (!participant) return
+
+      const reject = (reason, extra = {}) => {
+        console.warn(`[submit_drawing:reject] code=${gameCode} sid=${socket.id} reason=${reason}`)
+        socket.emit('answer_rejected', { reason, gameCode, ...extra })
+      }
+
+      if (!session) return reject('no_session')
+      let participant = (incomingPid && session.participantsById?.get(incomingPid)) || session.participants.get(socket.id)
+      if (!participant) return reject('unknown_participant')
+      if (participant.socketId !== socket.id) {
+        if (participant.socketId && session.participants.has(participant.socketId)) {
+          session.participants.delete(participant.socketId)
+        }
+        participant.socketId = socket.id
+        session.participants.set(socket.id, participant)
+      }
       const qi = session.currentQuestionIndex
       const q = session.quizData.questions[qi]
-      if (!q || q.type !== 'drawing') return
-      if (participant.answers[qi] !== undefined) return // already submitted
+      if (!q || q.type !== 'drawing') return reject('no_question', { questionIndex: qi })
+      if (participant.answers[qi] !== undefined) return reject('duplicate', { questionIndex: qi })
 
       const safeDataUrl = typeof dataUrl === 'string' ? dataUrl.slice(0, 102400) : ''
       participant.answers[qi] = { answer: 'drawing', dataUrl: safeDataUrl, timeMs: 0 }
@@ -625,6 +735,21 @@ app.prepare().then(async () => {
 
       emitQuestionEnded(io, gameCode, session, session.currentQuestionIndex)
 
+      // Recovery: reconcile RAM scores against the Answer audit log. If the
+      // log has higher totals (e.g. RAM was wiped mid-game and we recreated
+      // participants), use the DB number — protects participants from getting
+      // a zero-score result due to in-memory state loss.
+      const dbTotals = await recomputeScoresFromAnswers(session.dbId)
+      if (dbTotals && dbTotals.size > 0) {
+        for (const p of session.participants.values()) {
+          const dbScore = p.participantId ? dbTotals.get(p.participantId) : undefined
+          if (dbScore !== undefined && dbScore > (p.score || 0)) {
+            console.warn(`[recover] code=${gameCode} pid=${p.participantId} ram=${p.score} db=${dbScore} -> using db`)
+            p.score = dbScore
+          }
+        }
+      }
+
       const leaderboard = buildLeaderboard(session.participants)
       const teamLeaderboard = buildTeamLeaderboard(session)
       const questionStats = buildQuestionStats(session)
@@ -698,8 +823,10 @@ app.prepare().then(async () => {
 
       const presenterHostName = await getHostName(socket.data.userId)
 
+      const presenterHostResumeToken = randomUUID()
       sessions.set(gameCode, {
         hostSocketId: socket.id,
+        hostResumeToken: presenterHostResumeToken,
         type: 'presenter',
         presentationData,
         currentSlideIndex: 0,
@@ -716,7 +843,7 @@ app.prepare().then(async () => {
       socket.join(`session:${gameCode}`)
       socket.join(`host:${gameCode}`)
       console.log(`[presenter] created: ${gameCode}`)
-      callback({ success: true, gameCode })
+      callback({ success: true, gameCode, hostResumeToken: presenterHostResumeToken })
     })
 
     socket.on('presenter_next_slide', (rawPayload) => {
@@ -1035,11 +1162,14 @@ app.prepare().then(async () => {
             gameCode: String(rawPayload.gameCode ?? '').trim(),
             displayName: String(rawPayload.displayName ?? '').trim(),
             email: rawPayload.email ?? '',
+            participantId: typeof rawPayload.participantId === 'string' && rawPayload.participantId
+              ? rawPayload.participantId
+              : undefined,
           }
         : rawPayload
       const parsed = validateSocketPayload(socket, JoinSessionSchema, normalised, callback, 'join_session')
       if (!parsed) return
-      const { gameCode, displayName, email } = parsed
+      const { gameCode, displayName, email, participantId: incomingPid } = parsed
       const session = sessions.get(gameCode)
 
       if (!session) {
@@ -1051,7 +1181,49 @@ app.prepare().then(async () => {
         return
       }
 
-      // Participant limit check — re-query with TTL so cancellations take effect mid-session
+      // Truncate display name server-side for safety
+      const safeName = String(displayName ?? '').slice(0, 30).trim() || 'Anonymous'
+
+      // ─── Reconnect path 1 — participantId match (preferred) ──────────────
+      // Survives any disconnect length: localStorage in the participant's
+      // browser keeps the same UUID across socket drops, tab close, and even
+      // browser restarts. Keyed against session.participantsById which is
+      // never expired by the disconnect grace timer.
+      if (incomingPid) {
+        const existing = session.participantsById?.get(incomingPid)
+        if (existing) {
+          // Move primary key from the old socket.id (if any) to the new one.
+          if (existing.socketId && existing.socketId !== socket.id && session.participants.has(existing.socketId)) {
+            session.participants.delete(existing.socketId)
+          }
+          existing.socketId = socket.id
+          delete existing.disconnectedAt
+          delete existing.disconnectedSocketId
+          session.participants.set(socket.id, existing)
+          // Also clear any pending name-based grace entry for this participant.
+          const dKey = (existing.realName || existing.name || safeName).toLowerCase()
+          session.disconnectedParticipants?.delete(dKey)
+          socket.join(`session:${gameCode}`)
+          console.log(`[participant] ${existing.realName || existing.name} reconnected via participantId to ${gameCode}`)
+          callback({
+            success: true,
+            status: session.status,
+            quizTitle: session.quizData.title,
+            archetype: existing.archetype,
+            sessionMode: session.sessionMode,
+            anonymousMode: session.anonymousMode,
+            team: existing.team,
+            showBranding: (session.hostPlan ?? 'free') !== 'pro',
+            reconnected: true,
+            score: existing.score,
+            participantId: existing.participantId,
+          })
+          return
+        }
+      }
+
+      // Participant limit check — re-query with TTL so cancellations take effect mid-session.
+      // Skipped above because reconnects (matched participantId) don't add to the headcount.
       const hostPlan = await getSessionHostPlan(session)
       const maxParticipants = hostPlan === 'pro' ? Infinity : 50
       if (session.participants.size >= maxParticipants) {
@@ -1059,10 +1231,7 @@ app.prepare().then(async () => {
         return
       }
 
-      // Truncate display name server-side for safety
-      const safeName = String(displayName ?? '').slice(0, 30).trim() || 'Anonymous'
-
-      // Check if this is a reconnecting participant (grace period recovery)
+      // ─── Reconnect path 2 — legacy name-based grace (fallback) ───────────
       const disconnectedKey = safeName.toLowerCase()
       const disconnectedEntry = session.disconnectedParticipants?.get(disconnectedKey)
       if (disconnectedEntry) {
@@ -1071,10 +1240,17 @@ app.prepare().then(async () => {
         session.participants.delete(disconnectedEntry.socketId)
         delete oldParticipant.disconnectedAt
         delete oldParticipant.disconnectedSocketId
+        oldParticipant.socketId = socket.id
         session.participants.set(socket.id, oldParticipant)
         session.disconnectedParticipants.delete(disconnectedKey)
+        // Backfill participantId on the existing entry if the client has one now.
+        if (incomingPid && !oldParticipant.participantId) {
+          oldParticipant.participantId = incomingPid
+          if (!session.participantsById) session.participantsById = new Map()
+          session.participantsById.set(incomingPid, oldParticipant)
+        }
         socket.join(`session:${gameCode}`)
-        console.log(`[participant] ${safeName} reconnected to ${gameCode}`)
+        console.log(`[participant] ${safeName} reconnected (name match) to ${gameCode}`)
         callback({
           success: true,
           status: session.status,
@@ -1086,6 +1262,7 @@ app.prepare().then(async () => {
           showBranding: (session.hostPlan ?? 'free') !== 'pro',
           reconnected: true,
           score: oldParticipant.score,
+          participantId: oldParticipant.participantId,
         })
         return
       }
@@ -1103,8 +1280,21 @@ app.prepare().then(async () => {
         session.teamJoinCounter++
       }
 
-      const participant = { name: displayStoredName, realName: safeName, archetype, score: 0, answers: [], team, joinedAt: new Date() }
+      const newPid = incomingPid || randomUUID()
+      const participant = {
+        participantId: newPid,
+        socketId: socket.id,
+        name: displayStoredName,
+        realName: safeName,
+        archetype,
+        score: 0,
+        answers: [],
+        team,
+        joinedAt: new Date(),
+      }
       session.participants.set(socket.id, participant)
+      if (!session.participantsById) session.participantsById = new Map()
+      session.participantsById.set(newPid, participant)
       socket.join(`session:${gameCode}`)
 
       // Persist attendee record (best-effort, don't block join on DB error).
@@ -1134,6 +1324,7 @@ app.prepare().then(async () => {
         anonymousMode: session.anonymousMode,
         team,
         showBranding: hostPlan !== 'pro',
+        participantId: newPid,
       })
 
       io.to(`host:${gameCode}`).emit('participant_joined', {
@@ -1149,18 +1340,40 @@ app.prepare().then(async () => {
     socket.on('submit_answer', (rawPayload) => {
       const parsed = validateSocketPayload(socket, SubmitAnswerSchema, rawPayload, undefined, 'submit_answer')
       if (!parsed) return
-      const { gameCode, answer, timeMs: clientReportedTimeMs, confidence } = parsed
+      const { gameCode, participantId: incomingPid, answer, timeMs: clientReportedTimeMs, confidence } = parsed
       const receivedAt = Date.now()
       const session = sessions.get(gameCode)
-      if (!session || session.status !== 'active') return
 
-      const participant = session.participants.get(socket.id)
-      if (!participant) return
+      // Unified rejection — single shape, structured log, client-actionable reason.
+      // Client listens for `answer_rejected` and forces re-join on `unknown_participant`.
+      const reject = (reason, extra = {}) => {
+        console.warn(`[submit_answer:reject] code=${gameCode} sid=${socket.id} reason=${reason}`)
+        socket.emit('answer_rejected', { reason, gameCode, ...extra })
+      }
+
+      if (!session) return reject('no_session')
+      if (session.status !== 'active') return reject('not_active', { status: session.status })
+
+      // Prefer participantId match (durable across reconnects); fall back to
+      // socket.id for clients that haven't sent a participantId yet.
+      let participant = (incomingPid && session.participantsById?.get(incomingPid)) || session.participants.get(socket.id)
+      if (!participant) return reject('unknown_participant')
+
+      // Re-bind socket→participant mapping if we matched via participantId but
+      // socket.id changed (mid-question reconnect — answer can still land).
+      if (participant.socketId !== socket.id) {
+        if (participant.socketId && session.participants.has(participant.socketId)) {
+          session.participants.delete(participant.socketId)
+        }
+        participant.socketId = socket.id
+        session.participants.set(socket.id, participant)
+      }
 
       const qi = session.currentQuestionIndex
       const question = session.quizData.questions[qi]
+      if (!question) return reject('no_question', { questionIndex: qi })
 
-      if (participant.answers[qi] !== undefined) return
+      if (participant.answers[qi] !== undefined) return reject('duplicate', { questionIndex: qi })
 
       // ─── SERVER-AUTHORITATIVE TIMING ────────────────────────────────────
       // Compute timeMs from the server's own question-start timestamp, not from
@@ -1185,6 +1398,19 @@ app.prepare().then(async () => {
       // Ranking questions: accept an array of option indices, store raw, do not score.
       if (question.type === 'ranking' && Array.isArray(answer)) {
         participant.answers[qi] = { answer, timeMs: serverTimeMs, clientReportedTimeMs, confidence: confidence ?? 'unsure', isNonScored: true }
+        persistAnswer({
+          sessionDbId: session.dbId,
+          attendeeId: participant.attendeeId,
+          participantId: participant.participantId,
+          questionIndex: qi,
+          answer,
+          isCorrect: null,
+          basePoints: 0,
+          streakBonus: 0,
+          points: 0,
+          timeMs: serverTimeMs,
+          confidence: confidence ?? 'unsure',
+        })
         socket.emit('answer_confirmed', { isCorrect: null, points: 0, totalScore: participant.score, isNonScored: true })
         const numOptions = question.options?.length ?? 4
         io.to(`host:${gameCode}`).emit('answer_received', {
@@ -1215,6 +1441,22 @@ app.prepare().then(async () => {
       }
       participant.score += points
 
+      // Audit log: persist every accepted answer immediately so scores are
+      // recoverable even if RAM state is lost (server restart, redeploy).
+      persistAnswer({
+        sessionDbId: session.dbId,
+        attendeeId: participant.attendeeId,
+        participantId: participant.participantId,
+        questionIndex: qi,
+        answer,
+        isCorrect,
+        basePoints,
+        streakBonus,
+        points,
+        timeMs: serverTimeMs,
+        confidence: confidence ?? 'unsure',
+      })
+
       socket.emit('answer_confirmed', {
         isCorrect,
         points,
@@ -1231,6 +1473,8 @@ app.prepare().then(async () => {
         total: session.participants.size,
         optionCounts: countAnswersByOption(session, qi, numOptions),
       })
+
+      console.log(`[submit_answer:accept] code=${gameCode} q=${qi} sid=${socket.id} pts=${points} correct=${isCorrect}`)
     })
 
     // ─── CLOCK SYNC HANDSHAKE ──────────────────────────────────────
@@ -1260,6 +1504,23 @@ app.prepare().then(async () => {
     socket.on('disconnect', () => {
       for (const [code, session] of sessions.entries()) {
         if (session.hostSocketId === socket.id) {
+          // Host disconnect grace: during lobby/active, give the host 5 minutes
+          // to reconnect before tearing down the session. Mobile/laptop tab churn
+          // and brief network blips were previously vaporising live games.
+          if (session.status === 'lobby' || session.status === 'active') {
+            session.hostDisconnectedAt = Date.now()
+            session.hostDisconnectedSocketId = socket.id
+            console.log(`[host] disconnected from ${code}, grace period 5min, status=${session.status}`)
+            setTimeout(() => {
+              const s = sessions.get(code)
+              if (s && s.hostSocketId === socket.id) {
+                io.to(`session:${code}`).emit('host_disconnected')
+                sessions.delete(code)
+                console.log(`[session] deleted (host never returned): ${code}`)
+              }
+            }, 5 * 60 * 1000)
+            continue
+          }
           io.to(`session:${code}`).emit('host_disconnected')
           sessions.delete(code)
           console.log(`[session] deleted (host left): ${code}`)
@@ -1268,18 +1529,24 @@ app.prepare().then(async () => {
         if (session.participants.has(socket.id)) {
           const participant = session.participants.get(socket.id)
           const name = participant.name
-          // Grace period: mark as disconnected, allow 30s to reconnect
+          // Grace period: mark as disconnected, allow 20 minutes to reconnect.
+          // Covers long lobbies, multi-hour presentations where phones may lock
+          // for 15+ minutes between polls, and noisy mobile networks. Cost is
+          // a few KB per orphaned participant — negligible.
           participant.disconnectedAt = Date.now()
           participant.disconnectedSocketId = socket.id
           if (!session.disconnectedParticipants) session.disconnectedParticipants = new Map()
           session.disconnectedParticipants.set(name.toLowerCase(), { socketId: socket.id, participant, gameCode: code })
-          console.log(`[participant] ${name} disconnected from ${code}, grace period 30s`)
-          // Remove after 30s if they haven't reconnected
+          console.log(`[participant] ${name} disconnected from ${code}, grace period 20min`)
           setTimeout(() => {
             const entry = session.disconnectedParticipants?.get(name.toLowerCase())
             if (entry && entry.socketId === socket.id) {
               session.disconnectedParticipants.delete(name.toLowerCase())
               session.participants.delete(socket.id)
+              // Note: deliberately do NOT delete from session.participantsById.
+              // If the user reopens the tab any time before session end, their
+              // participantId in localStorage still maps back to this entry —
+              // identity (and score) survives across grace expiry.
               if (participant.attendeeId) {
                 updateAttendeeOnLeave(participant.attendeeId, participant.joinedAt).catch(console.error)
               }
@@ -1288,9 +1555,9 @@ app.prepare().then(async () => {
               } else {
                 io.to(`host:${code}`).emit('participant_left', { name, count: session.participants.size })
               }
-              console.log(`[participant] ${name} removed from ${code} after grace period`)
+              console.log(`[participant] ${name} removed from ${code} after grace period (participantsById retained)`)
             }
-          }, 30000)
+          }, 20 * 60 * 1000)
         }
       }
       console.log(`[socket] disconnected: ${socket.id}`)
