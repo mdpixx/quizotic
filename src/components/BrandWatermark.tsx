@@ -14,12 +14,14 @@ export function BrandWatermark({ placement }: Props) {
   // Participant: non-clickable mark pinned to the top so accidental taps
   // don't leave the session. Host: interactive pill at bottom-right (unchanged).
   if (!isHost) {
+    // Placed below the participant header row (slide title + "X / Y") so it
+    // never overlaps. Non-clickable brand-yellow pill with "Quizotic" in white.
     return (
       <div
         aria-hidden
         style={{
           position: 'fixed',
-          top: 'calc(env(safe-area-inset-top, 0px) + 8px)',
+          top: 'calc(env(safe-area-inset-top, 0px) + 44px)',
           left: 0,
           right: 0,
           display: 'flex',
@@ -33,18 +35,20 @@ export function BrandWatermark({ placement }: Props) {
             pointerEvents: 'none',
             display: 'inline-flex',
             alignItems: 'center',
-            gap: 6,
-            padding: '3px 10px',
+            justifyContent: 'center',
+            padding: '3px 12px',
             borderRadius: 9999,
-            background: 'rgba(255,255,255,0.12)',
-            border: '1px solid rgba(255,255,255,0.18)',
-            opacity: 0.7,
-            backdropFilter: 'blur(4px)',
-            WebkitBackdropFilter: 'blur(4px)',
+            background: '#F5E642',
             whiteSpace: 'nowrap',
+            fontFamily: 'var(--font-heading)',
+            fontWeight: 900,
+            fontSize: 11,
+            letterSpacing: 0.3,
+            color: '#FFFFFF',
+            lineHeight: 1,
           }}
         >
-          <QuizoticLogo variant="onDark" className="text-xs" />
+          Quizotic
         </div>
       </div>
     )
