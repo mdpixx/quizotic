@@ -154,13 +154,14 @@ export function EnhanceWithAI({ presentation, onComplete, onCancel }: EnhanceWit
 
   useEffect(() => {
     let cancelled = false
-    fetch('/api/enhance-presentation/usage')
+    fetch('/api/user/ai-usage')
       .then(r => r.ok ? r.json() : null)
       .then(d => {
-        if (cancelled || !d?.success) return
+        if (cancelled || !d?.enhancements) return
         // JSON serializes Infinity → null; restore it
-        const limit = (d.limit === null || d.limit === undefined) ? Infinity : d.limit
-        setUsageInfo({ used: d.used, limit })
+        const raw = d.enhancements.limit
+        const limit = (raw === null || raw === undefined) ? Infinity : raw
+        setUsageInfo({ used: d.enhancements.used, limit })
       })
       .catch(() => { /* non-fatal */ })
     return () => { cancelled = true }

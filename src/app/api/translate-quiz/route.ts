@@ -4,10 +4,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import type { Question } from '@/lib/quiz-types'
 import { getCurrentUser } from '@/lib/auth-helpers'
-import { prisma } from '@/lib/prisma'
-import { getUserPlan, getReferralBonusCredits } from '@/lib/billing'
-import { PLAN_LIMITS } from '@/lib/limits'
 import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
+import { checkAiQuota, logAiUsage } from '@/lib/ai-quota'
 
 const client = new OpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
@@ -36,29 +34,11 @@ export async function POST(req: NextRequest) {
   })
   if (!rl.ok) return rateLimitResponse(rl)
 
-  // AI rate limiting — proportional (count questions, not calls)
-  const startOfMonth = new Date()
-  startOfMonth.setDate(1)
-  startOfMonth.setHours(0, 0, 0, 0)
-
-  const [plan, usageLogs] = await Promise.all([
-    getUserPlan(user.id),
-    prisma.usageLog.findMany({
-      where: { userId: user.id, action: { in: ['ai_generate', 'ai_translate'] }, createdAt: { gte: startOfMonth } },
-      select: { metadata: true },
-    }),
-  ])
-
-  const questionsUsed = usageLogs.reduce((sum, log) => {
-    const meta = log.metadata as Record<string, unknown> | null
-    return sum + (typeof meta?.questionCount === 'number' ? meta.questionCount : 5)
-  }, 0)
-
-  const bonusCredits = await getReferralBonusCredits(user.id)
-  const limit = PLAN_LIMITS[plan].maxAiQuestions + bonusCredits
-  if (questionsUsed >= limit) {
+  // AI quota — proportional (count questions, not calls)
+  const quota = await checkAiQuota(user.id, 'ai_translate', 1)
+  if (!quota.allowed) {
     return NextResponse.json({
-      error: `You've used all ${limit} AI question credits this month (${questionsUsed}/${limit}). Email info@quizotic.live if you need more — we review every request. Limit resets next month.`,
+      error: `You've used all ${quota.limit} AI question credits this month (${quota.used}/${quota.limit}). Email info@quizotic.live if you need more — we review every request. Limit resets next month.`,
     }, { status: 429 })
   }
 
@@ -102,10 +82,7 @@ ${JSON.stringify(translatable)}`,
       options: translated[i]?.options ?? q.options,
     }))
 
-    // Log usage
-    await prisma.usageLog.create({
-      data: { userId: user.id, action: 'ai_translate', metadata: { model: MODEL, questionCount: questions.length } },
-    }).catch(err => console.error('[usage-log] failed to record:', err.message))
+    await logAiUsage(user.id, 'ai_translate', { model: MODEL, questionCount: questions.length })
 
     return NextResponse.json(merged)
   } catch (err) {

@@ -15,10 +15,49 @@ interface BillingStatus {
   } | null
 }
 
-interface AiUsage {
+interface BucketUsage {
   used: number
   limit: number
+  bonusCredits?: number
+}
+
+interface AiUsage {
   plan: string
+  questions: BucketUsage
+  enhancements: BucketUsage
+}
+
+function normaliseLimit(v: number | null | undefined): number {
+  return v === null || v === undefined ? Infinity : v
+}
+
+function UsageMeter({ label, used, limit, bonusCredits }: { label: string; used: number; limit: number; bonusCredits?: number }) {
+  const unlimited = limit === Infinity
+  const pct = unlimited ? 0 : Math.min((used / limit) * 100, 100)
+  const exhausted = !unlimited && used >= limit
+  const warning = !unlimited && !exhausted && used >= limit * 0.8
+  const barColor = exhausted ? '#EF4444' : warning ? '#F59E0B' : '#0F1B3D'
+  const numberColor = exhausted ? '#EF4444' : '#0F1B3D'
+
+  return (
+    <div className="sm:text-right">
+      <p className="text-sm font-bold mb-1" style={{ color: '#374151' }}>{label}</p>
+      <p className="text-3xl font-black" style={{ color: numberColor }}>
+        {used}
+        <span className="text-base font-semibold" style={{ color: '#6B7280' }}>
+          {' / '}{unlimited ? 'Unlimited' : limit}
+        </span>
+      </p>
+      {!unlimited && (
+        <div className="w-40 h-2.5 rounded-full mt-2" style={{ background: '#E2E8F0' }}>
+          <div className="h-2.5 rounded-full transition-all" style={{ width: `${pct}%`, background: barColor }} />
+        </div>
+      )}
+      {bonusCredits && bonusCredits > 0 && (
+        <p className="text-xs mt-1" style={{ color: '#16A34A' }}>+{bonusCredits} referral bonus</p>
+      )}
+    </div>
+  )
 }
 
 export default function BillingPage() {
@@ -32,7 +71,20 @@ export default function BillingPage() {
       fetch('/api/user/ai-usage').then(r => r.json()),
     ]).then(([statusRes, usageRes]) => {
       if (statusRes.plan) setBilling({ plan: statusRes.plan, subscription: statusRes.subscription })
-      if (usageRes.used !== undefined) setAiUsage(usageRes)
+      if (usageRes?.questions && usageRes?.enhancements) {
+        setAiUsage({
+          plan: usageRes.plan,
+          questions: {
+            used: usageRes.questions.used,
+            limit: normaliseLimit(usageRes.questions.limit),
+            bonusCredits: usageRes.questions.bonusCredits,
+          },
+          enhancements: {
+            used: usageRes.enhancements.used,
+            limit: normaliseLimit(usageRes.enhancements.limit),
+          },
+        })
+      }
       setLoading(false)
     })
   }, [])
@@ -56,6 +108,7 @@ export default function BillingPage() {
     { label: 'Saved quizzes', value: `${f.maxSavedQuizzes} quizzes` },
     { label: 'Saved presentations', value: `${f.maxSavedPresentations} presentations` },
     { label: 'AI-generated questions / month', value: `${f.maxAiQuestions} questions` },
+    { label: 'AI-enhanced slides / month', value: `${f.maxAiEnhancements} enhancements` },
     { label: 'Session history', value: `Last ${f.maxSessionHistory} sessions` },
     { label: 'Image uploads / month', value: `${f.maxImageUploads} images` },
   ]
@@ -102,26 +155,11 @@ export default function BillingPage() {
               )}
             </div>
 
-            {/* Usage meter */}
+            {/* Usage meters */}
             {aiUsage && (
-              <div className="sm:text-right flex-shrink-0">
-                <p className="text-sm font-bold mb-1" style={{ color: '#374151' }}>AI Questions This Month</p>
-                <p className="text-3xl font-black" style={{ color: aiUsage.used >= aiUsage.limit ? '#EF4444' : '#0F1B3D' }}>
-                  {aiUsage.used}<span className="text-base font-semibold" style={{ color: '#6B7280' }}> / {aiUsage.limit}</span>
-                </p>
-                <div className="w-40 h-2.5 rounded-full mt-2" style={{ background: '#E2E8F0' }}>
-                  <div
-                    className="h-2.5 rounded-full transition-all"
-                    style={{
-                      width: `${Math.min((aiUsage.used / aiUsage.limit) * 100, 100)}%`,
-                      background: aiUsage.used >= aiUsage.limit
-                        ? '#EF4444'
-                        : aiUsage.used >= aiUsage.limit * 0.8
-                          ? '#F59E0B'
-                          : '#0F1B3D',
-                    }}
-                  />
-                </div>
+              <div className="flex-shrink-0 flex flex-col gap-4 sm:items-end">
+                <UsageMeter label="AI Questions This Month" used={aiUsage.questions.used} limit={aiUsage.questions.limit} bonusCredits={aiUsage.questions.bonusCredits} />
+                <UsageMeter label="AI Enhancements This Month" used={aiUsage.enhancements.used} limit={aiUsage.enhancements.limit} />
               </div>
             )}
           </div>

@@ -3,10 +3,8 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { getCurrentUser } from '@/lib/auth-helpers'
-import { prisma } from '@/lib/prisma'
-import { getUserPlan } from '@/lib/billing'
-import { PLAN_LIMITS } from '@/lib/limits'
 import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
+import { checkAiQuota, logAiUsage } from '@/lib/ai-quota'
 
 const client = new OpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
@@ -348,28 +346,13 @@ export async function POST(req: NextRequest) {
   })
   if (!rl.ok) return rateLimitResponse(rl)
 
-  // Rate limit check
-  const plan = await getUserPlan(user.id)
-  const limit = PLAN_LIMITS[plan].maxAiEnhancements
-  if (limit !== undefined && limit !== Infinity) {
-    const startOfMonth = new Date()
-    startOfMonth.setDate(1)
-    startOfMonth.setHours(0, 0, 0, 0)
-
-    const usageCount = await prisma.usageLog.count({
-      where: {
-        userId: user.id,
-        action: 'ai_enhance',
-        createdAt: { gte: startOfMonth },
-      },
-    })
-
-    if (usageCount >= limit) {
-      return NextResponse.json(
-        { success: false, error: `AI enhancement limit reached (${limit}/month). Email info@quizotic.live if you need more — we review every request.`, usage: { used: usageCount, limit } },
-        { status: 429 }
-      )
-    }
+  // AI enhancement quota — 1 row per call
+  const quota = await checkAiQuota(user.id, 'ai_enhance', 1)
+  if (!quota.allowed) {
+    return NextResponse.json(
+      { success: false, error: `AI enhancement limit reached (${quota.limit}/month). Email info@quizotic.live if you need more — we review every request.`, usage: { used: quota.used, limit: quota.limit } },
+      { status: 429 }
+    )
   }
 
   // Parse request
@@ -475,27 +458,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Log usage
-    await prisma.usageLog.create({
-      data: {
-        userId: user.id,
-        action: 'ai_enhance',
-        metadata: { slideCount: suggestions.length, level },
-      },
-    })
+    await logAiUsage(user.id, 'ai_enhance', { slideCount: suggestions.length, level })
 
-    // Get updated usage count
-    const startOfMonth = new Date()
-    startOfMonth.setDate(1)
-    startOfMonth.setHours(0, 0, 0, 0)
-    const totalUsed = await prisma.usageLog.count({
-      where: { userId: user.id, action: 'ai_enhance', createdAt: { gte: startOfMonth } },
-    })
-
+    const post = await checkAiQuota(user.id, 'ai_enhance', 0)
     return NextResponse.json({
       success: true,
       suggestions,
-      usage: { used: totalUsed, limit: PLAN_LIMITS[plan].maxAiEnhancements ?? Infinity },
+      usage: { used: post.used, limit: post.limit },
     })
   } catch (err) {
     console.error('AI enhance error:', err)

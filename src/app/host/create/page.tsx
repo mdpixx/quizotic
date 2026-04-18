@@ -690,11 +690,13 @@ function CreateQuizPageInner() {
 
   // AI usage / rate limit
   const [aiUsage, setAiUsage] = useState<{ used: number; limit: number; plan: string } | null>(null)
-  useEffect(() => {
+  const refreshAiUsage = useCallback(() => {
     fetch('/api/user/ai-usage').then(r => r.json()).then(d => {
-      if (d.used !== undefined) setAiUsage(d)
+      if (d.used !== undefined) setAiUsage({ used: d.used, limit: d.limit, plan: d.plan })
     }).catch(() => {})
   }, [])
+  useEffect(() => { refreshAiUsage() }, [refreshAiUsage])
+  const aiLimitReached = aiUsage !== null && aiUsage.used >= aiUsage.limit
 
   // Shared AI settings
   const [aiCount, setAiCount] = useState(5)
@@ -989,7 +991,7 @@ function CreateQuizPageInner() {
 
       const generated = applyGeneratedQuestions(data, tab)
 
-      setAiUsage(prev => prev ? { ...prev, used: prev.used + 1 } : prev)
+      refreshAiUsage()
 
       if (quizLanguage !== 'English') {
         setTranslating(true)
@@ -1003,6 +1005,7 @@ function CreateQuizPageInner() {
           if (tRes.ok) {
             setQuestions(tData)
             setTranslatedTo(quizLanguage)
+            refreshAiUsage()
           }
         } catch { /* translation failed silently */ }
         finally { setTranslating(false) }
@@ -1067,7 +1070,7 @@ function CreateQuizPageInner() {
 
       setQuestions(merged)
       setSelectedQuestions(new Set(merged.map(q => q.id)))
-      setAiUsage(prev => prev ? { ...prev, used: prev.used + 1 } : prev)
+      refreshAiUsage()
 
       if (translatedTo && translatedTo !== 'English') {
         setTranslating(true)
@@ -1078,7 +1081,10 @@ function CreateQuizPageInner() {
             body: JSON.stringify({ questions: merged, targetLanguage: translatedTo }),
           })
           const tData = await tRes.json()
-          if (tRes.ok) setQuestions(tData)
+          if (tRes.ok) {
+            setQuestions(tData)
+            refreshAiUsage()
+          }
         } catch {}
         finally { setTranslating(false) }
       }
@@ -1105,6 +1111,7 @@ function CreateQuizPageInner() {
       if (!res.ok) { setAiGenError(data.error ?? 'Translation failed'); return }
       setQuestions(data)
       setTranslatedTo(quizLanguage)
+      refreshAiUsage()
     } catch {
       setAiGenError('Network error. Try again.')
     } finally {
@@ -1672,12 +1679,15 @@ function CreateQuizPageInner() {
               {!generatedOnTab && (
                 <button
                   onClick={handleGenerate}
-                  disabled={aiGenerating || !typeMixValid}
+                  disabled={aiGenerating || !typeMixValid || aiLimitReached}
+                  title={aiLimitReached ? 'Monthly AI limit reached. Resets on the 1st.' : undefined}
                   className="w-full py-4 font-bold rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2"
                   style={{ background: '#F5E642', color: '#0D0D0D' }}
                 >
                   {aiGenerating && <svg className="animate-spin w-4 h-4" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" opacity="0.3"/><path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>}
-                  {aiGenerating ? 'Generating...' : translating ? 'Translating...' : `Generate ${aiCount} Questions`}
+                  {aiLimitReached
+                    ? 'Monthly AI limit reached'
+                    : aiGenerating ? 'Generating...' : translating ? 'Translating...' : `Generate ${aiCount} Questions`}
                 </button>
               )}
 
