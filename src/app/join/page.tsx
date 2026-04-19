@@ -7,7 +7,7 @@ import dynamic from 'next/dynamic'
 import { Avatar } from '@/components/Avatar'
 import { BrandWatermark } from '@/components/BrandWatermark'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
-import { playTick, playCorrect, playWrong, playStreak, playCelebration } from '@/lib/sounds'
+import { playTick, playCorrect, playWrong, playStreak } from '@/lib/sounds'
 import { useI18n } from '@/lib/use-i18n'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
@@ -776,9 +776,8 @@ function JoinPageInner() {
       const rank = leaderboard.findIndex(e => e.name === displayNameRef.current) + 1
       setMyRank(rank)
       setPhase('ended')
-      playCelebration()
-      setShowConfetti(true)
-      setTimeout(() => setShowConfetti(false), 4000)
+      // Podium now owns the full reveal sequence: staggered 3rd→2nd→1st, drumroll,
+      // layered cheer + fanfare + bass boom, and a full-screen canvas-confetti burst.
       // Clear durable identity for this game code so a fresh re-join starts clean.
       if (gameCodeRef.current) clearParticipantId(gameCodeRef.current)
       participantIdRef.current = ''
@@ -1707,29 +1706,6 @@ function JoinPageInner() {
   if (phase === 'ended') {
     return (
       <div className="min-h-screen p-4 max-w-md mx-auto relative">
-        {/* Celebration confetti */}
-        {showConfetti && (
-          <div className="fixed inset-0 pointer-events-none z-50">
-            {Array.from({ length: 60 }).map((_, i) => (
-              <div key={i} className="absolute rounded-sm" style={{
-                width: i % 3 === 0 ? 10 : 6,
-                height: i % 3 === 0 ? 10 : 6,
-                left: `${5 + Math.random() * 90}%`,
-                top: '-5%',
-                background: ['#0F1B3D', '#F5E642', '#FF8A47', '#16A34A', '#2D3A8C', '#5BC0EB', '#E07A5F', '#DC2626'][i % 8],
-                animation: `confettiRain ${1.5 + Math.random() * 2}s ease-in ${Math.random() * 0.5}s forwards`,
-                transform: `rotate(${Math.random() * 360}deg)`,
-              }} />
-            ))}
-            <style>{`
-              @keyframes confettiRain {
-                0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-                80% { opacity: 1; }
-                100% { transform: translateY(100vh) rotate(${360 + Math.random() * 360}deg); opacity: 0; }
-              }
-            `}</style>
-          </div>
-        )}
         <h2 className="text-4xl font-black mb-6 text-center" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Quiz Over!</h2>
 
         {/* Team leaderboard */}

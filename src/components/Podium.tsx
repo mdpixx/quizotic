@@ -1,7 +1,17 @@
 'use client'
 
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Avatar } from './Avatar'
+import {
+  playBassBoom,
+  playCelebration,
+  playCheer,
+  playCorrect,
+  playDrumroll,
+  preloadCelebrationSounds,
+  stopCheer,
+  stopDrumroll,
+} from '@/lib/sounds'
 
 interface PodiumEntry {
   name: string
@@ -13,12 +23,28 @@ interface PodiumProps {
   leaderboard: PodiumEntry[]
   sessionMode: string
   highlightName?: string
+  // When true, start in the final 'rest' state with no reveal animation or
+  // sound. Used for the inline copy on the post-quiz report, once the
+  // CelebrationOverlay has already played the dramatic reveal.
+  skipIntro?: boolean
 }
 
+type Phase = 'idle' | 'third' | 'second' | 'drumroll' | 'winner' | 'rest'
+
+const PHASE_TIMINGS: Array<{ at: number; next: Phase }> = [
+  { at: 400, next: 'third' },
+  { at: 1500, next: 'second' },
+  { at: 2800, next: 'drumroll' },
+  { at: 4300, next: 'winner' },
+  { at: 6300, next: 'rest' },
+]
+
+const CONFETTI_COLORS = ['#0F1B3D', '#F5E642', '#FF8A47', '#16A34A', '#2D3A8C', '#FFFFFF']
+
 const PODIUM_CONFIG = [
-  { place: 2, height: 140, color: '#C0C0C0', label: '2nd', delay: '0.3s' },
-  { place: 1, height: 180, color: '#F5E642', label: '1st', delay: '0.6s' },
-  { place: 3, height: 100, color: '#CD7F32', label: '3rd', delay: '0s' },
+  { place: 2, height: 140, color: '#C0C0C0', label: '2nd' },
+  { place: 1, height: 180, color: '#F5E642', label: '1st' },
+  { place: 3, height: 100, color: '#CD7F32', label: '3rd' },
 ]
 
 function subscribeReducedMotion(cb: () => void) {
@@ -35,23 +61,90 @@ function usePrefersReducedMotion(): boolean {
   return useSyncExternalStore(subscribeReducedMotion, getReducedMotion, () => false)
 }
 
-export function Podium({ leaderboard, sessionMode, highlightName }: PodiumProps) {
+// Fire a dramatic full-screen confetti burst. Library is dynamically imported
+// so it's not in the initial participant bundle.
+async function fireConfetti() {
+  try {
+    const mod = await import('canvas-confetti')
+    const confetti = mod.default
+    const defaults = { colors: CONFETTI_COLORS, disableForReducedMotion: true }
+    // Wide center burst
+    confetti({ ...defaults, particleCount: 120, spread: 100, startVelocity: 55, origin: { y: 0.6 } })
+    // Left & right side cannons
+    setTimeout(() => {
+      confetti({ ...defaults, particleCount: 80, angle: 60, spread: 70, origin: { x: 0, y: 0.75 } })
+      confetti({ ...defaults, particleCount: 80, angle: 120, spread: 70, origin: { x: 1, y: 0.75 } })
+    }, 200)
+    // Rain follow-up
+    setTimeout(() => {
+      confetti({ ...defaults, particleCount: 60, spread: 180, startVelocity: 35, scalar: 0.9, origin: { y: 0.3 } })
+    }, 600)
+  } catch {
+    // canvas-confetti not installed or failed — silently skip visual burst
+  }
+}
+
+export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = false }: PodiumProps) {
   const reduced = usePrefersReducedMotion()
-  const [rawPhase, setPhase] = useState<'bars' | 'confetti' | 'rest'>('bars')
-  // Derived: reduced-motion users always see the final 'rest' state.
-  const phase: 'bars' | 'confetti' | 'rest' = reduced ? 'rest' : rawPhase
+  const [rawPhase, setPhase] = useState<Phase>(skipIntro ? 'rest' : 'idle')
+  const phase: Phase = reduced || skipIntro ? 'rest' : rawPhase
   const isCompetitive = sessionMode === 'competitive'
   const top3 = leaderboard.slice(0, 3)
   const rest = leaderboard.slice(3)
+  const firedWinnerEffects = useRef(false)
 
+  // Preload MP3s as soon as the podium mounts so there's no delay on reveal.
   useEffect(() => {
-    if (reduced) return
-    const t1 = setTimeout(() => setPhase('confetti'), 2000)
-    const t2 = setTimeout(() => setPhase('rest'), 3000)
-    return () => { clearTimeout(t1); clearTimeout(t2) }
-  }, [reduced])
+    preloadCelebrationSounds()
+  }, [])
 
-  const skip = () => setPhase('rest')
+  // Schedule the reveal sequence. Reduced motion skips straight to rest and
+  // plays a single fanfare — no drumroll, cheer, or shake. When skipIntro is
+  // set we render directly in rest state with no sounds (already played
+  // upstream, e.g. in CelebrationOverlay).
+  useEffect(() => {
+    if (skipIntro) return
+    if (reduced) {
+      playCelebration()
+      return
+    }
+
+    const timers: ReturnType<typeof setTimeout>[] = []
+    PHASE_TIMINGS.forEach(({ at, next }) => {
+      timers.push(setTimeout(() => setPhase(next), at))
+    })
+
+    // Phase-aligned sound cues
+    timers.push(setTimeout(() => playCorrect(), PHASE_TIMINGS[0].at)) // 3rd reveal chime
+    timers.push(setTimeout(() => playCorrect(), PHASE_TIMINGS[1].at)) // 2nd reveal chime
+    timers.push(setTimeout(() => playDrumroll(), PHASE_TIMINGS[2].at)) // drumroll starts
+    timers.push(setTimeout(() => {
+      if (firedWinnerEffects.current) return
+      firedWinnerEffects.current = true
+      stopDrumroll()
+      playBassBoom()
+      playCheer()
+      playCelebration()
+      fireConfetti()
+    }, PHASE_TIMINGS[3].at))
+
+    return () => {
+      timers.forEach(clearTimeout)
+      stopDrumroll()
+      stopCheer()
+    }
+  }, [reduced, skipIntro])
+
+  const skip = () => {
+    stopDrumroll()
+    stopCheer()
+    if (!firedWinnerEffects.current && !reduced) {
+      firedWinnerEffects.current = true
+      playCelebration()
+      fireConfetti()
+    }
+    setPhase('rest')
+  }
 
   // Reorder for display: [2nd, 1st, 3rd]
   const ordered = top3.length >= 3
@@ -66,9 +159,22 @@ export function Podium({ leaderboard, sessionMode, highlightName }: PodiumProps)
       ? [PODIUM_CONFIG[0], PODIUM_CONFIG[1]]
       : [PODIUM_CONFIG[1]]
 
+  // Which places have been revealed yet?
+  const placeIsVisible = (place: number): boolean => {
+    if (phase === 'rest' || phase === 'winner') return true
+    if (phase === 'drumroll' || phase === 'second') return place === 2 || place === 3
+    if (phase === 'third') return place === 3
+    return false
+  }
+
+  const shake = phase === 'winner' && !reduced
+
   return (
-    <div className="space-y-6 relative">
-      {/* Skip intro animation — visible during bars/confetti phases only */}
+    <div
+      className="space-y-6 relative"
+      style={shake ? { animation: 'podiumShake 0.45s ease-in-out 1' } : undefined}
+    >
+      {/* Skip intro animation — visible during every phase except rest */}
       {phase !== 'rest' && (
         <button
           type="button"
@@ -80,29 +186,77 @@ export function Podium({ leaderboard, sessionMode, highlightName }: PodiumProps)
           Skip →
         </button>
       )}
+
       {/* Podium */}
-      <div className="flex items-end justify-center gap-3 relative" style={{ minHeight: 280 }}>
+      <div className="flex items-end justify-center gap-3 relative" style={{ minHeight: 300 }}>
         {ordered.map((entry, i) => {
           if (!entry) return null
           const cfg = configForCount[i]
           const isWinner = cfg.place === 1
           const isHighlighted = highlightName && entry.name === highlightName
+          const visible = placeIsVisible(cfg.place)
+          const winnerRevealed = isWinner && (phase === 'winner' || phase === 'rest')
+          const winnerPending = isWinner && phase === 'drumroll'
 
           return (
-            <div key={entry.name} className="flex flex-col items-center gap-2 relative" style={{ width: top3.length === 1 ? 160 : 120 }}>
+            <div
+              key={entry.name}
+              className="flex flex-col items-center gap-2 relative"
+              style={{ width: top3.length === 1 ? 160 : 120 }}
+            >
+              {/* Spotlight halo behind winner — pulses during drumroll, flares on reveal */}
+              {isWinner && !reduced && (phase === 'drumroll' || phase === 'winner' || phase === 'rest') && (
+                <div
+                  aria-hidden
+                  className="absolute left-1/2 -translate-x-1/2 pointer-events-none rounded-full"
+                  style={{
+                    bottom: 0,
+                    width: 240,
+                    height: 240,
+                    background: 'radial-gradient(circle, rgba(245,230,66,0.55) 0%, rgba(245,230,66,0) 70%)',
+                    animation: winnerPending
+                      ? 'spotlightPulse 0.9s ease-in-out infinite'
+                      : winnerRevealed
+                        ? 'spotlightFlare 0.8s ease-out forwards'
+                        : undefined,
+                    zIndex: 0,
+                  }}
+                />
+              )}
+
               {/* Crown for winner */}
-              {isWinner && phase !== 'bars' && (
-                <div style={{ animation: 'crownBounce 0.6s ease-out forwards', fontSize: '2rem' }}>
+              {isWinner && winnerRevealed && (
+                <div style={{ animation: 'crownBounce 0.6s ease-out forwards', fontSize: '2.25rem', zIndex: 2 }}>
                   👑
+                </div>
+              )}
+              {/* Placeholder mystery mark while drumroll builds suspense */}
+              {isWinner && winnerPending && (
+                <div style={{ fontSize: '2rem', color: 'rgba(30,27,75,0.35)', animation: 'mysteryBlink 0.7s ease-in-out infinite', zIndex: 2 }}>
+                  ?
                 </div>
               )}
 
               {/* Avatar + name */}
-              <div className="flex flex-col items-center gap-1" style={{
-                animation: `fadeSlideUp 0.5s ease-out ${cfg.delay} both`,
-              }}>
-                <div className={`rounded-full overflow-hidden ${isHighlighted ? 'ring-3' : ''}`} style={isHighlighted ? { '--tw-ring-color': '#F5E642' } as React.CSSProperties : undefined}>
-                  <Avatar archetype={entry.archetype ?? entry.name} size={isWinner ? 64 : 52} />
+              <div
+                className="flex flex-col items-center gap-1 relative"
+                style={{
+                  zIndex: 1,
+                  opacity: visible ? 1 : 0,
+                  animation: visible
+                    ? isWinner && winnerRevealed && !reduced
+                      ? 'winnerSlam 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both'
+                      : !reduced
+                        ? 'fadeSlideUp 0.5s ease-out both'
+                        : undefined
+                    : undefined,
+                }}
+              >
+                <div
+                  className={`rounded-full overflow-hidden ${isHighlighted ? 'ring-3' : ''}`}
+                  style={isHighlighted ? ({ '--tw-ring-color': '#F5E642' } as React.CSSProperties) : undefined}
+                >
+                  <Avatar archetype={entry.archetype ?? entry.name} size={isWinner ? 72 : 52} />
                 </div>
                 <div className="flex flex-col items-center w-full">
                   <span className="text-sm font-bold text-center truncate w-full" style={{ color: '#1E1B4B' }}>
@@ -113,40 +267,32 @@ export function Podium({ leaderboard, sessionMode, highlightName }: PodiumProps)
                   )}
                 </div>
                 {isCompetitive && (
-                  <p className="text-xs font-black tabular-nums" style={{ color: cfg.color === '#F5E642' ? '#92400E' : '#6B7280' }}>
+                  <p
+                    className="text-xs font-black tabular-nums"
+                    style={{ color: cfg.color === '#F5E642' ? '#92400E' : '#6B7280' }}
+                  >
                     {entry.score.toLocaleString()} pts
                   </p>
                 )}
               </div>
 
-              {/* Bar */}
-              <div className="w-full rounded-t-xl flex items-end justify-center pb-2 relative overflow-hidden"
+              {/* Bar — grows once its place becomes visible */}
+              <div
+                className="w-full rounded-t-xl flex items-end justify-center pb-2 relative overflow-hidden"
                 style={{
-                  height: 0,
+                  height: visible ? (reduced ? cfg.height : 0) : 0,
                   background: cfg.color,
-                  animation: `growBar 0.8s ease-out ${cfg.delay} forwards`,
+                  animation: visible && !reduced ? 'growBar 0.8s ease-out forwards' : undefined,
+                  boxShadow: winnerRevealed ? '0 0 24px rgba(245,230,66,0.7)' : undefined,
+                  zIndex: 1,
                   // @ts-expect-error CSS custom property
                   '--bar-height': `${cfg.height}px`,
-                }}>
+                }}
+              >
                 <span className="text-2xl font-black" style={{ color: 'rgba(0,0,0,0.25)' }}>
                   {cfg.label}
                 </span>
               </div>
-
-              {/* Winner confetti */}
-              {isWinner && phase !== 'bars' && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 pointer-events-none" style={{ width: 200, height: 200 }}>
-                  {Array.from({ length: 24 }).map((_, j) => (
-                    <div key={j} className="absolute w-2 h-2 rounded-sm"
-                      style={{
-                        left: `${20 + Math.random() * 60}%`,
-                        top: '50%',
-                        background: ['#0F1B3D', '#F5E642', '#FF8A47', '#16A34A', '#2D3A8C'][j % 5],
-                        animation: `podiumConfetti ${0.8 + Math.random() * 0.6}s ease-out ${Math.random() * 0.3}s forwards`,
-                      }} />
-                  ))}
-                </div>
-              )}
             </div>
           )
         })}
@@ -154,22 +300,33 @@ export function Podium({ leaderboard, sessionMode, highlightName }: PodiumProps)
 
       {/* Rest of leaderboard */}
       {rest.length > 0 && (
-        <div className="space-y-2" style={{
-          opacity: phase === 'rest' ? 1 : 0,
-          transform: phase === 'rest' ? 'translateY(0)' : 'translateY(16px)',
-          transition: 'all 0.5s ease-out',
-        }}>
+        <div
+          className="space-y-2"
+          style={{
+            opacity: phase === 'rest' ? 1 : 0,
+            transform: phase === 'rest' ? 'translateY(0)' : 'translateY(16px)',
+            transition: 'all 0.5s ease-out',
+          }}
+        >
           {rest.map((entry, i) => {
             const isHighlighted = highlightName && entry.name === highlightName
             return (
-              <div key={entry.name}
+              <div
+                key={entry.name}
                 className={`flex items-center gap-3 rounded-xl p-3 ${isHighlighted ? 'ring-2' : ''}`}
-                style={{ background: '#fff', border: '1px solid #E5E7EB', ...(isHighlighted ? { '--tw-ring-color': '#F5E642' } : {}) } as React.CSSProperties}>
+                style={{
+                  background: '#fff',
+                  border: '1px solid #E5E7EB',
+                  ...(isHighlighted ? { '--tw-ring-color': '#F5E642' } : {}),
+                } as React.CSSProperties}
+              >
                 <span className="text-sm font-black w-6 text-center" style={{ color: '#9CA3AF' }}>{i + 4}</span>
                 <Avatar archetype={entry.archetype ?? entry.name} size={36} />
                 <span className="flex-1 font-semibold text-sm" style={{ color: '#1E1B4B' }}>{entry.name}</span>
                 {isCompetitive && (
-                  <span className="text-sm font-bold tabular-nums" style={{ color: '#6B7280' }}>{entry.score.toLocaleString()}</span>
+                  <span className="text-sm font-bold tabular-nums" style={{ color: '#6B7280' }}>
+                    {entry.score.toLocaleString()}
+                  </span>
                 )}
               </div>
             )
@@ -187,13 +344,35 @@ export function Podium({ leaderboard, sessionMode, highlightName }: PodiumProps)
           60% { transform: scale(1.3) rotate(5deg); }
           100% { transform: scale(1) rotate(0deg); }
         }
-        @keyframes podiumConfetti {
-          0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-          100% { transform: translateY(-120px) rotate(720deg); opacity: 0; }
-        }
         @keyframes fadeSlideUp {
           0% { opacity: 0; transform: translateY(16px); }
           100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes winnerSlam {
+          0% { opacity: 0; transform: scale(0.2) translateY(-40px); }
+          60% { opacity: 1; transform: scale(1.25) translateY(4px); }
+          100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @keyframes spotlightPulse {
+          0%, 100% { opacity: 0.35; transform: translateX(-50%) scale(0.92); }
+          50% { opacity: 0.75; transform: translateX(-50%) scale(1.08); }
+        }
+        @keyframes spotlightFlare {
+          0% { opacity: 1; transform: translateX(-50%) scale(1.6); }
+          100% { opacity: 0.5; transform: translateX(-50%) scale(1); }
+        }
+        @keyframes mysteryBlink {
+          0%, 100% { opacity: 0.3; transform: scale(0.95); }
+          50% { opacity: 0.85; transform: scale(1.1); }
+        }
+        @keyframes podiumShake {
+          0%, 100% { transform: translateX(0); }
+          15% { transform: translateX(-8px); }
+          30% { transform: translateX(8px); }
+          45% { transform: translateX(-6px); }
+          60% { transform: translateX(6px); }
+          75% { transform: translateX(-3px); }
+          90% { transform: translateX(3px); }
         }
       `}</style>
     </div>

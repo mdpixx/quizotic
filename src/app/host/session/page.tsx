@@ -2,12 +2,18 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 
 import { io, Socket } from 'socket.io-client'
 import QRCode from 'react-qr-code'
 import { Avatar } from '@/components/Avatar'
 import { Podium } from '@/components/Podium'
 import { SessionReport } from '@/components/SessionReport'
+
+const CelebrationOverlay = dynamic(
+  () => import('@/components/CelebrationOverlay').then(m => m.CelebrationOverlay),
+  { ssr: false },
+)
 import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/quiz-storage'
 import type { Quiz, QuestionStat, SessionMode } from '@/lib/quiz-types'
 import { ReflectionInsights } from '@/components/ReflectionInsights'
@@ -139,6 +145,7 @@ export default function SessionPage() {
   const [answered, setAnswered] = useState(0)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [teamLeaderboard, setTeamLeaderboard] = useState<{ name: string; color: string; score: number; members: number }[] | null>(null)
+  const [showCelebration, setShowCelebration] = useState(false)
   const [followups, setFollowups] = useState<{ label: string; code: string }[]>([])
   const [followupLoading, setFollowupLoading] = useState(false)
   const [followupError, setFollowupError] = useState('')
@@ -330,6 +337,9 @@ export default function SessionPage() {
       setTeamLeaderboard(tlb ?? null)
       setQuestionStats(qs ?? [])
       setPhase('ended')
+      // Trigger the full-screen celebration overlay only when we actually have
+      // a competitive leaderboard to celebrate.
+      if (lb.length > 0 && sm === 'competitive') setShowCelebration(true)
       // Game over — invalidate the host resume token for this gameCode.
       if (gameCodeRef.current) clearHostResumeToken(gameCodeRef.current)
       hostResumeTokenRef.current = ''
@@ -1127,8 +1137,17 @@ export default function SessionPage() {
             </div>
           )}
 
-          {/* Animated Podium Leaderboard */}
-          <Podium leaderboard={leaderboard} sessionMode={sessionMode} />
+          {/* Animated Podium Leaderboard (static once the CelebrationOverlay has played) */}
+          <Podium leaderboard={leaderboard} sessionMode={sessionMode} skipIntro />
+
+          {showCelebration && leaderboard.length > 0 && (
+            <CelebrationOverlay
+              leaderboard={leaderboard}
+              sessionMode={sessionMode}
+              title={quiz?.title ? `${quiz.title} — Complete!` : 'Quiz Complete!'}
+              onDismiss={() => setShowCelebration(false)}
+            />
+          )}
 
           {/* Session Report */}
           <SessionReport

@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Quizotic · Dashboard (mockup v2)</title>
+
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Google Fonts: Grandstander (display), Space Grotesk (subhead), DM Sans (body) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Grandstander:wght@500;700;900&family=Space+Grotesk:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --navy: #0F1B3D;
+    --navy-2: #1B2A5E;
+    --yellow: #F5E642;
+    --yellow-warm: #F7D547;
+    --cream: #F8F5EC;
+    --ink: #0E1630;
+    --muted: #6B7794;
+    --line: #E6E2D4;
+    --rose: #E05A6F;
+    --sage: #7BB393;
+  }
+
+  html, body { background: var(--cream); color: var(--ink); font-family: 'DM Sans', sans-serif; }
+  .display { font-family: 'Grandstander', system-ui; letter-spacing: -0.02em; }
+  .head    { font-family: 'Space Grotesk', system-ui; letter-spacing: -0.01em; }
+
+  /* Paper grain — subtle, brand-aligned cream */
+  .paper-grain {
+    background-image:
+      radial-gradient(rgba(14,22,48,0.025) 1px, transparent 1px),
+      radial-gradient(rgba(14,22,48,0.02) 1px, transparent 1px);
+    background-size: 3px 3px, 7px 7px;
+    background-position: 0 0, 1px 2px;
+  }
+
+  /* Hero night gradient with subtle noise */
+  .night {
+    background:
+      radial-gradient(1200px 600px at 75% -10%, rgba(245,230,66,0.12), transparent 60%),
+      radial-gradient(900px 500px at 10% 110%, rgba(96,117,220,0.18), transparent 60%),
+      linear-gradient(135deg, #0F1B3D 0%, #182659 55%, #1F2E6C 100%);
+  }
+
+  /* Starfield */
+  .stars {
+    position: absolute; inset: 0; pointer-events: none; overflow: hidden; border-radius: inherit;
+  }
+  .star {
+    position: absolute; background: #fff; border-radius: 9999px; opacity: 0.8;
+    box-shadow: 0 0 6px rgba(255,255,255,0.9);
+    animation: twinkle var(--t, 3s) ease-in-out infinite;
+  }
+  .star.big { width: 3px; height: 3px; }
+  .star.med { width: 2px; height: 2px; opacity: 0.75; }
+  .star.sm  { width: 1px; height: 1px; opacity: 0.5; }
+  .star.yellow { background: #F5E642; box-shadow: 0 0 8px rgba(245,230,66,0.7); }
+
+  @keyframes twinkle {
+    0%, 100% { opacity: var(--o, 0.7); transform: scale(1); }
+    50% { opacity: 0.25; transform: scale(0.7); }
+  }
+
+  /* Constellation lines */
+  .constellation { position: absolute; inset: 0; opacity: 0.25; pointer-events: none; }
+
+  /* Staggered page load */
+  .rise { opacity: 0; transform: translateY(14px); animation: rise 0.7s cubic-bezier(.2,.7,.2,1) forwards; }
+  @keyframes rise { to { opacity: 1; transform: translateY(0); } }
+  .d1 { animation-delay: .05s } .d2 { animation-delay: .12s } .d3 { animation-delay: .2s }
+  .d4 { animation-delay: .28s } .d5 { animation-delay: .36s } .d6 { animation-delay: .44s }
+  .d7 { animation-delay: .52s } .d8 { animation-delay: .6s }
+
+  /* Bento card */
+  .card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    box-shadow: 0 1px 0 rgba(14,22,48,0.02), 0 10px 30px -18px rgba(14,22,48,0.18);
+    transition: transform .3s ease, box-shadow .3s ease, border-color .3s ease;
+  }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 1px 0 rgba(14,22,48,0.03), 0 20px 40px -18px rgba(14,22,48,0.25); border-color: #DFD9C7; }
+
+  /* Pill KPI */
+  .pill {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    transition: transform .25s ease;
+  }
+  .pill:hover { transform: translateY(-1px); }
+
+  /* Sparkline path animate */
+  .spark-path { stroke-dasharray: 200; stroke-dashoffset: 200; animation: draw 1.4s ease forwards; animation-delay: .5s; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+
+  /* Yellow dashed underline */
+  .u-dash { background-image: linear-gradient(90deg, var(--yellow) 50%, transparent 50%); background-size: 6px 2px; background-repeat: repeat-x; background-position: 0 100%; padding-bottom: 2px; }
+
+  /* Button primary */
+  .btn-primary {
+    background: var(--yellow); color: var(--navy); border: 1.5px solid var(--navy);
+    box-shadow: 3px 3px 0 var(--navy); transition: transform .1s ease, box-shadow .1s ease;
+    font-weight: 700;
+  }
+  .btn-primary:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--navy); }
+  .btn-primary:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--navy); }
+
+  .btn-ghost {
+    border: 1.5px solid var(--navy); color: var(--navy); background: transparent; font-weight: 600;
+    transition: background .15s ease;
+  }
+  .btn-ghost:hover { background: rgba(15,27,61,0.05); }
+
+  .btn-on-dark {
+    background: var(--yellow); color: var(--navy);
+    box-shadow: 0 0 0 3px rgba(245,230,66,0.18);
+    transition: transform .1s ease, box-shadow .2s ease;
+    font-weight: 700;
+  }
+  .btn-on-dark:hover { box-shadow: 0 0 0 6px rgba(245,230,66,0.25); transform: translateY(-1px); }
+
+  /* Ring chart */
+  .ring-bg { stroke: rgba(15,27,61,0.08); }
+  .ring-fg { stroke: var(--navy); stroke-linecap: round; transform: rotate(-90deg); transform-origin: center; transition: stroke-dashoffset 1s ease; }
+
+  /* Dot grid accent */
+  .dots-bg {
+    background-image: radial-gradient(rgba(15,27,61,0.12) 1px, transparent 1px);
+    background-size: 10px 10px;
+  }
+
+  /* Scrollbar minor */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #d7d1bf; border-radius: 8px; }
+
+  /* Focus ring */
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--yellow); outline-offset: 3px; border-radius: 8px; }
+
+  /* Session row */
+  .row { border-top: 1px dashed var(--line); }
+  .row:first-child { border-top: 0; }
+  .row:hover { background: #FBFAF3; }
+
+  /* Tiny indicator */
+  .live-dot { width: 8px; height: 8px; border-radius: 9999px; background: #16A34A; box-shadow: 0 0 0 3px rgba(22,163,74,0.18); animation: pulse-live 1.6s infinite; }
+  @keyframes pulse-live { 0% { box-shadow: 0 0 0 0 rgba(22,163,74,0.3); } 70% { box-shadow: 0 0 0 8px rgba(22,163,74,0); } }
+
+  /* Hardest-question callout */
+  .callout {
+    background: #fff;
+    border: 1.5px solid var(--navy);
+    border-radius: 22px;
+    box-shadow: 6px 6px 0 var(--navy);
+    position: relative;
+  }
+  .callout::before {
+    content: ""; position: absolute; top: -6px; left: 20px; width: 14px; height: 14px;
+    background: var(--rose); border-radius: 9999px; border: 2px solid var(--navy);
+  }
+
+  /* Diagonal accent stripe for cards */
+  .stripe-accent::after {
+    content: ""; position: absolute; right: -40px; top: -40px; width: 140px; height: 140px;
+    background: var(--yellow); border-radius: 9999px; opacity: 0.18; pointer-events: none;
+  }
+
+  /* Mockup-only: annotation tag for designer notes */
+  .annot { position: absolute; background: #0E1630; color: #F5E642; font-family: 'Space Grotesk', sans-serif; font-size: 10px; padding: 3px 7px; border-radius: 6px; letter-spacing: 0.06em; text-transform: uppercase; box-shadow: 2px 2px 0 rgba(245,230,66,0.4); }
+
+  /* Sidebar */
+  .side-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 12px; font-weight: 500; color: #C6CCDE; transition: all .15s ease; }
+  .side-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
+  .side-item.active { background: var(--yellow); color: var(--navy); font-weight: 700; }
+
+  /* Avatars */
+  .avatar {
+    width: 40px; height: 40px; border-radius: 9999px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; color: #fff; font-family: 'Space Grotesk', sans-serif;
+    box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--line);
+  }
+
+  /* Micro-bar for row score */
+  .bar { height: 4px; border-radius: 9999px; background: rgba(15,27,61,0.08); overflow: hidden; }
+  .bar > span { display: block; height: 100%; border-radius: 9999px; }
+
+  /* Orbit decoration */
+  .orbit {
+    position: absolute; width: 260px; height: 260px; border-radius: 9999px;
+    border: 1px dashed rgba(15,27,61,0.12); top: -110px; right: -70px; pointer-events: none;
+  }
+  .orbit::after {
+    content: ""; position: absolute; top: 20%; right: -4px; width: 8px; height: 8px; border-radius: 9999px; background: var(--navy);
+  }
+
+  /* Mobile spacing tweak */
+  @media (max-width: 640px) {
+    .hero-pad { padding: 28px 22px; }
+  }
+</style>
+</head>
+<body class="paper-grain min-h-screen">
+
+<!-- ─── SHELL ───────────────────────────────────────────────────────────────── -->
+<div class="flex min-h-screen">
+
+  <!-- Sidebar -->
+  <aside class="hidden lg:flex flex-col w-[240px] shrink-0 night text-white p-6 sticky top-0 h-screen">
+    <div class="flex items-center gap-2 mb-10">
+      <div class="w-9 h-9 rounded-xl bg-[var(--yellow)] flex items-center justify-center">
+        <span class="display text-[var(--navy)] text-xl font-black">Q</span>
+      </div>
+      <div>
+        <p class="display text-xl font-black leading-none">Quizotic</p>
+        <p class="text-[10px] head tracking-[0.2em] text-white/60 mt-0.5">LIVE · BETA</p>
+      </div>
+    </div>
+
+    <nav class="space-y-1">
+      <a class="side-item active"><span>⦿</span>Dashboard</a>
+      <a class="side-item"><span>✎</span>My Quizzes</a>
+      <a class="side-item"><span>◈</span>Presentations</a>
+      <a class="side-item"><span>⌘</span>Templates</a>
+      <a class="side-item"><span>⤴</span>Sessions</a>
+      <a class="side-item"><span>♡</span>Community</a>
+    </nav>
+
+    <div class="mt-auto">
+      <div class="rounded-2xl p-4" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);">
+        <p class="head text-xs tracking-widest text-white/60 mb-2">FREE PLAN</p>
+        <p class="display text-2xl font-black">7 <span class="text-white/50 text-base font-normal">/ 10 sessions</span></p>
+        <div class="mt-3 h-1.5 rounded-full bg-white/10 overflow-hidden">
+          <div class="h-full bg-[var(--yellow)]" style="width:70%"></div>
+        </div>
+        <a class="btn-on-dark mt-4 inline-flex text-xs px-3 py-2 rounded-lg w-full justify-center">Upgrade → Pro</a>
+      </div>
+      <p class="text-[10px] head tracking-widest text-white/40 mt-4">MAHESH · HOST</p>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 min-w-0">
+
+    <!-- Topbar -->
+    <div class="px-6 md:px-10 pt-6 flex items-center gap-4">
+      <div class="flex-1">
+        <p class="head text-xs tracking-[0.22em] text-[var(--muted)]">WEDNESDAY · 19 APR · GOOD MORNING</p>
+        <h1 class="display text-[34px] md:text-[42px] font-black leading-none mt-1">
+          Hello, <span class="u-dash">Mahesh</span>.
+        </h1>
+      </div>
+
+      <div class="hidden md:flex items-center gap-3">
+        <div class="relative">
+          <input class="pl-9 pr-4 py-2.5 rounded-full bg-white border border-[var(--line)] text-sm focus:outline-none focus:border-[var(--navy)] w-[260px]" placeholder="Search quizzes, people, sessions…" />
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        </div>
+        <button class="btn-primary px-4 py-2.5 rounded-full text-sm flex items-center gap-2">
+          <span>＋</span> New quiz
+        </button>
+      </div>
+    </div>
+
+    <!-- ─── HERO: LAST SESSION (NIGHT) ─────────────────────────────────────── -->
+    <section class="px-6 md:px-10 mt-6 rise d1">
+      <div class="relative night rounded-[28px] overflow-hidden hero-pad p-8 md:p-10 text-white">
+        <!-- starfield -->
+        <div class="stars" aria-hidden="true">
+          <span class="star big" style="top:12%;left:8%;--t:3.5s"></span>
+          <span class="star med" style="top:22%;left:18%;--t:4.2s"></span>
+          <span class="star sm"  style="top:18%;left:32%;--t:3s"></span>
+          <span class="star sm"  style="top:40%;left:28%;--t:5s"></span>
+          <span class="star med yellow" style="top:30%;left:46%;--t:2.8s"></span>
+          <span class="star sm"  style="top:14%;left:55%;--t:4.5s"></span>
+          <span class="star big" style="top:28%;left:66%;--t:3.8s"></span>
+          <span class="star sm"  style="top:54%;left:78%;--t:3.2s"></span>
+          <span class="star med" style="top:72%;left:14%;--t:4.8s"></span>
+          <span class="star sm"  style="top:84%;left:44%;--t:3.3s"></span>
+          <span class="star sm yellow" style="top:62%;left:58%;--t:3.8s"></span>
+          <span class="star med" style="top:76%;left:72%;--t:5s"></span>
+          <span class="star big" style="top:58%;left:88%;--t:4s"></span>
+        </div>
+        <!-- constellation lines -->
+        <svg class="constellation" viewBox="0 0 1000 400" preserveAspectRatio="none">
+          <polyline points="80,50 180,90 320,72 460,120" fill="none" stroke="#fff" stroke-width="0.6" stroke-linecap="round"/>
+          <polyline points="660,110 780,150 880,232" fill="none" stroke="#F5E642" stroke-width="0.6"/>
+        </svg>
+
+        <div class="relative grid md:grid-cols-[1.15fr_0.85fr] gap-10 items-center">
+          <!-- Left: story -->
+          <div>
+            <div class="flex items-center gap-2 mb-4">
+              <span class="live-dot"></span>
+              <p class="head text-[11px] tracking-[0.24em] text-white/70">LAST SESSION · 2 DAYS AGO</p>
+            </div>
+            <h2 class="display font-black text-[28px] md:text-[34px] leading-[1.1]">
+              Class 9 — <span class="text-[var(--yellow)]">Photosynthesis Quiz</span>
+            </h2>
+            <p class="mt-2 text-white/70 text-sm">Kendriya Vidyalaya, Andheri · 10 questions · 9 min 12 s</p>
+
+            <!-- Big stats -->
+            <div class="grid grid-cols-3 gap-6 mt-7">
+              <div>
+                <p class="display text-[44px] md:text-[52px] font-black leading-none text-white">42</p>
+                <p class="head text-[10px] tracking-[0.2em] text-white/60 mt-1">PLAYERS</p>
+              </div>
+              <div>
+                <p class="display text-[44px] md:text-[52px] font-black leading-none text-[var(--yellow)]">78<span class="text-2xl">%</span></p>
+                <p class="head text-[10px] tracking-[0.2em] text-white/60 mt-1">AVG SCORE</p>
+              </div>
+              <div>
+                <p class="display text-[44px] md:text-[52px] font-black leading-none text-white">87<span class="text-2xl">%</span></p>
+                <p class="head text-[10px] tracking-[0.2em] text-white/60 mt-1">COMPLETED</p>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap gap-3 mt-8">
+              <button class="btn-on-dark px-5 py-3 rounded-full text-sm">▶ Run it again</button>
+              <button class="px-5 py-3 rounded-full text-sm border border-white/25 text-white hover:bg-white/10 transition">View report →</button>
+              <button class="px-5 py-3 rounded-full text-sm border border-white/25 text-white hover:bg-white/10 transition">Share with class</button>
+            </div>
+          </div>
+
+          <!-- Right: score distribution (hand-made bars) -->
+          <div class="relative">
+            <p class="head text-[11px] tracking-[0.22em] text-white/60 mb-3">SCORE DISTRIBUTION</p>
+            <div class="grid grid-cols-5 gap-2 items-end h-[160px]">
+              <!-- bars with height animations -->
+              <div class="flex flex-col items-center gap-2">
+                <div class="w-full rounded-t-md bg-white/20" style="height: 28%"></div>
+                <span class="text-[10px] head tracking-wider text-white/70">0–20</span>
+              </div>
+              <div class="flex flex-col items-center gap-2">
+                <div class="w-full rounded-t-md bg-white/35" style="height: 42%"></div>
+                <span class="text-[10px] head tracking-wider text-white/70">21–40</span>
+              </div>
+              <div class="flex flex-col items-center gap-2">
+                <div class="w-full rounded-t-md bg-white/60" style="height: 68%"></div>
+                <span class="text-[10px] head tracking-wider text-white/70">41–60</span>
+              </div>
+              <div class="flex flex-col items-center gap-2">
+                <div class="w-full rounded-t-md bg-[var(--yellow)]" style="height: 100%"></div>
+                <span class="text-[10px] head tracking-wider text-[var(--yellow)]">61–80</span>
+              </div>
+              <div class="flex flex-col items-center gap-2">
+                <div class="w-full rounded-t-md bg-white" style="height: 72%"></div>
+                <span class="text-[10px] head tracking-wider text-white/70">81–100</span>
+              </div>
+            </div>
+            <p class="mt-4 text-xs text-white/60 italic">★ The sweet spot: most of Class 9 landed in the 61–80 band. Two students need a quick 1:1 — see report.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── KPI PILLS ─────────────────────────────────────────────────────── -->
+    <section class="px-6 md:px-10 mt-5">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="pill p-4 rise d2">
+          <p class="head text-[10px] tracking-[0.22em] text-[var(--muted)]">TOTAL SESSIONS</p>
+          <div class="flex items-end justify-between mt-1">
+            <p class="display text-[34px] font-black leading-none">147</p>
+            <span class="text-xs font-bold text-[var(--sage)]">↑ 12 wk</span>
+          </div>
+        </div>
+        <div class="pill p-4 rise d3">
+          <p class="head text-[10px] tracking-[0.22em] text-[var(--muted)]">PARTICIPANTS</p>
+          <div class="flex items-end justify-between mt-1">
+            <p class="display text-[34px] font-black leading-none">3,842</p>
+            <span class="text-xs font-bold text-[var(--sage)]">↑ 318</span>
+          </div>
+        </div>
+        <div class="pill p-4 rise d4">
+          <p class="head text-[10px] tracking-[0.22em] text-[var(--muted)]">AVG SCORE</p>
+          <div class="flex items-end justify-between mt-1">
+            <p class="display text-[34px] font-black leading-none">71<span class="text-lg">%</span></p>
+            <svg width="44" height="16" viewBox="0 0 44 16">
+              <polyline class="spark-path" points="0,12 8,10 16,13 24,7 32,9 40,4" fill="none" stroke="#7BB393" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+        <div class="pill p-4 rise d5">
+          <p class="head text-[10px] tracking-[0.22em] text-[var(--muted)]">COMPLETION</p>
+          <div class="flex items-end justify-between mt-1">
+            <p class="display text-[34px] font-black leading-none">83<span class="text-lg">%</span></p>
+            <span class="text-xs font-bold text-[var(--rose)]">↓ 2</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── BENTO GRID ───────────────────────────────────────────────────── -->
+    <section class="px-6 md:px-10 mt-6 grid grid-cols-1 md:grid-cols-3 gap-5">
+
+      <!-- Session history — 2 cols -->
+      <article class="card md:col-span-2 p-6 rise d3 relative overflow-hidden">
+        <div class="orbit"></div>
+        <div class="flex items-center justify-between mb-5">
+          <div>
+            <p class="head text-[11px] tracking-[0.22em] text-[var(--muted)]">RECENT ACTIVITY</p>
+            <h3 class="display text-2xl font-black mt-0.5">Session history</h3>
+          </div>
+          <a class="text-sm head font-semibold text-[var(--navy)] hover:underline">View all →</a>
+        </div>
+
+        <div>
+          <!-- row template -->
+          <!-- Row 1 -->
+          <div class="row flex items-center gap-4 py-3.5 px-2 rounded-lg transition">
+            <div class="w-10 h-10 rounded-xl bg-[var(--navy)] text-[var(--yellow)] flex items-center justify-center display font-black">Q</div>
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold truncate">Class 9 — Photosynthesis Quiz</p>
+              <p class="text-xs text-[var(--muted)]">17 Apr · Kendriya Vidyalaya · 42 players</p>
+            </div>
+            <!-- inline sparkline -->
+            <svg width="60" height="22" viewBox="0 0 60 22" class="shrink-0">
+              <polyline class="spark-path" points="0,15 10,12 20,14 30,8 40,10 50,5 60,6" fill="none" stroke="#0F1B3D" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            <div class="w-[90px]">
+              <div class="bar"><span style="width:78%;background:var(--navy)"></span></div>
+              <p class="text-[11px] font-bold text-[var(--navy)] mt-1">78% avg</p>
+            </div>
+            <span class="text-[10px] head tracking-widest px-2 py-1 rounded-md bg-[#EFFAF3] text-[var(--sage)] font-bold">COMPLETED</span>
+          </div>
+
+          <!-- Row 2 -->
+          <div class="row flex items-center gap-4 py-3.5 px-2 rounded-lg transition">
+            <div class="w-10 h-10 rounded-xl bg-[#C84E38] text-white flex items-center justify-center display font-black">P</div>
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold truncate">JEE Physics — Thermodynamics Rapid Fire</p>
+              <p class="text-xs text-[var(--muted)]">15 Apr · Allen Coaching Batch A · 28 players</p>
+            </div>
+            <svg width="60" height="22" viewBox="0 0 60 22" class="shrink-0">
+              <polyline class="spark-path" points="0,8 10,11 20,7 30,12 40,9 50,14 60,10" fill="none" stroke="#C84E38" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            <div class="w-[90px]">
+              <div class="bar"><span style="width:62%;background:#C84E38"></span></div>
+              <p class="text-[11px] font-bold text-[#C84E38] mt-1">62% avg</p>
+            </div>
+            <span class="text-[10px] head tracking-widest px-2 py-1 rounded-md bg-[#EFFAF3] text-[var(--sage)] font-bold">COMPLETED</span>
+          </div>
+
+          <!-- Row 3 -->
+          <div class="row flex items-center gap-4 py-3.5 px-2 rounded-lg transition">
+            <div class="w-10 h-10 rounded-xl bg-[#5B6BD5] text-white flex items-center justify-center display font-black">E</div>
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold truncate">English Vocab Drill #12</p>
+              <p class="text-xs text-[var(--muted)]">13 Apr · St. Xavier's · 36 players</p>
+            </div>
+            <svg width="60" height="22" viewBox="0 0 60 22" class="shrink-0">
+              <polyline class="spark-path" points="0,12 10,8 20,10 30,5 40,7 50,4 60,3" fill="none" stroke="#5B6BD5" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            <div class="w-[90px]">
+              <div class="bar"><span style="width:84%;background:#5B6BD5"></span></div>
+              <p class="text-[11px] font-bold text-[#5B6BD5] mt-1">84% avg</p>
+            </div>
+            <span class="text-[10px] head tracking-widest px-2 py-1 rounded-md bg-[#EFFAF3] text-[var(--sage)] font-bold">COMPLETED</span>
+          </div>
+
+          <!-- Row 4 -->
+          <div class="row flex items-center gap-4 py-3.5 px-2 rounded-lg transition">
+            <div class="w-10 h-10 rounded-xl bg-[#D4A02B] text-white flex items-center justify-center display font-black">M</div>
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold truncate">Math Warm-up — Fractions</p>
+              <p class="text-xs text-[var(--muted)]">12 Apr · Class 7 Section B · 44 players</p>
+            </div>
+            <svg width="60" height="22" viewBox="0 0 60 22" class="shrink-0">
+              <polyline class="spark-path" points="0,4 10,9 20,6 30,12 40,8 50,11 60,13" fill="none" stroke="#D4A02B" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            <div class="w-[90px]">
+              <div class="bar"><span style="width:55%;background:#D4A02B"></span></div>
+              <p class="text-[11px] font-bold text-[#D4A02B] mt-1">55% avg</p>
+            </div>
+            <span class="text-[10px] head tracking-widest px-2 py-1 rounded-md bg-[#FEF3C7] text-[#D4A02B] font-bold">PARTIAL</span>
+          </div>
+
+          <!-- Row 5 (draft) -->
+          <div class="row flex items-center gap-4 py-3.5 px-2 rounded-lg transition">
+            <div class="w-10 h-10 rounded-xl border-2 border-dashed border-[var(--line)] text-[var(--muted)] flex items-center justify-center display font-black">＋</div>
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold truncate text-[var(--muted)]">History — Mughal Empire (Draft)</p>
+              <p class="text-xs text-[var(--muted)]">Saved 10 Apr · 8 questions · not yet hosted</p>
+            </div>
+            <button class="btn-ghost text-xs px-3 py-1.5 rounded-full">Host now →</button>
+          </div>
+        </div>
+      </article>
+
+      <!-- Top performers — 1 col -->
+      <article class="card p-6 rise d4 relative overflow-hidden">
+        <div class="absolute top-4 right-4 text-[10px] head tracking-[0.22em] text-[var(--muted)]">✦ TRACKED</div>
+        <p class="head text-[11px] tracking-[0.22em] text-[var(--muted)]">LEADERBOARD · THIS MONTH</p>
+        <h3 class="display text-2xl font-black mt-0.5">Top performers</h3>
+
+        <div class="mt-5 space-y-4">
+          <!-- #1 -->
+          <div class="flex items-center gap-3">
+            <div class="relative">
+              <div class="avatar" style="background:linear-gradient(135deg,#0F1B3D,#3C56B5)">AS</div>
+              <span class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[var(--yellow)] text-[var(--navy)] text-[10px] font-black flex items-center justify-center border-2 border-white">1</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="font-bold truncate">Ananya Sharma</p>
+              <p class="text-[11px] text-[var(--muted)]">12 sessions · Class 9-A</p>
+            </div>
+            <div class="text-right">
+              <p class="display text-xl font-black leading-none">942</p>
+              <p class="text-[10px] text-[var(--sage)] font-bold">↑ +34</p>
+            </div>
+          </div>
+
+          <!-- #2 -->
+          <div class="flex items-center gap-3">
+            <div class="relative">
+              <div class="avatar" style="background:linear-gradient(135deg,#C84E38,#E48668)">RP</div>
+              <span class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white text-[var(--navy)] text-[10px] font-black flex items-center justify-center border-2 border-[var(--line)]">2</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="font-bold truncate">Rohan Patel</p>
+              <p class="text-[11px] text-[var(--muted)]">11 sessions · JEE Batch</p>
+            </div>
+            <div class="text-right">
+              <p class="display text-xl font-black leading-none">891</p>
+              <p class="text-[10px] text-[var(--sage)] font-bold">↑ +12</p>
+            </div>
+          </div>
+
+          <!-- #3 -->
+          <div class="flex items-center gap-3">
+            <div class="relative">
+              <div class="avatar" style="background:linear-gradient(135deg,#5B6BD5,#8AA0F3)">DR</div>
+              <span class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white text-[var(--navy)] text-[10px] font-black flex items-center justify-center border-2 border-[var(--line)]">3</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="font-bold truncate">Diya Reddy</p>
+              <p class="text-[11px] text-[var(--muted)]">10 sessions · Class 7-B</p>
+            </div>
+            <div class="text-right">
+              <p class="display text-xl font-black leading-none">864</p>
+              <p class="text-[10px] text-[var(--muted)] font-bold">→ stable</p>
+            </div>
+          </div>
+
+          <!-- At risk -->
+          <div class="mt-5 p-3 rounded-xl" style="background:#FFF2F1;border:1px dashed #E05A6F">
+            <p class="text-xs font-bold text-[#B83B4E] flex items-center gap-2">
+              <span>⚠</span> 2 students slipped below 40% this week
+            </p>
+            <p class="text-[11px] text-[var(--muted)] mt-1">Priya I. (39%), Vikram K. (34%) — consider a 1:1 check-in.</p>
+          </div>
+        </div>
+      </article>
+
+      <!-- Hardest question callout — 1 col -->
+      <article class="rise d5">
+        <div class="callout p-6 relative">
+          <div class="flex items-center gap-2 mb-3">
+            <p class="head text-[11px] tracking-[0.22em] text-[var(--rose)]">HARDEST QUESTION · THIS WEEK</p>
+          </div>
+          <p class="display text-lg leading-snug font-bold">
+            "Which gas is <span class="bg-[var(--yellow)] px-1">absorbed</span> during photosynthesis and which is released?"
+          </p>
+          <p class="text-xs text-[var(--muted)] mt-3">from <strong>Class 9 — Photosynthesis Quiz</strong> · Bloom: Remember</p>
+
+          <div class="mt-4 flex items-center gap-4">
+            <div>
+              <p class="display text-[40px] font-black leading-none text-[var(--rose)]">34<span class="text-lg">%</span></p>
+              <p class="head text-[10px] tracking-[0.22em] text-[var(--muted)] mt-1">GOT IT RIGHT</p>
+            </div>
+            <div class="h-10 w-px bg-[var(--line)]"></div>
+            <div>
+              <p class="display text-[40px] font-black leading-none">27s</p>
+              <p class="head text-[10px] tracking-[0.22em] text-[var(--muted)] mt-1">AVG TIME</p>
+            </div>
+          </div>
+
+          <button class="mt-5 btn-ghost px-4 py-2 rounded-full text-xs w-full">Re-teach this concept →</button>
+        </div>
+      </article>
+
+      <!-- Bloom's ring — 1 col -->
+      <article class="card p-6 rise d6 relative overflow-hidden stripe-accent">
+        <p class="head text-[11px] tracking-[0.22em] text-[var(--muted)]">COGNITIVE MIX</p>
+        <h3 class="display text-2xl font-black mt-0.5">Bloom's coverage</h3>
+
+        <div class="mt-4 flex items-center gap-5">
+          <!-- Ring -->
+          <div class="relative shrink-0">
+            <svg width="120" height="120" viewBox="0 0 120 120">
+              <circle class="ring-bg" cx="60" cy="60" r="52" fill="none" stroke-width="12"/>
+              <!-- 6 segments around ring -->
+              <circle cx="60" cy="60" r="52" fill="none" stroke-width="12" stroke-linecap="round"
+                      stroke="#0F1B3D" stroke-dasharray="55 272" stroke-dashoffset="0" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="52" fill="none" stroke-width="12" stroke-linecap="round"
+                      stroke="#5B6BD5" stroke-dasharray="48 272" stroke-dashoffset="-60" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="52" fill="none" stroke-width="12" stroke-linecap="round"
+                      stroke="#F5E642" stroke-dasharray="66 272" stroke-dashoffset="-113" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="52" fill="none" stroke-width="12" stroke-linecap="round"
+                      stroke="#7BB393" stroke-dasharray="38 272" stroke-dashoffset="-184" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="52" fill="none" stroke-width="12" stroke-linecap="round"
+                      stroke="#C84E38" stroke-dasharray="28 272" stroke-dashoffset="-227" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="52" fill="none" stroke-width="12" stroke-linecap="round"
+                      stroke="#D4A02B" stroke-dasharray="37 272" stroke-dashoffset="-260" transform="rotate(-90 60 60)"/>
+              <text x="60" y="56" text-anchor="middle" class="display" font-size="22" font-weight="900" fill="#0F1B3D">6</text>
+              <text x="60" y="72" text-anchor="middle" font-family="Space Grotesk" font-size="8" letter-spacing="1.5" fill="#6B7794">LEVELS</text>
+            </svg>
+          </div>
+
+          <div class="flex-1 grid grid-cols-2 gap-y-1.5 gap-x-3 text-[11px]">
+            <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-[#0F1B3D]"></span>Remember <span class="ml-auto font-bold">21%</span></div>
+            <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-[#5B6BD5]"></span>Understand <span class="ml-auto font-bold">18%</span></div>
+            <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-[#F5E642]"></span>Apply <span class="ml-auto font-bold">25%</span></div>
+            <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-[#7BB393]"></span>Analyze <span class="ml-auto font-bold">15%</span></div>
+            <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-[#C84E38]"></span>Evaluate <span class="ml-auto font-bold">11%</span></div>
+            <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-[#D4A02B]"></span>Create <span class="ml-auto font-bold">10%</span></div>
+          </div>
+        </div>
+
+        <p class="mt-5 text-xs text-[var(--muted)] italic">★ Nicely balanced. Consider adding one more "Create"-tier question for depth.</p>
+      </article>
+
+      <!-- Engagement heat — 1 col -->
+      <article class="card p-6 rise d7">
+        <p class="head text-[11px] tracking-[0.22em] text-[var(--muted)]">LAST 7 SESSIONS</p>
+        <h3 class="display text-2xl font-black mt-0.5">Engagement heat</h3>
+
+        <div class="mt-5 grid grid-cols-7 gap-2 items-end h-[130px]">
+          <!-- Each column: completion (dark) + confidence (yellow) -->
+          <div class="flex flex-col items-center gap-1.5">
+            <div class="w-full rounded-t-md bg-[var(--yellow)]" style="height:70%"></div>
+            <div class="w-full bg-[var(--navy)] rounded-b-md -mt-1" style="height:22%"></div>
+            <p class="text-[10px] head text-[var(--muted)]">W1</p>
+          </div>
+          <div class="flex flex-col items-center gap-1.5">
+            <div class="w-full rounded-t-md bg-[var(--yellow)]" style="height:82%"></div>
+            <div class="w-full bg-[var(--navy)] rounded-b-md -mt-1" style="height:15%"></div>
+            <p class="text-[10px] head text-[var(--muted)]">W2</p>
+          </div>
+          <div class="flex flex-col items-center gap-1.5">
+            <div class="w-full rounded-t-md bg-[var(--yellow)]" style="height:60%"></div>
+            <div class="w-full bg-[var(--navy)] rounded-b-md -mt-1" style="height:32%"></div>
+            <p class="text-[10px] head text-[var(--muted)]">W3</p>
+          </div>
+          <div class="flex flex-col items-center gap-1.5">
+            <div class="w-full rounded-t-md bg-[var(--yellow)]" style="height:88%"></div>
+            <div class="w-full bg-[var(--navy)] rounded-b-md -mt-1" style="height:10%"></div>
+            <p class="text-[10px] head text-[var(--muted)]">W4</p>
+          </div>
+          <div class="flex flex-col items-center gap-1.5">
+            <div class="w-full rounded-t-md bg-[var(--yellow)]" style="height:74%"></div>
+            <div class="w-full bg-[var(--navy)] rounded-b-md -mt-1" style="height:22%"></div>
+            <p class="text-[10px] head text-[var(--muted)]">W5</p>
+          </div>
+          <div class="flex flex-col items-center gap-1.5">
+            <div class="w-full rounded-t-md bg-[var(--yellow)]" style="height:96%"></div>
+            <div class="w-full bg-[var(--navy)] rounded-b-md -mt-1" style="height:4%"></div>
+            <p class="text-[10px] head text-[var(--muted)]">W6</p>
+          </div>
+          <div class="flex flex-col items-center gap-1.5">
+            <div class="w-full rounded-t-md bg-[var(--yellow)]" style="height:87%"></div>
+            <div class="w-full bg-[var(--navy)] rounded-b-md -mt-1" style="height:13%"></div>
+            <p class="text-[10px] head text-[var(--muted)]">W7</p>
+          </div>
+        </div>
+
+        <div class="mt-5 flex items-center gap-4 text-[11px]">
+          <div class="flex items-center gap-1.5"><span class="w-3 h-3 bg-[var(--yellow)] rounded-sm"></span>Completion</div>
+          <div class="flex items-center gap-1.5"><span class="w-3 h-3 bg-[var(--navy)] rounded-sm"></span>Drop-off</div>
+          <span class="ml-auto text-[var(--sage)] font-bold">83% avg</span>
+        </div>
+      </article>
+
+      <!-- Quick actions footer — full width -->
+      <article class="md:col-span-3 rise d8">
+        <div class="rounded-[22px] p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 relative overflow-hidden"
+             style="background: var(--navy); color: #fff;">
+          <!-- decorative stars -->
+          <div class="stars">
+            <span class="star sm" style="top:20%;left:5%;--t:4s"></span>
+            <span class="star sm yellow" style="top:60%;left:12%;--t:3s"></span>
+            <span class="star sm" style="top:40%;left:88%;--t:5s"></span>
+          </div>
+          <div class="relative flex-1">
+            <p class="head text-[11px] tracking-[0.22em] text-white/60">READY FOR YOUR NEXT SESSION?</p>
+            <h3 class="display text-2xl md:text-3xl font-black mt-1">Create. Host. Celebrate.</h3>
+            <p class="text-white/70 text-sm mt-1 max-w-xl">Templates and AI assist included. Free plan covers 3 more sessions this week.</p>
+          </div>
+          <div class="relative flex flex-wrap gap-3 justify-center">
+            <button class="btn-on-dark px-5 py-3 rounded-full text-sm">＋ Create quiz</button>
+            <button class="px-5 py-3 rounded-full text-sm border border-white/25 text-white hover:bg-white/10 transition">＋ Create slides</button>
+            <button class="px-5 py-3 rounded-full text-sm border border-white/25 text-white hover:bg-white/10 transition">⇪ Import from CSV</button>
+          </div>
+        </div>
+      </article>
+
+    </section>
+
+    <!-- Footer spacer -->
+    <div class="px-6 md:px-10 py-8 text-center text-[11px] head tracking-[0.22em] text-[var(--muted)]">
+      MOCKUP v2 · DASHBOARD REDESIGN · FOR REVIEW ONLY
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>
