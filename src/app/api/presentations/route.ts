@@ -25,12 +25,16 @@ export async function GET() {
 
 // POST /api/presentations — create or update
 export async function POST(req: NextRequest) {
+  let userId: string | undefined
+  let incomingId: string | undefined
   try {
     const user = await getCurrentUser()
     if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    userId = user.id
 
     const body = await req.json()
     const { id, title, theme, slides } = body
+    incomingId = typeof id === 'string' ? id : undefined
 
     if (!id || typeof id !== 'string') {
       return NextResponse.json({ success: false, error: 'id is required' }, { status: 400 })
@@ -38,11 +42,16 @@ export async function POST(req: NextRequest) {
     if (!title || !slides) {
       return NextResponse.json({ success: false, error: 'title and slides are required' }, { status: 400 })
     }
+    if (!Array.isArray(slides)) {
+      return NextResponse.json({ success: false, error: 'slides must be an array' }, { status: 400 })
+    }
+
+    const cleanTheme = typeof theme === 'string' && theme.trim() ? theme.trim() : null
 
     // Enforce slide count limit
     const plan = await getUserPlan(user.id)
     const maxSlides = PLAN_LIMITS[plan].maxSlidesPerPresentation
-    if (Array.isArray(slides) && maxSlides !== Infinity && slides.length > maxSlides) {
+    if (maxSlides !== Infinity && slides.length > maxSlides) {
       return NextResponse.json({
         success: false,
         error: `Free plan allows up to ${maxSlides} slides per presentation. Email info@quizotic.live if you need more — we review every request.`,
@@ -70,18 +79,28 @@ export async function POST(req: NextRequest) {
       }
 
       const presentation = await prisma.presentation.create({
-        data: { id, title, theme, slides, userId: user.id },
+        data: { id, title, theme: cleanTheme, slides, userId: user.id },
       })
       return NextResponse.json({ success: true, data: presentation })
     }
 
     const presentation = await prisma.presentation.update({
       where: { id: existing.id },
-      data: { title, theme, slides },
+      data: { title, theme: cleanTheme, slides },
     })
 
     return NextResponse.json({ success: true, data: presentation })
-  } catch {
-    return NextResponse.json({ success: false, error: 'Failed to save presentation' }, { status: 500 })
+  } catch (err) {
+    const code = (err as { code?: string })?.code
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('[api/presentations:POST] save failed', { userId, incomingId, code, message })
+
+    if (code === 'P2003') {
+      return NextResponse.json({ success: false, error: 'Your account is out of sync — please sign out and back in.' }, { status: 409 })
+    }
+    if (code === 'P2002') {
+      return NextResponse.json({ success: false, error: 'Conflict — try Save again.' }, { status: 409 })
+    }
+    return NextResponse.json({ success: false, error: `Failed to save presentation: ${message}` }, { status: 500 })
   }
 }
