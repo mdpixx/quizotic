@@ -245,6 +245,7 @@ export type Slide =
 export interface Presentation {
   id: string
   title: string
+  theme?: string            // theme id from src/lib/quiz-themes.ts; undefined = default
   slides: Slide[]
   createdAt: string
   updatedAt: string

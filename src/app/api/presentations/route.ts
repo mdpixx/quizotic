@@ -15,7 +15,7 @@ export async function GET() {
     const presentations = await prisma.presentation.findMany({
       where: { userId: user.id },
       orderBy: { updatedAt: 'desc' },
-      select: { id: true, title: true, createdAt: true, updatedAt: true },
+      select: { id: true, title: true, theme: true, createdAt: true, updatedAt: true },
     })
     return NextResponse.json({ success: true, data: presentations })
   } catch {
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
-    const { id, title, slides } = body
+    const { id, title, theme, slides } = body
 
     if (!id || typeof id !== 'string') {
       return NextResponse.json({ success: false, error: 'id is required' }, { status: 400 })
@@ -70,14 +70,14 @@ export async function POST(req: NextRequest) {
       }
 
       const presentation = await prisma.presentation.create({
-        data: { id, title, slides, userId: user.id },
+        data: { id, title, theme, slides, userId: user.id },
       })
       return NextResponse.json({ success: true, data: presentation })
     }
 
     const presentation = await prisma.presentation.update({
       where: { id: existing.id },
-      data: { title, slides },
+      data: { title, theme, slides },
     })
 
     return NextResponse.json({ success: true, data: presentation })

@@ -59,6 +59,7 @@ export interface Quiz {
   title: string
   subject?: string
   language?: string
+  theme?: string            // theme id from src/lib/quiz-themes.ts; undefined = default
   createdAt: string         // ISO timestamp
   updatedAt: string         // ISO timestamp
   questions: Question[]

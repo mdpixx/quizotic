@@ -17,7 +17,7 @@ export async function GET() {
     const quizzes = await prisma.quiz.findMany({
       where: { userId: user.id },
       orderBy: { updatedAt: 'desc' },
-      select: { id: true, title: true, subject: true, language: true, createdAt: true, updatedAt: true },
+      select: { id: true, title: true, subject: true, language: true, theme: true, createdAt: true, updatedAt: true },
     })
     return NextResponse.json({ success: true, data: quizzes })
   } catch {
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { id, title, subject, language, questions } = body
+    const { id, title, subject, language, theme, questions } = body
 
     if (!id || typeof id !== 'string') {
       return NextResponse.json({ success: false, error: 'id is required' }, { status: 400 })
@@ -66,14 +66,14 @@ export async function POST(req: NextRequest) {
       }
 
       const quiz = await prisma.quiz.create({
-        data: { id, title, subject, language, questions, userId: user.id },
+        data: { id, title, subject, language, theme, questions, userId: user.id },
       })
       return NextResponse.json({ success: true, data: quiz })
     }
 
     const quiz = await prisma.quiz.update({
       where: { id: existing.id },
-      data: { title, subject, language, questions },
+      data: { title, subject, language, theme, questions },
     })
 
     return NextResponse.json({ success: true, data: quiz })

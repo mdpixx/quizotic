@@ -23,6 +23,7 @@ import { QuizoticLogo } from '@/components/QuizoticLogo'
 import { BrandWatermark } from '@/components/BrandWatermark'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
 import { JoinPill } from '@/components/host/JoinPill'
+import { getQuizTheme } from '@/lib/quiz-themes'
 
 type Phase = 'loading' | 'error' | 'idle' | 'lobby' | 'question' | 'ended'
 
@@ -544,8 +545,14 @@ export default function SessionPage() {
     )
   }
 
+  const quizTheme = getQuizTheme(quiz?.theme)
+
   return (
-    <div className="min-h-screen text-gray-900">
+    <div
+      className="min-h-screen"
+      style={{ background: quizTheme.background, color: quizTheme.textColor }}
+      data-theme={quizTheme.id}
+    >
       <BrandWatermark placement="host" />
 
       {/* IDLE */}

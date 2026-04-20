@@ -7,6 +7,8 @@ import {
   SLIDE_TYPE_META, SLIDE_CATEGORIES, makeSlide,
 } from '@/lib/presentation-types'
 import QRCode from 'react-qr-code'
+import { QuizThemePicker } from '@/components/host/QuizThemePicker'
+import { getQuizTheme, type QuizThemeId } from '@/lib/quiz-themes'
 import { EnhanceWithAI } from '@/components/EnhanceWithAI'
 import { ImageUpload } from '@/components/ImageUpload'
 import { SlideBgPicker } from '@/components/SlideBgPicker'
@@ -1496,6 +1498,7 @@ function PresentCreatePageInner() {
   const [mobileSlidesOpen, setMobileSlidesOpen] = useState(false)
   const [plan, setPlan] = useState<'free' | 'pro'>('free')
   const [recoveredDraft, setRecoveredDraft] = useState<{ savedAt: number } | null>(null)
+  const [themePickerOpen, setThemePickerOpen] = useState(false)
   // Tracks the initial load for `?id=xxx` editing — used to show a proper
   // spinner + inline error instead of silently rendering a blank new
   // presentation when server fetch fails (e.g. fresh browser, offline tab).
@@ -2085,6 +2088,16 @@ function PresentCreatePageInner() {
               className="hidden sm:flex w-8 h-8 md:w-9 md:h-9 rounded-lg border items-center justify-center transition-all hover:bg-gray-50 click-bounce"
               style={{ borderColor: '#E2E8F0', color: '#64748B' }}>
               <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><path d="M15 7a3 3 0 100-6 3 3 0 000 6zM5 13a3 3 0 100-6 3 3 0 000 6zM15 19a3 3 0 100-6 3 3 0 000 6zM7.59 11.51l4.83 2.98M12.41 5.51L7.59 8.49" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </button>
+            <button onClick={() => setThemePickerOpen(true)} title="Pick a theme"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 md:px-3 md:py-2 rounded-lg text-xs md:text-sm font-bold border transition-all hover:bg-gray-50 click-bounce"
+              style={{ borderColor: '#E2E8F0', color: '#0F1B3D' }}>
+              <span aria-hidden className="w-4 h-4 rounded-md overflow-hidden border border-gray-200 inline-flex">
+                {getQuizTheme(presentation.theme).swatch.map((c, i) => (
+                  <span key={i} className="flex-1" style={{ background: c }} />
+                ))}
+              </span>
+              <span className="hidden sm:inline">Theme</span>
             </button>
             <button onClick={() => { setSaveError(null); savePresentation(true) }} disabled={saving}
               className="text-xs md:text-sm font-bold px-3 py-1.5 md:px-5 md:py-2 rounded-xl border-2 transition-all disabled:opacity-50 click-bounce"
@@ -2781,6 +2794,14 @@ function PresentCreatePageInner() {
           onCancel={() => setEnhanceOpen(false)}
         />
       )}
+
+      {/* ── Theme picker ── */}
+      <QuizThemePicker
+        open={themePickerOpen}
+        onClose={() => setThemePickerOpen(false)}
+        value={(presentation.theme as QuizThemeId) ?? undefined}
+        onChange={(id) => setPresentation(prev => ({ ...prev, theme: id }))}
+      />
 
       {/* ── Plan-limit blocked Modal (403 on save) ── */}
       {planLimitBlocked && (

@@ -6,6 +6,7 @@ import { io, Socket } from 'socket.io-client'
 import QRCode from 'react-qr-code'
 import type { Slide, Presentation } from '@/lib/presentation-types'
 import { SLIDE_TYPE_META, shouldAutoShowResults } from '@/lib/presentation-types'
+import { getQuizTheme } from '@/lib/quiz-themes'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1180,7 +1181,15 @@ export default function PresentSessionPage() {
   const meta = SLIDE_TYPE_META[currentSlide.type]
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden" style={{ background: '#FDFBFF', fontFamily: 'var(--font-body)' }}>
+    <div
+      className="h-screen flex flex-col overflow-hidden"
+      style={{
+        background: getQuizTheme(presentation?.theme).background,
+        color: getQuizTheme(presentation?.theme).textColor,
+        fontFamily: 'var(--font-body)',
+      }}
+      data-theme={getQuizTheme(presentation?.theme).id}
+    >
 
       {/* ── Confetti overlay ─────────────────────────────────────────────────── */}
       {confetti && (

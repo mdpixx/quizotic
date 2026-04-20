@@ -8,6 +8,8 @@ import { useAutosave } from '@/lib/use-autosave'
 import type { Question, QuestionType, BloomsLevel, Quiz, QuestionOption } from '@/lib/quiz-types'
 import { getOptionText, getOptionImage, isScoredType } from '@/lib/quiz-types'
 import { ImageUpload } from '@/components/ImageUpload'
+import { QuizThemePicker } from '@/components/host/QuizThemePicker'
+import { getQuizTheme, type QuizThemeId } from '@/lib/quiz-themes'
 import QRCode from 'react-qr-code'
 
 type Tab = 'manual' | 'aitopic' | 'aiurl' | 'aidoc' | 'library' | 'csv'
@@ -250,10 +252,10 @@ function QuestionPreview({
   }
 
   return (
-    <div className="w-full max-w-[1400px] rounded-2xl overflow-hidden" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.08)' }}>
+    <div className="w-full max-w-[1400px] rounded-2xl overflow-hidden" style={{ boxShadow: '0 12px 40px rgba(0,0,0,0.10)' }}>
       {/* Header — inline-editable question text */}
-      <div className="px-6 py-5 text-center" style={{ background: '#FAFAF8', borderBottom: '1px solid #EDE8E0' }}>
-        <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: '#94A3B8' }}>
+      <div className="px-6 md:px-10 py-6 md:py-8 text-center" style={{ background: '#FAFAF8', borderBottom: '1px solid #EDE8E0' }}>
+        <p className="text-xs md:text-sm font-bold uppercase tracking-widest mb-3" style={{ color: '#94A3B8' }}>
           Question {index + 1} of {total}
         </p>
         <textarea
@@ -262,31 +264,31 @@ function QuestionPreview({
           placeholder="Type your question here..."
           rows={2}
           maxLength={300}
-          className="w-full text-xl font-extrabold leading-snug text-center bg-transparent outline-none resize-none border-0 focus:ring-2 focus:ring-blue-200 rounded-lg transition-all"
+          className="w-full text-2xl md:text-4xl font-extrabold leading-snug text-center bg-transparent outline-none resize-none border-0 focus:ring-2 focus:ring-blue-200 rounded-lg transition-all"
           style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}
         />
       </div>
 
       {/* Image area */}
       {question.imageUrl ? (
-        <div className="w-full h-44 flex items-center justify-center" style={{ background: '#F0EDE8' }}>
+        <div className="w-full h-56 md:h-64 flex items-center justify-center" style={{ background: '#F0EDE8' }}>
           <img src={question.imageUrl} alt="" className="max-w-full max-h-full object-contain" />
         </div>
       ) : (
-        <div className="w-full h-44 flex items-center justify-center cursor-pointer"
+        <div className="w-full h-40 md:h-48 flex items-center justify-center cursor-pointer"
           style={{ background: '#F0EDE8' }}
           onClick={() => (document.querySelector('#q-image-upload-wrapper') as HTMLElement)?.click()}>
           <div className="text-center">
-            <div className="text-2xl mb-1 opacity-30">&#128444;&#65039;</div>
-            <p className="text-xs" style={{ color: '#94A3B8' }}>Click to add image (or use Image panel →)</p>
+            <div className="text-3xl mb-1 opacity-30">&#128444;&#65039;</div>
+            <p className="text-sm" style={{ color: '#94A3B8' }}>Click to add image (or use Image panel →)</p>
           </div>
         </div>
       )}
 
       {/* Options — inline-editable with bar visualization */}
-      <div className="bg-white p-4">
+      <div className="bg-white p-5 md:p-6">
         {(question.type === 'mcq' || question.type === 'truefalse' || question.type === 'poll' || question.type === 'case') && opts.length > 0 && (
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-2 gap-3 md:gap-4">
             {opts.map((opt, i) => {
               const c = OPTION_COLORS[i] ?? OPTION_COLORS[0]
               const isCorrect = question.correctAnswer === String(i) && hasCorrectAnswer(question.type)
@@ -294,18 +296,18 @@ function QuestionPreview({
               return (
                 <div
                   key={i}
-                  className="relative overflow-hidden rounded-xl transition-all"
+                  className="relative overflow-hidden rounded-2xl transition-all"
                   style={{
-                    borderLeft: `4px solid ${c.border}`,
-                    outline: isCorrect ? '2.5px solid #16A34A' : 'none',
+                    borderLeft: `6px solid ${c.border}`,
+                    outline: isCorrect ? '3px solid #16A34A' : 'none',
                     outlineOffset: '-2px',
-                    boxShadow: isCorrect ? '0 0 12px rgba(16,185,129,0.25)' : 'none',
+                    boxShadow: isCorrect ? '0 0 16px rgba(16,185,129,0.25)' : 'none',
                   }}
                 >
                   {/* Background bar visualization */}
-                  <div className="absolute inset-y-0 left-0 rounded-r-xl transition-all" style={{ width: `${barWidths[i % 4]}%`, background: c.border, opacity: 0.12 }} />
+                  <div className="absolute inset-y-0 left-0 rounded-r-2xl transition-all" style={{ width: `${barWidths[i % 4]}%`, background: c.border, opacity: 0.12 }} />
                   {/* Option content */}
-                  <div className="relative flex items-center gap-3 px-4 py-3" style={{ background: `${c.bg}`, backgroundBlendMode: 'overlay' }}>
+                  <div className="relative flex items-center gap-4 px-5 py-5 md:py-6" style={{ background: `${c.bg}`, backgroundBlendMode: 'overlay' }}>
                     <button
                       type="button"
                       onClick={() => {
@@ -313,11 +315,11 @@ function QuestionPreview({
                           onChange({ ...question, correctAnswer: String(i) })
                         }
                       }}
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white flex-shrink-0 transition-all hover:scale-110 click-bounce-sm"
+                      className="w-11 h-11 md:w-12 md:h-12 rounded-full flex items-center justify-center text-base md:text-lg font-black text-white flex-shrink-0 transition-all hover:scale-110 click-bounce-sm"
                       style={{ background: isCorrect ? '#16A34A' : c.badge }}
                       title={hasCorrectAnswer(question.type) ? 'Click to mark correct' : undefined}
                     >
-                      {isCorrect ? <span className="text-sm">&#10003;</span> : c.letter}
+                      {isCorrect ? <span className="text-xl">&#10003;</span> : c.letter}
                     </button>
                     <input
                       type="text"
@@ -325,7 +327,7 @@ function QuestionPreview({
                       onChange={e => handleOptionChange(i, e.target.value)}
                       placeholder={`Option ${c.letter}`}
                       disabled={question.type === 'truefalse'}
-                      className="flex-1 text-sm font-bold bg-transparent outline-none border-0 disabled:opacity-60 placeholder:opacity-40"
+                      className="flex-1 text-lg md:text-xl font-bold bg-transparent outline-none border-0 disabled:opacity-60 placeholder:opacity-40"
                       style={{ color: c.text }}
                     />
                   </div>
@@ -668,6 +670,8 @@ function CreateQuizPageInner() {
   const [tab, setTab] = useState<Tab>('manual')
   const [title, setTitle] = useState('')
   const [subject, setSubject] = useState('')
+  const [theme, setThemeState] = useState<string | undefined>(undefined)
+  const [themePickerOpen, setThemePickerOpen] = useState(false)
   const [questions, setQuestions] = useState<Question[]>([makeQuestion()])
   const [saveError, setSaveError] = useState('')
   const [savedQuiz, setSavedQuiz] = useState<Quiz | null>(null)
@@ -764,6 +768,7 @@ function CreateQuizPageInner() {
     if (!saved) return
     setTitle(saved.title)
     setSubject(saved.subject ?? '')
+    setThemeState(saved.theme)
     setQuestions(saved.questions)
     setShowTitleModal(false)
   }, [editId])
@@ -1184,6 +1189,7 @@ function CreateQuizPageInner() {
       title: title.trim(),
       subject: subject.trim() || undefined,
       language: translatedTo ?? existing?.language ?? 'English',
+      theme: theme || existing?.theme,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       questions,
@@ -1201,6 +1207,7 @@ function CreateQuizPageInner() {
           title: quizData.title,
           subject: quizData.subject,
           language: quizData.language,
+          theme: quizData.theme,
           questions: quizData.questions,
         }),
       })
@@ -1367,6 +1374,23 @@ function CreateQuizPageInner() {
             style={{ borderColor: '#E2E8F0', color: '#64748B' }}>
             <svg viewBox="0 0 20 20" fill="none" className="w-4.5 h-4.5"><path d="M15 7a3 3 0 100-6 3 3 0 000 6zM5 13a3 3 0 100-6 3 3 0 000 6zM15 19a3 3 0 100-6 3 3 0 000 6zM7.59 11.51l4.83 2.98M12.41 5.51L7.59 8.49" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
+          {/* Themes — opens full-screen picker for quiz-wide theming */}
+          <button
+            onClick={() => setThemePickerOpen(true)}
+            title="Pick a theme"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg text-xs sm:text-sm font-bold border transition-all hover:bg-gray-50 click-bounce"
+            style={{ borderColor: '#E2E8F0', color: '#0F1B3D' }}
+          >
+            <span
+              aria-hidden
+              className="w-4 h-4 rounded-md overflow-hidden border border-gray-200 inline-flex"
+            >
+              {getQuizTheme(theme).swatch.map((c, i) => (
+                <span key={i} className="flex-1" style={{ background: c }} />
+              ))}
+            </span>
+            <span className="hidden sm:inline">Theme</span>
+          </button>
           <button onClick={handleSave} disabled={saving} className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50 click-bounce" style={{ background: '#F5E642', color: '#0D0D0D', border: '1.5px solid #0D0D0D' }}>
             {saving ? (
               <span className="flex items-center gap-1.5">
@@ -1418,12 +1442,12 @@ function CreateQuizPageInner() {
       <div className="flex-1 flex overflow-hidden">
 
         {/* ── LEFT PANEL: Question List ── */}
-        <div ref={questionListRef} className="hidden md:flex w-64 flex-shrink-0 bg-white border-r overflow-y-auto flex-col" style={{ borderColor: '#E2E8F0' }}>
-          <div className="px-3 py-2">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Questions ({questions.length})</p>
+        <div ref={questionListRef} className="hidden md:flex md:w-72 lg:w-80 flex-shrink-0 bg-white border-r overflow-y-auto flex-col" style={{ borderColor: '#E2E8F0' }}>
+          <div className="px-4 py-3">
+            <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Questions ({questions.length})</p>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-2 space-y-1">
+          <div className="flex-1 overflow-y-auto px-3 space-y-1.5">
             {questions.map((q, i) => {
               const pill = getTypePill(q.type)
               const isActive = i === safeIndex
@@ -1446,28 +1470,28 @@ function CreateQuizPageInner() {
                   }}
                   onClick={() => scrollToQuestion(i)}
                   onContextMenu={e => { e.preventDefault(); setContextMenu({ index: i, x: e.clientX, y: e.clientY }) }}
-                  className={`relative group flex items-center gap-2 px-2.5 py-2.5 rounded-lg cursor-pointer transition-all click-bounce-sm ${isActive ? '' : 'hover:bg-gray-50'}`}
+                  className={`relative group flex items-center gap-2.5 px-3 py-3 rounded-xl cursor-pointer transition-all click-bounce-sm ${isActive ? '' : 'hover:bg-gray-50'}`}
                   style={
                     isActive
-                      ? { background: '#EEF2FF', border: '1.5px solid #6366F1' }
-                      : { border: '1.5px solid transparent', opacity: isSelected ? 1 : 0.5 }
+                      ? { background: '#EEF2FF', border: '2px solid #6366F1' }
+                      : { border: '2px solid transparent', opacity: isSelected ? 1 : 0.5 }
                   }
                 >
                   <div
-                    className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-extrabold flex-shrink-0"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-extrabold flex-shrink-0"
                     style={isActive ? { background: '#6366F1', color: '#fff' } : { background: '#E2E8F0', color: '#64748B' }}
                   >
                     {i + 1}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded inline-block mb-0.5" style={{ background: pill.bg, color: pill.color }}>
+                    <div className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded inline-block mb-1" style={{ background: pill.bg, color: pill.color }}>
                       {pill.label}
                     </div>
-                    <p className="text-xs text-gray-500 truncate leading-tight">{q.text.slice(0, 40) || 'Untitled question'}</p>
+                    <p className="text-sm text-gray-600 truncate leading-tight">{q.text.slice(0, 50) || 'Untitled question'}</p>
                   </div>
                   <button
                     onClick={e => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setContextMenu({ index: i, x: r.right, y: r.bottom }) }}
-                    className="absolute top-1 right-1 w-5 h-5 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 shadow-sm text-gray-400 hover:text-gray-700 text-[11px] font-bold"
+                    className="absolute top-1.5 right-1.5 w-6 h-6 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 shadow-sm text-gray-400 hover:text-gray-700 text-sm font-bold"
                   >&#8230;</button>
                 </div>
               )
@@ -2174,6 +2198,14 @@ function CreateQuizPageInner() {
           <p className="text-sm font-semibold">{saveError}</p>
         </div>
       )}
+
+      {/* ── Quiz theme picker ── */}
+      <QuizThemePicker
+        open={themePickerOpen}
+        onClose={() => setThemePickerOpen(false)}
+        value={(theme as QuizThemeId) ?? undefined}
+        onChange={(id) => setThemeState(id)}
+      />
     </div>
   )
 }

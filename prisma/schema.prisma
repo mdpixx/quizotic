@@ -139,6 +139,7 @@ model Quiz {
   title     String
   subject   String?
   language  String?
+  theme     String?  // theme id from QUIZ_THEMES catalog; null = default
   questions Json     // array of Question objects
   userId    String?
   createdAt DateTime @default(now())
@@ -153,6 +154,7 @@ model Quiz {
 model Presentation {
   id        String   @id @default(cuid())
   title     String
+  theme     String?  // theme id from QUIZ_THEMES catalog; null = default
   slides    Json     // array of Slide objects
   userId    String?
   createdAt DateTime @default(now())
