@@ -1119,6 +1119,22 @@ function JoinPageInner() {
     }, question?.index ?? -1)
   }
 
+  // Direct submission for participation-only types (rating, ranking) that
+  // skip the confidence overlay — those flows are non-scored so "sure/unsure"
+  // adds friction without value.
+  function submitAnswerRaw(answer: unknown, selectedMarker?: string) {
+    if (selectedAnswer !== null || timeLeft <= 0) return
+    setSelectedAnswer(selectedMarker ?? (typeof answer === 'number' ? String(answer) : 'submitted'))
+    setPendingAnswer(null)
+    const timeMs = Date.now() - answerTimeRef.current
+    enqueueAnswer({
+      gameCode: gameCodeRef.current,
+      answer: answer as string | number | number[] | string[],
+      timeMs,
+      confidence: null,
+    }, question?.index ?? -1)
+  }
+
   function submitDrawing(dataUrl: string) {
     if (selectedAnswer !== null || timeLeft <= 0) return
     setSelectedAnswer('drawing')
@@ -1502,6 +1518,86 @@ function JoinPageInner() {
               {selectedAnswer !== null ? 'Submitted ✓' : 'Submit →'}
             </button>
           </div>
+        ) : question.type === 'rating' ? (
+          <div className="flex flex-col gap-4 flex-1 items-center justify-center py-4">
+            <p className="text-sm text-gray-500 font-semibold">Tap a star to rate</p>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4, 5].map(n => {
+                const idx = n - 1
+                const isSelected = selectedAnswer === String(idx)
+                const isActive = selectedAnswer !== null && Number(selectedAnswer) + 1 >= n
+                const isDisabled = selectedAnswer !== null || timeLeft <= 0
+                return (
+                  <button
+                    key={n}
+                    onClick={() => submitAnswerRaw(String(idx), String(idx))}
+                    disabled={isDisabled}
+                    aria-label={`Rate ${n} star${n !== 1 ? 's' : ''}`}
+                    aria-pressed={isSelected}
+                    className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center text-4xl transition-all focus-visible:outline focus-visible:outline-4 focus-visible:outline-amber-300 ${
+                      isActive ? 'bg-amber-100 scale-105' : 'bg-white border-2 border-gray-200 hover:border-amber-300 active:scale-95'
+                    } ${isDisabled && !isActive ? 'opacity-50' : ''}`}
+                  >
+                    <span style={{ color: isActive ? '#F59E0B' : '#D1D5DB', lineHeight: 1 }}>★</span>
+                  </button>
+                )
+              })}
+            </div>
+            {selectedAnswer !== null && (
+              <p className="font-black text-2xl" style={{ color: '#F59E0B' }}>
+                {Number(selectedAnswer) + 1} / 5 submitted ✓
+              </p>
+            )}
+          </div>
+        ) : question.type === 'ranking' ? (
+          (() => {
+            const rankOpts = (question.options ?? []) as QuizQuestion['options']
+            const rankOptCount = rankOpts?.length ?? 0
+            const order = rankingOrder.length === rankOptCount && rankOptCount > 0
+              ? rankingOrder
+              : Array.from({ length: rankOptCount }, (_, i) => i)
+            const ids = order.map(i => `quiz-rank-${i}`)
+            const isSubmitted = selectedAnswer !== null
+            return (
+              <div className="flex flex-col gap-3 flex-1">
+                <p className="text-sm text-center font-semibold text-gray-500">Drag to rank your order, then submit</p>
+                <DndContext sensors={rankingSensors} collisionDetection={closestCenter} onDragEnd={(e: DragEndEvent) => {
+                  if (isSubmitted) return
+                  const { active, over } = e
+                  if (!over || active.id === over.id) return
+                  const oldIndex = ids.indexOf(String(active.id))
+                  const newIndex = ids.indexOf(String(over.id))
+                  if (oldIndex < 0 || newIndex < 0) return
+                  setRankingOrder(arrayMove(order, oldIndex, newIndex))
+                }}>
+                  <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-2">
+                      {order.map((origIdx, pos) => {
+                        const label = getOptText(rankOpts?.[origIdx] ?? '') || `Option ${origIdx + 1}`
+                        return (
+                          <SortableRankingItem
+                            key={`quiz-rank-${origIdx}`}
+                            id={`quiz-rank-${origIdx}`}
+                            index={pos}
+                            label={label}
+                            color={OPTION_COLORS[origIdx % OPTION_COLORS.length]}
+                          />
+                        )
+                      })}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+                <button
+                  onClick={() => submitAnswerRaw(order, 'ranked')}
+                  disabled={isSubmitted || timeLeft <= 0}
+                  className="w-full py-4 rounded-2xl font-black text-xl transition-all disabled:opacity-40"
+                  style={{ background: isSubmitted ? '#9ca3af' : '#F5E642', color: isSubmitted ? '#fff' : '#0D0D0D', border: isSubmitted ? 'none' : '2px solid #0D0D0D' }}
+                >
+                  {isSubmitted ? 'Submitted ✓' : 'Submit order →'}
+                </button>
+              </div>
+            )
+          })()
         ) : (() => {
           const effectiveOpts = getEffectiveOptions(question as unknown as QuizQuestion)
           return (

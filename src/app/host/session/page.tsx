@@ -170,6 +170,12 @@ export default function SessionPage() {
   const [correctRevealed, setCorrectRevealed] = useState(false)
   // P3.4 — Drawing question gallery
   const [drawings, setDrawings] = useState<Array<{ name: string; archetype: string; dataUrl: string }>>([])
+  // Host-side aggregates for text-based / rating / Q&A types. Reset on every
+  // new question via question_show. Populated by text_submission events.
+  const [wordcloudWords, setWordcloudWords] = useState<string[]>([])
+  const [qaEntries, setQaEntries] = useState<Array<{ name: string; archetype: string; text: string; at: number }>>([])
+  const [openendedEntries, setOpenendedEntries] = useState<Array<{ name: string; archetype: string; text: string; at: number }>>([])
+  const [ratingValues, setRatingValues] = useState<number[]>([])
   // P2.5 — Ghost Mode
   const [ghostMode, setGhostMode] = useState(false)
 
@@ -274,6 +280,10 @@ export default function SessionPage() {
       setQuestionStartedAt(effectiveStart)
       setRankingSubmissions([])
       setDrawings([]) // reset drawing gallery for each new question
+      setWordcloudWords([])
+      setQaEntries([])
+      setOpenendedEntries([])
+      setRatingValues([])
 
       const msUntilStart = Math.max(0, effectiveStart - Date.now())
       const timerSeconds = quiz?.questions[index]?.timerSeconds ?? 20
@@ -323,6 +333,23 @@ export default function SessionPage() {
 
     socket.on('drawing_submitted', (entry: { name: string; archetype: string; dataUrl: string }) => {
       setDrawings(prev => [...prev, entry])
+    })
+
+    socket.on('text_submission', (entry: { type: string; name: string; archetype: string; answer: unknown; submittedAt: number }) => {
+      const text = typeof entry.answer === 'string' ? entry.answer.trim() : ''
+      if (entry.type === 'wordcloud') {
+        if (text) setWordcloudWords(prev => [...prev, text])
+      } else if (entry.type === 'qa') {
+        if (text) setQaEntries(prev => [...prev, { name: entry.name, archetype: entry.archetype, text, at: entry.submittedAt }])
+      } else if (entry.type === 'openended') {
+        if (text) setOpenendedEntries(prev => [...prev, { name: entry.name, archetype: entry.archetype, text, at: entry.submittedAt }])
+      } else if (entry.type === 'rating') {
+        // Rating submits a string option index (0..4) → convert to 1..5 scale.
+        const idx = typeof entry.answer === 'string' ? Number(entry.answer) : NaN
+        if (Number.isFinite(idx) && idx >= 0 && idx <= 4) {
+          setRatingValues(prev => [...prev, idx + 1])
+        }
+      }
     })
 
     socket.on('session_ended', ({ leaderboard: lb, teamLeaderboard: tlb, questionStats: qs, sessionMode: sm }: {
@@ -1001,20 +1028,161 @@ export default function SessionPage() {
               })).sort((a, b) => a.avg - b.avg)
               return (
                 <div className="space-y-2">
-                  {rows.map(row => (
+                  <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Consensus ranking · {rankingSubmissions.length} submission{rankingSubmissions.length !== 1 ? 's' : ''}</p>
+                  {rows.map((row, pos) => (
                     <div key={row.i} className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl p-3">
+                      <span className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black bg-gray-100 text-gray-600 flex-shrink-0">
+                        {pos + 1}
+                      </span>
                       <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ${OPTION_COLORS[row.i]}`}>
                         {row.label}
                       </span>
                       <span className="flex-1 text-base text-gray-800 font-medium">{row.text}</span>
                       <span className="text-sm font-bold text-gray-600 tabular-nums">
-                        {row.hasData ? `avg rank ${row.avg.toFixed(1)}` : 'avg rank —'}
+                        {row.hasData ? `avg ${row.avg.toFixed(1)}` : '—'}
                       </span>
                     </div>
                   ))}
                 </div>
               )
             })()
+          ) : currentQuestion.type === 'wordcloud' ? (
+            (() => {
+              // Tag cloud: frequency → font size, index → color, deterministic angle.
+              const CLOUD_COLORS = ['#E21B3C', '#1368CE', '#D89E00', '#26890C', '#7C3AED', '#EC4899', '#0EA5E9', '#F97316']
+              const normalize = (w: string) => w.toLowerCase().replace(/[^\p{L}\p{N}\s'-]/gu, '').trim()
+              const freq = new Map<string, { display: string; count: number }>()
+              for (const w of wordcloudWords) {
+                const key = normalize(w)
+                if (!key) continue
+                const existing = freq.get(key)
+                if (existing) existing.count += 1
+                else freq.set(key, { display: w.trim(), count: 1 })
+              }
+              const entries = Array.from(freq.values()).sort((a, b) => b.count - a.count)
+              const maxCount = entries[0]?.count ?? 1
+              return (
+                <div className="bg-white rounded-2xl border border-gray-200 p-6 min-h-[240px] relative overflow-hidden">
+                  <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
+                    Word cloud · {wordcloudWords.length} word{wordcloudWords.length !== 1 ? 's' : ''} from {freq.size} unique
+                  </p>
+                  {entries.length === 0 ? (
+                    <p className="text-gray-400 italic text-center py-12">Waiting for responses…</p>
+                  ) : (
+                    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 py-4">
+                      {entries.map((entry, i) => {
+                        const ratio = entry.count / maxCount
+                        const fontSize = Math.round(16 + ratio * 44)
+                        const color = CLOUD_COLORS[i % CLOUD_COLORS.length]
+                        const angle = (i * 37) % 25 - 12 // deterministic -12..+12 degrees
+                        return (
+                          <span
+                            key={entry.display + i}
+                            className="inline-block font-black transition-all"
+                            style={{
+                              fontSize,
+                              color,
+                              transform: `rotate(${angle}deg)`,
+                              fontFamily: 'var(--font-heading)',
+                              lineHeight: 1.1,
+                              padding: '2px 4px',
+                            }}
+                            title={`${entry.display} — ${entry.count}×`}
+                          >
+                            {entry.display}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })()
+          ) : currentQuestion.type === 'rating' ? (
+            (() => {
+              const total = ratingValues.length
+              const sum = ratingValues.reduce((s, v) => s + v, 0)
+              const avg = total > 0 ? sum / total : 0
+              const buckets = [0, 0, 0, 0, 0]
+              for (const v of ratingValues) {
+                if (v >= 1 && v <= 5) buckets[v - 1] += 1
+              }
+              const maxBucket = Math.max(1, ...buckets)
+              return (
+                <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5">
+                  <div className="flex items-end gap-3">
+                    <span className="text-6xl font-black tabular-nums" style={{ color: '#F59E0B', fontFamily: 'var(--font-heading)' }}>
+                      {total > 0 ? avg.toFixed(1) : '—'}
+                    </span>
+                    <span className="text-xl text-gray-500 pb-2">/ 5</span>
+                    <span className="ml-auto text-sm font-bold text-gray-500 pb-2">
+                      {total} response{total !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div className="flex gap-1 text-4xl">
+                    {[1, 2, 3, 4, 5].map(n => (
+                      <span key={n} style={{ color: n <= Math.round(avg) ? '#F59E0B' : '#E5E7EB' }}>★</span>
+                    ))}
+                  </div>
+                  <div className="space-y-1.5">
+                    {[5, 4, 3, 2, 1].map(n => {
+                      const c = buckets[n - 1]
+                      const pct = (c / maxBucket) * 100
+                      return (
+                        <div key={n} className="flex items-center gap-3">
+                          <span className="text-sm font-bold text-gray-600 w-8 tabular-nums">{n}★</span>
+                          <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: '#F59E0B' }} />
+                          </div>
+                          <span className="text-sm font-bold text-gray-500 w-8 text-right tabular-nums">{c}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()
+          ) : currentQuestion.type === 'qa' ? (
+            <div className="bg-white rounded-2xl border border-gray-200 p-6">
+              <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
+                Questions from participants · {qaEntries.length}
+              </p>
+              {qaEntries.length === 0 ? (
+                <p className="text-gray-400 italic text-center py-10">Waiting for questions…</p>
+              ) : (
+                <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+                  {qaEntries.map((e, i) => (
+                    <div key={`${e.at}-${i}`} className="flex gap-3 p-3 rounded-xl border border-gray-100 bg-gray-50">
+                      <div className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-white font-black text-xs" style={{ background: '#7C3AED' }}>
+                        {(e.name[0] ?? '?').toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-gray-500 truncate">{e.name}{e.archetype && ` · ${e.archetype}`}</p>
+                        <p className="text-base text-gray-900 leading-snug mt-0.5 break-words">{e.text}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : currentQuestion.type === 'openended' ? (
+            <div className="bg-white rounded-2xl border border-gray-200 p-6">
+              <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
+                Responses · {openendedEntries.length}
+              </p>
+              {openendedEntries.length === 0 ? (
+                <p className="text-gray-400 italic text-center py-10">Waiting for responses…</p>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-3 max-h-[420px] overflow-y-auto pr-1">
+                  {openendedEntries.map((e, i) => (
+                    <div key={`${e.at}-${i}`} className="p-4 rounded-xl border-l-4 bg-gradient-to-br from-white to-gray-50" style={{ borderLeftColor: ['#E21B3C', '#1368CE', '#D89E00', '#26890C', '#7C3AED'][i % 5] }}>
+                      <p className="text-[11px] font-bold text-gray-500 mb-1 truncate">{e.name}{e.archetype && ` · ${e.archetype}`}</p>
+                      <p className="text-sm text-gray-900 leading-snug break-words">{e.text}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : (
           <div className="grid grid-cols-2 gap-4">
             {getEffectiveOptions(currentQuestion)?.map((opt, i) => {

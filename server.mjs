@@ -1370,7 +1370,9 @@ app.prepare().then(async () => {
           total: session.participants.size,
           optionCounts: countAnswersByOption(session, qi, numOptions),
         })
-        io.to(`host:${gameCode}`).emit('ranking_submission', { order: answer })
+        // Payload field name `ranking` matches the host listener. Kept `order`
+        // for any older clients still in the wild; harmless duplicate.
+        io.to(`host:${gameCode}`).emit('ranking_submission', { ranking: answer, order: answer })
         return
       }
 
@@ -1425,6 +1427,20 @@ app.prepare().then(async () => {
         total: session.participants.size,
         optionCounts: countAnswersByOption(session, qi, numOptions),
       })
+
+      // Forward raw text/rating payloads to the host so it can render live
+      // visualizations (word cloud, Q&A feed, open-ended wall, rating chart).
+      // MCQ / truefalse / multiselect rely on optionCounts only — no forward needed.
+      if (['wordcloud', 'openended', 'qa', 'rating'].includes(question.type)) {
+        io.to(`host:${gameCode}`).emit('text_submission', {
+          type: question.type,
+          questionIndex: qi,
+          name: participant.name || participant.realName || 'Anonymous',
+          archetype: participant.archetype,
+          answer,
+          submittedAt: Date.now(),
+        })
+      }
 
       console.log(`[submit_answer:accept] code=${gameCode} q=${qi} sid=${socket.id} pts=${points} correct=${isCorrect}`)
     })
