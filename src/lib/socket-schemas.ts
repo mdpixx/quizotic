@@ -60,13 +60,6 @@ export const GameCodeOnlySchema = z.object({
   gameCode: z.string().min(4).max(10),
 })
 
-export const OverrideAnswerSchema = z.object({
-  gameCode: z.string().min(4).max(10),
-  participantName: z.string().min(1).max(24),
-  questionIndex: z.number().int().min(0).max(99),
-  isCorrect: z.boolean(),
-})
-
 export const PresenterSlideSchema = z.object({
   gameCode: z.string().min(4).max(10),
   slideIndex: z.number().int().min(0).max(500),

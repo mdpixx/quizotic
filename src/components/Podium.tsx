@@ -39,13 +39,45 @@ const PHASE_TIMINGS: Array<{ at: number; next: Phase }> = [
   { at: 6300, next: 'rest' },
 ]
 
-const CONFETTI_COLORS = ['#0F1B3D', '#F5E642', '#FF8A47', '#16A34A', '#2D3A8C', '#FFFFFF']
+const CONFETTI_COLORS = ['#0F1B3D', '#F5E642', '#FF8A47', '#16A34A', '#2D3A8C', '#FFFFFF', '#DC2626', '#7C3AED']
 
 const PODIUM_CONFIG = [
   { place: 2, height: 140, color: '#C0C0C0', label: '2nd' },
   { place: 1, height: 180, color: '#F5E642', label: '1st' },
   { place: 3, height: 100, color: '#CD7F32', label: '3rd' },
 ]
+
+// Medal colors — Olympic-style gradient endpoints.
+const MEDAL_STYLES: Record<1 | 2 | 3, { rim: string; rimDark: string; ribbon: string }> = {
+  1: { rim: '#FFE066', rimDark: '#B8860B', ribbon: '#DC2626' },       // gold / red ribbon
+  2: { rim: '#E5E7EB', rimDark: '#9CA3AF', ribbon: '#2563EB' },       // silver / blue ribbon
+  3: { rim: '#E0A97B', rimDark: '#8B4513', ribbon: '#16A34A' },       // bronze / green ribbon
+}
+
+// Small inline medal. place ∈ {1,2,3}; drawn as a ribbon + coin with embossed number.
+function Medal({ place, size = 40 }: { place: 1 | 2 | 3; size?: number }) {
+  const s = MEDAL_STYLES[place]
+  return (
+    <svg width={size} height={size * 1.4} viewBox="0 0 40 56" aria-hidden>
+      {/* Ribbon */}
+      <path d="M11 0 L20 22 L29 0 L24 0 L20 12 L16 0 Z" fill={s.ribbon} />
+      {/* Coin */}
+      <circle cx="20" cy="38" r="15" fill={s.rim} stroke={s.rimDark} strokeWidth="1.5" />
+      <circle cx="20" cy="38" r="11" fill="none" stroke={s.rimDark} strokeWidth="0.8" strokeOpacity="0.5" />
+      <text
+        x="20"
+        y="43"
+        textAnchor="middle"
+        fontSize="13"
+        fontWeight="900"
+        fill={s.rimDark}
+        style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
+      >
+        {place}
+      </text>
+    </svg>
+  )
+}
 
 function subscribeReducedMotion(cb: () => void) {
   if (typeof window === 'undefined') return () => {}
@@ -61,24 +93,50 @@ function usePrefersReducedMotion(): boolean {
   return useSyncExternalStore(subscribeReducedMotion, getReducedMotion, () => false)
 }
 
-// Fire a dramatic full-screen confetti burst. Library is dynamically imported
-// so it's not in the initial participant bundle.
+// Fire a dramatic, layered full-screen confetti celebration. Library is
+// dynamically imported so it's not in the initial participant bundle.
+// Sequence: opening burst → side cannons → streamer rain → secondary drop
+// → final gold-only crown burst. ~5s total.
 async function fireConfetti() {
   try {
     const mod = await import('canvas-confetti')
     const confetti = mod.default
-    const defaults = { colors: CONFETTI_COLORS, disableForReducedMotion: true }
-    // Wide center burst
-    confetti({ ...defaults, particleCount: 120, spread: 100, startVelocity: 55, origin: { y: 0.6 } })
-    // Left & right side cannons
+    const base = { colors: CONFETTI_COLORS, disableForReducedMotion: true }
+
+    // 1) Wide center burst
+    confetti({ ...base, particleCount: 140, spread: 110, startVelocity: 60, origin: { y: 0.6 } })
+
+    // 2) Left & right streamer cannons
     setTimeout(() => {
-      confetti({ ...defaults, particleCount: 80, angle: 60, spread: 70, origin: { x: 0, y: 0.75 } })
-      confetti({ ...defaults, particleCount: 80, angle: 120, spread: 70, origin: { x: 1, y: 0.75 } })
-    }, 200)
-    // Rain follow-up
+      confetti({ ...base, particleCount: 90, angle: 60, spread: 75, startVelocity: 65, shapes: ['square'], scalar: 1.1, origin: { x: 0, y: 0.75 } })
+      confetti({ ...base, particleCount: 90, angle: 120, spread: 75, startVelocity: 65, shapes: ['square'], scalar: 1.1, origin: { x: 1, y: 0.75 } })
+    }, 220)
+
+    // 3) Streamer rain from top
     setTimeout(() => {
-      confetti({ ...defaults, particleCount: 60, spread: 180, startVelocity: 35, scalar: 0.9, origin: { y: 0.3 } })
-    }, 600)
+      confetti({ ...base, particleCount: 80, spread: 200, startVelocity: 28, scalar: 1, ticks: 300, gravity: 0.6, shapes: ['square', 'circle'], origin: { y: 0.15 } })
+    }, 650)
+
+    // 4) Secondary pop + side refills (keep the sky lively)
+    setTimeout(() => {
+      confetti({ ...base, particleCount: 60, spread: 120, startVelocity: 45, origin: { y: 0.5 } })
+      confetti({ ...base, particleCount: 50, angle: 75, spread: 60, origin: { x: 0.05, y: 0.8 } })
+      confetti({ ...base, particleCount: 50, angle: 105, spread: 60, origin: { x: 0.95, y: 0.8 } })
+    }, 1700)
+
+    // 5) Gold-only crown burst on the winner after the applause crests
+    setTimeout(() => {
+      confetti({
+        ...base,
+        colors: ['#FFE066', '#F5E642', '#FFFFFF', '#FFC300'],
+        particleCount: 120,
+        spread: 140,
+        startVelocity: 55,
+        scalar: 1.3,
+        shapes: ['circle'],
+        origin: { x: 0.5, y: 0.55 },
+      })
+    }, 3000)
   } catch {
     // canvas-confetti not installed or failed — silently skip visual burst
   }
@@ -252,6 +310,17 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
                     : undefined,
                 }}
               >
+                {/* Medal — hangs above avatar once the place is revealed */}
+                {visible && (cfg.place === 1 || cfg.place === 2 || cfg.place === 3) && (!isWinner || winnerRevealed) && (
+                  <div
+                    style={{
+                      animation: !reduced ? 'medalDrop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both' : undefined,
+                      marginBottom: -6,
+                    }}
+                  >
+                    <Medal place={cfg.place as 1 | 2 | 3} size={isWinner ? 44 : 34} />
+                  </div>
+                )}
                 <div
                   className={`rounded-full overflow-hidden ${isHighlighted ? 'ring-3' : ''}`}
                   style={isHighlighted ? ({ '--tw-ring-color': '#F5E642' } as React.CSSProperties) : undefined}
@@ -373,6 +442,11 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
           60% { transform: translateX(6px); }
           75% { transform: translateX(-3px); }
           90% { transform: translateX(3px); }
+        }
+        @keyframes medalDrop {
+          0%   { opacity: 0; transform: translateY(-32px) rotate(-25deg) scale(0.6); }
+          55%  { opacity: 1; transform: translateY(4px)   rotate(8deg)   scale(1.1); }
+          100% { opacity: 1; transform: translateY(0)     rotate(0)      scale(1); }
         }
       `}</style>
     </div>

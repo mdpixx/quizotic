@@ -6,7 +6,7 @@ import { saveQuiz, loadQuizzes, setActiveSession } from '@/lib/quiz-storage'
 import { draftKey, readDraft, writeDraft, clearDraft, formatDraftAge } from '@/lib/draft-storage'
 import { useAutosave } from '@/lib/use-autosave'
 import type { Question, QuestionType, BloomsLevel, Quiz, QuestionOption } from '@/lib/quiz-types'
-import { getOptionText, getOptionImage } from '@/lib/quiz-types'
+import { getOptionText, getOptionImage, isScoredType } from '@/lib/quiz-types'
 import { ImageUpload } from '@/components/ImageUpload'
 import QRCode from 'react-qr-code'
 
@@ -569,24 +569,36 @@ function QuestionEditor({
             </div>
           </div>
           <div className="flex-1">
-            <label className="text-[10px] font-semibold text-gray-500 mb-1 block">Points</label>
-            <div className="flex gap-1 flex-wrap">
-              {POINTS_OPTIONS.map(p => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => onChange({ ...question, points: p })}
-                  className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-all"
-                  style={
-                    question.points === p
-                      ? { background: '#0F1B3D', color: '#F5E642', border: '1.5px solid #0F1B3D' }
-                      : { background: '#fff', color: '#64748B', border: '1.5px solid #E2E8F0' }
-                  }
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
+            <label className="text-[10px] font-semibold text-gray-500 mb-1 block">
+              {isScoredType(question.type) ? 'Points' : 'Scoring'}
+            </label>
+            {isScoredType(question.type) ? (
+              <div className="flex gap-1 flex-wrap">
+                {POINTS_OPTIONS.map(p => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => onChange({ ...question, points: p })}
+                    className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-all"
+                    style={
+                      question.points === p
+                        ? { background: '#0F1B3D', color: '#F5E642', border: '1.5px solid #0F1B3D' }
+                        : { background: '#fff', color: '#64748B', border: '1.5px solid #E2E8F0' }
+                    }
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-bold"
+                style={{ background: '#F3F4F6', color: '#475569', border: '1.5px solid #E2E8F0' }}
+                title="Interactive question types are not scored. Participants earn no points — responses are collected for engagement and insight."
+              >
+                Participation only
+              </span>
+            )}
           </div>
         </div>
       </div>

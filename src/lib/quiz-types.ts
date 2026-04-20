@@ -11,6 +11,14 @@ export type QuestionType =
   | 'case'
   | 'drawing'
 
+// Question types that award points. Everything else is participation-only.
+// Keep in sync with the `nonScored` set in server.mjs (emitQuestionEnded / buildQuestionStats / computeMaxScore).
+export const SCORED_TYPES: readonly QuestionType[] = ['mcq', 'multiselect', 'truefalse'] as const
+
+export function isScoredType(type: QuestionType): boolean {
+  return SCORED_TYPES.includes(type)
+}
+
 // All six levels of Anderson & Krathwohl's revised Bloom's Taxonomy (2001)
 export type BloomsLevel = 'remember' | 'understand' | 'apply' | 'analyse' | 'evaluate' | 'create'
 

@@ -1496,6 +1496,12 @@ function PresentCreatePageInner() {
   const [mobileSlidesOpen, setMobileSlidesOpen] = useState(false)
   const [plan, setPlan] = useState<'free' | 'pro'>('free')
   const [recoveredDraft, setRecoveredDraft] = useState<{ savedAt: number } | null>(null)
+  // Tracks the initial load for `?id=xxx` editing — used to show a proper
+  // spinner + inline error instead of silently rendering a blank new
+  // presentation when server fetch fails (e.g. fresh browser, offline tab).
+  const [loadState, setLoadState] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [loadErrorMsg, setLoadErrorMsg] = useState<string | null>(null)
+  const editIdRef = useRef<string>('')
   const hasLoadedRef = useRef(false)
   const lastSavedRef = useRef(JSON.stringify(makePresentation()))
   const sidebarScrollRef = useRef<HTMLDivElement>(null)
@@ -1556,21 +1562,38 @@ function PresentCreatePageInner() {
         return
       }
       // Nothing in localStorage — fetch from server directly
+      editIdRef.current = editId
+      setLoadState('loading')
       fetch(`/api/presentations/${editId}`)
-        .then(r => r.ok ? r.json() : null)
-        .then((d: { success: boolean; data?: Presentation } | null) => {
-          if (!d?.success || !d.data) return
-          setPresentation(d.data)
+        .then(async r => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`)
+          return r.json() as Promise<{ success: boolean; data?: Presentation; error?: string }>
+        })
+        .then(d => {
+          if (!d.success || !d.data) {
+            throw new Error(d.error || 'Presentation not found')
+          }
+          setPresentation(d.data!)
           setActiveIndex(0)
+          setLoadState('idle')
           try {
             const existing = JSON.parse(localStorage.getItem('quizotic_presentations') ?? '[]')
             existing.unshift(d.data)
             localStorage.setItem('quizotic_presentations', JSON.stringify(existing))
           } catch { /* ignore */ }
         })
-        .catch(() => {})
-      // Fallback: use draft if server fetch also fails
-      if (draft) { setPresentation(draft.value); setActiveIndex(0) }
+        .catch(err => {
+          // If we have a local draft, prefer recovering from it over showing an error.
+          if (draft) {
+            setPresentation(draft.value)
+            setRecoveredDraft({ savedAt: draft.savedAt })
+            setActiveIndex(0)
+            setLoadState('idle')
+            return
+          }
+          setLoadErrorMsg(err instanceof Error ? err.message : 'Failed to load presentation')
+          setLoadState('error')
+        })
       return
     }
     const editFlag = params.get('edit')
@@ -1917,6 +1940,69 @@ function PresentCreatePageInner() {
     const ctx = (s as unknown as Record<string, unknown>)._aiContext
     return typeof ctx === 'string' && ctx.length > 20
   })
+
+  // ── Presentation load states — show spinner / error overlay before the
+  // editor UI so users don't stare at a blank canvas when the fetch fails.
+  if (loadState === 'loading') {
+    return (
+      <div className="h-screen flex items-center justify-center" style={{ background: '#FAFBFC' }}>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-full border-3 border-t-transparent animate-spin"
+            style={{ borderColor: '#0F1B3D', borderTopColor: 'transparent' }} />
+          <p className="text-sm font-semibold" style={{ color: '#6B7280' }}>Loading presentation…</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (loadState === 'error') {
+    const retry = () => {
+      const id = editIdRef.current
+      if (!id) { router.push('/host'); return }
+      setLoadState('loading')
+      setLoadErrorMsg(null)
+      fetch(`/api/presentations/${id}`)
+        .then(async r => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`)
+          return r.json() as Promise<{ success: boolean; data?: Presentation; error?: string }>
+        })
+        .then(d => {
+          if (!d.success || !d.data) throw new Error(d.error || 'Presentation not found')
+          setPresentation(d.data!)
+          setActiveIndex(0)
+          setLoadState('idle')
+        })
+        .catch(err => {
+          setLoadErrorMsg(err instanceof Error ? err.message : 'Failed to load presentation')
+          setLoadState('error')
+        })
+    }
+    return (
+      <div className="h-screen flex items-center justify-center px-6" style={{ background: '#FAFBFC' }}>
+        <div className="max-w-sm w-full rounded-2xl p-8 text-center bg-white" style={{ border: '1px solid #E5E7EB' }}>
+          <div className="w-14 h-14 rounded-full mx-auto mb-5 flex items-center justify-center text-2xl" style={{ background: '#FEE2E2' }}>!</div>
+          <h2 className="text-lg font-bold mb-2" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
+            Could not load presentation
+          </h2>
+          <p className="text-sm mb-6" style={{ color: '#6B7280' }}>
+            {loadErrorMsg ?? 'We could not fetch this presentation. Check your connection and try again.'}
+          </p>
+          <div className="flex flex-col gap-3">
+            <button onClick={retry}
+              className="w-full px-6 py-3 rounded-xl font-bold text-sm transition-transform hover:scale-[1.02]"
+              style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}>
+              Try Again
+            </button>
+            <button onClick={() => router.push('/host')}
+              className="w-full px-6 py-3 rounded-xl font-semibold text-sm"
+              style={{ color: '#6B7280', border: '1.5px solid #E5E7EB' }}>
+              Back to Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="h-screen flex flex-col" style={{ background: '#FAFBFC', fontFamily: 'var(--font-body)' }}>

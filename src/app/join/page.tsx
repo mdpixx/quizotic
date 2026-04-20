@@ -13,6 +13,8 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type D
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { isContentSlideType, isInteractiveSlideType } from '@/lib/presentation-types'
+import { isScoredType } from '@/lib/quiz-types'
+import type { QuestionType } from '@/lib/quiz-types'
 
 function phaseForPresenterSlide(slideType: string | undefined): 'presenter-voting' | 'presenter-content' | 'presenter-lobby' {
   if (isInteractiveSlideType(slideType)) return 'presenter-voting'
@@ -755,12 +757,6 @@ function JoinPageInner() {
       if (tlb) setTeamLeaderboard(tlb)
     })
 
-    socket.on('answer_overridden', ({ isCorrect, pointsDelta, totalScore }: { questionIndex: number; isCorrect: boolean; pointsDelta: number; totalScore: number }) => {
-      setIsCorrect(isCorrect)
-      setTotalScore(totalScore)
-      if (pointsDelta > 0) setPointsEarned(prev => prev + pointsDelta)
-    })
-
     socket.on('my_rank_update', ({ rank }: { rank: number }) => {
       setIntermediateRank(rank)
     })
@@ -1426,8 +1422,17 @@ function JoinPageInner() {
         <div className={`bg-white rounded-2xl shadow-sm border p-6 mb-4 ${question.type === 'case' ? 'border-t-4' : 'border-gray-200 border-t-4'}`} style={{ borderTopColor: question.type === 'case' ? '#2D3A8C' : '#F5E642' }}>
           <div className="flex items-center justify-between mb-3">
             <span className="text-base text-gray-400 font-semibold">Q{question.index + 1} / {question.total}</span>
-            {question.type !== 'case' && question.type !== 'poll' && (
+            {isScoredType(question.type as QuestionType) && (
               <span className="text-base font-bold" style={{ color: '#0F1B3D' }}>{question.points} pts</span>
+            )}
+            {!isScoredType(question.type as QuestionType) && question.type !== 'case' && (
+              <span
+                className="text-xs font-bold px-2.5 py-1 rounded-md"
+                style={{ background: '#F3F4F6', color: '#475569', border: '1px solid #E2E8F0' }}
+                title="Your response is collected but does not earn points."
+              >
+                Participation
+              </span>
             )}
             {question.type === 'case' && (
               <span className="text-base font-semibold" style={{ color: '#2D3A8C' }}>Scenario</span>

@@ -17,11 +17,12 @@ const CelebrationOverlay = dynamic(
 import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/quiz-storage'
 import type { Quiz, QuestionStat, SessionMode } from '@/lib/quiz-types'
 import { ReflectionInsights } from '@/components/ReflectionInsights'
-import { getOptionText, getOptionImage } from '@/lib/quiz-types'
+import { getOptionText, getOptionImage, isScoredType } from '@/lib/quiz-types'
 import { CircularTimer } from '@/components/CircularTimer'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
 import { BrandWatermark } from '@/components/BrandWatermark'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
+import { JoinPill } from '@/components/host/JoinPill'
 
 type Phase = 'loading' | 'error' | 'idle' | 'lobby' | 'question' | 'ended'
 
@@ -161,10 +162,11 @@ export default function SessionPage() {
   const [intermediateLeaderboard, setIntermediateLeaderboard] = useState<LeaderboardEntry[]>([])
   const [countdownValue, setCountdownValue] = useState<number | null>(null)
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  // P2.2 — Manual answer override
-  const [showOverride, setShowOverride] = useState(false)
-  const [overrideName, setOverrideName] = useState('')
-  const [overrideResult, setOverrideResult] = useState<string | null>(null)
+  // Host-screen privacy: correct answer is hidden while the question is live
+  // (host screen is often projected to participants). Revealed after timer ends
+  // or via explicit "Reveal answer" button.
+  const [questionEnded, setQuestionEnded] = useState(false)
+  const [correctRevealed, setCorrectRevealed] = useState(false)
   // P3.4 — Drawing question gallery
   const [drawings, setDrawings] = useState<Array<{ name: string; archetype: string; dataUrl: string }>>([])
   // P2.5 — Ghost Mode
@@ -305,6 +307,7 @@ export default function SessionPage() {
 
     socket.on('question_ended', ({ explanation: exp }: { correctAnswer: string; explanation: string | null }) => {
       setExplanation(exp)
+      setQuestionEnded(true)
       if (hostTimerRef.current) { clearInterval(hostTimerRef.current); hostTimerRef.current = null }
       setHostTimeLeft(0)
     })
@@ -319,11 +322,6 @@ export default function SessionPage() {
 
     socket.on('drawing_submitted', (entry: { name: string; archetype: string; dataUrl: string }) => {
       setDrawings(prev => [...prev, entry])
-    })
-
-    socket.on('override_confirmed', ({ participantName, isCorrect }: { participantName: string; questionIndex: number; isCorrect: boolean; newScore: number }) => {
-      setOverrideResult(`${participantName} marked ${isCorrect ? 'correct ✓' : 'incorrect ✗'}`)
-      setTimeout(() => setOverrideResult(null), 3000)
     })
 
     socket.on('session_ended', ({ leaderboard: lb, teamLeaderboard: tlb, questionStats: qs, sessionMode: sm }: {
@@ -384,7 +382,6 @@ export default function SessionPage() {
       socket.off('question_ended')
       socket.off('session_ended')
       socket.off('leaderboard_update')
-      socket.off('override_confirmed')
       socket.off('drawing_submitted')
       socket.disconnect()
     }
@@ -487,6 +484,8 @@ export default function SessionPage() {
   function nextQuestion() {
     if (!quiz) return
     setExplanation(null)
+    setQuestionEnded(false)
+    setCorrectRevealed(false)
     if (hostTimerRef.current) { clearInterval(hostTimerRef.current); hostTimerRef.current = null }
     const nextIndex = questionIndex + 1
     if (nextIndex >= quiz.questions.length) {
@@ -804,6 +803,8 @@ export default function SessionPage() {
       {/* QUESTION */}
       {phase === 'question' && currentQuestion && quiz && (
         <div className="p-4 max-w-2xl mx-auto py-8 space-y-4">
+          {/* Persistent join pill — lets late participants jump in mid-session */}
+          <JoinPill gameCode={gameCode} />
           {/* 3-2-1 Countdown overlay */}
           {countdownValue !== null && (
             <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(15,27,61,0.92)' }}>
@@ -922,13 +923,15 @@ export default function SessionPage() {
               const votes = optionCounts[i] ?? 0
               const pct = participants.size > 0 ? (votes / participants.size) * 100 : 0
               const isCorrect = String(i) === currentQuestion.correctAnswer
-              const isCaseType = currentQuestion.type === 'case' || currentQuestion.type === 'poll'
+              // Green ring only for scored types AND only after host reveals the answer.
+              // This prevents leaking the correct answer on projector screens.
+              const highlightCorrect = isScoredType(currentQuestion.type) && isCorrect && correctRevealed
               const optText = getOptionText(opt)
               const optImage = getOptionImage(opt)
               return (
                 <div
                   key={i}
-                  className={`rounded-xl overflow-hidden border ${!isCaseType && isCorrect ? 'ring-2 ring-green-400 border-green-300 bg-green-50' : 'bg-white border-gray-200'}`}
+                  className={`rounded-xl overflow-hidden border ${highlightCorrect ? 'ring-2 ring-green-400 border-green-300 bg-green-50' : 'bg-white border-gray-200'}`}
                 >
                   {optImage && (
                     <img src={optImage} alt="" className="w-full h-32 object-cover" loading="lazy" />
@@ -939,7 +942,7 @@ export default function SessionPage() {
                     </span>
                     <span className="text-xl flex-1 text-gray-800 font-medium">{optText}</span>
                     <span className="text-lg font-bold text-gray-400">{votes}</span>
-                    {!isCaseType && isCorrect && <span className="text-green-600 text-lg font-bold">✓</span>}
+                    {highlightCorrect && <span className="text-green-600 text-lg font-bold">✓</span>}
                   </div>
                   <div className="h-2 bg-gray-100">
                     <div
@@ -1024,57 +1027,16 @@ export default function SessionPage() {
             </div>
           )}
 
-          {/* Manual answer override — host can correct a participant's score */}
-          <div className="border border-gray-200 rounded-xl overflow-hidden">
+          {/* Reveal answer — only for scored questions, only after the question has ended. */}
+          {isScoredType(currentQuestion.type) && questionEnded && !correctRevealed && (
             <button
-              onClick={() => { setShowOverride(v => !v); setOverrideName(''); setOverrideResult(null) }}
-              className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+              onClick={() => setCorrectRevealed(true)}
+              className="w-full py-4 rounded-2xl font-bold text-lg border-2 transition-all hover:scale-[1.01]"
+              style={{ borderColor: '#16A34A', color: '#fff', background: '#16A34A' }}
             >
-              <span>Override answer</span>
-              <span className="text-gray-400 text-xs">{showOverride ? '▲' : '▼'}</span>
+              Reveal Correct Answer
             </button>
-            {showOverride && (
-              <div className="border-t border-gray-100 p-4 space-y-3 bg-gray-50">
-                <p className="text-xs text-gray-500">Mark a participant&#39;s answer correct or incorrect. Useful for open-ended questions or borderline cases.</p>
-                <input
-                  type="text"
-                  placeholder="Participant name (exact)"
-                  value={overrideName}
-                  onChange={e => setOverrideName(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                  list="participant-names"
-                />
-                <datalist id="participant-names">
-                  {Array.from(participants.keys()).map(n => <option key={n} value={n} />)}
-                </datalist>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      if (!overrideName.trim()) return
-                      socketRef.current?.emit('override_answer', { gameCode, participantName: overrideName.trim(), questionIndex, isCorrect: true })
-                    }}
-                    disabled={!overrideName.trim()}
-                    className="flex-1 py-2 rounded-lg text-sm font-bold bg-green-50 border border-green-200 text-green-700 hover:bg-green-100 disabled:opacity-40 transition-colors"
-                  >
-                    Mark Correct ✓
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (!overrideName.trim()) return
-                      socketRef.current?.emit('override_answer', { gameCode, participantName: overrideName.trim(), questionIndex, isCorrect: false })
-                    }}
-                    disabled={!overrideName.trim()}
-                    className="flex-1 py-2 rounded-lg text-sm font-bold bg-red-50 border border-red-200 text-red-700 hover:bg-red-100 disabled:opacity-40 transition-colors"
-                  >
-                    Mark Wrong ✗
-                  </button>
-                </div>
-                {overrideResult && (
-                  <p className="text-sm font-bold text-center" style={{ color: '#0F1B3D' }}>{overrideResult}</p>
-                )}
-              </div>
-            )}
-          </div>
+          )}
 
           <div className="flex gap-3">
             <button

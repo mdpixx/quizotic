@@ -72,6 +72,28 @@ export function isInteractiveSlideType(type: SlideType | string | undefined): bo
   return !!meta && meta.hasAudienceInput === true
 }
 
+// Slides where results should always be visible to the host the moment
+// aggregation starts — there is no "hold the reveal" moment because there
+// is no correct answer. Multiple-choice / image-choice slides still follow
+// the responseMode gate so the host can pause for discussion before reveal.
+const AUTO_SHOW_RESULT_TYPES: readonly SlideType[] = [
+  'open_text',
+  'word_cloud',
+  'rating_scale',
+  'ranking',
+  'scale_100',
+  'emoji_pulse',
+  'pinpoint',
+  'grid_2x2',
+  'live_race',
+  'word_duel',
+]
+
+export function shouldAutoShowResults(type: SlideType | string | undefined): boolean {
+  if (!type) return false
+  return (AUTO_SHOW_RESULT_TYPES as readonly string[]).includes(type)
+}
+
 // ─── Slide data shapes ────────────────────────────────────────────────────────
 
 interface SlideBase {

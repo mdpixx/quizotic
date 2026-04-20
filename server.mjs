@@ -9,7 +9,6 @@ import {
   HostResumeSchema,
   JoinFollowupSchema,
   JoinSessionSchema,
-  OverrideAnswerSchema,
   PingTimeSchema,
   PresenterResponseSchema,
   PresenterSlideSchema,
@@ -671,59 +670,6 @@ app.prepare().then(async () => {
         total: session.participants.size,
         answered: countAnswers(session, qi),
       })
-    })
-
-    // Host can manually mark a participant's answer correct/incorrect for a question.
-    // Useful for typos in open-ended, keyword mismatches, or borderline cases.
-    socket.on('override_answer', (rawPayload) => {
-      const parsed = validateSocketPayload(socket, OverrideAnswerSchema, rawPayload, undefined, 'override_answer')
-      if (!parsed) return
-      const { gameCode, participantName, questionIndex: qi, isCorrect: overrideCorrect } = parsed
-      const session = sessions.get(gameCode)
-      if (!session || session.hostSocketId !== socket.id) return
-
-      const question = session.quizData.questions[qi]
-      if (!question) return
-
-      // Find participant by name
-      let targetSocketId = null
-      let participant = null
-      for (const [sid, p] of session.participants.entries()) {
-        if (p.name === participantName) { targetSocketId = sid; participant = p; break }
-      }
-      if (!participant || !targetSocketId) return
-
-      const existingAnswer = participant.answers[qi]
-      if (!existingAnswer) return
-
-      const wasCorrect = existingAnswer.isCorrect
-      if (wasCorrect === overrideCorrect) return  // no change needed
-
-      // Recalculate points delta
-      const basePoints = overrideCorrect
-        ? calcPoints(question.points || 1000, existingAnswer.timeMs || 0, question.timerSeconds || 20)
-        : 0
-      const pointsDelta = basePoints - (existingAnswer.basePoints || 0)
-
-      participant.score = Math.max(0, participant.score + pointsDelta)
-      participant.answers[qi] = {
-        ...existingAnswer,
-        isCorrect: overrideCorrect,
-        points: basePoints + (existingAnswer.streakBonus || 0),
-        basePoints,
-        overriddenByHost: true,
-      }
-
-      // Notify the participant of the correction
-      io.to(targetSocketId).emit('answer_overridden', {
-        questionIndex: qi,
-        isCorrect: overrideCorrect,
-        pointsDelta,
-        totalScore: participant.score,
-      })
-
-      // Confirm to host
-      socket.emit('override_confirmed', { participantName, questionIndex: qi, isCorrect: overrideCorrect, newScore: participant.score })
     })
 
     socket.on('end_session', async (rawPayload) => {

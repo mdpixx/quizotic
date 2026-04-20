@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { io, Socket } from 'socket.io-client'
 import QRCode from 'react-qr-code'
 import type { Slide, Presentation } from '@/lib/presentation-types'
-import { SLIDE_TYPE_META } from '@/lib/presentation-types'
+import { SLIDE_TYPE_META, shouldAutoShowResults } from '@/lib/presentation-types'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -964,8 +964,9 @@ export default function PresentSessionPage() {
           setSlideIndex(0)
           setShowIntro(!skipIntro)
           setAggregate({ total: 0 })
-          const firstMode = presentation!.slides[0]?.responseMode || 'instant'
-          setShowResults(firstMode === 'instant')
+          const firstSlide = presentation!.slides[0]
+          const firstMode = firstSlide?.responseMode || 'instant'
+          setShowResults(firstMode === 'instant' || shouldAutoShowResults(firstSlide?.type))
           setRevealed(false)
           setCorrectRevealed(false)
         } else {
@@ -984,10 +985,11 @@ export default function PresentSessionPage() {
     }
     if (!presentation || slideIndex >= totalSlides - 1) return
     const newIndex = slideIndex + 1
-    const nextMode = presentation.slides[newIndex]?.responseMode || 'instant'
+    const nextSlide = presentation.slides[newIndex]
+    const nextMode = nextSlide?.responseMode || 'instant'
     setSlideIndex(newIndex)
     setAggregate({ total: 0 })
-    setShowResults(nextMode === 'instant')
+    setShowResults(nextMode === 'instant' || shouldAutoShowResults(nextSlide?.type))
     setRevealed(false)
     setCorrectRevealed(false)
     setShowWave(false)
@@ -1004,10 +1006,11 @@ export default function PresentSessionPage() {
       return
     }
     const newIndex = slideIndex - 1
-    const prevMode = presentation!.slides[newIndex]?.responseMode || 'instant'
+    const prevSlide = presentation!.slides[newIndex]
+    const prevMode = prevSlide?.responseMode || 'instant'
     setSlideIndex(newIndex)
     setAggregate({ total: 0 })
-    setShowResults(prevMode === 'instant')
+    setShowResults(prevMode === 'instant' || shouldAutoShowResults(prevSlide?.type))
     setRevealed(false)
     setCorrectRevealed(false)
     setShowWave(false)
@@ -1230,7 +1233,7 @@ export default function PresentSessionPage() {
       {/* ── Main projected slide area ─────────────────────────────────────── */}
       <div className="flex-1 relative overflow-hidden" style={{ minHeight: 0 }}>
 
-        {/* Floating top-right bar: votes + participants + game code + QR toggle */}
+        {/* Floating top-right bar: votes + participants + always-visible join pill */}
         <div className="absolute top-4 right-4 flex items-center gap-2 z-30">
           {meta.hasAudienceInput && (
             <div className="flex items-center gap-1.5 rounded-full px-3 py-1.5" style={{ background: 'rgba(15,27,61,0.85)' }}>
@@ -1242,14 +1245,26 @@ export default function PresentSessionPage() {
             <span className="text-sm font-bold text-white">{participantCount}</span>
             <span className="text-xs text-white/60">joined</span>
           </div>
-          <div className="rounded-full px-3 py-1.5 font-mono font-black text-sm tracking-[0.15em]"
-            style={{ background: '#F5E642', color: '#0D0D0D' }}>
-            {gameCode}
-          </div>
-          <button onClick={() => setShowQR(s => !s)}
-            className="rounded-full px-3 py-1.5 text-sm font-bold transition-all hover:scale-105"
-            style={{ background: showQR ? '#0F1B3D' : '#fff', color: showQR ? '#fff' : '#0F1B3D', border: '1.5px solid #0F1B3D' }}>
-            {showQR ? 'Hide QR' : 'Show QR'}
+          <button
+            onClick={() => setShowQR(true)}
+            className="flex items-center gap-2 bg-white/95 backdrop-blur-sm rounded-2xl border border-gray-200 shadow-md px-2.5 py-1.5 transition-all hover:scale-[1.02]"
+            title="Scan or click to enlarge"
+          >
+            <div className="p-0.5 bg-white rounded-md">
+              <QRCode
+                value={`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')}/join?code=${gameCode}&mode=presenter`}
+                size={44}
+                bgColor="#ffffff"
+                fgColor="#0F1B3D"
+                level="L"
+              />
+            </div>
+            <div className="flex flex-col leading-tight text-left">
+              <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Join</span>
+              <span className="text-base font-black tabular-nums" style={{ color: '#0F1B3D', letterSpacing: '0.08em' }}>
+                {gameCode}
+              </span>
+            </div>
           </button>
         </div>
 
