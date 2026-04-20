@@ -605,17 +605,26 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
         <img src={slide.backgroundImageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
       )}
 
-      {slide.type === 'image' && (slide as { imageUrl?: string }).imageUrl ? (
-        // Image slide (incl. PPTX-imported): render the slide image full-bleed so
-        // the host sees exactly what they uploaded. Caption is edit-only (sidebar).
-        <div className="absolute inset-0 flex items-center justify-center" style={{ background: '#fff' }}>
-          <img src={(slide as { imageUrl: string }).imageUrl} alt={(slide as { caption?: string }).caption || ''}
-            className="w-full h-full object-contain" loading="eager" />
-        </div>
-      ) : (
+      {(() => {
+        const imageUrl = (slide as { imageUrl?: string }).imageUrl
+        const contentImageUrl = slide.contentImageUrl
+        // Full-bleed when this slide already carries a rendered image of its
+        // content (type: 'image' from the PPTX importer, or any slide type
+        // where contentImageUrl was set during import). Duplicating the text
+        // as an overlay both repeats what's in the image AND overflows the
+        // 16:9 card on portrait-format pages.
+        const fullBleedSrc = (slide.type === 'image' && imageUrl) || contentImageUrl ? (imageUrl || contentImageUrl) : null
+        return fullBleedSrc ? (
+          <div className="absolute inset-0 flex items-center justify-center" style={{ background: '#fff' }}>
+            <img src={fullBleedSrc} alt={(slide as { caption?: string }).caption || ''}
+              className="w-full h-full object-contain" loading="eager" />
+          </div>
+        ) : null
+      })()}
+      {!((slide.type === 'image' && (slide as { imageUrl?: string }).imageUrl) || slide.contentImageUrl) && (
         <div className={`absolute inset-0 flex flex-col px-6${slide.type === 'title' ? ' justify-center items-center text-center gap-3' : ' py-5'}`}>
           {slide.type !== 'quote' && (
-            <p className={`font-bold leading-snug flex-shrink-0${slide.type === 'title' ? ' text-2xl' : ' text-xl text-left'}`} style={{ color: textColor, fontFamily: 'var(--font-heading)' }}>
+            <p className={`font-bold leading-snug flex-shrink-0 line-clamp-3 break-words${slide.type === 'title' ? ' text-2xl' : ' text-xl text-left'}`} style={{ color: textColor, fontFamily: 'var(--font-heading)' }}>
               {getQuestionText()}
             </p>
           )}
@@ -2012,7 +2021,37 @@ function PresentCreatePageInner() {
   }
 
   return (
-    <div className="h-screen flex flex-col" style={{ background: '#FAFBFC', fontFamily: 'var(--font-body)' }}>
+    <div className="h-screen flex flex-col relative" style={{ background: '#FAFBFC', fontFamily: 'var(--font-body)' }}>
+
+      {/* ── Bottom save-error banner — shows the actual server message so
+           users can see why autosave is failing (theme column missing,
+           plan limit, network, etc.). Dismissable. ── */}
+      {saveError && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] max-w-[92vw] px-4 py-3 rounded-xl shadow-xl flex items-start gap-3"
+          style={{ background: '#FEF2F2', border: '1.5px solid #DC2626', color: '#991B1B' }}>
+          <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4 flex-shrink-0 mt-0.5">
+            <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3.5a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3A.75.75 0 018 4.5zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
+          </svg>
+          <div className="text-sm font-medium break-words min-w-0 flex-1">
+            <p className="font-bold mb-0.5">Couldn&apos;t save to server</p>
+            <p className="text-xs leading-relaxed">{saveError}</p>
+          </div>
+          <button
+            onClick={() => { setSaveError(null); savePresentation(true) }}
+            className="text-xs font-bold px-3 py-1.5 rounded-lg flex-shrink-0"
+            style={{ background: '#DC2626', color: '#fff' }}
+          >
+            Retry
+          </button>
+          <button
+            onClick={() => setSaveError(null)}
+            className="text-xs font-bold w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 hover:bg-red-100"
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* ── Draft recovery banner ── */}
       {recoveredDraft && (
@@ -2070,10 +2109,10 @@ function PresentCreatePageInner() {
             {/* Auto-save indicator — quiet, no flashing (Notion/Canva style).
                 Error state stays prominent. Normal state shows persistent muted text. */}
             {saveError ? (
-              <span className="text-xs font-medium flex items-center gap-1.5 mr-1" style={{ color: '#DC2626' }}>
+              <span className="text-xs font-medium flex items-center gap-1.5 mr-1 max-w-[280px]" style={{ color: '#DC2626' }} title={saveError}>
                 <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 flex-shrink-0"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3.5a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3A.75.75 0 018 4.5zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
-                <span className="hidden sm:inline">Couldn&apos;t save.</span>
-                <button onClick={() => { setSaveError(null); savePresentation(true) }} className="underline font-bold hover:no-underline">Retry</button>
+                <span className="hidden sm:inline truncate">{saveError.length > 40 ? `${saveError.slice(0, 40)}…` : saveError}</span>
+                <button onClick={() => { setSaveError(null); savePresentation(true) }} className="underline font-bold hover:no-underline flex-shrink-0">Retry</button>
               </span>
             ) : (saving || saved) ? (
               <span className="text-xs mr-1 hidden sm:inline" style={{ color: '#94A3B8' }}>

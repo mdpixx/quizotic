@@ -12,7 +12,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "deploy": "bash scripts/deploy-to-railway.sh"
+    "deploy": "bash scripts/deploy-to-railway.sh",
+    "repair-schema": "node scripts/ensure-critical-columns.mjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
