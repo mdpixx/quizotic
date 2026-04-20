@@ -677,8 +677,10 @@ function CreateQuizPageInner() {
   const [savedQuiz, setSavedQuiz] = useState<Quiz | null>(null)
   const [recoveredDraft, setRecoveredDraft] = useState<{ savedAt: number; quizId: string } | null>(null)
   const pendingLiveRef = useRef(false)
-  // Stable id for the quiz being edited — used by autosave to write the draft key
-  const quizIdRef = useRef<string>(editId ?? '')
+  // Stable id for the quiz being edited — used by autosave to write the draft key.
+  // Pre-mint for new quizzes so the autosave hook has a key before the user hits Save.
+  const quizIdRef = useRef<string>('')
+  if (!quizIdRef.current) quizIdRef.current = editId || (typeof crypto !== 'undefined' ? crypto.randomUUID() : `tmp-${Date.now()}`)
   const [activeIndex, setActiveIndex] = useState(0)
   const [saving, setSaving] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ index: number; x: number; y: number } | null>(null)

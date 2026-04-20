@@ -31,6 +31,12 @@ export interface QuizTheme {
   mutedText: string
   // Surface color for cards (question card, option card) on top of the bg.
   surface: string
+  // Primary text color for content INSIDE a surface card. For light cards on
+  // dark backgrounds (classroom/night-sky/neon) this must be dark even though
+  // textColor on the bg itself is light — otherwise surface content is unreadable.
+  surfaceText: string
+  // Muted text color for content inside a surface card.
+  surfaceMutedText: string
   // Border color for surfaces.
   surfaceBorder: string
   // Accent color for CTAs (Start Quiz, Next Question).
@@ -52,6 +58,8 @@ export const QUIZ_THEMES: Record<QuizThemeId, QuizTheme> = {
     textColor: '#0F1B3D',
     mutedText: '#64748B',
     surface: '#FFFFFF',
+    surfaceText: '#0F1B3D',
+    surfaceMutedText: '#64748B',
     surfaceBorder: '#E5E7EB',
     accent: '#F5E642',
     accentText: '#0D0D0D',
@@ -66,6 +74,8 @@ export const QUIZ_THEMES: Record<QuizThemeId, QuizTheme> = {
     textColor: '#FFFFFF',
     mutedText: '#B8D8C7',
     surface: 'rgba(255,255,255,0.96)',
+    surfaceText: '#0B3D2E',
+    surfaceMutedText: '#15803D',
     surfaceBorder: 'rgba(255,255,255,0.2)',
     accent: '#F5E642',
     accentText: '#0B3D2E',
@@ -80,6 +90,8 @@ export const QUIZ_THEMES: Record<QuizThemeId, QuizTheme> = {
     textColor: '#F5E642',
     mutedText: '#9CA3C6',
     surface: 'rgba(255,255,255,0.97)',
+    surfaceText: '#0F1B3D',
+    surfaceMutedText: '#475569',
     surfaceBorder: 'rgba(255,255,255,0.15)',
     accent: '#F5E642',
     accentText: '#050A1F',
@@ -94,6 +106,8 @@ export const QUIZ_THEMES: Record<QuizThemeId, QuizTheme> = {
     textColor: '#78350F',
     mutedText: '#92400E',
     surface: '#FFFFFF',
+    surfaceText: '#78350F',
+    surfaceMutedText: '#92400E',
     surfaceBorder: '#FDBA74',
     accent: '#DC2626',
     accentText: '#FFFFFF',
@@ -108,6 +122,8 @@ export const QUIZ_THEMES: Record<QuizThemeId, QuizTheme> = {
     textColor: '#14532D',
     mutedText: '#15803D',
     surface: '#FFFFFF',
+    surfaceText: '#14532D',
+    surfaceMutedText: '#15803D',
     surfaceBorder: '#86EFAC',
     accent: '#16A34A',
     accentText: '#FFFFFF',
@@ -122,6 +138,8 @@ export const QUIZ_THEMES: Record<QuizThemeId, QuizTheme> = {
     textColor: '#F0ABFC',
     mutedText: '#C4B5FD',
     surface: 'rgba(255,255,255,0.97)',
+    surfaceText: '#1E1B4B',
+    surfaceMutedText: '#6D28D9',
     surfaceBorder: '#7C3AED',
     accent: '#EC4899',
     accentText: '#FFFFFF',
@@ -136,6 +154,8 @@ export const QUIZ_THEMES: Record<QuizThemeId, QuizTheme> = {
     textColor: '#3F3F46',
     mutedText: '#71717A',
     surface: '#FFFFFF',
+    surfaceText: '#3F3F46',
+    surfaceMutedText: '#71717A',
     surfaceBorder: '#D4D4D8',
     accent: '#0F1B3D',
     accentText: '#F5E642',
@@ -150,6 +170,8 @@ export const QUIZ_THEMES: Record<QuizThemeId, QuizTheme> = {
     textColor: '#083344',
     mutedText: '#155E75',
     surface: '#FFFFFF',
+    surfaceText: '#083344',
+    surfaceMutedText: '#155E75',
     surfaceBorder: '#67E8F9',
     accent: '#0F1B3D',
     accentText: '#67E8F9',
@@ -164,6 +186,8 @@ export const QUIZ_THEMES: Record<QuizThemeId, QuizTheme> = {
     textColor: '#4C1D95',
     mutedText: '#6B21A8',
     surface: '#FFFFFF',
+    surfaceText: '#4C1D95',
+    surfaceMutedText: '#6B21A8',
     surfaceBorder: '#C084FC',
     accent: '#DC2626',
     accentText: '#FFFFFF',
@@ -178,6 +202,8 @@ export const QUIZ_THEMES: Record<QuizThemeId, QuizTheme> = {
     textColor: '#F8FAFC',
     mutedText: '#94A3B8',
     surface: '#1E293B',
+    surfaceText: '#F8FAFC',
+    surfaceMutedText: '#94A3B8',
     surfaceBorder: '#334155',
     accent: '#F5E642',
     accentText: '#0F172A',

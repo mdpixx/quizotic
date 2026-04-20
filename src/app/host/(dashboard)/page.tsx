@@ -627,11 +627,13 @@ export default function HostDashboard() {
           <p className="text-base font-black" style={{ color: '#0F1B3D' }}>Ready to run your next session?</p>
           <p className="text-sm mt-0.5" style={{ color: '#374151' }}>Create a quiz or presentation and host it live in minutes.</p>
         </div>
-        <div className="flex gap-3 flex-shrink-0">
+        <div className="flex gap-3 flex-shrink-0 flex-wrap justify-center">
           <Link href="/host/create" className="text-sm font-bold px-5 py-2.5 rounded-xl transition-all hover:scale-[1.02]"
             style={{ background: '#F5E642', color: '#0D0D0D' }}>+ Create Quiz</Link>
           <Link href="/host/present/create" className="text-sm font-bold px-5 py-2.5 rounded-xl transition-all hover:scale-[1.02]"
             style={{ background: '#fff', color: '#0F1B3D', border: '1.5px solid #0F1B3D' }}>+ Create Slides</Link>
+          <Link href="/host/templates" className="text-sm font-bold px-5 py-2.5 rounded-xl text-white transition-all hover:scale-[1.02]"
+            style={{ background: 'linear-gradient(135deg, #EA580C, #DC2626)' }}>📚 Browse Templates</Link>
         </div>
       </motion.div>
     </div>

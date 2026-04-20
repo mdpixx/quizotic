@@ -129,13 +129,13 @@ function ThemedSamplePreview({ themeId }: { themeId: QuizThemeId }) {
         style={{
           background: theme.surface,
           border: `1.5px solid ${theme.surfaceBorder}`,
-          color: theme.textColor,
+          color: theme.surfaceText,
         }}
       >
-        <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: theme.mutedText }}>
+        <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: theme.surfaceMutedText }}>
           Sample Question
         </p>
-        <p className="text-2xl font-black" style={{ color: theme.textColor, fontFamily: 'var(--font-heading)' }}>
+        <p className="text-2xl font-black" style={{ color: theme.surfaceText, fontFamily: 'var(--font-heading)' }}>
           What colour is the Indian flag&rsquo;s middle stripe?
         </p>
       </div>
@@ -152,7 +152,7 @@ function ThemedSamplePreview({ themeId }: { themeId: QuizThemeId }) {
             style={{
               background: theme.surface,
               border: `1.5px solid ${theme.surfaceBorder}`,
-              color: theme.textColor,
+              color: theme.surfaceText,
             }}
           >
             <span className="w-6 h-6 rounded-full flex-shrink-0" style={{ background: opt.color, border: '1.5px solid rgba(0,0,0,0.1)' }} />
