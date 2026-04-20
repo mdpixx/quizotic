@@ -1618,9 +1618,50 @@ function CreateQuizPageInner() {
               )}
               {tab === 'aidoc' && (
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block">Upload PDF or DOCX (max 5MB)</label>
-                  <input type="file" accept=".pdf,.docx" onChange={e => setDocFile(e.target.files?.[0] ?? null)} className="w-full bg-white border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-600 file:text-sm" style={{ borderColor: '#E2E8F0' }} />
-                  {docFile && <p className="text-xs text-gray-500 mt-1">{docFile.name} ({(docFile.size / 1024 / 1024).toFixed(2)} MB)</p>}
+                  <label className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5 block">Upload PDF or DOCX (max 5MB)</label>
+                  {docFile ? (
+                    <div
+                      className="w-full bg-white border-2 rounded-2xl px-5 py-6 flex items-center gap-4"
+                      style={{ borderColor: '#16A34A', background: '#F0FDF4' }}
+                    >
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style={{ background: '#DCFCE7' }}>
+                        📄
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold truncate" style={{ color: '#166534' }}>{docFile.name}</p>
+                        <p className="text-xs mt-0.5" style={{ color: '#15803D' }}>
+                          {(docFile.size / 1024 / 1024).toFixed(2)} MB &middot; ready to generate
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setDocFile(null)}
+                        className="text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-white/50 transition-colors flex-shrink-0"
+                        style={{ color: '#166534' }}
+                      >
+                        Change
+                      </button>
+                    </div>
+                  ) : (
+                    <label
+                      htmlFor="aidoc-file-input"
+                      className="w-full block cursor-pointer rounded-2xl border-2 border-dashed px-5 py-10 text-center transition-all hover:bg-gray-50"
+                      style={{ borderColor: '#CBD5E1', background: '#FAFBFC' }}
+                    >
+                      <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl mx-auto mb-3" style={{ background: '#EEF2FF', color: '#4F46E5' }}>
+                        ⇡
+                      </div>
+                      <p className="text-sm font-bold" style={{ color: '#0F1B3D' }}>Drop a file or click to upload</p>
+                      <p className="text-xs mt-1" style={{ color: '#64748B' }}>Accepts PDF / DOCX · up to 5 MB</p>
+                      <input
+                        id="aidoc-file-input"
+                        type="file"
+                        accept=".pdf,.docx"
+                        onChange={e => setDocFile(e.target.files?.[0] ?? null)}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
                 </div>
               )}
 
@@ -1635,17 +1676,19 @@ function CreateQuizPageInner() {
 
                 <div className="flex gap-4">
                   <div className="flex-1">
-                    <label className="text-xs text-gray-500 mb-1 block">Questions {plan === 'free' && <span className="text-blue-500 text-[10px]">(up to 25 with Pro)</span>}</label>
-                    <select value={aiCount} onChange={e => setAiCount(Number(e.target.value))} disabled={settingsLocked} className="w-full bg-white border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:opacity-50" style={{ borderColor: '#E2E8F0' }}>
-                      {countOptions.map(n => <option key={n} value={n}>{n} questions</option>)}
+                    <label className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5 block">
+                      Length {plan === 'free' && <span className="text-blue-500 text-[10px] normal-case">(up to 25 with Pro)</span>}
+                    </label>
+                    <select value={aiCount} onChange={e => setAiCount(Number(e.target.value))} disabled={settingsLocked} className="w-full bg-white border rounded-xl px-4 py-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:opacity-50" style={{ borderColor: '#E2E8F0' }}>
+                      {countOptions.map(n => <option key={n} value={n}>Around {n} questions</option>)}
                     </select>
                   </div>
                   <div className="flex-1">
-                    <label className="text-xs text-gray-500 mb-1 block">Difficulty</label>
-                    <select value={aiDifficulty} onChange={e => setAiDifficulty(e.target.value)} disabled={settingsLocked} className="w-full bg-white border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:opacity-50" style={{ borderColor: '#E2E8F0' }}>
-                      <option value="easy">Easy</option>
-                      <option value="medium">Medium</option>
-                      <option value="hard">Hard</option>
+                    <label className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5 block">Skill Level</label>
+                    <select value={aiDifficulty} onChange={e => setAiDifficulty(e.target.value)} disabled={settingsLocked} className="w-full bg-white border rounded-xl px-4 py-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:opacity-50" style={{ borderColor: '#E2E8F0' }}>
+                      <option value="easy">Beginner</option>
+                      <option value="medium">Intermediate</option>
+                      <option value="hard">Advanced</option>
                     </select>
                   </div>
                 </div>
@@ -1689,9 +1732,9 @@ function CreateQuizPageInner() {
                 </div>
 
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block">Language</label>
+                  <label className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5 block">Language</label>
                   <div className="flex gap-2">
-                    <select value={quizLanguage} onChange={e => setQuizLanguage(e.target.value)} className="flex-1 bg-white border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" style={{ borderColor: '#E2E8F0' }}>
+                    <select value={quizLanguage} onChange={e => setQuizLanguage(e.target.value)} className="flex-1 bg-white border rounded-xl px-4 py-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-200" style={{ borderColor: '#E2E8F0' }}>
                       {GLOBAL_LANGUAGES.map(({ lang }) => <option key={lang} value={lang}>{lang}</option>)}
                     </select>
                     {generatedOnTab && quizLanguage !== 'English' && quizLanguage !== translatedTo && (

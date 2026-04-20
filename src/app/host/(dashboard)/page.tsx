@@ -165,9 +165,9 @@ export default function HostDashboard() {
           </p>
         </motion.div>
 
-        <div className="grid sm:grid-cols-2 gap-5 mt-8 mb-10">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-8 mb-10">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <Link href="/host/create" className="block rounded-2xl border p-6 transition-all hover:scale-[1.01] hover:shadow-lg" style={{ background: '#fff', borderColor: '#E2E8F0' }}>
+            <Link href="/host/create" className="block rounded-2xl border p-6 transition-all hover:scale-[1.01] hover:shadow-lg h-full" style={{ background: '#fff', borderColor: '#E2E8F0' }}>
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-4" style={{ background: '#F3F4F6' }}>🧠</div>
               <h2 className="text-xl font-black mb-2" style={{ color: '#0F1B3D' }}>Create a Quiz</h2>
               <p className="text-sm leading-relaxed mb-4" style={{ color: '#64748B' }}>
@@ -180,7 +180,7 @@ export default function HostDashboard() {
           </motion.div>
 
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-            <Link href="/host/present/create" className="block rounded-2xl border p-6 transition-all hover:scale-[1.01] hover:shadow-lg" style={{ background: '#fff', borderColor: '#E2E8F0' }}>
+            <Link href="/host/present/create" className="block rounded-2xl border p-6 transition-all hover:scale-[1.01] hover:shadow-lg h-full" style={{ background: '#fff', borderColor: '#E2E8F0' }}>
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-4" style={{ background: '#F0FDFA' }}>📽</div>
               <h2 className="text-xl font-black mb-2" style={{ color: '#0F1B3D' }}>Create a Presentation</h2>
               <p className="text-sm leading-relaxed mb-4" style={{ color: '#64748B' }}>
@@ -188,6 +188,19 @@ export default function HostDashboard() {
               </p>
               <span className="inline-block text-sm font-bold px-5 py-2.5 rounded-xl text-white" style={{ background: 'linear-gradient(135deg, #0EA5E9, #06B6D4)' }}>
                 + Create Slides
+              </span>
+            </Link>
+          </motion.div>
+
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <Link href="/host/templates" className="block rounded-2xl border p-6 transition-all hover:scale-[1.01] hover:shadow-lg h-full" style={{ background: '#fff', borderColor: '#E2E8F0' }}>
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-4" style={{ background: '#FEF3C7' }}>📚</div>
+              <h2 className="text-xl font-black mb-2" style={{ color: '#0F1B3D' }}>Browse Templates</h2>
+              <p className="text-sm leading-relaxed mb-4" style={{ color: '#64748B' }}>
+                Start from a pre-built quiz by subject and audience. One click loads it into the editor — edit to fit your content.
+              </p>
+              <span className="inline-block text-sm font-bold px-5 py-2.5 rounded-xl text-white" style={{ background: 'linear-gradient(135deg, #EA580C, #DC2626)' }}>
+                Browse Templates
               </span>
             </Link>
           </motion.div>
