@@ -40,6 +40,8 @@ RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npm run build
 
 EXPOSE 4000
 
-# Auto-apply pending migrations on boot, then start the server.
-# Prevents schema drift between the repo and the production DB.
-CMD ["sh", "-c", "npx prisma migrate deploy && node server.mjs"]
+# Ensure critical columns exist (idempotent schema shim — see
+# scripts/ensure-critical-columns.mjs) BEFORE prisma migrate deploy, so drift
+# between _prisma_migrations and actual DDL can't strand users at the save path.
+# Then apply any pending Prisma migrations, then start the server.
+CMD ["sh", "-c", "node scripts/ensure-critical-columns.mjs && npx prisma migrate deploy && node server.mjs"]
