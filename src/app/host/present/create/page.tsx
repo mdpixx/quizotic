@@ -596,32 +596,41 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
     }
   }
 
-  return (
-    <div className="w-full aspect-video rounded-2xl overflow-hidden relative shadow-lg"
-      style={{ background: gradient }}>
+  const fullBleedSrc: string | undefined = (() => {
+    const imageUrl = (slide as { imageUrl?: string }).imageUrl
+    const contentImageUrl = slide.contentImageUrl
+    if (slide.type === 'image' && imageUrl) return imageUrl
+    if (contentImageUrl) return contentImageUrl
+    return undefined
+  })()
 
-      {/* Background image layer */}
-      {slide.backgroundImageUrl && (
+  // PPTX-imported slides render at the image's natural aspect ratio — portrait
+  // FAQ pages and landscape title slides both show in full without cropping.
+  // Other slide types keep the 16:9 card.
+  const cardClassName = fullBleedSrc
+    ? 'w-full rounded-2xl overflow-hidden relative shadow-lg bg-white'
+    : 'w-full aspect-video rounded-2xl overflow-hidden relative shadow-lg'
+  const cardStyle: React.CSSProperties = fullBleedSrc
+    ? { maxHeight: '82vh', background: '#ffffff' }
+    : { background: gradient }
+
+  return (
+    <div className={cardClassName} style={cardStyle}>
+
+      {/* Background image layer (skipped for full-bleed image slides to avoid
+          double-stacking) */}
+      {!fullBleedSrc && slide.backgroundImageUrl && (
         <img src={slide.backgroundImageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
       )}
 
-      {(() => {
-        const imageUrl = (slide as { imageUrl?: string }).imageUrl
-        const contentImageUrl = slide.contentImageUrl
-        // Full-bleed when this slide already carries a rendered image of its
-        // content (type: 'image' from the PPTX importer, or any slide type
-        // where contentImageUrl was set during import). Duplicating the text
-        // as an overlay both repeats what's in the image AND overflows the
-        // 16:9 card on portrait-format pages.
-        const fullBleedSrc = (slide.type === 'image' && imageUrl) || contentImageUrl ? (imageUrl || contentImageUrl) : null
-        return fullBleedSrc ? (
-          <div className="absolute inset-0 flex items-center justify-center" style={{ background: '#fff' }}>
-            <img src={fullBleedSrc} alt={(slide as { caption?: string }).caption || ''}
-              className="w-full h-full object-contain" loading="eager" />
-          </div>
-        ) : null
-      })()}
-      {!((slide.type === 'image' && (slide as { imageUrl?: string }).imageUrl) || slide.contentImageUrl) && (
+      {/* Full-bleed image path — renders at the image's natural aspect so
+          portrait PPTX pages (multi-paragraph FAQ layouts) never crop. The
+          parent maxHeight caps the card so 1-page posters don't dominate. */}
+      {fullBleedSrc && (
+        <img src={fullBleedSrc} alt={(slide as { caption?: string }).caption || ''}
+          className="block w-full h-auto max-h-[82vh] object-contain" loading="eager" />
+      )}
+      {!fullBleedSrc && (
         <div className={`absolute inset-0 flex flex-col px-6${slide.type === 'title' ? ' justify-center items-center text-center gap-3' : ' py-5'}`}>
           {slide.type !== 'quote' && (
             <p className={`font-bold leading-snug flex-shrink-0 line-clamp-3 break-words${slide.type === 'title' ? ' text-2xl' : ' text-xl text-left'}`} style={{ color: textColor, fontFamily: 'var(--font-heading)' }}>
@@ -663,14 +672,19 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
         </div>
       )}
 
-      {/* Type badge */}
-      <div className="absolute top-3 right-3 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider"
-        style={{ background: meta.bg, color: meta.color }}>
-        {meta.label}
-      </div>
+      {/* Type badge — hidden on full-bleed image slides so it doesn't cover
+          the page header/logo that the PPTX rendered into the image. */}
+      {!fullBleedSrc && (
+        <div className="absolute top-3 right-3 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider"
+          style={{ background: meta.bg, color: meta.color }}>
+          {meta.label}
+        </div>
+      )}
 
-      {/* Join bar — watermark for free plan */}
-      {plan !== 'pro' && (
+      {/* Join bar — watermark for free plan. Hidden on full-bleed image
+          slides in the BUILDER preview so it doesn't cover the actual slide
+          content (PPTX footer, page numbers). Still shows during live play. */}
+      {plan !== 'pro' && !fullBleedSrc && (
         <div className="absolute bottom-0 inset-x-0 px-4 py-2 flex items-center justify-between"
           style={{ background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(4px)' }}>
           <span className="text-[10px] font-bold opacity-70" style={{ color: '#fff' }}>quizotic.live &middot; Code: ----</span>
@@ -2260,10 +2274,21 @@ function PresentCreatePageInner() {
           </>
         )}
 
-        {/* CENTER: WYSIWYG Preview */}
-        <div className="flex-1 flex flex-col items-center justify-center overflow-y-auto" style={{ background: '#E8ECF0' }}>
+        {/* CENTER: WYSIWYG Preview — soft gradient + subtle dotted pattern so
+            the preview area reads as a "stage" rather than a bland gray wall.
+            Slide card gets more breathing room (max-w 1600). */}
+        <div
+          className="flex-1 flex flex-col items-center justify-center overflow-y-auto relative"
+          style={{
+            background: 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 45%, #DBEAFE 100%)',
+            backgroundImage:
+              'radial-gradient(rgba(15,27,61,0.06) 1.2px, transparent 1.2px), linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 45%, #DBEAFE 100%)',
+            backgroundSize: '18px 18px, 100% 100%',
+            backgroundPosition: '0 0, 0 0',
+          }}
+        >
           {activeSlide ? (
-            <div className="w-full max-w-[1400px] px-4 md:px-8 lg:px-12 py-4">
+            <div className="w-full max-w-[1600px] px-4 md:px-8 lg:px-12 py-4">
               {/* Slide preview */}
               <SlidePreview slide={activeSlide} plan={plan} />
 
@@ -2807,25 +2832,37 @@ function PresentCreatePageInner() {
 
       {/* ── Post-Import Enhance Prompt ── */}
       {showEnhancePrompt && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl border"
-          style={{ background: '#fff', borderColor: '#C7D2FE', maxWidth: 480 }}>
-          <div className="flex-1">
-            <p className="text-sm font-bold" style={{ color: '#0F1B3D' }}>
-              {pptxImportedCount} slides imported!
-            </p>
-            <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
-              Want to add interactive elements between your content slides?
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 px-5 py-3 rounded-2xl shadow-2xl border"
+          style={{ background: '#fff', borderColor: '#C7D2FE', maxWidth: 540 }}>
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <p className="text-sm font-bold" style={{ color: '#0F1B3D' }}>
+                {pptxImportedCount} slides imported!
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
+                Want to add interactive elements between your content slides?
+              </p>
+            </div>
+            <button onClick={() => { setShowEnhancePrompt(false); setEnhanceOpen(true) }}
+              className="px-4 py-2 rounded-xl text-xs font-bold transition-all hover:scale-[1.02] flex-shrink-0"
+              style={{ background: '#4F46E5', color: '#fff' }}>
+              Enhance with AI
+            </button>
+            <button onClick={() => setShowEnhancePrompt(false)}
+              className="text-xs font-medium flex-shrink-0" style={{ color: '#94A3B8' }}>
+              No thanks
+            </button>
+          </div>
+          {/* Video awareness — PPTX videos are rasterised to a poster image
+              during import, so audio/motion is lost. Tell the host how to
+              restore them as first-class Video slides (YouTube/Vimeo URL). */}
+          <div className="flex items-start gap-2 pt-2 border-t" style={{ borderColor: '#E0E7FF' }}>
+            <span className="text-sm flex-shrink-0" aria-hidden>🎬</span>
+            <p className="text-[11px] leading-snug" style={{ color: '#6B7280' }}>
+              Had videos in your deck? PPTX import captures them as still
+              images — use <strong style={{ color: '#4F46E5' }}>Add Slide → Video</strong> to paste a YouTube/Vimeo URL at the right position.
             </p>
           </div>
-          <button onClick={() => { setShowEnhancePrompt(false); setEnhanceOpen(true) }}
-            className="px-4 py-2 rounded-xl text-xs font-bold transition-all hover:scale-[1.02] flex-shrink-0"
-            style={{ background: '#4F46E5', color: '#fff' }}>
-            Enhance with AI
-          </button>
-          <button onClick={() => setShowEnhancePrompt(false)}
-            className="text-xs font-medium flex-shrink-0" style={{ color: '#94A3B8' }}>
-            No thanks
-          </button>
         </div>
       )}
 

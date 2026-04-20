@@ -585,6 +585,21 @@ export default function SessionPage() {
       {/* IDLE */}
       {phase === 'idle' && quiz && (
         <div className="p-4 max-w-2xl mx-auto py-8 space-y-4">
+          {/* Back button — lets host return to the builder to edit the quiz
+              before actually going live. Clears the active session so the
+              builder doesn't think a session is already running. */}
+          <button
+            onClick={() => {
+              clearActiveSession()
+              router.push(quiz?.id ? `/host/create?id=${quiz.id}` : '/host')
+            }}
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4">
+              <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Back to editor
+          </button>
           <h1 className="text-4xl font-black mb-1" style={{ color: '#0F1B3D' }}>{quiz.title}</h1>
           <p className="text-gray-500 text-lg">{quiz.questions.length} question{quiz.questions.length !== 1 ? 's' : ''}</p>
 
