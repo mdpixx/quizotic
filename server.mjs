@@ -42,6 +42,28 @@ if (process.env.DATABASE_URL) {
   dbPool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 5 })
 }
 
+// ─── Belt-and-suspenders schema guard ──────────────────────────
+// Prisma's migrate state can drift from the actual DB (ledger row present but
+// DDL never landed). Re-run idempotent ALTER TABLE IF NOT EXISTS statements
+// for columns the save paths hard-depend on, so a container restart always
+// repairs drift even when `prisma migrate deploy` is a no-op against the
+// drifted ledger. Runs once before we call app.prepare().
+async function ensureCriticalColumns() {
+  if (!dbPool) return
+  const stmts = [
+    'ALTER TABLE "Quiz" ADD COLUMN IF NOT EXISTS "theme" TEXT',
+    'ALTER TABLE "Presentation" ADD COLUMN IF NOT EXISTS "theme" TEXT',
+  ]
+  for (const sql of stmts) {
+    try {
+      await dbPool.query(sql)
+      console.log(`[boot:ensure-columns] OK — ${sql}`)
+    } catch (err) {
+      console.warn(`[boot:ensure-columns] skipped: ${sql} — ${err.message}`)
+    }
+  }
+}
+
 async function persistGameSession(data, attempt = 1) {
   if (!dbPool) return
   const { code, type, quizId, presentationId, userId, hostName, status, participantCount, results, sessionId } = data
@@ -303,6 +325,10 @@ function generateGameCode() {
 }
 
 app.prepare().then(async () => {
+  // Repair schema drift BEFORE the server starts handling requests. Safe on
+  // every boot — ALTER TABLE IF NOT EXISTS is a no-op when columns are present.
+  await ensureCriticalColumns()
+
   const httpServer = createServer((req, res) => {
     // Short-circuit: session lookup API (no auth, reads in-memory sessions Map)
     if (req.method === 'GET' && req.url && req.url.startsWith('/api/session/lookup')) {
