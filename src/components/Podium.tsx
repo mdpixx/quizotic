@@ -229,7 +229,7 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
 
   return (
     <div
-      className="space-y-6 relative"
+      className="space-y-6 relative overflow-x-hidden"
       style={shake ? { animation: 'podiumShake 0.45s ease-in-out 1' } : undefined}
     >
       {/* Skip intro animation — visible during every phase except rest */}

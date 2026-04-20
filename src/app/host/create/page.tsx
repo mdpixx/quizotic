@@ -183,6 +183,17 @@ function hasCorrectAnswer(type: QuestionType): boolean {
   return type === 'mcq' || type === 'truefalse'
 }
 
+// Picks a responsive Tailwind text size based on question length so long
+// questions don't overflow the preview card / live-session header.
+function questionTextSizeClass(text: string): string {
+  const len = text.length
+  if (len > 240) return 'text-base md:text-lg'
+  if (len > 180) return 'text-lg md:text-xl'
+  if (len > 120) return 'text-xl md:text-2xl'
+  if (len > 70) return 'text-xl md:text-3xl'
+  return 'text-2xl md:text-4xl'
+}
+
 function getTypePill(type: QuestionType) {
   return TYPE_PILLS.find(t => t.value === type) ?? TYPE_PILLS[0]
 }
@@ -262,9 +273,9 @@ function QuestionPreview({
           value={question.text}
           onChange={e => onChange({ ...question, text: e.target.value })}
           placeholder="Type your question here..."
-          rows={2}
+          rows={question.text.length > 140 ? 4 : question.text.length > 60 ? 3 : 2}
           maxLength={300}
-          className="w-full text-2xl md:text-4xl font-extrabold leading-snug text-center bg-transparent outline-none resize-none border-0 focus:ring-2 focus:ring-blue-200 rounded-lg transition-all"
+          className={`w-full font-extrabold leading-snug text-center bg-transparent outline-none resize-none border-0 focus:ring-2 focus:ring-blue-200 rounded-lg transition-all ${questionTextSizeClass(question.text)}`}
           style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}
         />
       </div>
@@ -938,7 +949,16 @@ function CreateQuizPageInner() {
   }
 
   function applyGeneratedQuestions(raw: Question[], forTab: Tab): Question[] {
-    const withIds = raw.map(q => ({ ...q, id: crypto.randomUUID() }))
+    const withIds = raw.map(q => {
+      const base = { ...q, id: crypto.randomUUID() }
+      // Backfill options for types where the AI legitimately omits them but the
+      // live session UI needs them to render option cards (notably rating).
+      if ((!base.options || base.options.length === 0)) {
+        const defaults = optionsForType(base.type)
+        if (defaults) return { ...base, options: defaults }
+      }
+      return base
+    })
     setQuestions(withIds)
     setGeneratedOnTab(forTab)
     setSelectedQuestions(new Set(withIds.map(q => q.id)))

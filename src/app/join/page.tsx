@@ -13,8 +13,8 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type D
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { isContentSlideType, isInteractiveSlideType } from '@/lib/presentation-types'
-import { isScoredType } from '@/lib/quiz-types'
-import type { QuestionType } from '@/lib/quiz-types'
+import { isScoredType, getEffectiveOptions } from '@/lib/quiz-types'
+import type { Question as QuizQuestion, QuestionType } from '@/lib/quiz-types'
 
 function phaseForPresenterSlide(slideType: string | undefined): 'presenter-voting' | 'presenter-content' | 'presenter-lobby' {
   if (isInteractiveSlideType(slideType)) return 'presenter-voting'
@@ -72,14 +72,15 @@ interface LeaderboardEntry {
   score: number
 }
 
+// Kahoot-style vibrant answer colors: red, blue, amber, green, deep indigo.
 const OPTION_GRADIENTS = [
-  'shadow-[0_4px_16px_rgba(45,58,140,0.25)]',
-  'shadow-[0_4px_16px_rgba(255,138,71,0.25)]',
-  'shadow-[0_4px_16px_rgba(91,192,235,0.25)]',
-  'shadow-[0_4px_16px_rgba(224,122,95,0.25)]',
-  'shadow-[0_4px_16px_rgba(15,27,61,0.25)]',
+  'shadow-[0_4px_14px_rgba(226,27,60,0.35)]',
+  'shadow-[0_4px_14px_rgba(19,104,206,0.35)]',
+  'shadow-[0_4px_14px_rgba(216,158,0,0.35)]',
+  'shadow-[0_4px_14px_rgba(38,137,12,0.35)]',
+  'shadow-[0_4px_14px_rgba(124,58,237,0.35)]',
 ]
-const OPTION_COLORS = ['#2D3A8C', '#FF8A47', '#5BC0EB', '#E07A5F', '#0F1B3D']
+const OPTION_COLORS = ['#E21B3C', '#1368CE', '#D89E00', '#26890C', '#7C3AED']
 const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E']
 const TEXT_INPUT_TYPES = ['openended', 'wordcloud', 'qa']
 
@@ -729,6 +730,16 @@ function JoinPageInner() {
       setPointsEarned(points)
       setTotalScore(totalScore)
       setPhase('answered')
+
+      // For non-scored types (poll/rating/wordcloud/qa/openended/ranking/drawing/case)
+      // there is no right/wrong — always celebrate the submission with a positive
+      // sound and skip the red-flash buzz, regardless of what server reports.
+      const scored = question ? isScoredType(question.type as QuestionType) : false
+      if (!scored) {
+        setStreak(0)
+        playCorrect()
+        return
+      }
 
       if (isCorrect) {
         const newStreak = streakCount ?? 1
@@ -1438,7 +1449,22 @@ function JoinPageInner() {
               <span className="text-base font-semibold" style={{ color: '#2D3A8C' }}>Scenario</span>
             )}
           </div>
-          <p className="font-bold text-2xl leading-snug" style={{ color: '#0F1B3D' }}>{question.text}</p>
+          <p
+            className="font-bold leading-snug break-words"
+            style={{
+              color: '#0F1B3D',
+              fontSize: (() => {
+                const len = question.text.length
+                if (len > 200) return '0.95rem'
+                if (len > 140) return '1.1rem'
+                if (len > 80) return '1.25rem'
+                return '1.5rem'
+              })(),
+              lineHeight: 1.3,
+            }}
+          >
+            {question.text}
+          </p>
           {question.imageUrl && (
             <img src={question.imageUrl} alt="" className="mt-3 rounded-xl max-h-48 w-full object-contain" loading="lazy" />
           )}
@@ -1476,15 +1502,17 @@ function JoinPageInner() {
               {selectedAnswer !== null ? 'Submitted ✓' : 'Submit →'}
             </button>
           </div>
-        ) : (
-          <div className={`gap-3 flex-1 ${
-            question.type === 'rating' && question.options?.length === 5
+        ) : (() => {
+          const effectiveOpts = getEffectiveOptions(question as unknown as QuizQuestion)
+          return (
+          <div className={`gap-2 flex-1 ${
+            question.type === 'rating' && effectiveOpts?.length === 5
               ? 'grid grid-cols-5'
-              : question.options?.length === 2
+              : effectiveOpts?.length === 2
               ? 'grid grid-cols-1'
               : 'grid grid-cols-2'
           }`}>
-            {question.options?.map((opt, idx) => {
+            {effectiveOpts?.map((opt, idx) => {
               const isSelected = question.type === 'multiselect'
                 ? multiselectChosen.has(idx)
                 : selectedAnswer === String(idx)
@@ -1499,8 +1527,8 @@ function JoinPageInner() {
                   disabled={isDisabled}
                   aria-label={`Option ${OPTION_LABELS[idx]}: ${optText}`}
                   aria-pressed={isSelected}
-                  className={`${OPTION_GRADIENTS[idx]} rounded-2xl p-4 text-white text-left transition-all focus-visible:outline focus-visible:outline-4 focus-visible:outline-white
-                    ${isTwoOption ? 'flex items-center gap-4 py-5' : 'min-h-[90px]'}
+                  className={`${OPTION_GRADIENTS[idx]} rounded-lg p-3 text-white text-left transition-all focus-visible:outline focus-visible:outline-4 focus-visible:outline-white
+                    ${isTwoOption ? 'flex items-center gap-4 py-4' : 'min-h-[84px]'}
                     ${isSelected ? 'ring-4 ring-white scale-[0.97]' : ''}
                     ${isDisabled && !isSelected ? 'opacity-50 pointer-events-none' : ''}
                   `}
@@ -1521,7 +1549,8 @@ function JoinPageInner() {
               )
             })}
           </div>
-        )}
+          )
+        })()}
 
         {/* Multiselect submit button */}
         {question.type === 'multiselect' && selectedAnswer === null && (
@@ -1565,7 +1594,9 @@ function JoinPageInner() {
 
   // ─── Answered Phase ────────────────────────────────────────────────────────
   if (phase === 'answered') {
-    const isNonScored = question?.type === 'case' || question?.type === 'poll' || TEXT_INPUT_TYPES.includes(question?.type ?? '') || question?.type === 'ranking' || question?.type === 'drawing'
+    // Non-scored = anything that isn't MCQ / True-False / Multiselect. Covers
+    // poll, rating, ranking, wordcloud, qa, openended, drawing, and case.
+    const isNonScored = !(question && isScoredType(question.type as QuestionType))
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 max-w-md mx-auto text-center gap-5 relative overflow-hidden">
         {/* Screen-reader live announcement for result */}
@@ -1624,10 +1655,10 @@ function JoinPageInner() {
           </div>
         )}
 
-        {isCorrect && sessionMode === 'competitive' && (
+        {isCorrect && sessionMode === 'competitive' && !isNonScored && (
           <p className="font-bold text-2xl animate-pulse" style={{ color: '#0F1B3D' }}>{t('join.pts', { n: pointsEarned })}</p>
         )}
-        {sessionMode === 'competitive' && (
+        {sessionMode === 'competitive' && !isNonScored && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 w-full">
             <p className="text-gray-500 text-lg">{t('join.yourScore')}</p>
             <p className="text-6xl font-black" style={{ color: '#0F1B3D' }}>{totalScore}</p>

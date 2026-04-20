@@ -156,10 +156,15 @@ async function sendWelcomeEmail(to: string, name: string | null) {
     : `Welcome to Quizotic — let's build your first lesson`
   const htmlBody = buildWelcomeHtml(name)
 
+  // RFC 2047 encoded-word for the Subject: header. Without this, non-ASCII
+  // characters (em-dash, apostrophes) are transmitted as raw UTF-8 bytes and
+  // rendered as Latin-1 garbage (e.g. "Ã¢€"") by most mail clients.
+  const encodedSubject = `=?UTF-8?B?${Buffer.from(subject, 'utf8').toString('base64')}?=`
+
   const mime = [
     `From: ${from}`,
     `To: ${to}`,
-    `Subject: ${subject}`,
+    `Subject: ${encodedSubject}`,
     'MIME-Version: 1.0',
     'Content-Type: text/html; charset=UTF-8',
     '',

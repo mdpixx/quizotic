@@ -17,7 +17,7 @@ const CelebrationOverlay = dynamic(
 import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/quiz-storage'
 import type { Quiz, QuestionStat, SessionMode } from '@/lib/quiz-types'
 import { ReflectionInsights } from '@/components/ReflectionInsights'
-import { getOptionText, getOptionImage, isScoredType } from '@/lib/quiz-types'
+import { getOptionText, getOptionImage, isScoredType, getEffectiveOptions } from '@/lib/quiz-types'
 import { CircularTimer } from '@/components/CircularTimer'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
 import { BrandWatermark } from '@/components/BrandWatermark'
@@ -952,9 +952,25 @@ export default function SessionPage() {
             </div>
           )}
 
-          {/* Question card */}
+          {/* Question card — text auto-scales so long questions stay in view */}
           <div className={`bg-white rounded-2xl shadow-sm border p-8 ${currentQuestion.type === 'case' ? 'border-blue-200 border-t-4 border-t-blue-500' : 'border-gray-200 border-t-4 border-t-amber-400'}`}>
-            <p className="text-3xl font-bold leading-snug" style={{ color: '#0F1B3D' }}>{currentQuestion.text}</p>
+            <p
+              className="font-bold leading-snug break-words"
+              style={{
+                color: '#0F1B3D',
+                fontSize: (() => {
+                  const len = currentQuestion.text.length
+                  if (len > 240) return '1.125rem'
+                  if (len > 180) return '1.25rem'
+                  if (len > 120) return '1.5rem'
+                  if (len > 70) return '1.75rem'
+                  return '1.875rem'
+                })(),
+                lineHeight: 1.3,
+              }}
+            >
+              {currentQuestion.text}
+            </p>
             {currentQuestion.imageUrl && (
               <img src={currentQuestion.imageUrl} alt={`Image for question ${questionIndex + 1}`} className="mt-4 rounded-xl max-h-64 w-full object-contain" loading="lazy" />
             )}
@@ -1001,7 +1017,7 @@ export default function SessionPage() {
             })()
           ) : (
           <div className="grid grid-cols-2 gap-4">
-            {currentQuestion.options?.map((opt, i) => {
+            {getEffectiveOptions(currentQuestion)?.map((opt, i) => {
               const votes = optionCounts[i] ?? 0
               const pct = participants.size > 0 ? (votes / participants.size) * 100 : 0
               const isCorrect = String(i) === currentQuestion.correctAnswer

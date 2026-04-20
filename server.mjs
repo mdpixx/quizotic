@@ -1164,6 +1164,7 @@ app.prepare().then(async () => {
             score: existing.score,
             participantId: existing.participantId,
           })
+          sendCurrentQuestionToSocket(socket, session)
           return
         }
       }
@@ -1210,6 +1211,7 @@ app.prepare().then(async () => {
           score: oldParticipant.score,
           participantId: oldParticipant.participantId,
         })
+        sendCurrentQuestionToSocket(socket, session)
         return
       }
 
@@ -1272,6 +1274,10 @@ app.prepare().then(async () => {
         showBranding: hostPlan !== 'pro',
         participantId: newPid,
       })
+
+      // Late joiner during active session — send them the current question
+      // so they don't land on a blank screen.
+      sendCurrentQuestionToSocket(socket, session)
 
       io.to(`host:${gameCode}`).emit('participant_joined', {
         name: displayStoredName,
@@ -1520,6 +1526,25 @@ app.prepare().then(async () => {
 function sanitizeQuestion(q) {
   const { correctAnswer, ...safe } = q
   return safe
+}
+
+// Catch-up emit for late joiners and reconnects. If the session is active and
+// there's a question in flight, send the current question directly to the
+// just-joined socket. Without this, late joiners see a blank screen because
+// they missed the room-level question_show broadcast.
+function sendCurrentQuestionToSocket(socket, session) {
+  if (!session || session.status !== 'active') return
+  const { currentQuestionIndex, quizData, questionStartedAt } = session
+  if (!quizData || typeof currentQuestionIndex !== 'number' || currentQuestionIndex < 0) return
+  const q = quizData.questions?.[currentQuestionIndex]
+  if (!q) return
+  socket.emit('question_show', {
+    question: sanitizeQuestion(q),
+    index: currentQuestionIndex,
+    total: quizData.questions.length,
+    serverTimestamp: questionStartedAt,
+    startAt: questionStartedAt,
+  })
 }
 
 function checkAnswer(question, answer) {

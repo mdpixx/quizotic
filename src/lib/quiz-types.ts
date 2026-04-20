@@ -19,6 +19,23 @@ export function isScoredType(type: QuestionType): boolean {
   return SCORED_TYPES.includes(type)
 }
 
+// Default option arrays per question type. Used to backfill AI-generated
+// questions (where rating legitimately omits options) and as a render-time
+// fallback so the live session UI always has something to show.
+export function defaultOptionsForType(type: QuestionType): string[] | undefined {
+  if (type === 'truefalse') return ['True', 'False']
+  if (type === 'rating') return ['1', '2', '3', '4', '5']
+  return undefined
+}
+
+// Safe accessor for rendering: returns the question's own options, or the
+// type-appropriate defaults if missing. Returns undefined for text-only types
+// (openended, wordcloud, qa) so callers can branch on "no options" correctly.
+export function getEffectiveOptions(q: Pick<Question, 'type' | 'options'>): QuestionOption[] | undefined {
+  if (q.options && q.options.length > 0) return q.options
+  return defaultOptionsForType(q.type)
+}
+
 // All six levels of Anderson & Krathwohl's revised Bloom's Taxonomy (2001)
 export type BloomsLevel = 'remember' | 'understand' | 'apply' | 'analyse' | 'evaluate' | 'create'
 
