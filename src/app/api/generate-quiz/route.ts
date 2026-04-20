@@ -314,7 +314,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
-      if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: 'File must be under 5MB' }, { status: 400 })
+      if (file.size > 20 * 1024 * 1024) return NextResponse.json({ error: 'File must be under 20MB' }, { status: 400 })
 
       const buffer = Buffer.from(await file.arrayBuffer())
       const fileName = file.name.toLowerCase()

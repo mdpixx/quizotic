@@ -1663,7 +1663,7 @@ function CreateQuizPageInner() {
               )}
               {tab === 'aidoc' && (
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5 block">Upload PDF or DOCX (max 5MB)</label>
+                  <label className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5 block">Upload PDF or DOCX (max 20MB)</label>
                   {docFile ? (
                     <div
                       className="w-full bg-white border-2 rounded-2xl px-5 py-6 flex items-center gap-4"
@@ -1697,12 +1697,21 @@ function CreateQuizPageInner() {
                         ⇡
                       </div>
                       <p className="text-sm font-bold" style={{ color: '#0F1B3D' }}>Drop a file or click to upload</p>
-                      <p className="text-xs mt-1" style={{ color: '#64748B' }}>Accepts PDF / DOCX · up to 5 MB</p>
+                      <p className="text-xs mt-1" style={{ color: '#64748B' }}>Accepts PDF / DOCX · up to 20 MB</p>
                       <input
                         id="aidoc-file-input"
                         type="file"
                         accept=".pdf,.docx"
-                        onChange={e => setDocFile(e.target.files?.[0] ?? null)}
+                        onChange={e => {
+                          const f = e.target.files?.[0] ?? null
+                          if (f && f.size > 20 * 1024 * 1024) {
+                            setAiGenError(`File is ${(f.size / 1024 / 1024).toFixed(1)} MB — max is 20 MB`)
+                            e.target.value = ''
+                            return
+                          }
+                          setAiGenError('')
+                          setDocFile(f)
+                        }}
                         className="hidden"
                       />
                     </label>
