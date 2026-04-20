@@ -85,9 +85,6 @@ export function BrandWatermark({ placement }: Props) {
         aria-label="Quizotic"
       >
         <QuizoticLogo variant="onLight" className="text-sm" />
-        <span style={{ fontSize: 10, color: '#4B5563', fontWeight: 500, letterSpacing: 0.3 }}>
-          quizotic.live
-        </span>
       </a>
     </div>
   )

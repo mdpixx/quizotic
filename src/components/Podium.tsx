@@ -41,10 +41,33 @@ const PHASE_TIMINGS: Array<{ at: number; next: Phase }> = [
 
 const CONFETTI_COLORS = ['#0F1B3D', '#F5E642', '#FF8A47', '#16A34A', '#2D3A8C', '#FFFFFF', '#DC2626', '#7C3AED']
 
+// Olympic-style podium: proper tier heights + rich metallic gradients.
+// Gold (1st) > Silver (2nd) > Bronze (3rd) with contrast-checked labels.
 const PODIUM_CONFIG = [
-  { place: 2, height: 140, color: '#C0C0C0', label: '2nd' },
-  { place: 1, height: 180, color: '#F5E642', label: '1st' },
-  { place: 3, height: 100, color: '#CD7F32', label: '3rd' },
+  {
+    place: 2,
+    height: 150,
+    gradient: 'linear-gradient(180deg, #E8EAF0 0%, #C0C5CE 55%, #8D95A3 100%)',
+    labelColor: '#1F2937',
+    topHighlight: '#FFFFFF',
+    label: '2nd',
+  },
+  {
+    place: 1,
+    height: 210,
+    gradient: 'linear-gradient(180deg, #FFE082 0%, #FFB300 55%, #E69500 100%)',
+    labelColor: '#5C2D00',
+    topHighlight: '#FFF3C4',
+    label: '1st',
+  },
+  {
+    place: 3,
+    height: 100,
+    gradient: 'linear-gradient(180deg, #E6A97B 0%, #C17A3A 55%, #8B5222 100%)',
+    labelColor: '#FFFFFF',
+    topHighlight: '#F4C896',
+    label: '3rd',
+  },
 ]
 
 // Medal colors — Olympic-style gradient endpoints.
@@ -338,27 +361,46 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
                 {isCompetitive && (
                   <p
                     className="text-xs font-black tabular-nums"
-                    style={{ color: cfg.color === '#F5E642' ? '#92400E' : '#6B7280' }}
+                    style={{ color: isWinner ? '#92400E' : '#6B7280' }}
                   >
                     {entry.score.toLocaleString()} pts
                   </p>
                 )}
               </div>
 
-              {/* Bar — grows once its place becomes visible */}
+              {/* Olympic-style step — metallic gradient bar with a brighter
+                  top edge so it reads as a 3D tier. Label is white/dark
+                  chosen per tier for WCAG-AA contrast against the gradient. */}
               <div
-                className="w-full rounded-t-xl flex items-end justify-center pb-2 relative overflow-hidden"
+                className="w-full rounded-t-xl flex items-end justify-center relative overflow-hidden"
                 style={{
                   height: visible ? (reduced ? cfg.height : 0) : 0,
-                  background: cfg.color,
+                  background: cfg.gradient,
                   animation: visible && !reduced ? 'growBar 0.8s ease-out forwards' : undefined,
-                  boxShadow: winnerRevealed ? '0 0 24px rgba(245,230,66,0.7)' : undefined,
+                  boxShadow: isWinner
+                    ? '0 -6px 24px rgba(255,179,0,0.5), inset 0 -6px 12px rgba(0,0,0,0.18)'
+                    : 'inset 0 -4px 10px rgba(0,0,0,0.15)',
                   zIndex: 1,
+                  paddingBottom: 14,
                   // @ts-expect-error CSS custom property
                   '--bar-height': `${cfg.height}px`,
                 }}
               >
-                <span className="text-2xl font-black" style={{ color: 'rgba(0,0,0,0.25)' }}>
+                {/* Top highlight strip — sells the "shiny metallic step" look */}
+                <div
+                  aria-hidden
+                  className="absolute top-0 left-0 right-0"
+                  style={{ height: 6, background: cfg.topHighlight, opacity: 0.85 }}
+                />
+                <span
+                  className="font-black tracking-wide"
+                  style={{
+                    color: cfg.labelColor,
+                    fontSize: isWinner ? '1.75rem' : '1.5rem',
+                    textShadow: isWinner ? '0 1px 0 rgba(255,255,255,0.55)' : '0 1px 2px rgba(0,0,0,0.25)',
+                    fontFamily: 'var(--font-heading)',
+                  }}
+                >
                   {cfg.label}
                 </span>
               </div>

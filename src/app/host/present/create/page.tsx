@@ -1511,8 +1511,12 @@ function PresentCreatePageInner() {
   // Blocks autosave (and suppresses its error toast) while PPTX import is in flight.
   // One explicit post-import save runs in importPptx's finally — so genuine errors still surface then.
   const importingRef = useRef(false)
-  // Stable ref to the current presentation id so autosave can write the draft key
+  // Stable ref to the current presentation id so autosave can write the draft key.
+  // Pre-mint for new presentations so the hook has a key before the first save.
   const presentationIdRef = useRef<string>('')
+  if (!presentationIdRef.current) {
+    presentationIdRef.current = typeof crypto !== 'undefined' ? crypto.randomUUID() : `tmp-${Date.now()}`
+  }
 
   // Load existing presentation when editing — runs ONCE on mount only.
   // Reading searchParams imperatively here avoids subscribing to the param as

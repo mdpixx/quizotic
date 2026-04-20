@@ -1206,8 +1206,12 @@ function CreateQuizPageInner() {
 
     const now = new Date().toISOString()
     const existing = editId ? loadQuizzes().find(q => q.id === editId) : null
+    // Reuse the pre-minted ref so draft key, handleSave, and the server all
+    // agree on the same id. Previously each Save minted a fresh UUID which
+    // orphaned the draft and could create duplicate server rows.
+    const stableId = editId ?? quizIdRef.current
     const quizData = {
-      id: editId ?? crypto.randomUUID(),
+      id: stableId,
       title: title.trim(),
       subject: subject.trim() || undefined,
       language: translatedTo ?? existing?.language ?? 'English',
@@ -1220,6 +1224,8 @@ function CreateQuizPageInner() {
     saveQuiz(quizData)
 
     let finalQuiz = quizData as Quiz
+    let dbSaveFailed = false
+    let dbSaveError = ''
     try {
       const res = await fetch('/api/quizzes', {
         method: 'POST',
@@ -1239,9 +1245,26 @@ function CreateQuizPageInner() {
           finalQuiz = { ...quizData, id: data.id, updatedAt: data.updatedAt ?? quizData.updatedAt } as Quiz
           saveQuiz(finalQuiz)
         }
+      } else {
+        dbSaveFailed = true
+        try {
+          const payload = await res.json()
+          dbSaveError = payload?.error ?? `Server returned ${res.status}`
+        } catch {
+          dbSaveError = `Server returned ${res.status}`
+        }
+        console.error('[quiz:save] API rejected:', res.status, dbSaveError)
       }
-    } catch {
-      // DB save failed silently — localStorage is fallback
+    } catch (err) {
+      dbSaveFailed = true
+      dbSaveError = err instanceof Error ? err.message : 'Network error'
+      console.error('[quiz:save] network/fetch error:', err)
+    }
+
+    if (dbSaveFailed) {
+      // Keep localStorage as fallback but SURFACE the error so the host knows
+      // the quiz didn't land in their library.
+      showSaveError(`Couldn't save to server: ${dbSaveError}. Quiz kept locally — try Save again.`)
     }
 
     // Clear draft — quiz is now properly saved
