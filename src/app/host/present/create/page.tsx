@@ -1527,6 +1527,76 @@ function makePresentation(): Presentation {
   }
 }
 
+// ─── Pre-present validation helpers ──────────────────────────────────────────
+// Treat these as "not really filled in yet" — either the initial empty state
+// or the default hint text the editor shows on a fresh slide.
+const EMPTY_HEADINGS = new Set(['', 'Title Slide'])
+const EMPTY_PROMPTS = new Set(['', 'Question text...', 'Prompt text...'])
+const GENERIC_PRESENTATION_TITLES = new Set(['', 'Untitled Presentation'])
+
+// If the first title slide has no heading but the presentation itself has a
+// real name, copy the presentation name into the heading. Returns the original
+// object (same reference) when nothing needed patching, so callers can cheaply
+// detect a no-op.
+function autoFillTitleHeading(pres: Presentation): Presentation {
+  const topTitle = (pres.title ?? '').trim()
+  if (GENERIC_PRESENTATION_TITLES.has(topTitle)) return pres
+  let patched = false
+  const slides = pres.slides.map((s) => {
+    if (patched || s.type !== 'title') return s
+    const heading = (s.heading ?? '').trim()
+    if (!EMPTY_HEADINGS.has(heading)) return s
+    patched = true
+    return { ...s, heading: topTitle }
+  })
+  if (!patched) return pres
+  return { ...pres, slides, updatedAt: new Date().toISOString() }
+}
+
+// Return every slide that still looks unfilled, with a human-readable reason.
+function findIncompleteSlides(pres: Presentation): {
+  index: number; id: string; typeLabel: string; issue: string
+}[] {
+  const flagged: { index: number; id: string; typeLabel: string; issue: string }[] = []
+  pres.slides.forEach((s, i) => {
+    const typeLabel = SLIDE_TYPE_META[s.type].label
+    const anyS = s as unknown as {
+      question?: string; heading?: string; title?: string; quote?: string; caption?: string
+      options?: string[]
+    }
+    // Pick the most relevant text field for this slide type and describe it in plain words.
+    let promptField: 'question' | 'heading' | 'title' | 'quote' | 'caption' | null = null
+    if (anyS.question !== undefined) promptField = 'question'
+    else if (anyS.heading !== undefined) promptField = 'heading'
+    else if (anyS.title !== undefined) promptField = 'title'
+    else if (anyS.quote !== undefined) promptField = 'quote'
+    else if (anyS.caption !== undefined) promptField = 'caption'
+
+    if (promptField) {
+      const value = (anyS[promptField] ?? '').trim()
+      const isEmpty = promptField === 'heading' ? EMPTY_HEADINGS.has(value) : EMPTY_PROMPTS.has(value)
+      if (isEmpty) {
+        const fieldLabel = promptField === 'question' ? 'question text'
+          : promptField === 'heading' ? 'heading'
+          : promptField === 'title' ? 'title'
+          : promptField === 'quote' ? 'quote text'
+          : 'caption'
+        flagged.push({ index: i, id: s.id, typeLabel, issue: `${fieldLabel} is empty` })
+        return
+      }
+    }
+
+    if (Array.isArray(anyS.options) && anyS.options.length > 0
+      && anyS.options.every((o, idx) => {
+        const v = (o ?? '').trim()
+        return v === '' || v === `Option ${idx + 1}` || v === 'Option 1'
+      })) {
+      flagged.push({ index: i, id: s.id, typeLabel, issue: 'answer options are still the defaults' })
+    }
+  })
+  return flagged
+}
+
 function PresentCreatePageInner() {
   const router = useRouter()
   const [presentation, setPresentation] = useState<Presentation>(makePresentation)
@@ -1537,6 +1607,10 @@ function PresentCreatePageInner() {
   const [planLimitBlocked, setPlanLimitBlocked] = useState<string | null>(null) // message from API when 403 on save
   const [starting, setStarting] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
+  const [incompletePrompt, setIncompletePrompt] = useState<{
+    slides: { index: number; id: string; typeLabel: string; issue: string }[]
+    patched: Presentation
+  } | null>(null)
   const [pptxImporting, setPptxImporting] = useState(false)
   const [pptxProgress, setPptxProgress] = useState('')
   const [pptxPercent, setPptxPercent] = useState(0)
@@ -1780,32 +1854,27 @@ function PresentCreatePageInner() {
   }
 
   function startPresentation() {
-    // Placeholder-text guard: warn before presenting with unfilled content
-    const placeholderPrompts = new Set(['', 'Title Slide', 'Question text...', 'Prompt text...'])
-    const placeholderOption = 'Option 1'
-    let flagged = 0
-    for (const s of presentation.slides) {
-      const anyS = s as unknown as {
-        question?: string; heading?: string; title?: string; quote?: string; caption?: string
-        options?: string[]
-      }
-      const mainPrompt = (anyS.question ?? anyS.heading ?? anyS.title ?? anyS.quote ?? anyS.caption ?? '').trim()
-      if (placeholderPrompts.has(mainPrompt)) {
-        flagged++
-        continue
-      }
-      if (Array.isArray(anyS.options) && anyS.options.length > 0
-        && anyS.options.every((o, i) => (o ?? '').trim() === `Option ${i + 1}` || (o ?? '').trim() === placeholderOption)) {
-        flagged++
-      }
+    // Step 1: silently auto-fill empty title-slide heading with the presentation name
+    const patched = autoFillTitleHeading(presentation)
+    if (patched !== presentation) {
+      setPresentation(patched)
     }
-    if (flagged > 0) {
-      const ok = window.confirm(`${flagged} slides still have placeholder text. Present anyway?`)
-      if (!ok) return
+
+    // Step 2: scan the (patched) slides for anything still incomplete and ask the user
+    const incompletes = findIncompleteSlides(patched)
+    if (incompletes.length > 0) {
+      setIncompletePrompt({ slides: incompletes, patched })
+      return
     }
-    localStorage.setItem('quizotic_active_presentation', JSON.stringify(presentation))
-    lastSavedRef.current = JSON.stringify(presentation)
-    clearDraft(draftKey('presentation', presentation.id))
+
+    // Step 3: all good — persist the patched copy for the live session and go
+    launchSession(patched)
+  }
+
+  function launchSession(pres: Presentation) {
+    localStorage.setItem('quizotic_active_presentation', JSON.stringify(pres))
+    lastSavedRef.current = JSON.stringify(pres)
+    clearDraft(draftKey('presentation', pres.id))
     router.push('/host/present/session')
   }
 
@@ -2936,6 +3005,65 @@ function PresentCreatePageInner() {
         value={(presentation.theme as QuizThemeId) ?? undefined}
         onChange={(id) => setPresentation(prev => ({ ...prev, theme: id }))}
       />
+
+      {/* ── Incomplete-slides warning Modal (shown on Present) ── */}
+      {incompletePrompt && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(15,27,61,0.55)' }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#FEF3C7' }}>
+                <svg viewBox="0 0 20 20" fill="#D97706" className="w-5 h-5"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 3.5a.75.75 0 01.75.75v4a.75.75 0 01-1.5 0v-4A.75.75 0 0110 5.5zm0 9a1 1 0 110-2 1 1 0 010 2z"/></svg>
+              </div>
+              <h3 className="text-lg font-extrabold" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>
+                {incompletePrompt.slides.length === 1 ? 'One slide needs attention' : `${incompletePrompt.slides.length} slides need attention`}
+              </h3>
+            </div>
+            <p className="text-sm leading-relaxed" style={{ color: '#374151' }}>
+              Fill these in for a cleaner session, or present as-is:
+            </p>
+            <ul className="max-h-56 overflow-y-auto rounded-xl border divide-y text-sm" style={{ borderColor: '#E2E8F0', color: '#374151' }}>
+              {incompletePrompt.slides.map((f) => (
+                <li key={f.id} className="px-3 py-2 flex items-start gap-2">
+                  <span className="font-bold flex-shrink-0" style={{ color: '#0F1B3D' }}>Slide {f.index + 1}</span>
+                  <span style={{ color: '#6B7280' }}>·</span>
+                  <span className="flex-shrink-0" style={{ color: '#0F1B3D' }}>{f.typeLabel}</span>
+                  <span style={{ color: '#6B7280' }}>—</span>
+                  <span className="flex-1" style={{ color: '#6B7280' }}>{f.issue}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex items-center justify-end gap-2 pt-2 flex-wrap">
+              <button
+                onClick={() => setIncompletePrompt(null)}
+                className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors hover:bg-gray-100"
+                style={{ color: '#64748B' }}>
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const first = incompletePrompt.slides[0]
+                  setActiveIndex(first.index)
+                  setMobileSlidesOpen(false)
+                  setIncompletePrompt(null)
+                }}
+                className="px-4 py-2 rounded-xl text-sm font-bold transition-all hover:opacity-90"
+                style={{ background: '#E0E7FF', color: '#1E1B4B' }}>
+                Fix now
+              </button>
+              <button
+                onClick={() => {
+                  const { patched } = incompletePrompt
+                  setIncompletePrompt(null)
+                  launchSession(patched)
+                }}
+                className="px-4 py-2 rounded-xl text-sm font-bold transition-all hover:scale-[1.02]"
+                style={{ background: '#0F1B3D', color: '#F5E642' }}>
+                Present anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Plan-limit blocked Modal (403 on save) ── */}
       {planLimitBlocked && (
