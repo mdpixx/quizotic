@@ -12,6 +12,7 @@ import { getQuizTheme, type QuizThemeId } from '@/lib/quiz-themes'
 import { EnhanceWithAI } from '@/components/EnhanceWithAI'
 import { ImageUpload } from '@/components/ImageUpload'
 import { SlideBgPicker } from '@/components/SlideBgPicker'
+import { SlideImage } from '@/components/SlideImage'
 import { draftKey, readDraft, writeDraft, clearDraft, formatDraftAge } from '@/lib/draft-storage'
 import { useAutosave } from '@/lib/use-autosave'
 
@@ -1197,7 +1198,13 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
           </div>
         </div>
         {slide.imageUrl && (
-          <img src={slide.imageUrl} alt="" className="w-full rounded-xl border max-h-64 object-contain" style={{ borderColor: '#E2E8F0' }} />
+          <SlideImage
+            src={slide.imageUrl}
+            alt=""
+            className="w-full rounded-xl border max-h-64 object-contain"
+            style={{ borderColor: '#E2E8F0' }}
+            fallbackText={slide.caption || 'Image could not be loaded from the CDN. Check your network or re-upload.'}
+          />
         )}
         <div>
           <label className={labelClass} style={labelStyle}>Caption (optional)</label>
@@ -1332,7 +1339,13 @@ function SlideThumbnail({ slide, index, active, onClick }: {
       <div className="w-full aspect-video rounded-t-lg flex items-center justify-center px-2 py-1.5 relative overflow-hidden"
         style={{ background: gradient }}>
         {slide.type === 'image' && (slide as { imageUrl?: string }).imageUrl ? (
-          <img src={(slide as { imageUrl: string }).imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+          <SlideImage
+            src={(slide as { imageUrl: string }).imageUrl}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+            loading="lazy"
+            fallbackText={(slide as { caption?: string }).caption || `Slide ${index + 1}`}
+          />
         ) : slide.backgroundImageUrl ? (
           <>
             <img src={slide.backgroundImageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
@@ -1905,21 +1918,34 @@ function PresentCreatePageInner() {
       }
       setPptxPercent(90)
       setPptxProgress('Loading slides...')
+      type MappedPptxSlide =
+        | { suggestedType: 'image'; imageUrl: string; caption: string; aiContext?: string; originalIndex: number }
+        | { suggestedType: 'bullets'; heading: string; bullets: string[]; aiContext?: string; originalIndex: number }
       const { slides: mappedSlides, title } = await res.json() as {
-        slides: { suggestedType: 'image'; imageUrl: string; caption: string; aiContext?: string; originalIndex: number }[]
+        slides: MappedPptxSlide[]
         title?: string
       }
       setPptxPercent(95)
       setPptxProgress(`Creating ${mappedSlides.length} slides...`)
 
-      const newSlides: Slide[] = mappedSlides.map(ms => ({
-        id: crypto.randomUUID(),
-        type: 'image' as const,
-        imageUrl: ms.imageUrl,
-        caption: ms.caption,
-        // Store extracted text as hidden metadata for AI enhancement
-        ...(ms.aiContext ? { _aiContext: ms.aiContext } : {}),
-      }))
+      const newSlides: Slide[] = mappedSlides.map(ms => {
+        if (ms.suggestedType === 'bullets') {
+          return {
+            id: crypto.randomUUID(),
+            type: 'bullets' as const,
+            heading: ms.heading,
+            bullets: ms.bullets,
+            ...(ms.aiContext ? { _aiContext: ms.aiContext } : {}),
+          } as Slide
+        }
+        return {
+          id: crypto.randomUUID(),
+          type: 'image' as const,
+          imageUrl: ms.imageUrl,
+          caption: ms.caption,
+          ...(ms.aiContext ? { _aiContext: ms.aiContext } : {}),
+        } as Slide
+      })
 
       const insertAt = activeIndex + 1
       setPresentation(prev => {

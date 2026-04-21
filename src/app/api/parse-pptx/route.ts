@@ -30,12 +30,38 @@ interface PythonSlideOutput {
 
 // ─── Mapped slide output ────────────────────────────────────────────────────
 
-interface MappedSlide {
-  suggestedType: 'image'
-  imageUrl: string
-  caption: string
-  aiContext?: string // hidden text for AI enhancement
-  originalIndex: number
+type MappedSlide =
+  | {
+      suggestedType: 'image'
+      imageUrl: string
+      caption: string
+      aiContext?: string // hidden text for AI enhancement
+      originalIndex: number
+    }
+  | {
+      // Fallback when image rendering or R2 upload fails for a single slide —
+      // we keep the slide in the deck so users don't silently lose content,
+      // using python-pptx's extracted title + body text.
+      suggestedType: 'bullets'
+      heading: string
+      bullets: string[]
+      aiContext?: string
+      originalIndex: number
+    }
+
+function toBulletsFallback(slide: PythonSlideOutput): Extract<MappedSlide, { suggestedType: 'bullets' }> {
+  const bullets = (slide.bodyText || '')
+    .split('\n')
+    .map(b => b.trim())
+    .filter(Boolean)
+    .slice(0, 6)
+  return {
+    suggestedType: 'bullets',
+    heading: slide.title ?? `Slide ${slide.index + 1}`,
+    bullets: bullets.length > 0 ? bullets : ['(image could not be rendered)'],
+    aiContext: slide.fullText || undefined,
+    originalIndex: slide.index,
+  }
 }
 
 // ─── R2 upload helper ───────────────────────────────────────────────────────
@@ -190,8 +216,13 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < pySlides.length; i += BATCH_SIZE) {
       const batch = pySlides.slice(i, i + BATCH_SIZE)
       const results = await Promise.all(
-        batch.map(async (slide): Promise<MappedSlide | null> => {
-          if (!slide.imagePath) return null
+        batch.map(async (slide): Promise<MappedSlide> => {
+          // LibreOffice rendering pipeline failed for this slide — keep it
+          // anyway as a bullets slide so the user doesn't silently lose it.
+          if (!slide.imagePath) {
+            console.warn(`[parse-pptx] Slide ${slide.index} has no rendered image, using text fallback`)
+            return toBulletsFallback(slide)
+          }
 
           try {
             const imageData = await readFile(slide.imagePath)
@@ -205,20 +236,20 @@ export async function POST(req: NextRequest) {
               originalIndex: slide.index,
             }
           } catch (uploadErr) {
-            console.error(`[parse-pptx] Failed to upload slide ${slide.index}:`, uploadErr)
-            return null
+            console.error(`[parse-pptx] Slide ${slide.index} R2 upload failed, using text fallback:`, uploadErr)
+            return toBulletsFallback(slide)
           }
         })
       )
 
       for (const r of results) {
-        if (r) mappedSlides.push(r)
+        mappedSlides.push(r)
       }
     }
 
     if (mappedSlides.length === 0) {
       return NextResponse.json(
-        { success: false, error: 'Could not render slides. The file may be corrupted.' },
+        { success: false, error: 'No slides found in the presentation.' },
         { status: 500 }
       )
     }

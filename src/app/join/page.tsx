@@ -15,6 +15,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { isContentSlideType, isInteractiveSlideType } from '@/lib/presentation-types'
 import { isScoredType, getEffectiveOptions } from '@/lib/quiz-types'
 import type { Question as QuizQuestion, QuestionType } from '@/lib/quiz-types'
+import { SlideImage } from '@/components/SlideImage'
 
 function phaseForPresenterSlide(slideType: string | undefined): 'presenter-voting' | 'presenter-content' | 'presenter-lobby' {
   if (isInteractiveSlideType(slideType)) return 'presenter-voting'
@@ -2052,7 +2053,13 @@ function JoinPageInner() {
         </div>
         <div className="flex-1 flex items-center justify-center p-4">
           {sType === 'image' && imageUrl && (
-            <img src={imageUrl} alt="" className="max-h-full max-w-full object-contain rounded-xl" />
+            <SlideImage
+              src={imageUrl}
+              alt=""
+              className="max-h-full max-w-full object-contain rounded-xl"
+              fallbackText="Slide image couldn't load on your device. Follow along on the host screen."
+              tone="dark"
+            />
           )}
           {sType === 'title' && (
             <div className="text-center space-y-3">

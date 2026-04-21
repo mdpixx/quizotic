@@ -8,6 +8,7 @@ import type { Slide, Presentation } from '@/lib/presentation-types'
 import { SLIDE_TYPE_META, shouldAutoShowResults } from '@/lib/presentation-types'
 import { getQuizTheme } from '@/lib/quiz-themes'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
+import { SlideImage } from '@/components/SlideImage'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -537,7 +538,13 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
       return (
         <div className="flex flex-col items-center justify-center h-full gap-3">
           {slide.imageUrl && (
-            <img src={slide.imageUrl} alt="" className="max-h-full max-w-full object-contain rounded-2xl flex-1 min-h-0" />
+            <SlideImage
+              src={slide.imageUrl}
+              alt=""
+              className="max-h-full max-w-full object-contain rounded-2xl flex-1 min-h-0"
+              fallbackText={slide.caption || 'Slide image could not be loaded. If you are on a corporate network, please whitelist the Quizotic CDN.'}
+              tone="light"
+            />
           )}
           {showCaption && <p className="text-lg font-medium text-center flex-shrink-0" style={{ color: '#374151' }}>{slide.caption}</p>}
         </div>
