@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getCurrentUser } from '@/lib/auth-helpers'
 import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 import { checkAiQuota, logAiUsage } from '@/lib/ai-quota'
@@ -20,6 +21,104 @@ interface SlideInput {
   index: number
   type: string
   textContent: string
+  // Optional URL (absolute or relative like `/api/img/...`) of the slide
+  // image. When present the server fetches the object from R2 and sends it
+  // to the vision-capable model so the AI can actually see what's on the
+  // slide (charts, diagrams, photos) — not just what python-pptx extracted.
+  imageUrl?: string
+}
+
+interface SlideInputWithImage extends SlideInput {
+  imageDataUrl?: string
+}
+
+// ─── R2 image fetch for multimodal prompts ──────────────────────────────────
+
+function extractR2Key(url: string | undefined): string | null {
+  if (!url) return null
+  // Our rewrite produces `/api/img/images/<userId>/<yyyy-mm>/pptx-<uuid>.png`.
+  // For legacy decks still pointing at pub-*.r2.dev, strip the origin.
+  const marker = '/api/img/'
+  const i = url.indexOf(marker)
+  if (i >= 0) return url.slice(i + marker.length)
+  const legacyMarker = '.r2.dev/'
+  const j = url.indexOf(legacyMarker)
+  if (j >= 0) return url.slice(j + legacyMarker.length)
+  return null
+}
+
+function getR2Client(): S3Client {
+  return new S3Client({
+    region: 'auto',
+    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID ?? '',
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY ?? '',
+    },
+  })
+}
+
+const MAX_IMAGE_BYTES = 1_500_000 // 1.5MB per image — skip huge ones
+
+async function fetchSlideImageAsDataUrl(url: string | undefined): Promise<string | undefined> {
+  const key = extractR2Key(url)
+  if (!key) return undefined
+  try {
+    const r2 = getR2Client()
+    const out = await r2.send(
+      new GetObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME ?? 'quizotic-uploads',
+        Key: key,
+      }),
+    )
+    if (!out.Body) return undefined
+    const contentLength = out.ContentLength ?? 0
+    if (contentLength > MAX_IMAGE_BYTES) {
+      console.warn(`[enhance] skipping oversize image ${key} (${contentLength} bytes)`)
+      return undefined
+    }
+    const chunks: Buffer[] = []
+    const stream = out.Body as unknown as AsyncIterable<Uint8Array>
+    for await (const chunk of stream) {
+      chunks.push(Buffer.from(chunk))
+    }
+    const buf = Buffer.concat(chunks)
+    const mime = out.ContentType ?? 'image/png'
+    return `data:${mime};base64,${buf.toString('base64')}`
+  } catch (err) {
+    console.warn(`[enhance] failed to fetch R2 key ${key}:`, err)
+    return undefined
+  }
+}
+
+// Cap the number of slide images we send to keep token cost and latency
+// predictable. Prioritise slides where the AI benefits most — those with
+// thin text (visual-only slides) fall through first, up to the cap.
+const MAX_MULTIMODAL_IMAGES = 12
+
+async function hydrateSlideImages(slides: SlideInput[]): Promise<SlideInputWithImage[]> {
+  // Rank slides by "how much does the AI need the image?" — ones with thin
+  // text content go first since python-pptx couldn't see their visual.
+  const ranked = [...slides]
+    .map((s, originalIdx) => ({ s, originalIdx }))
+    .sort((a, b) => a.s.textContent.length - b.s.textContent.length)
+  const selected = new Set<number>()
+  let budget = MAX_MULTIMODAL_IMAGES
+  for (const { originalIdx } of ranked) {
+    if (budget <= 0) break
+    if (slides[originalIdx].imageUrl) {
+      selected.add(originalIdx)
+      budget--
+    }
+  }
+  const hydrated: SlideInputWithImage[] = await Promise.all(
+    slides.map(async (s, i) => {
+      if (!selected.has(i)) return { ...s }
+      const dataUrl = await fetchSlideImageAsDataUrl(s.imageUrl)
+      return { ...s, imageDataUrl: dataUrl }
+    }),
+  )
+  return hydrated
 }
 
 interface AiSuggestion {
@@ -169,6 +268,57 @@ function getSlidePosition(index: number, total: number): string {
   if (pct < 0.7) return 'middle'
   if (pct < 0.9) return 'late'
   return 'closing'
+}
+
+type MultimodalPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } }
+
+function buildMultimodalUserPrompt(
+  slides: SlideInputWithImage[],
+  targetCount: number,
+  analysis: DeckAnalysis,
+): MultimodalPart[] {
+  const deckContext = `## Deck Analysis
+Topic: ${analysis.topic}
+Audience: ${analysis.audience}
+Content type: ${analysis.contentType}
+Key topics: ${analysis.keyTopics.join(', ')}
+Narrative arc: ${analysis.narrativeArc}
+Total slides: ${slides.length}
+`
+  const parts: MultimodalPart[] = [{ type: 'text', text: `${deckContext}\n## Slides\n` }]
+  for (let i = 0; i < slides.length; i++) {
+    const s = slides[i]
+    const position = getSlidePosition(s.index, slides.length)
+    const prevTitle = i > 0 ? slides[i - 1].textContent.split('\n')[0].slice(0, 60) : '(start)'
+    const nextTitle = i < slides.length - 1 ? slides[i + 1].textContent.split('\n')[0].slice(0, 60) : '(end)'
+    const slideHeader = `\n[Slide ${s.index} of ${slides.length}] (${s.type} slide, position: ${position})\nContent: ${s.textContent.slice(0, 2500)}\nPrevious: "${prevTitle}"\nNext: "${nextTitle}"`
+    parts.push({ type: 'text', text: slideHeader })
+    if (s.imageDataUrl) {
+      parts.push({ type: 'image_url', image_url: { url: s.imageDataUrl } })
+    }
+  }
+  parts.push({
+    type: 'text',
+    text: `\n\n## Task
+Suggest exactly ${targetCount} interactive slides. For each:
+- "afterSlideIndex": the slide index to insert AFTER
+- "type": one of the 8 interactive types
+- "slideData": complete data object with all required fields
+- "rationale": one sentence explaining WHY this interactivity fits at this point
+
+When slides include attached images, READ THEM carefully — charts, diagrams, labelled figures, numerical data often contain the most testable details. Reference what you see, not what you guess.
+
+Space them evenly. Match the type to the content's cognitive level. Reference specific content from the slides.
+
+Return a JSON array:
+[
+  { "afterSlideIndex": 2, "type": "word_cloud", "slideData": { "question": "...", "maxWords": 1 }, "rationale": "..." },
+  ...
+]`,
+  })
+  return parts
 }
 
 function buildUserPrompt(
@@ -363,9 +513,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'No slides provided' }, { status: 400 })
   }
 
-  // Filter to content slides with actual text
+  // Filter to slides worth enhancing — either text-heavy OR image-bearing
+  // (imported PPTX slides are type 'image' with minimal text but the visual
+  // is the signal, so we should include them).
   const contentSlides = slides.filter(s =>
-    ['title', 'bullets', 'image'].includes(s.type) && s.textContent.trim().length > 10
+    ['title', 'bullets', 'image'].includes(s.type) &&
+    (s.textContent.trim().length > 10 || !!s.imageUrl)
   )
 
   if (contentSlides.length === 0) {
@@ -378,12 +531,25 @@ export async function POST(req: NextRequest) {
     // Pass 1: Analyze the deck for topic, audience, and narrative
     const analysis = await analyzeDeck(contentSlides)
 
-    // Pass 2: Generate suggestions with full context
+    // Hydrate a subset of slide images as base64 for multimodal prompting.
+    // Only runs for slides that opt in via `imageUrl`; capped by MAX_MULTIMODAL_IMAGES.
+    const hydrated = await hydrateSlideImages(contentSlides)
+    const attachedCount = hydrated.filter(s => s.imageDataUrl).length
+    console.log(`[enhance] deck=${contentSlides.length} slides, target=${targetCount}, images=${attachedCount}`)
+
+    // Pass 2: Generate suggestions with full context. Use multimodal when we
+    // have images to show, otherwise fall back to the plain-text prompt.
+    const userContent: MultimodalPart[] | string =
+      attachedCount > 0
+        ? buildMultimodalUserPrompt(hydrated, targetCount, analysis)
+        : buildUserPrompt(contentSlides, targetCount, analysis)
+
     const response = await client.chat.completions.create({
       model: MODEL,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: buildUserPrompt(contentSlides, targetCount, analysis) },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        { role: 'user', content: userContent as any },
       ],
       temperature: 0.5,
       max_tokens: 4000,
@@ -453,9 +619,64 @@ export async function POST(req: NextRequest) {
       }
       // After retry, drop any suggestion that is STILL mangled rather than show bad output
       suggestions = suggestions.filter(s => detectMangledWords(s, contentSlides).length === 0)
-      if (suggestions.length === 0) {
-        return NextResponse.json({ success: false, error: 'AI could not generate clean suggestions. Please try again.' }, { status: 500 })
+    }
+
+    // ─── Top-up when the AI under-delivers vs the requested level ───────────
+    //
+    // Issue: for "heavy" on 20 slides the user expects ~8 suggestions, but
+    // when the mangling filter drops a chunk or the model just returns fewer,
+    // the user gets 2-3 and thinks the feature is broken. If we're below ~70%
+    // of target, issue a focused top-up asking ONLY for the shortfall, with
+    // the existing suggestions as context so it doesn't duplicate them.
+    const topUpThreshold = Math.max(1, Math.ceil(targetCount * 0.7))
+    if (suggestions.length < topUpThreshold) {
+      const short = targetCount - suggestions.length
+      console.warn(`[enhance] Under-delivered (${suggestions.length}/${targetCount}) — requesting ${short} more`)
+      try {
+        const existingSummary = suggestions.map(s =>
+          `- afterSlide ${s.afterSlideIndex}, type ${s.type}: "${(s.slideData.question as string) ?? ''}".`
+        ).join('\n')
+        const topUp = await client.chat.completions.create({
+          model: MODEL,
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'user', content: buildUserPrompt(contentSlides, targetCount, analysis) },
+            { role: 'assistant', content: JSON.stringify(suggestions) },
+            {
+              role: 'user',
+              content: `That was a good start but only ${suggestions.length} of the ${targetCount} requested suggestions came through. Please return ${short} ADDITIONAL suggestions (not duplicates) covering slides that weren't yet enhanced. Space them across the deck. Use exact source spellings only. Return ONLY a JSON array of the ${short} new suggestions — do NOT repeat the existing ones listed above:\n${existingSummary}`,
+            },
+          ],
+          temperature: 0.4,
+          max_tokens: 4000,
+        })
+        const topUpRaw = topUp.choices[0]?.message?.content?.trim() ?? ''
+        const topUpCleaned = topUpRaw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
+        const topUpParsed = JSON.parse(topUpCleaned)
+        if (Array.isArray(topUpParsed)) {
+          const fresh = validateSuggestions(topUpParsed).filter(
+            s => detectMangledWords(s, contentSlides).length === 0,
+          )
+          // Dedupe by afterSlideIndex+type+question to guard against overlap
+          const seen = new Set(
+            suggestions.map(s => `${s.afterSlideIndex}::${s.type}::${(s.slideData.question as string) ?? ''}`),
+          )
+          for (const s of fresh) {
+            const key = `${s.afterSlideIndex}::${s.type}::${(s.slideData.question as string) ?? ''}`
+            if (!seen.has(key)) {
+              suggestions.push(s)
+              seen.add(key)
+              if (suggestions.length >= targetCount) break
+            }
+          }
+        }
+      } catch (topUpErr) {
+        console.warn('[enhance] top-up failed:', topUpErr)
       }
+    }
+
+    if (suggestions.length === 0) {
+      return NextResponse.json({ success: false, error: 'AI could not generate clean suggestions. Please try again.' }, { status: 500 })
     }
 
     await logAiUsage(user.id, 'ai_enhance', { slideCount: suggestions.length, level })

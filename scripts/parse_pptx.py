@@ -42,9 +42,12 @@ def render_slides_as_images(pptx_path, output_dir):
         print(f'PDF not created. LibreOffice stdout: {result.stdout}, stderr: {result.stderr}', file=sys.stderr)
         return []
 
-    # Step 2: PDF -> PNG images via pdftoppm (200 DPI balances quality vs speed)
+    # Step 2: PDF -> PNG images via pdftoppm.
+    # 150 DPI is plenty for presentation/browser display — 200 DPI doubles
+    # file size and pdftoppm wall time with no perceptible quality gain on
+    # typical 16:9 slide layouts. Import feels noticeably snappier.
     pdf_result = subprocess.run([
-        'pdftoppm', '-png', '-r', '200', pdf_path,
+        'pdftoppm', '-png', '-r', '150', pdf_path,
         os.path.join(output_dir, 'slide')
     ], capture_output=True, text=True, timeout=180)
 
@@ -170,11 +173,17 @@ if __name__ == '__main__':
     os.makedirs(output_dir, exist_ok=True)
 
     try:
-        # Extract text
-        text_data = extract_text(filepath)
+        # Text extraction and image rendering both read the PPTX independently
+        # and never share state — run them concurrently so the ~1-5s of
+        # python-pptx work happens while LibreOffice + pdftoppm chew through
+        # the 30-90s image pipeline, not after.
+        from concurrent.futures import ThreadPoolExecutor
 
-        # Render images
-        image_paths = render_slides_as_images(filepath, output_dir)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            text_future = pool.submit(extract_text, filepath)
+            images_future = pool.submit(render_slides_as_images, filepath, output_dir)
+            text_data = text_future.result()
+            image_paths = images_future.result()
 
         # Combine: pair each slide's text with its image path
         result = []

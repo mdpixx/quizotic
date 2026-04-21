@@ -1902,15 +1902,27 @@ function PresentCreatePageInner() {
       const formData = new FormData()
       formData.append('file', file)
 
-      // Simulate progress while server processes (rendering takes time)
+      // Server does: slide-count pre-check (instant) → LibreOffice PDF
+      // conversion (5-30s) → PDF→PNG rendering (10-60s) → R2 uploads (5-20s).
+      // We can't stream real progress without SSE, so walk the user through
+      // phased messages that match roughly when each phase would complete on
+      // typical connections.
       setPptxPercent(10)
-      setPptxProgress('Converting slides...')
+      setPptxProgress('Converting slides to images…')
+      const phase2At = setTimeout(() => {
+        setPptxProgress('Rendering slides (larger decks take a bit longer)…')
+      }, 8_000)
+      const phase3At = setTimeout(() => {
+        setPptxProgress('Uploading images…')
+      }, 30_000)
       const progressTimer = setInterval(() => {
         setPptxPercent(prev => Math.min(prev + 2, 85))
       }, 1500)
 
       const res = await fetch('/api/parse-pptx', { method: 'POST', body: formData })
       clearInterval(progressTimer)
+      clearTimeout(phase2At)
+      clearTimeout(phase3At)
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Import failed' }))

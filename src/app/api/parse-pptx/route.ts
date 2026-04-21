@@ -9,6 +9,7 @@ import { promisify } from 'util'
 import { writeFile, unlink, readFile, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import path from 'path'
+import JSZip from 'jszip'
 
 const execFileAsync = promisify(execFile)
 
@@ -101,6 +102,28 @@ async function uploadToR2(
   return `${process.env.R2_PUBLIC_URL}/${key}`
 }
 
+// ─── Fast pre-flight: count slides from the PPTX zip ───────────────────────
+//
+// PPTX is a zip file with one XML per slide at `ppt/slides/slide<N>.xml`.
+// Counting those entries is O(50ms) for a 20MB file — vs the 30-150s it
+// takes LibreOffice to render the full deck. We run this BEFORE the Python
+// subprocess so users hitting MAX_SLIDES get rejected immediately instead of
+// waiting minutes only to be told the file was too big.
+async function countSlidesQuick(buffer: Buffer): Promise<number> {
+  try {
+    const zip = await JSZip.loadAsync(buffer)
+    let n = 0
+    zip.forEach((relPath) => {
+      if (/^ppt\/slides\/slide\d+\.xml$/i.test(relPath)) n++
+    })
+    return n
+  } catch {
+    // If zip parsing fails, fall through to Python — it'll surface a better
+    // error (invalid pptx, corrupted file, etc.)
+    return -1
+  }
+}
+
 // ─── Python subprocess ──────────────────────────────────────────────────────
 
 interface ProcessedPptx {
@@ -172,10 +195,32 @@ export async function POST(req: NextRequest) {
   let tmpDir: string | undefined
   try {
     const buffer = Buffer.from(await file.arrayBuffer())
+
+    // Fast pre-check — reject oversized decks before running LibreOffice so
+    // users don't wait minutes only to learn the file is too big.
+    const quickCount = await countSlidesQuick(buffer)
+    if (quickCount > MAX_SLIDES) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Too many slides (${quickCount}). Maximum is ${MAX_SLIDES}. Please split your presentation into smaller decks and try again.`,
+        },
+        { status: 400 }
+      )
+    }
+    if (quickCount === 0) {
+      return NextResponse.json(
+        { success: false, error: 'No slides found in the presentation.' },
+        { status: 400 }
+      )
+    }
+
     const result = await processPptx(buffer)
     const pySlides = result.slides
     tmpDir = result.tmpDir
 
+    // Safety net — if the quick count disagreed with python-pptx (unusual),
+    // honour the authoritative python count.
     if (pySlides.length > MAX_SLIDES) {
       return NextResponse.json(
         { success: false, error: `Too many slides (${pySlides.length}). Maximum is ${MAX_SLIDES}.` },

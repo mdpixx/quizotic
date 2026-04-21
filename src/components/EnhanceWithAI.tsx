@@ -174,12 +174,20 @@ export function EnhanceWithAI({ presentation, onComplete, onCancel }: EnhanceWit
     setError('')
 
     const slideInputs = presentation.slides
-      .map((s, i) => ({
-        index: i,
-        type: s.type,
-        textContent: getSlideTextContent(s),
-      }))
-      .filter(s => s.textContent.length > 10)
+      .map((s, i) => {
+        const slideRec = s as unknown as Record<string, unknown>
+        const imageUrl = typeof slideRec.imageUrl === 'string' ? slideRec.imageUrl : undefined
+        return {
+          index: i,
+          type: s.type,
+          textContent: getSlideTextContent(s),
+          // Forward the image so the AI can SEE charts / diagrams / images that
+          // python-pptx couldn't read as text. Huge quality lift for image-
+          // heavy imported decks.
+          imageUrl,
+        }
+      })
+      .filter(s => s.textContent.length > 10 || s.imageUrl)
 
     try {
       const res = await fetch('/api/enhance-presentation', {
