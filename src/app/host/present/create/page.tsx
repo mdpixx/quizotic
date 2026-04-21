@@ -321,16 +321,16 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
         const items = (slide as { items: string[] }).items
         const rankColors = ['#4F46E5', '#3B82F6', '#0891B2', '#10B981', '#F59E0B', '#EF4444']
         return (
-          <div className="w-full space-y-2">
+          <div className="w-full h-full flex flex-col justify-center gap-2">
             {items.map((item, i) => (
               <div key={i} className="flex items-center gap-2">
-                <span className="text-[10px] font-bold w-4 text-right flex-shrink-0" style={{ color: '#94A3B8' }}>{i + 1}</span>
-                <div className="flex-1 h-7 rounded-md overflow-hidden relative" style={{ background: '#F1F5F9' }}>
+                <span className="text-[11px] font-bold w-5 text-right flex-shrink-0" style={{ color: '#94A3B8' }}>{i + 1}</span>
+                <div className="flex-1 h-8 rounded-md overflow-hidden relative" style={{ background: '#F1F5F9' }}>
                   <div className="h-full rounded-md" style={{ width: 6, background: rankColors[i % 6] }} />
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold" style={{ color: '#0F1B3D' }}>
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm font-semibold" style={{ color: '#0F1B3D' }}>
                     {item || `Item ${i + 1}`}
                   </span>
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold" style={{ color: '#94A3B8' }}>0</span>
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold" style={{ color: '#94A3B8' }}>0</span>
                 </div>
               </div>
             ))}
@@ -406,12 +406,14 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
       case 'live_race': {
         const opts = (slide as { options: string[] }).options
         return (
-          <div className="w-full space-y-2">
+          <div className="w-full h-full flex flex-col justify-center gap-3">
             {opts.slice(0, 4).map((opt, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <span className="text-[10px] font-bold truncate w-20 text-right" style={{ color: textColor, opacity: 0.6 }}>{opt || `Option ${i + 1}`}</span>
-                <div className="flex-1 h-5 rounded-full overflow-hidden" style={{ background: viz.track }}>
-                  <div className="h-full rounded-full" style={{ width: 6, background: viz.fill }} />
+              <div key={i} className="flex items-center gap-3">
+                <span className="text-sm font-bold truncate w-24 text-right" style={{ color: textColor, opacity: 0.7 }}>
+                  {opt || `Option ${i + 1}`}
+                </span>
+                <div className="flex-1 h-8 rounded-full overflow-hidden" style={{ background: viz.track }}>
+                  <div className="h-full rounded-full" style={{ width: '8%', background: viz.fill }} />
                 </div>
               </div>
             ))}
@@ -486,11 +488,13 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
       case 'bullets': {
         const bullets = (slide as { bullets: string[] }).bullets
         return (
-          <div className="w-full space-y-2">
-            {bullets.slice(0, 5).map((b, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#0F1B3D' }} />
-                <span className="text-xs" style={{ color: textColor }}>{b || `Point ${i + 1}`}</span>
+          <div className="w-full h-full flex flex-col justify-start gap-3">
+            {bullets.slice(0, 6).map((b, i) => (
+              <div key={i} className="flex items-start gap-3">
+                <div className="w-2 h-2 mt-2 rounded-full flex-shrink-0" style={{ background: textColor, opacity: 0.6 }} />
+                <span className="text-base md:text-lg font-medium leading-snug" style={{ color: textColor }}>
+                  {b || `Point ${i + 1}`}
+                </span>
               </div>
             ))}
           </div>
@@ -512,8 +516,8 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
       }
 
       case 'video': return (
-        <div className="w-full aspect-video rounded-lg flex items-center justify-center"
-          style={{ background: viz.subtle, border: `1px solid ${viz.track}` }}>
+        <div className="w-full max-h-full aspect-video rounded-lg overflow-hidden flex items-center justify-center"
+          style={{ background: viz.subtle, boxShadow: `inset 0 0 0 1px ${viz.track}` }}>
           <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: viz.track }}>
             <svg viewBox="0 0 20 20" fill={textColor} className="w-7 h-7 ml-1" style={{ opacity: 0.6 }}><path d="M6.5 4.5v11l9-5.5z"/></svg>
           </div>
@@ -529,8 +533,8 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
             style={{ opacity: 0, transition: 'opacity 0.3s ease' }} />
         )
         return (
-          <div className="w-full aspect-video rounded-lg flex items-center justify-center"
-            style={{ background: 'rgba(0,0,0,0.08)', border: '1px dashed rgba(0,0,0,0.2)' }}>
+          <div className="w-full max-h-full aspect-video rounded-lg overflow-hidden flex items-center justify-center"
+            style={{ background: 'rgba(0,0,0,0.08)', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.2)' }}>
             <span className="text-xs opacity-40" style={{ color: textColor }}>No image yet</span>
           </div>
         )
@@ -634,7 +638,7 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
       {!fullBleedSrc && (
         <div className={`absolute inset-0 flex flex-col px-6${slide.type === 'title' ? ' justify-center items-center text-center gap-3' : ' py-5'}`}>
           {slide.type !== 'quote' && (
-            <p className={`font-bold leading-snug flex-shrink-0 line-clamp-3 break-words${slide.type === 'title' ? ' text-2xl' : ' text-xl text-left'}`} style={{ color: textColor, fontFamily: 'var(--font-heading)' }}>
+            <p className={`font-bold leading-snug flex-shrink-0 line-clamp-3 break-words${slide.type === 'title' ? ' text-2xl' : ' text-xl text-left pr-24'}`} style={{ color: textColor, fontFamily: 'var(--font-heading)' }}>
               {getQuestionText()}
             </p>
           )}
@@ -645,22 +649,34 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
             </p>
           )}
 
-          {slide.type !== 'title' && (
-            slide.contentImageUrl ? (
+          {slide.type !== 'title' && (() => {
+            // Visualizations split into "fill" (need to stretch vertically) vs
+            // "centered" (small by nature — center them in the available space).
+            // Without this split, bullets / live_race / ranking render as
+            // compact clumps centered in the card with empty space above and
+            // below. See plan: claude-plans-quizotic-session-handover-hashed-crab.md
+            const stretchTypes = new Set([
+              'bullets', 'live_race', 'ranking', 'image_choice', 'pinpoint',
+              'wheel', 'grid_2x2', 'leaderboard',
+            ])
+            const wrapperClass = stretchTypes.has(slide.type)
+              ? 'flex-1 flex flex-col min-h-0 mt-3 items-stretch justify-start'
+              : 'flex-1 flex items-center justify-center min-h-0 mt-3'
+            return slide.contentImageUrl ? (
               <div className="flex-1 flex flex-col min-h-0 mt-3 gap-2">
                 <div className="flex-[1.1] flex items-center justify-center min-h-0">
                   <img src={slide.contentImageUrl} alt="Content" className="max-w-full max-h-full rounded-lg object-contain" />
                 </div>
-                <div className="flex-[1] flex items-center justify-center min-h-0">
+                <div className={`flex-[1] min-h-0 flex flex-col ${stretchTypes.has(slide.type) ? 'items-stretch justify-start' : 'items-center justify-center'}`}>
                   {renderVisualization()}
                 </div>
               </div>
             ) : (
-              <div className="flex-1 flex items-center justify-center min-h-0 mt-3">
+              <div className={wrapperClass}>
                 {renderVisualization()}
               </div>
             )
-          )}
+          })()}
         </div>
       )}
 
