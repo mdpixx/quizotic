@@ -146,14 +146,10 @@ const GLOBAL_LANGUAGES: { lang: string }[] = [
   { lang: 'Tamil' }, { lang: 'Telugu' }, { lang: 'Turkish' },
 ]
 
-// ── Answer card colors ─────────────────────────────────────────────────────────
-
-const OPTION_COLORS = [
-  { letter: 'A', bg: 'linear-gradient(135deg, #FFF1F0 0%, #FFE4E1 100%)', text: '#C0392B', border: '#E74C3C', badge: 'linear-gradient(135deg, #E74C3C, #C0392B)' },
-  { letter: 'B', bg: 'linear-gradient(135deg, #EBF5FF 0%, #DBEAFE 100%)', text: '#1A56DB', border: '#3B82F6', badge: 'linear-gradient(135deg, #3B82F6, #1A56DB)' },
-  { letter: 'C', bg: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)', text: '#B45309', border: '#F59E0B', badge: 'linear-gradient(135deg, #F59E0B, #D97706)' },
-  { letter: 'D', bg: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)', text: '#047857', border: '#10B981', badge: 'linear-gradient(135deg, #10B981, #047857)' },
-]
+// ── Answer card colors — sourced from the canonical Kahoot palette ────────
+// All answer-tile renderers (host builder, live view, participant, presentation)
+// share src/lib/answer-colors.ts so tweaks propagate in one place.
+import { ANSWER_COLORS } from '@/lib/answer-colors'
 
 // ── Helpers ─────────────────────────────────────────────────────────────────────
 
@@ -299,26 +295,22 @@ function QuestionPreview({
       {/* Options — inline-editable with bar visualization */}
       <div className="bg-white p-5 md:p-6">
         {(question.type === 'mcq' || question.type === 'truefalse' || question.type === 'poll' || question.type === 'case') && opts.length > 0 && (
-          <div className="grid grid-cols-2 gap-3 md:gap-4">
+          <div className="grid grid-cols-2 gap-2 md:gap-3">
             {opts.map((opt, i) => {
-              const c = OPTION_COLORS[i] ?? OPTION_COLORS[0]
+              const c = ANSWER_COLORS[i] ?? ANSWER_COLORS[0]
               const isCorrect = question.correctAnswer === String(i) && hasCorrectAnswer(question.type)
-              const barWidths = [65, 40, 55, 30]
               return (
                 <div
                   key={i}
-                  className="relative overflow-hidden rounded-2xl transition-all"
+                  className="relative overflow-hidden rounded-xl transition-all"
                   style={{
-                    borderLeft: `6px solid ${c.border}`,
-                    outline: isCorrect ? '3px solid #16A34A' : 'none',
-                    outlineOffset: '-2px',
-                    boxShadow: isCorrect ? '0 0 16px rgba(16,185,129,0.25)' : 'none',
+                    background: c.hex,
+                    boxShadow: isCorrect
+                      ? `0 0 0 3px #FDE047, 0 2px 0 ${c.hexDark}, 0 0 16px rgba(253,224,71,0.5)`
+                      : `0 2px 0 ${c.hexDark}`,
                   }}
                 >
-                  {/* Background bar visualization */}
-                  <div className="absolute inset-y-0 left-0 rounded-r-2xl transition-all" style={{ width: `${barWidths[i % 4]}%`, background: c.border, opacity: 0.12 }} />
-                  {/* Option content */}
-                  <div className="relative flex items-center gap-4 px-5 py-5 md:py-6" style={{ background: `${c.bg}`, backgroundBlendMode: 'overlay' }}>
+                  <div className="relative flex items-center gap-3 px-3 py-2.5 md:px-4 md:py-3">
                     <button
                       type="button"
                       onClick={() => {
@@ -326,11 +318,11 @@ function QuestionPreview({
                           onChange({ ...question, correctAnswer: String(i) })
                         }
                       }}
-                      className="w-11 h-11 md:w-12 md:h-12 rounded-full flex items-center justify-center text-base md:text-lg font-black text-white flex-shrink-0 transition-all hover:scale-110 click-bounce-sm"
-                      style={{ background: isCorrect ? '#16A34A' : c.badge }}
+                      className="w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center text-sm font-black text-white flex-shrink-0 transition-all hover:scale-110 click-bounce-sm"
+                      style={{ background: 'rgba(255,255,255,0.25)', border: isCorrect ? '2px solid #FDE047' : '2px solid transparent' }}
                       title={hasCorrectAnswer(question.type) ? 'Click to mark correct' : undefined}
                     >
-                      {isCorrect ? <span className="text-xl">&#10003;</span> : c.letter}
+                      {isCorrect ? <span className="text-base">&#10003;</span> : c.letter}
                     </button>
                     <input
                       type="text"
@@ -338,8 +330,8 @@ function QuestionPreview({
                       onChange={e => handleOptionChange(i, e.target.value)}
                       placeholder={`Option ${c.letter}`}
                       disabled={question.type === 'truefalse'}
-                      className="flex-1 text-lg md:text-xl font-bold bg-transparent outline-none border-0 disabled:opacity-60 placeholder:opacity-40"
-                      style={{ color: c.text }}
+                      className="flex-1 text-base md:text-lg font-bold bg-transparent outline-none border-0 text-white placeholder:text-white/60 disabled:opacity-70"
+                      style={{ textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}
                     />
                   </div>
                 </div>

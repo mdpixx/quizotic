@@ -35,12 +35,14 @@ interface LeaderboardEntry {
   score: number
 }
 
+// Canonical Kahoot palette — kept as Tailwind class list here for the
+// arbitrary-value bg class names we inject. Source of truth: src/lib/answer-colors.ts.
 const OPTION_COLORS = [
-  'bg-pink-500',
-  'bg-orange-500',
-  'bg-blue-600',
-  'bg-green-600',
-  'bg-violet-500', // #8B5CF6
+  'bg-[#E21B3C]', // A
+  'bg-[#1368CE]', // B
+  'bg-[#D89E00]', // C
+  'bg-[#26890C]', // D
+  'bg-[#7C3AED]', // E
 ]
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E']

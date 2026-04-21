@@ -9,6 +9,11 @@ import { SLIDE_TYPE_META, shouldAutoShowResults } from '@/lib/presentation-types
 import { getQuizTheme } from '@/lib/quiz-themes'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
 import { SlideImage } from '@/components/SlideImage'
+import { ANSWER_COLORS } from '@/lib/answer-colors'
+
+// Canonical Kahoot palette for answer/option rendering — shared with quiz
+// host view and participant phone so colors match across every surface.
+const OPTION_HEX = ANSWER_COLORS.map(c => c.hex)
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -343,8 +348,8 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
         ? [slide.optionA, slide.optionB]
         : (slide as { options: string[] }).options
       const barColors = slide.type === 'word_duel'
-        ? ['#2563EB', '#DC2626']
-        : ['#0F1B3D','#FF8A47','#0891B2','#16A34A','#F59E0B']
+        ? [OPTION_HEX[1], OPTION_HEX[0]] // duel: blue vs red (Kahoot B & A)
+        : OPTION_HEX
       const counts = aggregate.counts ?? new Array(options.length).fill(0)
       const typedSlide = slide as { question?: string; showCorrect?: boolean; correctIndex?: number }
 
@@ -634,7 +639,7 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
       const options = slide.options ?? []
       const imageUrls = slide.imageUrls ?? []
       const counts = aggregate.counts ?? new Array(options.length).fill(0)
-      const colors = ['#0F1B3D','#FF8A47','#0891B2','#16A34A','#F59E0B']
+      const colors = OPTION_HEX
       return (
         <div className="flex flex-col h-full gap-4">
           <h2 className="text-3xl leading-snug flex-shrink-0" style={headingStyle}>

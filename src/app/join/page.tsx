@@ -16,6 +16,7 @@ import { isContentSlideType, isInteractiveSlideType } from '@/lib/presentation-t
 import { isScoredType, getEffectiveOptions } from '@/lib/quiz-types'
 import type { Question as QuizQuestion, QuestionType } from '@/lib/quiz-types'
 import { SlideImage } from '@/components/SlideImage'
+import { ANSWER_COLORS, ANSWER_LETTERS } from '@/lib/answer-colors'
 
 function phaseForPresenterSlide(slideType: string | undefined): 'presenter-voting' | 'presenter-content' | 'presenter-lobby' {
   if (isInteractiveSlideType(slideType)) return 'presenter-voting'
@@ -73,7 +74,9 @@ interface LeaderboardEntry {
   score: number
 }
 
-// Kahoot-style vibrant answer colors: red, blue, amber, green, deep indigo.
+// Kahoot-style vibrant answer colors — source: src/lib/answer-colors.ts.
+// Shadow Tailwind classes kept local because they need arbitrary-value
+// rgba() tuples and are read by class name at runtime.
 const OPTION_GRADIENTS = [
   'shadow-[0_4px_14px_rgba(226,27,60,0.35)]',
   'shadow-[0_4px_14px_rgba(19,104,206,0.35)]',
@@ -81,8 +84,8 @@ const OPTION_GRADIENTS = [
   'shadow-[0_4px_14px_rgba(38,137,12,0.35)]',
   'shadow-[0_4px_14px_rgba(124,58,237,0.35)]',
 ]
-const OPTION_COLORS = ['#E21B3C', '#1368CE', '#D89E00', '#26890C', '#7C3AED']
-const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E']
+const OPTION_COLORS = ANSWER_COLORS.map(c => c.hex)
+const OPTION_LABELS = ANSWER_LETTERS
 const TEXT_INPUT_TYPES = ['openended', 'wordcloud', 'qa']
 
 // ─── Countdown Number (for get-ready overlay) ────────────────────────────────
