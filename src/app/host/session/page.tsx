@@ -9,6 +9,8 @@ import QRCode from 'react-qr-code'
 import { Avatar } from '@/components/Avatar'
 import { Podium } from '@/components/Podium'
 import { SessionReport } from '@/components/SessionReport'
+import { LeaderboardView } from '@/components/LeaderboardView'
+import { playLeaderboardJingle } from '@/lib/sounds'
 
 const CelebrationOverlay = dynamic(
   () => import('@/components/CelebrationOverlay').then(m => m.CelebrationOverlay),
@@ -329,6 +331,9 @@ export default function SessionPage() {
     }) => {
       setIntermediateLeaderboard(top)
       if (tlb) setTeamLeaderboard(tlb)
+      // Server only emits this after scored questions end, so every arrival
+      // marks a genuine rank-change moment — play the reveal jingle.
+      try { playLeaderboardJingle() } catch {}
     })
 
     socket.on('drawing_submitted', (entry: { name: string; archetype: string; dataUrl: string }) => {
@@ -1265,20 +1270,19 @@ export default function SessionPage() {
             </div>
           )}
 
-          {/* Live leaderboard snapshot (updates as answers come in) */}
+          {/* Live leaderboard snapshot — animated reorder on each question end */}
           {sessionMode === 'competitive' && intermediateLeaderboard.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Live Standings</p>
-              <div className="space-y-1.5">
-                {intermediateLeaderboard.slice(0, 5).map((entry, i) => (
-                  <div key={entry.name} className="flex items-center gap-3">
-                    <span className="w-6 text-center text-sm font-black" style={{ color: '#0F1B3D' }}>{i + 1}</span>
-                    <span className="flex-1 text-sm font-semibold truncate" style={{ color: '#0F1B3D' }}>{entry.name}</span>
-                    <span className="text-sm font-black tabular-nums" style={{ color: '#0F1B3D' }}>{entry.score}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <LeaderboardView
+              variant="compact"
+              topN={5}
+              heading="Live Standings"
+              rows={intermediateLeaderboard.map(entry => ({
+                id: entry.name,
+                name: entry.name,
+                score: entry.score,
+                archetype: entry.archetype,
+              }))}
+            />
           )}
 
           {/* Live team standings (team mode only) */}

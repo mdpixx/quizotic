@@ -144,6 +144,34 @@ export function playBassBoom() {
   osc.stop(ctx.currentTime + 0.6)
 }
 
+// Short leaderboard reveal jingle — played when post-question standings
+// refresh. Distinct from playCorrect/playWrong (per-answer feedback) and
+// playCelebration (end-of-quiz fanfare). Brief (~600ms) ascending triad with
+// triangle tone so it punctuates the reveal without stretching the pacing
+// between questions.
+export function playLeaderboardJingle() {
+  const ctx = getCtx()
+  const notes = [
+    { freq: 523, delay: 0, dur: 0.16 },    // C5
+    { freq: 659, delay: 0.12, dur: 0.16 }, // E5
+    { freq: 784, delay: 0.24, dur: 0.18 }, // G5
+    { freq: 1047, delay: 0.36, dur: 0.28 },// C6 held
+  ]
+  notes.forEach(({ freq, delay, dur }) => {
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.type = 'triangle'
+    osc.frequency.value = freq
+    const t = ctx.currentTime + delay
+    gain.gain.setValueAtTime(0.14, t)
+    gain.gain.exponentialRampToValueAtTime(0.001, t + dur)
+    osc.start(t)
+    osc.stop(t + dur)
+  })
+}
+
 export function playCelebration() {
   const ctx = getCtx()
   // Triumphant fanfare: C5 → E5 → G5 → C6 (sustained, with harmonics)
