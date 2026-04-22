@@ -80,7 +80,7 @@ const navItems: NavItem[] = [
   { label: 'Presentations', href: '/host/presentations', icon: ICON.presentations },
   { label: 'Sessions', href: '/host/sessions', icon: ICON.sessions },
   { label: 'Participants', href: '/host/participants', icon: ICON.participants },
-  { label: 'Reports', href: '/host/sessions', icon: ICON.reports },
+  { label: 'Reports', href: '/host/reports', icon: ICON.reports },
 ]
 
 function NavLink({ item, onClick }: { item: NavItem; onClick?: () => void }) {
