@@ -1665,8 +1665,13 @@ function CreateQuizPageInner() {
           </>
         )}
 
-        {/* ── CENTER PANEL: Preview / AI Settings / CSV / Library ── */}
-        <div className="flex-1 overflow-y-auto flex items-center justify-center px-4 md:px-8 lg:px-12 py-6" style={{ background: '#F0F2F5' }}>
+        {/* ── CENTER PANEL: Preview / AI Settings / CSV / Library ──
+            Nested wrapper pattern: outer handles scrolling; inner uses
+            min-h-full so short content (manual preview) centers vertically,
+            while tall content (AI forms, CSV steps) flows from the top and
+            scrolls naturally. Fixes "content cut at top" bug (Tier 4.4). */}
+        <div className="flex-1 overflow-y-auto" style={{ background: 'var(--color-paper)' }}>
+        <div className="min-h-full flex items-start md:items-center justify-center px-4 md:px-8 lg:px-12 pt-8 pb-10">
 
           {/* Manual tab → show preview */}
           {tab === 'manual' && activeQuestion && (
@@ -2037,6 +2042,7 @@ function CreateQuizPageInner() {
               )}
             </div>
           )}
+        </div>
         </div>
 
         {/* ── RIGHT PANEL: Question Editor ── */}
