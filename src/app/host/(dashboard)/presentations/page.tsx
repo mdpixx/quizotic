@@ -94,7 +94,7 @@ export default function PresentationsPage() {
             {presentations.length} presentation{presentations.length !== 1 ? 's' : ''} saved
           </p>
         </div>
-        <Link href="/host/present/create" className="btn-primary w-full sm:w-auto justify-center" style={{ textDecoration: 'none' }}>
+        <Link href="/host/present/create" className="btn-primary-teal w-full sm:w-auto justify-center" style={{ textDecoration: 'none' }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
           Create Presentation
         </Link>
@@ -133,7 +133,7 @@ export default function PresentationsPage() {
             {presentations.length === 0 ? 'Create your first presentation to get started' : 'Try a different search term'}
           </p>
           {presentations.length === 0 && (
-            <Link href="/host/present/create" className="btn-primary" style={{ textDecoration: 'none' }}>
+            <Link href="/host/present/create" className="btn-primary-teal" style={{ textDecoration: 'none' }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
               Create your first presentation
             </Link>

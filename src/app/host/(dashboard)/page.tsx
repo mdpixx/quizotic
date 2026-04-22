@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
+import { QuizVsSlidesModal } from '@/components/host/QuizVsSlidesModal'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell, RadarChart, PolarGrid, PolarAngleAxis, Radar,
@@ -115,6 +116,7 @@ export default function HostDashboard() {
   const [loading, setLoading] = useState(true)
   const [range, setRange] = useState(90)
   const [bloomsView, setBloomsView] = useState<'bar' | 'radar'>('bar')
+  const [compareOpen, setCompareOpen] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -164,15 +166,24 @@ export default function HostDashboard() {
           <p className="text-base md:text-lg max-w-lg mx-auto" style={{ color: '#64748B' }}>
             Let&apos;s get you started with your first live session. Pick one to begin.
           </p>
+          <button
+            type="button"
+            onClick={() => setCompareOpen(true)}
+            className="mt-3 text-sm underline decoration-dotted hover:decoration-solid font-semibold"
+            style={{ color: '#0F1B3D' }}
+          >
+            Quiz or Slides &mdash; what&apos;s the difference?
+          </button>
         </motion.div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-8 mb-10">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
             <Link href="/host/create" className="block rounded-2xl border p-6 transition-all hover:scale-[1.01] hover:shadow-lg h-full" style={{ background: '#fff', borderColor: '#E2E8F0' }}>
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-4" style={{ background: '#F3F4F6' }}>🧠</div>
-              <h2 className="text-xl font-black mb-2" style={{ color: '#0F1B3D' }}>Create a Quiz</h2>
+              <h2 className="text-xl font-black mb-1" style={{ color: '#0F1B3D' }}>Create a Quiz</h2>
+              <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#92400E' }}>Scored · timed · leaderboard</p>
               <p className="text-sm leading-relaxed mb-4" style={{ color: '#64748B' }}>
-                Build an interactive quiz with multiple question types, timers, and Bloom&apos;s taxonomy tagging. Perfect for classrooms and training sessions.
+                A structured test. Participants answer timed questions, earn points, and compete on a live leaderboard. Bloom&apos;s tagging included.
               </p>
               <span className="btn-primary">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
@@ -183,13 +194,15 @@ export default function HostDashboard() {
 
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
             <Link href="/host/present/create" className="block rounded-2xl border p-6 transition-all hover:scale-[1.01] hover:shadow-lg h-full" style={{ background: '#fff', borderColor: '#E2E8F0' }}>
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-4" style={{ background: '#F0FDFA' }}>📽</div>
-              <h2 className="text-xl font-black mb-2" style={{ color: '#0F1B3D' }}>Create a Presentation</h2>
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-4" style={{ background: '#E0F2FE' }}>📽</div>
+              <h2 className="text-xl font-black mb-1" style={{ color: '#0F1B3D' }}>Create Slides</h2>
+              <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#0369A1' }}>Interactive · polls · no scoring</p>
               <p className="text-sm leading-relaxed mb-4" style={{ color: '#64748B' }}>
-                Build interactive slides with polls, word clouds, and Q&amp;A for live engagement. Great for meetings and workshops.
+                An interactive deck. Mix content slides with polls, word clouds, ratings, and reactions. <strong>You can also import a PowerPoint file.</strong>
               </p>
-              <span className="inline-block text-sm font-bold px-5 py-2.5 rounded-xl text-white" style={{ background: 'linear-gradient(135deg, #0EA5E9, #06B6D4)' }}>
-                + Create Slides
+              <span className="btn-primary-teal">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
+                Create Slides
               </span>
             </Link>
           </motion.div>
@@ -231,6 +244,8 @@ export default function HostDashboard() {
         <p className="text-center text-xs mt-6" style={{ color: '#9CA3AF' }}>
           Your analytics dashboard will appear here once you run your first session.
         </p>
+
+        <QuizVsSlidesModal open={compareOpen} onClose={() => setCompareOpen(false)} />
       </div>
     )
   }
@@ -762,14 +777,25 @@ export default function HostDashboard() {
         style={{ background: '#F3F4F6', borderColor: '#D1D5DB' }}>
         <div>
           <p className="text-base font-black" style={{ color: '#0F1B3D' }}>Ready to run your next session?</p>
-          <p className="text-sm mt-0.5" style={{ color: '#374151' }}>Create a quiz or presentation and host it live in minutes.</p>
+          <p className="text-sm mt-0.5" style={{ color: '#374151' }}>
+            <strong style={{ color: '#92400E' }}>Quiz</strong> for a scored test &middot;{' '}
+            <strong style={{ color: '#0369A1' }}>Slides</strong> for an interactive presentation.{' '}
+            <button
+              type="button"
+              onClick={() => setCompareOpen(true)}
+              className="underline decoration-dotted hover:decoration-solid font-semibold"
+              style={{ color: '#0F1B3D' }}
+            >
+              What&apos;s the difference?
+            </button>
+          </p>
         </div>
         <div className="flex gap-3 flex-shrink-0 flex-wrap justify-center">
           <Link href="/host/create" className="btn-primary" style={{ textDecoration: 'none' }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
             Create Quiz
           </Link>
-          <Link href="/host/present/create" className="btn-secondary" style={{ textDecoration: 'none' }}>
+          <Link href="/host/present/create" className="btn-primary-teal" style={{ textDecoration: 'none' }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
             Create Slides
           </Link>
@@ -778,6 +804,9 @@ export default function HostDashboard() {
           </Link>
         </div>
       </motion.div>
+
+      {/* Quiz vs Slides comparison modal */}
+      <QuizVsSlidesModal open={compareOpen} onClose={() => setCompareOpen(false)} />
     </div>
   )
 }

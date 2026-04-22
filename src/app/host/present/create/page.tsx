@@ -1615,6 +1615,14 @@ function PresentCreatePageInner() {
   const [pptxProgress, setPptxProgress] = useState('')
   const [pptxPercent, setPptxPercent] = useState(0)
   const [pptxImportedCount, setPptxImportedCount] = useState(0)
+  // Dismissible PPT import banner — surfaces the hidden feature to fresh users.
+  // Persists dismissal so we don't nag repeat visitors.
+  const [pptBannerDismissed, setPptBannerDismissed] = useState(false)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.localStorage.getItem('quizotic-ppt-banner-dismissed') === 'true') {
+      setPptBannerDismissed(true)
+    }
+  }, [])
   const [enhanceOpen, setEnhanceOpen] = useState(false)
   const [showEnhancePrompt, setShowEnhancePrompt] = useState(false)
   const [addSlideOpen, setAddSlideOpen] = useState(false)
@@ -2302,6 +2310,55 @@ function PresentCreatePageInner() {
           </div>
         </div>
       </header>
+
+      {/* ── PPT import banner (Tier 3.5) ──
+          Surfaces the hidden feature to fresh users. Dismissible; auto-hides
+          when user starts editing (second slide added, title changed, or
+          dismissed manually). Works on mobile too. */}
+      {(() => {
+        const isFresh =
+          !pptBannerDismissed &&
+          !pptxImporting &&
+          presentation.slides.length === 1 &&
+          presentation.slides[0]?.type === 'title' &&
+          (presentation.slides[0] as { heading?: string })?.heading === '' &&
+          (presentation.title === 'Untitled Presentation' || presentation.title === '')
+        if (!isFresh) return null
+        const dismiss = () => {
+          setPptBannerDismissed(true)
+          if (typeof window !== 'undefined') {
+            window.localStorage.setItem('quizotic-ppt-banner-dismissed', 'true')
+          }
+        }
+        return (
+          <div className="flex-shrink-0 flex items-center gap-3 px-4 py-2.5 border-b" style={{ background: '#E0F2FE', borderColor: '#BAE6FD' }}>
+            <label className="btn-primary-teal cursor-pointer flex-shrink-0" style={{ padding: '7px 12px', fontSize: '12px' }}>
+              <svg viewBox="0 0 20 20" fill="none" className="w-3.5 h-3.5">
+                <path d="M10 3v10m0 0l-3-3m3 3l3-3M4 14v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Import from PowerPoint
+              <input type="file" accept=".pptx" className="hidden"
+                onChange={e => {
+                  const file = e.target.files?.[0]
+                  if (file) importPptx(file)
+                  e.target.value = ''
+                }} />
+            </label>
+            <p className="text-[12px] flex-1 min-w-0" style={{ color: '#0C4A6E' }}>
+              <strong>New deck?</strong> Upload a .pptx — we&apos;ll render each slide as an image. Then AI can add polls or quizzes between them.
+            </p>
+            <button
+              type="button"
+              onClick={dismiss}
+              aria-label="Dismiss"
+              className="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center transition-colors hover:bg-white/60"
+              style={{ color: '#0369A1' }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M18 6 6 18M6 6l12 12" strokeLinecap="round"/></svg>
+            </button>
+          </div>
+        )
+      })()}
 
       {/* ── Body — 3-column layout ── */}
       <div className="flex flex-1 overflow-hidden">

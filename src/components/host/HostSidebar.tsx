@@ -104,23 +104,25 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
         </Link>
       </div>
 
-      {/* Quick actions */}
+      {/* Quick actions — tactile pair · yellow Quiz, sky Slides */}
       <div className="px-4 pt-4 pb-2 flex gap-2">
         <Link
           href="/host/create"
           onClick={onNavClick}
-          className="flex-1 text-center text-xs font-bold py-2 rounded-xl transition-all hover:scale-[1.02]"
-          style={{ background: '#F5E642', color: '#0D0D0D' }}
+          className="btn-primary flex-1 justify-center"
+          style={{ padding: '7px 10px', fontSize: '12px', textDecoration: 'none' }}
         >
-          + Quiz
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-3 h-3"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
+          Quiz
         </Link>
         <Link
           href="/host/present/create"
           onClick={onNavClick}
-          className="flex-1 text-center text-xs font-bold py-2 rounded-xl transition-all hover:scale-[1.02]"
-          style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+          className="btn-primary-teal flex-1 justify-center"
+          style={{ padding: '7px 10px', fontSize: '12px', textDecoration: 'none' }}
         >
-          + Slides
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-3 h-3"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
+          Slides
         </Link>
       </div>
 

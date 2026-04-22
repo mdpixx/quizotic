@@ -247,6 +247,27 @@ h1, h2, h3, h4, h5, h6 {
 }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.btn-primary-teal {
+  background: #0EA5E9;
+  color: #fff;
+  border: 1px solid #0284C7;
+  border-radius: 10px;
+  padding: 9px 15px;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 1px 0 #0284C7, 0 2px 0 #0369A1;
+  transition: transform 0.08s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.08s ease, opacity 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-primary-teal:hover:not(:disabled) { transform: translateY(-1px); }
+.btn-primary-teal:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 0 0 #0284C7, 0 0 0 #0369A1;
+}
+.btn-primary-teal:disabled { opacity: 0.5; cursor: not-allowed; }
+
 .btn-golive {
   background: var(--color-ink);
   color: #fff;
