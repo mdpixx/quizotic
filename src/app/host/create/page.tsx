@@ -528,6 +528,55 @@ function QuestionEditor({
         </div>
       )}
 
+      {/* Quality checklist — at-a-glance readiness. Read-only, derived from
+          question fields. Helps creators see what's missing before going live. */}
+      {(() => {
+        const hasAnswer = hasCorrectAnswer(question.type) ? (question.correctAnswer !== undefined && question.correctAnswer !== '') : true
+        const hasExplanation = !!(question.explanation && question.explanation.trim().length > 0)
+        const hasBloom = !!(question.bloomsLevel && question.bloomsLevel.length > 0)
+        const hasReasonableTimer = question.timerSeconds >= 10 && question.timerSeconds <= 60
+        const hasImage = !!question.imageUrl
+        const checklist = [
+          { ok: hasAnswer, label: hasCorrectAnswer(question.type) ? 'Has a correct answer' : 'No correct answer needed (interactive)' },
+          { ok: hasExplanation, label: question.type === 'case' ? 'Debrief written' : 'Explanation written' },
+          { ok: hasBloom, label: 'Learning goal set' },
+          { ok: hasReasonableTimer, label: `Timer is set (${question.timerSeconds}s)` },
+        ]
+        const okCount = checklist.filter(c => c.ok).length
+        return (
+          <div className="rounded-lg p-3" style={{ background: 'var(--color-paper-2)', border: '1px solid var(--color-line)' }}>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>Quality checklist</p>
+              <span className="text-[10px] font-bold" style={{ color: okCount === checklist.length ? 'var(--color-accent-green)' : 'var(--color-text-muted)' }}>
+                {okCount} / {checklist.length}
+              </span>
+            </div>
+            {checklist.map((c, i) => (
+              <div key={i} className={`q-check-row ${c.ok ? 'ok' : 'open'}`}>
+                <span className="q-check-ring">
+                  {c.ok ? (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="w-2.5 h-2.5"><path d="M20 6 9 17l-5-5"/></svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-2.5 h-2.5"><circle cx="12" cy="12" r="10"/></svg>
+                  )}
+                </span>
+                <span>{c.label}</span>
+              </div>
+            ))}
+            <div className={`q-check-row ${hasImage ? 'ok' : 'open'}`} style={{ opacity: 0.7 }}>
+              <span className="q-check-ring">
+                {hasImage ? (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="w-2.5 h-2.5"><path d="M20 6 9 17l-5-5"/></svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-2.5 h-2.5"><circle cx="12" cy="12" r="10"/></svg>
+                )}
+              </span>
+              <span>Image (optional)</span>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* Inline editing hint */}
       <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
         <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#16A34A' }}>
@@ -537,8 +586,11 @@ function QuestionEditor({
       </div>
 
       {/* Image */}
-      <div>
-        <label className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">Image</label>
+      <details className="insp-section" open>
+        <summary>
+          <span>Image</span>
+          <svg className="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+        </summary>
         <div id="q-image-upload-wrapper">
           <ImageUpload
             imageUrl={question.imageUrl}
@@ -547,12 +599,15 @@ function QuestionEditor({
             variant="question"
           />
         </div>
-      </div>
+      </details>
 
-      {/* Timer & Points */}
-      <div>
-        <label className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2 block">Settings</label>
-        <div className="flex gap-3">
+      {/* Timing & scoring */}
+      <details className="insp-section" open>
+        <summary>
+          <span>Timing &amp; scoring</span>
+          <svg className="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+        </summary>
+        <div className="flex gap-3 pt-1">
           <div className="flex-1">
             <label className="text-[10px] font-semibold text-gray-500 mb-1 block">Timer</label>
             <div className="flex gap-1 flex-wrap">
@@ -606,31 +661,20 @@ function QuestionEditor({
             )}
           </div>
         </div>
-      </div>
+      </details>
 
-      {/* Explanation */}
-      <div>
-        <label className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">
-          {question.type === 'case' ? 'Debrief' : 'Explanation'} <span className="normal-case text-gray-300 font-normal">(shown after answer)</span>
-        </label>
-        <textarea
-          value={question.explanation ?? ''}
-          onChange={e => onChange({ ...question, explanation: e.target.value || undefined })}
-          placeholder={question.type === 'case' ? 'Expert reasoning — what\'s the right call and why?' : 'Why is this the correct answer?'}
-          rows={2}
-          maxLength={500}
-          className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none hover:border-blue-300 hover:bg-white transition-colors cursor-text"
-        />
-      </div>
-
-      {/* Bloom's Taxonomy Level */}
-      <div>
-        <label className="text-xs font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5" style={{ color: '#6D28D9' }}>
-          <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5">
-            <path d="M8 2l1.5 3 3.5.5-2.5 2.5.6 3.5L8 10l-3.1 1.5.6-3.5L3 5.5 6.5 5z" fill="currentColor" fillOpacity="0.7" stroke="currentColor" strokeWidth="0.5" strokeLinejoin="round"/>
-          </svg>
-          Bloom&apos;s Level
-        </label>
+      {/* Learning goal (Bloom) — promoted to first-class with rationale */}
+      <details className="insp-section" open>
+        <summary>
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--color-accent-violet)' }} />
+            Learning goal
+          </span>
+          <svg className="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+        </summary>
+        <p className="text-[10px] mb-2" style={{ color: 'var(--color-text-muted)' }}>
+          What cognitive skill does this question test? Shows up in your Bloom&apos;s coverage report.
+        </p>
         <div className="flex flex-wrap gap-1">
           {[
             { value: '', label: 'None', color: '#94A3B8' },
@@ -658,7 +702,24 @@ function QuestionEditor({
             )
           })}
         </div>
-      </div>
+      </details>
+
+      {/* Explanation */}
+      <details className="insp-section" open>
+        <summary>
+          <span>{question.type === 'case' ? 'Debrief' : 'Explanation'}</span>
+          <svg className="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+        </summary>
+        <p className="text-[10px] mb-1.5" style={{ color: 'var(--color-text-muted)' }}>Shown after participants answer.</p>
+        <textarea
+          value={question.explanation ?? ''}
+          onChange={e => onChange({ ...question, explanation: e.target.value || undefined })}
+          placeholder={question.type === 'case' ? 'Expert reasoning — what\'s the right call and why?' : 'Why is this the correct answer?'}
+          rows={2}
+          maxLength={500}
+          className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none hover:border-blue-300 hover:bg-white transition-colors cursor-text"
+        />
+      </details>
     </div>
   )
 }

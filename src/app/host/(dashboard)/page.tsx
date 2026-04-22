@@ -114,6 +114,7 @@ export default function HostDashboard() {
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [range, setRange] = useState(90)
+  const [bloomsView, setBloomsView] = useState<'bar' | 'radar'>('bar')
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -173,8 +174,9 @@ export default function HostDashboard() {
               <p className="text-sm leading-relaxed mb-4" style={{ color: '#64748B' }}>
                 Build an interactive quiz with multiple question types, timers, and Bloom&apos;s taxonomy tagging. Perfect for classrooms and training sessions.
               </p>
-              <span className="inline-block text-sm font-bold px-5 py-2.5 rounded-xl" style={{ background: '#F5E642', color: '#0D0D0D' }}>
-                + Create Quiz
+              <span className="btn-primary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
+                Create Quiz
               </span>
             </Link>
           </motion.div>
@@ -233,6 +235,21 @@ export default function HostDashboard() {
     )
   }
 
+  // Hero: relative time for last session (e.g. "2h ago")
+  const lastSession = data?.recentSessions?.[0]
+  const lastSessionWhen = (() => {
+    if (!lastSession?.date) return ''
+    const diffMs = Date.now() - new Date(lastSession.date).getTime()
+    const mins = Math.floor(diffMs / 60000)
+    if (mins < 1) return 'just now'
+    if (mins < 60) return `${mins}m ago`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `${hrs}h ago`
+    const days = Math.floor(hrs / 24)
+    if (days < 7) return `${days}d ago`
+    return fmtDate(lastSession.date)
+  })()
+
   return (
     <div className="p-6 md:p-8" style={{ maxWidth: 1280, margin: '0 auto' }}>
 
@@ -252,6 +269,82 @@ export default function HostDashboard() {
           ))}
         </div>
       </div>
+
+      {/* ── Hero: Last session (Tier 3) ── */}
+      {lastSession && (
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.02 }}
+          className="relative overflow-hidden rounded-2xl p-6 md:p-7 mb-5"
+          style={{ background: 'linear-gradient(135deg, #0F1B3D 0%, #182659 50%, #1F2E6C 100%)', color: '#fff' }}>
+          {/* subtle glow */}
+          <div className="absolute inset-0 pointer-events-none" style={{
+            background:
+              'radial-gradient(800px 400px at 85% 0%, rgba(245,230,66,0.14), transparent 60%),' +
+              'radial-gradient(500px 300px at 0% 100%, rgba(96,117,220,0.22), transparent 55%)',
+          }} />
+          <div className="relative z-10 grid md:grid-cols-[1fr_auto] gap-5 items-start">
+            <div>
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full"
+                  style={{ background: 'rgba(245,230,66,0.22)', color: '#F5E642' }}>
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#F5E642' }} />
+                  Last session &middot; {lastSessionWhen}
+                </span>
+                <span className="text-[11px] font-bold px-2.5 py-1 rounded-full capitalize"
+                  style={{ background: 'rgba(255,255,255,0.1)', color: '#fff' }}>
+                  {lastSession.type}
+                </span>
+                <span className="text-[11px] font-bold px-2.5 py-1 rounded-full capitalize"
+                  style={{ background: 'rgba(255,255,255,0.1)', color: '#fff' }}>
+                  {lastSession.status === 'ended' ? 'Completed' : lastSession.status}
+                </span>
+              </div>
+              <h2 className="text-xl md:text-2xl font-black leading-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+                {lastSession.title}
+              </h2>
+              <p className="text-xs mt-1.5" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                {lastSession.participants} participant{lastSession.participants === 1 ? '' : 's'}
+                {lastSession.duration ? ` · ${fmtDuration(lastSession.duration)} runtime` : ''}
+              </p>
+
+              <div className="mt-4 flex items-center gap-2 flex-wrap">
+                <Link href={lastSession.type === 'quiz' ? '/host/quizzes' : '/host/presentations'}
+                  className="btn-golive" style={{ textDecoration: 'none' }}>
+                  <span className="play-dot">
+                    <svg viewBox="0 0 24 24" fill="#0F1B3D" className="w-2.5 h-2.5" aria-hidden><path d="M8 5v14l11-7z"/></svg>
+                  </span>
+                  Run again
+                </Link>
+                <Link href="/host/sessions"
+                  className="text-xs font-bold px-3.5 py-2 rounded-lg transition-all"
+                  style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)', textDecoration: 'none' }}>
+                  View session history
+                </Link>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 md:gap-6 md:min-w-[280px] md:text-center">
+              <div>
+                <p className="text-2xl md:text-3xl font-black" style={{ fontFamily: 'var(--font-heading)' }}>
+                  {lastSession.participants}
+                </p>
+                <p className="text-[10px] font-semibold mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>participants</p>
+              </div>
+              <div>
+                <p className="text-2xl md:text-3xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#F5E642' }}>
+                  {lastSession.avgScore != null ? `${lastSession.avgScore}%` : '—'}
+                </p>
+                <p className="text-[10px] font-semibold mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>avg score</p>
+              </div>
+              <div>
+                <p className="text-2xl md:text-3xl font-black" style={{ fontFamily: 'var(--font-heading)' }}>
+                  {lastSession.completionPct != null ? `${lastSession.completionPct}%` : '—'}
+                </p>
+                <p className="text-[10px] font-semibold mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>completion</p>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* ── KPI strip ── */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
@@ -437,15 +530,72 @@ export default function HostDashboard() {
           </Card>
         </motion.div>
 
-        {/* Bloom's Coverage */}
+        {/* Bloom's Coverage — Tier 3 redesign: default view is a horizontal
+            stacked bar (more decision-useful); radar available via toggle. */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
           <Card className="h-full flex flex-col">
-            <div className="px-5 py-4 border-b" style={{ borderColor: '#F1F5F9' }}>
-              <h2 className="text-base font-black" style={{ color: '#0F1B3D' }}>Bloom&apos;s Coverage</h2>
-              <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>Cognitive levels in your sessions</p>
+            <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: '#F1F5F9' }}>
+              <div>
+                <h2 className="text-base font-black" style={{ color: '#0F1B3D' }}>Bloom&apos;s Coverage</h2>
+                <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>Cognitive levels in your sessions</p>
+              </div>
+              <button
+                onClick={() => setBloomsView(bloomsView === 'bar' ? 'radar' : 'bar')}
+                className="text-[10px] font-bold px-2.5 py-1 rounded-lg transition-all"
+                style={{ background: '#F3F4F6', color: '#0F1B3D' }}
+                title="Toggle chart view"
+              >
+                {bloomsView === 'bar' ? 'View radar' : 'View bars'}
+              </button>
             </div>
             {loading ? <Spinner /> : bloomsTotal === 0 ? (
               <Empty icon="🎓" text="Tag questions with Bloom's levels to see coverage" />
+            ) : bloomsView === 'bar' ? (
+              <div className="px-5 py-4 flex-1 flex flex-col">
+                {/* Stacked bar */}
+                {(() => {
+                  const palette: Record<string, string> = {
+                    Remember: '#60A5FA', Understand: '#3B82F6', Apply: '#F97316',
+                    Analyse: '#8B5CF6', Evaluate: '#10B981', Create: '#EC4899',
+                  }
+                  return (
+                    <>
+                      <div className="flex h-6 w-full rounded-full overflow-hidden" style={{ background: 'var(--color-paper-2)' }}>
+                        {radarData.map(b => {
+                          const pct = bloomsTotal > 0 ? (b.count / bloomsTotal) * 100 : 0
+                          if (pct === 0) return null
+                          return <div key={b.level} style={{ width: `${pct}%`, background: palette[b.level] ?? '#94A3B8' }} title={`${b.level}: ${b.count}`} />
+                        })}
+                      </div>
+                      <div className="mt-3 space-y-1.5 flex-1">
+                        {radarData.map(b => {
+                          const pct = bloomsTotal > 0 ? Math.round((b.count / bloomsTotal) * 100) : 0
+                          return (
+                            <div key={b.level} className="flex items-center gap-2 text-xs">
+                              <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: palette[b.level] ?? '#94A3B8' }} />
+                              <span className="flex-1 truncate" style={{ color: '#0F1B3D' }}>{b.level}</span>
+                              <span className="font-bold" style={{ color: b.count > 0 ? '#0F1B3D' : '#94A3B8' }}>{pct}%</span>
+                              <span className="text-[10px] w-12 text-right" style={{ color: '#94A3B8' }}>{b.count} Q{b.count !== 1 ? 's' : ''}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </>
+                  )
+                })()}
+                {(() => {
+                  const remUnder = (radarData.find(b => b.level === 'Remember')?.count ?? 0) + (radarData.find(b => b.level === 'Understand')?.count ?? 0)
+                  const remPct = Math.round((remUnder / bloomsTotal) * 100)
+                  if (remPct > 70) return (
+                    <div className="mt-3 px-3 py-2 rounded-xl" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
+                      <p className="text-[10px] font-medium" style={{ color: '#92400E' }}>
+                        💡 {remPct}% of questions are at Remember/Understand level — add more Apply &amp; Evaluate questions
+                      </p>
+                    </div>
+                  )
+                  return null
+                })()}
+              </div>
             ) : (
               <>
                 <div className="px-4 py-2 flex-1">
@@ -474,19 +624,6 @@ export default function HostDashboard() {
                     </span>
                   ))}
                 </div>
-                {bloomsTotal > 0 && (() => {
-                  const remUnder = (radarData.find(b => b.level === 'Remember')?.count ?? 0) + (radarData.find(b => b.level === 'Understand')?.count ?? 0)
-                  const higherOrder = (radarData.find(b => b.level === 'Apply')?.count ?? 0) + (radarData.find(b => b.level === 'Analyse')?.count ?? 0) + (radarData.find(b => b.level === 'Evaluate')?.count ?? 0) + (radarData.find(b => b.level === 'Create')?.count ?? 0)
-                  const remPct = Math.round((remUnder / bloomsTotal) * 100)
-                  if (remPct > 70) return (
-                    <div className="mx-5 mb-4 px-3 py-2 rounded-xl" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
-                      <p className="text-[10px] font-medium" style={{ color: '#92400E' }}>
-                        💡 {remPct}% of questions are at Remember/Understand level — add more Apply &amp; Evaluate questions
-                      </p>
-                    </div>
-                  )
-                  return null
-                })()}
               </>
             )}
           </Card>
@@ -628,12 +765,17 @@ export default function HostDashboard() {
           <p className="text-sm mt-0.5" style={{ color: '#374151' }}>Create a quiz or presentation and host it live in minutes.</p>
         </div>
         <div className="flex gap-3 flex-shrink-0 flex-wrap justify-center">
-          <Link href="/host/create" className="text-sm font-bold px-5 py-2.5 rounded-xl transition-all hover:scale-[1.02]"
-            style={{ background: '#F5E642', color: '#0D0D0D' }}>+ Create Quiz</Link>
-          <Link href="/host/present/create" className="text-sm font-bold px-5 py-2.5 rounded-xl transition-all hover:scale-[1.02]"
-            style={{ background: '#fff', color: '#0F1B3D', border: '1.5px solid #0F1B3D' }}>+ Create Slides</Link>
-          <Link href="/host/templates" className="text-sm font-bold px-5 py-2.5 rounded-xl text-white transition-all hover:scale-[1.02]"
-            style={{ background: 'linear-gradient(135deg, #EA580C, #DC2626)' }}>📚 Browse Templates</Link>
+          <Link href="/host/create" className="btn-primary" style={{ textDecoration: 'none' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
+            Create Quiz
+          </Link>
+          <Link href="/host/present/create" className="btn-secondary" style={{ textDecoration: 'none' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
+            Create Slides
+          </Link>
+          <Link href="/host/templates" className="btn-ghost" style={{ textDecoration: 'none', color: 'var(--color-text-secondary)' }}>
+            Browse templates
+          </Link>
         </div>
       </motion.div>
     </div>

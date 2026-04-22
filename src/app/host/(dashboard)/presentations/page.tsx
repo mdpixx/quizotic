@@ -94,12 +94,9 @@ export default function PresentationsPage() {
             {presentations.length} presentation{presentations.length !== 1 ? 's' : ''} saved
           </p>
         </div>
-        <Link
-          href="/host/present/create"
-          className="w-full sm:w-auto text-center text-sm font-bold px-5 py-2.5 rounded-xl transition-all hover:scale-[1.02]"
-          style={{ background: '#F5E642', color: '#0D0D0D' }}
-        >
-          + Create Presentation
+        <Link href="/host/present/create" className="btn-primary w-full sm:w-auto justify-center" style={{ textDecoration: 'none' }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
+          Create Presentation
         </Link>
       </div>
 
@@ -136,12 +133,9 @@ export default function PresentationsPage() {
             {presentations.length === 0 ? 'Create your first presentation to get started' : 'Try a different search term'}
           </p>
           {presentations.length === 0 && (
-            <Link
-              href="/host/present/create"
-              className="text-sm font-bold px-6 py-3 rounded-xl"
-              style={{ background: '#F5E642', color: '#0D0D0D' }}
-            >
-              + Create Your First Presentation
+            <Link href="/host/present/create" className="btn-primary" style={{ textDecoration: 'none' }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
+              Create your first presentation
             </Link>
           )}
         </div>
@@ -180,16 +174,21 @@ export default function PresentationsPage() {
                   <button
                     onClick={() => handlePresent(pres.id)}
                     disabled={startingId === pres.id}
-                    className="flex-1 text-xs font-bold py-2 rounded-xl transition-all hover:scale-[1.02] disabled:opacity-60"
-                    style={{ background: '#F5E642', color: '#0D0D0D' }}
+                    className="btn-golive flex-1 justify-center"
                   >
-                    {startingId === pres.id ? '⏳ Loading…' : '▶ Present'}
+                    {startingId === pres.id ? (
+                      <span className="flex items-center gap-1.5">
+                        <svg className="animate-spin w-3 h-3" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" opacity="0.3"/><path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                        Loading
+                      </span>
+                    ) : (
+                      <>
+                        <span className="play-dot"><svg viewBox="0 0 24 24" fill="#0F1B3D" className="w-2 h-2"><path d="M8 5v14l11-7z"/></svg></span>
+                        Present
+                      </>
+                    )}
                   </button>
-                  <Link
-                    href={`/host/present/create?id=${pres.id}`}
-                    className="px-3 py-2 rounded-xl text-xs font-bold transition-all hover:bg-gray-50"
-                    style={{ color: '#0F1B3D', border: '1.5px solid #D1D5DB' }}
-                  >
+                  <Link href={`/host/present/create?id=${pres.id}`} className="btn-secondary" style={{ textDecoration: 'none' }}>
                     Edit
                   </Link>
                   <button

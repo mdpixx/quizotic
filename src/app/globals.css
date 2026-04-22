@@ -329,6 +329,56 @@ h1, h2, h3, h4, h5, h6 {
 }
 .btn-icon:hover:not(:disabled) { color: var(--color-ink); border-color: var(--color-line); background: var(--color-paper); }
 
+/* ── Inspector collapsible sections (Tier 2) ────────────────────
+   Native <details>/<summary> with styled chevron. Preserves all
+   existing content — just adds a collapsible header. */
+
+.insp-section { border-top: 1px solid var(--color-line); padding: 10px 0 0; }
+.insp-section:first-of-type { border-top: 0; padding-top: 0; }
+.insp-section > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  padding: 4px 0 8px;
+  user-select: none;
+}
+.insp-section > summary::-webkit-details-marker { display: none; }
+.insp-section > summary:hover { color: var(--color-ink); }
+.insp-section > summary .chev {
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--color-text-muted);
+}
+.insp-section[open] > summary .chev { transform: rotate(90deg); }
+
+/* Quality checklist (Tier 2) */
+.q-check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.q-check-ring {
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.q-check-row.ok .q-check-ring { background: #DCFCE7; color: #15803D; }
+.q-check-row.open .q-check-ring { background: var(--color-paper-2); color: var(--color-text-muted); }
+.q-check-row.warn .q-check-ring { background: #FEF3C7; color: #A16207; }
+
 /* ── Creation command bar (Tier 1 · quiz builder) ──────────────── */
 .cmd-pill {
   display: inline-flex;
