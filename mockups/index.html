@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Quizotic · Redesign Mockups</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --paper: #FAF8F2;
+    --paper-2: #F3EFE3;
+    --ink: #0F1B3D;
+    --ink-2: #1B2A5E;
+    --muted: #6B7794;
+    --muted-2: #9CA3AF;
+    --line: #E7E2D4;
+    --yellow: #F5E642;
+    --yellow-warm: #F7D547;
+    --blue: #2563EB;
+    --green: #16A34A;
+    --coral: #E07A5F;
+    --violet: #7C3AED;
+  }
+  html, body { background: var(--paper); color: var(--ink); font-family: 'DM Sans', system-ui, sans-serif; }
+  .head { font-family: 'Space Grotesk', system-ui; letter-spacing: -0.01em; }
+  .paper-grain {
+    background-image:
+      radial-gradient(rgba(15,27,61,0.025) 1px, transparent 1px),
+      radial-gradient(rgba(15,27,61,0.02) 1px, transparent 1px);
+    background-size: 3px 3px, 7px 7px;
+    background-position: 0 0, 1px 2px;
+  }
+  .card { background:#fff; border:1px solid var(--line); border-radius:18px; }
+  .card:hover { border-color:#D5CEB9; transform: translateY(-2px); transition: all .18s ease; }
+  .chip { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; font-size:11px; font-weight:600; border-radius:999px; }
+  .rise { opacity:0; transform: translateY(10px); animation: rise .55s cubic-bezier(.2,.7,.2,1) forwards; }
+  @keyframes rise { to { opacity:1; transform: translateY(0); } }
+  .d1 { animation-delay:.05s } .d2 { animation-delay:.12s } .d3 { animation-delay:.18s }
+  .d4 { animation-delay:.24s } .d5 { animation-delay:.30s } .d6 { animation-delay:.36s } .d7 { animation-delay:.42s }
+</style>
+</head>
+<body class="paper-grain min-h-screen">
+
+<div class="max-w-6xl mx-auto px-8 py-14">
+
+  <!-- header -->
+  <div class="flex items-start justify-between gap-6 rise d1">
+    <div>
+      <div class="flex items-center gap-2 mb-3">
+        <div class="w-8 h-8 rounded-[8px] flex items-center justify-center" style="background:var(--ink)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F5E642" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v16l7-4 7 4V4z"/></svg>
+        </div>
+        <span class="head text-[15px] font-semibold tracking-tight">Quizotic Redesign · Mockups</span>
+      </div>
+      <h1 class="head text-4xl font-bold tracking-tight leading-tight" style="color:var(--ink)">A learning studio, not a party game.</h1>
+      <p class="text-[15px] text-[color:var(--muted)] mt-3 max-w-[64ch]">
+        Exploration of a calmer visual language — warm paper surfaces, precise spacing, confident typography, yellow used sparingly as the "go live" accent.
+        Static mockups only; the live app is untouched.
+      </p>
+    </div>
+    <div class="hidden md:flex items-center gap-2">
+      <span class="chip" style="background:#F3EFE3;color:var(--ink)">v0.1 · exploration</span>
+    </div>
+  </div>
+
+  <!-- guide rail -->
+  <div class="mt-10 grid grid-cols-1 lg:grid-cols-3 gap-6 rise d2">
+    <div class="card p-5">
+      <div class="text-[11px] font-semibold uppercase tracking-[0.08em]" style="color:var(--muted)">Principles</div>
+      <ul class="mt-2 text-[14px] space-y-2">
+        <li class="flex gap-2"><span style="color:var(--violet)">●</span> Warm paper, not cold gradients</li>
+        <li class="flex gap-2"><span style="color:var(--yellow-warm)">●</span> Yellow only for primary actions</li>
+        <li class="flex gap-2"><span style="color:var(--blue)">●</span> Semantic accents carry meaning</li>
+        <li class="flex gap-2"><span style="color:var(--green)">●</span> Spacing + contrast over bold weight</li>
+      </ul>
+    </div>
+    <div class="card p-5">
+      <div class="text-[11px] font-semibold uppercase tracking-[0.08em]" style="color:var(--muted)">Scope of this round</div>
+      <ul class="mt-2 text-[14px] space-y-2">
+        <li>Quiz builder reshape</li>
+        <li>Presentation builder cleanup</li>
+        <li>Single interactive slide — host + phone</li>
+        <li>Dashboard v3 (calm command center)</li>
+        <li>Inner-page pattern (My Quizzes)</li>
+      </ul>
+    </div>
+    <div class="card p-5">
+      <div class="text-[11px] font-semibold uppercase tracking-[0.08em]" style="color:var(--muted)">What's deferred</div>
+      <ul class="mt-2 text-[14px] space-y-2">
+        <li>• PPT import storyboard view</li>
+        <li>• Mobile-specific mockups</li>
+        <li>• Billing / participants pages</li>
+        <li>• Real-data wiring</li>
+      </ul>
+      <p class="text-[12px] text-[color:var(--muted)] mt-3">Pick direction first, then widen.</p>
+    </div>
+  </div>
+
+  <!-- gallery -->
+  <div class="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+
+    <a href="01-design-system.html" class="card p-6 rise d3 block" style="text-decoration:none;color:inherit">
+      <div class="flex items-center justify-between">
+        <span class="chip" style="background:#EEF2FF;color:#2D3A8C">01 · Foundation</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+      </div>
+      <h3 class="head text-xl font-bold mt-3">Design system</h3>
+      <p class="text-[14px] text-[color:var(--muted)] mt-1">Palette, type scale, buttons, cards, icons. Anchors everything else.</p>
+      <!-- preview -->
+      <div class="mt-5 flex gap-1.5">
+        <div class="h-8 flex-1 rounded" style="background:var(--paper-2)"></div>
+        <div class="h-8 w-10 rounded" style="background:var(--ink)"></div>
+        <div class="h-8 w-10 rounded" style="background:var(--yellow)"></div>
+        <div class="h-8 w-10 rounded" style="background:var(--blue)"></div>
+        <div class="h-8 w-10 rounded" style="background:var(--green)"></div>
+        <div class="h-8 w-10 rounded" style="background:var(--coral)"></div>
+        <div class="h-8 w-10 rounded" style="background:var(--violet)"></div>
+      </div>
+    </a>
+
+    <a href="02-quiz-builder.html" class="card p-6 rise d4 block" style="text-decoration:none;color:inherit">
+      <div class="flex items-center justify-between">
+        <span class="chip" style="background:#FEF3C7;color:#92400E">02 · Builder</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+      </div>
+      <h3 class="head text-xl font-bold mt-3">Quiz builder</h3>
+      <p class="text-[14px] text-[color:var(--muted)] mt-1">Creation command bar replaces the 6 input tabs. Inspector collapses into sections. AI becomes a co-pilot.</p>
+      <div class="mt-5 rounded-lg border border-[color:var(--line)] overflow-hidden">
+        <div class="h-6 bg-[color:var(--paper-2)] border-b border-[color:var(--line)] flex items-center px-2 gap-1.5">
+          <div class="w-2 h-2 rounded-full" style="background:#E07A5F"></div>
+          <div class="w-2 h-2 rounded-full" style="background:#F5E642"></div>
+          <div class="w-2 h-2 rounded-full" style="background:#7BB393"></div>
+        </div>
+        <div class="grid grid-cols-[80px_1fr_80px] h-20">
+          <div class="border-r border-[color:var(--line)] p-2 space-y-1">
+            <div class="h-3 rounded" style="background:var(--paper-2)"></div>
+            <div class="h-3 rounded" style="background:var(--paper-2)"></div>
+            <div class="h-3 rounded opacity-50" style="background:var(--paper-2)"></div>
+          </div>
+          <div class="p-3 flex items-center justify-center">
+            <div class="h-8 w-full rounded-lg" style="background:var(--ink);opacity:.08"></div>
+          </div>
+          <div class="border-l border-[color:var(--line)] p-2 space-y-1">
+            <div class="h-2 rounded" style="background:var(--paper-2)"></div>
+            <div class="h-2 rounded" style="background:var(--paper-2)"></div>
+          </div>
+        </div>
+      </div>
+    </a>
+
+    <a href="03-presentation-builder.html" class="card p-6 rise d5 block" style="text-decoration:none;color:inherit">
+      <div class="flex items-center justify-between">
+        <span class="chip" style="background:#F0FDFA;color:#0D9488">03 · Builder</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+      </div>
+      <h3 class="head text-xl font-bold mt-3">Presentation builder</h3>
+      <p class="text-[14px] text-[color:var(--muted)] mt-1">Slide rail with section headers. Tabbed inspector. Slide picker with "best for" labels.</p>
+      <div class="mt-5 grid grid-cols-[1fr_2fr_1fr] gap-1.5 h-20">
+        <div class="rounded border border-[color:var(--line)] p-1 space-y-1">
+          <div class="text-[7px] font-bold uppercase px-1 pt-0.5" style="color:var(--muted)">Intro</div>
+          <div class="h-2 rounded" style="background:var(--paper-2)"></div>
+          <div class="h-2 rounded" style="background:var(--paper-2)"></div>
+        </div>
+        <div class="rounded border border-[color:var(--line)]" style="background:var(--paper-2)"></div>
+        <div class="rounded border border-[color:var(--line)] p-1 space-y-1">
+          <div class="h-1.5 rounded" style="background:var(--ink);opacity:.5"></div>
+          <div class="h-1.5 w-2/3 rounded" style="background:var(--paper-2)"></div>
+          <div class="h-1.5 w-1/2 rounded" style="background:var(--paper-2)"></div>
+        </div>
+      </div>
+    </a>
+
+    <a href="04-interactive-slide.html" class="card p-6 rise d6 block" style="text-decoration:none;color:inherit">
+      <div class="flex items-center justify-between">
+        <span class="chip" style="background:#FFF7ED;color:#EA580C">04 · Slide</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+      </div>
+      <h3 class="head text-xl font-bold mt-3">Interactive slide</h3>
+      <p class="text-[14px] text-[color:var(--muted)] mt-1">Host view + phone view side-by-side. Live/Reveal/Private modes. Low-bandwidth indicator.</p>
+      <div class="mt-5 flex gap-2 items-end h-20">
+        <div class="flex-1 rounded border border-[color:var(--line)]" style="background:var(--paper-2)"></div>
+        <div class="w-12 h-full rounded-lg border-2 border-[color:var(--ink)] flex flex-col overflow-hidden">
+          <div class="h-2" style="background:var(--ink)"></div>
+          <div class="flex-1 p-1 space-y-1" style="background:#fff">
+            <div class="h-1.5 rounded" style="background:var(--paper-2)"></div>
+            <div class="h-1.5 rounded" style="background:var(--paper-2)"></div>
+          </div>
+        </div>
+      </div>
+    </a>
+
+    <a href="05-dashboard-v3.html" class="card p-6 rise d7 block" style="text-decoration:none;color:inherit">
+      <div class="flex items-center justify-between">
+        <span class="chip" style="background:#F0FDF4;color:#166534">05 · Dashboard</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+      </div>
+      <h3 class="head text-xl font-bold mt-3">Dashboard v3</h3>
+      <p class="text-[14px] text-[color:var(--muted)] mt-1">Calm command center. Navy sidebar, hero last session, KPI strip, Bloom stacked bar, at-risk card.</p>
+      <div class="mt-5 grid grid-cols-[40px_1fr] gap-1.5 h-20">
+        <div class="rounded" style="background:var(--ink)"></div>
+        <div class="grid grid-cols-3 gap-1">
+          <div class="h-full rounded" style="background:var(--paper-2)"></div>
+          <div class="h-full rounded" style="background:var(--paper-2)"></div>
+          <div class="h-full rounded" style="background:var(--paper-2)"></div>
+        </div>
+      </div>
+    </a>
+
+    <a href="06-my-quizzes.html" class="card p-6 rise d7 block" style="text-decoration:none;color:inherit">
+      <div class="flex items-center justify-between">
+        <span class="chip" style="background:#FAF5FF;color:#7C3AED">06 · Library</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+      </div>
+      <h3 class="head text-xl font-bold mt-3">My quizzes</h3>
+      <p class="text-[14px] text-[color:var(--muted)] mt-1">Inner-page template: thumbnails, grid/list toggle, tags, recently edited/hosted, empty state.</p>
+      <div class="mt-5 grid grid-cols-4 gap-1.5 h-20">
+        <div class="rounded border border-[color:var(--line)]" style="background:#fff"></div>
+        <div class="rounded border border-[color:var(--line)]" style="background:#fff"></div>
+        <div class="rounded border border-[color:var(--line)]" style="background:#fff"></div>
+        <div class="rounded border border-[color:var(--line)]" style="background:#fff"></div>
+      </div>
+    </a>
+
+  </div>
+
+  <!-- legacy -->
+  <div class="mt-10 text-[13px] text-[color:var(--muted)]">
+    Also present: <a href="dashboard-v2.html" class="underline decoration-dotted hover:decoration-solid">dashboard-v2.html</a> — the earlier (warmer, more playful) dashboard mockup for comparison.
+  </div>
+
+  <!-- footer -->
+  <div class="mt-16 pt-6 border-t border-[color:var(--line)] flex items-center justify-between text-[12px]" style="color:var(--muted)">
+    <div>Quizotic · Redesign exploration · v0.1</div>
+    <div class="flex items-center gap-3">
+      <span>DM Sans · Space Grotesk</span>
+      <span>·</span>
+      <span>Lucide icons</span>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

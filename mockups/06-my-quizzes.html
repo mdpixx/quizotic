@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Quizotic · My quizzes</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #FAF8F2; --paper-2: #F3EFE3; --ink: #0F1B3D; --ink-2: #1B2A5E;
+    --muted: #6B7794; --muted-2: #9CA3AF; --line: #E7E2D4;
+    --yellow: #F5E642; --blue: #2563EB; --green: #16A34A; --coral: #E07A5F; --violet: #7C3AED;
+  }
+  html, body { background: var(--paper); color: var(--ink); font-family: 'DM Sans', system-ui, sans-serif; }
+  .head { font-family: 'Space Grotesk', system-ui; letter-spacing: -0.01em; }
+  .paper-grain {
+    background-image:
+      radial-gradient(rgba(15,27,61,0.025) 1px, transparent 1px),
+      radial-gradient(rgba(15,27,61,0.02) 1px, transparent 1px);
+    background-size: 3px 3px, 7px 7px; background-position: 0 0, 1px 2px;
+  }
+  .surface { background:#fff; border:1px solid var(--line); }
+  .card { background:#fff; border:1px solid var(--line); border-radius:16px; }
+  .chip { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; font-size:11px; font-weight:600; border-radius:999px; }
+  .chip-dot::before { content:''; width:6px; height:6px; border-radius:999px; background: currentColor; }
+
+  .nav-item { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:9px; color: rgba(255,255,255,.7); font-size: 13px; font-weight:500; }
+  .nav-item:hover { background: rgba(255,255,255,.05); color: #fff; }
+  .nav-item.on { background: rgba(255,255,255,.08); color: #fff; }
+  .nav-item.on::before { content:''; width:3px; height:16px; background: var(--yellow); border-radius: 2px; margin-left: -12px; margin-right: 9px; }
+
+  .btn-primary { background: var(--yellow); color: var(--ink); border: 1px solid #D9CC27; border-radius: 10px; padding: 9px 14px; font-weight: 600; font-size: 13px; box-shadow: 0 1px 0 #D9CC27; }
+  .btn-golive { background: var(--ink); color:#fff; border-radius: 9px; padding: 7px 12px; font-weight: 600; font-size: 12px; display:inline-flex; align-items:center; gap:6px; }
+  .btn-golive .play { width:16px; height:16px; border-radius:999px; background:var(--yellow); display:inline-flex; align-items:center; justify-content:center; }
+  .btn-secondary { background:#fff; border:1px solid var(--line); border-radius:9px; padding:7px 12px; font-weight:600; font-size:12px; color:var(--ink); }
+  .btn-icon { width:30px; height:30px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; color: var(--muted); border: 1px solid transparent; }
+  .btn-icon:hover { background: var(--paper-2); color: var(--ink); }
+
+  .seg { display:inline-flex; padding:3px; background:var(--paper-2); border-radius:10px; gap:2px; }
+  .seg button { padding:6px 10px; font-size:12px; font-weight:600; border-radius:7px; color:var(--muted); display:inline-flex; align-items:center; gap:5px; }
+  .seg button.on { background:#fff; color:var(--ink); box-shadow: 0 1px 0 rgba(0,0,0,.03); }
+
+  /* Quiz thumbnail */
+  .thumb { aspect-ratio: 16/10; border-radius: 12px; border: 1px solid var(--line); overflow: hidden; position: relative; background: var(--paper-2); }
+  .thumb .overlay { position: absolute; inset:0; display:flex; flex-direction:column; justify-content:space-between; padding: 10px; }
+  .thumb .cover-text { color:#fff; font-family: 'Space Grotesk'; font-weight: 700; line-height: 1.1; text-shadow: 0 1px 2px rgba(0,0,0,.2); }
+
+  .tag { display:inline-flex; align-items:center; gap:5px; padding:2px 8px; border-radius:6px; font-size: 11px; font-weight: 500; background: var(--paper-2); color: var(--muted); }
+  .tag-blue { background:#EFF6FF; color:#1D4ED8 }
+  .tag-green { background:#F0FDF4; color:#15803D }
+  .tag-coral { background:#FFF7ED; color:#C2410C }
+
+  .rise { opacity:0; transform: translateY(8px); animation: rise .5s ease-out forwards; }
+  @keyframes rise { to { opacity:1; transform: translateY(0); } }
+  .d1 { animation-delay:.04s } .d2 { animation-delay:.1s } .d3 { animation-delay:.16s } .d4 { animation-delay:.22s }
+</style>
+</head>
+<body class="paper-grain min-h-screen">
+
+<div class="grid grid-cols-[220px_minmax(0,1fr)] min-h-screen">
+
+  <!-- Sidebar (same as dashboard) -->
+  <aside class="flex flex-col" style="background:var(--ink);color:#fff">
+    <div class="px-5 py-5 flex items-center gap-2">
+      <div class="w-8 h-8 rounded-[8px] flex items-center justify-center" style="background:rgba(245,230,66,.14)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F5E642" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v16l7-4 7 4V4z"/></svg>
+      </div>
+      <div class="head text-[16px] font-bold">Quizotic</div>
+    </div>
+
+    <nav class="px-3 pt-2 space-y-0.5">
+      <a href="05-dashboard-v3.html" class="nav-item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg>
+        Dashboard
+      </a>
+      <a href="#" class="nav-item on">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11H5a2 2 0 0 0-2 2v7h14v-7a2 2 0 0 0-2-2h-4"/><path d="M9 11V6a3 3 0 0 1 6 0v5"/></svg>
+        My quizzes
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        Presentations
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+        Sessions
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        Participants
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 12l4-4 4 4 5-5"/></svg>
+        Reports
+      </a>
+    </nav>
+
+    <div class="mt-6 px-3">
+      <div class="px-3 text-[10px] uppercase tracking-[0.1em] font-semibold" style="color:rgba(255,255,255,.45)">Folders</div>
+      <nav class="mt-2 space-y-0.5">
+        <a href="#" class="nav-item"><span class="w-1.5 h-1.5 rounded-full" style="background:var(--blue)"></span>Class 9 · Biology</a>
+        <a href="#" class="nav-item"><span class="w-1.5 h-1.5 rounded-full" style="background:var(--green)"></span>Teacher training</a>
+        <a href="#" class="nav-item"><span class="w-1.5 h-1.5 rounded-full" style="background:var(--coral)"></span>Corporate onboarding</a>
+        <a href="#" class="nav-item">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+          New folder
+        </a>
+      </nav>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="paper-grain p-8">
+
+    <div class="flex items-center justify-between mb-6 rise d1">
+      <div>
+        <a href="index.html" class="text-[12px]" style="color:var(--muted)">← All mockups</a>
+        <h1 class="head text-[28px] font-bold mt-1">My quizzes</h1>
+        <p class="text-[13px]" style="color:var(--muted)">32 quizzes · 7 folders · 1,284 participants served</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button class="btn-secondary">Import CSV</button>
+        <button class="btn-primary">Create quiz</button>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="rise d2 surface rounded-[14px] px-3 py-2.5 flex items-center gap-3 flex-wrap">
+      <div class="relative flex-1 min-w-[240px] max-w-[360px]">
+        <input placeholder="Search this folder…" class="h-9 pl-9 pr-4 text-[13px] rounded-[10px] w-full" style="background:var(--paper);border:1px solid var(--line)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="absolute top-[12px] left-3" style="color:var(--muted)"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      </div>
+
+      <div class="flex items-center gap-1.5">
+        <button class="chip" style="background:var(--ink);color:#fff">All</button>
+        <button class="chip tag-blue">Class 9 · Biology</button>
+        <button class="chip tag-green">Teacher training</button>
+        <button class="chip tag-coral">Corporate</button>
+        <button class="chip" style="background:var(--paper-2);color:var(--muted)">+ tag</button>
+      </div>
+
+      <div class="ml-auto flex items-center gap-2">
+        <button class="btn-icon" title="Sort"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5h10M11 9h7M11 13h4M3 17l3 3 3-3M6 20V4"/></svg></button>
+        <div class="seg">
+          <button class="on">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            Grid
+          </button>
+          <button>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3" cy="6" r="1"/><circle cx="3" cy="12" r="1"/><circle cx="3" cy="18" r="1"/></svg>
+            List
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recently hosted -->
+    <section class="mt-8 rise d3">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <div class="head text-[16px] font-semibold">Recently hosted</div>
+          <div class="text-[11px]" style="color:var(--muted)">Picked up where you left off last session</div>
+        </div>
+        <a href="#" class="text-[12px] font-semibold" style="color:var(--muted)">See all →</a>
+      </div>
+
+      <div class="grid grid-cols-4 gap-4">
+        <!-- Quiz card 1 -->
+        <div class="card overflow-hidden">
+          <div class="thumb" style="background: linear-gradient(135deg,#0F1B3D,#1B2A5E)">
+            <div class="overlay">
+              <div class="flex items-start justify-between">
+                <span class="chip" style="background:rgba(255,255,255,.2);color:#fff">Quiz · 12 q</span>
+                <button class="btn-icon" style="color:#fff"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+              </div>
+              <div class="cover-text text-[20px]">Chemical reactions</div>
+            </div>
+          </div>
+          <div class="p-4">
+            <div class="flex items-center gap-1.5 flex-wrap mb-2">
+              <span class="tag tag-blue">Class 9 · Biology</span>
+              <span class="tag">Test</span>
+            </div>
+            <div class="text-[12px]" style="color:var(--muted)">Hosted 2h ago · 32 participants · avg 78%</div>
+            <div class="flex items-center justify-between mt-3">
+              <button class="btn-secondary">Edit</button>
+              <button class="btn-golive"><span class="play"><svg width="8" height="8" viewBox="0 0 24 24" fill="#0F1B3D"><path d="M8 5v14l11-7z"/></svg></span>Host</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2 -->
+        <div class="card overflow-hidden">
+          <div class="thumb" style="background: linear-gradient(135deg,#E07A5F,#C2410C)">
+            <div class="overlay">
+              <div class="flex items-start justify-between">
+                <span class="chip" style="background:rgba(255,255,255,.2);color:#fff">Quiz · 8 q</span>
+                <button class="btn-icon" style="color:#fff"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+              </div>
+              <div class="cover-text text-[20px]">Photosynthesis</div>
+            </div>
+          </div>
+          <div class="p-4">
+            <div class="flex items-center gap-1.5 flex-wrap mb-2">
+              <span class="tag tag-blue">Class 9 · Biology</span>
+              <span class="tag">Revision</span>
+            </div>
+            <div class="text-[12px]" style="color:var(--muted)">Hosted 3d ago · 28 participants · avg 71%</div>
+            <div class="flex items-center justify-between mt-3">
+              <button class="btn-secondary">Edit</button>
+              <button class="btn-golive"><span class="play"><svg width="8" height="8" viewBox="0 0 24 24" fill="#0F1B3D"><path d="M8 5v14l11-7z"/></svg></span>Host</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3 -->
+        <div class="card overflow-hidden">
+          <div class="thumb" style="background: linear-gradient(135deg,#16A34A,#047857)">
+            <div class="overlay">
+              <div class="flex items-start justify-between">
+                <span class="chip" style="background:rgba(255,255,255,.2);color:#fff">Quiz · 15 q</span>
+                <button class="btn-icon" style="color:#fff"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+              </div>
+              <div class="cover-text text-[20px]">Teacher onboarding · day 1</div>
+            </div>
+          </div>
+          <div class="p-4">
+            <div class="flex items-center gap-1.5 flex-wrap mb-2">
+              <span class="tag tag-green">Teacher training</span>
+              <span class="tag">Assessment</span>
+            </div>
+            <div class="text-[12px]" style="color:var(--muted)">Hosted 1w ago · 46 participants · avg 83%</div>
+            <div class="flex items-center justify-between mt-3">
+              <button class="btn-secondary">Edit</button>
+              <button class="btn-golive"><span class="play"><svg width="8" height="8" viewBox="0 0 24 24" fill="#0F1B3D"><path d="M8 5v14l11-7z"/></svg></span>Host</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4 -->
+        <div class="card overflow-hidden">
+          <div class="thumb" style="background: linear-gradient(135deg,#7C3AED,#4C1D95)">
+            <div class="overlay">
+              <div class="flex items-start justify-between">
+                <span class="chip" style="background:rgba(255,255,255,.2);color:#fff">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5Z"/></svg>
+                  AI · 10 q
+                </span>
+                <button class="btn-icon" style="color:#fff"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+              </div>
+              <div class="cover-text text-[20px]">HR policy — compliance</div>
+            </div>
+          </div>
+          <div class="p-4">
+            <div class="flex items-center gap-1.5 flex-wrap mb-2">
+              <span class="tag tag-coral">Corporate onboarding</span>
+              <span class="tag">Pre-hire</span>
+            </div>
+            <div class="text-[12px]" style="color:var(--muted)">Hosted 2w ago · 14 participants · avg 66%</div>
+            <div class="flex items-center justify-between mt-3">
+              <button class="btn-secondary">Edit</button>
+              <button class="btn-golive"><span class="play"><svg width="8" height="8" viewBox="0 0 24 24" fill="#0F1B3D"><path d="M8 5v14l11-7z"/></svg></span>Host</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Recently edited -->
+    <section class="mt-10 rise d4">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <div class="head text-[16px] font-semibold">Recently edited</div>
+          <div class="text-[11px]" style="color:var(--muted)">Drafts and quizzes that changed in the last 14 days</div>
+        </div>
+      </div>
+
+      <div class="card divide-y divide-[color:var(--line)]">
+        <!-- row -->
+        <div class="grid grid-cols-[40px_1fr_140px_90px_90px_auto] gap-4 items-center p-3">
+          <div class="w-10 h-10 rounded-[8px]" style="background: linear-gradient(135deg,#2563EB,#1D4ED8)"></div>
+          <div>
+            <div class="text-[14px] font-semibold">Electromagnetic induction — lab quiz</div>
+            <div class="flex items-center gap-1.5 mt-0.5"><span class="tag tag-blue">Class 9 · Physics</span><span class="tag">Draft</span></div>
+          </div>
+          <div class="text-[12px]" style="color:var(--muted)">12 questions</div>
+          <div class="text-[12px]" style="color:var(--muted)">—</div>
+          <div class="text-[12px]" style="color:var(--muted)">Edited 4h ago</div>
+          <div class="flex items-center gap-1">
+            <button class="btn-icon" title="Share"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/></svg></button>
+            <button class="btn-golive"><span class="play"><svg width="8" height="8" viewBox="0 0 24 24" fill="#0F1B3D"><path d="M8 5v14l11-7z"/></svg></span>Host</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-[40px_1fr_140px_90px_90px_auto] gap-4 items-center p-3">
+          <div class="w-10 h-10 rounded-[8px]" style="background: linear-gradient(135deg,#7C3AED,#4C1D95);display:flex;align-items:center;justify-content:center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5Z"/></svg>
+          </div>
+          <div>
+            <div class="text-[14px] font-semibold">Data privacy compliance · FY26</div>
+            <div class="flex items-center gap-1.5 mt-0.5"><span class="tag tag-coral">Corporate onboarding</span><span class="tag" style="background:#FAF5FF;color:var(--violet)">AI generated</span></div>
+          </div>
+          <div class="text-[12px]" style="color:var(--muted)">18 questions</div>
+          <div class="text-[12px]" style="color:var(--muted)">avg 72%</div>
+          <div class="text-[12px]" style="color:var(--muted)">Edited 1d ago</div>
+          <div class="flex items-center gap-1">
+            <button class="btn-icon" title="Share"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/></svg></button>
+            <button class="btn-golive"><span class="play"><svg width="8" height="8" viewBox="0 0 24 24" fill="#0F1B3D"><path d="M8 5v14l11-7z"/></svg></span>Host</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-[40px_1fr_140px_90px_90px_auto] gap-4 items-center p-3">
+          <div class="w-10 h-10 rounded-[8px]" style="background: linear-gradient(135deg,#16A34A,#047857)"></div>
+          <div>
+            <div class="text-[14px] font-semibold">Classroom management — module 3</div>
+            <div class="flex items-center gap-1.5 mt-0.5"><span class="tag tag-green">Teacher training</span></div>
+          </div>
+          <div class="text-[12px]" style="color:var(--muted)">9 questions</div>
+          <div class="text-[12px]" style="color:var(--muted)">avg 81%</div>
+          <div class="text-[12px]" style="color:var(--muted)">Edited 3d ago</div>
+          <div class="flex items-center gap-1">
+            <button class="btn-icon" title="Share"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/></svg></button>
+            <button class="btn-golive"><span class="play"><svg width="8" height="8" viewBox="0 0 24 24" fill="#0F1B3D"><path d="M8 5v14l11-7z"/></svg></span>Host</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-[40px_1fr_140px_90px_90px_auto] gap-4 items-center p-3">
+          <div class="w-10 h-10 rounded-[8px]" style="background: linear-gradient(135deg,#0F1B3D,#1B2A5E)"></div>
+          <div>
+            <div class="text-[14px] font-semibold">Unit test · pre-board · Biology</div>
+            <div class="flex items-center gap-1.5 mt-0.5"><span class="tag tag-blue">Class 9 · Biology</span><span class="tag">Published</span></div>
+          </div>
+          <div class="text-[12px]" style="color:var(--muted)">25 questions</div>
+          <div class="text-[12px]" style="color:var(--muted)">avg 68%</div>
+          <div class="text-[12px]" style="color:var(--muted)">Edited 9d ago</div>
+          <div class="flex items-center gap-1">
+            <button class="btn-icon" title="Share"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/></svg></button>
+            <button class="btn-golive"><span class="play"><svg width="8" height="8" viewBox="0 0 24 24" fill="#0F1B3D"><path d="M8 5v14l11-7z"/></svg></span>Host</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Empty state · example -->
+    <section class="mt-10 rise d4">
+      <div class="head text-[16px] font-semibold mb-3">Folder example · "Workshops"</div>
+      <div class="card p-10 flex flex-col items-center justify-center text-center" style="background:var(--paper-2);border-color:#DDD4BC">
+        <div class="w-14 h-14 rounded-full flex items-center justify-center mb-4" style="background:#fff;border:1px solid var(--line)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="color:var(--muted)"><path d="M9 11H5a2 2 0 0 0-2 2v7h14v-7a2 2 0 0 0-2-2h-4"/><path d="M9 11V6a3 3 0 0 1 6 0v5"/></svg>
+        </div>
+        <div class="head text-[18px] font-semibold">No quizzes in this folder yet.</div>
+        <p class="text-[13px] mt-1 max-w-[40ch]" style="color:var(--muted)">Start with one clear question. Everything else can follow.</p>
+        <button class="btn-primary mt-4">Create your first quiz</button>
+        <div class="text-[11px] mt-3" style="color:var(--muted)">or <a class="underline decoration-dotted" href="#">import from CSV</a> · <a class="underline decoration-dotted" href="#">browse the library</a></div>
+      </div>
+    </section>
+
+    <div class="mt-10 pt-6 border-t border-[color:var(--line)] text-[12px] flex items-center justify-between" style="color:var(--muted)">
+      <a href="index.html" class="underline decoration-dotted">← Back to gallery</a>
+      <div>Same layout pattern works for Presentations, Sessions, Participants, and Billing.</div>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

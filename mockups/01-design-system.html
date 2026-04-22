@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Quizotic · Design System</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #FAF8F2; --paper-2: #F3EFE3; --ink: #0F1B3D; --ink-2: #1B2A5E;
+    --muted: #6B7794; --muted-2: #9CA3AF; --line: #E7E2D4;
+    --yellow: #F5E642; --yellow-warm: #F7D547;
+    --blue: #2563EB; --green: #16A34A; --coral: #E07A5F; --violet: #7C3AED;
+  }
+  html, body { background: var(--paper); color: var(--ink); font-family: 'DM Sans', system-ui, sans-serif; }
+  .head { font-family: 'Space Grotesk', system-ui; letter-spacing: -0.01em; }
+  .paper-grain {
+    background-image:
+      radial-gradient(rgba(15,27,61,0.025) 1px, transparent 1px),
+      radial-gradient(rgba(15,27,61,0.02) 1px, transparent 1px);
+    background-size: 3px 3px, 7px 7px; background-position: 0 0, 1px 2px;
+  }
+  .card { background:#fff; border:1px solid var(--line); border-radius:18px; }
+  .mono { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size:12px; }
+
+  /* Primary button — go live */
+  .btn-primary {
+    background: var(--yellow); color: var(--ink);
+    border: 1px solid #D9CC27;
+    border-radius: 10px; padding: 10px 16px;
+    font-weight: 600; font-size: 14px;
+    box-shadow: 0 1px 0 #D9CC27, 0 2px 0 #B8AB1F;
+    transition: transform .08s ease, box-shadow .08s ease;
+  }
+  .btn-primary:active { transform: translateY(2px); box-shadow: 0 0 0 #D9CC27, 0 0 0 #B8AB1F; }
+
+  /* Go Live — navy + yellow play */
+  .btn-golive {
+    background: var(--ink); color: #fff;
+    border-radius: 12px; padding: 12px 18px;
+    display: inline-flex; align-items: center; gap: 10px;
+    font-weight: 600; font-size: 15px;
+    box-shadow: 0 1px 0 rgba(0,0,0,.15), 0 8px 24px -8px rgba(15,27,61,.35);
+    transition: transform .08s ease;
+  }
+  .btn-golive:hover { transform: translateY(-1px); }
+  .btn-golive .play {
+    width: 22px; height: 22px; border-radius: 999px;
+    background: var(--yellow); display:inline-flex; align-items:center; justify-content:center;
+  }
+
+  .btn-secondary {
+    background: #fff; color: var(--ink);
+    border: 1px solid var(--line); border-radius: 10px; padding: 9px 15px;
+    font-weight: 600; font-size: 14px;
+  }
+  .btn-secondary:hover { border-color: #D5CEB9; background: var(--paper); }
+
+  .btn-ghost {
+    background: transparent; color: var(--muted);
+    border-radius: 8px; padding: 8px 12px; font-weight: 500; font-size: 13px;
+  }
+  .btn-ghost:hover { background: var(--paper-2); color: var(--ink); }
+
+  .btn-destructive {
+    background: transparent; color: #B91C1C;
+    border: 1px solid #F3E4E4; border-radius: 10px; padding: 9px 15px;
+    font-weight: 600; font-size: 14px;
+  }
+  .btn-destructive:hover { background: #FEF2F2; border-color: #FCA5A5; }
+
+  .btn-icon {
+    width: 34px; height: 34px; border-radius: 9px;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--muted); border: 1px solid var(--line); background:#fff;
+  }
+  .btn-icon:hover { color: var(--ink); border-color: #D5CEB9; }
+
+  .chip { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; font-size:11px; font-weight:600; border-radius:999px; }
+  .chip-dot::before { content:''; width:6px; height:6px; border-radius:999px; background: currentColor; }
+
+  .sw { border-radius: 12px; height: 72px; display:flex; align-items:flex-end; padding:10px; font-size:11px; font-weight:600; }
+  .sw-lg { height: 96px; }
+  .swatch-label { background: rgba(255,255,255,.75); backdrop-filter: blur(4px); padding: 3px 8px; border-radius: 6px; }
+
+  .rise { opacity:0; transform: translateY(8px); animation: rise .5s ease-out forwards; }
+  @keyframes rise { to { opacity:1; transform: translateY(0); } }
+</style>
+</head>
+<body class="paper-grain min-h-screen">
+
+<div class="max-w-6xl mx-auto px-8 py-10">
+
+  <!-- top nav -->
+  <div class="flex items-center justify-between mb-10">
+    <a href="index.html" class="flex items-center gap-2 text-[13px]" style="color:var(--muted)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      All mockups
+    </a>
+    <div class="chip" style="background:var(--paper-2);color:var(--ink)">01 · Foundation</div>
+  </div>
+
+  <h1 class="head text-4xl font-bold tracking-tight">Design system</h1>
+  <p class="text-[15px] text-[color:var(--muted)] mt-2 max-w-[60ch]">The visual language all other mockups pull from. Warm paper surfaces, confident typography, yellow used only when it really counts.</p>
+
+  <!-- Palette -->
+  <section class="mt-12 rise">
+    <h2 class="head text-lg font-semibold">Palette</h2>
+    <div class="text-[12px] text-[color:var(--muted)] mt-1">Core neutrals, then yellow for primary, then four semantic accents.</div>
+
+    <div class="mt-5 grid grid-cols-6 gap-3">
+      <div class="sw sw-lg" style="background:var(--paper);border:1px solid var(--line)"><span class="swatch-label">Paper<br>#FAF8F2</span></div>
+      <div class="sw sw-lg" style="background:var(--paper-2);border:1px solid var(--line)"><span class="swatch-label">Paper 2<br>#F3EFE3</span></div>
+      <div class="sw sw-lg" style="background:var(--ink);color:#fff"><span class="swatch-label" style="background:rgba(0,0,0,.35);color:#fff">Ink<br>#0F1B3D</span></div>
+      <div class="sw sw-lg" style="background:var(--ink-2);color:#fff"><span class="swatch-label" style="background:rgba(0,0,0,.35);color:#fff">Ink 2<br>#1B2A5E</span></div>
+      <div class="sw sw-lg" style="background:var(--muted);color:#fff"><span class="swatch-label" style="background:rgba(0,0,0,.25);color:#fff">Muted<br>#6B7794</span></div>
+      <div class="sw sw-lg" style="background:var(--line)"><span class="swatch-label">Line<br>#E7E2D4</span></div>
+    </div>
+
+    <div class="mt-3 grid grid-cols-5 gap-3">
+      <div class="sw sw-lg" style="background:var(--yellow)"><span class="swatch-label">Yellow · primary<br>#F5E642</span></div>
+      <div class="sw sw-lg" style="background:var(--blue);color:#fff"><span class="swatch-label" style="background:rgba(0,0,0,.35);color:#fff">Blue · insight<br>#2563EB</span></div>
+      <div class="sw sw-lg" style="background:var(--green);color:#fff"><span class="swatch-label" style="background:rgba(0,0,0,.35);color:#fff">Green · mastery<br>#16A34A</span></div>
+      <div class="sw sw-lg" style="background:var(--coral);color:#fff"><span class="swatch-label" style="background:rgba(0,0,0,.35);color:#fff">Coral · attention<br>#E07A5F</span></div>
+      <div class="sw sw-lg" style="background:var(--violet);color:#fff"><span class="swatch-label" style="background:rgba(0,0,0,.35);color:#fff">Violet · AI only<br>#7C3AED</span></div>
+    </div>
+
+    <div class="mt-6 text-[13px] text-[color:var(--muted)]">
+      <strong style="color:var(--ink)">Use sparingly.</strong> Yellow is for the single primary action on a screen (Start quiz, Go live, Save draft). Violet appears <em>only</em> on AI surfaces. Coral signals "something needs attention" — not errors (which stay text-only red).
+    </div>
+  </section>
+
+  <!-- Typography -->
+  <section class="mt-14 rise">
+    <h2 class="head text-lg font-semibold">Typography</h2>
+    <div class="text-[12px] text-[color:var(--muted)] mt-1">DM Sans for UI and body. Space Grotesk for headings and emphasis. Nothing playful inside the product.</div>
+
+    <div class="mt-5 card p-8">
+      <div class="head text-[44px] font-bold leading-[1.05] tracking-tight">Bloom's coverage looks light on Apply.</div>
+      <div class="text-[12px] mono mt-1" style="color:var(--muted)">Space Grotesk · 44 / 700 · -0.01em</div>
+
+      <div class="head text-[26px] font-semibold mt-8 leading-tight">Hosted 14 sessions this week</div>
+      <div class="text-[12px] mono mt-1" style="color:var(--muted)">Space Grotesk · 26 / 600</div>
+
+      <div class="text-[18px] font-semibold mt-8" style="color:var(--ink)">You had 287 participants across four classrooms.</div>
+      <div class="text-[12px] mono mt-1" style="color:var(--muted)">DM Sans · 18 / 600</div>
+
+      <p class="text-[15px] mt-8 leading-[1.55] max-w-[65ch]">
+        Body copy sits at 15 pixels with 1.55 line height. Long enough to read fluidly, tight enough to feel composed. We resist the urge to make everything bold — hierarchy comes from weight contrast, not weight overload.
+      </p>
+      <div class="text-[12px] mono mt-1" style="color:var(--muted)">DM Sans · 15 / 400 · 1.55</div>
+
+      <div class="text-[11px] uppercase tracking-[0.1em] font-semibold mt-8" style="color:var(--muted)">Section label</div>
+      <div class="text-[12px] mono mt-1" style="color:var(--muted)">DM Sans · 11 / 600 · uppercase · 0.1em tracking</div>
+    </div>
+  </section>
+
+  <!-- Buttons -->
+  <section class="mt-14 rise">
+    <h2 class="head text-lg font-semibold">Buttons</h2>
+    <div class="text-[12px] text-[color:var(--muted)] mt-1">A tight ladder of intent. Yellow is loud; everything else gets out of the way.</div>
+
+    <div class="mt-5 grid grid-cols-2 gap-4">
+      <div class="card p-6 flex flex-col items-start gap-3">
+        <div class="text-[11px] uppercase tracking-[0.1em] font-semibold" style="color:var(--muted)">Primary · save / submit</div>
+        <button class="btn-primary">Save quiz</button>
+        <div class="text-[12px] mono" style="color:var(--muted)">yellow · dark text · tactile press</div>
+      </div>
+
+      <div class="card p-6 flex flex-col items-start gap-3" style="background: linear-gradient(135deg, #0F1B3D, #1B2A5E)">
+        <div class="text-[11px] uppercase tracking-[0.1em] font-semibold" style="color:rgba(255,255,255,.6)">Go live · signature moment</div>
+        <button class="btn-golive">
+          <span class="play">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="#0F1B3D"><path d="M8 5v14l11-7z"/></svg>
+          </span>
+          Start live session
+        </button>
+        <div class="text-[12px] mono" style="color:rgba(255,255,255,.6)">navy · yellow play · this is the hero CTA</div>
+      </div>
+
+      <div class="card p-6 flex flex-col items-start gap-3">
+        <div class="text-[11px] uppercase tracking-[0.1em] font-semibold" style="color:var(--muted)">Secondary</div>
+        <button class="btn-secondary">Preview as participant</button>
+        <div class="text-[12px] mono" style="color:var(--muted)">white · soft border</div>
+      </div>
+
+      <div class="card p-6 flex flex-col items-start gap-3">
+        <div class="text-[11px] uppercase tracking-[0.1em] font-semibold" style="color:var(--muted)">Ghost</div>
+        <button class="btn-ghost">Cancel</button>
+        <div class="text-[12px] mono" style="color:var(--muted)">transparent · no border · low visual weight</div>
+      </div>
+
+      <div class="card p-6 flex flex-col items-start gap-3">
+        <div class="text-[11px] uppercase tracking-[0.1em] font-semibold" style="color:var(--muted)">Destructive · quiet</div>
+        <button class="btn-destructive">Delete quiz</button>
+        <div class="text-[12px] mono" style="color:var(--muted)">red text only — never loud fill unless confirming</div>
+      </div>
+
+      <div class="card p-6 flex flex-col items-start gap-3">
+        <div class="text-[11px] uppercase tracking-[0.1em] font-semibold" style="color:var(--muted)">Icon buttons · Lucide style</div>
+        <div class="flex gap-2">
+          <button class="btn-icon" title="Duplicate"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          <button class="btn-icon" title="Share"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/></svg></button>
+          <button class="btn-icon" title="Settings"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852 1 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+          <button class="btn-icon" title="More"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+        </div>
+        <div class="text-[12px] mono" style="color:var(--muted)">no emoji · consistent stroke weight</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Status chips -->
+  <section class="mt-14 rise">
+    <h2 class="head text-lg font-semibold">Status chips</h2>
+    <div class="text-[12px] text-[color:var(--muted)] mt-1">Semantic color carries meaning at a glance.</div>
+
+    <div class="mt-5 card p-6 flex flex-wrap gap-3">
+      <span class="chip chip-dot" style="background:#F0F4FF;color:var(--blue)">Insight</span>
+      <span class="chip chip-dot" style="background:#F0FDF4;color:var(--green)">Mastery · 82%</span>
+      <span class="chip chip-dot" style="background:#FFF7ED;color:#C2410C">Needs attention</span>
+      <span class="chip chip-dot" style="background:#FAF5FF;color:var(--violet)">AI generated</span>
+      <span class="chip chip-dot" style="background:var(--paper-2);color:var(--ink)">Draft</span>
+      <span class="chip chip-dot" style="background:var(--ink);color:var(--yellow)">Live now</span>
+      <span class="chip chip-dot" style="background:#FEE2E2;color:#B91C1C">At risk</span>
+      <span class="chip chip-dot" style="background:#E0F2FE;color:#0369A1">Low bandwidth</span>
+    </div>
+  </section>
+
+  <!-- Cards -->
+  <section class="mt-14 rise">
+    <h2 class="head text-lg font-semibold">Cards</h2>
+    <div class="text-[12px] text-[color:var(--muted)] mt-1">White surfaces on warm paper. Subtle line. Hover lift only when clickable.</div>
+
+    <div class="mt-5 grid grid-cols-3 gap-4">
+      <div class="card p-5">
+        <div class="flex items-center justify-between">
+          <span class="chip" style="background:var(--paper-2);color:var(--ink)">Quiz</span>
+          <button class="btn-icon" style="width:28px;height:28px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+        </div>
+        <div class="head text-[18px] font-semibold mt-3 leading-snug">Photosynthesis — quick check</div>
+        <div class="text-[13px] mt-1" style="color:var(--muted)">12 questions · avg 74%</div>
+        <div class="mt-4 flex gap-2">
+          <button class="btn-secondary" style="padding:7px 12px;font-size:13px">Edit</button>
+          <button class="btn-golive" style="padding:8px 14px;font-size:13px;border-radius:10px">
+            <span class="play" style="width:18px;height:18px"><svg width="8" height="8" viewBox="0 0 24 24" fill="#0F1B3D"><path d="M8 5v14l11-7z"/></svg></span>
+            Go live
+          </button>
+        </div>
+      </div>
+
+      <div class="card p-5" style="background:var(--paper-2);border-color:#DDD4BC">
+        <div class="chip" style="background:rgba(255,255,255,.7);color:var(--ink)">Empty state</div>
+        <div class="head text-[18px] font-semibold mt-3 leading-snug">No presentations yet.</div>
+        <div class="text-[13px] mt-1" style="color:var(--muted)">Build one from scratch or import a PowerPoint deck.</div>
+        <button class="btn-primary mt-4" style="padding:8px 14px;font-size:13px">Create presentation</button>
+      </div>
+
+      <div class="card p-5" style="background:var(--ink);border-color:var(--ink);color:#fff">
+        <div class="flex items-center justify-between">
+          <span class="chip" style="background:rgba(245,230,66,.18);color:var(--yellow)">Last session</span>
+          <span class="text-[12px]" style="color:rgba(255,255,255,.5)">2 hours ago</span>
+        </div>
+        <div class="head text-[18px] font-semibold mt-3 leading-snug">Class 9 — chemical reactions</div>
+        <div class="grid grid-cols-3 gap-2 mt-4 text-[11px]" style="color:rgba(255,255,255,.7)">
+          <div><div class="head text-[20px] font-bold" style="color:#fff">32</div>participants</div>
+          <div><div class="head text-[20px] font-bold" style="color:#fff">78%</div>avg score</div>
+          <div><div class="head text-[20px] font-bold" style="color:#fff">94%</div>completed</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Icons -->
+  <section class="mt-14 rise">
+    <h2 class="head text-lg font-semibold">Icons</h2>
+    <div class="text-[12px] text-[color:var(--muted)] mt-1">Lucide-style · 1.8–2px stroke · one system · no emoji inside the product.</div>
+
+    <div class="mt-5 card p-6 grid grid-cols-10 gap-4 text-center" style="color:var(--ink)">
+      <div class="flex flex-col items-center gap-1.5"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg><span class="text-[10px]" style="color:var(--muted)">dashboard</span></div>
+      <div class="flex flex-col items-center gap-1.5"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4v16h16v-7"/><path d="M18.5 2.5a2.12 2.12 0 1 1 3 3L12 15l-4 1 1-4Z"/></svg><span class="text-[10px]" style="color:var(--muted)">builder</span></div>
+      <div class="flex flex-col items-center gap-1.5"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span class="text-[10px]" style="color:var(--muted)">present</span></div>
+      <div class="flex flex-col items-center gap-1.5"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span class="text-[10px]" style="color:var(--muted)">participants</span></div>
+      <div class="flex flex-col items-center gap-1.5"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg><span class="text-[10px]" style="color:var(--muted)">mastery</span></div>
+      <div class="flex flex-col items-center gap-1.5"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 12l4-4 4 4 5-5"/></svg><span class="text-[10px]" style="color:var(--muted)">trend</span></div>
+      <div class="flex flex-col items-center gap-1.5"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="text-[10px]" style="color:var(--muted)">timer</span></div>
+      <div class="flex flex-col items-center gap-1.5" style="color:var(--violet)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5Z"/><path d="M19 15l1 3 3 1-3 1-1 3-1-3-3-1 3-1Z"/></svg><span class="text-[10px]" style="color:var(--muted)">AI</span></div>
+      <div class="flex flex-col items-center gap-1.5"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 9h8M8 13h5"/></svg><span class="text-[10px]" style="color:var(--muted)">slide</span></div>
+      <div class="flex flex-col items-center gap-1.5"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="text-[10px]" style="color:var(--muted)">comments</span></div>
+    </div>
+  </section>
+
+  <!-- Spacing + radius -->
+  <section class="mt-14 rise">
+    <h2 class="head text-lg font-semibold">Geometry</h2>
+    <div class="text-[12px] text-[color:var(--muted)] mt-1">Radius and spacing scales. Restraint is the point.</div>
+
+    <div class="mt-5 grid grid-cols-2 gap-4">
+      <div class="card p-6">
+        <div class="text-[11px] uppercase tracking-[0.1em] font-semibold" style="color:var(--muted)">Radius</div>
+        <div class="flex items-end gap-3 mt-4">
+          <div class="flex flex-col items-center gap-1"><div class="w-14 h-14 bg-[color:var(--paper-2)] border border-[color:var(--line)]" style="border-radius:6px"></div><span class="mono text-[11px]">6</span></div>
+          <div class="flex flex-col items-center gap-1"><div class="w-14 h-14 bg-[color:var(--paper-2)] border border-[color:var(--line)]" style="border-radius:10px"></div><span class="mono text-[11px]">10</span></div>
+          <div class="flex flex-col items-center gap-1"><div class="w-14 h-14 bg-[color:var(--paper-2)] border border-[color:var(--line)]" style="border-radius:14px"></div><span class="mono text-[11px]">14</span></div>
+          <div class="flex flex-col items-center gap-1"><div class="w-14 h-14 bg-[color:var(--paper-2)] border border-[color:var(--line)]" style="border-radius:18px"></div><span class="mono text-[11px]">18 · card</span></div>
+          <div class="flex flex-col items-center gap-1"><div class="w-14 h-14 bg-[color:var(--paper-2)] border border-[color:var(--line)]" style="border-radius:24px"></div><span class="mono text-[11px]">24</span></div>
+          <div class="flex flex-col items-center gap-1"><div class="w-14 h-14 bg-[color:var(--paper-2)] border border-[color:var(--line)] rounded-full"></div><span class="mono text-[11px]">∞ · chip</span></div>
+        </div>
+      </div>
+      <div class="card p-6">
+        <div class="text-[11px] uppercase tracking-[0.1em] font-semibold" style="color:var(--muted)">Spacing (4 px grid)</div>
+        <div class="flex items-end gap-3 mt-4">
+          <div class="flex flex-col items-center gap-1"><div class="w-2 h-10" style="background:var(--ink)"></div><span class="mono text-[11px]">4</span></div>
+          <div class="flex flex-col items-center gap-1"><div class="w-3 h-10" style="background:var(--ink)"></div><span class="mono text-[11px]">8</span></div>
+          <div class="flex flex-col items-center gap-1"><div class="w-4 h-10" style="background:var(--ink)"></div><span class="mono text-[11px]">12</span></div>
+          <div class="flex flex-col items-center gap-1"><div class="w-5 h-10" style="background:var(--ink)"></div><span class="mono text-[11px]">16</span></div>
+          <div class="flex flex-col items-center gap-1"><div class="w-7 h-10" style="background:var(--ink)"></div><span class="mono text-[11px]">24</span></div>
+          <div class="flex flex-col items-center gap-1"><div class="w-10 h-10" style="background:var(--ink)"></div><span class="mono text-[11px]">32</span></div>
+          <div class="flex flex-col items-center gap-1"><div class="w-16 h-10" style="background:var(--ink)"></div><span class="mono text-[11px]">48</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="mt-16 pt-6 border-t border-[color:var(--line)] text-[12px]" style="color:var(--muted)">
+    <a href="index.html" class="underline decoration-dotted hover:decoration-solid">← Back to gallery</a>
+  </div>
+
+</div>
+</body>
+</html>

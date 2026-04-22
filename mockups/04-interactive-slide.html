@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Quizotic · Interactive Slide</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #FAF8F2; --paper-2: #F3EFE3; --ink: #0F1B3D; --ink-2: #1B2A5E;
+    --muted: #6B7794; --muted-2: #9CA3AF; --line: #E7E2D4;
+    --yellow: #F5E642; --blue: #2563EB; --green: #16A34A; --coral: #E07A5F; --violet: #7C3AED;
+    --A: #E21B3C; --B: #1368CE; --C: #D89E00; --D: #26890C;
+  }
+  html, body { background: var(--paper); color: var(--ink); font-family: 'DM Sans', system-ui, sans-serif; }
+  .head { font-family: 'Space Grotesk', system-ui; letter-spacing: -0.01em; }
+  .paper-grain {
+    background-image:
+      radial-gradient(rgba(15,27,61,0.025) 1px, transparent 1px),
+      radial-gradient(rgba(15,27,61,0.02) 1px, transparent 1px);
+    background-size: 3px 3px, 7px 7px; background-position: 0 0, 1px 2px;
+  }
+  .surface { background:#fff; border:1px solid var(--line); }
+  .chip { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; font-size:11px; font-weight:600; border-radius:999px; }
+
+  .seg { display:inline-flex; padding:3px; background:var(--paper-2); border-radius:10px; gap:2px; }
+  .seg button { padding:6px 12px; font-size:12px; font-weight:600; border-radius:7px; color:var(--muted); }
+  .seg button.on { background:#fff; color:var(--ink); box-shadow: 0 1px 0 rgba(0,0,0,.03); }
+
+  /* Phone */
+  .phone { width: 290px; border-radius: 38px; background: var(--ink); padding: 10px; box-shadow: 0 30px 60px -20px rgba(15,27,61,.4), 0 10px 20px -10px rgba(15,27,61,.3); }
+  .phone .notch { width: 110px; height: 24px; background: var(--ink); border-radius: 0 0 14px 14px; margin: 0 auto; position: relative; z-index: 2; }
+  .phone-screen { background: var(--paper); border-radius: 28px; overflow: hidden; margin-top: -10px; }
+
+  .state-label { position:absolute; top: -10px; left: 12px; background: var(--ink); color:#fff; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 600; letter-spacing: .02em; }
+
+  /* Canvas like presentation */
+  .canvas-frame {
+    background: #FBF8EF; border: 1px solid var(--line); border-radius: 16px;
+    background-image: linear-gradient(rgba(15,27,61,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(15,27,61,.04) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  .bar { height: 10px; border-radius: 999px; background: #E6E2D4; overflow: hidden; }
+  .bar > span { display:block; height: 100%; border-radius: 999px; }
+
+  .rise { opacity:0; transform: translateY(8px); animation: rise .5s ease-out forwards; }
+  @keyframes rise { to { opacity:1; transform: translateY(0); } }
+</style>
+</head>
+<body class="paper-grain min-h-screen">
+
+<!-- Top bar -->
+<div class="surface" style="background:#fff;border-bottom:1px solid var(--line)">
+  <div class="max-w-[1400px] mx-auto px-6 h-14 flex items-center justify-between">
+    <a href="index.html" class="flex items-center gap-2 text-[13px]" style="color:var(--muted)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      All mockups
+    </a>
+    <div class="flex items-center gap-2">
+      <span class="chip" style="background:var(--paper-2);color:var(--ink)">04 · Interactive slide</span>
+      <span class="chip" style="background:#EFF6FF;color:var(--blue)">Multiple choice</span>
+    </div>
+    <div></div>
+  </div>
+</div>
+
+<div class="max-w-[1400px] mx-auto px-6 py-10">
+
+  <h1 class="head text-3xl font-bold tracking-tight">Host view + participant view · side by side.</h1>
+  <p class="text-[15px] text-[color:var(--muted)] mt-2 max-w-[60ch]">Response mode controls when results appear. Phone preview builds creator confidence. Low-bandwidth indicator shows up on heavier slides.</p>
+
+  <!-- Three obvious controls -->
+  <div class="rise mt-8 surface rounded-[14px] p-4 flex items-center gap-4 flex-wrap">
+    <div class="flex-1 min-w-[240px]">
+      <div class="text-[10px] uppercase tracking-[0.1em] font-semibold" style="color:var(--muted)">Content</div>
+      <div class="mt-1 text-[14px] font-semibold">Which structure controls what enters and leaves the cell?</div>
+    </div>
+    <div class="h-8 w-px" style="background:var(--line)"></div>
+    <div>
+      <div class="text-[10px] uppercase tracking-[0.1em] font-semibold" style="color:var(--muted)">Input</div>
+      <div class="mt-1 seg">
+        <button class="on">Single choice</button>
+        <button>Multi</button>
+        <button>Text</button>
+      </div>
+    </div>
+    <div class="h-8 w-px" style="background:var(--line)"></div>
+    <div>
+      <div class="text-[10px] uppercase tracking-[0.1em] font-semibold" style="color:var(--muted)">Reveal</div>
+      <div class="mt-1 seg">
+        <button>Live</button>
+        <button class="on">On click</button>
+        <button>Private</button>
+      </div>
+    </div>
+    <div class="ml-auto flex items-center gap-2">
+      <span class="chip" style="background:#E0F2FE;color:#0369A1">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 12h2M20 12h2M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        Low bandwidth ready
+      </span>
+    </div>
+  </div>
+
+  <!-- Side by side -->
+  <div class="rise mt-8 grid grid-cols-[minmax(0,1fr)_320px] gap-8 items-start">
+
+    <!-- HOST CANVAS -->
+    <div class="relative">
+      <span class="state-label">Host view</span>
+      <div class="canvas-frame p-10 aspect-[16/9] flex flex-col justify-center">
+        <div class="flex items-center justify-between">
+          <div class="text-[11px] uppercase tracking-[0.12em] font-semibold" style="color:var(--muted)">Slide 4 · Cell biology</div>
+          <div class="flex items-center gap-2">
+            <span class="chip" style="background:#fff;color:var(--ink);border:1px solid var(--line)">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              00:18
+            </span>
+            <span class="chip" style="background:#fff;color:var(--ink);border:1px solid var(--line)">
+              24 / 28 responded
+            </span>
+          </div>
+        </div>
+        <div class="head text-[36px] font-bold leading-[1.1] mt-2 max-w-[28ch]" style="color:var(--ink)">Which structure controls what enters and leaves the cell?</div>
+
+        <div class="mt-6 space-y-2 max-w-[640px]">
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-md flex items-center justify-center text-white text-[12px] font-bold" style="background:#E21B3C">A</div>
+            <div class="flex-1"><div class="bar"><span style="width:18%;background:#E21B3C"></span></div></div>
+            <div class="text-[13px] font-semibold w-10 text-right">18%</div>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-md flex items-center justify-center text-white text-[12px] font-bold" style="background:#1368CE">B</div>
+            <div class="flex-1"><div class="bar"><span style="width:64%;background:#1368CE"></span></div></div>
+            <div class="text-[13px] font-semibold w-10 text-right">64%</div>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-md flex items-center justify-center text-white text-[12px] font-bold" style="background:#D89E00">C</div>
+            <div class="flex-1"><div class="bar"><span style="width:12%;background:#D89E00"></span></div></div>
+            <div class="text-[13px] font-semibold w-10 text-right">12%</div>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-md flex items-center justify-center text-white text-[12px] font-bold" style="background:#26890C">D</div>
+            <div class="flex-1"><div class="bar"><span style="width:6%;background:#26890C"></span></div></div>
+            <div class="text-[13px] font-semibold w-10 text-right">6%</div>
+          </div>
+        </div>
+
+        <div class="mt-6 flex items-center gap-3">
+          <button class="flex items-center gap-2 px-4 py-2.5 rounded-[10px] text-[13px] font-semibold" style="background:var(--ink);color:#fff">
+            Reveal correct answer
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+          </button>
+          <button class="px-4 py-2.5 rounded-[10px] text-[13px] font-semibold" style="background:#fff;border:1px solid var(--line);color:var(--ink)">Skip</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PARTICIPANT PHONE -->
+    <div class="relative flex flex-col items-center">
+      <span class="state-label">Participant phone</span>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="phone-screen p-5 flex flex-col gap-4" style="min-height:540px">
+          <!-- status bar -->
+          <div class="flex items-center justify-between text-[10px]" style="color:var(--muted)">
+            <span>quizotic.live</span>
+            <div class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full" style="background:var(--green)"></span>Live · Riya</div>
+          </div>
+          <div class="flex items-center justify-between">
+            <div class="text-[11px] font-semibold" style="color:var(--muted)">Slide 4 of 12</div>
+            <div class="chip" style="background:var(--paper-2);color:var(--ink);font-size:10px">00:18</div>
+          </div>
+          <div class="head text-[18px] font-bold leading-tight" style="color:var(--ink)">Which structure controls what enters and leaves the cell?</div>
+
+          <div class="space-y-2 mt-1">
+            <button class="w-full flex items-center gap-3 py-3 px-3 rounded-[12px] text-white text-[13px] font-semibold" style="background:#E21B3C">
+              <span class="w-6 h-6 rounded-md flex items-center justify-center text-[11px]" style="background:rgba(255,255,255,.22)">A</span>Nucleus
+            </button>
+            <button class="w-full flex items-center gap-3 py-3 px-3 rounded-[12px] text-white text-[13px] font-semibold relative" style="background:#1368CE; box-shadow: 0 0 0 3px rgba(15,27,61,.12)">
+              <span class="w-6 h-6 rounded-md flex items-center justify-center text-[11px]" style="background:rgba(255,255,255,.3)">B</span>Cell membrane
+              <span class="ml-auto text-[10px]">selected</span>
+            </button>
+            <button class="w-full flex items-center gap-3 py-3 px-3 rounded-[12px] text-white text-[13px] font-semibold" style="background:#D89E00">
+              <span class="w-6 h-6 rounded-md flex items-center justify-center text-[11px]" style="background:rgba(255,255,255,.22)">C</span>Mitochondria
+            </button>
+            <button class="w-full flex items-center gap-3 py-3 px-3 rounded-[12px] text-white text-[13px] font-semibold" style="background:#26890C">
+              <span class="w-6 h-6 rounded-md flex items-center justify-center text-[11px]" style="background:rgba(255,255,255,.22)">D</span>Ribosome
+            </button>
+          </div>
+
+          <div class="mt-auto text-[10px] text-center" style="color:var(--muted)">Your answer stays private until the host reveals results.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Result states -->
+  <h2 class="head text-xl font-semibold mt-16">Result states</h2>
+  <p class="text-[14px] text-[color:var(--muted)] mt-1">Four moments that an interactive slide flows through. Each has a distinct feel.</p>
+
+  <div class="rise mt-5 grid grid-cols-4 gap-4">
+    <!-- Empty -->
+    <div class="surface rounded-[14px] overflow-hidden">
+      <div class="p-3 border-b border-[color:var(--line)]">
+        <div class="text-[10px] uppercase tracking-[0.1em] font-semibold" style="color:var(--muted)">1 · Empty</div>
+        <div class="text-[13px] font-semibold">Waiting for responses</div>
+      </div>
+      <div class="p-4 aspect-[16/10] flex items-center justify-center" style="background:var(--paper)">
+        <div class="text-center">
+          <div class="w-10 h-10 rounded-full mx-auto flex items-center justify-center" style="background:#fff;border:1px solid var(--line)">
+            <div class="w-2 h-2 rounded-full" style="background:var(--muted-2); animation: pulse 1.5s ease-in-out infinite"></div>
+          </div>
+          <div class="text-[12px] mt-2" style="color:var(--muted)">0 / 28 joined</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Collecting -->
+    <div class="surface rounded-[14px] overflow-hidden">
+      <div class="p-3 border-b border-[color:var(--line)]">
+        <div class="text-[10px] uppercase tracking-[0.1em] font-semibold" style="color:var(--muted)">2 · Collecting</div>
+        <div class="text-[13px] font-semibold">Responses rolling in</div>
+      </div>
+      <div class="p-4 aspect-[16/10] flex flex-col justify-center gap-2" style="background:var(--paper)">
+        <div class="bar"><span style="width:100%;background:var(--line)"></span></div>
+        <div class="bar"><span style="width:100%;background:var(--line)"></span></div>
+        <div class="bar"><span style="width:100%;background:var(--line)"></span></div>
+        <div class="bar"><span style="width:100%;background:var(--line)"></span></div>
+        <div class="text-[11px] mt-1 text-center" style="color:var(--muted)">24 / 28 · numbers hidden</div>
+      </div>
+    </div>
+
+    <!-- Reveal -->
+    <div class="surface rounded-[14px] overflow-hidden" style="border-color:var(--ink)">
+      <div class="p-3 border-b border-[color:var(--line)]" style="background:var(--ink);color:#fff">
+        <div class="text-[10px] uppercase tracking-[0.1em] font-semibold" style="color:rgba(255,255,255,.6)">3 · Reveal</div>
+        <div class="text-[13px] font-semibold">Bars animate to actual values</div>
+      </div>
+      <div class="p-4 aspect-[16/10] flex flex-col justify-center gap-2">
+        <div class="bar"><span style="width:18%;background:#E21B3C"></span></div>
+        <div class="bar"><span style="width:64%;background:#1368CE"></span></div>
+        <div class="bar"><span style="width:12%;background:#D89E00"></span></div>
+        <div class="bar"><span style="width:6%;background:#26890C"></span></div>
+        <div class="text-[11px] mt-1 text-center"><strong style="color:var(--green)">B · Cell membrane</strong> was correct</div>
+      </div>
+    </div>
+
+    <!-- After -->
+    <div class="surface rounded-[14px] overflow-hidden">
+      <div class="p-3 border-b border-[color:var(--line)]">
+        <div class="text-[10px] uppercase tracking-[0.1em] font-semibold" style="color:var(--muted)">4 · After</div>
+        <div class="text-[13px] font-semibold">Explanation + next action</div>
+      </div>
+      <div class="p-4 aspect-[16/10] flex flex-col justify-between" style="background:#F0F4FF">
+        <div class="text-[11px] leading-snug" style="color:#1E293B">Plants' <strong>cell membrane</strong> acts as a gatekeeper, allowing water, nutrients, and gases through while keeping the inside stable.</div>
+        <div class="flex items-center justify-between">
+          <span class="chip" style="background:#fff;color:#2D3A8C">Bloom · Understand</span>
+          <button class="text-[11px] font-semibold flex items-center gap-1" style="color:var(--ink)">Next slide <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Low bandwidth callout -->
+  <div class="rise mt-12 surface rounded-[16px] p-6 grid grid-cols-[auto_1fr_auto] items-center gap-6">
+    <div class="w-14 h-14 rounded-full flex items-center justify-center" style="background:#E0F2FE;color:#0369A1">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13a10 10 0 0 1 14 0"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><circle cx="12" cy="20" r="1"/></svg>
+    </div>
+    <div>
+      <div class="head text-[17px] font-semibold">Built for 1–2 Mbps classrooms</div>
+      <p class="text-[13px] text-[color:var(--muted)] mt-1">Participant screens render offline after first paint. Heavy images get a chip so you can swap them before going live. Payloads stay under a kilobyte per vote.</p>
+    </div>
+    <button class="chip" style="background:var(--paper-2);color:var(--ink)">Bandwidth guide</button>
+  </div>
+
+  <div class="mt-10 pt-6 border-t border-[color:var(--line)] text-[12px] flex items-center justify-between" style="color:var(--muted)">
+    <a href="index.html" class="underline decoration-dotted">← Back to gallery</a>
+    <a href="05-dashboard-v3.html" class="underline decoration-dotted">next: dashboard v3 →</a>
+  </div>
+
+</div>
+
+<style>
+@keyframes pulse { 0%, 100% { transform: scale(1); opacity: .4 } 50% { transform: scale(1.6); opacity: 1 } }
+</style>
+
+</body>
+</html>

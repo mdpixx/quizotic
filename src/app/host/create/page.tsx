@@ -1288,59 +1288,10 @@ function CreateQuizPageInner() {
     el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [])
 
-  // ── Tabs ────────────────────────────────────────────────────────────────────
-
-  const TAB_GROUPS: {
-    label: string
-    containerBg: string
-    labelColor: string
-    activeTabBg: string
-    activeTabColor: string
-    inactiveTabColor: string
-    tabs: { id: Tab; label: string; icon: string }[]
-  }[] = [
-    {
-      label: 'Write',
-      containerBg: '#1E293B',
-      labelColor: '#94A3B8',
-      activeTabBg: '#fff',
-      activeTabColor: '#1E293B',
-      inactiveTabColor: '#CBD5E1',
-      tabs: [
-        { id: 'manual', label: 'Manual', icon: '&#9998;' },
-      ],
-    },
-    {
-      label: 'AI Generate',
-      containerBg: '#5B21B6',
-      labelColor: '#C4B5FD',
-      activeTabBg: '#fff',
-      activeTabColor: '#5B21B6',
-      inactiveTabColor: '#DDD6FE',
-      tabs: [
-        { id: 'aitopic', label: 'AI Topic', icon: '&#10024;' },
-        { id: 'aiurl',   label: 'AI URL',   icon: '&#128279;' },
-        { id: 'aidoc',   label: 'AI PDF',   icon: '&#128196;' },
-      ],
-    },
-    {
-      label: 'Import',
-      containerBg: '#0E7490',
-      labelColor: '#A5F3FC',
-      activeTabBg: '#fff',
-      activeTabColor: '#0E7490',
-      inactiveTabColor: '#BAE6FD',
-      tabs: [
-        { id: 'csv',     label: 'CSV',     icon: '&#128202;' },
-        { id: 'library', label: 'Library', icon: '&#128218;' },
-      ],
-    },
-  ]
-
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden" style={{ background: '#F0F2F5' }}>
+    <div className="h-screen flex flex-col overflow-hidden" style={{ background: 'var(--color-paper)' }}>
 
       {/* ── Draft recovery banner ── */}
       {recoveredDraft && (
@@ -1428,7 +1379,7 @@ function CreateQuizPageInner() {
             </span>
             <span className="hidden sm:inline">Theme</span>
           </button>
-          <button onClick={handleSave} disabled={saving} className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50 click-bounce" style={{ background: '#F5E642', color: '#0D0D0D', border: '1.5px solid #0D0D0D' }}>
+          <button onClick={handleSave} disabled={saving} className="btn-primary">
             {saving ? (
               <span className="flex items-center gap-1.5">
                 <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" opacity="0.3"/><path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
@@ -1441,38 +1392,84 @@ function CreateQuizPageInner() {
               if (savedQuiz) { setActiveSession(savedQuiz); router.push('/host/session') }
               else { pendingLiveRef.current = true; handleSave() }
             }}
-            className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all hover:opacity-90 click-bounce"
-            style={{ background: '#0F1B3D', color: '#F5E642', border: '1.5px solid #0F1B3D' }}
+            className="btn-golive"
           >
-            &#9654; Start Live
+            <span className="play-dot">
+              <svg viewBox="0 0 24 24" fill="#0F1B3D" className="w-2.5 h-2.5" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+            </span>
+            Start Live
           </button>
         </div>
       </header>
 
-      {/* ── Source Tabs ── */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b overflow-x-auto flex-shrink-0" style={{ background: '#F0F2F5', borderColor: '#D1D5DB' }}>
-        {TAB_GROUPS.map(group => (
-          <div key={group.label} className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl flex-shrink-0" style={{ background: group.containerBg }}>
-            <span className="text-[10px] font-black uppercase tracking-widest pr-2 border-r mr-1" style={{ color: group.labelColor, borderColor: `${group.labelColor}40` }}>
-              {group.label}
-            </span>
-            {group.tabs.map(t => (
-              <button
-                key={t.id}
-                onClick={() => { setTab(t.id as Tab); if (t.id === 'manual' && questions.length > 0) setActiveIndex(0) }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold transition-all click-bounce-sm"
-                style={
-                  tab === t.id
-                    ? { background: group.activeTabBg, color: group.activeTabColor, boxShadow: '0 1px 4px rgba(0,0,0,0.18)' }
-                    : { background: 'transparent', color: group.inactiveTabColor }
-                }
-              >
-                <span dangerouslySetInnerHTML={{ __html: t.icon }} />
-                {t.label}
-              </button>
-            ))}
-          </div>
-        ))}
+      {/* ── Creation command bar (Tier 1 redesign) ──
+          Replaces the three grouped colored tab containers with one clean
+          pill bar. The underlying `tab` state is unchanged — pills just
+          toggle it, so all downstream rendering still works. */}
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b overflow-x-auto flex-shrink-0" style={{ background: 'var(--color-paper)', borderColor: 'var(--color-line)' }}>
+        <span className="text-[10px] font-bold uppercase tracking-[0.1em] pr-1 flex-shrink-0" style={{ color: 'var(--color-text-muted)' }}>
+          Add question
+        </span>
+        <div className="h-4 w-px flex-shrink-0" style={{ background: 'var(--color-line)' }} />
+
+        <button
+          onClick={() => { setTab('manual'); if (questions.length > 0) setActiveIndex(0) }}
+          className={`cmd-pill ${tab === 'manual' ? 'active' : ''}`}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
+          Manual
+        </button>
+
+        <div className="h-4 w-px flex-shrink-0" style={{ background: 'var(--color-line)' }} />
+
+        <span className="text-[10px] font-bold uppercase tracking-[0.1em] pr-1 flex-shrink-0" style={{ color: 'var(--color-accent-violet)' }}>
+          AI
+        </span>
+
+        <button
+          onClick={() => setTab('aitopic')}
+          className={`cmd-pill ai ${tab === 'aitopic' ? 'active' : ''}`}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5Z"/><path d="M19 15l1 3 3 1-3 1-1 3-1-3-3-1 3-1Z"/></svg>
+          From topic
+        </button>
+        <button
+          onClick={() => setTab('aiurl')}
+          className={`cmd-pill ai ${tab === 'aiurl' ? 'active' : ''}`}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"/></svg>
+          From URL
+        </button>
+        <button
+          onClick={() => setTab('aidoc')}
+          className={`cmd-pill ai ${tab === 'aidoc' ? 'active' : ''}`}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+          From PDF
+        </button>
+
+        <div className="h-4 w-px flex-shrink-0" style={{ background: 'var(--color-line)' }} />
+
+        <button
+          onClick={() => setTab('csv')}
+          className={`cmd-pill ${tab === 'csv' ? 'active' : ''}`}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h18"/></svg>
+          CSV import
+        </button>
+        <button
+          onClick={() => setTab('library')}
+          className={`cmd-pill ${tab === 'library' ? 'active' : ''}`}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          Library
+        </button>
+
+        <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+          <span className="hidden lg:inline text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            {questions.length} question{questions.length === 1 ? '' : 's'} &middot; ~{estMinutes} min
+          </span>
+        </div>
       </div>
 
       {/* ── Three-Panel Layout ── */}

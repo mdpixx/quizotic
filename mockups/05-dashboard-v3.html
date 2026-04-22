@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Quizotic · Dashboard v3</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #FAF8F2; --paper-2: #F3EFE3; --ink: #0F1B3D; --ink-2: #1B2A5E;
+    --muted: #6B7794; --muted-2: #9CA3AF; --line: #E7E2D4;
+    --yellow: #F5E642; --blue: #2563EB; --green: #16A34A; --coral: #E07A5F; --violet: #7C3AED;
+  }
+  html, body { background: var(--paper); color: var(--ink); font-family: 'DM Sans', system-ui, sans-serif; }
+  .head { font-family: 'Space Grotesk', system-ui; letter-spacing: -0.01em; }
+  .paper-grain {
+    background-image:
+      radial-gradient(rgba(15,27,61,0.025) 1px, transparent 1px),
+      radial-gradient(rgba(15,27,61,0.02) 1px, transparent 1px);
+    background-size: 3px 3px, 7px 7px; background-position: 0 0, 1px 2px;
+  }
+  .surface { background:#fff; border:1px solid var(--line); }
+  .card { background:#fff; border:1px solid var(--line); border-radius:16px; }
+  .chip { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; font-size:11px; font-weight:600; border-radius:999px; }
+
+  /* Sidebar */
+  .sidebar { background: var(--ink); color: #fff; }
+  .nav-item { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:9px; color: rgba(255,255,255,.7); font-size: 13px; font-weight:500; }
+  .nav-item:hover { background: rgba(255,255,255,.05); color: #fff; }
+  .nav-item.on { background: rgba(255,255,255,.08); color: #fff; }
+  .nav-item.on::before { content:''; width:3px; height:16px; background: var(--yellow); border-radius: 2px; margin-left: -12px; margin-right: 9px; }
+
+  /* Hero */
+  .hero {
+    background: linear-gradient(135deg, #0F1B3D 0%, #182659 50%, #1F2E6C 100%);
+    color: #fff; border-radius: 20px; padding: 28px; position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content:''; position:absolute; inset:0;
+    background:
+      radial-gradient(800px 400px at 85% 0%, rgba(245,230,66,.14), transparent 60%),
+      radial-gradient(500px 300px at 0% 100%, rgba(96,117,220,.22), transparent 55%);
+    pointer-events: none;
+  }
+
+  .kpi { padding: 16px 18px; border-radius: 14px; background: #fff; border: 1px solid var(--line); }
+  .kpi .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; font-weight: 600; }
+  .kpi .value { font-family: 'Space Grotesk'; font-size: 26px; font-weight: 700; letter-spacing: -.01em; }
+  .kpi .delta { font-size: 11px; font-weight: 600; }
+
+  .bar { height: 8px; border-radius: 999px; background: var(--paper-2); overflow: hidden; }
+  .bar > span { display:block; height: 100%; border-radius: 999px; }
+
+  .stack { display:flex; height: 20px; width: 100%; border-radius: 999px; overflow: hidden; background: var(--paper-2); }
+
+  .heat-cell { aspect-ratio: 1; border-radius: 5px; }
+
+  /* 2x2 confidence */
+  .quad-cell { padding: 14px; border: 1px solid var(--line); border-radius: 10px; }
+
+  .sparkline { stroke-width: 1.5; fill:none; }
+
+  .btn-primary { background: var(--yellow); color: var(--ink); border: 1px solid #D9CC27; border-radius: 10px; padding: 9px 14px; font-weight: 600; font-size: 13px; box-shadow: 0 1px 0 #D9CC27; }
+  .btn-golive { background: var(--ink); color:#fff; border-radius: 10px; padding: 9px 14px; font-weight: 600; font-size: 13px; display:inline-flex; align-items:center; gap:8px; }
+  .btn-golive .play { width:18px; height:18px; border-radius:999px; background:var(--yellow); display:inline-flex; align-items:center; justify-content:center; }
+  .btn-ghost-light { color: rgba(255,255,255,.9); background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.15); border-radius: 10px; padding: 9px 14px; font-weight: 600; font-size: 13px; backdrop-filter: blur(8px); }
+  .btn-ghost-light:hover { background: rgba(255,255,255,.18); }
+
+  .rise { opacity:0; transform: translateY(8px); animation: rise .5s ease-out forwards; }
+  @keyframes rise { to { opacity:1; transform: translateY(0); } }
+  .d1 { animation-delay:.04s } .d2 { animation-delay:.10s } .d3 { animation-delay:.16s } .d4 { animation-delay:.22s } .d5 { animation-delay:.28s } .d6 { animation-delay:.34s }
+</style>
+</head>
+<body class="paper-grain min-h-screen">
+
+<div class="grid grid-cols-[220px_minmax(0,1fr)] min-h-screen">
+
+  <!-- Sidebar -->
+  <aside class="sidebar flex flex-col">
+    <div class="px-5 py-5 flex items-center gap-2">
+      <div class="w-8 h-8 rounded-[8px] flex items-center justify-center" style="background:rgba(245,230,66,.14)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F5E642" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v16l7-4 7 4V4z"/></svg>
+      </div>
+      <div class="head text-[16px] font-bold">Quizotic</div>
+    </div>
+
+    <nav class="px-3 pt-2 space-y-0.5">
+      <a href="#" class="nav-item on">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg>
+        Dashboard
+      </a>
+      <a href="06-my-quizzes.html" class="nav-item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11H5a2 2 0 0 0-2 2v7h14v-7a2 2 0 0 0-2-2h-4"/><path d="M9 11V6a3 3 0 0 1 6 0v5"/></svg>
+        My quizzes
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        Presentations
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+        Sessions
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        Participants
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 12l4-4 4 4 5-5"/></svg>
+        Reports
+      </a>
+    </nav>
+
+    <div class="mt-6 px-3">
+      <div class="px-3 text-[10px] uppercase tracking-[0.1em] font-semibold" style="color:rgba(255,255,255,.45)">Library</div>
+      <nav class="mt-2 space-y-0.5">
+        <a href="#" class="nav-item"><span class="w-1.5 h-1.5 rounded-full" style="background:var(--blue)"></span>Class 9 · Biology</a>
+        <a href="#" class="nav-item"><span class="w-1.5 h-1.5 rounded-full" style="background:var(--green)"></span>Teacher training</a>
+        <a href="#" class="nav-item"><span class="w-1.5 h-1.5 rounded-full" style="background:var(--coral)"></span>Corporate onboarding</a>
+      </nav>
+    </div>
+
+    <div class="mt-auto p-4">
+      <div class="rounded-[10px] p-3" style="background:rgba(255,255,255,.05)">
+        <div class="text-[11px] font-semibold">Sessions left</div>
+        <div class="bar mt-2" style="background:rgba(255,255,255,.12)"><span style="width:72%; background:var(--yellow)"></span></div>
+        <div class="text-[10px] mt-2" style="color:rgba(255,255,255,.6)">36 of 50 this month · Pro plan</div>
+      </div>
+      <a href="#" class="nav-item mt-3">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852 1 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="paper-grain p-8">
+
+    <!-- Top bar -->
+    <div class="flex items-center justify-between mb-6 rise d1">
+      <div>
+        <a href="index.html" class="text-[12px]" style="color:var(--muted)">← All mockups</a>
+        <h1 class="head text-[28px] font-bold mt-1">Welcome back, Mahesh.</h1>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="relative">
+          <input placeholder="Search quizzes, sessions…" class="h-10 pl-9 pr-4 text-[13px] rounded-[10px] w-[280px]" style="background:#fff;border:1px solid var(--line)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="absolute top-[13px] left-3" style="color:var(--muted)"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        </div>
+        <button class="btn-primary">Create quiz</button>
+      </div>
+    </div>
+
+    <!-- HERO -->
+    <div class="hero rise d2 relative">
+      <div class="relative z-10 grid grid-cols-[1fr_auto] gap-6 items-start">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="chip" style="background:rgba(245,230,66,.2);color:var(--yellow)">
+              <span class="w-1.5 h-1.5 rounded-full" style="background:var(--yellow);animation: pulse 1.4s ease-in-out infinite"></span>
+              Last session · 2 hours ago
+            </span>
+            <span class="chip" style="background:rgba(255,255,255,.1);color:#fff">Class 9 · Biology</span>
+          </div>
+          <div class="head text-[30px] font-bold mt-3 leading-tight">Chemical reactions — quick check</div>
+          <p class="text-[13px] mt-2" style="color:rgba(255,255,255,.7)">32 participants · 28 completed · 8 questions · 6 min 40 sec runtime</p>
+
+          <div class="mt-5 flex items-center gap-2">
+            <button class="btn-golive"><span class="play"><svg width="8" height="8" viewBox="0 0 24 24" fill="#0F1B3D"><path d="M8 5v14l11-7z"/></svg></span>Run again</button>
+            <button class="btn-ghost-light">View session report</button>
+            <button class="btn-ghost-light">Share summary</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-center">
+          <div><div class="head text-[30px] font-bold">32</div><div class="text-[11px]" style="color:rgba(255,255,255,.55)">participants</div></div>
+          <div><div class="head text-[30px] font-bold" style="color:var(--yellow)">78%</div><div class="text-[11px]" style="color:rgba(255,255,255,.55)">avg score</div></div>
+          <div><div class="head text-[30px] font-bold">94%</div><div class="text-[11px]" style="color:rgba(255,255,255,.55)">completion</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI strip -->
+    <div class="grid grid-cols-5 gap-3 mt-6 rise d3">
+      <div class="kpi">
+        <div class="label">Sessions (30d)</div>
+        <div class="value mt-1">41</div>
+        <div class="delta" style="color:var(--green)">↑ 12 vs last 30d</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Participants</div>
+        <div class="value mt-1">1,284</div>
+        <div class="delta" style="color:var(--green)">↑ 18%</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Avg score</div>
+        <div class="value mt-1">71%</div>
+        <div class="delta" style="color:var(--coral)">↓ 3% ·  watch Apply</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Completion</div>
+        <div class="value mt-1">88%</div>
+        <div class="delta" style="color:var(--green)">↑ 2%</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Active decks</div>
+        <div class="value mt-1">7</div>
+        <div class="delta" style="color:var(--muted)">2 in draft</div>
+      </div>
+    </div>
+
+    <!-- Row 1: trend + engagement heatmap -->
+    <div class="grid grid-cols-3 gap-4 mt-4 rise d4">
+      <!-- Trend -->
+      <div class="card p-5 col-span-2">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="head text-[15px] font-semibold">Score and participants over time</div>
+            <div class="text-[11px]" style="color:var(--muted)">Last 12 weeks</div>
+          </div>
+          <div class="flex items-center gap-3 text-[11px]" style="color:var(--muted)">
+            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full" style="background:var(--ink)"></span>Avg score</span>
+            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full" style="background:var(--yellow)"></span>Participants</span>
+          </div>
+        </div>
+        <svg viewBox="0 0 600 180" class="w-full mt-4" preserveAspectRatio="none">
+          <!-- grid -->
+          <g stroke="#EDE7D4" stroke-width="1">
+            <line x1="0" y1="45" x2="600" y2="45"/>
+            <line x1="0" y1="90" x2="600" y2="90"/>
+            <line x1="0" y1="135" x2="600" y2="135"/>
+          </g>
+          <!-- participants fill -->
+          <path d="M0,140 L50,130 L100,120 L150,115 L200,108 L250,100 L300,90 L350,82 L400,80 L450,72 L500,60 L550,55 L600,50 L600,180 L0,180 Z" fill="rgba(245,230,66,.2)"/>
+          <path d="M0,140 L50,130 L100,120 L150,115 L200,108 L250,100 L300,90 L350,82 L400,80 L450,72 L500,60 L550,55 L600,50" fill="none" stroke="#D9CC27" stroke-width="2"/>
+          <!-- avg score line -->
+          <path d="M0,80 L50,78 L100,90 L150,86 L200,75 L250,78 L300,82 L350,70 L400,65 L450,68 L500,55 L550,60 L600,50" fill="none" stroke="#0F1B3D" stroke-width="2.2"/>
+          <g fill="#0F1B3D">
+            <circle cx="600" cy="50" r="4" />
+          </g>
+          <g fill="#D9CC27">
+            <circle cx="600" cy="50" r="4" opacity="0"/>
+          </g>
+        </svg>
+        <div class="flex justify-between text-[10px] mt-1" style="color:var(--muted)">
+          <span>Jan 29</span><span>Feb 5</span><span>Feb 12</span><span>Feb 19</span><span>Feb 26</span><span>Mar 5</span><span>Mar 12</span><span>Mar 19</span><span>Mar 26</span><span>Apr 2</span><span>Apr 9</span><span>Apr 16</span><span>Apr 22</span>
+        </div>
+      </div>
+
+      <!-- Engagement heatmap -->
+      <div class="card p-5">
+        <div class="head text-[15px] font-semibold">Engagement</div>
+        <div class="text-[11px]" style="color:var(--muted)">Sessions per day · darker = more</div>
+        <div class="mt-4 grid grid-cols-7 gap-1.5">
+          <!-- 7 columns (day of week) x 8 rows -->
+          <!-- Generate heat cells -->
+          <div class="text-[9px] font-semibold text-center" style="color:var(--muted)">M</div>
+          <div class="text-[9px] font-semibold text-center" style="color:var(--muted)">T</div>
+          <div class="text-[9px] font-semibold text-center" style="color:var(--muted)">W</div>
+          <div class="text-[9px] font-semibold text-center" style="color:var(--muted)">T</div>
+          <div class="text-[9px] font-semibold text-center" style="color:var(--muted)">F</div>
+          <div class="text-[9px] font-semibold text-center" style="color:var(--muted)">S</div>
+          <div class="text-[9px] font-semibold text-center" style="color:var(--muted)">S</div>
+          <!-- rows -->
+          <div class="heat-cell" style="background:#EAE6D6"></div>
+          <div class="heat-cell" style="background:#BEC8E9"></div>
+          <div class="heat-cell" style="background:#82A0E0"></div>
+          <div class="heat-cell" style="background:#547BCE"></div>
+          <div class="heat-cell" style="background:#BEC8E9"></div>
+          <div class="heat-cell" style="background:#EAE6D6"></div>
+          <div class="heat-cell" style="background:#F3EFE3"></div>
+
+          <div class="heat-cell" style="background:#BEC8E9"></div>
+          <div class="heat-cell" style="background:#547BCE"></div>
+          <div class="heat-cell" style="background:#2563EB"></div>
+          <div class="heat-cell" style="background:#82A0E0"></div>
+          <div class="heat-cell" style="background:#547BCE"></div>
+          <div class="heat-cell" style="background:#BEC8E9"></div>
+          <div class="heat-cell" style="background:#EAE6D6"></div>
+
+          <div class="heat-cell" style="background:#82A0E0"></div>
+          <div class="heat-cell" style="background:#547BCE"></div>
+          <div class="heat-cell" style="background:#2563EB"></div>
+          <div class="heat-cell" style="background:#193B95"></div>
+          <div class="heat-cell" style="background:#547BCE"></div>
+          <div class="heat-cell" style="background:#82A0E0"></div>
+          <div class="heat-cell" style="background:#EAE6D6"></div>
+
+          <div class="heat-cell" style="background:#547BCE"></div>
+          <div class="heat-cell" style="background:#193B95"></div>
+          <div class="heat-cell" style="background:#0F1B3D"></div>
+          <div class="heat-cell" style="background:#2563EB"></div>
+          <div class="heat-cell" style="background:#82A0E0"></div>
+          <div class="heat-cell" style="background:#BEC8E9"></div>
+          <div class="heat-cell" style="background:#F3EFE3"></div>
+        </div>
+        <div class="flex items-center gap-2 text-[10px] mt-4" style="color:var(--muted)">
+          <span>less</span>
+          <div class="flex gap-0.5">
+            <div class="w-3 h-3 rounded-sm" style="background:#F3EFE3"></div>
+            <div class="w-3 h-3 rounded-sm" style="background:#BEC8E9"></div>
+            <div class="w-3 h-3 rounded-sm" style="background:#547BCE"></div>
+            <div class="w-3 h-3 rounded-sm" style="background:#193B95"></div>
+            <div class="w-3 h-3 rounded-sm" style="background:#0F1B3D"></div>
+          </div>
+          <span>more</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2: Hardest questions + Bloom -->
+    <div class="grid grid-cols-3 gap-4 mt-4 rise d5">
+      <!-- Hardest questions -->
+      <div class="card p-5 col-span-2">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="head text-[15px] font-semibold">Hardest questions</div>
+            <div class="text-[11px]" style="color:var(--muted)">Correct % across the last 10 sessions · sorted ascending</div>
+          </div>
+          <button class="chip" style="background:var(--paper-2);color:var(--muted)">All sessions →</button>
+        </div>
+        <div class="mt-4 space-y-3">
+          <div>
+            <div class="flex items-center justify-between text-[13px]">
+              <div class="flex items-center gap-2"><span class="chip" style="background:#FEE2E2;color:#B91C1C">23%</span>Apply the photosynthesis equation to a new diagram</div>
+              <span class="text-[11px]" style="color:var(--muted)">Apply · Biology</span>
+            </div>
+            <div class="bar mt-1.5"><span style="width:23%; background:var(--coral)"></span></div>
+          </div>
+          <div>
+            <div class="flex items-center justify-between text-[13px]">
+              <div class="flex items-center gap-2"><span class="chip" style="background:#FEE2E2;color:#B91C1C">34%</span>Which bond type forms in a polar covalent molecule?</div>
+              <span class="text-[11px]" style="color:var(--muted)">Analyse · Chemistry</span>
+            </div>
+            <div class="bar mt-1.5"><span style="width:34%; background:var(--coral)"></span></div>
+          </div>
+          <div>
+            <div class="flex items-center justify-between text-[13px]">
+              <div class="flex items-center gap-2"><span class="chip" style="background:#FEF3C7;color:#A16207">48%</span>Order the phases of the Calvin cycle</div>
+              <span class="text-[11px]" style="color:var(--muted)">Analyse · Biology</span>
+            </div>
+            <div class="bar mt-1.5"><span style="width:48%; background:#D97706"></span></div>
+          </div>
+          <div>
+            <div class="flex items-center justify-between text-[13px]">
+              <div class="flex items-center gap-2"><span class="chip" style="background:#FEF3C7;color:#A16207">55%</span>Why are leaves green and not black?</div>
+              <span class="text-[11px]" style="color:var(--muted)">Evaluate · Biology</span>
+            </div>
+            <div class="bar mt-1.5"><span style="width:55%; background:#D97706"></span></div>
+          </div>
+          <div>
+            <div class="flex items-center justify-between text-[13px]">
+              <div class="flex items-center gap-2"><span class="chip" style="background:#DCFCE7;color:#15803D">62%</span>Which structure controls what enters a cell?</div>
+              <span class="text-[11px]" style="color:var(--muted)">Understand · Biology</span>
+            </div>
+            <div class="bar mt-1.5"><span style="width:62%; background:var(--green)"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bloom -->
+      <div class="card p-5">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="head text-[15px] font-semibold">Bloom's coverage</div>
+            <div class="text-[11px]" style="color:var(--muted)">Across your 41 sessions</div>
+          </div>
+          <button class="chip" style="background:var(--paper-2);color:var(--muted)">View radar</button>
+        </div>
+
+        <div class="stack mt-4" style="height:24px">
+          <span style="width:32%; background:#60A5FA" title="Remember 32%"></span>
+          <span style="width:28%; background:#3B82F6"></span>
+          <span style="width:12%; background:#F97316"></span>
+          <span style="width:14%; background:#8B5CF6"></span>
+          <span style="width:9%; background:#10B981"></span>
+          <span style="width:5%; background:#EC4899"></span>
+        </div>
+        <div class="flex justify-between text-[10px] mt-2" style="color:var(--muted)">
+          <span>Remember</span>
+          <span>Understand</span>
+          <span>Apply</span>
+          <span>Analyse</span>
+          <span>Evaluate</span>
+          <span>Create</span>
+        </div>
+
+        <div class="mt-4 space-y-1.5">
+          <div class="flex items-center gap-2 text-[12px]"><span class="w-2 h-2 rounded-sm" style="background:#60A5FA"></span>Remember <span class="ml-auto font-semibold">32%</span></div>
+          <div class="flex items-center gap-2 text-[12px]"><span class="w-2 h-2 rounded-sm" style="background:#3B82F6"></span>Understand <span class="ml-auto font-semibold">28%</span></div>
+          <div class="flex items-center gap-2 text-[12px]"><span class="w-2 h-2 rounded-sm" style="background:#F97316"></span>Apply <span class="ml-auto font-semibold" style="color:var(--coral)">12% · light</span></div>
+          <div class="flex items-center gap-2 text-[12px]"><span class="w-2 h-2 rounded-sm" style="background:#8B5CF6"></span>Analyse <span class="ml-auto font-semibold">14%</span></div>
+          <div class="flex items-center gap-2 text-[12px]"><span class="w-2 h-2 rounded-sm" style="background:#10B981"></span>Evaluate <span class="ml-auto font-semibold">9%</span></div>
+          <div class="flex items-center gap-2 text-[12px]"><span class="w-2 h-2 rounded-sm" style="background:#EC4899"></span>Create <span class="ml-auto font-semibold">5%</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3: Confidence grid + At-risk -->
+    <div class="grid grid-cols-3 gap-4 mt-4 rise d6">
+      <!-- Confidence grid -->
+      <div class="card p-5 col-span-2">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="head text-[15px] font-semibold">Confidence grid · last session</div>
+            <div class="text-[11px]" style="color:var(--muted)">How sure were they about their answers?</div>
+          </div>
+          <span class="chip" style="background:#FAF5FF;color:var(--violet)">Signature metric</span>
+        </div>
+        <div class="mt-5 grid grid-cols-[auto_1fr_1fr] gap-2 items-stretch">
+          <div class="flex flex-col justify-between text-[10px] pr-2 text-right font-semibold" style="color:var(--muted)">
+            <div>Sure →</div>
+            <div>Unsure →</div>
+          </div>
+          <div class="quad-cell" style="background:#F0FDF4;border-color:#BBF7D0">
+            <div class="text-[10px] font-semibold" style="color:#166534">SURE · CORRECT</div>
+            <div class="head text-[26px] font-bold" style="color:#166534">14</div>
+            <div class="text-[11px]" style="color:var(--muted)">44% · mastery</div>
+          </div>
+          <div class="quad-cell" style="background:#FEF2F2;border-color:#FECACA">
+            <div class="text-[10px] font-semibold" style="color:#B91C1C">SURE · WRONG</div>
+            <div class="head text-[26px] font-bold" style="color:#B91C1C">4</div>
+            <div class="text-[11px]" style="color:var(--muted)">12% · re-teach</div>
+          </div>
+          <div></div>
+          <div class="quad-cell" style="background:#EFF6FF;border-color:#BFDBFE">
+            <div class="text-[10px] font-semibold" style="color:#1D4ED8">UNSURE · CORRECT</div>
+            <div class="head text-[26px] font-bold" style="color:#1D4ED8">10</div>
+            <div class="text-[11px]" style="color:var(--muted)">31% · reinforce</div>
+          </div>
+          <div class="quad-cell" style="background:#FFF7ED;border-color:#FED7AA">
+            <div class="text-[10px] font-semibold" style="color:#C2410C">UNSURE · WRONG</div>
+            <div class="head text-[26px] font-bold" style="color:#C2410C">4</div>
+            <div class="text-[11px]" style="color:var(--muted)">13% · normal</div>
+          </div>
+          <div></div>
+          <div class="text-[10px] text-center font-semibold" style="color:var(--muted)">Correct</div>
+          <div class="text-[10px] text-center font-semibold" style="color:var(--muted)">Wrong</div>
+        </div>
+      </div>
+
+      <!-- At-risk -->
+      <div class="card p-5">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="head text-[15px] font-semibold">At-risk learners</div>
+            <div class="text-[11px]" style="color:var(--muted)">Flagged across last 3 sessions</div>
+          </div>
+          <span class="chip" style="background:#FEE2E2;color:#B91C1C">3 flagged</span>
+        </div>
+
+        <div class="mt-4 space-y-3">
+          <div class="flex items-start gap-3 p-2 rounded-[10px]" style="background:var(--paper)">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-[12px]" style="background:var(--ink);color:#fff">AR</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-[13px] font-semibold">Ananya R.</div>
+              <div class="text-[11px]" style="color:var(--coral)">Low score twice in a row · 38%, 42%</div>
+            </div>
+          </div>
+          <div class="flex items-start gap-3 p-2 rounded-[10px]" style="background:var(--paper)">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-[12px]" style="background:var(--ink);color:#fff">VK</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-[13px] font-semibold">Vihaan K.</div>
+              <div class="text-[11px]" style="color:#C2410C">Sure but wrong on 3 questions · overconfidence</div>
+            </div>
+          </div>
+          <div class="flex items-start gap-3 p-2 rounded-[10px]" style="background:var(--paper)">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-[12px]" style="background:var(--ink);color:#fff">MS</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-[13px] font-semibold">Meera S.</div>
+              <div class="text-[11px]" style="color:var(--muted)">Inactive for 14 days · last seen Apr 8</div>
+            </div>
+          </div>
+        </div>
+
+        <button class="w-full mt-4 py-2.5 rounded-[10px] text-[12px] font-semibold border border-[color:var(--line)]">View all · send nudge</button>
+      </div>
+    </div>
+
+    <!-- Row 4: Participants table -->
+    <div class="card p-5 mt-4 rise d6">
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="head text-[15px] font-semibold">Top participants</div>
+          <div class="text-[11px]" style="color:var(--muted)">Across the last 30 days · sparklines show per-session score</div>
+        </div>
+        <button class="chip" style="background:var(--paper-2);color:var(--muted)">Full roster →</button>
+      </div>
+
+      <table class="w-full mt-4 text-[13px]">
+        <thead>
+          <tr class="text-[10px] uppercase tracking-[0.08em] font-semibold text-left" style="color:var(--muted)">
+            <th class="py-2 font-semibold">Participant</th>
+            <th class="py-2 font-semibold">Archetype</th>
+            <th class="py-2 font-semibold">Sessions</th>
+            <th class="py-2 font-semibold">Avg score</th>
+            <th class="py-2 font-semibold">Trend</th>
+            <th class="py-2 font-semibold text-right">Last seen</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-[color:var(--line)]">
+          <tr>
+            <td class="py-2.5 font-semibold flex items-center gap-2"><div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" style="background:var(--paper-2);color:var(--ink)">IN</div>Ishita N.</td>
+            <td><span class="chip" style="background:#DCFCE7;color:#15803D">Steady achiever</span></td>
+            <td>11</td>
+            <td class="font-semibold" style="color:var(--green)">87%</td>
+            <td><svg width="80" height="22" viewBox="0 0 80 22" class="sparkline" stroke="#16A34A"><polyline points="0,14 10,12 20,10 30,11 40,8 50,7 60,6 70,5 80,4"/></svg></td>
+            <td class="text-right text-[11px]" style="color:var(--muted)">2h ago</td>
+          </tr>
+          <tr>
+            <td class="py-2.5 font-semibold flex items-center gap-2"><div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" style="background:var(--paper-2);color:var(--ink)">RP</div>Raghav P.</td>
+            <td><span class="chip" style="background:#EFF6FF;color:#1D4ED8">Late bloomer</span></td>
+            <td>9</td>
+            <td class="font-semibold" style="color:var(--ink)">74%</td>
+            <td><svg width="80" height="22" viewBox="0 0 80 22" class="sparkline" stroke="#2563EB"><polyline points="0,18 10,16 20,17 30,13 40,11 50,9 60,8 70,6 80,5"/></svg></td>
+            <td class="text-right text-[11px]" style="color:var(--muted)">1d ago</td>
+          </tr>
+          <tr>
+            <td class="py-2.5 font-semibold flex items-center gap-2"><div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" style="background:var(--paper-2);color:var(--ink)">KS</div>Kabir S.</td>
+            <td><span class="chip" style="background:#FFF7ED;color:#C2410C">Wobbly</span></td>
+            <td>8</td>
+            <td class="font-semibold" style="color:var(--ink)">68%</td>
+            <td><svg width="80" height="22" viewBox="0 0 80 22" class="sparkline" stroke="#C2410C"><polyline points="0,8 10,10 20,7 30,14 40,9 50,13 60,8 70,12 80,10"/></svg></td>
+            <td class="text-right text-[11px]" style="color:var(--muted)">3d ago</td>
+          </tr>
+          <tr>
+            <td class="py-2.5 font-semibold flex items-center gap-2"><div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" style="background:var(--paper-2);color:var(--ink)">AR</div>Ananya R.</td>
+            <td><span class="chip" style="background:#FEE2E2;color:#B91C1C">At risk</span></td>
+            <td>6</td>
+            <td class="font-semibold" style="color:var(--coral)">42%</td>
+            <td><svg width="80" height="22" viewBox="0 0 80 22" class="sparkline" stroke="#E07A5F"><polyline points="0,9 10,12 20,14 30,13 40,16 50,15 60,17 70,18 80,19"/></svg></td>
+            <td class="text-right text-[11px]" style="color:var(--muted)">4d ago</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="mt-8 pt-6 border-t border-[color:var(--line)] text-[12px] flex items-center justify-between" style="color:var(--muted)">
+      <a href="index.html" class="underline decoration-dotted">← Back to gallery</a>
+      <a href="06-my-quizzes.html" class="underline decoration-dotted">next: my quizzes →</a>
+    </div>
+
+  </main>
+</div>
+
+<style>
+@keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1 } 50% { transform: scale(1.6); opacity: 0.4 } }
+</style>
+
+</body>
+</html>

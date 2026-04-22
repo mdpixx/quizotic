@@ -12,6 +12,19 @@
   --color-surface-tint: #F8F9FA;
   --color-border:       rgba(15,27,61,0.10);
 
+  /* ── Learning studio palette (redesign Tier 1) ───────────────── */
+  --color-paper:        #FAF8F2;   /* warm off-white for host surfaces */
+  --color-paper-2:      #F3EFE3;   /* warm wash for pills / empty states */
+  --color-line:         #E7E2D4;   /* warm divider */
+  --color-yellow:       #F5E642;
+  --color-yellow-dark:  #D9CC27;
+  --color-ink:          #0F1B3D;
+  --color-ink-2:        #1B2A5E;
+  --color-accent-blue:  #2563EB;   /* insight */
+  --color-accent-green: #16A34A;   /* mastery */
+  --color-accent-coral: #E07A5F;   /* attention */
+  --color-accent-violet:#7C3AED;   /* AI-only */
+
   /* Brand gradient */
   --brand-gradient: linear-gradient(135deg, #0F1B3D, #F5E642);
 
@@ -206,6 +219,148 @@ h1, h2, h3, h4, h5, h6 {
     margin: 16mm 20mm;
     size: A4 portrait;
   }
+}
+
+/* ── Button system (redesign Tier 1) ────────────────────────────────
+   Reusable, tactile buttons used across host surfaces. Apply class on
+   a <button>; override width/padding with utility classes if needed.
+------------------------------------------------------------------- */
+
+.btn-primary {
+  background: var(--color-yellow);
+  color: var(--color-ink);
+  border: 1px solid var(--color-yellow-dark);
+  border-radius: 10px;
+  padding: 9px 15px;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 1px 0 var(--color-yellow-dark), 0 2px 0 #B8AB1F;
+  transition: transform 0.08s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.08s ease, opacity 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-primary:hover:not(:disabled) { transform: translateY(-1px); }
+.btn-primary:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 0 0 var(--color-yellow-dark), 0 0 0 #B8AB1F;
+}
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-golive {
+  background: var(--color-ink);
+  color: #fff;
+  border-radius: 10px;
+  padding: 9px 15px;
+  font-weight: 600;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.15), 0 6px 16px -6px rgba(15,27,61,0.3);
+  transition: transform 0.08s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s ease;
+  border: none;
+}
+.btn-golive:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 1px 0 rgba(0,0,0,0.15), 0 10px 24px -6px rgba(15,27,61,0.4); }
+.btn-golive:active:not(:disabled) { transform: translateY(1px); }
+.btn-golive .play-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: var(--color-yellow);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.btn-secondary {
+  background: #fff;
+  color: var(--color-ink);
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-secondary:hover:not(:disabled) { border-color: #D5CEB9; background: var(--color-paper); }
+.btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-muted);
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-weight: 500;
+  font-size: 13px;
+  transition: all 0.15s ease;
+  border: none;
+}
+.btn-ghost:hover:not(:disabled) { background: var(--color-paper-2); color: var(--color-ink); }
+
+.btn-destructive {
+  background: transparent;
+  color: #B91C1C;
+  border: 1px solid #F3E4E4;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.15s ease;
+}
+.btn-destructive:hover:not(:disabled) { background: #FEF2F2; border-color: #FCA5A5; }
+
+.btn-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  border: 1px solid transparent;
+  background: transparent;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+.btn-icon:hover:not(:disabled) { color: var(--color-ink); border-color: var(--color-line); background: var(--color-paper); }
+
+/* ── Creation command bar (Tier 1 · quiz builder) ──────────────── */
+.cmd-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border-radius: 9999px;
+  border: 1px solid var(--color-line);
+  background: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-ink);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.cmd-pill:hover { border-color: #D5CEB9; background: var(--color-paper-2); }
+.cmd-pill.active {
+  background: var(--color-ink);
+  color: #fff;
+  border-color: var(--color-ink);
+}
+.cmd-pill.ai {
+  border-color: #E9D5FF;
+  background: #FAF5FF;
+  color: var(--color-accent-violet);
+}
+.cmd-pill.ai:hover { background: #F3E8FF; border-color: #D8B4FE; }
+.cmd-pill.ai.active {
+  background: var(--color-accent-violet);
+  color: #fff;
+  border-color: var(--color-accent-violet);
 }
 
 /* WCAG 2.3.3 — honor the user's OS-level motion preference. Kills all

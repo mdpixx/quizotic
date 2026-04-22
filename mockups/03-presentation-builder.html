@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Quizotic · Presentation Builder</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #FAF8F2; --paper-2: #F3EFE3; --ink: #0F1B3D; --ink-2: #1B2A5E;
+    --muted: #6B7794; --muted-2: #9CA3AF; --line: #E7E2D4;
+    --yellow: #F5E642; --blue: #2563EB; --green: #16A34A; --coral: #E07A5F; --violet: #7C3AED;
+    --cat-interactive: #0F1B3D;
+    --cat-spatial: #0891B2;
+    --cat-energy: #DC2626;
+    --cat-content: #374151;
+  }
+  html, body { background: var(--paper); color: var(--ink); font-family: 'DM Sans', system-ui, sans-serif; }
+  .head { font-family: 'Space Grotesk', system-ui; letter-spacing: -0.01em; }
+  .paper-grain {
+    background-image:
+      radial-gradient(rgba(15,27,61,0.025) 1px, transparent 1px),
+      radial-gradient(rgba(15,27,61,0.02) 1px, transparent 1px);
+    background-size: 3px 3px, 7px 7px; background-position: 0 0, 1px 2px;
+  }
+  .surface { background:#fff; border:1px solid var(--line); }
+  .rounded-card { border-radius: 18px; }
+  .chip { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; font-size:11px; font-weight:600; border-radius:999px; }
+  .btn-primary { background: var(--yellow); color: var(--ink); border: 1px solid #D9CC27; border-radius: 10px; padding: 9px 14px; font-weight: 600; font-size: 13px; box-shadow: 0 1px 0 #D9CC27; }
+  .btn-golive { background: var(--ink); color:#fff; border-radius: 10px; padding: 9px 14px; font-weight: 600; font-size: 13px; display:inline-flex; align-items:center; gap:8px; }
+  .btn-golive .play { width:18px; height:18px; border-radius:999px; background:var(--yellow); display:inline-flex; align-items:center; justify-content:center; }
+  .btn-secondary { background:#fff; border:1px solid var(--line); border-radius:10px; padding:8px 12px; font-weight:600; font-size:13px; color:var(--ink); }
+  .btn-icon { width:30px; height:30px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; color: var(--muted); border: 1px solid transparent; }
+  .btn-icon:hover { background: var(--paper-2); color: var(--ink); }
+
+  /* Slide rail */
+  .sec-head { padding: 10px 10px 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); display:flex; align-items:center; gap:6px; }
+  .sec-head::before { content:''; width:10px; height:2px; background: currentColor; opacity:.45; border-radius:2px; }
+
+  .thumb { border-radius: 10px; border:1px solid var(--line); background:#fff; padding:0; position:relative; overflow:hidden; aspect-ratio: 16/9; }
+  .thumb.active { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(15,27,61,.08); }
+  .thumb .n { position:absolute; top:4px; left:6px; font-size:9px; font-weight:700; color:var(--muted); }
+  .thumb .label { position:absolute; bottom:4px; left:6px; font-size:9px; font-weight:600; letter-spacing:.02em; }
+
+  /* Canvas */
+  .canvas-frame {
+    background: #FBF8EF; border: 1px solid var(--line); border-radius: 18px;
+    background-image: linear-gradient(rgba(15,27,61,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(15,27,61,.04) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  /* Inspector tabs */
+  .tab { padding: 10px 4px; font-size: 12px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; cursor: pointer; }
+  .tab.on { color: var(--ink); border-bottom-color: var(--ink); }
+
+  .seg { display:inline-flex; padding:3px; background:var(--paper-2); border-radius:10px; gap:2px; }
+  .seg button { padding:6px 12px; font-size:12px; font-weight:600; border-radius:7px; color:var(--muted); }
+  .seg button.on { background:#fff; color:var(--ink); box-shadow: 0 1px 0 rgba(0,0,0,.03); }
+
+  /* Slide drawer */
+  .backdrop { position: fixed; inset:0; background: rgba(15,27,61,.35); backdrop-filter: blur(2px); z-index:50; display:none; }
+  .backdrop.show { display: block; }
+  .drawer {
+    position: fixed; right: 0; top: 0; bottom: 0; width: 520px; max-width: 100vw;
+    background: #fff; border-left: 1px solid var(--line); z-index: 51; transform: translateX(100%); transition: transform .28s cubic-bezier(.2,.7,.2,1);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .drawer.open { transform: translateX(0); }
+
+  .type-card {
+    border:1px solid var(--line); border-radius: 12px; padding: 12px; background:#fff; cursor:pointer; transition: all .15s ease; position:relative;
+  }
+  .type-card:hover { border-color: var(--ink); background: var(--paper); }
+  .type-card .prev { aspect-ratio: 16/9; border-radius: 8px; border:1px solid var(--line); margin-bottom: 8px; overflow:hidden; position:relative; }
+  .type-card .name { font-size: 13px; font-weight: 600; letter-spacing: -.005em; }
+  .type-card .best { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .catbadge { display:inline-flex; align-items:center; gap:5px; padding:2px 7px; border-radius: 999px; font-size: 10px; font-weight: 600; }
+
+  .rise { opacity:0; transform: translateY(8px); animation: rise .5s ease-out forwards; }
+  @keyframes rise { to { opacity:1; transform: translateY(0); } }
+
+  .stat-tile { padding: 14px; border-radius: 12px; background: var(--paper); border: 1px solid var(--line); }
+</style>
+</head>
+<body class="paper-grain min-h-screen">
+
+<!-- Top bar -->
+<div class="surface" style="background:#fff;border-bottom:1px solid var(--line)">
+  <div class="max-w-[1480px] mx-auto px-6 h-14 flex items-center justify-between">
+    <div class="flex items-center gap-4">
+      <a href="index.html" class="flex items-center gap-2 text-[13px]" style="color:var(--muted)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        All mockups
+      </a>
+      <div class="h-5 w-px" style="background:var(--line)"></div>
+      <div class="flex items-center gap-2">
+        <div class="w-7 h-7 rounded-[7px] flex items-center justify-center" style="background:var(--ink)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F5E642" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        </div>
+        <span class="head text-[14px] font-semibold">Presentation builder</span>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <div class="head text-[15px] font-semibold">Cell biology · workshop v2</div>
+      <span class="chip" style="background:var(--paper-2);color:var(--muted)">12 slides · ~35 min</span>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <span class="chip" style="background:#DCFCE7;color:#15803D">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>
+        Saved
+      </span>
+      <button class="btn-secondary">Preview deck</button>
+      <button class="btn-golive"><span class="play"><svg width="8" height="8" viewBox="0 0 24 24" fill="#0F1B3D"><path d="M8 5v14l11-7z"/></svg></span>Present</button>
+    </div>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="max-w-[1480px] mx-auto px-6 py-5 grid grid-cols-[240px_minmax(0,1fr)_340px] gap-5">
+
+  <!-- SLIDE RAIL -->
+  <aside class="rise surface rounded-[14px] p-2 h-[calc(100vh-100px)] overflow-y-auto" style="min-height:720px">
+    <button class="w-full m-1 mb-2 p-2.5 rounded-[10px] text-[13px] font-semibold flex items-center justify-center gap-2" style="background:var(--ink);color:#fff" onclick="document.getElementById('drawer').classList.add('open');document.getElementById('backdrop').classList.add('show')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      Add slide
+    </button>
+
+    <div class="sec-head">Intro</div>
+    <div class="space-y-1.5 px-1">
+      <div class="thumb" style="background: linear-gradient(135deg,#0F1B3D,#1B2A5E); border-color:transparent">
+        <span class="n" style="color:rgba(255,255,255,.7)">01</span>
+        <span class="label" style="color:#fff;opacity:.9">Title</span>
+        <div class="absolute inset-0 flex items-center justify-center text-[11px] font-semibold text-white">Cell Biology</div>
+      </div>
+      <div class="thumb">
+        <span class="n">02</span>
+        <span class="label" style="color:var(--muted)">Objectives</span>
+        <div class="absolute inset-0 flex items-center justify-start px-3 text-[9px]" style="color:var(--ink)"><div class="space-y-0.5"><div class="w-12 h-1 rounded" style="background:var(--paper-2)"></div><div class="w-10 h-1 rounded" style="background:var(--paper-2)"></div><div class="w-14 h-1 rounded" style="background:var(--paper-2)"></div></div></div>
+      </div>
+    </div>
+
+    <div class="sec-head">Concept</div>
+    <div class="space-y-1.5 px-1">
+      <div class="thumb">
+        <span class="n">03</span>
+        <span class="label" style="color:var(--muted)">Diagram</span>
+        <div class="absolute inset-0 flex items-center justify-center"><div class="w-10 h-10 rounded-full border-2" style="border-color:var(--ink);opacity:.4"></div></div>
+      </div>
+      <div class="thumb active">
+        <span class="n">04</span>
+        <span class="label catbadge" style="background:#EFF6FF;color:#2563EB">Multiple choice</span>
+        <div class="absolute inset-0 flex items-center justify-center p-2"><div class="grid grid-cols-2 gap-0.5 w-full"><div class="h-2 rounded" style="background:#E21B3C"></div><div class="h-2 rounded" style="background:#1368CE"></div><div class="h-2 rounded" style="background:#D89E00"></div><div class="h-2 rounded" style="background:#26890C"></div></div></div>
+      </div>
+      <div class="thumb">
+        <span class="n">05</span>
+        <span class="label catbadge" style="background:#FFF7ED;color:#FF8A47">Word cloud</span>
+        <div class="absolute inset-0 flex items-center justify-center text-[10px] font-bold" style="color:var(--coral);opacity:.6">·cell·</div>
+      </div>
+    </div>
+
+    <div class="sec-head">Poll break</div>
+    <div class="space-y-1.5 px-1">
+      <div class="thumb">
+        <span class="n">06</span>
+        <span class="label catbadge" style="background:#FEF2F2;color:#DC2626">Emoji pulse</span>
+        <div class="absolute inset-0 flex items-center justify-center text-[12px]">❤ 🔥</div>
+      </div>
+    </div>
+
+    <div class="sec-head">Deep dive</div>
+    <div class="space-y-1.5 px-1">
+      <div class="thumb">
+        <span class="n">07</span>
+        <span class="label" style="color:var(--muted)">Bullet list</span>
+      </div>
+      <div class="thumb">
+        <span class="n">08</span>
+        <span class="label catbadge" style="background:#FAF5FF;color:#9333EA">Pinpoint</span>
+        <div class="absolute inset-0 flex items-center justify-center"><div class="w-2.5 h-2.5 rounded-full" style="background:var(--violet)"></div></div>
+      </div>
+      <div class="thumb">
+        <span class="n">09</span>
+        <span class="label catbadge" style="background:#EEF2FF;color:#4F46E5">Ranking</span>
+      </div>
+    </div>
+
+    <div class="sec-head">Recap</div>
+    <div class="space-y-1.5 px-1">
+      <div class="thumb">
+        <span class="n">10</span>
+        <span class="label catbadge" style="background:#FFFBEB;color:#B45309">Live race</span>
+      </div>
+      <div class="thumb">
+        <span class="n">11</span>
+        <span class="label catbadge" style="background:#FFF1F2;color:#EF4444">Quick fire</span>
+      </div>
+      <div class="thumb">
+        <span class="n">12</span>
+        <span class="label" style="color:var(--muted)">Closing quote</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CANVAS -->
+  <section class="rise">
+    <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center gap-2">
+        <span class="chip" style="background:#EFF6FF;color:var(--blue)">Multiple choice</span>
+        <span class="text-[12px]" style="color:var(--muted)">Slide 4 · interactive</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="seg">
+          <button class="on">Host view</button>
+          <button>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:-1px;margin-right:4px"><rect x="5" y="2" width="14" height="20" rx="2"/></svg>
+            Phone
+          </button>
+        </div>
+        <button class="btn-icon" title="Duplicate"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+        <button class="btn-icon" title="Delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+      </div>
+    </div>
+
+    <!-- 16:9 canvas -->
+    <div class="canvas-frame p-10 aspect-[16/9] flex flex-col justify-center">
+      <div class="text-[11px] uppercase tracking-[0.12em] font-semibold" style="color:var(--muted)">Slide 4 · Cell biology</div>
+      <div class="head text-[44px] font-bold leading-[1.1] mt-2 max-w-[28ch]" style="color:var(--ink)">Which structure controls what enters and leaves the cell?</div>
+      <div class="grid grid-cols-2 gap-4 mt-8 max-w-[640px]">
+        <div class="flex items-center gap-3 py-3 px-4 rounded-[12px]" style="background:#E21B3C;color:#fff"><span class="w-7 h-7 rounded-md flex items-center justify-center font-bold" style="background:rgba(255,255,255,.2)">A</span>Nucleus</div>
+        <div class="flex items-center gap-3 py-3 px-4 rounded-[12px]" style="background:#1368CE;color:#fff"><span class="w-7 h-7 rounded-md flex items-center justify-center font-bold" style="background:rgba(255,255,255,.2)">B</span>Cell membrane</div>
+        <div class="flex items-center gap-3 py-3 px-4 rounded-[12px]" style="background:#D89E00;color:#fff"><span class="w-7 h-7 rounded-md flex items-center justify-center font-bold" style="background:rgba(255,255,255,.2)">C</span>Mitochondria</div>
+        <div class="flex items-center gap-3 py-3 px-4 rounded-[12px]" style="background:#26890C;color:#fff"><span class="w-7 h-7 rounded-md flex items-center justify-center font-bold" style="background:rgba(255,255,255,.2)">D</span>Ribosome</div>
+      </div>
+    </div>
+
+    <!-- Canvas footer -->
+    <div class="mt-3 flex items-center justify-between text-[12px]" style="color:var(--muted)">
+      <div class="flex items-center gap-3">
+        <span class="chip" style="background:#E0F2FE;color:#0369A1">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 12h2M20 12h2M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+          Optimised for low bandwidth
+        </span>
+        <span>Theme · Classroom warm</span>
+      </div>
+      <div>Response mode: <strong class="text-[color:var(--ink)]">Reveal on click</strong></div>
+    </div>
+  </section>
+
+  <!-- INSPECTOR -->
+  <aside class="rise surface rounded-[14px] h-[calc(100vh-100px)] overflow-y-auto" style="min-height:720px">
+    <!-- Tabs -->
+    <div class="px-4 border-b border-[color:var(--line)] flex gap-5">
+      <div class="tab on">Content</div>
+      <div class="tab">Design</div>
+      <div class="tab">Interaction</div>
+      <div class="tab">Notes</div>
+    </div>
+
+    <div class="p-4 space-y-6">
+      <div>
+        <label class="text-[11px] uppercase tracking-[0.1em] font-semibold" style="color:var(--muted)">Question</label>
+        <div class="mt-1.5 p-2.5 rounded-[10px] border border-[color:var(--line)] text-[13px]" style="background:var(--paper)">Which structure controls what enters and leaves the cell?</div>
+      </div>
+
+      <div>
+        <label class="text-[11px] uppercase tracking-[0.1em] font-semibold" style="color:var(--muted)">Options</label>
+        <div class="mt-1.5 space-y-1.5">
+          <div class="flex items-center gap-2 text-[13px]"><span class="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold text-white" style="background:#E21B3C">A</span><span class="flex-1">Nucleus</span></div>
+          <div class="flex items-center gap-2 text-[13px]"><span class="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold text-white" style="background:#1368CE">B</span><strong class="flex-1">Cell membrane</strong><span class="chip" style="background:#DCFCE7;color:#15803D">correct</span></div>
+          <div class="flex items-center gap-2 text-[13px]"><span class="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold text-white" style="background:#D89E00">C</span><span class="flex-1">Mitochondria</span></div>
+          <div class="flex items-center gap-2 text-[13px]"><span class="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold text-white" style="background:#26890C">D</span><span class="flex-1">Ribosome</span></div>
+        </div>
+      </div>
+
+      <div>
+        <label class="text-[11px] uppercase tracking-[0.1em] font-semibold" style="color:var(--muted)">Response mode</label>
+        <div class="mt-1.5 seg" style="display:flex;width:100%">
+          <button style="flex:1">Live</button>
+          <button class="on" style="flex:1">Reveal</button>
+          <button style="flex:1">Private</button>
+        </div>
+        <div class="text-[11px] mt-1.5" style="color:var(--muted)">Audience submits privately. You reveal results when ready — room stays discussable.</div>
+      </div>
+
+      <div>
+        <label class="text-[11px] uppercase tracking-[0.1em] font-semibold" style="color:var(--muted)">Background</label>
+        <div class="mt-1.5 grid grid-cols-6 gap-2">
+          <div class="aspect-square rounded-md border-2" style="background:#FBF8EF; border-color:var(--ink)"></div>
+          <div class="aspect-square rounded-md border border-[color:var(--line)]" style="background:#F3EFE3"></div>
+          <div class="aspect-square rounded-md border border-[color:var(--line)]" style="background:#0F1B3D"></div>
+          <div class="aspect-square rounded-md border border-[color:var(--line)]" style="background:#F5E642"></div>
+          <div class="aspect-square rounded-md border border-[color:var(--line)]" style="background:#E0F2FE"></div>
+          <div class="aspect-square rounded-md border border-[color:var(--line)]" style="background:#F3E8FF"></div>
+        </div>
+        <button class="mt-2 text-[12px] font-semibold" style="color:var(--muted)">Customize ↗</button>
+      </div>
+
+      <div class="stat-tile">
+        <div class="text-[11px] uppercase tracking-[0.1em] font-semibold mb-2" style="color:var(--muted)">Presenter notes</div>
+        <div class="text-[13px] leading-[1.55]" style="color:var(--ink-2)">After reveal: ask "why not nucleus?" Expect confusion with mitochondria for students who studied the diagram diagram yesterday.</div>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<!-- Slide-type drawer (modal) -->
+<div id="backdrop" class="backdrop" onclick="document.getElementById('drawer').classList.remove('open');this.classList.remove('show')"></div>
+<div id="drawer" class="drawer">
+  <div class="px-6 py-5 border-b border-[color:var(--line)] flex items-center justify-between">
+    <div>
+      <div class="head text-[18px] font-bold">Pick a slide type</div>
+      <div class="text-[12px]" style="color:var(--muted)">18 types · categorised by what they're best for</div>
+    </div>
+    <button class="btn-icon" onclick="document.getElementById('drawer').classList.remove('open');document.getElementById('backdrop').classList.remove('show')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+
+  <div class="flex-1 overflow-y-auto px-6 py-5">
+
+    <!-- Interactive -->
+    <div class="flex items-center gap-2 mb-3">
+      <span class="catbadge" style="background:#EFF6FF;color:var(--ink)">● Interactive</span>
+      <span class="text-[11px]" style="color:var(--muted)">Audience votes or writes</span>
+    </div>
+    <div class="grid grid-cols-3 gap-3 mb-6">
+      <div class="type-card">
+        <div class="prev"><div class="grid grid-cols-2 gap-0.5 p-1 h-full"><div style="background:#E21B3C"></div><div style="background:#1368CE"></div><div style="background:#D89E00"></div><div style="background:#26890C"></div></div></div>
+        <div class="name">Multiple choice</div>
+        <div class="best">Check understanding · fast</div>
+      </div>
+      <div class="type-card">
+        <div class="prev" style="background:#F0F4FF"><div class="h-full flex items-center justify-center text-[10px]" style="color:#2D3A8C">type your answer…</div></div>
+        <div class="name">Open text</div>
+        <div class="best">Hear them in their own words</div>
+      </div>
+      <div class="type-card">
+        <div class="prev" style="background:#FFF7ED"><div class="h-full flex items-center justify-center text-[10px] font-bold" style="color:#FF8A47">· cell · wall · membrane ·</div></div>
+        <div class="name">Word cloud</div>
+        <div class="best">Brainstorm · first reactions</div>
+      </div>
+      <div class="type-card">
+        <div class="prev" style="background:#FFF7ED"><div class="h-full flex items-center justify-around" style="color:#EA580C">★★★☆☆</div></div>
+        <div class="name">Rating scale</div>
+        <div class="best">Feedback · confidence</div>
+      </div>
+      <div class="type-card">
+        <div class="prev" style="background:#EEF2FF"><div class="h-full p-1.5 space-y-0.5 text-[8px]" style="color:#4F46E5"><div class="bg-white rounded px-1 py-0.5">1 · item</div><div class="bg-white rounded px-1 py-0.5">2 · item</div><div class="bg-white rounded px-1 py-0.5">3 · item</div></div></div>
+        <div class="name">Ranking</div>
+        <div class="best">Prioritise · order steps</div>
+      </div>
+      <div class="type-card">
+        <div class="prev" style="background:#ECFEFF"><div class="grid grid-cols-2 gap-0.5 p-1 h-full"><div class="bg-white rounded"></div><div class="bg-white rounded"></div><div class="bg-white rounded"></div><div class="bg-white rounded"></div></div></div>
+        <div class="name">Image choice</div>
+        <div class="best">Visual recognition</div>
+      </div>
+      <div class="type-card">
+        <div class="prev" style="background:#F0FDF4"><div class="h-full flex items-center justify-center"><div class="w-full mx-2 h-1 rounded-full bg-white relative"><div class="absolute w-2 h-2 rounded-full" style="background:#16A34A; top:-2px; left:40%"></div></div></div></div>
+        <div class="name">100-point scale</div>
+        <div class="best">Sliding opinion · agree scale</div>
+      </div>
+    </div>
+
+    <!-- Spatial -->
+    <div class="flex items-center gap-2 mb-3">
+      <span class="catbadge" style="background:#CFFAFE;color:#0E7490">● Spatial</span>
+      <span class="text-[11px]" style="color:var(--muted)">Position on an image or grid</span>
+    </div>
+    <div class="grid grid-cols-3 gap-3 mb-6">
+      <div class="type-card">
+        <div class="prev" style="background:#FAF5FF;position:relative"><div class="absolute" style="left:60%;top:40%;width:8px;height:8px;border-radius:999px;background:#9333EA"></div></div>
+        <div class="name">Pinpoint</div>
+        <div class="best">Tap on a diagram · map</div>
+      </div>
+      <div class="type-card">
+        <div class="prev" style="background:#F0FDFA"><div class="grid grid-cols-2 h-full" style="border:1px solid #0D9488"><div class="border-r border-b" style="border-color:#0D9488"></div><div class="border-b" style="border-color:#0D9488"></div><div class="border-r" style="border-color:#0D9488"></div><div></div></div></div>
+        <div class="name">2×2 Grid</div>
+        <div class="best">Two-axis positioning</div>
+      </div>
+      <div class="type-card" style="opacity:.6">
+        <div class="prev" style="background:#FFFBEB"><div class="h-full flex items-center justify-center"><div class="w-8 h-8 rounded-full border-2" style="border-color:#F59E0B"></div></div></div>
+        <div class="name">Wheel of names <span class="chip" style="background:#FEF3C7;color:#92400E">soon</span></div>
+        <div class="best">Random picker</div>
+      </div>
+    </div>
+
+    <!-- Energy -->
+    <div class="flex items-center gap-2 mb-3">
+      <span class="catbadge" style="background:#FEE2E2;color:#B91C1C">● Energy</span>
+      <span class="text-[11px]" style="color:var(--muted)">Wake the room up</span>
+    </div>
+    <div class="grid grid-cols-3 gap-3 mb-6">
+      <div class="type-card">
+        <div class="prev" style="background:#FEF2F2"><div class="h-full flex items-center justify-center gap-2 text-[10px] font-bold" style="color:#DC2626">A ⚔ B</div></div>
+        <div class="name">Word duel</div>
+        <div class="best">Two-way split · forced pick</div>
+      </div>
+      <div class="type-card">
+        <div class="prev" style="background:#FFFBEB"><div class="h-full p-1 space-y-0.5"><div class="h-1.5 rounded w-3/4" style="background:#B45309"></div><div class="h-1.5 rounded w-1/2" style="background:#B45309"></div><div class="h-1.5 rounded w-2/3" style="background:#B45309"></div></div></div>
+        <div class="name">Live race</div>
+        <div class="best">See answers pile up in real time</div>
+      </div>
+      <div class="type-card">
+        <div class="prev" style="background:#F8F9FA"><div class="h-full flex items-center justify-center gap-1.5 text-sm">❤️ 😂 🔥 😮</div></div>
+        <div class="name">Emoji pulse</div>
+        <div class="best">Rapid emotional check-in</div>
+      </div>
+      <div class="type-card">
+        <div class="prev" style="background:#FFF1F2"><div class="h-full flex items-center justify-center text-[11px] font-bold" style="color:#EF4444">5s ⏱</div></div>
+        <div class="name">Quick fire</div>
+        <div class="best">Pressure round · fastest wins</div>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="flex items-center gap-2 mb-3">
+      <span class="catbadge" style="background:#F3F4F6;color:#374151">● Content</span>
+      <span class="text-[11px]" style="color:var(--muted)">No audience input</span>
+    </div>
+    <div class="grid grid-cols-3 gap-3 mb-2">
+      <div class="type-card">
+        <div class="prev" style="background:linear-gradient(135deg,#0F1B3D,#1B2A5E)"><div class="h-full flex items-center justify-center text-[11px] font-bold text-white">TITLE</div></div>
+        <div class="name">Title</div>
+        <div class="best">Open a section</div>
+      </div>
+      <div class="type-card">
+        <div class="prev" style="background:#F9FAFB"><div class="h-full p-2 space-y-0.5 text-[9px]" style="color:#374151"><div>• point one</div><div>• point two</div><div>• point three</div></div></div>
+        <div class="name">Bullet points</div>
+        <div class="best">Key takeaways</div>
+      </div>
+      <div class="type-card">
+        <div class="prev" style="background:#F3F4F6"><div class="h-full flex items-center justify-center text-[10px] italic" style="color:#6B7280">"quote"</div></div>
+        <div class="name">Quote</div>
+        <div class="best">Anchor with authority</div>
+      </div>
+      <div class="type-card">
+        <div class="prev" style="background:#EFF6FF"><div class="h-full flex items-center justify-center"><svg width="20" height="20" viewBox="0 0 24 24" fill="#1D4ED8"><path d="M8 5v14l11-7z"/></svg></div></div>
+        <div class="name">Video</div>
+        <div class="best">Embed YouTube / Vimeo</div>
+      </div>
+      <div class="type-card">
+        <div class="prev" style="background:#F5F3FF"><div class="h-full flex items-center justify-center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6D28D9" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div></div>
+        <div class="name">Image</div>
+        <div class="best">Full-bleed visual</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="max-w-[1480px] mx-auto px-6 pb-10 text-[12px] flex items-center justify-between" style="color:var(--muted)">
+  <a href="index.html" class="underline decoration-dotted">← Back to gallery</a>
+  <div>Tip: click <strong class="text-[color:var(--ink)]">Add slide</strong> in the rail to open the slide-type drawer · <a href="04-interactive-slide.html" class="underline decoration-dotted">next: interactive slide →</a></div>
+</div>
+
+</body>
+</html>
