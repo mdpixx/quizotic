@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
+import { useSession } from 'next-auth/react'
 import { motion } from 'framer-motion'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
 import { QuizVsSlidesModal } from '@/components/host/QuizVsSlidesModal'
@@ -112,6 +113,8 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
 
 // ── Main dashboard ────────────────────────────────────────────────────────────
 export default function HostDashboard() {
+  const { data: session } = useSession()
+  const firstName = session?.user?.name?.split(' ')[0] ?? 'back'
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [range, setRange] = useState(90)
@@ -266,19 +269,22 @@ export default function HostDashboard() {
   })()
 
   return (
+    <div className="paper-grain" style={{ background: 'var(--color-paper)', minHeight: '100%' }}>
     <div className="p-6 md:p-8" style={{ maxWidth: 1280, margin: '0 auto' }}>
 
-      {/* ── Header ── */}
+      {/* ── Header — "Welcome back" + range selector ── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>Analytics</h1>
-          <p className="text-sm mt-0.5" style={{ color: '#9CA3AF' }}>Track your sessions, participants and learning outcomes</p>
+          <h1 className="text-[28px] font-black leading-tight" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
+            Welcome {firstName === 'back' ? 'back' : `back, ${firstName}`}.
+          </h1>
+          <p className="text-sm mt-1" style={{ color: '#9CA3AF' }}>A calm look at your sessions, participants, and learning outcomes.</p>
         </div>
-        <div className="flex gap-1.5">
+        <div className="flex gap-1.5 flex-shrink-0">
           {([30, 90, 365] as const).map(d => (
             <button key={d} onClick={() => setRange(d)}
               className="text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
-              style={{ background: range === d ? '#0F1B3D' : '#F3F4F6', color: range === d ? '#fff' : '#0F1B3D' }}>
+              style={{ background: range === d ? '#0F1B3D' : '#fff', color: range === d ? '#fff' : '#0F1B3D', border: range === d ? 'none' : '1px solid var(--color-line)' }}>
               {d === 365 ? '1 Year' : `${d}d`}
             </button>
           ))}
@@ -361,23 +367,20 @@ export default function HostDashboard() {
         </motion.div>
       )}
 
-      {/* ── KPI strip ── */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      {/* ── KPI strip — clean label/value/subtitle layout ── */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
         {[
-          { icon: '⚡', label: 'Total Sessions', value: loading ? '—' : s?.totalSessions ?? 0, color: '#0F1B3D', subtitle: null as string | null },
-          { icon: '👥', label: 'Participants', value: loading ? '—' : s?.totalParticipants ?? 0, color: '#7C3AED', subtitle: null },
-          { icon: '🎯', label: 'Avg Score', value: loading ? '—' : s?.avgScore != null ? `${s.avgScore}%` : 'N/A', color: '#D97706', subtitle: null },
-          { icon: '✅', label: 'Completion Rate', value: loading ? '—' : s?.completionRate != null ? `${s.completionRate}%` : 'N/A', color: '#059669', subtitle: null },
-          { icon: '📽', label: 'Presentations', value: loading ? '—' : s?.presentationCount ?? 0, color: '#0EA5E9', subtitle: loading ? null : `${s?.presentationSessionCount ?? 0} sessions run` },
+          { label: `Sessions (${range}d)`, value: loading ? '—' : s?.totalSessions ?? 0, subtitle: null as string | null },
+          { label: 'Participants', value: loading ? '—' : s?.totalParticipants ?? 0, subtitle: null },
+          { label: 'Avg score', value: loading ? '—' : s?.avgScore != null ? `${s.avgScore}%` : 'N/A', subtitle: null },
+          { label: 'Completion', value: loading ? '—' : s?.completionRate != null ? `${s.completionRate}%` : 'N/A', subtitle: null },
+          { label: 'Presentations', value: loading ? '—' : s?.presentationCount ?? 0, subtitle: loading ? null : `${s?.presentationSessionCount ?? 0} sessions run` },
         ].map((kpi, i) => (
           <motion.div key={kpi.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-            className="rounded-2xl p-4 border flex items-center gap-3" style={{ background: '#fff', borderColor: '#E2E8F0' }}>
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style={{ background: `${kpi.color}18` }}>{kpi.icon}</div>
-            <div>
-              <p className="text-2xl font-black leading-tight" style={{ fontFamily: 'var(--font-heading)', color: kpi.color }}>{kpi.value}</p>
-              <p className="text-xs font-semibold mt-0.5" style={{ color: '#64748B' }}>{kpi.label}</p>
-              {kpi.subtitle && <p className="text-[10px] font-medium mt-0.5" style={{ color: '#94A3B8' }}>{kpi.subtitle}</p>}
-            </div>
+            className="dash-card p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.1em]" style={{ color: 'var(--color-text-muted)' }}>{kpi.label}</p>
+            <p className="text-[26px] font-black leading-tight mt-1.5" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>{kpi.value}</p>
+            {kpi.subtitle && <p className="text-[11px] mt-1" style={{ color: '#94A3B8' }}>{kpi.subtitle}</p>}
           </motion.div>
         ))}
       </div>
@@ -644,51 +647,82 @@ export default function HostDashboard() {
           </Card>
         </motion.div>
 
-        {/* Engagement Score */}
+        {/* Engagement heatmap — sessions per day, last 8 weeks (Tier 4 restyle) */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
           <Card className="h-full flex flex-col">
             <div className="px-5 py-4 border-b" style={{ borderColor: '#F1F5F9' }}>
-              <h2 className="text-base font-black" style={{ color: '#0F1B3D' }}>Engagement Score</h2>
-              <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>Per-session engagement breakdown</p>
+              <h2 className="text-base font-black" style={{ color: '#0F1B3D' }}>Engagement</h2>
+              <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>Sessions per day · darker = more</p>
             </div>
-            {loading ? <Spinner /> : data?.engagementTrend.length === 0 ? (
-              <Empty icon="📈" text="Run quiz sessions to see engagement trends" />
-            ) : (
-              <>
-                <div className="px-3 py-3 flex-1">
-                  <ResponsiveContainer width="100%" height={160}>
-                    <BarChart data={data?.engagementTrend} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                      <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#94A3B8' }} tickLine={false} axisLine={false} />
-                      <YAxis domain={[50, 105]} tick={{ fontSize: 9, fill: '#94A3B8' }} tickLine={false} axisLine={false} tickFormatter={v => `${v}%`} />
-                      <Tooltip content={<ChartTooltip />} />
-                      <Bar dataKey="completionPct" fill="#0F1B3D" radius={[3, 3, 0, 0]} maxBarSize={20} />
-                      <Bar dataKey="confidencePct" fill="#F59E0B" radius={[3, 3, 0, 0]} maxBarSize={20} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="flex items-center justify-center gap-4 pb-2">
-                  <span className="flex items-center gap-1.5 text-[10px] font-semibold" style={{ color: '#94A3B8' }}>
-                    <span className="inline-block w-3 h-3 rounded-sm" style={{ background: '#0F1B3D' }} /> Completion %
-                  </span>
-                  <span className="flex items-center gap-1.5 text-[10px] font-semibold" style={{ color: '#94A3B8' }}>
-                    <span className="inline-block w-3 h-3 rounded-sm" style={{ background: '#F59E0B' }} /> Confidence %
-                  </span>
-                </div>
-                <div className="px-5 pb-4 grid grid-cols-3 gap-2 border-t pt-3" style={{ borderColor: '#F1F5F9' }}>
-                  {[
-                    { label: 'Avg Completion', value: data?.engagementTrend.length ? `${Math.round(data.engagementTrend.reduce((s, e) => s + e.completionPct, 0) / data.engagementTrend.length)}%` : '—', color: '#0F1B3D' },
-                    { label: 'Avg Confidence', value: (() => { const vals = data?.engagementTrend.filter(e => e.confidencePct != null) ?? []; return vals.length ? `${Math.round(vals.reduce((s, e) => s + (e.confidencePct ?? 0), 0) / vals.length)}%` : '—' })(), color: '#F59E0B' },
-                    { label: 'Sessions', value: data?.engagementTrend.length ?? 0, color: '#7C3AED' },
-                  ].map(stat => (
-                    <div key={stat.label} className="text-center">
-                      <p className="text-base font-black" style={{ color: stat.color, fontFamily: 'var(--font-heading)' }}>{stat.value}</p>
-                      <p className="text-[9px] font-semibold" style={{ color: '#94A3B8' }}>{stat.label}</p>
+            {loading ? <Spinner /> : (data?.trend?.length ?? 0) === 0 ? (
+              <Empty icon="📈" text="Run quiz sessions to see engagement" />
+            ) : (() => {
+              // Build 7 × 8 grid (Mon-Sun × last 8 weeks) from daily trend data
+              const byDate: Record<string, number> = {}
+              data?.trend?.forEach(t => {
+                const key = (typeof t.date === 'string' ? t.date : new Date(t.date).toISOString()).slice(0, 10)
+                byDate[key] = (byDate[key] ?? 0) + (t.sessions ?? 0)
+              })
+              const today = new Date()
+              today.setHours(0, 0, 0, 0)
+              // dayOfWeek: 0 = Monday, 6 = Sunday
+              const dayOfWeek = (today.getDay() + 6) % 7
+              const weeksToShow = 8
+              const startDate = new Date(today)
+              startDate.setDate(startDate.getDate() - dayOfWeek - (weeksToShow - 1) * 7)
+              const cells: { key: string; count: number; future: boolean; label: string }[] = []
+              for (let w = 0; w < weeksToShow; w++) {
+                for (let d = 0; d < 7; d++) {
+                  const cd = new Date(startDate)
+                  cd.setDate(cd.getDate() + w * 7 + d)
+                  const key = cd.toISOString().slice(0, 10)
+                  cells.push({
+                    key,
+                    count: byDate[key] ?? 0,
+                    future: cd > today,
+                    label: `${cd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · ${byDate[key] ?? 0} session${(byDate[key] ?? 0) === 1 ? '' : 's'}`,
+                  })
+                }
+              }
+              const heatColor = (c: number, future: boolean) => {
+                if (future) return 'transparent'
+                if (c === 0) return 'var(--color-paper-2)'
+                if (c === 1) return '#BEC8E9'
+                if (c <= 3) return '#547BCE'
+                if (c <= 5) return '#193B95'
+                return '#0F1B3D'
+              }
+              return (
+                <div className="px-5 py-4 flex-1 flex flex-col">
+                  <div className="grid grid-cols-7 gap-1.5 mb-3">
+                    {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+                      <div key={i} className="text-[10px] font-semibold text-center" style={{ color: 'var(--color-text-muted)' }}>{d}</div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1.5 flex-1">
+                    {cells.map(c => (
+                      <div
+                        key={c.key}
+                        className="heat-cell"
+                        title={c.future ? '' : c.label}
+                        style={{ background: heatColor(c.count, c.future), border: c.future ? '1px dashed var(--color-line)' : 'none' }}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] mt-4" style={{ color: 'var(--color-text-muted)' }}>
+                    <span>less</span>
+                    <div className="flex gap-0.5">
+                      <div className="w-3 h-3 rounded-sm" style={{ background: 'var(--color-paper-2)' }} />
+                      <div className="w-3 h-3 rounded-sm" style={{ background: '#BEC8E9' }} />
+                      <div className="w-3 h-3 rounded-sm" style={{ background: '#547BCE' }} />
+                      <div className="w-3 h-3 rounded-sm" style={{ background: '#193B95' }} />
+                      <div className="w-3 h-3 rounded-sm" style={{ background: '#0F1B3D' }} />
                     </div>
-                  ))}
+                    <span>more</span>
+                  </div>
                 </div>
-              </>
-            )}
+              )
+            })()}
           </Card>
         </motion.div>
       </div>
@@ -807,6 +841,7 @@ export default function HostDashboard() {
 
       {/* Quiz vs Slides comparison modal */}
       <QuizVsSlidesModal open={compareOpen} onClose={() => setCompareOpen(false)} />
+    </div>
     </div>
   )
 }

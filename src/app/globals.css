@@ -350,6 +350,44 @@ h1, h2, h3, h4, h5, h6 {
 }
 .btn-icon:hover:not(:disabled) { color: var(--color-ink); border-color: var(--color-line); background: var(--color-paper); }
 
+/* ── Paper grain + dashboard surfaces (Tier 4 · dashboard restyle) ──
+   Subtle dot texture that gives host surfaces a warm, premium paper feel.
+   Apply on a container (NOT globally) so participant pages stay crisp. */
+.paper-grain {
+  background-image:
+    radial-gradient(rgba(15, 27, 61, 0.025) 1px, transparent 1px),
+    radial-gradient(rgba(15, 27, 61, 0.02) 1px, transparent 1px);
+  background-size: 3px 3px, 7px 7px;
+  background-position: 0 0, 1px 2px;
+}
+
+/* Engagement heatmap — day × week grid, blue scale. */
+.heat-cell {
+  aspect-ratio: 1;
+  border-radius: 5px;
+  min-width: 12px;
+}
+
+/* Rounded stat card with line border (matches mockup's .card) */
+.dash-card {
+  background: #fff;
+  border: 1px solid var(--color-line);
+  border-radius: 16px;
+}
+
+/* Mini horizontal bar (used in hardest-questions, Bloom) */
+.h-bar {
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--color-paper-2);
+  overflow: hidden;
+}
+.h-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 9999px;
+}
+
 /* ── Inspector collapsible sections (Tier 2) ────────────────────
    Native <details>/<summary> with styled chevron. Preserves all
    existing content — just adds a collapsible header. */
