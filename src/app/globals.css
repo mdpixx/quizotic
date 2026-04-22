@@ -355,10 +355,10 @@ h1, h2, h3, h4, h5, h6 {
    Apply on a container (NOT globally) so participant pages stay crisp. */
 .paper-grain {
   background-image:
-    radial-gradient(rgba(15, 27, 61, 0.025) 1px, transparent 1px),
-    radial-gradient(rgba(15, 27, 61, 0.02) 1px, transparent 1px);
-  background-size: 3px 3px, 7px 7px;
-  background-position: 0 0, 1px 2px;
+    radial-gradient(rgba(15, 27, 61, 0.05)  1px, transparent 1px),
+    radial-gradient(rgba(15, 27, 61, 0.035) 1px, transparent 1px);
+  background-size: 4px 4px, 9px 9px;
+  background-position: 0 0, 2px 3px;
 }
 
 /* Engagement heatmap — day × week grid, blue scale. */

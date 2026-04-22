@@ -401,11 +401,11 @@ export default function HostDashboard() {
         <ShareQuizotic context="dashboard" size="sm" />
       </div>
 
-      {/* ── Row 2: Session History + Top Participants ── */}
-      <div className="grid md:grid-cols-3 gap-5 mb-5">
+      {/* ── Row 2: Session History (full width — Top Participants moved to bottom) ── */}
+      <div className="mb-5">
 
-        {/* Session History — 2/3 */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="md:col-span-2">
+        {/* Session History — full width */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <Card>
             <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: '#F1F5F9' }}>
               <div>
@@ -465,41 +465,6 @@ export default function HostDashboard() {
           </Card>
         </motion.div>
 
-        {/* Top Participants — 1/3 */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-          <Card className="h-full flex flex-col">
-            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: '#F1F5F9' }}>
-              <div>
-                <h2 className="text-base font-black" style={{ color: '#0F1B3D' }}>Top Participants</h2>
-                <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>Tracked across all sessions by name</p>
-              </div>
-            </div>
-            {loading ? <Spinner /> : data?.topParticipants.length === 0 ? (
-              <Empty icon="👥" text="Participant data appears after quiz sessions" />
-            ) : (
-              <div className="px-4 py-3 space-y-3 flex-1">
-                {data?.topParticipants.map((p, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <AvatarCircle name={p.name} index={i} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold truncate" style={{ color: '#0F1B3D' }}>{p.name}</p>
-                      <p className="text-[10px]" style={{ color: '#9CA3AF' }}>
-                        {p.sessions} session{p.sessions !== 1 ? 's' : ''}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end gap-0.5">
-                      <Sparkline scores={p.scores} />
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-black" style={{ color: '#0F1B3D' }}>{p.avgScore.toLocaleString('en-IN')} pts</span>
-                        <ScoreChange change={p.scoreChange} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-        </motion.div>
       </div>
 
       {/* ── Row 3: Question Difficulty + Bloom's Coverage + Engagement Score ── */}
@@ -680,7 +645,7 @@ export default function HostDashboard() {
               const weeksToShow = 4
               const startDate = new Date(today)
               startDate.setDate(startDate.getDate() - dayOfWeek - (weeksToShow - 1) * 7)
-              const cells: { key: string; count: number; future: boolean; label: string }[] = []
+              const cells: { key: string; day: number; count: number; future: boolean; label: string }[] = []
               for (let w = 0; w < weeksToShow; w++) {
                 for (let d = 0; d < 7; d++) {
                   const cd = new Date(startDate)
@@ -688,6 +653,7 @@ export default function HostDashboard() {
                   const key = cd.toISOString().slice(0, 10)
                   cells.push({
                     key,
+                    day: cd.getDate(),
                     count: byDate[key] ?? 0,
                     future: cd > today,
                     label: `${cd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · ${byDate[key] ?? 0} session${(byDate[key] ?? 0) === 1 ? '' : 's'}`,
@@ -701,6 +667,12 @@ export default function HostDashboard() {
                 if (c <= 3) return '#547BCE'
                 if (c <= 5) return '#193B95'
                 return '#0F1B3D'
+              }
+              // Contrast-aware date-number color: dark-text on pale cells, light-text on dark cells
+              const dateTextColor = (c: number, future: boolean) => {
+                if (future) return 'transparent'
+                if (c <= 1) return 'rgba(15, 27, 61, 0.55)' // on paper-2 / pale blue
+                return 'rgba(255, 255, 255, 0.78)'          // on medium → dark blue
               }
               const startLabel = startDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
               const endLabel = today.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
@@ -716,10 +688,16 @@ export default function HostDashboard() {
                     {cells.map(c => (
                       <div
                         key={c.key}
-                        className="heat-cell"
+                        className="heat-cell flex items-center justify-center"
                         title={c.future ? '' : c.label}
                         style={{ background: heatColor(c.count, c.future), border: c.future ? '1px dashed var(--color-line)' : 'none' }}
-                      />
+                      >
+                        {!c.future && (
+                          <span className="text-[10px] font-semibold leading-none" style={{ color: dateTextColor(c.count, c.future) }}>
+                            {c.day}
+                          </span>
+                        )}
+                      </div>
                     ))}
                   </div>
                   <div className="text-[10px] mt-2 flex items-center justify-between" style={{ color: 'var(--color-text-muted)' }}>
@@ -815,20 +793,30 @@ export default function HostDashboard() {
                   <div className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>{percent}% · {interp}</div>
                 </div>
               )
+              // Explicit 3-col × 3-row grid. Each axis label is placed INTO the row
+              // it labels so it vertically centers via `items-center` on the grid.
+              const axisLabelStyle = { color: 'var(--color-text-muted)', whiteSpace: 'nowrap' as const }
               return (
-                <div className="p-4 flex-1 grid grid-cols-[auto_1fr_1fr] gap-2 items-stretch">
-                  <div className="flex flex-col justify-between text-[10px] pr-1 text-right font-semibold py-2" style={{ color: 'var(--color-text-muted)' }}>
-                    <div>Sure →</div>
-                    <div>Unsure →</div>
-                  </div>
+                <div
+                  className="p-4 flex-1 grid gap-2"
+                  style={{
+                    gridTemplateColumns: 'auto 1fr 1fr',
+                    gridTemplateRows: '1fr 1fr auto',
+                    alignItems: 'center',
+                  }}
+                >
+                  {/* Row 1: Sure */}
+                  <div className="text-[11px] pr-2 text-right font-semibold" style={axisLabelStyle}>Sure →</div>
                   <Cell label="SURE · CORRECT" value={grid.sureCorrect} percent={toPct(grid.sureCorrect)} interp="mastery" bg="#F0FDF4" border="#BBF7D0" color="#166534" />
                   <Cell label="SURE · WRONG" value={grid.sureWrong} percent={toPct(grid.sureWrong)} interp="re-teach" bg="#FEF2F2" border="#FECACA" color="#B91C1C" />
-                  <div />
+                  {/* Row 2: Unsure */}
+                  <div className="text-[11px] pr-2 text-right font-semibold" style={axisLabelStyle}>Unsure →</div>
                   <Cell label="UNSURE · CORRECT" value={grid.unsureCorrect} percent={toPct(grid.unsureCorrect)} interp="reinforce" bg="#EFF6FF" border="#BFDBFE" color="#1D4ED8" />
                   <Cell label="UNSURE · WRONG" value={grid.unsureWrong} percent={toPct(grid.unsureWrong)} interp="normal" bg="#FFF7ED" border="#FED7AA" color="#C2410C" />
+                  {/* Row 3: column footers */}
                   <div />
-                  <div className="text-[10px] text-center font-semibold" style={{ color: 'var(--color-text-muted)' }}>Correct</div>
-                  <div className="text-[10px] text-center font-semibold" style={{ color: 'var(--color-text-muted)' }}>Wrong</div>
+                  <div className="text-[10px] text-center font-semibold pt-1" style={{ color: 'var(--color-text-muted)' }}>Correct</div>
+                  <div className="text-[10px] text-center font-semibold pt-1" style={{ color: 'var(--color-text-muted)' }}>Wrong</div>
                 </div>
               )
             })()}
@@ -879,6 +867,102 @@ export default function HostDashboard() {
           </Card>
         </motion.div>
       </div>
+
+      {/* ── Row 6: Top participants — full-width table at the bottom (Tier 4.3) ── */}
+      {(data?.topParticipants?.length ?? 0) > 0 && (() => {
+        // Archetype derivation: prefer backend `archetype`, else derive from score + trend + variance
+        type Arch = { label: string; bg: string; color: string }
+        const deriveArchetype = (p: AnalyticsData['topParticipants'][number]): Arch => {
+          if (p.atRisk || p.avgScore < 50) return { label: 'At risk', bg: '#FEE2E2', color: '#B91C1C' }
+          if (p.avgScore >= 80 && (p.scoreChange == null || Math.abs(p.scoreChange) < 3)) return { label: 'Steady achiever', bg: '#DCFCE7', color: '#15803D' }
+          if (p.scoreChange != null && p.scoreChange > 5) return { label: 'Late bloomer', bg: '#EFF6FF', color: '#1D4ED8' }
+          if (p.scores.length >= 3) {
+            const avg = p.scores.reduce((a, b) => a + b, 0) / p.scores.length
+            const meanDev = p.scores.reduce((s, x) => s + Math.abs(x - avg), 0) / p.scores.length
+            const range = Math.max(...p.scores) - Math.min(...p.scores)
+            if (meanDev > 10 && range > 20) return { label: 'Wobbly', bg: '#FFF7ED', color: '#C2410C' }
+          }
+          return { label: 'Consistent', bg: 'var(--color-paper-2)', color: 'var(--color-text-muted)' }
+        }
+        const archetypeFromLabel = (label: string): Arch => {
+          const m = label.toLowerCase()
+          if (m.includes('risk')) return { label, bg: '#FEE2E2', color: '#B91C1C' }
+          if (m.includes('steady') || m.includes('achiev')) return { label, bg: '#DCFCE7', color: '#15803D' }
+          if (m.includes('late') || m.includes('bloom')) return { label, bg: '#EFF6FF', color: '#1D4ED8' }
+          if (m.includes('wobbl')) return { label, bg: '#FFF7ED', color: '#C2410C' }
+          return { label, bg: 'var(--color-paper-2)', color: 'var(--color-text-muted)' }
+        }
+        // avgScore is raw Kahoot-style points per participant — we can't chip-color it without a max,
+        // but we CAN tint the text by comparing against the cohort median to flag relative outliers.
+        const scores = (data?.topParticipants ?? []).map(p => p.avgScore).sort((a, b) => a - b)
+        const cohortMedian = scores.length > 0 ? scores[Math.floor(scores.length / 2)] : 0
+        const cohortScoreColor = (s: number) => {
+          if (cohortMedian === 0) return '#0F1B3D'
+          const ratio = s / cohortMedian
+          if (ratio >= 1.1) return '#15803D' // clearly above median
+          if (ratio <= 0.7) return '#B91C1C' // clearly below median
+          return '#0F1B3D'
+        }
+        return (
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.48 }} className="mb-6">
+            <Card>
+              <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: '#F1F5F9' }}>
+                <div>
+                  <h2 className="text-base font-black" style={{ color: '#0F1B3D' }}>Top participants</h2>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>Across the last {range} days · sparklines show per-session score</p>
+                </div>
+                <Link href="/host/participants" className="chip" style={{ background: 'var(--color-paper-2)', color: 'var(--color-text-muted)', textDecoration: 'none' }}>
+                  Full roster →
+                </Link>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-[13px]">
+                  <thead>
+                    <tr>
+                      <th className="text-left px-5 py-3 text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: 'var(--color-text-muted)' }}>Participant</th>
+                      <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: 'var(--color-text-muted)' }}>Archetype</th>
+                      <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: 'var(--color-text-muted)' }}>Sessions</th>
+                      <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: 'var(--color-text-muted)' }}>Avg score</th>
+                      <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: 'var(--color-text-muted)' }}>Trend</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data?.topParticipants.map((p, i) => {
+                      const arch = p.archetype ? archetypeFromLabel(p.archetype) : deriveArchetype(p)
+                      return (
+                        <tr key={`${p.name}-${i}`} className="border-t" style={{ borderColor: '#F1F5F9' }}>
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-3">
+                              <AvatarCircle name={p.name} index={i} />
+                              <span className="font-semibold" style={{ color: '#0F1B3D' }}>{p.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="chip" style={{ background: arch.bg, color: arch.color }}>{arch.label}</span>
+                          </td>
+                          <td className="px-4 py-3 font-semibold" style={{ color: 'var(--color-ink)' }}>{p.sessions}</td>
+                          <td className="px-4 py-3">
+                            <span className="font-bold" style={{ color: cohortScoreColor(p.avgScore) }}>
+                              {p.avgScore.toLocaleString('en-IN')}
+                              <span className="text-[10px] font-semibold ml-1" style={{ color: 'var(--color-text-muted)' }}>pts</span>
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <Sparkline scores={p.scores} />
+                              <ScoreChange change={p.scoreChange} />
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </motion.div>
+        )
+      })()}
 
       {/* ── Quick actions ── */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
