@@ -237,7 +237,7 @@ Your job: suggest interactive slides to INSERT between content slides to maximiz
 - Questions MUST reference specific concepts, terms, or examples from the slide content
 - Options in multiple_choice must be plausible — avoid obviously wrong answers
 - Keep questions concise (under 120 characters)
-- For multiple_choice: exactly 4 options, correctIndex 0-indexed
+- For multiple_choice: exactly 4 options, correctIndex 0-indexed. Vary correctIndex randomly across the deck — do NOT default to 0.
 
 ### BAD vs GOOD examples:
 - BAD: "What do you think about this topic?" (generic, could apply to any presentation)
@@ -587,6 +587,27 @@ export async function POST(req: NextRequest) {
 
     if (suggestions.length === 0) {
       return NextResponse.json({ success: false, error: 'AI could not generate valid suggestions. Please try again.' }, { status: 500 })
+    }
+
+    // Shuffle multiple_choice options so the correct answer is not always at index 0.
+    // Gemini shows a strong positional bias on MCQ generation; a server-side shuffle
+    // guarantees a uniform distribution regardless of the model's behaviour.
+    for (const s of suggestions) {
+      if (s.type !== 'multiple_choice') continue
+      const data = s.slideData
+      const opts = data.options
+      if (!Array.isArray(opts) || opts.length < 2) continue
+      const correctIdx = typeof data.correctIndex === 'number' ? data.correctIndex : -1
+      if (correctIdx < 0 || correctIdx >= opts.length) continue
+
+      const correctText = opts[correctIdx]
+      const shuffled = [...opts]
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+      }
+      data.options = shuffled
+      data.correctIndex = shuffled.indexOf(correctText)
     }
 
     // ─── Anti-mangling guard: detect suggestions where AI typo-ed a source word ──
