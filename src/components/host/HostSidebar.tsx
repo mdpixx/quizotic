@@ -1,28 +1,87 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, type ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Avatar } from '@/components/Avatar'
 
+// Lucide-style SVG icons — consistent 1.8 stroke, no emoji inside product
+const ICON = {
+  dashboard: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-[15px] h-[15px]">
+      <rect x="3" y="3" width="7" height="7" rx="1.2"/>
+      <rect x="14" y="3" width="7" height="7" rx="1.2"/>
+      <rect x="14" y="14" width="7" height="7" rx="1.2"/>
+      <rect x="3" y="14" width="7" height="7" rx="1.2"/>
+    </svg>
+  ),
+  quizzes: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-[15px] h-[15px]">
+      <path d="M9 11H5a2 2 0 0 0-2 2v7h14v-7a2 2 0 0 0-2-2h-4"/>
+      <path d="M9 11V6a3 3 0 0 1 6 0v5"/>
+    </svg>
+  ),
+  presentations: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-[15px] h-[15px]">
+      <rect x="2" y="3" width="20" height="14" rx="2"/>
+      <path d="M8 21h8M12 17v4"/>
+    </svg>
+  ),
+  sessions: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-[15px] h-[15px]">
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+      <path d="M22 4 12 14.01l-3-3"/>
+    </svg>
+  ),
+  participants: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-[15px] h-[15px]">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+      <circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+  ),
+  reports: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-[15px] h-[15px]">
+      <path d="M3 3v18h18"/>
+      <path d="M7 12l4-4 4 4 5-5"/>
+    </svg>
+  ),
+  plan: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-[15px] h-[15px]">
+      <rect x="2" y="5" width="20" height="14" rx="2"/>
+      <path d="M2 10h20"/>
+    </svg>
+  ),
+  join: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-[15px] h-[15px]">
+      <rect x="2" y="6" width="20" height="12" rx="2"/>
+      <path d="M6 12h4M8 10v4M15 13h.01M18 11h.01"/>
+    </svg>
+  ),
+  admin: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-[15px] h-[15px]">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+    </svg>
+  ),
+}
+
 interface NavItem {
   label: string
   href: string
-  icon: string
+  icon: ReactNode
   exact?: boolean
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard', href: '/host', icon: '📊', exact: true },
-  { label: 'Sessions', href: '/host/sessions', icon: '⚡' },
-  { label: 'My Quizzes', href: '/host/quizzes', icon: '🧠' },
-  { label: 'Presentations', href: '/host/presentations', icon: '📽' },
-  { label: 'Participants', href: '/host/participants', icon: '👥' },
+  { label: 'Dashboard', href: '/host', icon: ICON.dashboard, exact: true },
+  { label: 'My Quizzes', href: '/host/quizzes', icon: ICON.quizzes },
+  { label: 'Presentations', href: '/host/presentations', icon: ICON.presentations },
+  { label: 'Sessions', href: '/host/sessions', icon: ICON.sessions },
+  { label: 'Participants', href: '/host/participants', icon: ICON.participants },
+  { label: 'Reports', href: '/host/sessions', icon: ICON.reports },
 ]
-
-const SLIDES_GRADIENT = 'linear-gradient(135deg, #0EA5E9, #06B6D4)'
 
 function NavLink({ item, onClick }: { item: NavItem; onClick?: () => void }) {
   const pathname = usePathname()
@@ -32,17 +91,24 @@ function NavLink({ item, onClick }: { item: NavItem; onClick?: () => void }) {
     <Link
       href={item.href}
       onClick={onClick}
-      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all group"
+      className="relative flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all"
       style={{
-        background: active ? 'rgba(245,230,66,0.15)' : 'transparent',
-        color: active ? '#F5E642' : 'rgba(255,255,255,0.6)',
+        background: active ? 'rgba(255,255,255,0.08)' : 'transparent',
+        color: active ? '#fff' : 'rgba(255,255,255,0.65)',
       }}
     >
-      <span className="text-base leading-none">{item.icon}</span>
-      <span>{item.label}</span>
+      {/* Yellow vertical indicator bar (mockup signature) */}
       {active && (
-        <div className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: '#F5E642' }} />
+        <span
+          aria-hidden
+          className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm"
+          style={{ background: '#F5E642' }}
+        />
       )}
+      <span style={{ color: active ? '#F5E642' : 'rgba(255,255,255,0.6)', display: 'inline-flex' }}>
+        {item.icon}
+      </span>
+      <span>{item.label}</span>
     </Link>
   )
 }
@@ -136,35 +202,35 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
         ))}
 
         <div className="pt-3 mt-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
-          <p className="px-3 pb-1 text-[10px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
+          <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: 'rgba(255,255,255,0.3)' }}>
             Tools
           </p>
           <Link
             href="/host/billing"
             onClick={onNavClick}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all"
-            style={{ color: 'rgba(255,255,255,0.6)' }}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all hover:bg-white/[0.04]"
+            style={{ color: 'rgba(255,255,255,0.65)' }}
           >
-            <span className="text-base leading-none">💳</span>
+            <span style={{ color: 'rgba(255,255,255,0.6)', display: 'inline-flex' }}>{ICON.plan}</span>
             <span>Plan</span>
           </Link>
           <Link
             href="/join"
             onClick={onNavClick}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all"
-            style={{ color: 'rgba(255,255,255,0.6)' }}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all hover:bg-white/[0.04]"
+            style={{ color: 'rgba(255,255,255,0.65)' }}
           >
-            <span className="text-base leading-none">🎮</span>
+            <span style={{ color: 'rgba(255,255,255,0.6)', display: 'inline-flex' }}>{ICON.join}</span>
             <span>Join a Game</span>
           </Link>
           {isAdmin && (
             <Link
               href="/host/admin"
               onClick={onNavClick}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all mt-1"
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all mt-1"
               style={{ color: '#F5E642', background: 'rgba(245,230,66,0.1)' }}
             >
-              <span className="text-base leading-none">🛡️</span>
+              <span style={{ color: '#F5E642', display: 'inline-flex' }}>{ICON.admin}</span>
               <span>Admin Panel</span>
               <span className="ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-full" style={{ background: '#F5E642', color: '#0D0D0D' }}>
                 ADMIN

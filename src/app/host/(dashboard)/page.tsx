@@ -272,7 +272,7 @@ export default function HostDashboard() {
     <div className="paper-grain" style={{ background: 'var(--color-paper)', minHeight: '100%' }}>
     <div className="p-6 md:p-8" style={{ maxWidth: 1280, margin: '0 auto' }}>
 
-      {/* ── Header — "Welcome back" + range selector ── */}
+      {/* ── Header — "Welcome back" + search + Create quiz ── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
           <h1 className="text-[28px] font-black leading-tight" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
@@ -280,14 +280,25 @@ export default function HostDashboard() {
           </h1>
           <p className="text-sm mt-1" style={{ color: '#9CA3AF' }}>A calm look at your sessions, participants, and learning outcomes.</p>
         </div>
-        <div className="flex gap-1.5 flex-shrink-0">
-          {([30, 90, 365] as const).map(d => (
-            <button key={d} onClick={() => setRange(d)}
-              className="text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
-              style={{ background: range === d ? '#0F1B3D' : '#fff', color: range === d ? '#fff' : '#0F1B3D', border: range === d ? 'none' : '1px solid var(--color-line)' }}>
-              {d === 365 ? '1 Year' : `${d}d`}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="relative hidden md:block">
+            <input
+              placeholder="Search quizzes, sessions…"
+              className="h-10 pl-9 pr-4 text-[13px] rounded-[10px] w-[260px] outline-none focus:ring-2 focus:ring-yellow-200"
+              style={{ background: '#fff', border: '1px solid var(--color-line)', color: 'var(--color-ink)' }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  const v = (e.target as HTMLInputElement).value.trim()
+                  if (v) window.location.href = `/host/sessions?q=${encodeURIComponent(v)}`
+                }
+              }}
+            />
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="absolute top-[13px] left-3" style={{ color: 'var(--color-text-muted)' }}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          </div>
+          <Link href="/host/create" className="btn-primary" style={{ textDecoration: 'none' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
+            Create quiz
+          </Link>
         </div>
       </div>
 
@@ -487,17 +498,6 @@ export default function HostDashboard() {
                 ))}
               </div>
             )}
-            {/* At-risk alert */}
-            {atRiskParticipants.length > 0 && (
-              <div className="mx-4 mb-4 px-3 py-2.5 rounded-xl" style={{ background: '#FFF7ED', border: '1px solid #FED7AA' }}>
-                <p className="text-xs font-bold mb-0.5" style={{ color: '#C2410C' }}>
-                  ⚠ {atRiskParticipants.length} participant{atRiskParticipants.length > 1 ? 's' : ''} scored very low in their last 2 sessions
-                </p>
-                <p className="text-[10px]" style={{ color: '#EA580C' }}>
-                  {atRiskParticipants.map(p => p.name).join(', ')} — may need follow-up
-                </p>
-              </div>
-            )}
           </Card>
         </motion.div>
       </div>
@@ -505,41 +505,51 @@ export default function HostDashboard() {
       {/* ── Row 3: Question Difficulty + Bloom's Coverage + Engagement Score ── */}
       <div className="grid md:grid-cols-3 gap-5 mb-5">
 
-        {/* Question Difficulty */}
+        {/* Hardest questions — sorted ascending by correct %, chip + bar (Tier 4.1 restyle) */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <Card className="h-full flex flex-col">
             <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: '#F1F5F9' }}>
               <div>
-                <h2 className="text-base font-black" style={{ color: '#0F1B3D' }}>Question Difficulty</h2>
-                <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>% of participants who got each question correct</p>
+                <h2 className="text-base font-black" style={{ color: '#0F1B3D' }}>Hardest questions</h2>
+                <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>Correct % · sorted ascending{data?.recentQuestionDifficulty ? ` · ${data.recentQuestionDifficulty.sessionTitle}` : ''}</p>
               </div>
-              {data?.recentQuestionDifficulty && (
-                <span className="text-[10px] font-bold px-2 py-1 rounded-lg truncate max-w-[100px]" style={{ background: '#F3F4F6', color: '#0F1B3D' }}>
-                  {data.recentQuestionDifficulty.sessionTitle}
-                </span>
-              )}
             </div>
             {loading ? <Spinner /> : !data?.recentQuestionDifficulty ? (
               <Empty icon="📊" text="Run a quiz session to see question difficulty analysis" />
             ) : (
-              <div className="px-5 py-4 flex-1 space-y-2">
-                {data.recentQuestionDifficulty.questions.slice(0, 7).map((q) => (
-                  <div key={q.index}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[11px] font-medium truncate max-w-[160px]" style={{ color: '#0F1B3D' }}>
-                        Q{q.index + 1} — {q.text.slice(0, 20)}{q.text.length > 20 ? '…' : ''}
-                      </span>
-                      <span className="text-[11px] font-black" style={{ color: diffColor(q.correctPct) }}>{Math.round(q.correctPct)}%</span>
-                    </div>
-                    <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: '#F1F5F9' }}>
-                      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${q.correctPct}%`, background: diffColor(q.correctPct) }} />
-                    </div>
-                  </div>
-                ))}
+              <div className="px-5 py-4 flex-1 space-y-3">
+                {[...data.recentQuestionDifficulty.questions]
+                  .sort((a, b) => a.correctPct - b.correctPct)
+                  .slice(0, 5)
+                  .map((q) => {
+                    const pct = Math.round(q.correctPct)
+                    const chipBg = pct < 50 ? '#FEE2E2' : pct < 65 ? '#FEF3C7' : '#DCFCE7'
+                    const chipColor = pct < 50 ? '#B91C1C' : pct < 65 ? '#A16207' : '#15803D'
+                    return (
+                      <div key={q.index}>
+                        <div className="flex items-start justify-between gap-3 mb-1.5">
+                          <div className="flex items-start gap-2 min-w-0 flex-1">
+                            <span className="chip flex-shrink-0" style={{ background: chipBg, color: chipColor }}>{pct}%</span>
+                            <span className="text-[13px] font-medium leading-snug" style={{ color: '#0F1B3D' }}>
+                              {q.text.length > 90 ? q.text.slice(0, 88) + '…' : q.text}
+                            </span>
+                          </div>
+                          {q.bloomsLevel && (
+                            <span className="text-[10px] font-semibold flex-shrink-0 capitalize" style={{ color: 'var(--color-text-muted)' }}>
+                              {q.bloomsLevel}
+                            </span>
+                          )}
+                        </div>
+                        <div className="h-bar">
+                          <span style={{ width: `${q.correctPct}%`, background: diffColor(q.correctPct) }} />
+                        </div>
+                      </div>
+                    )
+                  })}
                 {hardQuestions.length > 0 && (
                   <div className="mt-3 px-3 py-2 rounded-xl" style={{ background: '#FEF2F2', border: '1px solid #FECACA' }}>
                     <p className="text-[11px] font-bold" style={{ color: '#DC2626' }}>
-                      🔴 Q{hardQuestions.map(q => q.index + 1).join(', Q')} need{hardQuestions.length === 1 ? 's' : ''} re-teaching — below 50% accuracy
+                      Q{hardQuestions.map(q => q.index + 1).join(', Q')} need{hardQuestions.length === 1 ? 's' : ''} re-teaching — below 50% accuracy
                     </p>
                   </div>
                 )}
@@ -657,7 +667,7 @@ export default function HostDashboard() {
             {loading ? <Spinner /> : (data?.trend?.length ?? 0) === 0 ? (
               <Empty icon="📈" text="Run quiz sessions to see engagement" />
             ) : (() => {
-              // Build 7 × 8 grid (Mon-Sun × last 8 weeks) from daily trend data
+              // Build 7 × 4 grid (Mon-Sun × last 4 weeks) from daily trend data
               const byDate: Record<string, number> = {}
               data?.trend?.forEach(t => {
                 const key = (typeof t.date === 'string' ? t.date : new Date(t.date).toISOString()).slice(0, 10)
@@ -667,7 +677,7 @@ export default function HostDashboard() {
               today.setHours(0, 0, 0, 0)
               // dayOfWeek: 0 = Monday, 6 = Sunday
               const dayOfWeek = (today.getDay() + 6) % 7
-              const weeksToShow = 8
+              const weeksToShow = 4
               const startDate = new Date(today)
               startDate.setDate(startDate.getDate() - dayOfWeek - (weeksToShow - 1) * 7)
               const cells: { key: string; count: number; future: boolean; label: string }[] = []
@@ -692,14 +702,17 @@ export default function HostDashboard() {
                 if (c <= 5) return '#193B95'
                 return '#0F1B3D'
               }
+              const startLabel = startDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+              const endLabel = today.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+              const totalSessions = cells.reduce((s, c) => s + c.count, 0)
               return (
                 <div className="px-5 py-4 flex-1 flex flex-col">
-                  <div className="grid grid-cols-7 gap-1.5 mb-3">
+                  <div className="grid grid-cols-7 gap-1.5 mb-2">
                     {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
-                      <div key={i} className="text-[10px] font-semibold text-center" style={{ color: 'var(--color-text-muted)' }}>{d}</div>
+                      <div key={i} className="text-[10px] font-bold text-center" style={{ color: 'var(--color-text-muted)' }}>{d}</div>
                     ))}
                   </div>
-                  <div className="grid grid-cols-7 gap-1.5 flex-1">
+                  <div className="grid grid-cols-7 gap-1.5">
                     {cells.map(c => (
                       <div
                         key={c.key}
@@ -709,7 +722,12 @@ export default function HostDashboard() {
                       />
                     ))}
                   </div>
-                  <div className="flex items-center gap-2 text-[10px] mt-4" style={{ color: 'var(--color-text-muted)' }}>
+                  <div className="text-[10px] mt-2 flex items-center justify-between" style={{ color: 'var(--color-text-muted)' }}>
+                    <span>{startLabel}</span>
+                    <span style={{ color: 'var(--color-ink)', fontWeight: 600 }}>{totalSessions} session{totalSessions === 1 ? '' : 's'} · 4 weeks</span>
+                    <span>{endLabel}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] mt-3" style={{ color: 'var(--color-text-muted)' }}>
                     <span>less</span>
                     <div className="flex gap-0.5">
                       <div className="w-3 h-3 rounded-sm" style={{ background: 'var(--color-paper-2)' }} />
@@ -727,13 +745,24 @@ export default function HostDashboard() {
         </motion.div>
       </div>
 
-      {/* ── Row 4: Performance Trend + Confidence Grid ── */}
-      <div className="grid md:grid-cols-3 gap-5 mb-6">
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="md:col-span-2">
+      {/* ── Row 4: Performance Trend (full width) ── */}
+      <div className="mb-5">
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
           <Card>
-            <div className="px-5 py-4 border-b" style={{ borderColor: '#F1F5F9' }}>
-              <h2 className="text-base font-black" style={{ color: '#0F1B3D' }}>Performance Trend</h2>
-              <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>Avg score &amp; participants over time</p>
+            <div className="px-5 py-4 border-b flex items-center justify-between gap-3 flex-wrap" style={{ borderColor: '#F1F5F9' }}>
+              <div>
+                <h2 className="text-base font-black" style={{ color: '#0F1B3D' }}>Performance Trend</h2>
+                <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>Avg score &amp; participants over time</p>
+              </div>
+              <div className="flex gap-1 flex-shrink-0">
+                {([30, 90, 365] as const).map(d => (
+                  <button key={d} onClick={() => setRange(d)}
+                    className="text-[11px] font-bold px-2.5 py-1 rounded-md transition-all"
+                    style={{ background: range === d ? '#0F1B3D' : 'transparent', color: range === d ? '#fff' : '#64748B', border: range === d ? 'none' : '1px solid var(--color-line)' }}>
+                    {d === 365 ? '1Y' : `${d}d`}
+                  </button>
+                ))}
+              </div>
             </div>
             {loading ? <Spinner /> : data?.trend.length === 0 ? <Empty icon="📈" text="Run sessions to see trend" /> : (
               <div className="px-4 py-4">
@@ -759,46 +788,92 @@ export default function HostDashboard() {
             )}
           </Card>
         </motion.div>
+      </div>
 
-        {/* Confidence Grid */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+      {/* ── Row 5: Confidence grid + At-risk learners ── */}
+      <div className="grid md:grid-cols-3 gap-5 mb-6">
+
+        {/* Confidence Grid — 2×2 with axis labels + interpretations (Tier 4.1 restyle) */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="md:col-span-2">
           <Card className="h-full flex flex-col">
-            <div className="px-5 py-4 border-b" style={{ borderColor: '#F1F5F9' }}>
-              <h2 className="text-base font-black" style={{ color: '#0F1B3D' }}>Confidence Grid</h2>
-              <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>Aggregated across all sessions</p>
+            <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: '#F1F5F9' }}>
+              <div>
+                <h2 className="text-base font-black" style={{ color: '#0F1B3D' }}>Confidence grid</h2>
+                <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>How sure were they about their answers?</p>
+              </div>
+              <span className="chip" style={{ background: '#FAF5FF', color: 'var(--color-accent-violet)' }}>Signature metric</span>
             </div>
             {(grid.sureCorrect + grid.sureWrong + grid.unsureCorrect + grid.unsureWrong) === 0 ? (
               <Empty icon="🧠" text="Confidence data appears after quiz sessions" />
+            ) : (() => {
+              const total = grid.sureCorrect + grid.sureWrong + grid.unsureCorrect + grid.unsureWrong
+              const toPct = (n: number) => total > 0 ? Math.round((n / total) * 100) : 0
+              const Cell = ({ label, value, percent, interp, bg, border, color }: { label: string; value: number; percent: number; interp: string; bg: string; border: string; color: string }) => (
+                <div className="rounded-xl p-3" style={{ background: bg, border: `1px solid ${border}` }}>
+                  <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color }}>{label}</div>
+                  <div className="text-[24px] font-black leading-tight mt-1" style={{ color, fontFamily: 'var(--font-heading)' }}>{value}</div>
+                  <div className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>{percent}% · {interp}</div>
+                </div>
+              )
+              return (
+                <div className="p-4 flex-1 grid grid-cols-[auto_1fr_1fr] gap-2 items-stretch">
+                  <div className="flex flex-col justify-between text-[10px] pr-1 text-right font-semibold py-2" style={{ color: 'var(--color-text-muted)' }}>
+                    <div>Sure →</div>
+                    <div>Unsure →</div>
+                  </div>
+                  <Cell label="SURE · CORRECT" value={grid.sureCorrect} percent={toPct(grid.sureCorrect)} interp="mastery" bg="#F0FDF4" border="#BBF7D0" color="#166534" />
+                  <Cell label="SURE · WRONG" value={grid.sureWrong} percent={toPct(grid.sureWrong)} interp="re-teach" bg="#FEF2F2" border="#FECACA" color="#B91C1C" />
+                  <div />
+                  <Cell label="UNSURE · CORRECT" value={grid.unsureCorrect} percent={toPct(grid.unsureCorrect)} interp="reinforce" bg="#EFF6FF" border="#BFDBFE" color="#1D4ED8" />
+                  <Cell label="UNSURE · WRONG" value={grid.unsureWrong} percent={toPct(grid.unsureWrong)} interp="normal" bg="#FFF7ED" border="#FED7AA" color="#C2410C" />
+                  <div />
+                  <div className="text-[10px] text-center font-semibold" style={{ color: 'var(--color-text-muted)' }}>Correct</div>
+                  <div className="text-[10px] text-center font-semibold" style={{ color: 'var(--color-text-muted)' }}>Wrong</div>
+                </div>
+              )
+            })()}
+          </Card>
+        </motion.div>
+
+        {/* At-risk learners — standalone card (Tier 4.1) */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
+          <Card className="h-full flex flex-col">
+            <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: '#F1F5F9' }}>
+              <div>
+                <h2 className="text-base font-black" style={{ color: '#0F1B3D' }}>At-risk learners</h2>
+                <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>Flagged across recent sessions</p>
+              </div>
+              {atRiskParticipants.length > 0 && (
+                <span className="chip" style={{ background: '#FEE2E2', color: '#B91C1C' }}>
+                  {atRiskParticipants.length} flagged
+                </span>
+              )}
+            </div>
+            {atRiskParticipants.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 px-4 text-center flex-1">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center mb-2" style={{ background: '#DCFCE7' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                </div>
+                <p className="text-xs font-medium" style={{ color: '#94A3B8' }}>No one at risk — everyone&apos;s keeping up.</p>
+              </div>
             ) : (
-              <div className="p-4 flex-1">
-                <div className="grid grid-cols-2 gap-1 mb-1 text-center">
-                  <p className="text-[10px] font-bold uppercase" style={{ color: '#64748B' }}>Correct</p>
-                  <p className="text-[10px] font-bold uppercase" style={{ color: '#64748B' }}>Wrong</p>
-                </div>
-                <p className="text-[10px] font-bold uppercase mb-1" style={{ color: '#64748B' }}>Sure</p>
-                <div className="grid grid-cols-2 gap-1 mb-1">
-                  {[
-                    { val: grid.sureCorrect, bg: '#DCFCE7', color: '#16A34A', tip: 'Solid knowledge' },
-                    { val: grid.sureWrong, bg: '#FEF3C7', color: '#D97706', tip: 'Dangerous misconception' },
-                  ].map((cell, i) => (
-                    <div key={i} className="flex flex-col items-center justify-center rounded-xl py-3" style={{ background: cell.bg }}>
-                      <span className="text-xl font-black" style={{ color: cell.color }}>{cell.val}</span>
-                      <span className="text-[9px] font-semibold mt-0.5" style={{ color: cell.color }}>{cell.tip}</span>
+              <div className="p-3 space-y-2 flex-1">
+                {atRiskParticipants.slice(0, 4).map((p, i) => (
+                  <div key={p.name + i} className="flex items-start gap-3 p-2 rounded-[10px]" style={{ background: 'var(--color-paper)' }}>
+                    <AvatarCircle name={p.name} index={i} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-bold truncate" style={{ color: '#0F1B3D' }}>{p.name}</div>
+                      <div className="text-[11px]" style={{ color: '#C2410C' }}>
+                        Avg {Math.round(p.avgScore)}% across {p.sessions} session{p.sessions === 1 ? '' : 's'} · may need follow-up
+                      </div>
                     </div>
-                  ))}
-                </div>
-                <p className="text-[10px] font-bold uppercase mb-1" style={{ color: '#64748B' }}>Unsure</p>
-                <div className="grid grid-cols-2 gap-1">
-                  {[
-                    { val: grid.unsureCorrect, bg: '#F0FDF4', color: '#4ADE80', tip: 'Lucky guess' },
-                    { val: grid.unsureWrong, bg: '#F8FAFC', color: '#94A3B8', tip: 'Aware of gaps' },
-                  ].map((cell, i) => (
-                    <div key={i} className="flex flex-col items-center justify-center rounded-xl py-3" style={{ background: cell.bg }}>
-                      <span className="text-xl font-black" style={{ color: cell.color }}>{cell.val}</span>
-                      <span className="text-[9px] font-semibold mt-0.5" style={{ color: cell.color }}>{cell.tip}</span>
-                    </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
+                {atRiskParticipants.length > 4 && (
+                  <p className="text-[11px] text-center pt-1" style={{ color: 'var(--color-text-muted)' }}>
+                    +{atRiskParticipants.length - 4} more
+                  </p>
+                )}
               </div>
             )}
           </Card>
