@@ -39,6 +39,11 @@ export interface QuizTheme {
   surfaceMutedText: string
   // Border color for surfaces.
   surfaceBorder: string
+  // Solid background color for individual slides (applied as slide.bgColor when
+  // the user switches themes). Must be a solid hex so SlideBgPicker + the live
+  // stage render consistently. Themes can share this with `surface` when that
+  // is already a solid hex.
+  slideBg: string
   // Accent color for CTAs (Start Quiz, Next Question).
   accent: string
   accentText: string
@@ -61,6 +66,7 @@ export const QUIZ_THEMES: Record<QuizThemeId, QuizTheme> = {
     surfaceText: '#0F1B3D',
     surfaceMutedText: '#64748B',
     surfaceBorder: '#E5E7EB',
+    slideBg: '#FAFAF8',
     accent: '#F5E642',
     accentText: '#0D0D0D',
     swatch: ['#F8F9FA', '#0F1B3D', '#F5E642', '#FFFFFF'],
@@ -77,6 +83,7 @@ export const QUIZ_THEMES: Record<QuizThemeId, QuizTheme> = {
     surfaceText: '#0B3D2E',
     surfaceMutedText: '#15803D',
     surfaceBorder: 'rgba(255,255,255,0.2)',
+    slideBg: '#0B3D2E',
     accent: '#F5E642',
     accentText: '#0B3D2E',
     swatch: ['#0B3D2E', '#F5E642', '#FFFFFF', '#B8D8C7'],
@@ -93,6 +100,7 @@ export const QUIZ_THEMES: Record<QuizThemeId, QuizTheme> = {
     surfaceText: '#0F1B3D',
     surfaceMutedText: '#475569',
     surfaceBorder: 'rgba(255,255,255,0.15)',
+    slideBg: '#0F1B3D',
     accent: '#F5E642',
     accentText: '#050A1F',
     swatch: ['#0F1B3D', '#F5E642', '#1E2B6B', '#FFFFFF'],
@@ -109,6 +117,7 @@ export const QUIZ_THEMES: Record<QuizThemeId, QuizTheme> = {
     surfaceText: '#78350F',
     surfaceMutedText: '#92400E',
     surfaceBorder: '#FDBA74',
+    slideBg: '#FFF7ED',
     accent: '#DC2626',
     accentText: '#FFFFFF',
     swatch: ['#FFE9C7', '#FF8A47', '#DC2626', '#78350F'],
@@ -125,6 +134,7 @@ export const QUIZ_THEMES: Record<QuizThemeId, QuizTheme> = {
     surfaceText: '#14532D',
     surfaceMutedText: '#15803D',
     surfaceBorder: '#86EFAC',
+    slideBg: '#F0FDF4',
     accent: '#16A34A',
     accentText: '#FFFFFF',
     swatch: ['#ECFCCB', '#86EFAC', '#16A34A', '#14532D'],
@@ -141,6 +151,7 @@ export const QUIZ_THEMES: Record<QuizThemeId, QuizTheme> = {
     surfaceText: '#1E1B4B',
     surfaceMutedText: '#6D28D9',
     surfaceBorder: '#7C3AED',
+    slideBg: '#1E1B4B',
     accent: '#EC4899',
     accentText: '#FFFFFF',
     swatch: ['#1E1B4B', '#EC4899', '#F0ABFC', '#7C3AED'],
@@ -157,6 +168,7 @@ export const QUIZ_THEMES: Record<QuizThemeId, QuizTheme> = {
     surfaceText: '#3F3F46',
     surfaceMutedText: '#71717A',
     surfaceBorder: '#D4D4D8',
+    slideBg: '#FEFCF3',
     accent: '#0F1B3D',
     accentText: '#F5E642',
     swatch: ['#FEFCF3', '#3F3F46', '#F5E642', '#D4D4D8'],
@@ -173,6 +185,7 @@ export const QUIZ_THEMES: Record<QuizThemeId, QuizTheme> = {
     surfaceText: '#083344',
     surfaceMutedText: '#155E75',
     surfaceBorder: '#67E8F9',
+    slideBg: '#ECFEFF',
     accent: '#0F1B3D',
     accentText: '#67E8F9',
     swatch: ['#CFFAFE', '#67E8F9', '#0891B2', '#083344'],
@@ -189,6 +202,7 @@ export const QUIZ_THEMES: Record<QuizThemeId, QuizTheme> = {
     surfaceText: '#4C1D95',
     surfaceMutedText: '#6B21A8',
     surfaceBorder: '#C084FC',
+    slideBg: '#FAF5FF',
     accent: '#DC2626',
     accentText: '#FFFFFF',
     swatch: ['#FEF3C7', '#FCA5A5', '#C084FC', '#4C1D95'],
@@ -205,6 +219,7 @@ export const QUIZ_THEMES: Record<QuizThemeId, QuizTheme> = {
     surfaceText: '#F8FAFC',
     surfaceMutedText: '#94A3B8',
     surfaceBorder: '#334155',
+    slideBg: '#0F172A',
     accent: '#F5E642',
     accentText: '#0F172A',
     swatch: ['#0F172A', '#1E293B', '#F5E642', '#F8FAFC'],

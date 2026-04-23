@@ -117,6 +117,7 @@ function buildWelcomeHtml(name: string | null): string {
         <a href="https://www.quizotic.live/host" style="display:inline-block;background:#F5E642;color:#0D0D0D;text-decoration:none;padding:17px 44px;border-radius:12px;font-size:16px;font-weight:900;border:2px solid #0D0D0D;letter-spacing:0.2px;">Create your first lesson →</a>
       </td></tr></table>
       <p style="margin:18px 0 0;font-size:12px;color:#94A3B8;text-align:center;">⏱ Takes under 2 minutes · AI can draft the questions for you</p>
+      <p style="margin:12px 0 0;font-size:13px;color:#475569;text-align:center;">Prefer a tour first? <a href="https://www.quizotic.live/welcome.html" style="color:#0F1B3D;font-weight:700;text-decoration:none;border-bottom:2px solid #F5E642;padding-bottom:1px;">Read the 2-minute quick-start guide →</a></p>
       </td></tr>
       <tr><td style="padding:24px 36px 8px;">
         <div style="background:#F8FAFC;border-left:3px solid #F5E642;border-radius:0 10px 10px 0;padding:14px 18px;">

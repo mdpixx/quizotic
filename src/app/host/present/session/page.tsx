@@ -9,6 +9,7 @@ import { SLIDE_TYPE_META, shouldAutoShowResults } from '@/lib/presentation-types
 import { getQuizTheme } from '@/lib/quiz-themes'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
 import { SlideImage } from '@/components/SlideImage'
+import { SlideImageFrame } from '@/components/SlideImageFrame'
 import { ANSWER_COLORS } from '@/lib/answer-colors'
 
 // Canonical Kahoot palette for answer/option rendering — shared with quiz
@@ -355,9 +356,10 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
 
       return (
         <div className="flex flex-col h-full gap-4">
-          <h2 className="text-3xl leading-snug flex-shrink-0" style={headingStyle}>
+          <h2 className="leading-snug flex-shrink-0 break-words" style={{ ...headingStyle, fontSize: 'clamp(20px, 3cqw, 40px)' }}>
             {typedSlide.question || <span className="opacity-30">Question text...</span>}
           </h2>
+          <SlideImageFrame url={slide.contentImageUrl} />
           <div className="flex-1 min-h-0 flex flex-col justify-end">
             <LiveVerticalBars
               options={options}
@@ -375,9 +377,10 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
     case 'open_text':
       return (
         <div className="flex flex-col h-full gap-4">
-          <h2 className="text-4xl leading-snug flex-shrink-0" style={headingStyle}>
+          <h2 className="leading-snug flex-shrink-0 break-words" style={{ ...headingStyle, fontSize: 'clamp(22px, 3.4cqw, 44px)' }}>
             {slide.question || <span className="opacity-30">Question text...</span>}
           </h2>
+          <SlideImageFrame url={slide.contentImageUrl} />
           <div className="flex-1 flex items-center justify-center">
             {showResults && aggregate.words && (
               <WordCloud words={aggregate.words} />
@@ -389,9 +392,10 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
     case 'word_cloud':
       return (
         <div className="flex flex-col h-full gap-4">
-          <h2 className="text-4xl leading-snug flex-shrink-0" style={headingStyle}>
+          <h2 className="leading-snug flex-shrink-0 break-words" style={{ ...headingStyle, fontSize: 'clamp(22px, 3.4cqw, 44px)' }}>
             {slide.question || <span className="opacity-30">Question text...</span>}
           </h2>
+          <SlideImageFrame url={slide.contentImageUrl} />
           <div className="flex-1 flex items-center justify-center">
             {showResults && aggregate.words && <WordCloud words={aggregate.words} />}
           </div>
@@ -401,9 +405,10 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
     case 'rating_scale':
       return (
         <div className="flex flex-col h-full gap-5">
-          <h2 className="text-4xl leading-snug flex-shrink-0" style={headingStyle}>
+          <h2 className="leading-snug flex-shrink-0 break-words" style={{ ...headingStyle, fontSize: 'clamp(22px, 3.4cqw, 44px)' }}>
             {slide.question || <span className="opacity-30">Question text...</span>}
           </h2>
+          <SlideImageFrame url={slide.contentImageUrl} />
           <div className="flex items-center justify-between text-xl font-semibold flex-shrink-0" style={{ color: '#9CA3AF' }}>
             <span>{slide.minLabel}</span>
             <span>{slide.maxLabel}</span>
@@ -424,9 +429,10 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
     case 'emoji_pulse':
       return (
         <div className="flex flex-col h-full gap-5">
-          <h2 className="text-4xl leading-snug flex-shrink-0" style={headingStyle}>
+          <h2 className="leading-snug flex-shrink-0 break-words" style={{ ...headingStyle, fontSize: 'clamp(22px, 3.4cqw, 44px)' }}>
             {slide.question || <span className="opacity-30">Prompt text...</span>}
           </h2>
+          <SlideImageFrame url={slide.contentImageUrl} />
           <div className="flex-1 flex items-center justify-center">
             {showResults && aggregate.emojis && (
               <div className="flex flex-wrap gap-8 justify-center">
@@ -447,9 +453,10 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
     case 'ranking':
       return (
         <div className="flex flex-col h-full gap-4">
-          <h2 className="text-4xl leading-snug flex-shrink-0" style={headingStyle}>
+          <h2 className="leading-snug flex-shrink-0 break-words" style={{ ...headingStyle, fontSize: 'clamp(22px, 3.4cqw, 44px)' }}>
             {slide.question || <span className="opacity-30">Question text...</span>}
           </h2>
+          <SlideImageFrame url={slide.contentImageUrl} />
           <div className="flex-1 flex flex-col justify-center">
             {showResults && aggregate.counts && (
               <div className="space-y-3">
@@ -466,9 +473,10 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
     case 'scale_100':
       return (
         <div className="flex flex-col h-full gap-5">
-          <h2 className="text-4xl leading-snug flex-shrink-0" style={headingStyle}>
+          <h2 className="leading-snug flex-shrink-0 break-words" style={{ ...headingStyle, fontSize: 'clamp(22px, 3.4cqw, 44px)' }}>
             {slide.question || <span className="opacity-30">Question text...</span>}
           </h2>
+          <SlideImageFrame url={slide.contentImageUrl} />
           <div className="flex items-center justify-between text-xl font-semibold flex-shrink-0" style={{ color: '#9CA3AF' }}>
             <span>0 · {slide.minLabel}</span>
             <span>{slide.maxLabel} · 100</span>
@@ -488,23 +496,25 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
 
     case 'title':
       return (
-        <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
-          <h1 className="text-5xl font-black leading-tight" style={{ ...headingStyle, color: slide.bgColor || '#0F1B3D' }}>
+        <div className="flex flex-col items-center justify-center h-full text-center gap-4 px-4" style={{ containerType: 'inline-size' }}>
+          <h1 className="font-black leading-tight break-words" style={{ ...headingStyle, color: slide.bgColor || '#0F1B3D', fontSize: 'clamp(28px, 6cqw, 80px)' }}>
             {slide.heading || 'Title'}
           </h1>
           {slide.subheading && (
-            <p className="text-2xl" style={{ color: (slide.bgColor || '#0F1B3D') + 'cc' }}>{slide.subheading}</p>
+            <p className="break-words" style={{ color: (slide.bgColor || '#0F1B3D') + 'cc', fontSize: 'clamp(16px, 2.6cqw, 32px)' }}>{slide.subheading}</p>
           )}
+          <SlideImageFrame url={slide.contentImageUrl} />
         </div>
       )
 
     case 'bullets':
       return (
-        <div className="space-y-4">
-          {slide.heading && <h2 className="text-2xl" style={headingStyle}>{slide.heading}</h2>}
-          <ul className="space-y-3">
+        <div className="flex flex-col h-full gap-4">
+          {slide.heading && <h2 className="text-3xl flex-shrink-0" style={headingStyle}>{slide.heading}</h2>}
+          <SlideImageFrame url={slide.contentImageUrl} />
+          <ul className="space-y-3 flex-1 min-h-0 overflow-y-auto">
             {slide.bullets.map((b, i) => (
-              <li key={i} className="flex items-start gap-3 text-lg" style={{ color: '#1A0A2E' }}>
+              <li key={i} className="flex items-start gap-3 text-xl" style={{ color: '#1A0A2E' }}>
                 <span className="mt-1.5 w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#0F1B3D' }} />
                 {b}
               </li>
@@ -515,13 +525,14 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
 
     case 'quote':
       return (
-        <div className="space-y-4 text-center">
-          <p className="text-[22px] leading-relaxed italic" style={{ color: '#1A0A2E' }}>
+        <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
+          <p className="text-[28px] leading-relaxed italic" style={{ color: '#1A0A2E' }}>
             &ldquo;{slide.quote}&rdquo;
           </p>
           {slide.attribution && (
-            <p className="text-sm font-semibold" style={{ color: '#0F1B3D' }}>{slide.attribution}</p>
+            <p className="text-base font-semibold" style={{ color: '#0F1B3D' }}>{slide.attribution}</p>
           )}
+          <SlideImageFrame url={slide.contentImageUrl} />
         </div>
       )
 
@@ -642,7 +653,7 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
       const colors = OPTION_HEX
       return (
         <div className="flex flex-col h-full gap-4">
-          <h2 className="text-3xl leading-snug flex-shrink-0" style={headingStyle}>
+          <h2 className="leading-snug flex-shrink-0 break-words" style={{ ...headingStyle, fontSize: 'clamp(20px, 3cqw, 40px)' }}>
             {slide.question || <span className="opacity-30">Question text...</span>}
           </h2>
           <div className="flex-1 min-h-0 grid gap-4" style={{ gridTemplateColumns: `repeat(${Math.max(options.length, 1)}, minmax(0, 1fr))` }}>
@@ -778,6 +789,7 @@ export default function PresentSessionPage() {
   const [socketConnected, setSocketConnected] = useState(false)
   const [showWave, setShowWave] = useState(false)
   const [showQR, setShowQR] = useState(false)
+  const [mirrorOn, setMirrorOn] = useState(false)
   const waveTriggeredRef = useRef(false)
   const endingRef = useRef(false)
   const [plan, setPlan] = useState<'free' | 'pro'>('free')
@@ -800,6 +812,22 @@ export default function PresentSessionPage() {
     fetch('/api/billing/status').then(r => r.json()).then(d => {
       if (d.plan === 'pro') setPlan('pro')
     }).catch(() => {})
+  }, [])
+
+  // Keyboard shortcuts — 'Q' toggles the focus-mode QR overlay, Esc closes it
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
+      if (e.key === 'q' || e.key === 'Q') {
+        e.preventDefault()
+        setShowQR(s => !s)
+      } else if (e.key === 'Escape') {
+        setShowQR(false)
+      }
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
   }, [])
 
   // Connect socket ONCE after presentation is loaded
@@ -1289,31 +1317,36 @@ export default function PresentSessionPage() {
           </button>
         </div>
 
-        {/* QR overlay (on-demand) */}
+        {/* QR Focus mode — full-screen scannable from the back of the room */}
         {showQR && (
-          <div className="absolute inset-0 z-40 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}
+          <div className="fixed inset-0 z-[60] flex items-center justify-center cursor-pointer"
+            style={{ background: 'rgba(15,23,42,0.96)' }}
             onClick={() => setShowQR(false)}>
-            <div className="rounded-3xl p-8 flex flex-col items-center gap-4 shadow-2xl"
-              style={{ background: '#fff' }}
+            <div className="flex flex-col items-center gap-6 px-8"
               onClick={e => e.stopPropagation()}>
-              <p className="text-lg font-bold" style={{ color: '#0F1B3D' }}>Scan to join</p>
-              <div className="rounded-2xl p-4" style={{ background: '#F8F7FF', border: '2px solid #E9E2FF' }}>
+              <p className="text-2xl font-bold uppercase tracking-[0.3em]" style={{ color: '#F5E642' }}>
+                Scan to join
+              </p>
+              <div className="rounded-3xl p-6 shadow-2xl" style={{ background: '#fff' }}>
                 <QRCode
                   value={`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')}/join?code=${gameCode}&mode=presenter`}
-                  size={220}
-                  bgColor="#F8F7FF"
+                  size={480}
+                  bgColor="#ffffff"
                   fgColor="#0F1B3D"
+                  level="M"
                 />
               </div>
-              <p className="text-3xl font-black tracking-[0.2em] font-mono" style={{ color: '#0F1B3D' }}>
-                {gameCode}
+              <div className="flex flex-col items-center gap-2">
+                <p className="text-2xl font-semibold" style={{ color: '#94A3B8' }}>
+                  or visit <span className="font-bold" style={{ color: '#fff' }}>quizotic.live/join</span>
+                </p>
+                <p className="text-[88px] font-black tabular-nums leading-none" style={{ color: '#F5E642', letterSpacing: '0.12em', fontFamily: 'var(--font-heading)' }}>
+                  {gameCode}
+                </p>
+              </div>
+              <p className="text-sm mt-4" style={{ color: '#64748B' }}>
+                Press <kbd className="px-2 py-0.5 rounded-md font-mono text-xs" style={{ background: '#334155', color: '#fff' }}>Q</kbd> or click anywhere to close
               </p>
-              <p className="text-sm" style={{ color: '#6B7280' }}>or visit <span className="font-bold">quizotic.live/join</span></p>
-              <button onClick={() => setShowQR(false)}
-                className="mt-2 px-6 py-2 rounded-xl text-sm font-bold"
-                style={{ background: '#F3F4F6', color: '#374151' }}>
-                Close
-              </button>
             </div>
           </div>
         )}
@@ -1364,7 +1397,8 @@ export default function PresentSessionPage() {
           </div>
 
           {/* Slide content */}
-          <div className="flex-1 flex flex-col max-w-5xl w-full mx-auto relative min-h-0">
+          <div className="flex-1 flex flex-col w-full mx-auto relative min-h-0"
+            style={{ maxWidth: 'min(1600px, 92vw)', containerType: 'inline-size' }}>
             {showIntro ? (
               <IntroSlide title={presentation?.title || 'Presentation'} gameCode={gameCode} />
             ) : (
@@ -1393,17 +1427,34 @@ export default function PresentSessionPage() {
       <div className="border-t flex items-center justify-between px-6 py-4 flex-shrink-0"
         style={{ borderColor: '#E5E7EB', background: '#F8F9FA' }}>
 
-        {/* Left: sound toggle */}
-        <button
-          onClick={() => setSoundOn(s => !s)}
-          className="flex items-center gap-2 px-5 py-3 rounded-xl text-base font-bold transition-all"
-          style={{
-            background: soundOn ? '#DCFCE7' : '#fff',
-            color: soundOn ? '#16A34A' : '#6B7280',
-            border: `1.5px solid ${soundOn ? '#86EFAC' : '#E5E7EB'}`,
-          }}>
-          {soundOn ? '🔊 Sound On' : '🔇 Sound Off'}
-        </button>
+        {/* Left: sound toggle + mirror toggle + Q shortcut hint */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSoundOn(s => !s)}
+            className="flex items-center gap-2 px-5 py-3 rounded-xl text-base font-bold transition-all"
+            style={{
+              background: soundOn ? '#DCFCE7' : '#fff',
+              color: soundOn ? '#16A34A' : '#6B7280',
+              border: `1.5px solid ${soundOn ? '#86EFAC' : '#E5E7EB'}`,
+            }}>
+            {soundOn ? '🔊 Sound On' : '🔇 Sound Off'}
+          </button>
+          <button
+            onClick={() => {
+              const next = !mirrorOn
+              setMirrorOn(next)
+              socketRef.current?.emit('toggle_mirror_to_participants', { gameCode, mirror: next })
+            }}
+            title={mirrorOn ? 'Participants see this slide on their phones' : 'Participants see a "waiting" screen on content slides (interactive slides always show input)'}
+            className="flex items-center gap-2 px-5 py-3 rounded-xl text-base font-bold transition-all"
+            style={{
+              background: mirrorOn ? '#DBEAFE' : '#fff',
+              color: mirrorOn ? '#1D4ED8' : '#6B7280',
+              border: `1.5px solid ${mirrorOn ? '#93C5FD' : '#E5E7EB'}`,
+            }}>
+            {mirrorOn ? '📱 Mirror On' : '📱 Mirror Off'}
+          </button>
+        </div>
 
         {/* Center: navigation */}
         <div className="flex items-center gap-3">

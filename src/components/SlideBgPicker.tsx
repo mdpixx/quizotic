@@ -74,6 +74,7 @@ export function SlideBgPicker({ slide, onChange }: SlideBgPickerProps) {
   )
   const [hsv, setHsv] = useState(initialHsv)
   const [hexInput, setHexInput] = useState('')
+  const [wheelExpanded, setWheelExpanded] = useState(false)
   const svgRef = useRef<SVGSVGElement | null>(null)
   const dragMode = useRef<'hue' | 'sv' | null>(null)
 
@@ -186,7 +187,7 @@ export function SlideBgPicker({ slide, onChange }: SlideBgPickerProps) {
         </button>
       </div>
 
-      <div className="hidden md:flex justify-center">
+      <div className={`${wheelExpanded ? 'flex' : 'hidden'} justify-center`}>
         <svg
           ref={svgRef}
           viewBox="-100 -100 200 200"
@@ -268,7 +269,7 @@ export function SlideBgPicker({ slide, onChange }: SlideBgPickerProps) {
         </svg>
       </div>
 
-      <div className="flex flex-wrap gap-1.5 justify-center">
+      <div className="flex flex-wrap gap-1.5 justify-center items-center">
         {PRESETS.map(color => {
           const isActive = slide.bgColor?.toUpperCase() === color.toUpperCase()
           return (
@@ -290,6 +291,19 @@ export function SlideBgPicker({ slide, onChange }: SlideBgPickerProps) {
             />
           )
         })}
+        <button
+          type="button"
+          onClick={() => setWheelExpanded(x => !x)}
+          title={wheelExpanded ? 'Hide color wheel' : 'Show custom color wheel'}
+          className="px-2 h-7 rounded-full text-[10px] font-bold transition-all"
+          style={{
+            background: wheelExpanded ? '#0F1B3D' : '#fff',
+            color: wheelExpanded ? '#F5E642' : '#64748B',
+            border: `1.5px solid ${wheelExpanded ? '#0F1B3D' : '#CBD5E1'}`,
+          }}
+        >
+          {wheelExpanded ? '▾ Custom' : '▸ Custom'}
+        </button>
       </div>
 
       <div className="flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: '#F8FAFC', border: '1.5px solid #E2E8F0' }}>

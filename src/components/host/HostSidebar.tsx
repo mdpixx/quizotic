@@ -65,6 +65,12 @@ const ICON = {
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
     </svg>
   ),
+  quickstart: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-[15px] h-[15px]">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+    </svg>
+  ),
 }
 
 interface NavItem {
@@ -205,6 +211,17 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
           <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: 'rgba(255,255,255,0.3)' }}>
             Tools
           </p>
+          <a
+            href="/welcome.html"
+            target="_blank"
+            rel="noopener"
+            onClick={onNavClick}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all hover:bg-white/[0.04]"
+            style={{ color: 'rgba(255,255,255,0.65)' }}
+          >
+            <span style={{ color: 'rgba(255,255,255,0.6)', display: 'inline-flex' }}>{ICON.quickstart}</span>
+            <span>Quick Start</span>
+          </a>
           <Link
             href="/host/billing"
             onClick={onNavClick}

@@ -603,9 +603,7 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
 
   const fullBleedSrc: string | undefined = (() => {
     const imageUrl = (slide as { imageUrl?: string }).imageUrl
-    const contentImageUrl = slide.contentImageUrl
     if (slide.type === 'image' && imageUrl) return imageUrl
-    if (contentImageUrl) return contentImageUrl
     return undefined
   })()
 
@@ -622,12 +620,6 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
   return (
     <div className={cardClassName} style={cardStyle}>
 
-      {/* Background image layer (skipped for full-bleed image slides to avoid
-          double-stacking) */}
-      {!fullBleedSrc && slide.backgroundImageUrl && (
-        <img src={slide.backgroundImageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
-      )}
-
       {/* Full-bleed image path — renders at the image's natural aspect so
           portrait PPTX pages (multi-paragraph FAQ layouts) never crop. The
           parent maxHeight caps the card so 1-page posters don't dominate. */}
@@ -638,7 +630,17 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
       {!fullBleedSrc && (
         <div className={`absolute inset-0 flex flex-col px-6${slide.type === 'title' ? ' justify-center items-center text-center gap-3' : ' py-5'}`}>
           {slide.type !== 'quote' && (
-            <p className={`font-bold leading-snug flex-shrink-0 line-clamp-3 break-words${slide.type === 'title' ? ' text-2xl' : ' text-xl text-left pr-24'}`} style={{ color: textColor, fontFamily: 'var(--font-heading)' }}>
+            <p
+              className={`font-bold flex-shrink-0 break-words${slide.type === 'title' ? ' text-center' : ' text-left pr-24'}`}
+              style={{
+                color: textColor,
+                fontFamily: 'var(--font-heading)',
+                fontSize: slide.type === 'title'
+                  ? 'clamp(16px, 4cqw, 32px)'
+                  : 'clamp(14px, 3.2cqw, 24px)',
+                lineHeight: 1.15,
+                containerType: 'inline-size',
+              } as React.CSSProperties}>
               {getQuestionText()}
             </p>
           )}
@@ -1362,16 +1364,6 @@ function SlideThumbnail({ slide, index, active, onClick }: {
             loading="lazy"
             fallbackText={(slide as { caption?: string }).caption || `Slide ${index + 1}`}
           />
-        ) : slide.backgroundImageUrl ? (
-          <>
-            <img src={slide.backgroundImageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-            {slide.contentImageUrl && (
-              <img src={slide.contentImageUrl} alt="" className="absolute inset-1.5 w-[calc(100%-12px)] h-[calc(100%-12px)] object-contain" loading="lazy" />
-            )}
-            <p className="relative text-[9px] font-bold text-center leading-tight line-clamp-2 px-1 py-0.5 rounded" style={{ color: '#0F1B3D', background: 'rgba(255,255,255,0.8)' }}>
-              {getLabel()}
-            </p>
-          </>
         ) : slide.contentImageUrl ? (
           <>
             <img src={slide.contentImageUrl} alt="" className="absolute inset-0 w-full h-full object-contain" loading="lazy" />
@@ -2645,60 +2637,6 @@ function PresentCreatePageInner() {
                   )}
                 </div>
 
-                {/* ── Background Image ── */}
-                <div className="border-t pt-4 space-y-2.5" style={{ borderColor: '#E2E8F0' }}>
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold" style={{ color: '#64748B' }}>Background image</label>
-                    {!activeSlide.backgroundImageUrl && (
-                      <label
-                        className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-all hover:scale-105"
-                        style={{ background: '#F3F4F6', color: '#64748B', border: '1.5px solid #E2E8F0' }}
-                      >
-                        <span className="text-sm font-bold">+</span>
-                        <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0]
-                            if (!file) return
-                            const form = new FormData()
-                            form.append('file', file)
-                            try {
-                              const res = await fetch('/api/upload-image', { method: 'POST', body: form })
-                              const data = await res.json()
-                              if (data.success) {
-                                updateSlide({ ...activeSlide, backgroundImageUrl: data.url } as Slide)
-                              } else {
-                                alert(data.error || 'Upload failed')
-                              }
-                            } catch { alert('Upload failed') }
-                            e.target.value = ''
-                          }}
-                        />
-                      </label>
-                    )}
-                  </div>
-                  {activeSlide.backgroundImageUrl ? (
-                    <div className="relative rounded-xl overflow-hidden" style={{ border: '1.5px solid #E2E8F0' }}>
-                      <img src={activeSlide.backgroundImageUrl} alt="Background" className="w-full h-24 object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const copy = { ...activeSlide }
-                          delete (copy as Record<string, unknown>).backgroundImageUrl
-                          updateSlide(copy as Slide)
-                        }}
-                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
-                        style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}
-                      >
-                        x
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center h-16 rounded-xl" style={{ background: '#F8FAFC', border: '1.5px dashed #CBD5E1' }}>
-                      <p className="text-[10px]" style={{ color: '#94A3B8' }}>No image added</p>
-                    </div>
-                  )}
-                </div>
-
                 {/* ── Visualization Text Color ── */}
                 <div className="border-t pt-4 space-y-2.5" style={{ borderColor: '#E2E8F0' }}>
                   <div className="flex items-center justify-between">
@@ -3060,7 +2998,20 @@ function PresentCreatePageInner() {
         open={themePickerOpen}
         onClose={() => setThemePickerOpen(false)}
         value={(presentation.theme as QuizThemeId) ?? undefined}
-        onChange={(id) => setPresentation(prev => ({ ...prev, theme: id }))}
+        onChange={(id) => setPresentation(prev => {
+          const prevTheme = getQuizTheme(prev.theme)
+          const nextTheme = getQuizTheme(id)
+          // Cascade theme's slideBg to any slide still sitting on the previous
+          // theme's default background. Slides with a user-picked custom color
+          // keep their color so theme changes never stomp deliberate choices.
+          const slides = prev.slides.map(s => {
+            const usingDefault = !s.bgColor
+              || s.bgColor === prevTheme.slideBg
+              || s.bgColor === '#FAFAF8'
+            return usingDefault ? ({ ...s, bgColor: nextTheme.slideBg }) : s
+          })
+          return { ...prev, theme: id, slides }
+        })}
       />
 
       {/* ── Incomplete-slides warning Modal (shown on Present) ── */}

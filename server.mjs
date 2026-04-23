@@ -810,6 +810,10 @@ app.prepare().then(async () => {
         hostPlan: null, // lazy-loaded on first participant join
         hostName: presenterHostName,
         startedAt: Date.now(),
+        // When false, content slides do not mirror to participant phones — they
+        // see a "Waiting for next question" screen. Interactive slides always
+        // show the input UI regardless of this flag.
+        mirrorToParticipants: false,
       })
 
       socket.join(`session:${gameCode}`)
@@ -836,6 +840,7 @@ app.prepare().then(async () => {
         total: session.presentationData.slides.length,
         slide: currentSlide,
         responseMode: currentSlide?.responseMode || 'instant',
+        mirrorToParticipants: !!session.mirrorToParticipants,
       })
       console.log(`[presenter] ${gameCode} → slide ${slideIndex}`)
     })
@@ -860,7 +865,19 @@ app.prepare().then(async () => {
         total: session.presentationData.slides.length,
         slide: currentSlide,
         responseMode: currentSlide?.responseMode || 'instant',
+        mirrorToParticipants: !!session.mirrorToParticipants,
       })
+    })
+
+    // Host toggles whether content slides mirror to participant phones.
+    // No schema validation because the payload is trivial — the authZ check
+    // below (hostSocketId) prevents abuse.
+    socket.on('toggle_mirror_to_participants', ({ gameCode, mirror } = {}) => {
+      if (typeof gameCode !== 'string') return
+      const session = sessions.get(gameCode)
+      if (!session || session.hostSocketId !== socket.id || session.type !== 'presenter') return
+      session.mirrorToParticipants = !!mirror
+      io.to(`session:${gameCode}`).emit('mirror_mode_changed', { mirrorToParticipants: session.mirrorToParticipants })
     })
 
     socket.on('submit_presenter_response', (rawPayload) => {

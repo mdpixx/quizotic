@@ -18,9 +18,16 @@ import type { Question as QuizQuestion, QuestionType } from '@/lib/quiz-types'
 import { SlideImage } from '@/components/SlideImage'
 import { ANSWER_COLORS, ANSWER_LETTERS } from '@/lib/answer-colors'
 
-function phaseForPresenterSlide(slideType: string | undefined): 'presenter-voting' | 'presenter-content' | 'presenter-lobby' {
+function phaseForPresenterSlide(
+  slideType: string | undefined,
+  mirrorOn: boolean,
+): 'presenter-voting' | 'presenter-content' | 'presenter-waiting' | 'presenter-lobby' {
+  // Interactive slides always wake the participant phone — they have an input.
   if (isInteractiveSlideType(slideType)) return 'presenter-voting'
-  if (isContentSlideType(slideType)) return 'presenter-content'
+  // Content slides mirror ONLY when the host has explicitly turned mirror on;
+  // otherwise participants sit on a passive "waiting" screen so they aren't
+  // pulled into their phones during lecture content.
+  if (isContentSlideType(slideType)) return mirrorOn ? 'presenter-content' : 'presenter-waiting'
   return 'presenter-lobby'
 }
 
@@ -32,6 +39,7 @@ const ReflectionMoment = dynamic(() => import('@/components/ReflectionMoment').t
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Phase = 'form' | 'connecting' | 'lobby' | 'question' | 'answered' | 'ended' | 'selfpaced' | 'selfpaced-done'
   | 'presenter-lobby' | 'presenter-content' | 'presenter-voting' | 'presenter-voted' | 'presenter-results'
+  | 'presenter-waiting'
 
 interface PresenterAggregateData {
   total: number
@@ -412,6 +420,11 @@ function JoinPageInner() {
   const presenterVotedRef = useRef(false)
   const [presenterResponseMode, setPresenterResponseMode] = useState<'instant' | 'on_click' | 'private'>('instant')
   const presenterResponseModeRef = useRef<'instant' | 'on_click' | 'private'>('instant')
+  // When the host has "Mirror to participants" OFF (default), content slides
+  // render a passive waiting screen on the participant device instead of
+  // mirroring the slide content. Interactive slides are unaffected.
+  const [mirrorToParticipants, setMirrorToParticipants] = useState(false)
+  const mirrorToParticipantsRef = useRef(false)
   const [quickFireLeft, setQuickFireLeft] = useState<number | null>(null)
   const quickFireTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [presenterAggregate, setPresenterAggregate] = useState<PresenterAggregateData>({ total: 0 })
@@ -823,7 +836,7 @@ function JoinPageInner() {
       setPhase('form')
     })
 
-    socket.on('presenter_slide_changed', ({ slideIndex, total, slide, responseMode }: { slideIndex: number; total: number; slide?: unknown; responseMode?: string }) => {
+    socket.on('presenter_slide_changed', ({ slideIndex, total, slide, responseMode, mirrorToParticipants: mirror }: { slideIndex: number; total: number; slide?: unknown; responseMode?: string; mirrorToParticipants?: boolean }) => {
       setPresenterSlideIndex(slideIndex)
       setPresenterTotalSlides(total)
       if (slide !== undefined) setPresenterCurrentSlide(slide)
@@ -839,11 +852,14 @@ function JoinPageInner() {
       const mode = (responseMode as 'instant' | 'on_click' | 'private') || 'instant'
       setPresenterResponseMode(mode)
       presenterResponseModeRef.current = mode
+      const mirrorFlag = !!mirror
+      setMirrorToParticipants(mirrorFlag)
+      mirrorToParticipantsRef.current = mirrorFlag
       // Clear any previous quickfire timer
       if (quickFireTimerRef.current) { clearInterval(quickFireTimerRef.current); quickFireTimerRef.current = null }
       setQuickFireLeft(null)
       const sType = (slide as Record<string, unknown>)?.type as string | undefined
-      setPhase(phaseForPresenterSlide(sType))
+      setPhase(phaseForPresenterSlide(sType, mirrorFlag))
       // Start quickfire countdown if applicable
       if (sType === 'quick_fire') {
         const dur = ((slide as Record<string, unknown>)?.durationSeconds as number) || 5
@@ -884,6 +900,19 @@ function JoinPageInner() {
 
     socket.on('presenter_ended', () => {
       setPhase('form')
+    })
+
+    // Host toggled "Mirror to participants" mid-slide. If we're currently on a
+    // content slide, flip between mirror and waiting; on interactive slides we
+    // ignore the signal because the input UI is unchanged.
+    socket.on('mirror_mode_changed', ({ mirrorToParticipants: mirror }: { mirrorToParticipants: boolean }) => {
+      const flag = !!mirror
+      setMirrorToParticipants(flag)
+      mirrorToParticipantsRef.current = flag
+      const sType = (presenterCurrentSlide as Record<string, unknown> | null)?.type as string | undefined
+      if (isContentSlideType(sType)) {
+        setPhase(flag ? 'presenter-content' : 'presenter-waiting')
+      }
     })
 
     return socket
@@ -989,7 +1018,7 @@ function JoinPageInner() {
         setPresenterAggregate({ total: 0 })
         setPresenterResponseMode((res.responseMode as 'instant' | 'on_click' | 'private') || 'instant')
         const slideType = res.currentSlide?.type
-        setPhase(phaseForPresenterSlide(slideType))
+        setPhase(phaseForPresenterSlide(slideType, mirrorToParticipantsRef.current))
       })
       return
     }
@@ -1052,7 +1081,7 @@ function JoinPageInner() {
         setPresenterResponseMode((res.responseMode as 'instant' | 'on_click' | 'private') || 'instant')
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const slideType = (res.currentSlide as any)?.type
-        setPhase(phaseForPresenterSlide(slideType))
+        setPhase(phaseForPresenterSlide(slideType, mirrorToParticipantsRef.current))
         return
       }
 

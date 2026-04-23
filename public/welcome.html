@@ -1,0 +1,1053 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Quizotic — Host Quick Start</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper:#FAF8F2; --paper-2:#F3EFE3; --ink:#0F1B3D; --ink-2:#1B2A5E;
+    --muted:#6B7794; --muted-2:#9CA3AF; --line:#E7E2D4;
+
+    --yellow:#F5E642; --yellow-edge:#D9CC27; --yellow-shadow:#B8AB1F; --yellow-soft:#FFF8BF; --yellow-ink:#6B5F00;
+    --teal:#0EA5A4; --teal-edge:#0B8988; --teal-shadow:#086F6F; --teal-soft:#CFF5EF; --teal-ink:#0B4E4E;
+    --violet:#7C3AED; --violet-edge:#6D28D9; --violet-shadow:#5B21B6; --violet-soft:#EDE3FD; --violet-ink:#4C1D95;
+
+    --blue:#2563EB; --blue-soft:#DCEAFD; --green:#16A34A; --green-soft:#DCFCE7; --green-edge:#86EFAC;
+    --coral:#E07A5F; --orange:#EA580C; --cyan:#0891B2; --magenta:#DB2777;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); font-family: 'DM Sans', system-ui, sans-serif; }
+  h1, h2, h3, .head { font-family: 'Space Grotesk', system-ui; letter-spacing: -0.01em; }
+  a { color: inherit; }
+  button { font-family: inherit; cursor: pointer; }
+
+  .paper-grain {
+    background-image:
+      radial-gradient(rgba(15,27,61,0.025) 1px, transparent 1px),
+      radial-gradient(rgba(15,27,61,0.02) 1px, transparent 1px);
+    background-size: 3px 3px, 7px 7px; background-position: 0 0, 1px 2px;
+  }
+
+  /* ──────── Deck shell ──────── */
+  .deck {
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; padding: 24px 24px 16px;
+    gap: 14px;
+  }
+  .stage {
+    width: 100%; max-width: 1280px; aspect-ratio: 16 / 9;
+    background: #fff; border-radius: 20px; border: 1px solid var(--line);
+    box-shadow: 0 20px 60px -30px rgba(15,27,61,0.22);
+    position: relative; overflow: hidden;
+  }
+  .slide {
+    position: absolute; inset: 0; padding: 34px 48px 28px;
+    display: none; flex-direction: column;
+    background: #fff;
+  }
+  .slide.active { display: flex; }
+
+  /* Slide header */
+  .slide-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .brandmark { display: inline-flex; align-items: center; gap: 8px; }
+  .brandmark .logo {
+    width: 26px; height: 26px; border-radius: 7px; background: var(--yellow);
+    color: var(--ink); font-weight: 800; font-size: 14px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: 'Space Grotesk';
+  }
+  /* Unified wordmark colour — no yellow "tic" on white anymore */
+  .brandmark .name {
+    font-family: 'Space Grotesk'; font-weight: 700; font-size: 16px; color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .slide-tag {
+    font-family: 'Space Grotesk'; font-weight: 600; font-size: 11px;
+    color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em;
+  }
+
+  /* Titles — emphasis via coloured underline, not background highlight */
+  h1.t {
+    font-size: 30px; font-weight: 700; color: var(--ink);
+    margin: 0 0 6px; line-height: 1.08;
+  }
+  h1.t i {
+    font-style: normal;
+    text-decoration: underline;
+    text-decoration-color: var(--yellow-edge);
+    text-decoration-thickness: 3px;
+    text-underline-offset: 5px;
+  }
+  h1.t.teal i { text-decoration-color: var(--teal-edge); }
+  p.sub {
+    font-size: 13.5px; color: var(--muted); margin: 0; line-height: 1.4; max-width: 880px;
+  }
+
+  /* Chips */
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: 'Space Grotesk'; font-weight: 600; font-size: 11px;
+    padding: 4px 10px; border-radius: 999px;
+    background: var(--paper-2); color: var(--ink); border: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  .chip-yellow { background: var(--yellow-soft); border-color: #F0DE58; }
+  .chip-teal   { background: var(--teal-soft); border-color: #77CEC6; color: var(--teal-ink); }
+  .chip-blue   { background: var(--blue-soft); border-color: #A9C8F7; color: #1D4ED8; }
+  .chip-green  { background: var(--green-soft); border-color: var(--green-edge); color: #15803D; }
+  .chip-violet { background: var(--violet-soft); border-color: #C4A8F3; color: var(--violet-ink); }
+  .chip-coral  { background: #FCE2D9; border-color: #EEBBA8; color: #B04428; }
+
+  /* ──────── Numbered circles ──────── */
+  .num-circle {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; border-radius: 999px;
+    font-family: 'Space Grotesk'; font-weight: 800; font-size: 20px;
+    flex-shrink: 0;
+  }
+  .num-circle.yellow { background: var(--yellow); color: var(--ink); border: 2px solid var(--yellow-edge); box-shadow: 0 2px 0 var(--yellow-shadow); }
+  .num-circle.teal   { background: var(--teal); color: #fff; border: 2px solid var(--teal-edge); box-shadow: 0 2px 0 var(--teal-shadow); }
+  .num-circle.violet { background: var(--violet); color: #fff; border: 2px solid var(--violet-edge); box-shadow: 0 2px 0 var(--violet-shadow); }
+
+  .num-circle.on-image {
+    width: 48px; height: 48px; font-size: 24px;
+    box-shadow: 0 0 0 5px #fff, 0 4px 14px -2px rgba(15,27,61,0.35);
+  }
+
+  /* ════════════════════════════════════════════════════════════
+     SLIDE 1 — Dashboard tour
+     ════════════════════════════════════════════════════════════ */
+  .tour-body {
+    flex: 1; display: grid; grid-template-columns: 1.45fr 1fr; gap: 22px;
+    min-height: 0; margin-top: 6px;
+  }
+  .dash {
+    position: relative;
+    display: grid; grid-template-columns: 190px 1fr; gap: 0;
+    background: var(--paper);
+    border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+    min-height: 0;
+  }
+  .dash .side { background: #0F1B3D; color: #fff; padding: 12px 10px; display: flex; flex-direction: column; gap: 7px; }
+  .dash .side .brand { display: flex; align-items: center; gap: 8px; padding: 4px 6px 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .dash .side .brand .logo { width: 22px; height: 22px; border-radius: 6px; background: var(--yellow); color: var(--ink); font-weight: 800; font-size: 12px; display: inline-flex; align-items: center; justify-content: center; font-family: 'Space Grotesk'; }
+  .dash .side .brand .name { font-family: 'Space Grotesk'; font-weight: 700; font-size: 13px; color: #fff; }
+  .dash .side .quick { display: flex; gap: 6px; padding: 4px 2px; position: relative; }
+  .dash .side .qbtn {
+    flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+    font-family: 'Space Grotesk'; font-weight: 700; font-size: 11px;
+    padding: 7px 8px; border-radius: 7px;
+    background: var(--yellow); color: var(--ink); border: 1px solid var(--yellow-edge);
+    box-shadow: 0 1px 0 var(--yellow-edge);
+  }
+  .dash .side .qbtn.teal { background: var(--teal); color: #fff; border-color: var(--teal-edge); box-shadow: 0 1px 0 var(--teal-edge); }
+  .dash .side .nav-label { font-family: 'Space Grotesk'; font-weight: 800; font-size: 8.5px; color: rgba(255,255,255,0.3); letter-spacing: 0.12em; padding: 4px 6px 2px; }
+  .dash .side .nav-item { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.65); }
+  .dash .side .nav-item.active { background: rgba(255,255,255,0.08); color: #fff; position: relative; }
+  .dash .side .nav-item.active::before { content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 2.5px; height: 12px; background: var(--yellow); border-radius: 0 2px 2px 0; }
+  .dash .side .nav-item .ico { width: 11px; height: 11px; color: rgba(255,255,255,0.55); }
+  .dash .side .nav-item.active .ico { color: var(--yellow); }
+  .dash .side .tools-divider { border-top: 1px solid rgba(255,255,255,0.08); margin-top: 4px; padding-top: 2px; }
+  .dash .main { padding: 14px 18px; display: flex; flex-direction: column; gap: 10px; background: #fff; min-height: 0; }
+  .dash .main .top { display: flex; align-items: center; justify-content: space-between; }
+  .dash .main .greet { font-family: 'Space Grotesk'; font-weight: 700; font-size: 15px; color: var(--ink); }
+  .dash .main .greet span { color: var(--yellow-edge); }
+  .dash .main .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .dash .main .stat { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+  .dash .main .stat .k { font-family: 'Space Grotesk'; font-size: 9px; font-weight: 700; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+  .dash .main .stat .v { font-family: 'Space Grotesk'; font-size: 20px; font-weight: 700; color: var(--ink); line-height: 1; margin-top: 2px; }
+  .dash .main .stat .d { font-size: 9px; color: var(--green); font-weight: 600; margin-top: 2px; }
+  .dash .main .matrix { flex: 1; border: 1px dashed #D8D3C2; border-radius: 12px; background: linear-gradient(180deg, #FFFEF7 0%, #FAF8EC 100%); display: flex; flex-direction: column; padding: 10px 12px; gap: 8px; min-height: 0; }
+  .dash .main .matrix .mh { display: flex; justify-content: space-between; align-items: center; }
+  .dash .main .matrix .mh .title { font-family: 'Space Grotesk'; font-weight: 700; font-size: 11px; color: var(--ink); }
+  .dash .main .matrix .mh .legend { display: flex; gap: 6px; font-size: 9px; color: var(--muted); }
+  .dash .main .matrix .grid { flex: 1; display: grid; grid-template-columns: repeat(12, 1fr); grid-template-rows: repeat(4, 1fr); gap: 3px; min-height: 40px; }
+  .dash .main .matrix .grid span { border-radius: 2px; background: #E8F3FF; }
+  .dash .main .matrix .grid span.hi { background: #1D4ED8; }
+  .dash .main .matrix .grid span.md { background: #60A5FA; }
+  .dash .main .matrix .grid span.lo { background: #C5DDFF; }
+  .dash .main .matrix .grid span.gp { background: #FFE4E0; }
+
+  .spot { position: absolute; z-index: 4; }
+  .spot.s1 { top: 44px; left: 22px; }
+  .spot.s2 { top: 44px; left: 100px; }
+  .spot.s3 { top: 228px; left: 22px; }
+
+  .tour-legend { display: flex; flex-direction: column; gap: 10px; justify-content: center; }
+  .tour-card {
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 14px 16px; border-radius: 14px;
+    border: 1.5px solid;
+    background: #fff;
+  }
+  .tour-card.yellow { border-color: var(--yellow-edge); background: linear-gradient(180deg, #FFFEF7 0%, var(--yellow-soft) 100%); }
+  .tour-card.teal   { border-color: var(--teal-edge); background: linear-gradient(180deg, #F4FCFB 0%, var(--teal-soft) 100%); }
+  .tour-card.violet { border-color: var(--violet-edge); background: linear-gradient(180deg, #FAF7FE 0%, var(--violet-soft) 100%); }
+  .tour-card h3 { font-family: 'Space Grotesk'; font-weight: 700; font-size: 17px; color: var(--ink); margin: 0 0 4px; line-height: 1.1; }
+  .tour-card p { font-size: 13px; color: var(--ink-2); line-height: 1.35; margin: 0; }
+  .tour-card p b { background: #fff; padding: 1px 5px; border: 1px solid var(--line); border-radius: 4px; font-family: 'Space Grotesk'; font-weight: 700; font-size: 11.5px; }
+
+  /* ════════════════════════════════════════════════════════════
+     SLIDES 2 & 3 — Process flow
+     ════════════════════════════════════════════════════════════ */
+  .flow {
+    display: grid; grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+    align-items: stretch; gap: 12px;
+    margin-top: 30px;
+  }
+  .flow-step {
+    background: #fff; border: 1.5px solid var(--line); border-radius: 14px;
+    padding: 32px 14px 16px; position: relative;
+    display: flex; flex-direction: column; gap: 8px;
+    min-height: 0;
+    /* overflow intentionally NOT hidden — number badge protrudes above card edge */
+  }
+  .flow-step.yellow { border-color: var(--yellow-edge); background: linear-gradient(180deg, #fff 0%, #FFFEF0 100%); }
+  .flow-step.teal   { border-color: var(--teal-edge); background: linear-gradient(180deg, #fff 0%, #F4FCFB 100%); }
+  .flow-step .num-circle {
+    position: absolute; top: -20px; left: 14px;
+  }
+  .flow-step .step-title {
+    font-family: 'Space Grotesk'; font-weight: 700; font-size: 15px; color: var(--ink);
+    margin-top: 4px; line-height: 1.15;
+  }
+  .flow-step .step-text {
+    font-size: 11.5px; color: var(--muted); line-height: 1.35; margin: 0;
+  }
+  .flow-step .step-visual {
+    flex: 1; background: #fff; border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px; display: flex; align-items: center; justify-content: center;
+    min-height: 110px; position: relative; overflow: hidden;
+  }
+
+  /* Chevron between steps */
+  .flow-arrow {
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 2px;
+  }
+  .flow-arrow svg { width: 28px; height: 28px; }
+  .flow-arrow path { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-width: 3; }
+  .flow-arrow.yellow path { stroke: var(--yellow-edge); }
+  .flow-arrow.teal path   { stroke: var(--teal-edge); }
+
+  /* Step visual variants */
+  .v-sidebar {
+    width: 100%; height: 100%;
+    background: #0F1B3D; border-radius: 8px; padding: 12px 10px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .v-sidebar .qpair { display: flex; gap: 5px; }
+  .v-sidebar .qbt {
+    flex: 1; font-family: 'Space Grotesk'; font-weight: 800; font-size: 11px;
+    padding: 7px 6px; border-radius: 6px; text-align: center;
+    background: #2b355c; color: rgba(255,255,255,0.5); border: 1px solid transparent;
+  }
+  .v-sidebar .qbt.active-y { background: var(--yellow); color: var(--ink); border-color: var(--yellow-edge); box-shadow: 0 0 0 3px rgba(245,230,66,0.3); }
+  .v-sidebar .qbt.active-t { background: var(--teal); color: #fff; border-color: var(--teal-edge); box-shadow: 0 0 0 3px rgba(14,165,164,0.3); }
+  .v-sidebar .item { display: flex; align-items: center; gap: 5px; height: 12px; padding: 0 5px; border-radius: 4px; }
+  .v-sidebar .item span { height: 5px; background: rgba(255,255,255,0.18); border-radius: 2px; }
+  .v-sidebar .item span.sh { width: 40%; }
+  .v-sidebar .item span.md { width: 60%; }
+  .v-sidebar .item span.lg { width: 72%; }
+
+  .v-modes {
+    width: 100%; height: 100%; display: grid;
+    grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr);
+    gap: 4px;
+  }
+  .v-modes .m {
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Space Grotesk'; font-weight: 700; font-size: 10px;
+    border-radius: 5px; padding: 4px 2px; text-align: center; line-height: 1.1;
+    border: 1px solid;
+  }
+  .v-modes .m.y { background: var(--yellow-soft); border-color: var(--yellow-edge); color: var(--ink); }
+  .v-modes .m.v { background: var(--violet-soft); border-color: #C4A8F3; color: var(--violet-ink); }
+  .v-modes .m.t { background: var(--teal-soft); border-color: var(--teal-edge); color: var(--teal-ink); }
+
+  .v-qcard { width: 100%; display: flex; flex-direction: column; gap: 5px; }
+  .v-qcard .q { font-family: 'Space Grotesk'; font-weight: 700; font-size: 11px; color: var(--ink); line-height: 1.2; }
+  .v-qcard .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+  .v-qcard .op {
+    border: 1px solid var(--line); border-radius: 5px; padding: 4px 5px;
+    font-size: 10px; color: var(--ink); background: #fff;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .v-qcard .op .dot { width: 9px; height: 9px; border: 1.3px solid var(--muted); border-radius: 2px; flex-shrink: 0; }
+  .v-qcard .op.k { background: var(--green-soft); border-color: var(--green); color: #15803D; }
+  .v-qcard .op.k .dot { background: var(--green); border-color: var(--green); position: relative; }
+  .v-qcard .op.k .dot::after { content: ''; position: absolute; left: 2px; top: 0px; width: 3px; height: 5px; border-right: 1.5px solid #fff; border-bottom: 1.5px solid #fff; transform: rotate(45deg); }
+  .v-qcard .meta { display: flex; gap: 3px; margin-top: 3px; }
+  .v-qcard .meta .b {
+    font-family: 'Space Grotesk'; font-weight: 700; font-size: 8.5px;
+    padding: 1.5px 5px; border-radius: 999px; background: var(--blue-soft); color: var(--blue); border: 1px solid #A9C8F7;
+  }
+  .v-qcard .meta .b.g { background: var(--green-soft); color: #15803D; border-color: var(--green-edge); }
+  .v-qcard .meta .b.y { background: var(--yellow-soft); color: var(--ink); border-color: var(--yellow-edge); }
+
+  .v-golive {
+    display: flex; flex-direction: column; align-items: center; gap: 7px;
+    padding: 4px;
+  }
+  .v-golive .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--ink); color: #fff; border-radius: 10px; padding: 8px 14px;
+    font-family: 'Space Grotesk'; font-weight: 700; font-size: 12px;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.25);
+  }
+  .v-golive .btn .play { width: 18px; height: 18px; border-radius: 999px; background: var(--yellow); color: var(--ink); display: inline-flex; align-items: center; justify-content: center; font-size: 9px; }
+  .v-golive .join { font-family: 'Space Grotesk'; font-weight: 700; font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .v-golive .code {
+    font-family: 'Space Grotesk'; font-weight: 800; font-size: 22px; color: var(--ink);
+    letter-spacing: 0.14em;
+    background: var(--yellow-soft); border: 1.5px dashed var(--yellow-edge); border-radius: 6px;
+    padding: 3px 12px;
+  }
+  .v-golive .code.teal { background: var(--teal-soft); border-color: var(--teal-edge); }
+
+  /* Blank canvas */
+  .v-canvas {
+    width: 100%; height: 100%;
+    border: 1.5px dashed #D8D3C2; border-radius: 6px;
+    background: repeating-linear-gradient(135deg, #fff, #fff 8px, #FAF8F2 8px, #FAF8F2 9px);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-family: 'Space Grotesk'; font-size: 10px; font-weight: 600;
+    padding: 8px; text-align: center;
+  }
+
+  /* .pptx tile */
+  .v-pptx {
+    width: 100%; height: 100%;
+    background: var(--teal-soft); border: 1.5px dashed var(--teal-edge); border-radius: 6px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    position: relative;
+  }
+  .v-pptx .tile {
+    width: 42px; height: 52px; background: #fff; border: 1px solid var(--teal-edge); border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Space Grotesk'; font-weight: 800; font-size: 10px; color: var(--coral);
+  }
+  .v-pptx .cap { font-size: 9px; color: var(--teal-ink); font-weight: 700; font-family: 'Space Grotesk'; }
+
+  /* ──── Interactivity-type strip ──── */
+  .types-strip {
+    margin-top: 16px;
+    background: var(--paper); border: 1px solid var(--line); border-radius: 12px;
+    padding: 10px 14px;
+  }
+  .types-strip .h4 {
+    font-family: 'Space Grotesk'; font-weight: 700; font-size: 10.5px; color: var(--ink);
+    text-transform: uppercase; letter-spacing: 0.1em; margin: 0 0 8px;
+  }
+  .types-strip .h4 span { font-weight: 500; color: var(--muted); text-transform: none; letter-spacing: 0; }
+  .types-grid {
+    display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px;
+  }
+  .types-grid.ten { grid-template-columns: repeat(10, 1fr); }
+  .type-tile {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    background: #fff; border: 1px solid var(--line); border-radius: 8px;
+    padding: 7px 4px 6px;
+  }
+  .type-tile .ico-wrap {
+    width: 22px; height: 22px; border-radius: 6px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .type-tile .ico-wrap svg { width: 14px; height: 14px; }
+  .type-tile .lbl {
+    font-family: 'Space Grotesk'; font-weight: 700; font-size: 10px;
+    color: var(--ink); text-align: center; line-height: 1.1;
+  }
+
+  /* ──── Quiz: creation-mode reference strip ──── */
+  .mode-ref {
+    margin-top: 10px;
+    background: var(--paper); border: 1px solid var(--line); border-radius: 12px;
+    padding: 10px 14px;
+  }
+  .mode-ref .h4 { font-family: 'Space Grotesk'; font-weight: 700; font-size: 10.5px; color: var(--ink); text-transform: uppercase; letter-spacing: 0.1em; margin: 0 0 6px; }
+  .mode-ref .h4 span { font-weight: 500; color: var(--muted); text-transform: none; letter-spacing: 0; }
+  .mode-ref .modes { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .mode-ref .m { display: flex; flex-direction: column; gap: 2px; padding: 2px 2px; }
+  .mode-ref .m .lbl { font-family: 'Space Grotesk'; font-weight: 700; font-size: 11px; color: var(--ink); display: inline-flex; align-items: center; gap: 5px; }
+  .mode-ref .m .lbl .tag { display: inline-block; width: 7px; height: 7px; border-radius: 999px; }
+  .mode-ref .m .lbl .tag.y { background: var(--yellow-edge); }
+  .mode-ref .m .lbl .tag.v { background: var(--violet); }
+  .mode-ref .m .lbl .tag.t { background: var(--teal); }
+  .mode-ref .m .desc { font-size: 10.5px; color: var(--muted); line-height: 1.35; }
+
+  /* ──── Slide 3 Manual vs PPT detail ──── */
+  .starts {
+    margin-top: 10px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  }
+  .start-card {
+    background: #fff; border: 1.5px solid; border-radius: 12px;
+    padding: 10px 14px 12px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .start-card.manual { border-color: var(--yellow-edge); background: linear-gradient(180deg, #fff 0%, #FFFEF0 100%); }
+  .start-card.ppt    { border-color: var(--teal-edge); background: linear-gradient(180deg, #fff 0%, #F4FCFB 100%); }
+  .start-card .sh { display: flex; align-items: center; gap: 10px; }
+  .start-card .tag {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 999px;
+    font-family: 'Space Grotesk'; font-weight: 800; font-size: 13px;
+  }
+  .start-card.manual .tag { background: var(--yellow); color: var(--ink); border: 1.5px solid var(--yellow-edge); }
+  .start-card.ppt .tag { background: var(--teal); color: #fff; border: 1.5px solid var(--teal-edge); }
+  .start-card h3 { font-family: 'Space Grotesk'; font-weight: 700; font-size: 14.5px; color: var(--ink); margin: 0; line-height: 1.1; }
+  .start-card h3 span { font-weight: 500; color: var(--muted); font-size: 11.5px; display: block; margin-top: 1px; }
+  .start-card .bullets { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 3px; }
+  .start-card .bullets li {
+    font-size: 11.5px; color: var(--ink-2); line-height: 1.35;
+    padding-left: 14px; position: relative;
+  }
+  .start-card .bullets li::before {
+    content: ''; position: absolute; left: 0; top: 5px;
+    width: 8px; height: 8px; border-radius: 2px;
+  }
+  .start-card.manual .bullets li::before { background: var(--yellow); border: 1px solid var(--yellow-edge); }
+  .start-card.ppt .bullets li::before { background: var(--teal); border: 1px solid var(--teal-edge); }
+  .start-card .bullets li b { color: var(--ink); font-weight: 700; }
+
+  /* ──── Feedback footer on slide 3 ──── */
+  .fb-strip {
+    margin-top: 12px;
+    display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center;
+    background: linear-gradient(90deg, #FFFEF0 0%, #F4FCFB 100%);
+    border: 1.5px solid var(--yellow-edge); border-radius: 14px;
+    padding: 10px 16px;
+  }
+  .fb-strip .fb-copy { display: flex; flex-direction: column; gap: 1px; }
+  .fb-strip .fb-title { font-family: 'Space Grotesk'; font-weight: 700; font-size: 14px; color: var(--ink); }
+  .fb-strip .fb-text { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+  .fb-strip .fb-text b { color: var(--ink); font-weight: 700; }
+  .fb-strip .fb-actions { display: flex; align-items: center; gap: 10px; }
+  .fb-strip .cta {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--yellow); color: var(--ink);
+    border: 1.5px solid var(--yellow-edge); border-radius: 10px;
+    padding: 9px 14px; font-family: 'Space Grotesk'; font-weight: 700; font-size: 13px;
+    box-shadow: 0 1px 0 var(--yellow-edge), 0 3px 0 var(--yellow-shadow);
+    text-decoration: none;
+  }
+  .fb-strip .cta:active { transform: translateY(2px); box-shadow: none; }
+  .fb-strip .cta .ring { width: 16px; height: 16px; border-radius: 999px; background: var(--ink); color: var(--yellow); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; }
+  .fb-strip .qr-mini {
+    width: 54px; height: 54px; background: #fff; border: 1px solid var(--line); border-radius: 6px;
+    padding: 3px; display: flex; align-items: center; justify-content: center; overflow: hidden;
+  }
+  .fb-strip .qr-mini svg, .fb-strip .qr-mini img { width: 100%; height: 100%; }
+
+  /* Capability chips strip (slide 1 footer) */
+  .cap-strip { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+
+  /* ──────── Controls ──────── */
+  .controls { display: flex; gap: 10px; align-items: center; width: 100%; max-width: 1280px; }
+  .controls .spacer { flex: 1; }
+  .nav-btn, .pdf-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    border-radius: 10px; padding: 8px 14px;
+    font-family: 'Space Grotesk'; font-weight: 700; font-size: 12px;
+    text-decoration: none; transition: transform 0.08s ease;
+  }
+  .nav-btn { background: #fff; border: 1px solid var(--line); color: var(--ink); }
+  .nav-btn:hover { background: var(--paper-2); }
+  .nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .pdf-btn {
+    background: var(--yellow); border: 1.5px solid var(--yellow-edge); color: var(--ink);
+    box-shadow: 0 1px 0 var(--yellow-edge), 0 2px 0 var(--yellow-shadow);
+  }
+  .pdf-btn:active { transform: translateY(2px); box-shadow: none; }
+  .counter { font-family: 'Space Grotesk'; font-weight: 700; color: var(--muted); font-size: 12px; padding: 0 6px; }
+
+  /* ──────── Print ──────── */
+  @media print {
+    @page { size: 1280px 720px; margin: 0; }
+    html, body { background: #fff !important; width: 1280px; }
+    .deck { padding: 0; min-height: 0; gap: 0; }
+    .controls { display: none !important; }
+    .stage {
+      max-width: none !important; width: 1280px !important;
+      aspect-ratio: auto !important; height: auto !important;
+      border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
+      overflow: visible !important;
+    }
+    .slide {
+      display: flex !important;
+      position: relative !important; inset: auto !important;
+      width: 1280px !important; height: 720px !important;
+      page-break-after: always; break-after: page;
+    }
+    .slide:last-of-type { page-break-after: auto; break-after: auto; }
+  }
+</style>
+</head>
+<body class="paper-grain">
+
+<main class="deck">
+  <div class="stage" id="stage">
+
+    <!-- ══════════════════ SLIDE 1 — DASHBOARD TOUR ══════════════════ -->
+    <section class="slide active" data-slide="1">
+      <div class="slide-head">
+        <div class="brandmark">
+          <span class="logo">Q</span>
+          <span class="name">Quizotic</span>
+        </div>
+        <div class="slide-tag">Host quick start · 1 of 3</div>
+      </div>
+
+      <h1 class="t">Welcome. <i>Here's what's where.</i></h1>
+      <p class="sub">Your dashboard is home base. Three places you'll use most — follow the numbers.</p>
+
+      <div class="tour-body">
+        <!-- Dashboard illustration -->
+        <div class="dash">
+          <div class="side">
+            <div class="brand">
+              <span class="logo">Q</span>
+              <span class="name">Quizotic</span>
+            </div>
+            <div class="quick">
+              <span class="qbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="9" height="9"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>Quiz</span>
+              <span class="qbtn teal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="9" height="9"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>Slides</span>
+            </div>
+            <div class="nav-label">Main</div>
+            <div class="nav-item active">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.2"/><rect x="14" y="3" width="7" height="7" rx="1.2"/><rect x="14" y="14" width="7" height="7" rx="1.2"/><rect x="3" y="14" width="7" height="7" rx="1.2"/></svg>
+              Dashboard
+            </div>
+            <div class="nav-item">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11H5a2 2 0 0 0-2 2v7h14v-7a2 2 0 0 0-2-2h-4"/><path d="M9 11V6a3 3 0 0 1 6 0v5"/></svg>
+              My Quizzes
+            </div>
+            <div class="nav-item">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+              Presentations
+            </div>
+            <div class="nav-item">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg>
+              Sessions
+            </div>
+            <div class="nav-item">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+              Participants
+            </div>
+            <div class="nav-item">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 12l4-4 4 4 5-5"/></svg>
+              Reports
+            </div>
+            <div class="tools-divider">
+              <div class="nav-label">Tools</div>
+              <div class="nav-item">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+                Plan
+              </div>
+              <div class="nav-item">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 13h.01M18 11h.01"/></svg>
+                Join a Game
+              </div>
+            </div>
+          </div>
+          <div class="main">
+            <div class="top">
+              <div class="greet">Hi there, <span>ready to go live?</span></div>
+              <span class="chip chip-yellow">Draft autosaving…</span>
+            </div>
+            <div class="stats">
+              <div class="stat"><div class="k">Sessions</div><div class="v">24</div><div class="d">▲ 8 this wk</div></div>
+              <div class="stat"><div class="k">Learners</div><div class="v">412</div><div class="d">▲ 37</div></div>
+              <div class="stat"><div class="k">Avg score</div><div class="v">72%</div><div class="d" style="color: var(--muted);">–</div></div>
+              <div class="stat"><div class="k">At risk</div><div class="v">18</div><div class="d" style="color: #B91C1C;">review</div></div>
+            </div>
+            <div class="matrix">
+              <div class="mh">
+                <div class="title">Engagement matrix · last 30 days</div>
+                <div class="legend"><span>■ high</span><span style="color: var(--blue);">■ mid</span><span style="color: var(--muted-2);">■ quiet</span></div>
+              </div>
+              <div class="grid" id="matrix-grid"></div>
+            </div>
+          </div>
+
+          <span class="spot s1"><span class="num-circle yellow on-image">1</span></span>
+          <span class="spot s2"><span class="num-circle teal on-image">2</span></span>
+          <span class="spot s3"><span class="num-circle violet on-image">3</span></span>
+        </div>
+
+        <div class="tour-legend">
+          <div class="tour-card yellow">
+            <span class="num-circle yellow">1</span>
+            <div>
+              <h3>Start a new quiz</h3>
+              <p>Click the yellow <b>+ Quiz</b> button. Scored questions with timer, points, and a live leaderboard.</p>
+            </div>
+          </div>
+          <div class="tour-card teal">
+            <span class="num-circle teal">2</span>
+            <div>
+              <h3>Start a slide deck</h3>
+              <p>Click the teal <b>+ Slides</b> button. Interactive presentations — polls and reactions, no scoring.</p>
+            </div>
+          </div>
+          <div class="tour-card violet">
+            <span class="num-circle violet">3</span>
+            <div>
+              <h3>See what worked</h3>
+              <p>Open <b>Reports</b> after any session — Bloom's coverage, confidence grid, and at-risk learners.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cap-strip">
+        <span class="chip chip-violet">✺ AI generation</span>
+        <span class="chip chip-blue">↗ CSV import</span>
+        <span class="chip chip-coral">▤ PowerPoint import</span>
+        <span class="chip chip-green">● Live polls &amp; word clouds</span>
+        <span class="chip chip-yellow">✦ Bloom's tagging</span>
+        <span class="chip chip-teal">◎ Insight reports</span>
+      </div>
+    </section>
+
+    <!-- ══════════════════ SLIDE 2 — QUIZ FLOW ══════════════════ -->
+    <section class="slide" data-slide="2">
+      <div class="slide-head">
+        <div class="brandmark">
+          <span class="logo">Q</span>
+          <span class="name">Quizotic</span>
+        </div>
+        <div class="slide-tag">Host quick start · 2 of 3</div>
+      </div>
+
+      <h1 class="t">Create a quiz — <i>4 steps.</i></h1>
+      <p class="sub">From sidebar click to going live. Six ways to draft questions; nine ways to ask them.</p>
+
+      <!-- Process flow -->
+      <div class="flow">
+        <div class="flow-step yellow">
+          <span class="num-circle yellow">1</span>
+          <div class="step-visual">
+            <div class="v-sidebar">
+              <div class="qpair">
+                <span class="qbt active-y">+ Quiz</span>
+                <span class="qbt">+ Slides</span>
+              </div>
+              <div class="item"><span class="md"></span></div>
+              <div class="item"><span class="lg"></span></div>
+              <div class="item"><span class="sh"></span></div>
+            </div>
+          </div>
+          <div class="step-title">Click + Quiz</div>
+          <p class="step-text">Yellow button at the top of the sidebar.</p>
+        </div>
+
+        <div class="flow-arrow yellow"><svg viewBox="0 0 28 28"><path d="M6 6 L18 14 L6 22"/></svg></div>
+
+        <div class="flow-step yellow">
+          <span class="num-circle yellow">2</span>
+          <div class="step-visual">
+            <div class="v-modes">
+              <div class="m y">Manual</div>
+              <div class="m v">AI · Topic</div>
+              <div class="m v">AI · URL</div>
+              <div class="m v">AI · Doc</div>
+              <div class="m t">CSV</div>
+              <div class="m t">Library</div>
+            </div>
+          </div>
+          <div class="step-title">Pick a creation mode</div>
+          <p class="step-text">Tabs at the top — switch freely, questions persist.</p>
+        </div>
+
+        <div class="flow-arrow yellow"><svg viewBox="0 0 28 28"><path d="M6 6 L18 14 L6 22"/></svg></div>
+
+        <div class="flow-step yellow">
+          <span class="num-circle yellow">3</span>
+          <div class="step-visual">
+            <div class="v-qcard">
+              <div class="q">Largest planet?</div>
+              <div class="opts">
+                <div class="op"><span class="dot"></span>Mars</div>
+                <div class="op k"><span class="dot"></span>Jupiter</div>
+                <div class="op"><span class="dot"></span>Saturn</div>
+                <div class="op"><span class="dot"></span>Neptune</div>
+              </div>
+              <div class="meta">
+                <span class="b">20s</span><span class="b g">1000 pt</span><span class="b y">Bloom</span>
+              </div>
+            </div>
+          </div>
+          <div class="step-title">Edit &amp; tag</div>
+          <p class="step-text">Mark the correct answer. Set timer, points, Bloom's level.</p>
+        </div>
+
+        <div class="flow-arrow yellow"><svg viewBox="0 0 28 28"><path d="M6 6 L18 14 L6 22"/></svg></div>
+
+        <div class="flow-step yellow">
+          <span class="num-circle yellow">4</span>
+          <div class="step-visual">
+            <div class="v-golive">
+              <span class="btn"><span class="play">▶</span>Go Live</span>
+              <div class="join">JOIN CODE</div>
+              <div class="code">483&nbsp;290</div>
+            </div>
+          </div>
+          <div class="step-title">Go Live</div>
+          <p class="step-text">Participants enter the code at quizotic.live/join.</p>
+        </div>
+      </div>
+
+      <!-- 9 question types (interactivity strip) -->
+      <div class="types-strip">
+        <div class="h4">9 question types · <span>how you can ask</span></div>
+        <div class="types-grid">
+          <div class="type-tile">
+            <span class="ico-wrap" style="background:#EFF6FF;">
+              <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="3" fill="#2563EB" fill-opacity="0.2" stroke="#2563EB" stroke-width="1.5"/><path d="M7 10l2.5 2.5L13 7.5" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="lbl">MCQ</span>
+          </div>
+          <div class="type-tile">
+            <span class="ico-wrap" style="background:#F0FDF4;">
+              <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.5" fill="#16A34A" fill-opacity="0.2" stroke="#16A34A" stroke-width="1.5"/><path d="M7 10l2 2 4-4" stroke="#16A34A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="lbl">True / False</span>
+          </div>
+          <div class="type-tile">
+            <span class="ico-wrap" style="background:#F3F4F6;">
+              <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="12" width="3.5" height="5" rx="1" fill="#0F1B3D" fill-opacity="0.8"/><rect x="8.25" y="8" width="3.5" height="9" rx="1" fill="#0F1B3D"/><rect x="13.5" y="5" width="3.5" height="12" rx="1" fill="#0F1B3D" fill-opacity="0.5"/></svg>
+            </span>
+            <span class="lbl">Poll</span>
+          </div>
+          <div class="type-tile">
+            <span class="ico-wrap" style="background:#FFFBEB;">
+              <svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M4 10h8M4 14h6" stroke="#D97706" stroke-width="2" stroke-linecap="round"/></svg>
+            </span>
+            <span class="lbl">Open-ended</span>
+          </div>
+          <div class="type-tile">
+            <span class="ico-wrap" style="background:#FFF7ED;">
+              <svg viewBox="0 0 20 20" fill="none"><ellipse cx="8" cy="11" rx="5" ry="3.5" fill="#FF8A47" fill-opacity="0.3" stroke="#FF8A47" stroke-width="1.3"/><ellipse cx="13" cy="9" rx="4" ry="2.8" fill="#FF8A47" fill-opacity="0.3" stroke="#FF8A47" stroke-width="1.3"/><ellipse cx="10" cy="7" rx="3.5" ry="2.5" fill="#FF8A47" fill-opacity="0.4" stroke="#FF8A47" stroke-width="1.3"/></svg>
+            </span>
+            <span class="lbl">Word Cloud</span>
+          </div>
+          <div class="type-tile">
+            <span class="ico-wrap" style="background:#ECFEFF;">
+              <svg viewBox="0 0 20 20" fill="none"><path d="M4 4h12a1 1 0 011 1v7a1 1 0 01-1 1H8l-3 3v-3H4a1 1 0 01-1-1V5a1 1 0 011-1z" fill="#0891B2" fill-opacity="0.2" stroke="#0891B2" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 8.5a2 2 0 014 0c0 1-1 1.5-2 2v1" stroke="#0891B2" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </span>
+            <span class="lbl">Q &amp; A</span>
+          </div>
+          <div class="type-tile">
+            <span class="ico-wrap" style="background:#FFF7ED;">
+              <svg viewBox="0 0 20 20" fill="none"><path d="M10 3l1.8 3.6 4 .6-2.9 2.8.7 4L10 12l-3.6 1.9.7-4L4.2 7.2l4-.6z" fill="#EA580C" fill-opacity="0.9" stroke="#EA580C" stroke-width="1" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="lbl">Rating</span>
+          </div>
+          <div class="type-tile">
+            <span class="ico-wrap" style="background:#EEF2FF;">
+              <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="4" width="14" height="3" rx="1.5" fill="#4F46E5"/><rect x="3" y="8.5" width="10" height="3" rx="1.5" fill="#4F46E5" fill-opacity="0.65"/><rect x="3" y="13" width="7" height="3" rx="1.5" fill="#4F46E5" fill-opacity="0.35"/></svg>
+            </span>
+            <span class="lbl">Ranking</span>
+          </div>
+          <div class="type-tile">
+            <span class="ico-wrap" style="background:#FFF1F2;">
+              <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="4" width="14" height="12" rx="2" fill="#DC2626" fill-opacity="0.15" stroke="#DC2626" stroke-width="1.4"/><path d="M6 8h8M6 11h6M6 14h4" stroke="#DC2626" stroke-width="1.4" stroke-linecap="round"/></svg>
+            </span>
+            <span class="lbl">Scenario</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mode reference -->
+      <div class="mode-ref">
+        <div class="h4">6 creation modes · <span>how to draft</span></div>
+        <div class="modes">
+          <div class="m"><div class="lbl"><span class="tag y"></span>Manual</div><div class="desc">Type questions one-by-one.</div></div>
+          <div class="m"><div class="lbl"><span class="tag v"></span>AI · Topic</div><div class="desc">Name a topic — AI drafts the set.</div></div>
+          <div class="m"><div class="lbl"><span class="tag v"></span>AI · URL</div><div class="desc">Paste a link — AI extracts Qs.</div></div>
+          <div class="m"><div class="lbl"><span class="tag v"></span>AI · Document</div><div class="desc">Upload PDF / Word — AI generates.</div></div>
+          <div class="m"><div class="lbl"><span class="tag t"></span>CSV Import</div><div class="desc">Upload a structured sheet.</div></div>
+          <div class="m"><div class="lbl"><span class="tag t"></span>Library</div><div class="desc">Browse pre-built sets by subject.</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════ SLIDE 3 — SLIDES FLOW + FEEDBACK ══════════════════ -->
+    <section class="slide" data-slide="3">
+      <div class="slide-head">
+        <div class="brandmark">
+          <span class="logo">Q</span>
+          <span class="name">Quizotic</span>
+        </div>
+        <div class="slide-tag">Host quick start · 3 of 3</div>
+      </div>
+
+      <h1 class="t teal">Build slides — <i>same 4 steps.</i></h1>
+      <p class="sub">Two ways to start: blank canvas or drop in a PowerPoint. Both land in the same editor.</p>
+
+      <!-- Flow -->
+      <div class="flow">
+        <div class="flow-step teal">
+          <span class="num-circle teal">1</span>
+          <div class="step-visual">
+            <div class="v-sidebar">
+              <div class="qpair">
+                <span class="qbt">+ Quiz</span>
+                <span class="qbt active-t">+ Slides</span>
+              </div>
+              <div class="item"><span class="md"></span></div>
+              <div class="item"><span class="lg"></span></div>
+              <div class="item"><span class="sh"></span></div>
+            </div>
+          </div>
+          <div class="step-title">Click + Slides</div>
+          <p class="step-text">Teal button, sibling of + Quiz.</p>
+        </div>
+
+        <div class="flow-arrow teal"><svg viewBox="0 0 28 28"><path d="M6 6 L18 14 L6 22"/></svg></div>
+
+        <div class="flow-step teal">
+          <span class="num-circle teal">2</span>
+          <div class="step-visual" style="padding: 4px; gap: 4px; flex-direction: row;">
+            <div style="flex:1; height:100%;" class="v-canvas">Blank</div>
+            <div style="flex:1; height:100%;" class="v-pptx">
+              <div class="tile">.pptx</div>
+              <div class="cap">up to 20 MB</div>
+            </div>
+          </div>
+          <div class="step-title">Manual or Import</div>
+          <p class="step-text">Start blank, or drop a .pptx. Detail below ↓</p>
+        </div>
+
+        <div class="flow-arrow teal"><svg viewBox="0 0 28 28"><path d="M6 6 L18 14 L6 22"/></svg></div>
+
+        <div class="flow-step teal">
+          <span class="num-circle teal">3</span>
+          <div class="step-visual">
+            <div class="v-qcard">
+              <div class="q" style="color: var(--teal-ink);">Add a poll block</div>
+              <div class="opts" style="grid-template-columns: 1fr;">
+                <div class="op" style="border-color: var(--teal-edge); background: var(--teal-soft); color: var(--teal-ink);">
+                  <span class="dot" style="background: var(--teal); border-color: var(--teal-edge);"></span>Agree / Neutral / Disagree
+                </div>
+              </div>
+              <div class="meta">
+                <span class="b" style="background: var(--teal-soft); color: var(--teal-ink); border-color: var(--teal-edge);">Live</span>
+                <span class="b" style="background: var(--teal-soft); color: var(--teal-ink); border-color: var(--teal-edge);">No score</span>
+              </div>
+            </div>
+          </div>
+          <div class="step-title">Add interactions</div>
+          <p class="step-text">Drop polls, word clouds, ratings, rankings into any slide.</p>
+        </div>
+
+        <div class="flow-arrow teal"><svg viewBox="0 0 28 28"><path d="M6 6 L18 14 L6 22"/></svg></div>
+
+        <div class="flow-step teal">
+          <span class="num-circle teal">4</span>
+          <div class="step-visual">
+            <div class="v-golive">
+              <span class="btn"><span class="play">▶</span>Go Live</span>
+              <div class="join">JOIN CODE</div>
+              <div class="code teal">716&nbsp;204</div>
+            </div>
+          </div>
+          <div class="step-title">Go Live</div>
+          <p class="step-text">Audience responds in real time — engagement, not scoring.</p>
+        </div>
+      </div>
+
+      <!-- Interactive block types -->
+      <div class="types-strip">
+        <div class="h4">10 interactive slide types · <span>what you can drop onto any slide</span></div>
+        <div class="types-grid ten">
+          <div class="type-tile">
+            <span class="ico-wrap" style="background:#F3F4F6;">
+              <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="12" width="3.5" height="5" rx="1" fill="#0F1B3D" fill-opacity="0.8"/><rect x="8.25" y="8" width="3.5" height="9" rx="1" fill="#0F1B3D"/><rect x="13.5" y="5" width="3.5" height="12" rx="1" fill="#0F1B3D" fill-opacity="0.5"/></svg>
+            </span>
+            <span class="lbl">Poll</span>
+          </div>
+          <div class="type-tile">
+            <span class="ico-wrap" style="background:#FFF7ED;">
+              <svg viewBox="0 0 20 20" fill="none"><ellipse cx="8" cy="11" rx="5" ry="3.5" fill="#FF8A47" fill-opacity="0.3" stroke="#FF8A47" stroke-width="1.3"/><ellipse cx="13" cy="9" rx="4" ry="2.8" fill="#FF8A47" fill-opacity="0.3" stroke="#FF8A47" stroke-width="1.3"/><ellipse cx="10" cy="7" rx="3.5" ry="2.5" fill="#FF8A47" fill-opacity="0.4" stroke="#FF8A47" stroke-width="1.3"/></svg>
+            </span>
+            <span class="lbl">Word Cloud</span>
+          </div>
+          <div class="type-tile">
+            <span class="ico-wrap" style="background:#FFFBEB;">
+              <svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M4 10h8M4 14h6" stroke="#D97706" stroke-width="2" stroke-linecap="round"/></svg>
+            </span>
+            <span class="lbl">Open Text</span>
+          </div>
+          <div class="type-tile">
+            <span class="ico-wrap" style="background:#FFF7ED;">
+              <svg viewBox="0 0 20 20" fill="none"><path d="M10 3l1.8 3.6 4 .6-2.9 2.8.7 4L10 12l-3.6 1.9.7-4L4.2 7.2l4-.6z" fill="#EA580C" fill-opacity="0.9"/></svg>
+            </span>
+            <span class="lbl">Rating</span>
+          </div>
+          <div class="type-tile">
+            <span class="ico-wrap" style="background:#EEF2FF;">
+              <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="4" width="14" height="2.5" rx="1.25" fill="#4F46E5"/><rect x="3" y="8.5" width="10" height="2.5" rx="1.25" fill="#4F46E5" fill-opacity="0.7"/><rect x="3" y="13" width="7" height="2.5" rx="1.25" fill="#4F46E5" fill-opacity="0.4"/></svg>
+            </span>
+            <span class="lbl">Ranking</span>
+          </div>
+          <div class="type-tile">
+            <span class="ico-wrap" style="background:#FDF2F8;">
+              <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="6" height="6" rx="1.5" fill="#DB2777" fill-opacity="0.35" stroke="#DB2777" stroke-width="1.3"/><rect x="11" y="3" width="6" height="6" rx="1.5" fill="#DB2777" fill-opacity="0.2" stroke="#DB2777" stroke-width="1.3"/><rect x="3" y="11" width="6" height="6" rx="1.5" fill="#DB2777" fill-opacity="0.2" stroke="#DB2777" stroke-width="1.3"/><rect x="11" y="11" width="6" height="6" rx="1.5" fill="#DB2777" fill-opacity="0.35" stroke="#DB2777" stroke-width="1.3"/></svg>
+            </span>
+            <span class="lbl">Image Choice</span>
+          </div>
+          <div class="type-tile">
+            <span class="ico-wrap" style="background:#F0F9FF;">
+              <svg viewBox="0 0 20 20" fill="none"><line x1="10" y1="3" x2="10" y2="17" stroke="#0369A1" stroke-width="1.3"/><line x1="3" y1="10" x2="17" y2="10" stroke="#0369A1" stroke-width="1.3"/><circle cx="6" cy="6" r="1.5" fill="#0369A1"/><circle cx="14" cy="14" r="1.5" fill="#0369A1"/><circle cx="13" cy="7" r="1" fill="#0369A1" fill-opacity="0.5"/></svg>
+            </span>
+            <span class="lbl">2×2 Grid</span>
+          </div>
+          <div class="type-tile">
+            <span class="ico-wrap" style="background:#F0FDF4;">
+              <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="9" width="14" height="2" rx="1" fill="#16A34A" fill-opacity="0.25" stroke="#16A34A" stroke-width="1.3"/><circle cx="12" cy="10" r="3" fill="#16A34A"/></svg>
+            </span>
+            <span class="lbl">Scale 0–100</span>
+          </div>
+          <div class="type-tile">
+            <span class="ico-wrap" style="background:#FEF3C7;">
+              <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" fill="#F59E0B" fill-opacity="0.2" stroke="#F59E0B" stroke-width="1.4"/><circle cx="7.5" cy="8.5" r="1" fill="#F59E0B"/><circle cx="12.5" cy="8.5" r="1" fill="#F59E0B"/><path d="M7 12.5c.8 1.5 5.2 1.5 6 0" stroke="#F59E0B" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </span>
+            <span class="lbl">Emoji Pulse</span>
+          </div>
+          <div class="type-tile">
+            <span class="ico-wrap" style="background:#FEE2E2;">
+              <svg viewBox="0 0 20 20" fill="none"><path d="M11 3l-4 7h5l-3 7" stroke="#DC2626" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="lbl">Quick Fire</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Manual vs Import PPT -->
+      <div class="starts">
+        <div class="start-card manual">
+          <div class="sh"><span class="tag">A</span><h3>Manual · blank canvas<span>for workshops and new decks</span></h3></div>
+          <ul class="bullets">
+            <li>Start from an <b>empty slide</b>. Add content blocks: title, text, image, video.</li>
+            <li>Mix any of the <b>10 interactive types</b> above into the same deck.</li>
+          </ul>
+        </div>
+        <div class="start-card ppt">
+          <div class="sh"><span class="tag">B</span><h3>Import PowerPoint<span>for existing decks — up to 20 MB</span></h3></div>
+          <ul class="bullets">
+            <li>Drop your <b>.pptx</b> — each slide renders as an image. Edit any of them.</li>
+            <li>AI can <b>add polls or quizzes</b> between slides automatically.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Feedback footer -->
+      <div class="fb-strip">
+        <div class="fb-copy">
+          <div class="fb-title">You're the best critic we have.</div>
+          <div class="fb-text">Tell us what <b>confused</b> you, what's <b>missing</b>, or a tweak that would make you recommend Quizotic. Replies within 24h.</div>
+        </div>
+        <div class="fb-actions">
+          <div class="qr-mini" id="qr"></div>
+          <a class="cta" href="mailto:info@quizotic.live?subject=Quizotic%20Feedback&body=What%20confused%20me%3A%0A%0AWhat%20I%20expected%20but%20didn't%20find%3A%0A%0AWhat%20would%20make%20me%20recommend%20Quizotic%3A%0A%0A">
+            <span class="ring">→</span>
+            Send feedback · info@quizotic.live
+          </a>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="controls">
+    <button class="nav-btn" id="prev" aria-label="Previous slide">← Prev</button>
+    <span class="counter" id="counter">1 / 3</span>
+    <button class="nav-btn" id="next" aria-label="Next slide">Next →</button>
+    <div class="spacer"></div>
+    <button class="pdf-btn" id="pdf" aria-label="Download as PDF">⬇ Download PDF</button>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<script>
+  (function () {
+    const slides = document.querySelectorAll('.slide');
+    const prev = document.getElementById('prev');
+    const next = document.getElementById('next');
+    const pdf = document.getElementById('pdf');
+    const counter = document.getElementById('counter');
+    const total = slides.length;
+
+    function currentFromHash() {
+      const m = (location.hash || '').match(/#\/(\d+)/);
+      if (!m) return 1;
+      const n = parseInt(m[1], 10);
+      return Math.min(Math.max(n, 1), total);
+    }
+
+    function render(n) {
+      slides.forEach((s, i) => s.classList.toggle('active', i === n - 1));
+      counter.textContent = n + ' / ' + total;
+      prev.disabled = n === 1;
+      next.disabled = n === total;
+      if (('#/' + n) !== location.hash) history.replaceState(null, '', '#/' + n);
+    }
+    function go(n) { render(Math.min(Math.max(n, 1), total)); }
+
+    prev.addEventListener('click', () => go(currentFromHash() - 1));
+    next.addEventListener('click', () => go(currentFromHash() + 1));
+    window.addEventListener('hashchange', () => render(currentFromHash()));
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); go(currentFromHash() + 1); }
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(currentFromHash() - 1); }
+      else if (e.key === 'Home') { e.preventDefault(); go(1); }
+      else if (e.key === 'End') { e.preventDefault(); go(total); }
+    });
+    pdf.addEventListener('click', () => { window.print(); });
+
+    // Engagement matrix
+    const matrix = document.getElementById('matrix-grid');
+    if (matrix) {
+      const pattern = [
+        'md','hi','md','lo','lo','md','hi','md','md','lo','lo','md',
+        'lo','md','hi','hi','md','md','lo','md','hi','md','md','lo',
+        'md','md','md','hi','hi','hi','md','lo','lo','md','hi','md',
+        'gp','lo','md','md','hi','md','md','lo','md','md','hi','md'
+      ];
+      pattern.forEach(cls => {
+        const s = document.createElement('span');
+        s.className = cls;
+        matrix.appendChild(s);
+      });
+    }
+
+    // QR code for feedback (slide 3 footer)
+    const qrHost = document.getElementById('qr');
+    if (qrHost && typeof qrcode === 'function') {
+      try {
+        const qr = qrcode(0, 'M');
+        qr.addData('mailto:info@quizotic.live?subject=Quizotic%20Feedback');
+        qr.make();
+        qrHost.innerHTML = qr.createSvgTag({ scalable: true, margin: 0 });
+      } catch (err) {
+        qrHost.textContent = '';
+      }
+    }
+
+    render(currentFromHash());
+  })();
+</script>
+
+</body>
+</html>
