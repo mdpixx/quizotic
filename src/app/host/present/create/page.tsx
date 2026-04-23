@@ -278,39 +278,60 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
         const s = slide as { question?: string; maxRating: number; minLabel: string; maxLabel: string }
         const stars = s.maxRating || 5
         return (
-          <div className="w-full flex flex-col gap-2 items-center text-center">
-            <span className="text-xs font-semibold leading-snug" style={{ color: '#0F1B3D' }}>
+          <div className="w-full h-full flex flex-col gap-[1.2cqw] items-center justify-center text-center px-[2cqw]">
+            <span className="font-bold leading-snug" style={{ color: '#0F1B3D', fontSize: 'clamp(14px, 2.2cqw, 30px)' }}>
               {s.question || 'How would you rate...'}
             </span>
-            <div className="flex gap-1 mt-1">
+            <div className="flex gap-[0.8cqw] mt-[0.5cqw]">
               {Array.from({ length: stars }).map((_, i) => (
-                <span key={i} className="text-base" style={{ color: i < Math.round(stars * 0.6) ? '#F59E0B' : '#E2E8F0' }}>★</span>
+                <span key={i} style={{ color: i < Math.round(stars * 0.6) ? '#F59E0B' : '#E2E8F0', fontSize: 'clamp(18px, 4cqw, 64px)', lineHeight: 1 }}>★</span>
               ))}
             </div>
-            <div className="flex justify-between w-full mt-1">
-              <span className="text-[9px] font-medium" style={{ color: '#94A3B8' }}>{s.minLabel || '1'}</span>
-              <span className="text-[9px] font-medium" style={{ color: '#94A3B8' }}>{s.maxLabel || String(stars)}</span>
+            <div className="flex justify-between w-full mt-[0.8cqw]">
+              <span className="font-semibold" style={{ color: '#94A3B8', fontSize: 'clamp(10px, 1.4cqw, 20px)' }}>{s.minLabel || '1'}</span>
+              <span className="font-semibold" style={{ color: '#94A3B8', fontSize: 'clamp(10px, 1.4cqw, 20px)' }}>{s.maxLabel || String(stars)}</span>
             </div>
           </div>
         )
       }
 
       case 'word_cloud': {
+        // Placeholder that visually reads as a word cloud — varied sizes,
+        // interleaved so the biggest words sit near the middle, colours
+        // cycling so the density of a real cloud is obvious.
         const wcWords = [
-          { text: 'Ideas', size: 28, color: '#3B82F6' },
-          { text: 'Creativity', size: 20, color: '#EF4444' },
-          { text: 'Team', size: 34, color: '#0F1B3D' },
-          { text: 'Growth', size: 18, color: '#16A34A' },
-          { text: 'Vision', size: 22, color: '#8B5CF6' },
-          { text: 'Focus', size: 14, color: '#F59E0B' },
-          { text: 'Innovation', size: 16, color: '#EC4899' },
-          { text: 'Leadership', size: 13, color: '#0891B2' },
+          { text: 'Team', weight: 1.0 },
+          { text: 'Ideas', weight: 0.85 },
+          { text: 'Creativity', weight: 0.78 },
+          { text: 'Vision', weight: 0.7 },
+          { text: 'Growth', weight: 0.62 },
+          { text: 'Innovation', weight: 0.55 },
+          { text: 'Focus', weight: 0.48 },
+          { text: 'Leadership', weight: 0.42 },
+          { text: 'Energy', weight: 0.38 },
+          { text: 'Curious', weight: 0.34 },
+          { text: 'Open', weight: 0.3 },
+          { text: 'Bold', weight: 0.26 },
+          { text: 'Playful', weight: 0.24 },
+          { text: 'Honest', weight: 0.22 },
+          { text: 'Kind', weight: 0.2 },
         ]
+        const palette = ['#0F1B3D', '#FF8A47', '#0891B2', '#16A34A', '#EA580C', '#6B8AFF', '#DC2626', '#7C3AED']
+        // Interleave: biggest in middle, smaller toward the edges.
+        const arranged: typeof wcWords = []
+        const mid = Math.floor(wcWords.length / 2)
+        wcWords.forEach((w, idx) => {
+          const offset = idx % 2 === 0 ? idx / 2 : -Math.ceil(idx / 2)
+          arranged[mid + offset] = w
+        })
         return (
-          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 w-full">
-            {wcWords.map((w, i) => (
-              <span key={i} className="font-extrabold leading-tight" style={{
-                color: w.color, fontSize: w.size, fontFamily: 'var(--font-heading)',
+          <div className="flex flex-wrap items-center justify-center gap-x-[2cqw] gap-y-[0.6cqw] w-full h-full px-[2cqw] py-[1cqw]">
+            {arranged.filter(Boolean).map((w, i) => (
+              <span key={w.text} className="font-black leading-none" style={{
+                color: palette[i % palette.length],
+                fontSize: `clamp(10px, ${1.2 + w.weight * 5}cqw, 56px)`,
+                fontFamily: 'var(--font-heading)',
+                opacity: 0.55 + w.weight * 0.45,
               }}>{w.text}</span>
             ))}
           </div>
@@ -614,8 +635,8 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
     ? 'w-full rounded-2xl overflow-hidden relative shadow-lg bg-white'
     : 'w-full aspect-video rounded-2xl overflow-hidden relative shadow-lg'
   const cardStyle: React.CSSProperties = fullBleedSrc
-    ? { maxHeight: '82vh', background: '#ffffff' }
-    : { background: gradient }
+    ? { maxHeight: '82vh', background: '#ffffff', containerType: 'inline-size' }
+    : { background: gradient, containerType: 'inline-size' }
 
   return (
     <div className={cardClassName} style={cardStyle}>
@@ -631,15 +652,14 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
         <div className={`absolute inset-0 flex flex-col px-6${slide.type === 'title' ? ' justify-center items-center text-center gap-3' : ' py-5'}`}>
           {slide.type !== 'quote' && (
             <p
-              className={`font-bold flex-shrink-0 break-words${slide.type === 'title' ? ' text-center' : ' text-left pr-24'}`}
+              className={`font-bold flex-shrink-0 break-words w-full${slide.type === 'title' ? ' text-center' : ' text-left pr-24'}`}
               style={{
                 color: textColor,
                 fontFamily: 'var(--font-heading)',
                 fontSize: slide.type === 'title'
-                  ? 'clamp(16px, 4cqw, 32px)'
-                  : 'clamp(14px, 3.2cqw, 24px)',
+                  ? 'clamp(20px, 5cqw, 44px)'
+                  : 'clamp(16px, 3.4cqw, 26px)',
                 lineHeight: 1.15,
-                containerType: 'inline-size',
               } as React.CSSProperties}>
               {getQuestionText()}
             </p>
