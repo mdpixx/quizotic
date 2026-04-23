@@ -66,10 +66,6 @@ export const metadata: Metadata = {
       'max-snippet': -1,
     },
   },
-  icons: {
-    icon: '/icon.svg',
-    apple: '/apple-icon.png',
-  },
   appleWebApp: {
     capable: true,
     title: 'Quizotic',
