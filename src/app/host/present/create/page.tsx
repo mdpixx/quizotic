@@ -1821,15 +1821,21 @@ function PresentCreatePageInner() {
     if (planLimitBlocked) return true
     if (isManual) setSaving(true)
     setSaveError(null)
+    // Coerce empty title to the default so the server's "title is required"
+    // validator never trips when the user clears the field mid-edit.
+    const payload = {
+      ...presentation,
+      title: presentation.title.trim() || 'Untitled Presentation',
+    }
     // Write crash-safe draft FIRST (synchronous, always succeeds).
     // This ensures a refresh can recover work even if the API call fails.
     const dk = draftKey('presentation', presentation.id)
-    writeDraft(dk, presentation)
+    writeDraft(dk, payload)
     try {
       const res = await fetch('/api/presentations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(presentation),
+        body: JSON.stringify(payload),
       })
       const json = await res.json() as { success: boolean; data?: Presentation; error?: string }
       if (res.status === 403) {
@@ -2249,15 +2255,30 @@ function PresentCreatePageInner() {
           </button>
           <div className="h-5 w-px" style={{ background: '#E2E8F0' }} />
 
-          {/* Editable title */}
+          {/* Editable title — visible edit affordance (dashed hover outline,
+              solid focus outline, pencil icon) so it doesn't look like a
+              static label. Empty + blur restores the default so the header is
+              never blank. */}
           <div className="flex-1 min-w-0">
-            <input
-              value={presentation.title}
-              onChange={e => setPresentation(prev => ({ ...prev, title: e.target.value }))}
-              className="w-full text-sm font-bold bg-transparent focus:outline-none"
-              style={{ color: '#0F1B3D' }}
-            />
-            <p className="hidden sm:block text-xs" style={{ color: '#94A3B8' }}>
+            <div className="group relative flex items-center gap-1.5">
+              <input
+                value={presentation.title}
+                onChange={e => setPresentation(prev => ({ ...prev, title: e.target.value }))}
+                onBlur={e => {
+                  if (!e.target.value.trim()) {
+                    setPresentation(prev => ({ ...prev, title: 'Untitled Presentation' }))
+                  }
+                }}
+                placeholder="Name your presentation…"
+                aria-label="Presentation title"
+                className="w-full text-sm font-bold bg-transparent rounded-md px-2 py-1 -mx-2 border border-transparent hover:border-dashed hover:border-slate-300 focus:outline-none focus:bg-white focus:border-solid focus:border-slate-400 placeholder:font-normal placeholder:italic placeholder:text-slate-400 transition-colors"
+                style={{ color: '#0F1B3D' }}
+              />
+              <svg viewBox="0 0 16 16" fill="none" aria-hidden className="w-3.5 h-3.5 opacity-0 group-hover:opacity-60 group-focus-within:opacity-100 pointer-events-none flex-shrink-0 transition-opacity" style={{ color: '#64748B' }}>
+                <path d="M11.5 2.5l2 2L5 13H3v-2l8.5-8.5z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <p className="hidden sm:block text-xs mt-0.5" style={{ color: '#94A3B8' }}>
               {presentation.slides.length} slide{presentation.slides.length !== 1 ? 's' : ''} &middot; {interactiveCount} interactive
             </p>
           </div>
