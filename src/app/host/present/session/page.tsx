@@ -178,7 +178,7 @@ function LiveVerticalBars({
   const max = Math.max(...counts, 1)
 
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flex: 1, minHeight: 200 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 32, flex: 1, minHeight: 200 }}>
       {options.map((opt, i) => {
         const count = counts[i] ?? 0
         const pct = total > 0 ? Math.round((count / total) * 100) : 0
@@ -188,7 +188,7 @@ function LiveVerticalBars({
         const color = isCorrect ? '#16A34A' : colors[i % colors.length]
 
         return (
-          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%' }}>
+          <div key={i} style={{ flex: '1 1 0', minWidth: 0, maxWidth: 160, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%' }}>
             {/* Bar area: count label sits directly above the bar */}
             <div style={{ flex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end' }}>
               {isCorrect ? (
