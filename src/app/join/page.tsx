@@ -2042,6 +2042,33 @@ function JoinPageInner() {
     )
   }
 
+  // ─── Presenter Waiting (content slide, mirror OFF) ─────────────────────────
+  // Shown between interactive slides while the host is lecturing. Deliberately
+  // boring so participants don't stay glued to their phones.
+  if (phase === 'presenter-waiting') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 gap-8"
+        style={{ background: '#0F1B3D' }}>
+        <div className="text-center space-y-4 max-w-md">
+          <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-2"
+            style={{ background: 'rgba(245,230,66,0.1)', border: '1.5px solid rgba(245,230,66,0.3)' }}>
+            <svg viewBox="0 0 24 24" fill="none" className="w-10 h-10"><circle cx="12" cy="12" r="9" stroke="#F5E642" strokeWidth="1.5"/><path d="M12 7v5l3 2" stroke="#F5E642" strokeWidth="1.5" strokeLinecap="round"/></svg>
+          </div>
+          <h1 className="text-2xl font-black" style={{ color: '#fff', fontFamily: 'var(--font-heading)' }}>
+            Look up at the screen
+          </h1>
+          <p className="text-base" style={{ color: '#94A3B8' }}>
+            The next question will appear on your phone automatically.
+          </p>
+        </div>
+        <div className="flex flex-col items-center gap-1">
+          <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: '#64748B' }}>You&rsquo;re in</span>
+          <span className="text-sm font-semibold" style={{ color: '#F5E642' }}>{presenterTitle || 'Session'}</span>
+        </div>
+      </div>
+    )
+  }
+
   // ─── Presenter Lobby ───────────────────────────────────────────────────────
   if (phase === 'presenter-lobby') {
     return (
