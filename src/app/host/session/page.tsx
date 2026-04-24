@@ -9,6 +9,7 @@ import QRCode from 'react-qr-code'
 import { Avatar } from '@/components/Avatar'
 import { Podium } from '@/components/Podium'
 import { PostSessionHeader } from '@/components/PostSessionHeader'
+import { CelebrationConfetti } from '@/components/CelebrationConfetti'
 import { SessionReport } from '@/components/SessionReport'
 import { LeaderboardView } from '@/components/LeaderboardView'
 import { playLeaderboardJingle, playTick } from '@/lib/sounds'
@@ -1476,6 +1477,11 @@ export default function SessionPage() {
               loopConfetti={!showCelebration && sessionMode === 'competitive'}
             />
           </div>
+          {/* Continuous celebration backdrop — paints falling particles across
+              the Session Report until the host clicks Back to Library (which
+              unmounts this page). Gated on competitive mode and the
+              CelebrationOverlay having been dismissed so we don't double up. */}
+          <CelebrationConfetti active={!showCelebration && sessionMode === 'competitive' && leaderboard.length > 0} />
 
           {showCelebration && leaderboard.length > 0 && (
             <CelebrationOverlay

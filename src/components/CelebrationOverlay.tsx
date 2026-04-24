@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Podium } from './Podium'
+import { CelebrationConfetti } from './CelebrationConfetti'
 
 interface CelebrationOverlayProps {
   leaderboard: Array<{ name: string; archetype?: string; score: number }>
@@ -45,9 +46,11 @@ export function CelebrationOverlay({
       className="fixed inset-0 z-50 flex items-center justify-center p-6"
       style={{
         background: 'radial-gradient(circle at 50% 40%, #1E2B6B 0%, #0F1B3D 70%)',
-        overflow: 'hidden',
       }}
     >
+      {/* DOM-based falling-particle layer — paints at z-index 60 above this
+          modal so it's guaranteed visible even if canvas-confetti fails. */}
+      <CelebrationConfetti active />
       {/* Drifting stars backdrop */}
       <div aria-hidden className="absolute inset-0 pointer-events-none" style={{ opacity: 0.35 }}>
         {Array.from({ length: 40 }).map((_, i) => (

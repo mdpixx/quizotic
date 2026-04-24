@@ -486,6 +486,10 @@ app.prepare().then(async () => {
         hostPlan: null,
         startedAt: Date.now(),
         ghostPlayers,            // Ghost Mode — synthetic leaderboard entries
+        // Auto-end bookkeeping — per the "lower of two" rule (timer expires
+        // OR all active participants answered). Reset on each question_show.
+        questionEnded: false,
+        endTimer: null,
       })
 
       socket.join(`session:${gameCode}`)
@@ -556,6 +560,8 @@ app.prepare().then(async () => {
         serverTimestamp: session.questionStartedAt,
         startAt,
       })
+
+      scheduleQuestionAutoEnd(io, gameCode, session)
 
       console.log(`[session] started: ${gameCode}`)
     })
@@ -632,7 +638,16 @@ app.prepare().then(async () => {
         return
       }
 
-      emitQuestionEnded(io, gameCode, session, currentQuestionIndex - 1)
+      // Only fire question_ended for the PREVIOUS question if it hasn't
+      // already been ended by the auto-timer or the all-answered path.
+      // Double-emitting caused the client to collapse standings → question in
+      // a single microtask, hiding the standings screen entirely.
+      const prevIndex = currentQuestionIndex - 1
+      if (!session.questionEnded) {
+        if (session.endTimer) { clearTimeout(session.endTimer); session.endTimer = null }
+        session.questionEnded = true
+        emitQuestionEnded(io, gameCode, session, prevIndex)
+      }
 
       const startAt = Date.now() + 3500  // 3-second countdown window
       session.questionStartedAt = startAt
@@ -644,6 +659,8 @@ app.prepare().then(async () => {
         serverTimestamp: session.questionStartedAt,
         startAt,
       })
+
+      scheduleQuestionAutoEnd(io, gameCode, session)
     })
 
     // P3.4 — Drawing question type: participant submits a drawing (base64 JPEG).
@@ -704,6 +721,11 @@ app.prepare().then(async () => {
       const { gameCode } = parsed
       const session = sessions.get(gameCode)
       if (!session || session.hostSocketId !== socket.id) return
+
+      // Stop the pending auto-end timer so it doesn't fire after the session
+      // has been torn down.
+      if (session.endTimer) { clearTimeout(session.endTimer); session.endTimer = null }
+      session.questionEnded = true
 
       emitQuestionEnded(io, gameCode, session, session.currentQuestionIndex)
 
@@ -1486,6 +1508,19 @@ app.prepare().then(async () => {
       }
 
       console.log(`[submit_answer:accept] code=${gameCode} q=${qi} sid=${socket.id} pts=${points} correct=${isCorrect}`)
+
+      // "Lower of two" — if every active (non-ghost) participant has now
+      // answered the current question, end it immediately so the standings
+      // screen fires without waiting for the full timer.
+      if (!session.questionEnded && qi === session.currentQuestionIndex) {
+        const answered = countAnswers(session, qi)
+        const total = realParticipantCount(session.participants)
+        if (total > 0 && answered >= total) {
+          session.questionEnded = true
+          if (session.endTimer) { clearTimeout(session.endTimer); session.endTimer = null }
+          emitQuestionEnded(io, gameCode, session, qi)
+        }
+      }
     })
 
     // ─── CLOCK SYNC HANDSHAKE ──────────────────────────────────────
@@ -1525,6 +1560,7 @@ app.prepare().then(async () => {
             setTimeout(() => {
               const s = sessions.get(code)
               if (s && s.hostSocketId === socket.id) {
+                if (s.endTimer) { clearTimeout(s.endTimer); s.endTimer = null }
                 io.to(`session:${code}`).emit('host_disconnected')
                 sessions.delete(code)
                 console.log(`[session] deleted (host never returned): ${code}`)
@@ -1532,6 +1568,7 @@ app.prepare().then(async () => {
             }, 5 * 60 * 1000)
             continue
           }
+          if (session.endTimer) { clearTimeout(session.endTimer); session.endTimer = null }
           io.to(`session:${code}`).emit('host_disconnected')
           sessions.delete(code)
           console.log(`[session] deleted (host left): ${code}`)
@@ -1738,6 +1775,30 @@ function buildTeamLeaderboard(session) {
     ts.members++
   }
   return Array.from(teamScores.values()).sort((a, b) => b.score - a.score)
+}
+
+// Schedule the automatic "question ended" trigger for the current question.
+// Together with the all-answered check in submit_answer, this implements the
+// "lower of two" rule so the dedicated Standings screen fires without the
+// host having to click anything. Cleared on manual advance, all-answered,
+// end_session, and disconnect.
+function scheduleQuestionAutoEnd(io, gameCode, session) {
+  if (session.endTimer) {
+    clearTimeout(session.endTimer)
+    session.endTimer = null
+  }
+  session.questionEnded = false
+  const q = session.quizData?.questions?.[session.currentQuestionIndex]
+  const timerSeconds = q?.timerSeconds ?? 20
+  // 3.5s intro countdown + question timer + 0.5s grace so the client gets a
+  // chance to paint the final "0" before we transition.
+  const totalMs = 3500 + timerSeconds * 1000 + 500
+  session.endTimer = setTimeout(() => {
+    if (session.questionEnded) return
+    session.questionEnded = true
+    session.endTimer = null
+    emitQuestionEnded(io, gameCode, session, session.currentQuestionIndex)
+  }, totalMs)
 }
 
 // Emit question_ended to the whole room (reveal moment — correctAnswer intentionally exposed).
