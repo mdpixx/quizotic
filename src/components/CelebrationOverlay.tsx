@@ -72,15 +72,15 @@ export function CelebrationOverlay({
           style={{
             color: '#F5E642',
             fontSize: 'clamp(2rem, 5vw, 3.25rem)',
-            textShadow: '0 4px 24px rgba(245,230,66,0.4)',
+            textShadow: '0 2px 10px rgba(245,230,66,0.28)',
             animation: 'titleDrop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both',
           }}
         >
           {title}
         </h1>
 
-        <div className="bg-white rounded-3xl shadow-2xl p-8" style={{ animation: 'cardLift 0.8s ease-out 0.2s both' }}>
-          <Podium leaderboard={leaderboard} sessionMode={sessionMode} />
+        <div className="bg-white rounded-3xl shadow-2xl p-8" style={{ animation: 'cardLift 0.8s ease-out 0.2s both', overflow: 'hidden' }}>
+          <Podium leaderboard={leaderboard} sessionMode={sessionMode} loopConfetti />
         </div>
 
         <div className="flex justify-center mt-6" style={{ minHeight: 52 }}>

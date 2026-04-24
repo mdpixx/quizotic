@@ -10,6 +10,7 @@
 // positions instead of jumping — the missing "dopamine hit" Kahoot used to
 // have. Bar widths animate proportionally to the top score.
 
+import { useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Avatar } from './Avatar'
 
@@ -81,51 +82,7 @@ export function LeaderboardView({
   }
 
   if (variant === 'compact') {
-    return (
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
-          {heading ?? 'Live Standings'}
-        </p>
-        <div className="space-y-1.5">
-          <AnimatePresence initial={false}>
-            {sorted.map((row, i) => (
-              <motion.div
-                key={row.id}
-                layout
-                initial={{ opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 6 }}
-                transition={{ type: 'spring', stiffness: 420, damping: 32, mass: 0.6 }}
-                className="flex items-center gap-3 rounded-md"
-                style={{
-                  background: row.id === highlightId ? '#FFF7D6' : undefined,
-                  padding: row.id === highlightId ? '4px 6px' : undefined,
-                }}
-              >
-                <span
-                  className="w-6 text-center text-sm font-black tabular-nums"
-                  style={{ color: '#0F1B3D' }}
-                >
-                  {i + 1}
-                </span>
-                <span
-                  className="flex-1 text-sm font-semibold truncate"
-                  style={{ color: '#0F1B3D' }}
-                >
-                  {row.name}
-                </span>
-                <span
-                  className="text-sm font-black tabular-nums"
-                  style={{ color: '#0F1B3D' }}
-                >
-                  {row.score.toLocaleString()}
-                </span>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
-      </div>
-    )
+    return <CompactLeaderboard rows={sorted} highlightId={highlightId} heading={heading} />
   }
 
   // Fullscreen variant — presentation leaderboard slide
@@ -202,6 +159,127 @@ export function LeaderboardView({
                 <span
                   className="w-24 text-right text-xl md:text-2xl font-black tabular-nums flex-shrink-0"
                   style={{ color: '#0F1B3D' }}
+                >
+                  {row.score.toLocaleString()}
+                </span>
+              </motion.div>
+            )
+          })}
+        </AnimatePresence>
+      </div>
+    </div>
+  )
+}
+
+// ─── Compact variant — "airport flip-board" style ────────────────────────────
+// Dark navy frame, metallic gold/silver/bronze tiles for top-3, avatars,
+// smooth spring reorders, and ↑/↓ indicators when ranks change between
+// questions. Used on the host sidebar between quiz questions.
+
+interface CompactLeaderboardProps {
+  rows: LeaderboardRow[]
+  highlightId?: string
+  heading?: string
+}
+
+// Soft metallic tile backgrounds — lighter than the Olympic podium
+// gradients so white text on top 3 stays legible without shouting.
+const COMPACT_TILE: Record<number, { bg: string; textColor: string; border: string }> = {
+  0: { bg: 'linear-gradient(135deg, #FFE082 0%, #FFB300 60%, #E69500 100%)', textColor: '#3B1F00', border: 'rgba(255,255,255,0.5)' },
+  1: { bg: 'linear-gradient(135deg, #F1F3F8 0%, #C9CED8 60%, #8D95A3 100%)', textColor: '#1F2937', border: 'rgba(255,255,255,0.5)' },
+  2: { bg: 'linear-gradient(135deg, #F0B87F 0%, #C17A3A 60%, #8B5222 100%)', textColor: '#FFFFFF', border: 'rgba(255,255,255,0.35)' },
+}
+
+function CompactLeaderboard({ rows, highlightId, heading }: CompactLeaderboardProps) {
+  // Track previous rank per participant so we can show ↑/↓ deltas when the
+  // board updates after a question. Compute deltas from the read-only ref
+  // during render, then update the snapshot in a post-commit effect so we
+  // don't mutate during render (react 19 strict-mode safe).
+  const prevRanks = useRef<Map<string, number>>(new Map())
+  const deltas = new Map<string, number>()
+  rows.forEach((row, i) => {
+    const prev = prevRanks.current.get(row.id)
+    if (prev !== undefined && prev !== i) deltas.set(row.id, prev - i)
+  })
+
+  useEffect(() => {
+    const next = new Map<string, number>()
+    rows.forEach((row, i) => next.set(row.id, i))
+    prevRanks.current = next
+  })
+
+  return (
+    <div
+      className="rounded-2xl p-3 overflow-hidden"
+      style={{
+        background: 'linear-gradient(180deg, #0F1B3D 0%, #1B2A5E 100%)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        boxShadow: '0 8px 24px rgba(15,27,61,0.25)',
+      }}
+    >
+      <div className="flex items-center justify-between px-1 mb-2">
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'rgba(255,255,255,0.55)' }}>
+          {heading ?? 'Live Standings'}
+        </p>
+        <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: 'rgba(245,230,66,0.15)', color: '#F5E642' }}>
+          Live
+        </span>
+      </div>
+      <div className="space-y-1.5">
+        <AnimatePresence initial={false}>
+          {rows.map((row, i) => {
+            const tile = COMPACT_TILE[i]
+            const delta = deltas.get(row.id)
+            const isTop = i < 3
+            return (
+              <motion.div
+                key={row.id}
+                layout
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 30, mass: 0.7 }}
+                className="relative flex items-center gap-2.5 rounded-xl"
+                style={{
+                  background: tile ? tile.bg : 'rgba(255,255,255,0.06)',
+                  border: `1px solid ${tile ? tile.border : 'rgba(255,255,255,0.08)'}`,
+                  padding: '7px 10px',
+                  outline: row.id === highlightId ? '2px solid #F5E642' : 'none',
+                  outlineOffset: -1,
+                }}
+              >
+                <span
+                  className="w-5 text-center text-[13px] font-black tabular-nums flex-shrink-0"
+                  style={{ color: tile ? tile.textColor : 'rgba(255,255,255,0.7)' }}
+                >
+                  {i + 1}
+                </span>
+                {row.archetype && (
+                  <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0" style={{ background: 'rgba(255,255,255,0.5)' }}>
+                    <Avatar archetype={row.archetype} size={28} />
+                  </div>
+                )}
+                <span
+                  className="flex-1 text-[13px] font-bold truncate"
+                  style={{
+                    color: tile ? tile.textColor : '#fff',
+                    textShadow: isTop ? 'none' : '0 1px 1px rgba(0,0,0,0.18)',
+                  }}
+                >
+                  {row.name}
+                </span>
+                {delta !== undefined && delta !== 0 && (
+                  <span
+                    className="text-[10px] font-black tabular-nums flex-shrink-0"
+                    style={{ color: delta > 0 ? '#16A34A' : '#DC2626' }}
+                    aria-label={delta > 0 ? `Up ${delta}` : `Down ${-delta}`}
+                  >
+                    {delta > 0 ? `▲${delta}` : `▼${-delta}`}
+                  </span>
+                )}
+                <span
+                  className="text-[13px] font-black tabular-nums flex-shrink-0"
+                  style={{ color: tile ? tile.textColor : '#fff' }}
                 >
                   {row.score.toLocaleString()}
                 </span>

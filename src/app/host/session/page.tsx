@@ -11,7 +11,7 @@ import { Podium } from '@/components/Podium'
 import { PostSessionHeader } from '@/components/PostSessionHeader'
 import { SessionReport } from '@/components/SessionReport'
 import { LeaderboardView } from '@/components/LeaderboardView'
-import { playLeaderboardJingle } from '@/lib/sounds'
+import { playLeaderboardJingle, playTick } from '@/lib/sounds'
 
 const CelebrationOverlay = dynamic(
   () => import('@/components/CelebrationOverlay').then(m => m.CelebrationOverlay),
@@ -294,10 +294,13 @@ export default function SessionPage() {
       const timerSeconds = quiz?.questions[index]?.timerSeconds ?? 20
 
       if (msUntilStart > 500) {
-        // 3-2-1 countdown, then start host timer
+        // 3-2-1 countdown, then start host timer. Tick sound fires on each
+        // count — client-side timers on host and participant are both driven
+        // by the server's startAt, so the beeps stay in sync across screens.
         if (countdownTimerRef.current) clearInterval(countdownTimerRef.current)
         const startCount = Math.min(3, Math.ceil(msUntilStart / 1000))
         setCountdownValue(startCount)
+        playTick()
         let current = startCount
         countdownTimerRef.current = setInterval(() => {
           current -= 1
@@ -308,6 +311,7 @@ export default function SessionPage() {
             startHostTimer(timerSeconds, effectiveStart)
           } else {
             setCountdownValue(current)
+            playTick()
           }
         }, 1000)
       } else {
@@ -489,10 +493,17 @@ export default function SessionPage() {
     timerDurationRef.current = seconds
     timerStartRef.current = serverTimestamp ?? Date.now()
     setHostTimeLeft(seconds)
+    let lastTickSecond = seconds + 1
     hostTimerRef.current = setInterval(() => {
       const elapsed = (Date.now() - timerStartRef.current) / 1000
       const remaining = Math.max(0, Math.ceil(timerDurationRef.current - elapsed))
       setHostTimeLeft(remaining)
+      // Tick on host for the final 5 seconds — stays in sync with the
+      // participant ticks since both clocks are anchored on serverTimestamp.
+      if (remaining !== lastTickSecond && remaining > 0 && remaining <= 5) {
+        lastTickSecond = remaining
+        playTick()
+      }
       if (remaining <= 0) {
         clearInterval(hostTimerRef.current!)
         hostTimerRef.current = null
@@ -1403,10 +1414,17 @@ export default function SessionPage() {
               visibility: showCelebration && leaderboard.length > 0 ? 'hidden' : 'visible',
               opacity: showCelebration && leaderboard.length > 0 ? 0 : 1,
               transition: 'opacity 220ms ease-out',
+              overflow: 'hidden',
+              borderRadius: 18,
             }}
             aria-hidden={showCelebration && leaderboard.length > 0}
           >
-            <Podium leaderboard={leaderboard} sessionMode={sessionMode} skipIntro />
+            <Podium
+              leaderboard={leaderboard}
+              sessionMode={sessionMode}
+              skipIntro
+              loopConfetti={!showCelebration && sessionMode === 'competitive'}
+            />
           </div>
 
           {showCelebration && leaderboard.length > 0 && (

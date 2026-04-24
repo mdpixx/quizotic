@@ -8,6 +8,7 @@ import { Avatar } from '@/components/Avatar'
 import { BrandWatermark } from '@/components/BrandWatermark'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
 import { playTick, playCorrect, playWrong, playStreak } from '@/lib/sounds'
+import { LeaderboardView } from '@/components/LeaderboardView'
 import { useI18n } from '@/lib/use-i18n'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
@@ -109,6 +110,12 @@ function CountdownNumber({ targetTime }: { targetTime: number }) {
     return () => clearInterval(tick)
   }, [targetTime])
   const changed = val !== prevVal.current
+  // Play a clock tick each time the number drops (3 → 2 → 1). The targetTime
+  // is derived from the server's startAt, so this fires in sync with the
+  // host's intro countdown ticks.
+  useEffect(() => {
+    if (changed && val > 0) playTick()
+  }, [changed, val])
   prevVal.current = val
   return (
     <div className="relative">
@@ -1819,15 +1826,18 @@ function JoinPageInner() {
           </div>
         )}
         {sessionMode === 'competitive' && intermediateLeaderboard.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 w-full">
-            <p className="text-xs font-bold mb-3 uppercase tracking-widest text-gray-400">Leaderboard</p>
-            {intermediateLeaderboard.slice(0, 5).map((entry, i) => (
-              <div key={entry.name} className="flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-0">
-                <span className="w-6 text-center font-black text-sm" style={{ color: '#0F1B3D' }}>{i + 1}</span>
-                <span className="flex-1 font-semibold text-sm truncate" style={{ color: '#0F1B3D' }}>{entry.name}</span>
-                <span className="font-black text-sm" style={{ color: '#0F1B3D' }}>{entry.score}</span>
-              </div>
-            ))}
+          <div className="w-full">
+            <LeaderboardView
+              variant="compact"
+              heading="Leaderboard"
+              highlightId={name}
+              rows={intermediateLeaderboard.slice(0, 5).map(entry => ({
+                id: entry.name,
+                name: entry.name,
+                score: entry.score,
+                archetype: entry.archetype,
+              }))}
+            />
           </div>
         )}
         {sessionMode === 'competitive' && team && teamLeaderboard && teamLeaderboard.length > 0 && (

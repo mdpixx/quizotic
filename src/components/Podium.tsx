@@ -27,6 +27,10 @@ interface PodiumProps {
   // sound. Used for the inline copy on the post-quiz report, once the
   // CelebrationOverlay has already played the dramatic reveal.
   skipIntro?: boolean
+  // When true, fire gentle confetti sprinkles on a loop while the podium is
+  // mounted — stops when the host dismisses or leaves the screen. Respects
+  // prefers-reduced-motion.
+  loopConfetti?: boolean
 }
 
 type Phase = 'idle' | 'third' | 'second' | 'drumroll' | 'winner' | 'rest'
@@ -135,6 +139,52 @@ function usePrefersReducedMotion(): boolean {
   return useSyncExternalStore(subscribeReducedMotion, getReducedMotion, () => false)
 }
 
+// Continuous "celebration sprinkle" — fires gentle bursts on an interval so
+// the moment doesn't feel like it abruptly ends after the opening cascade.
+// Call returns a stop() — we clear the interval on unmount or when the host
+// leaves the screen. Respects prefers-reduced-motion (no-ops if active).
+function startConfettiLoop(): () => void {
+  if (typeof window === 'undefined') return () => {}
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return () => {}
+
+  const goldish = ['#FFE066', '#F5E642', '#FFFFFF', '#FFC300']
+  const rainbow = ['#0F1B3D', '#F5E642', '#FF8A47', '#16A34A', '#2D3A8C', '#FFFFFF']
+  let tick = 0
+  let stopped = false
+  const timers = { first: null as ReturnType<typeof setTimeout> | null, interval: null as ReturnType<typeof setInterval> | null }
+
+  import('canvas-confetti').then(mod => {
+    if (stopped) return
+    const confetti = mod.default
+    const fireSprinkle = () => {
+      tick++
+      if (tick % 2 === 0) {
+        confetti({
+          particleCount: 22, spread: 60, startVelocity: 32, gravity: 0.8,
+          ticks: 220, scalar: 0.9, colors: goldish, origin: { x: 0.5, y: 0.1 },
+        })
+      } else {
+        confetti({
+          particleCount: 14, spread: 55, startVelocity: 38, angle: 60,
+          scalar: 0.85, colors: rainbow, origin: { x: 0.02, y: 0.85 },
+        })
+        confetti({
+          particleCount: 14, spread: 55, startVelocity: 38, angle: 120,
+          scalar: 0.85, colors: rainbow, origin: { x: 0.98, y: 0.85 },
+        })
+      }
+    }
+    timers.first = setTimeout(fireSprinkle, 600)
+    timers.interval = setInterval(fireSprinkle, 2500)
+  }).catch(() => { /* library unavailable — silently skip */ })
+
+  return () => {
+    stopped = true
+    if (timers.first) clearTimeout(timers.first)
+    if (timers.interval) clearInterval(timers.interval)
+  }
+}
+
 // Fire a dramatic, layered full-screen confetti celebration. Library is
 // dynamically imported so it's not in the initial participant bundle.
 // Sequence: opening burst → side cannons → streamer rain → secondary drop
@@ -198,7 +248,7 @@ async function fireConfetti() {
   }
 }
 
-export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = false }: PodiumProps) {
+export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = false, loopConfetti = false }: PodiumProps) {
   const reduced = usePrefersReducedMotion()
   const [rawPhase, setPhase] = useState<Phase>(skipIntro ? 'rest' : 'idle')
   const phase: Phase = reduced || skipIntro ? 'rest' : rawPhase
@@ -211,6 +261,14 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
   useEffect(() => {
     preloadCelebrationSounds()
   }, [])
+
+  // Looping confetti sprinkle — runs while the podium is mounted in a
+  // celebratory context (opt-in via prop). Cleanup stops the interval.
+  useEffect(() => {
+    if (!loopConfetti || reduced) return
+    const stop = startConfettiLoop()
+    return () => stop()
+  }, [loopConfetti, reduced])
 
   // Schedule the reveal sequence. Reduced motion skips straight to rest and
   // plays a single fanfare — no drumroll, cheer, or shake. When skipIntro is
@@ -285,15 +343,21 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
 
   return (
     <div
-      className="space-y-6 relative overflow-x-hidden"
-      style={shake ? { animation: 'podiumShake 0.45s ease-in-out 1' } : undefined}
+      className="relative"
+      style={{
+        // Clip the halo, confetti, and shake inside the podium bounds so
+        // yellow glow doesn't bleed onto the rest of the page.
+        overflow: 'hidden',
+        borderRadius: 18,
+        padding: '24px 12px 8px',
+      }}
     >
       {/* Skip intro animation — visible during every phase except rest */}
       {phase !== 'rest' && (
         <button
           type="button"
           onClick={skip}
-          className="absolute top-0 right-0 z-10 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+          className="absolute top-2 right-2 z-10 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
           style={{ background: 'rgba(255,255,255,0.9)', color: '#1E1B4B', border: '1px solid #E5E7EB' }}
           aria-label="Skip podium animation"
         >
@@ -301,8 +365,14 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
         </button>
       )}
 
-      {/* Podium */}
-      <div className="flex items-end justify-center gap-3 relative" style={{ minHeight: 300 }}>
+      {/* Podium — wider spacing and clipped internally so shake never pushes glow past the edge */}
+      <div
+        className="flex items-end justify-center gap-5 sm:gap-6 relative"
+        style={{
+          minHeight: 320,
+          animation: shake ? 'podiumShake 0.4s ease-in-out 1' : undefined,
+        }}
+      >
         {ordered.map((entry, i) => {
           if (!entry) return null
           const cfg = configForCount[i]
@@ -316,22 +386,22 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
             <div
               key={entry.name}
               className="flex flex-col items-center gap-2 relative"
-              style={{ width: top3.length === 1 ? 160 : 120 }}
+              style={{ width: top3.length === 1 ? 160 : 118 }}
             >
-              {/* Spotlight halo behind winner — pulses during drumroll, flares on reveal */}
+              {/* Spotlight halo behind winner — compact + softer so it doesn't spill outward */}
               {isWinner && !reduced && (phase === 'drumroll' || phase === 'winner' || phase === 'rest') && (
                 <div
                   aria-hidden
                   className="absolute left-1/2 -translate-x-1/2 pointer-events-none rounded-full"
                   style={{
                     bottom: 0,
-                    width: 240,
-                    height: 240,
-                    background: 'radial-gradient(circle, rgba(245,230,66,0.55) 0%, rgba(245,230,66,0) 70%)',
+                    width: 170,
+                    height: 170,
+                    background: 'radial-gradient(circle, rgba(245,230,66,0.32) 0%, rgba(245,230,66,0) 72%)',
                     animation: winnerPending
                       ? 'spotlightPulse 0.9s ease-in-out infinite'
                       : winnerRevealed
-                        ? 'spotlightFlare 0.8s ease-out forwards'
+                        ? 'spotlightFlare 0.7s ease-out forwards'
                         : undefined,
                     zIndex: 0,
                   }}
@@ -411,7 +481,7 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
                   background: cfg.gradient,
                   animation: visible && !reduced ? 'growBar 0.8s ease-out forwards' : undefined,
                   boxShadow: isWinner
-                    ? '0 -6px 24px rgba(255,179,0,0.5), inset 0 -6px 12px rgba(0,0,0,0.18)'
+                    ? '0 -3px 12px rgba(255,179,0,0.22), inset 0 -6px 12px rgba(0,0,0,0.18)'
                     : 'inset 0 -4px 10px rgba(0,0,0,0.15)',
                   zIndex: 1,
                   paddingBottom: 14,
@@ -522,7 +592,7 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
           50% { opacity: 0.75; transform: translateX(-50%) scale(1.08); }
         }
         @keyframes spotlightFlare {
-          0% { opacity: 1; transform: translateX(-50%) scale(1.6); }
+          0% { opacity: 0.9; transform: translateX(-50%) scale(1.2); }
           100% { opacity: 0.5; transform: translateX(-50%) scale(1); }
         }
         @keyframes mysteryBlink {
@@ -531,12 +601,10 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
         }
         @keyframes podiumShake {
           0%, 100% { transform: translateX(0); }
-          15% { transform: translateX(-8px); }
-          30% { transform: translateX(8px); }
-          45% { transform: translateX(-6px); }
-          60% { transform: translateX(6px); }
-          75% { transform: translateX(-3px); }
-          90% { transform: translateX(3px); }
+          20% { transform: translateX(-3px); }
+          40% { transform: translateX(3px); }
+          60% { transform: translateX(-2px); }
+          80% { transform: translateX(2px); }
         }
         @keyframes medalDrop {
           0%   { opacity: 0; transform: translateY(-32px) rotate(-25deg) scale(0.6); }
