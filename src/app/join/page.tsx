@@ -38,7 +38,7 @@ const Podium = dynamic(() => import('@/components/Podium').then(m => m.Podium), 
 const ReflectionMoment = dynamic(() => import('@/components/ReflectionMoment').then(m => m.ReflectionMoment), { ssr: false })
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type Phase = 'form' | 'connecting' | 'lobby' | 'question' | 'answered' | 'ended' | 'selfpaced' | 'selfpaced-done'
+type Phase = 'form' | 'connecting' | 'lobby' | 'question' | 'answered' | 'standings' | 'ended' | 'selfpaced' | 'selfpaced-done'
   | 'presenter-lobby' | 'presenter-content' | 'presenter-voting' | 'presenter-voted' | 'presenter-results'
   | 'presenter-waiting'
 
@@ -456,6 +456,8 @@ function JoinPageInner() {
   const [archetype, setArchetype] = useState<string | null>(null)
   const [avatarRevealed, setAvatarRevealed] = useState(false)
   const [sessionMode, setSessionMode] = useState<'competitive' | 'reflection'>('competitive')
+  const sessionModeRef = useRef<'competitive' | 'reflection'>('competitive')
+  useEffect(() => { sessionModeRef.current = sessionMode }, [sessionMode])
   const [anonymousMode, setAnonymousMode] = useState(false)
   const [team, setTeam] = useState<{ index: number; name: string; color: string } | null>(null)
   const [teamLeaderboard, setTeamLeaderboard] = useState<{ name: string; color: string; score: number; members: number }[] | null>(null)
@@ -791,6 +793,12 @@ function JoinPageInner() {
 
     socket.on('question_ended', ({ explanation: exp }: { correctAnswer: string; explanation: string | null }) => {
       setExplanation(exp)
+      // Transition to the dedicated standings screen so participants see the
+      // full leaderboard moment between questions instead of a mini-list
+      // tucked under the answered state. Non-competitive sessions skip this.
+      if (sessionModeRef.current === 'competitive' && (phaseRef.current === 'answered' || phaseRef.current === 'question')) {
+        setPhase('standings')
+      }
     })
 
     socket.on('leaderboard_update', ({ top, teamLeaderboard: tlb }: {
@@ -1809,55 +1817,10 @@ function JoinPageInner() {
             <p className="text-6xl font-black" style={{ color: '#0F1B3D' }}>{totalScore}</p>
           </div>
         )}
-        {explanation && (
-          <div className={`rounded-xl p-5 text-lg text-left w-full ${question?.type === 'case' ? 'bg-blue-50 border border-blue-200 text-blue-900' : 'bg-blue-50 border border-blue-100 text-blue-800'}`}>
-            <p className={`font-bold mb-1 text-base uppercase tracking-wide ${question?.type === 'case' ? 'text-blue-600' : 'text-blue-600'}`}>
-              {question?.type === 'case' ? 'Expert View' : 'Why?'}
-            </p>
-            <p>{explanation}</p>
-          </div>
-        )}
-
-        {/* Intermediate rank + mini leaderboard */}
-        {sessionMode === 'competitive' && intermediateRank !== null && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 w-full flex items-center justify-between">
-            <p className="text-gray-500 text-sm font-semibold">Your rank</p>
-            <p className="text-3xl font-black" style={{ color: '#0F1B3D' }}>#{intermediateRank}</p>
-          </div>
-        )}
-        {sessionMode === 'competitive' && intermediateLeaderboard.length > 0 && (
-          <div className="w-full">
-            <LeaderboardView
-              variant="compact"
-              heading="Leaderboard"
-              highlightId={name}
-              rows={intermediateLeaderboard.slice(0, 5).map(entry => ({
-                id: entry.name,
-                name: entry.name,
-                score: entry.score,
-                archetype: entry.archetype,
-              }))}
-            />
-          </div>
-        )}
-        {sessionMode === 'competitive' && team && teamLeaderboard && teamLeaderboard.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 w-full">
-            <p className="text-xs font-bold mb-3 uppercase tracking-widest text-gray-400">Team Standings</p>
-            {teamLeaderboard.map((t, i) => {
-              const isMyTeam = t.name === team.name
-              return (
-                <div key={t.name} className={`flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-0 ${isMyTeam ? 'bg-yellow-50 -mx-4 px-4' : ''}`}>
-                  <span className="w-6 text-center font-black text-sm" style={{ color: '#0F1B3D' }}>{i + 1}</span>
-                  <span className="text-white text-xs rounded-full px-2 py-0.5 font-bold" style={{ background: t.color }}>{t.name}</span>
-                  {isMyTeam && <span className="text-xs text-gray-400 font-semibold">You</span>}
-                  <span className="flex-1" />
-                  <span className="font-black text-sm" style={{ color: '#0F1B3D' }}>{t.score}</span>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
+        {/* Leaderboard, rank, team standings, and explanation are all shown
+            on the dedicated Standings screen that appears once the question
+            ends (timer out or all participants answered). This keeps the
+            "answered" screen focused on personal result + score. */}
         <p className="text-gray-400 text-lg">Waiting for next question…</p>
 
         <style>{`
@@ -1882,6 +1845,76 @@ function JoinPageInner() {
             80% { transform: translateX(5px); }
           }
         `}</style>
+      </div>
+    )
+  }
+
+  // ─── Standings Phase (between questions, competitive only) ─────────────────
+  if (phase === 'standings') {
+    return (
+      <div className="min-h-screen p-4 max-w-md mx-auto py-6 flex flex-col gap-4">
+        <div className="text-center">
+          <p className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: '#9CA3AF' }}>Standings</p>
+          <h2 className="text-2xl font-black mt-0.5" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
+            How you&apos;re doing
+          </h2>
+        </div>
+
+        {intermediateRank !== null && (
+          <div className="rounded-2xl p-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #0F1B3D 0%, #1B2A5E 100%)', color: '#fff' }}>
+            <div>
+              <p className="text-[10px] uppercase tracking-widest opacity-60 font-bold">Your rank</p>
+              <p className="text-4xl font-black tabular-nums" style={{ color: '#F5E642' }}>#{intermediateRank}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] uppercase tracking-widest opacity-60 font-bold">Your score</p>
+              <p className="text-2xl font-black tabular-nums">{totalScore.toLocaleString()}</p>
+            </div>
+          </div>
+        )}
+
+        {intermediateLeaderboard.length > 0 && (
+          <LeaderboardView
+            variant="compact"
+            heading="Leaderboard"
+            highlightId={name}
+            rows={intermediateLeaderboard.slice(0, 10).map(entry => ({
+              id: entry.name,
+              name: entry.name,
+              score: entry.score,
+              archetype: entry.archetype,
+            }))}
+          />
+        )}
+
+        {team && teamLeaderboard && teamLeaderboard.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+            <p className="text-xs font-bold mb-3 uppercase tracking-widest text-gray-400">Team Standings</p>
+            {teamLeaderboard.map((t, i) => {
+              const isMyTeam = t.name === team.name
+              return (
+                <div key={t.name} className={`flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-0 ${isMyTeam ? 'bg-yellow-50 -mx-4 px-4' : ''}`}>
+                  <span className="w-6 text-center font-black text-sm" style={{ color: '#0F1B3D' }}>{i + 1}</span>
+                  <span className="text-white text-xs rounded-full px-2 py-0.5 font-bold" style={{ background: t.color }}>{t.name}</span>
+                  {isMyTeam && <span className="text-xs text-gray-400 font-semibold">You</span>}
+                  <span className="flex-1" />
+                  <span className="font-black text-sm" style={{ color: '#0F1B3D' }}>{t.score}</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {explanation && (
+          <div className={`rounded-xl p-4 text-sm ${question?.type === 'case' ? 'bg-blue-50 border border-blue-200 text-blue-900' : 'bg-blue-50 border border-blue-100 text-blue-800'}`}>
+            <p className="font-bold mb-1 text-[11px] uppercase tracking-wide text-blue-600">
+              {question?.type === 'case' ? 'Expert View' : 'Why?'}
+            </p>
+            <p>{explanation}</p>
+          </div>
+        )}
+
+        <p className="text-gray-400 text-center text-sm mt-auto">Waiting for host to continue…</p>
       </div>
     )
   }

@@ -28,7 +28,7 @@ import { ShareQuizotic } from '@/components/ShareQuizotic'
 import { JoinPill } from '@/components/host/JoinPill'
 import { getQuizTheme } from '@/lib/quiz-themes'
 
-type Phase = 'loading' | 'error' | 'idle' | 'lobby' | 'question' | 'ended'
+type Phase = 'loading' | 'error' | 'idle' | 'lobby' | 'question' | 'standings' | 'ended'
 
 interface LeaderboardEntry {
   name: string
@@ -140,6 +140,8 @@ export default function SessionPage() {
   const [participants, setParticipants] = useState<Map<string, { archetype: string; team?: { index: number; name: string; color: string } | null }>>(new Map())
   // key = displayName, value = { archetype, team }
   const [sessionMode, setSessionMode] = useState<SessionMode>('competitive')
+  const sessionModeRef = useRef<SessionMode>('competitive')
+  useEffect(() => { sessionModeRef.current = sessionMode }, [sessionMode])
   const [anonymousMode, setAnonymousMode] = useState(false)
   const [teamMode, setTeamMode] = useState(false)
   const [teamCount, setTeamCount] = useState(2)
@@ -282,6 +284,8 @@ export default function SessionPage() {
     // Use it to synchronize the host timer with server's startAt and show 3-2-1 countdown.
     socket.on('question_show', ({ startAt, index }: { startAt?: number; index: number; question: unknown; total: number }) => {
       const effectiveStart = typeof startAt === 'number' ? startAt : Date.now()
+      // Leaving the standings screen for the next question.
+      setPhase('question')
       setQuestionStartedAt(effectiveStart)
       setRankingSubmissions([])
       setDrawings([]) // reset drawing gallery for each new question
@@ -330,6 +334,12 @@ export default function SessionPage() {
       setQuestionEnded(true)
       if (hostTimerRef.current) { clearInterval(hostTimerRef.current); hostTimerRef.current = null }
       setHostTimeLeft(0)
+      // Only transition to the dedicated standings screen for competitive
+      // quizzes — non-scored (poll / practice) sessions have nothing to rank,
+      // so they stay on the question screen showing the explanation inline.
+      if (sessionModeRef.current === 'competitive') {
+        setPhase('standings')
+      }
     })
 
     socket.on('leaderboard_update', ({ top, teamLeaderboard: tlb }: {
@@ -1284,40 +1294,11 @@ export default function SessionPage() {
             </div>
           )}
 
-          {/* Live leaderboard snapshot — animated reorder on each question end */}
-          {sessionMode === 'competitive' && intermediateLeaderboard.length > 0 && (
-            <LeaderboardView
-              variant="compact"
-              topN={5}
-              heading="Live Standings"
-              rows={intermediateLeaderboard.map(entry => ({
-                id: entry.name,
-                name: entry.name,
-                score: entry.score,
-                archetype: entry.archetype,
-              }))}
-            />
-          )}
-
-          {/* Live team standings (team mode only) */}
-          {sessionMode === 'competitive' && teamMode && teamLeaderboard && teamLeaderboard.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Team Standings</p>
-              <div className="space-y-2">
-                {teamLeaderboard.map((team, i) => (
-                  <div key={team.name} className="flex items-center gap-3">
-                    <span className="w-6 text-center text-sm font-black" style={{ color: '#0F1B3D' }}>{i + 1}</span>
-                    <span className="text-white text-xs rounded-full px-2.5 py-0.5 font-bold" style={{ background: team.color }}>{team.name}</span>
-                    <span className="flex-1 text-xs text-gray-400">{team.members} {team.members === 1 ? 'member' : 'members'}</span>
-                    <span className="text-sm font-black tabular-nums" style={{ color: '#0F1B3D' }}>{team.score}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Explanation / Debrief (shown after question_ended event) */}
-          {explanation && (
+          {/* Non-competitive flows (poll / reflection / self-paced) stay on
+              the question screen after ending — they have no ranked standings
+              to reveal. Competitive quizzes transition to the dedicated
+              'standings' phase instead. */}
+          {sessionMode !== 'competitive' && explanation && (
             <div className={`rounded-xl p-5 text-lg ${currentQuestion.type === 'case' ? 'bg-blue-50 border border-blue-200 text-blue-900' : 'bg-blue-50 border border-blue-100 text-blue-800'}`}>
               <span className={`font-bold ${currentQuestion.type === 'case' ? 'text-blue-600' : 'text-blue-600'}`}>
                 {currentQuestion.type === 'case' ? 'Expert View: ' : 'Explanation: '}
@@ -1326,8 +1307,7 @@ export default function SessionPage() {
             </div>
           )}
 
-          {/* Reveal answer — only for scored questions, only after the question has ended. */}
-          {isScoredType(currentQuestion.type) && questionEnded && !correctRevealed && (
+          {sessionMode !== 'competitive' && isScoredType(currentQuestion.type) && questionEnded && !correctRevealed && (
             <button
               onClick={() => setCorrectRevealed(true)}
               className="w-full py-4 rounded-2xl font-bold text-lg border-2 transition-all hover:scale-[1.01]"
@@ -1366,6 +1346,76 @@ export default function SessionPage() {
               {questionIndex + 1 >= quiz.questions.length ? 'End Quiz' : 'Next Question'}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* STANDINGS — dedicated between-questions screen for competitive quizzes */}
+      {phase === 'standings' && quiz && currentQuestion && (
+        <div className="p-4 max-w-4xl mx-auto py-8 space-y-6">
+          <div className="text-center">
+            <p className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: '#9CA3AF' }}>
+              After Question {questionIndex + 1} of {quiz.questions.length}
+            </p>
+            <h2 className="text-3xl md:text-4xl font-black mt-1" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
+              Current Standings
+            </h2>
+          </div>
+
+          {intermediateLeaderboard.length > 0 && (
+            <LeaderboardView
+              variant="compact"
+              topN={10}
+              heading="Leaderboard"
+              rows={intermediateLeaderboard.map(entry => ({
+                id: entry.name,
+                name: entry.name,
+                score: entry.score,
+                archetype: entry.archetype,
+              }))}
+            />
+          )}
+
+          {teamMode && teamLeaderboard && teamLeaderboard.length > 0 && (
+            <div className="bg-white rounded-2xl border border-gray-200 p-4">
+              <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Team Standings</p>
+              <div className="space-y-2">
+                {teamLeaderboard.map((team, i) => (
+                  <div key={team.name} className="flex items-center gap-3">
+                    <span className="w-6 text-center text-sm font-black" style={{ color: '#0F1B3D' }}>{i + 1}</span>
+                    <span className="text-white text-xs rounded-full px-2.5 py-0.5 font-bold" style={{ background: team.color }}>{team.name}</span>
+                    <span className="flex-1 text-xs text-gray-400">{team.members} {team.members === 1 ? 'member' : 'members'}</span>
+                    <span className="text-sm font-black tabular-nums" style={{ color: '#0F1B3D' }}>{team.score}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {explanation && (
+            <div className={`rounded-2xl p-5 text-base ${currentQuestion.type === 'case' ? 'bg-blue-50 border border-blue-200 text-blue-900' : 'bg-blue-50 border border-blue-100 text-blue-800'}`}>
+              <span className="font-bold text-blue-600">
+                {currentQuestion.type === 'case' ? 'Expert View: ' : 'Why? '}
+              </span>
+              {explanation}
+            </div>
+          )}
+
+          {isScoredType(currentQuestion.type) && !correctRevealed && (
+            <button
+              onClick={() => setCorrectRevealed(true)}
+              className="w-full py-3 rounded-xl font-bold text-base border-2 transition-all hover:scale-[1.01]"
+              style={{ borderColor: '#16A34A', color: '#fff', background: '#16A34A' }}
+            >
+              Reveal Correct Answer
+            </button>
+          )}
+
+          <button
+            onClick={nextQuestion}
+            className="w-full py-5 bg-amber-400 text-black font-black text-2xl rounded-2xl hover:bg-amber-300 transition-colors animate-pulse"
+          >
+            {questionIndex + 1 >= quiz.questions.length ? 'End Quiz →' : 'Next Question →'}
+          </button>
         </div>
       )}
 

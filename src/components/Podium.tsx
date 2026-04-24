@@ -139,48 +139,82 @@ function usePrefersReducedMotion(): boolean {
   return useSyncExternalStore(subscribeReducedMotion, getReducedMotion, () => false)
 }
 
-// Continuous "celebration sprinkle" — fires gentle bursts on an interval so
-// the moment doesn't feel like it abruptly ends after the opening cascade.
-// Call returns a stop() — we clear the interval on unmount or when the host
-// leaves the screen. Respects prefers-reduced-motion (no-ops if active).
+// Continuous "celebration loop" — opens with a loud welcome burst, then
+// keeps the moment alive with side-cannon fireworks and gold raindrops on
+// a 1.8s cadence. Call returns a stop() — we clear all timers on unmount
+// so the celebration ends cleanly when the host leaves the screen.
+// Respects prefers-reduced-motion (no-ops if active).
 function startConfettiLoop(): () => void {
   if (typeof window === 'undefined') return () => {}
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return () => {}
 
   const goldish = ['#FFE066', '#F5E642', '#FFFFFF', '#FFC300']
-  const rainbow = ['#0F1B3D', '#F5E642', '#FF8A47', '#16A34A', '#2D3A8C', '#FFFFFF']
+  const rainbow = ['#0F1B3D', '#F5E642', '#FF8A47', '#16A34A', '#2D3A8C', '#FFFFFF', '#DC2626']
   let tick = 0
   let stopped = false
-  const timers = { first: null as ReturnType<typeof setTimeout> | null, interval: null as ReturnType<typeof setInterval> | null }
+  const timers = { welcome: null as ReturnType<typeof setTimeout> | null, interval: null as ReturnType<typeof setInterval> | null }
 
   import('canvas-confetti').then(mod => {
     if (stopped) return
     const confetti = mod.default
+
+    // Welcome burst — big, centre-stage, unmissable. Fires once on mount
+    // so it's clear the celebration is live.
+    const welcomeBurst = () => {
+      confetti({
+        particleCount: 160, spread: 120, startVelocity: 55,
+        scalar: 1.15, colors: rainbow, origin: { x: 0.5, y: 0.55 },
+      })
+      // Side cannons 200ms later
+      setTimeout(() => {
+        if (stopped) return
+        confetti({
+          particleCount: 90, angle: 60, spread: 70, startVelocity: 65,
+          scalar: 1.2, shapes: ['square'], colors: rainbow, origin: { x: 0.02, y: 0.8 },
+        })
+        confetti({
+          particleCount: 90, angle: 120, spread: 70, startVelocity: 65,
+          scalar: 1.2, shapes: ['square'], colors: rainbow, origin: { x: 0.98, y: 0.8 },
+        })
+      }, 200)
+    }
+
     const fireSprinkle = () => {
       tick++
-      if (tick % 2 === 0) {
+      const variant = tick % 3
+      if (variant === 0) {
+        // Gold raindrops from the top
         confetti({
-          particleCount: 22, spread: 60, startVelocity: 32, gravity: 0.8,
-          ticks: 220, scalar: 0.9, colors: goldish, origin: { x: 0.5, y: 0.1 },
+          particleCount: 50, spread: 120, startVelocity: 28, gravity: 0.9,
+          ticks: 260, scalar: 1, colors: goldish, origin: { x: 0.5, y: 0 },
+        })
+      } else if (variant === 1) {
+        // Side firework cannons
+        confetti({
+          particleCount: 35, spread: 65, startVelocity: 55, angle: 60,
+          scalar: 1.1, shapes: ['circle'], colors: rainbow, origin: { x: 0.02, y: 0.8 },
+        })
+        confetti({
+          particleCount: 35, spread: 65, startVelocity: 55, angle: 120,
+          scalar: 1.1, shapes: ['circle'], colors: rainbow, origin: { x: 0.98, y: 0.8 },
         })
       } else {
+        // Gold star burst in the middle — feels like a firework
         confetti({
-          particleCount: 14, spread: 55, startVelocity: 38, angle: 60,
-          scalar: 0.85, colors: rainbow, origin: { x: 0.02, y: 0.85 },
-        })
-        confetti({
-          particleCount: 14, spread: 55, startVelocity: 38, angle: 120,
-          scalar: 0.85, colors: rainbow, origin: { x: 0.98, y: 0.85 },
+          particleCount: 60, spread: 100, startVelocity: 42,
+          scalar: 1.3, shapes: ['star'], colors: goldish, origin: { x: 0.5, y: 0.4 },
         })
       }
     }
-    timers.first = setTimeout(fireSprinkle, 600)
-    timers.interval = setInterval(fireSprinkle, 2500)
+
+    welcomeBurst()
+    timers.welcome = setTimeout(fireSprinkle, 900)
+    timers.interval = setInterval(fireSprinkle, 1800)
   }).catch(() => { /* library unavailable — silently skip */ })
 
   return () => {
     stopped = true
-    if (timers.first) clearTimeout(timers.first)
+    if (timers.welcome) clearTimeout(timers.welcome)
     if (timers.interval) clearInterval(timers.interval)
   }
 }
@@ -262,13 +296,16 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
     preloadCelebrationSounds()
   }, [])
 
-  // Looping confetti sprinkle — runs while the podium is mounted in a
-  // celebratory context (opt-in via prop). Cleanup stops the interval.
+  // Looping celebration confetti — starts immediately when the podium is
+  // shown statically (skipIntro), or waits for the dramatic reveal to
+  // complete (phase === 'rest') so the welcome burst doesn't step on the
+  // drumroll/winnerSlam moment. Cleanup stops all timers on unmount.
+  const shouldLoop = loopConfetti && !reduced && (skipIntro || phase === 'rest')
   useEffect(() => {
-    if (!loopConfetti || reduced) return
+    if (!shouldLoop) return
     const stop = startConfettiLoop()
     return () => stop()
-  }, [loopConfetti, reduced])
+  }, [shouldLoop])
 
   // Schedule the reveal sequence. Reduced motion skips straight to rest and
   // plays a single fanfare — no drumroll, cheer, or shake. When skipIntro is
