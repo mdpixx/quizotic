@@ -137,12 +137,15 @@ export default function SessionPage() {
 
   const [phase, setPhase] = useState<Phase>('loading')
   const [quiz, setQuiz] = useState<Quiz | null>(null)
+  const quizRef = useRef<Quiz | null>(null)
+  const questionIndexRef = useRef<number>(0)
   const [gameCode, setGameCode] = useState('')
   const [participants, setParticipants] = useState<Map<string, { archetype: string; team?: { index: number; name: string; color: string } | null }>>(new Map())
   // key = displayName, value = { archetype, team }
   const [sessionMode, setSessionMode] = useState<SessionMode>('competitive')
   const sessionModeRef = useRef<SessionMode>('competitive')
   useEffect(() => { sessionModeRef.current = sessionMode }, [sessionMode])
+  useEffect(() => { quizRef.current = quiz }, [quiz])
   const [anonymousMode, setAnonymousMode] = useState(false)
   const [teamMode, setTeamMode] = useState(false)
   const [teamCount, setTeamCount] = useState(2)
@@ -152,6 +155,7 @@ export default function SessionPage() {
   const [explanation, setExplanation] = useState<string | null>(null)
   const [questionStats, setQuestionStats] = useState<QuestionStat[]>([])
   const [questionIndex, setQuestionIndex] = useState(0)
+  useEffect(() => { questionIndexRef.current = questionIndex }, [questionIndex])
   const [answered, setAnswered] = useState(0)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [teamLeaderboard, setTeamLeaderboard] = useState<{ name: string; color: string; score: number; members: number }[] | null>(null)
@@ -335,10 +339,13 @@ export default function SessionPage() {
       setQuestionEnded(true)
       if (hostTimerRef.current) { clearInterval(hostTimerRef.current); hostTimerRef.current = null }
       setHostTimeLeft(0)
-      // Only transition to the dedicated standings screen for competitive
-      // quizzes — non-scored (poll / practice) sessions have nothing to rank,
-      // so they stay on the question screen showing the explanation inline.
-      if (sessionModeRef.current === 'competitive') {
+      // Transition to the dedicated standings screen only for competitive
+      // sessions AND scored question types (mcq / multiselect / truefalse).
+      // Non-scored types (poll, wordcloud, rating, ranking, qa, openended,
+      // drawing, case) aggregate responses that the host needs to review —
+      // we stay on the question screen until the host clicks Next Question.
+      const currentType = quizRef.current?.questions?.[questionIndexRef.current]?.type
+      if (sessionModeRef.current === 'competitive' && currentType && isScoredType(currentType)) {
         setPhase('standings')
       }
     })
@@ -1318,7 +1325,7 @@ export default function SessionPage() {
             </button>
           )}
 
-          <div className="flex gap-3">
+          <div className="flex items-center justify-end gap-3 pt-3">
             <button
               onClick={() => {
                 if (paused) {
@@ -1329,7 +1336,7 @@ export default function SessionPage() {
                   setPaused(true)
                 }
               }}
-              className="px-6 py-5 rounded-2xl font-bold text-lg border-2 transition-all hover:scale-[1.02]"
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full font-bold text-sm border-2 transition-all hover:scale-[1.02]"
               style={{
                 borderColor: paused ? '#16A34A' : '#F59E0B',
                 color: paused ? '#16A34A' : '#92400E',
@@ -1340,11 +1347,12 @@ export default function SessionPage() {
             </button>
             <button
               onClick={nextQuestion}
-              className={`flex-1 py-5 bg-amber-400 text-black font-black text-2xl rounded-2xl hover:bg-amber-300 transition-colors ${
+              className={`inline-flex items-center gap-2 px-6 py-2.5 bg-amber-400 text-black font-black text-sm rounded-full hover:bg-amber-300 transition-colors shadow-md ${
                 answered === participants.size && participants.size > 0 ? 'animate-pulse' : ''
               }`}
             >
               {questionIndex + 1 >= quiz.questions.length ? 'End Quiz' : 'Next Question'}
+              <span aria-hidden>→</span>
             </button>
           </div>
         </div>
@@ -1363,17 +1371,19 @@ export default function SessionPage() {
           </div>
 
           {intermediateLeaderboard.length > 0 && (
-            <LeaderboardView
-              variant="compact"
-              topN={10}
-              heading="Leaderboard"
-              rows={intermediateLeaderboard.map(entry => ({
-                id: entry.name,
-                name: entry.name,
-                score: entry.score,
-                archetype: entry.archetype,
-              }))}
-            />
+            <div className="rounded-2xl" style={{ background: '#fff', border: '1px solid #E5E7EB', padding: '18px 12px', minHeight: 360 }}>
+              <LeaderboardView
+                variant="fullscreen"
+                topN={10}
+                heading="Leaderboard"
+                rows={intermediateLeaderboard.map(entry => ({
+                  id: entry.name,
+                  name: entry.name,
+                  score: entry.score,
+                  archetype: entry.archetype,
+                }))}
+              />
+            </div>
           )}
 
           {teamMode && teamLeaderboard && teamLeaderboard.length > 0 && (
@@ -1401,22 +1411,15 @@ export default function SessionPage() {
             </div>
           )}
 
-          {isScoredType(currentQuestion.type) && !correctRevealed && (
+          <div className="flex justify-center pt-2">
             <button
-              onClick={() => setCorrectRevealed(true)}
-              className="w-full py-3 rounded-xl font-bold text-base border-2 transition-all hover:scale-[1.01]"
-              style={{ borderColor: '#16A34A', color: '#fff', background: '#16A34A' }}
+              onClick={nextQuestion}
+              className="inline-flex items-center gap-2 px-7 py-3 bg-amber-400 text-black font-black text-base rounded-full hover:bg-amber-300 transition-colors shadow-md"
             >
-              Reveal Correct Answer
+              {questionIndex + 1 >= quiz.questions.length ? 'End Quiz' : 'Next Question'}
+              <span aria-hidden>→</span>
             </button>
-          )}
-
-          <button
-            onClick={nextQuestion}
-            className="w-full py-5 bg-amber-400 text-black font-black text-2xl rounded-2xl hover:bg-amber-300 transition-colors animate-pulse"
-          >
-            {questionIndex + 1 >= quiz.questions.length ? 'End Quiz →' : 'Next Question →'}
-          </button>
+          </div>
         </div>
       )}
 

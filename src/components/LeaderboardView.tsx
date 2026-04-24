@@ -225,7 +225,7 @@ function CompactLeaderboard({ rows, highlightId, heading }: CompactLeaderboardPr
           Live
         </span>
       </div>
-      <div className="space-y-1.5">
+      <div className="space-y-2.5">
         <AnimatePresence initial={false}>
           {rows.map((row, i) => {
             const tile = COMPACT_TILE[i]
@@ -239,28 +239,28 @@ function CompactLeaderboard({ rows, highlightId, heading }: CompactLeaderboardPr
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
                 transition={{ type: 'spring', stiffness: 380, damping: 30, mass: 0.7 }}
-                className="relative flex items-center gap-2.5 rounded-xl"
+                className="relative flex items-center gap-3 rounded-xl"
                 style={{
                   background: tile ? tile.bg : 'rgba(255,255,255,0.06)',
                   border: `1px solid ${tile ? tile.border : 'rgba(255,255,255,0.08)'}`,
-                  padding: '7px 10px',
+                  padding: '14px 16px',
                   outline: row.id === highlightId ? '2px solid #F5E642' : 'none',
                   outlineOffset: -1,
                 }}
               >
                 <span
-                  className="w-5 text-center text-[13px] font-black tabular-nums flex-shrink-0"
+                  className="w-6 text-center text-lg font-black tabular-nums flex-shrink-0"
                   style={{ color: tile ? tile.textColor : 'rgba(255,255,255,0.7)' }}
                 >
                   {i + 1}
                 </span>
                 {row.archetype && (
-                  <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0" style={{ background: 'rgba(255,255,255,0.5)' }}>
-                    <Avatar archetype={row.archetype} size={28} />
+                  <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0" style={{ background: 'rgba(255,255,255,0.5)' }}>
+                    <Avatar archetype={row.archetype} size={40} />
                   </div>
                 )}
                 <span
-                  className="flex-1 text-[13px] font-bold truncate"
+                  className="flex-1 text-base font-bold truncate"
                   style={{
                     color: tile ? tile.textColor : '#fff',
                     textShadow: isTop ? 'none' : '0 1px 1px rgba(0,0,0,0.18)',
@@ -270,15 +270,18 @@ function CompactLeaderboard({ rows, highlightId, heading }: CompactLeaderboardPr
                 </span>
                 {delta !== undefined && delta !== 0 && (
                   <span
-                    className="text-[10px] font-black tabular-nums flex-shrink-0"
-                    style={{ color: delta > 0 ? '#16A34A' : '#DC2626' }}
+                    className="text-xs font-black tabular-nums flex-shrink-0 px-1.5 py-0.5 rounded"
+                    style={{
+                      color: delta > 0 ? '#15803D' : '#B91C1C',
+                      background: delta > 0 ? 'rgba(22,163,74,0.14)' : 'rgba(220,38,38,0.14)',
+                    }}
                     aria-label={delta > 0 ? `Up ${delta}` : `Down ${-delta}`}
                   >
                     {delta > 0 ? `▲${delta}` : `▼${-delta}`}
                   </span>
                 )}
                 <span
-                  className="text-[13px] font-black tabular-nums flex-shrink-0"
+                  className="text-base font-black tabular-nums flex-shrink-0"
                   style={{ color: tile ? tile.textColor : '#fff' }}
                 >
                   {row.score.toLocaleString()}

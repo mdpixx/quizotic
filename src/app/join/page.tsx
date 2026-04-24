@@ -464,6 +464,8 @@ function JoinPageInner() {
 
   // Question
   const [question, setQuestion] = useState<Question | null>(null)
+  const questionRef = useRef<Question | null>(null)
+  useEffect(() => { questionRef.current = question }, [question])
   const [timeLeft, setTimeLeft] = useState(0)
   const [getReadyVisible, setGetReadyVisible] = useState(false)
   const timeLeftRef = useRef(0)
@@ -793,10 +795,16 @@ function JoinPageInner() {
 
     socket.on('question_ended', ({ explanation: exp }: { correctAnswer: string; explanation: string | null }) => {
       setExplanation(exp)
-      // Transition to the dedicated standings screen so participants see the
-      // full leaderboard moment between questions instead of a mini-list
-      // tucked under the answered state. Non-competitive sessions skip this.
-      if (sessionModeRef.current === 'competitive' && (phaseRef.current === 'answered' || phaseRef.current === 'question')) {
+      // Only transition to the standings screen for competitive sessions AND
+      // scored question types. Non-scored types (wordcloud, poll, rating,
+      // etc.) aggregate responses the host needs to review on their screen,
+      // so participants stay on the answered screen until the next question
+      // arrives.
+      const currentType = questionRef.current?.type as QuestionType | undefined
+      const scored = currentType ? isScoredType(currentType) : false
+      if (sessionModeRef.current === 'competitive'
+          && scored
+          && (phaseRef.current === 'answered' || phaseRef.current === 'question')) {
         setPhase('standings')
       }
     })
