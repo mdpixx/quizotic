@@ -33,6 +33,14 @@ interface SessionResults {
 
 const BLOOMS_LEVELS = ['Remember', 'Understand', 'Apply', 'Analyse', 'Evaluate', 'Create']
 
+// IST date key (YYYY-MM-DD in Asia/Kolkata, UTC+5:30). Sessions run in India
+// but the DB stores UTC; bucketing by UTC date causes the heat map to land
+// sessions on the wrong day for anything after 6:30 PM IST.
+function istDateKey(d: Date): string {
+  const ist = new Date(d.getTime() + 5.5 * 60 * 60 * 1000)
+  return ist.toISOString().slice(0, 10)
+}
+
 export async function GET(request: Request) {
   const session = await auth()
   if (!session?.user?.id) {
@@ -97,10 +105,14 @@ export async function GET(request: Request) {
   const avgScore = scoreCount > 0 ? Math.round(scoreSum / scoreCount) : null
   const completionRate = completionCount > 0 ? Math.round(completionSum / completionCount) : null
 
-  // ── Performance trend (by day) ────────────────────────────────────────────────
+  // ── Performance trend (by day, IST) ───────────────────────────────────────────
+  // Only completed sessions count toward the heat map / trend; bucket by IST
+  // completion date (fall back to createdAt if endedAt is null).
   const trendMap = new Map<string, { sessions: number; scoreSum: number; scoreCount: number; participants: number }>()
   for (const s of [...sessions].reverse()) {
-    const day = s.createdAt.toISOString().slice(0, 10)
+    if (s.status !== 'ended') continue
+    const bucketDate = s.endedAt ?? s.createdAt
+    const day = istDateKey(bucketDate)
     const e = trendMap.get(day) ?? { sessions: 0, scoreSum: 0, scoreCount: 0, participants: 0 }
     e.sessions++; e.participants += s.participantCount ?? 0
     const results = s.results as SessionResults | null
@@ -201,19 +213,35 @@ export async function GET(request: Request) {
     .sort((a, b) => b.avgScore - a.avgScore)
     .slice(0, 5)
 
-  // ── Bloom's coverage ──────────────────────────────────────────────────────────
+  // ── Bloom's coverage + mastery ────────────────────────────────────────────────
+  // Coverage = how many questions you tag at each level (assessment balance).
+  // Mastery  = how well learners perform at each level (correctPct averaged).
+  // Coverage alone doesn't tell teachers where learners struggle — mastery does.
   const bloomsMap = new Map<string, number>(BLOOMS_LEVELS.map(l => [l, 0]))
+  const bloomsMastery = new Map<string, { correctSum: number; correctCount: number }>(
+    BLOOMS_LEVELS.map(l => [l, { correctSum: 0, correctCount: 0 }]),
+  )
   for (const s of sessions) {
     const results = s.results as SessionResults | null
     if (!results?.questionStats) continue
     for (const qs of results.questionStats) {
-      if (qs.bloomsLevel) {
-        const level = BLOOMS_LEVELS.find(l => l.toLowerCase() === qs.bloomsLevel!.toLowerCase())
-        if (level) bloomsMap.set(level, (bloomsMap.get(level) ?? 0) + 1)
+      if (!qs.bloomsLevel) continue
+      const level = BLOOMS_LEVELS.find(l => l.toLowerCase() === qs.bloomsLevel!.toLowerCase())
+      if (!level) continue
+      bloomsMap.set(level, (bloomsMap.get(level) ?? 0) + 1)
+      if (typeof qs.correctPct === 'number') {
+        const m = bloomsMastery.get(level)!
+        m.correctSum += qs.correctPct
+        m.correctCount++
       }
     }
   }
   const bloomsCoverage = BLOOMS_LEVELS.map(level => ({ level, count: bloomsMap.get(level) ?? 0 }))
+  const bloomsMasteryArr = BLOOMS_LEVELS.map(level => {
+    const m = bloomsMastery.get(level)!
+    const mastery = m.correctCount > 0 ? Math.round(m.correctSum / m.correctCount) : null
+    return { level, mastery, questionCount: m.correctCount }
+  })
 
   // ── Engagement trend (per session, last 10 quiz sessions) ─────────────────────
   const engagementTrend = sessions
@@ -239,8 +267,8 @@ export async function GET(request: Request) {
       }
       const confidencePct = totalResponses > 0 ? Math.round((sureResponses / totalResponses) * 100) : null
       return {
-        date: s.createdAt.toISOString().slice(0, 10),
-        label: new Date(s.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+        date: istDateKey(s.createdAt),
+        label: new Date(s.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' }),
         completionPct,
         confidencePct,
       }
@@ -278,6 +306,7 @@ export async function GET(request: Request) {
     topQuizzes,
     topParticipants,
     bloomsCoverage,
+    bloomsMastery: bloomsMasteryArr,
     engagementTrend,
     recentQuestionDifficulty,
   })

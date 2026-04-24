@@ -77,6 +77,25 @@ const MEDAL_STYLES: Record<1 | 2 | 3, { rim: string; rimDark: string; ribbon: st
   3: { rim: '#E0A97B', rimDark: '#8B4513', ribbon: '#16A34A' },       // bronze / green ribbon
 }
 
+// Small participation ribbon for ranks 4+. Warm soft-gold palette so the
+// consolation list feels like a reward, not an afterthought.
+function ParticipationRibbon({ rank, size = 26 }: { rank: number; size?: number }) {
+  // Rank-graded tones: 4 → richest gold, fading to neutral after rank 10
+  const palette = rank <= 4
+    ? { body: '#FDE68A', stroke: '#D97706', text: '#92400E' }
+    : rank <= 6
+      ? { body: '#E5E7EB', stroke: '#9CA3AF', text: '#374151' }
+      : { body: '#F5F3FF', stroke: '#C4B5FD', text: '#5B21B6' }
+  return (
+    <svg width={size} height={size * 1.35} viewBox="0 0 28 38" aria-hidden>
+      <path d="M4 0 L24 0 L24 22 L14 30 L4 22 Z" fill={palette.body} stroke={palette.stroke} strokeWidth="1.3" />
+      <text x="14" y="16" textAnchor="middle" fontSize="11" fontWeight="900" fill={palette.text} style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+        {rank}
+      </text>
+    </svg>
+  )
+}
+
 // Small inline medal. place ∈ {1,2,3}; drawn as a ribbon + coin with embossed number.
 function Medal({ place, size = 40 }: { place: 1 | 2 | 3; size?: number }) {
   const s = MEDAL_STYLES[place]
@@ -160,6 +179,20 @@ async function fireConfetti() {
         origin: { x: 0.5, y: 0.55 },
       })
     }, 3000)
+
+    // 6) Gold-foil star streamers timed with winnerSlam keyframe peak
+    setTimeout(() => {
+      confetti({
+        ...base,
+        colors: ['#FFE066', '#F5E642', '#FFC300', '#FFF3C4'],
+        particleCount: 70,
+        spread: 90,
+        startVelocity: 45,
+        scalar: 1.5,
+        shapes: ['star'],
+        origin: { x: 0.5, y: 0.4 },
+      })
+    }, 3500)
   } catch {
     // canvas-confetti not installed or failed — silently skip visual burst
   }
@@ -409,39 +442,59 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
         })}
       </div>
 
-      {/* Rest of leaderboard */}
+      {/* Honorable Mentions — glass-panel list of ranks 4+ */}
       {rest.length > 0 && (
         <div
-          className="space-y-2"
+          className="rounded-3xl p-4 md:p-5"
           style={{
             opacity: phase === 'rest' ? 1 : 0,
             transform: phase === 'rest' ? 'translateY(0)' : 'translateY(16px)',
             transition: 'all 0.5s ease-out',
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.65), rgba(255,255,255,0.35))',
+            backdropFilter: 'blur(14px)',
+            WebkitBackdropFilter: 'blur(14px)',
+            border: '1px solid rgba(255,255,255,0.55)',
+            boxShadow: '0 8px 32px rgba(15,27,61,0.12), inset 0 1px 0 rgba(255,255,255,0.8)',
           }}
         >
-          {rest.map((entry, i) => {
-            const isHighlighted = highlightName && entry.name === highlightName
-            return (
-              <div
-                key={entry.name}
-                className={`flex items-center gap-3 rounded-xl p-3 ${isHighlighted ? 'ring-2' : ''}`}
-                style={{
-                  background: '#fff',
-                  border: '1px solid #E5E7EB',
-                  ...(isHighlighted ? { '--tw-ring-color': '#F5E642' } : {}),
-                } as React.CSSProperties}
-              >
-                <span className="text-sm font-black w-6 text-center" style={{ color: '#9CA3AF' }}>{i + 4}</span>
-                <Avatar archetype={entry.archetype ?? entry.name} size={36} />
-                <span className="flex-1 font-semibold text-sm" style={{ color: '#1E1B4B' }}>{entry.name}</span>
-                {isCompetitive && (
-                  <span className="text-sm font-bold tabular-nums" style={{ color: '#6B7280' }}>
-                    {entry.score.toLocaleString()}
-                  </span>
-                )}
-              </div>
-            )
-          })}
+          <div className="flex items-center justify-between mb-3">
+            <h3
+              className="text-sm md:text-base font-black"
+              style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D', letterSpacing: '0.02em' }}
+            >
+              Honorable Mentions
+            </h3>
+            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#6B7280' }}>
+              {rest.length} more
+            </span>
+          </div>
+          <div className="space-y-2">
+            {rest.map((entry, i) => {
+              const rank = i + 4
+              const isHighlighted = highlightName && entry.name === highlightName
+              return (
+                <div
+                  key={entry.name}
+                  className={`flex items-center gap-3 rounded-2xl p-2.5 ${isHighlighted ? 'ring-2' : ''}`}
+                  style={{
+                    background: 'rgba(255,255,255,0.55)',
+                    border: '1px solid rgba(255,255,255,0.7)',
+                    animation: !reduced && phase === 'rest' ? `fadeSlideUp 0.45s ease-out ${i * 60}ms both` : undefined,
+                    ...(isHighlighted ? { '--tw-ring-color': '#F5E642' } : {}),
+                  } as React.CSSProperties}
+                >
+                  <div className="flex-shrink-0"><ParticipationRibbon rank={rank} size={24} /></div>
+                  <Avatar archetype={entry.archetype ?? entry.name} size={36} />
+                  <span className="flex-1 font-semibold text-sm truncate" style={{ color: '#1E1B4B' }}>{entry.name}</span>
+                  {isCompetitive && (
+                    <span className="text-sm font-bold tabular-nums" style={{ color: '#4B5563' }}>
+                      {entry.score.toLocaleString()}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 

@@ -8,6 +8,7 @@ import { io, Socket } from 'socket.io-client'
 import QRCode from 'react-qr-code'
 import { Avatar } from '@/components/Avatar'
 import { Podium } from '@/components/Podium'
+import { PostSessionHeader } from '@/components/PostSessionHeader'
 import { SessionReport } from '@/components/SessionReport'
 import { LeaderboardView } from '@/components/LeaderboardView'
 import { playLeaderboardJingle } from '@/lib/sounds'
@@ -1359,6 +1360,13 @@ export default function SessionPage() {
 
       {/* ENDED */}
       {phase === 'ended' && (
+        <>
+        <PostSessionHeader
+          title={quiz?.title}
+          subtitle={leaderboard.length > 0 ? `${leaderboard.length} participant${leaderboard.length === 1 ? '' : 's'} · Session complete` : 'Session complete'}
+          onBack={goBackToLibrary}
+          dimmed={showCelebration && leaderboard.length > 0}
+        />
         <div className="p-4 max-w-2xl mx-auto py-8 space-y-4">
           <h2 className="text-4xl font-black" style={{ color: '#0F1B3D' }}>Session Complete</h2>
 
@@ -1386,8 +1394,20 @@ export default function SessionPage() {
             </div>
           )}
 
-          {/* Animated Podium Leaderboard (static once the CelebrationOverlay has played) */}
-          <Podium leaderboard={leaderboard} sessionMode={sessionMode} skipIntro />
+          {/* Animated Podium Leaderboard (static once the CelebrationOverlay has played).
+              Kept hidden while the CelebrationOverlay is active so the winner
+              isn't spoiled by a 1-frame paint under the modal. visibility:hidden
+              preserves layout; aria-hidden keeps it out of the a11y tree. */}
+          <div
+            style={{
+              visibility: showCelebration && leaderboard.length > 0 ? 'hidden' : 'visible',
+              opacity: showCelebration && leaderboard.length > 0 ? 0 : 1,
+              transition: 'opacity 220ms ease-out',
+            }}
+            aria-hidden={showCelebration && leaderboard.length > 0}
+          >
+            <Podium leaderboard={leaderboard} sessionMode={sessionMode} skipIntro />
+          </div>
 
           {showCelebration && leaderboard.length > 0 && (
             <CelebrationOverlay
@@ -1547,6 +1567,7 @@ export default function SessionPage() {
             Back to Library
           </button>
         </div>
+        </>
       )}
 
     </div>

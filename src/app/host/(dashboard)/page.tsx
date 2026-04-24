@@ -20,12 +20,16 @@ interface AnalyticsData {
   topQuizzes: Array<{ id: string; title: string; sessions: number; avgScore: number | null; participants: number }>
   topParticipants: Array<{ name: string; archetype?: string; sessions: number; avgScore: number; scoreChange: number | null; scores: number[]; atRisk: boolean }>
   bloomsCoverage: Array<{ level: string; count: number }>
+  bloomsMastery?: Array<{ level: string; mastery: number | null; questionCount: number }>
   engagementTrend: Array<{ date: string; label: string; completionPct: number; confidencePct: number | null }>
   recentQuestionDifficulty: { sessionTitle: string; questions: Array<{ index: number; text: string; correctPct: number; bloomsLevel: string | null }> } | null
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+// Mirror of the API's IST bucketing — keeps heatmap cell keys aligned with
+// what /api/analytics returns for the trend array.
+const istDateKey = (d: Date) => new Date(d.getTime() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10)
 const fmtDuration = (s: number | null) => { if (!s) return '—'; const m = Math.floor(s / 60); return m > 0 ? `${m}m ${s % 60}s` : `${s}s` }
 const scoreColor = (s: number) => s >= 70 ? '#16A34A' : s >= 50 ? '#D97706' : '#DC2626'
 const scoreBg = (s: number) => s >= 70 ? '#DCFCE7' : s >= 50 ? '#FEF3C7' : '#FEE2E2'
@@ -138,9 +142,22 @@ export default function HostDashboard() {
   const recommended = bloomsTotal > 0 ? Math.round(bloomsTotal / 6) : 4
 
   // Radar data needs a numeric `fullMark` for recharts
-  const radarData = (data?.bloomsCoverage ?? []).map(b => ({
-    level: b.level, count: b.count, recommended,
-  }))
+  const bloomsMasteryByLevel = new Map(
+    (data?.bloomsMastery ?? []).map(m => [m.level, m]),
+  )
+  const radarData = (data?.bloomsCoverage ?? []).map(b => {
+    const m = bloomsMasteryByLevel.get(b.level)
+    return {
+      level: b.level,
+      count: b.count,
+      recommended,
+      mastery: m?.mastery ?? null,
+      masteredCount: m?.questionCount ?? 0,
+    }
+  })
+  const weakestBloom = radarData
+    .filter(b => b.mastery !== null && b.masteredCount > 0)
+    .sort((a, b) => (a.mastery ?? 100) - (b.mastery ?? 100))[0]
 
   // Question difficulty smart alert
   const hardQuestions = (data?.recentQuestionDifficulty?.questions ?? []).filter(q => q.correctPct < 50)
@@ -529,8 +546,8 @@ export default function HostDashboard() {
           <Card className="h-full flex flex-col">
             <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: '#F1F5F9' }}>
               <div>
-                <h2 className="text-base font-black" style={{ color: '#0F1B3D' }}>Bloom&apos;s Coverage</h2>
-                <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>Cognitive levels in your sessions</p>
+                <h2 className="text-base font-black" style={{ color: '#0F1B3D' }}>Bloom&apos;s Coverage &amp; Mastery</h2>
+                <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>Coverage = questions asked. Mastery = learner correctness.</p>
               </div>
               <button
                 onClick={() => setBloomsView(bloomsView === 'bar' ? 'radar' : 'bar')}
@@ -563,12 +580,25 @@ export default function HostDashboard() {
                       <div className="mt-3 space-y-1.5 flex-1">
                         {radarData.map(b => {
                           const pct = bloomsTotal > 0 ? Math.round((b.count / bloomsTotal) * 100) : 0
+                          const hasMastery = b.mastery !== null && b.masteredCount > 0
+                          const masteryColor = !hasMastery
+                            ? '#94A3B8'
+                            : (b.mastery ?? 0) >= 70 ? '#16A34A'
+                            : (b.mastery ?? 0) >= 50 ? '#D97706'
+                            : '#DC2626'
                           return (
                             <div key={b.level} className="flex items-center gap-2 text-xs">
                               <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: palette[b.level] ?? '#94A3B8' }} />
                               <span className="flex-1 truncate" style={{ color: '#0F1B3D' }}>{b.level}</span>
                               <span className="font-bold" style={{ color: b.count > 0 ? '#0F1B3D' : '#94A3B8' }}>{pct}%</span>
-                              <span className="text-[10px] w-12 text-right" style={{ color: '#94A3B8' }}>{b.count} Q{b.count !== 1 ? 's' : ''}</span>
+                              <span
+                                className="text-[10px] font-bold w-16 text-right tabular-nums"
+                                style={{ color: masteryColor }}
+                                title={hasMastery ? `Learners answered ${b.mastery}% of ${b.level} questions correctly` : 'No graded responses yet'}
+                              >
+                                {hasMastery ? `${b.mastery}% mastery` : '—'}
+                              </span>
+                              <span className="text-[10px] w-10 text-right" style={{ color: '#94A3B8' }}>{b.count}Q</span>
                             </div>
                           )
                         })}
@@ -577,12 +607,24 @@ export default function HostDashboard() {
                   )
                 })()}
                 {(() => {
+                  // Mastery-driven alert: flag the weakest level if learners
+                  // are below 50% correctness there. This is more actionable
+                  // than coverage balance — it tells teachers *where to reteach*.
+                  if (weakestBloom && (weakestBloom.mastery ?? 100) < 50) {
+                    return (
+                      <div className="mt-3 px-3 py-2 rounded-xl" style={{ background: '#FEF2F2', border: '1px solid #FECACA' }}>
+                        <p className="text-[10px] font-medium" style={{ color: '#991B1B' }}>
+                          Learners struggle at <strong>{weakestBloom.level}</strong> ({weakestBloom.mastery}% correct). Consider reteaching or adding scaffolded practice.
+                        </p>
+                      </div>
+                    )
+                  }
                   const remUnder = (radarData.find(b => b.level === 'Remember')?.count ?? 0) + (radarData.find(b => b.level === 'Understand')?.count ?? 0)
                   const remPct = Math.round((remUnder / bloomsTotal) * 100)
                   if (remPct > 70) return (
                     <div className="mt-3 px-3 py-2 rounded-xl" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
                       <p className="text-[10px] font-medium" style={{ color: '#92400E' }}>
-                        💡 {remPct}% of questions are at Remember/Understand level — add more Apply &amp; Evaluate questions
+                        {remPct}% of questions are at Remember/Understand level — add more Apply &amp; Evaluate questions
                       </p>
                     </div>
                   )
@@ -592,22 +634,31 @@ export default function HostDashboard() {
             ) : (
               <>
                 <div className="px-4 py-2 flex-1">
-                  <ResponsiveContainer width="100%" height={180}>
+                  <ResponsiveContainer width="100%" height={200}>
                     <RadarChart data={radarData} margin={{ top: 8, right: 24, bottom: 8, left: 24 }}>
                       <PolarGrid stroke="#E2E8F0" />
                       <PolarAngleAxis dataKey="level" tick={{ fontSize: 9, fill: '#64748B', fontWeight: 600 }} />
-                      <Radar name="Actual" dataKey="count" stroke="#0F1B3D" fill="#0F1B3D" fillOpacity={0.25} strokeWidth={2} />
+                      <Radar name="Mastery" dataKey="mastery" stroke="#16A34A" fill="#16A34A" fillOpacity={0.18} strokeWidth={2} />
+                      <Radar name="Coverage" dataKey="count" stroke="#0F1B3D" fill="#0F1B3D" fillOpacity={0.12} strokeWidth={1.5} />
                       <Radar name="Recommended" dataKey="recommended" stroke="#F59E0B" fill="none" strokeWidth={1.5} strokeDasharray="4 2" />
                       <Tooltip content={({ active, payload }) =>
                         active && payload?.length ? (
                           <div className="text-xs rounded-lg px-2 py-1.5 shadow-lg border" style={{ background: '#fff', borderColor: '#E2E8F0' }}>
                             <p className="font-bold" style={{ color: '#0F1B3D' }}>{payload[0]?.payload?.level}</p>
                             <p style={{ color: '#0F1B3D' }}>Questions: <strong>{payload[0]?.payload?.count}</strong></p>
+                            {payload[0]?.payload?.mastery !== null && (
+                              <p style={{ color: '#16A34A' }}>Mastery: <strong>{payload[0]?.payload?.mastery}%</strong></p>
+                            )}
                           </div>
                         ) : null
                       } />
                     </RadarChart>
                   </ResponsiveContainer>
+                  <div className="flex items-center gap-3 text-[10px] mt-1 justify-center">
+                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: '#16A34A' }} /> Mastery</span>
+                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: '#0F1B3D' }} /> Coverage</span>
+                    <span className="flex items-center gap-1"><span className="w-2.5 h-0.5 rounded-sm" style={{ background: '#F59E0B' }} /> Target</span>
+                  </div>
                 </div>
                 <div className="px-5 pb-4 flex flex-wrap gap-1.5">
                   {radarData.map(b => (
@@ -632,31 +683,38 @@ export default function HostDashboard() {
             {loading ? <Spinner /> : (data?.trend?.length ?? 0) === 0 ? (
               <Empty icon="📈" text="Run quiz sessions to see engagement" />
             ) : (() => {
-              // Build 7 × 4 grid (Mon-Sun × last 4 weeks) from daily trend data
+              // Build 7 × 4 grid (Mon-Sun × last 4 weeks) from daily trend data.
+              // Keys are IST dates (UTC+5:30) to match what the API returns —
+              // see istDateKey() helper above. Previously used browser-local
+              // date + UTC-bucketed data, which caused sessions to show 0
+              // because the keys disagreed.
               const byDate: Record<string, number> = {}
               data?.trend?.forEach(t => {
-                const key = (typeof t.date === 'string' ? t.date : new Date(t.date).toISOString()).slice(0, 10)
+                const key = typeof t.date === 'string' ? t.date.slice(0, 10) : istDateKey(new Date(t.date))
                 byDate[key] = (byDate[key] ?? 0) + (t.sessions ?? 0)
               })
-              const today = new Date()
-              today.setHours(0, 0, 0, 0)
-              // dayOfWeek: 0 = Monday, 6 = Sunday
-              const dayOfWeek = (today.getDay() + 6) % 7
+              const nowIst = new Date(Date.now() + 5.5 * 60 * 60 * 1000)
+              const todayKey = nowIst.toISOString().slice(0, 10)
+              // dayOfWeek (IST, Mon=0 … Sun=6)
+              const dayOfWeek = ((nowIst.getUTCDay()) + 6) % 7
               const weeksToShow = 4
-              const startDate = new Date(today)
-              startDate.setDate(startDate.getDate() - dayOfWeek - (weeksToShow - 1) * 7)
+              // Walk back weeksToShow*7 days in IST using a UTC-math anchor
+              const anchor = new Date(`${todayKey}T00:00:00Z`)
+              const startAnchor = new Date(anchor)
+              startAnchor.setUTCDate(anchor.getUTCDate() - dayOfWeek - (weeksToShow - 1) * 7)
               const cells: { key: string; day: number; count: number; future: boolean; label: string }[] = []
               for (let w = 0; w < weeksToShow; w++) {
                 for (let d = 0; d < 7; d++) {
-                  const cd = new Date(startDate)
-                  cd.setDate(cd.getDate() + w * 7 + d)
+                  const cd = new Date(startAnchor)
+                  cd.setUTCDate(startAnchor.getUTCDate() + w * 7 + d)
                   const key = cd.toISOString().slice(0, 10)
+                  const future = key > todayKey
                   cells.push({
                     key,
-                    day: cd.getDate(),
+                    day: cd.getUTCDate(),
                     count: byDate[key] ?? 0,
-                    future: cd > today,
-                    label: `${cd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · ${byDate[key] ?? 0} session${(byDate[key] ?? 0) === 1 ? '' : 's'}`,
+                    future,
+                    label: `${cd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' })} · ${byDate[key] ?? 0} session${(byDate[key] ?? 0) === 1 ? '' : 's'}`,
                   })
                 }
               }
@@ -674,8 +732,8 @@ export default function HostDashboard() {
                 if (c <= 1) return 'rgba(15, 27, 61, 0.55)' // on paper-2 / pale blue
                 return 'rgba(255, 255, 255, 0.78)'          // on medium → dark blue
               }
-              const startLabel = startDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-              const endLabel = today.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+              const startLabel = startAnchor.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' })
+              const endLabel = anchor.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' })
               const totalSessions = cells.reduce((s, c) => s + c.count, 0)
               return (
                 <div className="px-5 py-4 flex-1 flex flex-col">

@@ -127,21 +127,60 @@ export function stopDrumroll(): void {
   stopMp3('/sounds/drumroll.mp3')
 }
 
-// Deep bass impact — pairs with the winner slam-in. 80 Hz sine with fast
-// decay, same Web Audio style as playCorrect/playWrong above.
+// Celebratory winner sting — pairs with the winner slam-in. Replaces the
+// previous deep 120→40 Hz sub-bass drop that read as ominous. Now layers:
+//   - soft timpani thump (80→60 Hz, 220ms) for weight without dread
+//   - major triad C5–E5–G5 on triangle wave for a triumphant resolve
+//   - high shimmer chime (C6) tail for a polished finish
+// Total duration ~550ms. Export name kept for backward compatibility.
 export function playBassBoom() {
   const ctx = getCtx()
-  const osc = ctx.createOscillator()
-  const gain = ctx.createGain()
-  osc.connect(gain)
-  gain.connect(ctx.destination)
-  osc.type = 'sine'
-  osc.frequency.setValueAtTime(120, ctx.currentTime)
-  osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.5)
-  gain.gain.setValueAtTime(0.6, ctx.currentTime)
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6)
-  osc.start(ctx.currentTime)
-  osc.stop(ctx.currentTime + 0.6)
+  const t0 = ctx.currentTime
+
+  // 1) Soft timpani thump — gives rhythmic weight, not a horror drop
+  {
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain); gain.connect(ctx.destination)
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(80, t0)
+    osc.frequency.exponentialRampToValueAtTime(55, t0 + 0.22)
+    gain.gain.setValueAtTime(0.28, t0)
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.28)
+    osc.start(t0)
+    osc.stop(t0 + 0.3)
+  }
+
+  // 2) Major triad C5 / E5 / G5 — resolves major, feels celebratory
+  const triad = [523.25, 659.25, 783.99]
+  triad.forEach((freq, i) => {
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain); gain.connect(ctx.destination)
+    osc.type = 'triangle'
+    osc.frequency.value = freq
+    const start = t0 + 0.04 + i * 0.02
+    gain.gain.setValueAtTime(0.0001, start)
+    gain.gain.exponentialRampToValueAtTime(0.18, start + 0.04)
+    gain.gain.exponentialRampToValueAtTime(0.001, start + 0.45)
+    osc.start(start)
+    osc.stop(start + 0.5)
+  })
+
+  // 3) Shimmer tail — C6 on sine, short and bright
+  {
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain); gain.connect(ctx.destination)
+    osc.type = 'sine'
+    osc.frequency.value = 1046.5
+    const start = t0 + 0.18
+    gain.gain.setValueAtTime(0.0001, start)
+    gain.gain.exponentialRampToValueAtTime(0.1, start + 0.03)
+    gain.gain.exponentialRampToValueAtTime(0.001, start + 0.35)
+    osc.start(start)
+    osc.stop(start + 0.4)
+  }
 }
 
 // Short leaderboard reveal jingle — played when post-question standings

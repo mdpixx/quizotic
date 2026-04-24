@@ -11,6 +11,8 @@ import { QuizoticLogo } from '@/components/QuizoticLogo'
 import { SlideImage } from '@/components/SlideImage'
 import { SlideImageFrame } from '@/components/SlideImageFrame'
 import { ANSWER_COLORS } from '@/lib/answer-colors'
+import { PostSessionHeader } from '@/components/PostSessionHeader'
+import { PresentationSummary } from '@/components/PresentationSummary'
 
 // Canonical Kahoot palette for answer/option rendering — shared with quiz
 // host view and participant phone so colors match across every surface.
@@ -769,7 +771,20 @@ export default function PresentSessionPage() {
   const reachedMilestonesRef = useRef(new Set<number>())
   const sessionStartTimeRef = useRef<number>(0)
 
-  const [phase, setPhase] = useState<'loading' | 'error' | 'idle' | 'live'>('loading')
+  const [phase, setPhase] = useState<'loading' | 'error' | 'idle' | 'live' | 'ended'>('loading')
+  const [summaryRecord, setSummaryRecord] = useState<{
+    presentationTitle: string
+    participantCount: number
+    duration: number
+    totalSlides: number
+    interactiveSlides: number
+    slidesWithResponses: number
+    totalResponses: number
+    engagementRate: number
+    avgResponsesPerSlide: number
+  } | null>(null)
+  const [summaryAggregates, setSummaryAggregates] = useState<Record<number, AggregateData>>({})
+  const [summarySlides, setSummarySlides] = useState<Slide[]>([])
   const [presentation, setPresentation] = useState<Presentation | null>(null)
   const [gameCode, setGameCode] = useState('')
   const [slideIndex, setSlideIndex] = useState(0)
@@ -920,10 +935,25 @@ export default function PresentSessionPage() {
         localStorage.setItem('quizotic_presentation_sessions', JSON.stringify([record, ...existing]))
       } catch { /* localStorage full or unavailable */ }
 
-      if (endingRef.current) {
-        endingRef.current = false
-        router.push('/host')
-      }
+      // Instead of auto-redirecting to /host (which stranded hosts with no
+      // review screen), transition into an 'ended' phase showing the summary.
+      // The safety timeout in endSession() no longer fires once endingRef
+      // is cleared here.
+      setSummaryRecord({
+        presentationTitle: record.presentationTitle,
+        participantCount: record.participantCount,
+        duration: record.duration,
+        totalSlides: record.totalSlides,
+        interactiveSlides: record.interactiveSlides,
+        slidesWithResponses: record.slidesWithResponses,
+        totalResponses: record.totalResponses,
+        engagementRate: record.engagementRate,
+        avgResponsesPerSlide: record.avgResponsesPerSlide,
+      })
+      setSummaryAggregates(aggregates)
+      setSummarySlides(slides)
+      endingRef.current = false
+      setPhase('ended')
     })
 
     return () => { socket.disconnect() }
@@ -1212,6 +1242,19 @@ export default function PresentSessionPage() {
             </button>
           </div>
         </div>
+      </div>
+    )
+  }
+
+  if (phase === 'ended' && summaryRecord) {
+    return (
+      <div style={{ background: 'var(--color-paper, #F8F9FA)', minHeight: '100vh' }}>
+        <PostSessionHeader
+          title={summaryRecord.presentationTitle}
+          subtitle={`${summaryRecord.participantCount} participant${summaryRecord.participantCount === 1 ? '' : 's'} · Session complete`}
+          onBack={() => router.push('/host')}
+        />
+        <PresentationSummary record={summaryRecord} slides={summarySlides} aggregates={summaryAggregates} />
       </div>
     )
   }

@@ -308,6 +308,9 @@ function Grid2x2Input({ xMin, xMax, yMin, yMax, onSubmit }: {
 }
 
 // ─── Sortable Ranking Item ───────────────────────────────────────────────────
+// Drag is handle-only: touchAction: 'none' is scoped to the grip so the rest
+// of the card taps and scrolls normally (fixes participant-reported sideways
+// slide when interacting near ranking items).
 function SortableRankingItem({ id, index, label, color }: { id: string; index: number; label: string; color: string }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
   const style: React.CSSProperties = {
@@ -315,16 +318,22 @@ function SortableRankingItem({ id, index, label, color }: { id: string; index: n
     transition,
     background: color,
     opacity: isDragging ? 0.85 : 1,
-    cursor: 'grab',
-    touchAction: 'none',
+    touchAction: 'manipulation',
   }
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}
+    <div ref={setNodeRef} style={style} {...attributes}
       className="w-full py-4 rounded-2xl text-left px-5 text-base font-bold text-white flex items-center gap-3 select-none">
       <span className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-sm font-black"
         style={{ background: 'rgba(255,255,255,0.2)' }}>{index + 1}</span>
       <span className="flex-1">{label}</span>
-      <span className="opacity-60 text-lg">⋮⋮</span>
+      <span
+        {...listeners}
+        aria-label="Drag to reorder"
+        role="button"
+        tabIndex={0}
+        className="opacity-80 text-xl leading-none px-2 py-1 -mr-2 rounded-md"
+        style={{ touchAction: 'none', cursor: 'grab', background: 'rgba(255,255,255,0.1)' }}
+      >⋮⋮</span>
     </div>
   )
 }
