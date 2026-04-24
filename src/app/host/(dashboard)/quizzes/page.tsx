@@ -31,6 +31,51 @@ function gradientFor(id: string): string {
   for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0
   return CARD_GRADIENTS[hash % CARD_GRADIENTS.length]
 }
+
+// Deterministic "constellation" motif seeded from the quiz id so each cover
+// gets unique star positions that don't shift between renders. Matches the
+// day-to-night brand theme. Purely decorative — sits behind the title.
+function QuizCoverMotif({ id }: { id: string }) {
+  let seed = 0
+  for (let i = 0; i < id.length; i++) seed = (seed * 131 + id.charCodeAt(i)) >>> 0
+  const rand = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0
+    return seed / 0xffffffff
+  }
+  const stars = Array.from({ length: 14 }, () => ({
+    cx: 4 + rand() * 92,
+    cy: 4 + rand() * 92,
+    r: 0.3 + rand() * 1.2,
+    o: 0.25 + rand() * 0.6,
+  }))
+  const orbX = 18 + rand() * 16
+  const orbY = 18 + rand() * 16
+  return (
+    <svg
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      className="absolute inset-0 w-full h-full pointer-events-none"
+      aria-hidden
+    >
+      <defs>
+        <radialGradient id={`orb-${id}`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#FFF3C4" stopOpacity="0.35" />
+          <stop offset="60%" stopColor="#F5E642" stopOpacity="0.08" />
+          <stop offset="100%" stopColor="#F5E642" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id={`shade-${id}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#000" stopOpacity="0" />
+          <stop offset="100%" stopColor="#000" stopOpacity="0.28" />
+        </linearGradient>
+      </defs>
+      <circle cx={orbX} cy={orbY} r="28" fill={`url(#orb-${id})`} />
+      {stars.map((s, i) => (
+        <circle key={i} cx={s.cx} cy={s.cy} r={s.r} fill="#FFF" opacity={s.o} />
+      ))}
+      <rect x="0" y="0" width="100" height="100" fill={`url(#shade-${id})`} />
+    </svg>
+  )
+}
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
   const m = Math.floor(diff / 60000)
@@ -261,24 +306,27 @@ export default function QuizzesPage() {
                       className="rounded-[16px] overflow-hidden flex flex-col"
                       style={{ background: '#fff', border: '1px solid var(--color-line)' }}
                     >
-                      {/* Gradient cover */}
-                      <div className="relative aspect-[16/10] p-4 flex flex-col justify-between" style={{ background: gradientFor(quiz.id) }}>
-                        <div className="flex items-start justify-between">
-                          <span className="chip" style={{ background: 'rgba(255,255,255,0.22)', color: '#fff', backdropFilter: 'blur(6px)' }}>
-                            Quiz
-                          </span>
-                          <button
-                            onClick={() => setConfirmDelete(quiz.id)}
-                            className="w-7 h-7 rounded-md flex items-center justify-center transition-colors"
-                            style={{ color: 'rgba(255,255,255,0.75)', background: 'rgba(255,255,255,0.08)' }}
-                            title="Delete"
-                          >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
-                          </button>
+                      {/* Gradient cover with constellation motif */}
+                      <div className="relative aspect-[16/10] overflow-hidden" style={{ background: gradientFor(quiz.id) }}>
+                        <QuizCoverMotif id={quiz.id} />
+                        <div className="relative z-10 h-full p-4 flex flex-col justify-between">
+                          <div className="flex items-start justify-between">
+                            <span className="chip" style={{ background: 'rgba(255,255,255,0.22)', color: '#fff', backdropFilter: 'blur(6px)' }}>
+                              Quiz
+                            </span>
+                            <button
+                              onClick={() => setConfirmDelete(quiz.id)}
+                              className="w-7 h-7 rounded-md flex items-center justify-center transition-colors"
+                              style={{ color: 'rgba(255,255,255,0.75)', background: 'rgba(255,255,255,0.08)' }}
+                              title="Delete"
+                            >
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                            </button>
+                          </div>
+                          <h3 className="text-[18px] font-black leading-snug line-clamp-2" style={{ fontFamily: 'var(--font-heading)', color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,.35)' }}>
+                            {quiz.title}
+                          </h3>
                         </div>
-                        <h3 className="text-[18px] font-black leading-snug line-clamp-2" style={{ fontFamily: 'var(--font-heading)', color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,.15)' }}>
-                          {quiz.title}
-                        </h3>
                       </div>
 
                       {/* Card body */}

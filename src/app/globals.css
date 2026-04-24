@@ -350,6 +350,41 @@ h1, h2, h3, h4, h5, h6 {
 }
 .btn-icon:hover:not(:disabled) { color: var(--color-ink); border-color: var(--color-line); background: var(--color-paper); }
 
+/* ── Chip / pill ─────────────────────────────────────────────────────
+   Small rounded label used for filters, tags, status badges, and
+   inline links. Fill and text color come from the inline style; the
+   class supplies shape, padding, weight, and subtle hover lift for
+   interactive chips (buttons / anchors). */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 1px 0 rgba(15, 27, 61, 0.04);
+  transition: transform 0.12s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+button.chip, a.chip {
+  cursor: pointer;
+  border: 0;
+  font-family: inherit;
+}
+button.chip:hover:not(:disabled),
+a.chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 27, 61, 0.1);
+  filter: brightness(1.04);
+}
+button.chip:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 1px 0 rgba(15, 27, 61, 0.06);
+}
+
 /* ── Paper grain + dashboard surfaces (Tier 4 · dashboard restyle) ──
    Subtle dot texture that gives host surfaces a warm, premium paper feel.
    Apply on a container (NOT globally) so participant pages stay crisp. */
