@@ -303,26 +303,33 @@ export default function SessionPage() {
       const timerSeconds = quiz?.questions[index]?.timerSeconds ?? 20
 
       if (msUntilStart > 500) {
-        // 3-2-1 countdown, then start host timer. Tick sound fires on each
-        // count — client-side timers on host and participant are both driven
-        // by the server's startAt, so the beeps stay in sync across screens.
+        // Wall-clock-anchored 3-2-1 countdown. Both host and participant use
+        // the SAME formula — Math.min(3, Math.ceil((effectiveStart - now)/1000))
+        // — polled every 100ms, so the displayed number flips at the same
+        // moment on both screens regardless of when each one received the
+        // question_show event.
         if (countdownTimerRef.current) clearInterval(countdownTimerRef.current)
-        const startCount = Math.min(3, Math.ceil(msUntilStart / 1000))
-        setCountdownValue(startCount)
-        playTick()
-        let current = startCount
-        countdownTimerRef.current = setInterval(() => {
-          current -= 1
-          if (current <= 0) {
-            clearInterval(countdownTimerRef.current!)
-            countdownTimerRef.current = null
+        let lastShown = 0
+        const updateCountdown = () => {
+          const remainingMs = effectiveStart - Date.now()
+          const value = Math.max(0, Math.min(3, Math.ceil(remainingMs / 1000)))
+          if (value <= 0) {
+            if (countdownTimerRef.current) {
+              clearInterval(countdownTimerRef.current)
+              countdownTimerRef.current = null
+            }
             setCountdownValue(null)
             startHostTimer(timerSeconds, effectiveStart)
-          } else {
-            setCountdownValue(current)
+            return
+          }
+          if (value !== lastShown) {
+            lastShown = value
+            setCountdownValue(value)
             playTick()
           }
-        }, 1000)
+        }
+        updateCountdown()
+        countdownTimerRef.current = setInterval(updateCountdown, 100)
       } else {
         startHostTimer(timerSeconds, effectiveStart)
       }

@@ -98,16 +98,23 @@ const OPTION_LABELS = ANSWER_LETTERS
 const TEXT_INPUT_TYPES = ['openended', 'wordcloud', 'qa']
 
 // ─── Countdown Number (for get-ready overlay) ────────────────────────────────
+// Wall-clock-anchored countdown shared with the host. Formula:
+//   Math.max(0, Math.min(3, Math.ceil((targetTime - now) / 1000)))
+// The min(3, ...) cap stops a stray "4" appearing briefly when the server's
+// startAt is +3.5s away. Polling at 100ms keeps the flip aligned with the
+// host's identical loop down to a render frame.
 function CountdownNumber({ targetTime }: { targetTime: number }) {
-  const [val, setVal] = useState(() => Math.max(1, Math.ceil((targetTime - Date.now()) / 1000)))
+  const compute = () => Math.max(0, Math.min(3, Math.ceil((targetTime - Date.now()) / 1000)))
+  const [val, setVal] = useState(compute)
   const prevVal = useRef(val)
   useEffect(() => {
     const tick = setInterval(() => {
-      const remaining = Math.max(0, Math.ceil((targetTime - Date.now()) / 1000))
+      const remaining = compute()
       setVal(remaining)
       if (remaining <= 0) clearInterval(tick)
     }, 100)
     return () => clearInterval(tick)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetTime])
   const changed = val !== prevVal.current
   // Play a clock tick each time the number drops (3 → 2 → 1). The targetTime
