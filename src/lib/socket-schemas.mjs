@@ -26,6 +26,10 @@ export const SubmitAnswerSchema = z.object({
   ]),
   timeMs: z.number().int().min(0).max(600000),
   confidence: z.enum(['sure', 'unsure']).nullable().optional(),
+  // Optional NTP-corrected client tap moment, in server clock space.
+  // When provided, the server uses this as the authoritative submit time
+  // instead of receivedAt - rtt/2. Bounded loosely against bogus values.
+  serverSubmittedAt: z.number().int().positive().optional(),
 })
 
 export const SubmitDrawingSchema = z.object({
@@ -52,11 +56,15 @@ export const CreateSessionSchema = z.object({
       explanation: z.string().max(4000).optional(),
     }).passthrough()).min(1).max(100),
   }).passthrough(),
-  sessionMode: z.enum(['competitive', 'reflection', 'selfpaced', 'assessment']).optional(),
+  sessionMode: z.enum(['competitive', 'reflection', 'selfpaced', 'assessment', 'accuracy']).optional(),
   anonymousMode: z.boolean().optional(),
   teamMode: z.boolean().optional(),
   teamCount: z.number().int().min(2).max(6).optional(),
   ghostSessionId: z.string().optional(),
+  // 'shared-screen' = Kahoot-style classroom mode. Phones show only the four
+  // colour tap zones; the host display shows question + options. Falls back
+  // to 'full-device' for non-MCQ types automatically.
+  displayMode: z.enum(['full-device', 'shared-screen']).optional(),
 })
 
 export const GameCodeOnlySchema = z.object({

@@ -416,7 +416,7 @@ app.prepare().then(async () => {
     socket.on('create_session', async (rawPayload, callback) => {
       const parsed = validateSocketPayload(socket, CreateSessionSchema, rawPayload, callback, 'create_session')
       if (!parsed) return
-      const { quizData, sessionMode, anonymousMode, teamMode, teamCount, ghostSessionId } = parsed
+      const { quizData, sessionMode, anonymousMode, teamMode, teamCount, ghostSessionId, displayMode } = parsed
       if (quizData.id) {
         const ownership = await verifyOwnership('Quiz', quizData.id, socket.data.userId)
         if (ownership === 'foreign') {
@@ -475,6 +475,10 @@ app.prepare().then(async () => {
         participants: new Map(), // socketId → { name, archetype, score, answers, team }
         status: 'lobby',
         sessionMode: sessionMode ?? 'competitive',
+        // Accuracy mode = competitive flow but flat scoring (100 per correct,
+        // no speed bonus, no streak). Defaults to classic for everything else.
+        scoringFormula: sessionMode === 'accuracy' ? 'accuracy' : 'classic',
+        displayMode: displayMode ?? 'full-device',
         anonymousMode: anonymousMode ?? false,
         teamMode: teamMode ?? false,
         teamCount: numTeams,
@@ -490,6 +494,14 @@ app.prepare().then(async () => {
         // OR all active participants answered). Reset on each question_show.
         questionEnded: false,
         endTimer: null,
+        // Standings-cadence + top-movers bookkeeping (Phase 1). scoringFormula
+        // is set above based on sessionMode (accuracy → 'accuracy', else
+        // 'classic') so we don't redeclare it here.
+        standingsCadence: sessionMode === 'accuracy' ? 999 : 3,
+        scoredQuestionsSeen: 0,
+        previousTopThree: [],
+        previousRanks: new Map(),
+        lastStandingsShownAt: 0,
       })
 
       socket.join(`session:${gameCode}`)
@@ -573,6 +585,13 @@ app.prepare().then(async () => {
       const session = sessions.get(gameCode)
       if (!session || session.hostSocketId !== socket.id) return
       session.paused = true
+      // Stop the auto-end timer and snapshot how much time remains so resume
+      // can reschedule with the same remaining ms (rather than restarting the
+      // full timer or letting it elapse during pause).
+      if (session.endTimer) { clearTimeout(session.endTimer); session.endTimer = null }
+      session.pauseRemainingMs = typeof session.questionEndsAt === 'number'
+        ? Math.max(0, session.questionEndsAt - Date.now())
+        : null
       io.to(`session:${gameCode}`).emit('quiz_paused')
       console.log(`[session] paused: ${gameCode}`)
     })
@@ -584,11 +603,40 @@ app.prepare().then(async () => {
       const session = sessions.get(gameCode)
       if (!session || session.hostSocketId !== socket.id) return
       session.paused = false
-      const elapsed = session.questionStartedAt ? Date.now() - session.questionStartedAt : 0
       const timer = session.quizData?.questions[session.currentQuestionIndex]?.timerSeconds || 20
-      const remainingMs = Math.max(0, timer * 1000 - elapsed)
+      // Re-anchor the question's wall-clock end time to "now + remaining".
+      // Re-broadcast remainingMs to clients so their visual timers re-sync.
+      const pausedRemainingMs = typeof session.pauseRemainingMs === 'number'
+        ? session.pauseRemainingMs
+        : null
+      const remainingMs = pausedRemainingMs ?? (() => {
+        const elapsed = session.questionStartedAt ? Date.now() - session.questionStartedAt : 0
+        return Math.max(0, timer * 1000 - elapsed)
+      })()
+      session.pauseRemainingMs = null
+      // Restart the auto-end timer only if there's actually time left and the
+      // question wasn't already ended while paused (e.g. by host advancing).
+      if (!session.questionEnded && pausedRemainingMs !== null && pausedRemainingMs > 0) {
+        scheduleQuestionAutoEnd(io, gameCode, session, pausedRemainingMs)
+      }
       io.to(`session:${gameCode}`).emit('quiz_resumed', { remainingMs })
       console.log(`[session] resumed: ${gameCode}`)
+    })
+
+    // Host manually ended the live question (confirm-tap "End Now") — fire
+    // emitQuestionEnded for the current index if it isn't already ended,
+    // mirroring what the auto-end timer would have done. The host then stays
+    // on the question-review screen and advances when ready.
+    socket.on('end_question', (rawPayload) => {
+      const parsed = validateSocketPayload(socket, GameCodeOnlySchema, rawPayload, undefined, 'end_question')
+      if (!parsed) return
+      const { gameCode } = parsed
+      const session = sessions.get(gameCode)
+      if (!session || session.hostSocketId !== socket.id) return
+      if (session.questionEnded) return
+      session.questionEnded = true
+      if (session.endTimer) { clearTimeout(session.endTimer); session.endTimer = null }
+      emitQuestionEnded(io, gameCode, session, session.currentQuestionIndex)
     })
 
     // Host advanced from the question-review screen to the standings screen.
@@ -1351,6 +1399,7 @@ app.prepare().then(async () => {
         team,
         showBranding: hostPlan !== 'pro',
         participantId: newPid,
+        displayMode: session.displayMode,
       })
 
       // Late joiner during active session — send them the current question
@@ -1370,7 +1419,7 @@ app.prepare().then(async () => {
     socket.on('submit_answer', (rawPayload) => {
       const parsed = validateSocketPayload(socket, SubmitAnswerSchema, rawPayload, undefined, 'submit_answer')
       if (!parsed) return
-      const { gameCode, participantId: incomingPid, answer, timeMs: clientReportedTimeMs, confidence } = parsed
+      const { gameCode, participantId: incomingPid, answer, timeMs: clientReportedTimeMs, confidence, serverSubmittedAt } = parsed
       const receivedAt = Date.now()
       const session = sessions.get(gameCode)
 
@@ -1383,6 +1432,7 @@ app.prepare().then(async () => {
 
       if (!session) return reject('no_session')
       if (session.status !== 'active') return reject('not_active', { status: session.status })
+      if (session.paused) return reject('paused')
 
       // Prefer participantId match (durable across reconnects); fall back to
       // socket.id for clients that haven't sent a participantId yet.
@@ -1406,14 +1456,21 @@ app.prepare().then(async () => {
       if (participant.answers[qi] !== undefined) return reject('duplicate', { questionIndex: qi })
 
       // ─── SERVER-AUTHORITATIVE TIMING ────────────────────────────────────
-      // Compute timeMs from the server's own question-start timestamp, not from
-      // client-reported values. Client-reported timeMs is retained only for audit.
-      // Subtract half of the measured socket round-trip as a network-lag correction
-      // so high-latency players aren't penalized for transport time.
+      // Prefer the client's NTP-corrected serverSubmittedAt when it falls
+      // within a believable window (between question start and now plus a
+      // small slack) — that's the player's actual tap moment in server clock
+      // space. Falls back to the receivedAt - rtt/2 estimate for clients
+      // that haven't completed clock-sync yet.
       const timerMs = (question.timerSeconds || 20) * 1000
       const rttMs = Number(socket.data.rttMs) || 0
       const rawElapsed = session.questionStartedAt ? receivedAt - session.questionStartedAt : 0
-      const networkAdjusted = Math.max(0, rawElapsed - Math.floor(rttMs / 2))
+      let networkAdjusted = Math.max(0, rawElapsed - Math.floor(rttMs / 2))
+      if (typeof serverSubmittedAt === 'number'
+          && session.questionStartedAt
+          && serverSubmittedAt >= session.questionStartedAt
+          && serverSubmittedAt <= receivedAt + 5000) {
+        networkAdjusted = serverSubmittedAt - session.questionStartedAt
+      }
       const serverTimeMs = Math.min(timerMs, networkAdjusted)
 
       // Enforce deadline using server-authoritative timing (2s grace window).
@@ -1456,9 +1513,12 @@ app.prepare().then(async () => {
 
       const isNonScored = ['poll', 'case', 'wordcloud', 'openended', 'qa', 'rating', 'ranking', 'drawing'].includes(question.type)
       const isCorrect = isNonScored ? null : checkAnswer(question, answer)
-      // Base points + speed bonus, then streak bonus layered on top (see applyStreak).
-      const basePoints = isCorrect ? calcPoints(question.points || 1000, serverTimeMs, question.timerSeconds || 20) : 0
-      const streakBonus = applyStreak(participant, isCorrect, isNonScored)
+      // Scoring formula picks 'classic' (Kahoot-style speed-scaled) or
+      // 'accuracy' (flat base, no speed component, no streak — calm
+      // assessment mode). Defaults to classic for back-compat.
+      const formula = session.scoringFormula ?? 'classic'
+      const basePoints = isCorrect ? calcPoints(question.points || 1000, serverTimeMs, question.timerSeconds || 20, formula) : 0
+      const streakBonus = formula === 'accuracy' ? 0 : applyStreak(participant, isCorrect, isNonScored)
       const points = basePoints + streakBonus
 
       participant.answers[qi] = {
@@ -1676,11 +1736,16 @@ function checkAnswer(question, answer) {
   return false
 }
 
-function calcPoints(base, timeMs, timerSeconds) {
+// Kahoot-style classic scoring. A correct answer is worth between base/2 and
+// base, scaled by how fast it came in. Wrong = 0. Drama range is 100% (max
+// is 2× the min) instead of the previous 33%, so fast correct answers pull
+// clearly ahead and the leaderboard stops feeling static. The 'accuracy'
+// formula skips the speed component entirely — every correct answer = base.
+function calcPoints(base, timeMs, timerSeconds, formula = 'classic') {
+  if (formula === 'accuracy') return base
   const maxMs = timerSeconds * 1000
-  const speedRatio = Math.max(0, 1 - timeMs / maxMs)
-  const speedBonus = Math.round(500 * speedRatio)
-  return base + speedBonus
+  const speedRatio = Math.max(0, 1 - timeMs / maxMs) // 1.0 fastest → 0.0 slowest
+  return Math.round(base * (0.5 + 0.5 * speedRatio))
 }
 
 // Streak bonuses — Kahoot-inspired:
@@ -1794,29 +1859,54 @@ function buildTeamLeaderboard(session) {
 // Together with the all-answered check in submit_answer, this implements the
 // "lower of two" rule so the dedicated Standings screen fires without the
 // host having to click anything. Cleared on manual advance, all-answered,
-// end_session, and disconnect.
-function scheduleQuestionAutoEnd(io, gameCode, session) {
+// pause, end_session, and disconnect. Accepts an explicit `overrideMs` so
+// resume can reschedule with the remaining time it captured at pause.
+function scheduleQuestionAutoEnd(io, gameCode, session, overrideMs) {
   if (session.endTimer) {
     clearTimeout(session.endTimer)
     session.endTimer = null
   }
   session.questionEnded = false
-  const q = session.quizData?.questions?.[session.currentQuestionIndex]
-  const timerSeconds = q?.timerSeconds ?? 20
-  // 3.5s intro countdown + question timer + 0.5s grace so the client gets a
-  // chance to paint the final "0" before we transition.
-  const totalMs = 3500 + timerSeconds * 1000 + 500
+  let totalMs
+  if (typeof overrideMs === 'number' && Number.isFinite(overrideMs)) {
+    totalMs = Math.max(0, overrideMs)
+  } else {
+    const q = session.quizData?.questions?.[session.currentQuestionIndex]
+    const timerSeconds = q?.timerSeconds ?? 20
+    // 3.5s intro countdown + question timer + 0.5s grace so the client gets a
+    // chance to paint the final "0" before we transition.
+    totalMs = 3500 + timerSeconds * 1000 + 500
+  }
+  session.questionEndsAt = Date.now() + totalMs
   session.endTimer = setTimeout(() => {
-    if (session.questionEnded) return
+    if (session.questionEnded || session.paused) return
     session.questionEnded = true
     session.endTimer = null
     emitQuestionEnded(io, gameCode, session, session.currentQuestionIndex)
   }, totalMs)
 }
 
+// Compute a flat ordered ranking of participants by score (excluding ghost
+// markers in the snapshot — they appear in the leaderboard but we don't
+// emit personal events to them). Returns Map(participantKey → 1-based rank).
+function rankByScore(participants) {
+  const sorted = Array.from(participants.entries())
+    .map(([key, p]) => ({ key, score: p.score || 0 }))
+    .sort((a, b) => b.score - a.score)
+  const ranks = new Map()
+  sorted.forEach((row, i) => ranks.set(row.key, i + 1))
+  return ranks
+}
+
 // Emit question_ended to the whole room (reveal moment — correctAnswer intentionally exposed).
-// Also emits a top-5 leaderboard snapshot to the room for the "between questions" moment,
-// and a personalized rank to each individual participant.
+// Also emits:
+//   - leaderboard_update — top-5 snapshot, total players, question index
+//   - my_rank_update — per-participant rank info (already existed)
+//   - personal_result — per-participant Result Beat data (points, delta, streak,
+//                       isFastest, teamContribution)
+//   - standingsRecommended flag piggybacked on leaderboard_update so the host
+//     UI can highlight the View Standings button on milestone questions
+//   - topMovers — biggest positive rank deltas this round
 function emitQuestionEnded(io, gameCode, session, questionIndex) {
   const q = session.quizData.questions[questionIndex]
   if (!q) return
@@ -1824,6 +1914,10 @@ function emitQuestionEnded(io, gameCode, session, questionIndex) {
   const correctAnswer = isNonScored
     ? null
     : (q.correctAnswers ?? q.correctAnswer ?? null)
+
+  // Snapshot ranks BEFORE we apply ghost score updates so the deltas reflect
+  // real player movement. previousRanks is whatever we saved last round.
+  const previousRanks = session.previousRanks || new Map()
 
   io.to(`session:${gameCode}`).emit('question_ended', {
     correctAnswer,
@@ -1835,13 +1929,11 @@ function emitQuestionEnded(io, gameCode, session, questionIndex) {
   if (session.ghostPlayers?.length && !isNonScored) {
     const totalQ = session.quizData.questions.length
     for (const ghost of session.ghostPlayers) {
-      // Distribute final score evenly, but give last question the remainder.
       const isLast = questionIndex === totalQ - 1
       const increment = isLast
         ? ghost.finalScore - ghost.score
         : ghost.perQuestionScore
       ghost.score = Math.max(0, ghost.score + increment)
-      // Keep participant map in sync so buildLeaderboardSnapshot picks them up.
       session.participants.set(ghost.ghostId, {
         name: ghost.name,
         archetype: ghost.archetype,
@@ -1854,27 +1946,106 @@ function emitQuestionEnded(io, gameCode, session, questionIndex) {
     }
   }
 
-  // Intermediate leaderboard — skip on non-scored questions so we don't spam
-  // uninteresting snapshots during polls / word clouds.
-  if (session.sessionMode !== 'reflection' && !isNonScored) {
-    const top = buildLeaderboardSnapshot(session.participants, 5)
-    const teamLeaderboard = buildTeamLeaderboard(session)
-    io.to(`session:${gameCode}`).emit('leaderboard_update', {
-      top,
-      teamLeaderboard,
-      totalPlayers: realParticipantCount(session.participants),
-      questionIndex,
-    })
+  // Skip everything below for reflection mode or non-scored questions —
+  // there's no ranking to compute.
+  if (session.sessionMode === 'reflection' || isNonScored) return
 
-    // Personalized rank delta to each participant (their own rank, not in top-5).
-    for (const [socketId] of session.participants.entries()) {
-      if (socketId.startsWith('ghost::')) continue // skip ghost entries
-      const rankInfo = getParticipantRank(session.participants, socketId)
-      if (rankInfo) {
-        io.to(socketId).emit('my_rank_update', rankInfo)
-      }
+  const newRanks = rankByScore(session.participants)
+  const top = buildLeaderboardSnapshot(session.participants, 5)
+  const teamLeaderboard = buildTeamLeaderboard(session)
+  const totalPlayers = realParticipantCount(session.participants)
+
+  // ─── Standings cadence heuristic ─────────────────────────────────────
+  // Recommend showing the full standings screen on:
+  //   - every Nth scored question (default 3)
+  //   - the last 2 questions of the quiz
+  //   - when the top-3 has changed since the last show
+  // Otherwise the host UI defaults to a Result Beat with no full board.
+  const cadence = session.standingsCadence ?? 3
+  const totalQ = session.quizData.questions.length
+  const scoredSeen = (session.scoredQuestionsSeen ?? 0) + 1
+  session.scoredQuestionsSeen = scoredSeen
+  const isLastTwo = questionIndex >= totalQ - 2
+  const everyNth = cadence > 0 && scoredSeen % cadence === 0
+  const prevTop3Key = (session.previousTopThree ?? []).join('|')
+  const newTop3Key = top.slice(0, 3).map(r => r.archetype || r.name).join('|')
+  const top3Changed = prevTop3Key !== '' && prevTop3Key !== newTop3Key
+  const standingsRecommended = isLastTwo || everyNth || top3Changed
+  session.previousTopThree = top.slice(0, 3).map(r => r.archetype || r.name)
+  if (standingsRecommended) session.lastStandingsShownAt = Date.now()
+
+  // ─── Top movers (biggest positive rank delta this round) ────────────
+  const movers = []
+  for (const [key, p] of session.participants.entries()) {
+    if (p.isGhost) continue
+    const fromRank = previousRanks.get(key)
+    const toRank = newRanks.get(key)
+    if (typeof fromRank !== 'number' || typeof toRank !== 'number') continue
+    const delta = fromRank - toRank // positive = moved up
+    if (delta > 0) {
+      movers.push({
+        name: p.name,
+        archetype: p.archetype,
+        fromRank,
+        toRank,
+        delta,
+      })
     }
   }
+  movers.sort((a, b) => b.delta - a.delta || a.toRank - b.toRank)
+  const topMovers = movers.slice(0, 3)
+
+  io.to(`session:${gameCode}`).emit('leaderboard_update', {
+    top,
+    teamLeaderboard,
+    totalPlayers,
+    questionIndex,
+    standingsRecommended,
+    topMovers,
+  })
+
+  // ─── Per-participant Result Beat + rank update ──────────────────────
+  // Find the fastest correct answer this round so we can flag the player(s).
+  let fastestKey = null
+  let fastestTime = Infinity
+  for (const [key, p] of session.participants.entries()) {
+    if (p.isGhost) continue
+    const ans = p.answers?.[questionIndex]
+    if (!ans || ans.isCorrect !== true) continue
+    const t = typeof ans.timeMs === 'number' ? ans.timeMs : Infinity
+    if (t < fastestTime) { fastestTime = t; fastestKey = key }
+  }
+
+  for (const [socketId, p] of session.participants.entries()) {
+    if (p.isGhost) continue
+    const ans = p.answers?.[questionIndex]
+    const fromRank = previousRanks.get(socketId)
+    const toRank = newRanks.get(socketId) ?? null
+    const delta = (typeof fromRank === 'number' && typeof toRank === 'number')
+      ? fromRank - toRank
+      : 0
+    const personal = {
+      questionIndex,
+      isCorrect: ans?.isCorrect ?? null,
+      pointsEarned: ans?.points ?? 0,
+      basePoints: ans?.basePoints ?? 0,
+      streakBonus: ans?.streakBonus ?? 0,
+      streakCount: p.streakCount ?? 0,
+      totalScore: p.score ?? 0,
+      rank: toRank,
+      prevRank: fromRank ?? null,
+      delta,
+      isFastest: socketId === fastestKey,
+      crossedTopFive: typeof toRank === 'number' && toRank <= 5
+        && (typeof fromRank !== 'number' || fromRank > 5),
+    }
+    io.to(socketId).emit('personal_result', personal)
+    // Keep the legacy my_rank_update event for back-compat with any older
+    // client builds still listening to it.
+    if (typeof toRank === 'number') io.to(socketId).emit('my_rank_update', { rank: toRank })
+  }
+
+  session.previousRanks = newRanks
 }
 
 // Compute per-question stats from participant answers for the session report

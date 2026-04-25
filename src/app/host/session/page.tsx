@@ -31,10 +31,23 @@ import { getQuizTheme } from '@/lib/quiz-themes'
 
 type Phase = 'loading' | 'error' | 'idle' | 'lobby' | 'question' | 'standings' | 'ended'
 
+// Soft auto-advance on the standings screen — gives the host ~6 seconds to
+// review before the engine quietly moves to the next question. The "Hold"
+// button cancels the countdown for the current screen only.
+const STANDINGS_AUTO_TOTAL_MS = 6000
+
 interface LeaderboardEntry {
   name: string
   archetype?: string
   score: number
+}
+
+interface TopMover {
+  name: string
+  archetype?: string
+  fromRank: number
+  toRank: number
+  delta: number
 }
 
 // Canonical Kahoot palette — kept as Tailwind class list here for the
@@ -148,6 +161,9 @@ export default function SessionPage() {
   useEffect(() => { quizRef.current = quiz }, [quiz])
   const [anonymousMode, setAnonymousMode] = useState(false)
   const [teamMode, setTeamMode] = useState(false)
+  // Shared-screen classroom mode — phones show only colour tap zones, no
+  // question text. Falls back to full-device for non-MCQ types automatically.
+  const [displayMode, setDisplayMode] = useState<'full-device' | 'shared-screen'>('full-device')
   const [teamCount, setTeamCount] = useState(2)
   const [socketConnected, setSocketConnected] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -173,8 +189,41 @@ export default function SessionPage() {
   const [rankingSubmissions, setRankingSubmissions] = useState<number[][]>([])
   const [attendees, setAttendees] = useState<Array<{ joinedAt: string; leftAt: string | null; durationSec: number | null }>>([])
   const [intermediateLeaderboard, setIntermediateLeaderboard] = useState<LeaderboardEntry[]>([])
+  const [topMovers, setTopMovers] = useState<TopMover[]>([])
+  const [standingsRecommended, setStandingsRecommended] = useState(false)
   const [countdownValue, setCountdownValue] = useState<number | null>(null)
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [endNowArmed, setEndNowArmed] = useState(false)
+  const endNowArmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Soft auto-advance on standings — null means disabled / cancelled.
+  // Number is the remaining ms before nextQuestion() fires automatically.
+  const [standingsAutoMs, setStandingsAutoMs] = useState<number | null>(null)
+
+  // Soft auto-advance — when the host enters the standings phase, start the
+  // countdown. Hitting "Hold" sets standingsAutoMs to null and the countdown
+  // stops. Reaching 0 fires nextQuestion() once.
+  useEffect(() => {
+    if (phase !== 'standings') {
+      setStandingsAutoMs(null)
+      return
+    }
+    setStandingsAutoMs(STANDINGS_AUTO_TOTAL_MS)
+  }, [phase])
+
+  useEffect(() => {
+    if (phase !== 'standings') return
+    if (standingsAutoMs === null) return
+    if (standingsAutoMs <= 0) {
+      setStandingsAutoMs(null)
+      nextQuestion()
+      return
+    }
+    const id = setTimeout(() => {
+      setStandingsAutoMs(prev => (prev === null ? null : Math.max(0, prev - 100)))
+    }, 100)
+    return () => clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, standingsAutoMs])
   // Host-screen privacy: correct answer is hidden while the question is live
   // (host screen is often projected to participants). Revealed after timer ends
   // or via explicit "Reveal answer" button.
@@ -291,6 +340,8 @@ export default function SessionPage() {
       const effectiveStart = typeof startAt === 'number' ? startAt : Date.now()
       // Leaving the standings screen for the next question.
       setPhase('question')
+      setEndNowArmed(false)
+      if (endNowArmTimerRef.current) { clearTimeout(endNowArmTimerRef.current); endNowArmTimerRef.current = null }
       setQuestionStartedAt(effectiveStart)
       setRankingSubmissions([])
       setDrawings([]) // reset drawing gallery for each new question
@@ -352,12 +403,16 @@ export default function SessionPage() {
       // (non-scored types).
     })
 
-    socket.on('leaderboard_update', ({ top, teamLeaderboard: tlb }: {
+    socket.on('leaderboard_update', ({ top, teamLeaderboard: tlb, topMovers: tm, standingsRecommended: sr }: {
       top: LeaderboardEntry[];
       teamLeaderboard?: { name: string; color: string; score: number; members: number }[] | null;
+      topMovers?: TopMover[];
+      standingsRecommended?: boolean;
     }) => {
       setIntermediateLeaderboard(top)
       if (tlb) setTeamLeaderboard(tlb)
+      setTopMovers(tm ?? [])
+      setStandingsRecommended(!!sr)
       // Server only emits this after scored questions end, so every arrival
       // marks a genuine rank-change moment — play the reveal jingle.
       try { playLeaderboardJingle() } catch {}
@@ -488,7 +543,7 @@ export default function SessionPage() {
       setCreating(false)
     }, 8000)
 
-    socketRef.current.emit('create_session', { quizData: quizDataForSession, sessionMode, anonymousMode, teamMode, teamCount, ghostSessionId: ghostMode && ghostSessionId ? ghostSessionId : undefined }, (res: { success: boolean; gameCode: string; error?: string; hostResumeToken?: string }) => {
+    socketRef.current.emit('create_session', { quizData: quizDataForSession, sessionMode, anonymousMode, teamMode, teamCount, displayMode, ghostSessionId: ghostMode && ghostSessionId ? ghostSessionId : undefined }, (res: { success: boolean; gameCode: string; error?: string; hostResumeToken?: string }) => {
       clearTimeout(timeout)
       setCreating(false)
       if (res.success) {
@@ -672,6 +727,7 @@ export default function SessionPage() {
             <div className="grid grid-cols-2 gap-3">
               {([
                 { mode: 'competitive' as const, label: 'Competitive', desc: 'Live leaderboard, speed scoring', icon: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z', comingSoon: false },
+                { mode: 'accuracy' as const, label: 'Accuracy', desc: '100 pts per correct, no speed pressure', icon: 'M12 2l1.5 4.5L18 8l-4 3.5L15 16l-3-2-3 2 1-4.5L6 8l4.5-1.5L12 2z', comingSoon: false },
                 { mode: 'reflection' as const, label: 'Reflection', desc: 'Calmer pace, results at end', icon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z', comingSoon: false },
               ]).map(opt => (
                 <button
@@ -713,6 +769,25 @@ export default function SessionPage() {
             >
               <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${anonymousMode ? 'translate-x-6' : 'translate-x-0.5'}`} />
             </button>
+          </div>
+
+          {/* Display mode toggle — shared-screen vs full-device */}
+          <div className="bg-white rounded-xl border p-4 shadow-sm" style={{ borderColor: '#FEF3C7' }}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-bold text-sm" style={{ color: '#1E1B4B' }}>Shared-Screen Mode</p>
+                <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Phones show colour buttons only — host display shows the question. Best for in-room classrooms.</p>
+              </div>
+              <button
+                onClick={() => setDisplayMode(m => m === 'shared-screen' ? 'full-device' : 'shared-screen')}
+                aria-pressed={displayMode === 'shared-screen'}
+                aria-label="Toggle shared-screen mode"
+                className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+                style={{ background: displayMode === 'shared-screen' ? '#0F1B3D' : '#E5E7EB' }}
+              >
+                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${displayMode === 'shared-screen' ? 'translate-x-6' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
           </div>
 
           {/* Team mode toggle */}
@@ -830,7 +905,7 @@ export default function SessionPage() {
               <QuizoticLogo variant="onDark" className="text-2xl" />
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold px-4 py-1.5 rounded-full bg-white/15 border border-white/25 text-white backdrop-blur">
-                  {{ competitive: '⚡ Competitive', reflection: '🌙 Reflection', selfpaced: '🎯 Self-paced', assessment: '📋 Assessment' }[sessionMode] ?? '⚡ Competitive'}
+                  {{ competitive: '⚡ Competitive', accuracy: '✓ Accuracy', reflection: '🌙 Reflection', selfpaced: '🎯 Self-paced', assessment: '📋 Assessment' }[sessionMode] ?? '⚡ Competitive'}
                 </span>
                 <span className="text-sm font-black px-4 py-1.5 rounded-full text-[#46107a]" style={{ background: '#F5E642', boxShadow: '0 4px 0 rgba(0,0,0,0.15)' }}>
                   {participants.size} {participants.size === 1 ? 'player' : 'players'}
@@ -1365,17 +1440,48 @@ export default function SessionPage() {
               const isLast = questionIndex + 1 >= quiz.questions.length
               const scoredQ = isScoredType(currentQuestion.type)
               const goesToStandings = sessionMode === 'competitive' && scoredQ && questionEnded && !isLast
+              if (!questionEnded) {
+                // Live question — primary action is intentionally muted to
+                // prevent accidental skips. Two-tap confirmation: first tap
+                // arms, second tap fires.
+                const armed = endNowArmed
+                return (
+                  <button
+                    onClick={() => {
+                      if (!armed) {
+                        setEndNowArmed(true)
+                        if (endNowArmTimerRef.current) clearTimeout(endNowArmTimerRef.current)
+                        endNowArmTimerRef.current = setTimeout(() => setEndNowArmed(false), 2500)
+                        return
+                      }
+                      if (endNowArmTimerRef.current) clearTimeout(endNowArmTimerRef.current)
+                      setEndNowArmed(false)
+                      socketRef.current?.emit('end_question', { gameCode })
+                    }}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm border-2 transition-all"
+                    style={{
+                      borderColor: armed ? '#DC2626' : '#9CA3AF',
+                      color: armed ? '#FFFFFF' : '#6B7280',
+                      background: armed ? '#DC2626' : 'transparent',
+                    }}
+                  >
+                    {armed ? 'Tap again to confirm' : 'End Now'}
+                  </button>
+                )
+              }
               const label = isLast
                 ? 'End Quiz'
                 : goesToStandings
-                  ? 'View Standings'
+                  ? (standingsRecommended ? 'View Standings (recommended)' : 'View Standings')
                   : 'Next Question'
               return (
                 <button
                   onClick={goesToStandings ? advanceFromQuestion : nextQuestion}
-                  className={`inline-flex items-center gap-2 px-6 py-2.5 bg-amber-400 text-black font-black text-sm rounded-full hover:bg-amber-300 transition-colors shadow-md ${
-                    questionEnded ? 'animate-pulse' : ''
-                  }`}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 font-black text-sm rounded-full transition-colors shadow-md animate-pulse"
+                  style={{
+                    background: goesToStandings && standingsRecommended ? '#F5E642' : '#FBBF24',
+                    color: '#0F1B3D',
+                  }}
                 >
                   {label}
                   <span aria-hidden>→</span>
@@ -1414,6 +1520,29 @@ export default function SessionPage() {
             </div>
           )}
 
+          {/* Top Movers — recognises the bottom 80% of the room when somebody
+              jumps several places, even if they're still mid-pack. */}
+          {topMovers.length > 0 && (
+            <div className="rounded-2xl p-4" style={{ background: '#FAFAF7', border: '1px solid #E5E7EB' }}>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-2" style={{ color: '#6B7280' }}>
+                Top Movers This Round
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {topMovers.map(m => (
+                  <div key={m.name} className="flex items-center gap-2 rounded-xl p-2" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
+                    <span className="inline-flex items-center justify-center w-9 h-9 rounded-full text-xs font-black" style={{ background: '#DCFCE7', color: '#15803D' }}>
+                      ↑{m.delta}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold truncate" style={{ color: '#0F1B3D' }}>{m.name}</p>
+                      <p className="text-[11px]" style={{ color: '#6B7280' }}>#{m.fromRank} → #{m.toRank}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {teamMode && teamLeaderboard && teamLeaderboard.length > 0 && (
             <div className="bg-white rounded-2xl border border-gray-200 p-4">
               <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Team Standings</p>
@@ -1439,11 +1568,32 @@ export default function SessionPage() {
             </div>
           )}
 
-          <div className="flex justify-center pt-2">
+          <div className="flex justify-center items-center gap-2 pt-2">
+            {standingsAutoMs !== null && standingsAutoMs > 0 && (
+              <button
+                onClick={() => setStandingsAutoMs(null)}
+                className="inline-flex items-center gap-1.5 px-4 py-3 rounded-full font-bold text-sm border-2 transition-all"
+                style={{ borderColor: '#9CA3AF', color: '#6B7280', background: 'transparent' }}
+                title="Cancel auto-advance"
+              >
+                Hold
+              </button>
+            )}
             <button
-              onClick={nextQuestion}
-              className="inline-flex items-center gap-2 px-7 py-3 bg-amber-400 text-black font-black text-base rounded-full hover:bg-amber-300 transition-colors shadow-md"
+              onClick={() => { setStandingsAutoMs(null); nextQuestion() }}
+              className="inline-flex items-center gap-2 px-7 py-3 bg-amber-400 text-black font-black text-base rounded-full hover:bg-amber-300 transition-colors shadow-md relative overflow-hidden"
             >
+              {standingsAutoMs !== null && standingsAutoMs > 0 && (
+                <span
+                  aria-hidden
+                  className="absolute left-0 bottom-0 h-1"
+                  style={{
+                    background: '#0F1B3D',
+                    width: `${100 * (standingsAutoMs / STANDINGS_AUTO_TOTAL_MS)}%`,
+                    transition: 'width 100ms linear',
+                  }}
+                />
+              )}
               {questionIndex + 1 >= quiz.questions.length ? 'End Quiz' : 'Next Question'}
               <span aria-hidden>→</span>
             </button>

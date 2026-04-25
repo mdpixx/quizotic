@@ -9,6 +9,8 @@ import { BrandWatermark } from '@/components/BrandWatermark'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
 import { playTick, playCorrect, playWrong, playStreak } from '@/lib/sounds'
 import { LeaderboardView } from '@/components/LeaderboardView'
+import { ResultBeat, type PersonalResult } from '@/components/ResultBeat'
+import { startClockSync, getServerNow } from '@/lib/clock-sync'
 import { useI18n } from '@/lib/use-i18n'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
@@ -362,6 +364,7 @@ type SubmitAnswerPayload = {
   answer: string | number | (string | number)[]
   timeMs: number
   confidence: 'sure' | 'unsure' | null
+  serverSubmittedAt?: number
 }
 type OutboxItem = {
   id: string
@@ -462,8 +465,11 @@ function JoinPageInner() {
   // Avatar
   const [archetype, setArchetype] = useState<string | null>(null)
   const [avatarRevealed, setAvatarRevealed] = useState(false)
-  const [sessionMode, setSessionMode] = useState<'competitive' | 'reflection'>('competitive')
-  const sessionModeRef = useRef<'competitive' | 'reflection'>('competitive')
+  // 'accuracy' is treated as a sub-mode of competitive on the participant
+  // side — it still shows leaderboard/standings UI, only the scoring formula
+  // differs (server enforces flat 100 per correct).
+  const [sessionMode, setSessionMode] = useState<'competitive' | 'reflection' | 'accuracy'>('competitive')
+  const sessionModeRef = useRef<'competitive' | 'reflection' | 'accuracy'>('competitive')
   useEffect(() => { sessionModeRef.current = sessionMode }, [sessionMode])
   const [anonymousMode, setAnonymousMode] = useState(false)
   const [team, setTeam] = useState<{ index: number; name: string; color: string } | null>(null)
@@ -473,6 +479,10 @@ function JoinPageInner() {
   const [question, setQuestion] = useState<Question | null>(null)
   const questionRef = useRef<Question | null>(null)
   useEffect(() => { questionRef.current = question }, [question])
+  const [paused, setPaused] = useState(false)
+  const [personalResult, setPersonalResult] = useState<PersonalResult | null>(null)
+  const [topMovers, setTopMovers] = useState<{ name: string; archetype?: string; fromRank: number; toRank: number; delta: number }[]>([])
+  const [displayMode, setDisplayMode] = useState<'full-device' | 'shared-screen'>('full-device')
   const [timeLeft, setTimeLeft] = useState(0)
   const [getReadyVisible, setGetReadyVisible] = useState(false)
   const timeLeftRef = useRef(0)
@@ -589,10 +599,14 @@ function JoinPageInner() {
     const id = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(36).slice(2)}`
-    const withPid: SubmitAnswerPayload = participantIdRef.current
-      ? { ...payload, participantId: participantIdRef.current }
-      : payload
-    const item: OutboxItem = { id, questionIndex, payload: withPid, ts: Date.now() }
+    // Stamp the NTP-corrected client tap time so the server can score against
+    // its own clock without the receivedAt - rtt/2 hack.
+    const enriched: SubmitAnswerPayload = {
+      ...payload,
+      serverSubmittedAt: getServerNow(),
+      ...(participantIdRef.current ? { participantId: participantIdRef.current } : {}),
+    }
+    const item: OutboxItem = { id, questionIndex, payload: enriched, ts: Date.now() }
     outboxRef.current.set(id, item)
     trySendAnswer(item)
   }, [trySendAnswer])
@@ -620,9 +634,14 @@ function JoinPageInner() {
     })
     socketRef.current = socket
 
+    // Bound to the socket lifecycle: start/stop the NTP-style clock-sync
+    // burst+steady cadence in lib/clock-sync.ts. Best-of-N keeps offset stable
+    // even when a single ping spikes due to mobile network jitter.
+    let stopClockSync: (() => void) | null = null
+
     socket.on('connect', () => {
-      // RTT clock-sync handshake — server uses this for authoritative scoring
-      socket.emit('ping_time', { clientTime: Date.now() }, () => {})
+      if (stopClockSync) stopClockSync()
+      stopClockSync = startClockSync(socket)
       if (gameCodeRef.current && displayNameRef.current) {
         const pid = participantIdRef.current || getOrCreateParticipantId(gameCodeRef.current)
         if (pid) participantIdRef.current = pid
@@ -646,6 +665,7 @@ function JoinPageInner() {
 
     socket.on('disconnect', () => {
       setError('Connection lost. Reconnecting...')
+      if (stopClockSync) { stopClockSync(); stopClockSync = null }
     })
 
     socket.on('connect_error', () => {
@@ -725,6 +745,7 @@ function JoinPageInner() {
       setShowRedFlash(false)
       setMultiselectChosen(new Set())
       setIntermediateRank(null)
+      setPersonalResult(null)
       setPhase('question')
 
       const effectiveStartAt = typeof startAt === 'number' ? startAt : Date.now()
@@ -811,16 +832,23 @@ function JoinPageInner() {
     // Host clicked the Next button on the question screen and chose to show
     // the standings screen — broadcast tells every participant to switch.
     socket.on('show_standings', () => {
-      if (sessionModeRef.current !== 'competitive') return
+      if (sessionModeRef.current !== 'competitive' && sessionModeRef.current !== 'accuracy') return
       if (phaseRef.current !== 'standings') setPhase('standings')
     })
 
-    socket.on('leaderboard_update', ({ top, teamLeaderboard: tlb }: {
+    socket.on('leaderboard_update', ({ top, teamLeaderboard: tlb, topMovers: tm }: {
       top: LeaderboardEntry[];
       teamLeaderboard?: { name: string; color: string; score: number; members: number }[] | null;
+      topMovers?: { name: string; archetype?: string; fromRank: number; toRank: number; delta: number }[];
     }) => {
       setIntermediateLeaderboard(top)
       if (tlb) setTeamLeaderboard(tlb)
+      setTopMovers(tm ?? [])
+    })
+
+    socket.on('personal_result', (data: PersonalResult) => {
+      setPersonalResult(data)
+      if (typeof data.rank === 'number') setIntermediateRank(data.rank)
     })
 
     socket.on('my_rank_update', ({ rank }: { rank: number }) => {
@@ -830,7 +858,7 @@ function JoinPageInner() {
     socket.on('session_ended', ({ leaderboard, teamLeaderboard: tlb, sessionMode: sm }: {
       leaderboard: LeaderboardEntry[];
       teamLeaderboard?: { name: string; color: string; score: number; members: number }[] | null;
-      sessionMode: 'competitive' | 'reflection';
+      sessionMode: 'competitive' | 'reflection' | 'accuracy';
     }) => {
       setLeaderboard(leaderboard)
       setTeamLeaderboard(tlb ?? null)
@@ -848,9 +876,11 @@ function JoinPageInner() {
 
     socket.on('quiz_paused', () => {
       if (timerRef.current) clearInterval(timerRef.current)
+      setPaused(true)
     })
 
     socket.on('quiz_resumed', ({ remainingMs }: { remainingMs?: number }) => {
+      setPaused(false)
       if (phaseRef.current !== 'question') return
       if (remainingMs !== undefined) {
         const secs = Math.round(remainingMs / 1000)
@@ -1090,7 +1120,7 @@ function JoinPageInner() {
       displayName: trimmedName,
       email: email.trim() || undefined,
       participantId: participantIdRef.current || undefined,
-    }, (res: { success: boolean; error?: string; status?: string; quizTitle?: string; archetype?: string; sessionMode?: 'competitive' | 'reflection'; anonymousMode?: boolean; team?: { index: number; name: string; color: string } | null; presentationTitle?: string; currentSlideIndex?: number; totalSlides?: number; currentSlide?: unknown; responseMode?: string; participantId?: string }) => {
+    }, (res: { success: boolean; error?: string; status?: string; quizTitle?: string; archetype?: string; sessionMode?: 'competitive' | 'reflection' | 'accuracy'; anonymousMode?: boolean; team?: { index: number; name: string; color: string } | null; presentationTitle?: string; currentSlideIndex?: number; totalSlides?: number; currentSlide?: unknown; responseMode?: string; participantId?: string; displayMode?: 'full-device' | 'shared-screen' }) => {
       if (settled) return
       settled = true
       clearTimeout(timeoutId)
@@ -1128,6 +1158,14 @@ function JoinPageInner() {
       if (res.sessionMode) setSessionMode(res.sessionMode)
       if (res.anonymousMode) setAnonymousMode(true)
       if (res.team) setTeam(res.team)
+      // Anonymous mode replaces the player's typed name with their archetype
+      // on the leaderboard. Mirror that here so the end-of-session rank
+      // lookup (`leaderboard.findIndex(e => e.name === displayNameRef.current)`)
+      // matches the displayed entry instead of returning -1 / rank 0.
+      if (res.anonymousMode && res.archetype) {
+        displayNameRef.current = res.archetype
+      }
+      if (res.displayMode) setDisplayMode(res.displayMode)
 
       if (res.status === 'active') {
         setPhase('question')
@@ -1139,6 +1177,7 @@ function JoinPageInner() {
   }
 
   function handleAnswerTap(idx: number) {
+    if (paused) return
     if (question?.type === 'multiselect') {
       if (selectedAnswer !== null || timeLeft <= 0) return
       setMultiselectChosen(prev => {
@@ -1475,6 +1514,12 @@ function JoinPageInner() {
 
   // ─── Question Phase ────────────────────────────────────────────────────────
   if (phase === 'question' && question) {
+    // Shared-screen classroom mode hides question text + option text on the
+    // phone for MCQ-like types so the host display carries the content. We
+    // intentionally exclude open_text / qa / wordcloud / drawing types where
+    // the participant must read the prompt to respond.
+    const sharedScreenEligible = ['mcq', 'multiselect', 'truefalse', 'image_choice', 'poll'].includes(question.type)
+    const sharedScreenSimple = displayMode === 'shared-screen' && sharedScreenEligible
     return (
       <div className="min-h-screen p-4 flex flex-col max-w-xl mx-auto">
         {getReadyVisible && (
@@ -1516,7 +1561,17 @@ function JoinPageInner() {
           </div>
         )}
 
-        {/* Question card */}
+        {/* Question card. In shared-screen mode for MCQ-like types we replace
+            the full question card with a compact "look up" prompt. */}
+        {sharedScreenSimple ? (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 mb-4 text-center">
+            <p className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: '#9CA3AF' }}>
+              Q{question.index + 1} / {question.total}
+            </p>
+            <p className="text-base font-bold mt-1" style={{ color: '#0F1B3D' }}>👀 Look at the host screen</p>
+            <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Tap the colour matching your answer</p>
+          </div>
+        ) : (
         <div className={`bg-white rounded-2xl shadow-sm border p-6 mb-4 ${question.type === 'case' ? 'border-t-4' : 'border-gray-200 border-t-4'}`} style={{ borderTopColor: question.type === 'case' ? '#2D3A8C' : '#F5E642' }}>
           <div className="flex items-center justify-between mb-3">
             <span className="text-base text-gray-400 font-semibold">Q{question.index + 1} / {question.total}</span>
@@ -1556,6 +1611,7 @@ function JoinPageInner() {
             <img src={question.imageUrl} alt="" className="mt-3 rounded-xl max-h-48 w-full object-contain" loading="lazy" />
           )}
         </div>
+        )}
 
         {/* Answer options / text input / drawing */}
         {question.type === 'drawing' ? (
@@ -1701,15 +1757,18 @@ function JoinPageInner() {
                   `}
                   style={{ background: OPTION_COLORS[idx] ?? '#0F1B3D' }}
                 >
-                  {optImage && (
+                  {/* Hide images + option text in shared-screen mode for
+                      MCQ-like types. The host's display carries the content;
+                      the phone is just a coloured tap zone. */}
+                  {optImage && !sharedScreenSimple && (
                     <img src={optImage} alt="" className="w-full h-20 object-cover rounded-xl mb-2" loading="lazy" />
                   )}
-                  <span className={`rounded-full bg-white/25 flex items-center justify-center font-black text-lg flex-shrink-0
-                    ${isTwoOption ? 'w-10 h-10' : 'w-10 h-10 mb-2 mx-auto'}`}
+                  <span className={`rounded-full bg-white/25 flex items-center justify-center font-black flex-shrink-0
+                    ${sharedScreenSimple ? 'w-16 h-16 text-3xl mx-auto' : isTwoOption ? 'w-10 h-10 text-lg' : 'w-10 h-10 mb-2 mx-auto text-lg'}`}
                   >
                     {question.type === 'rating' ? optText : OPTION_LABELS[idx]}
                   </span>
-                  {question.type !== 'rating' && (
+                  {question.type !== 'rating' && !sharedScreenSimple && (
                     <span className="text-lg font-semibold leading-snug">{optText}</span>
                   )}
                 </button>
@@ -1822,20 +1881,26 @@ function JoinPageInner() {
           </div>
         )}
 
-        {isCorrect && sessionMode === 'competitive' && !isNonScored && (
+        {isCorrect && (sessionMode === 'competitive' || sessionMode === 'accuracy') && !isNonScored && (
           <p className="font-bold text-2xl animate-pulse" style={{ color: '#0F1B3D' }}>{t('join.pts', { n: pointsEarned })}</p>
         )}
-        {sessionMode === 'competitive' && !isNonScored && (
+        {(sessionMode === 'competitive' || sessionMode === 'accuracy') && !isNonScored && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 w-full">
             <p className="text-gray-500 text-lg">{t('join.yourScore')}</p>
             <p className="text-6xl font-black" style={{ color: '#0F1B3D' }}>{totalScore}</p>
           </div>
         )}
-        {/* Leaderboard, rank, team standings, and explanation are all shown
-            on the dedicated Standings screen that appears once the question
-            ends (timer out or all participants answered). This keeps the
-            "answered" screen focused on personal result + score. */}
-        <p className="text-gray-400 text-lg">Waiting for next question…</p>
+        {/* Result Beat — kinetic personal feedback strip (points, rank delta,
+            streak, fastest, top-5 flip). Replaces the old static "Waiting for
+            next question…" line. Driven by the server's personal_result event;
+            falls back to the waiting line until the question ends. */}
+        <ResultBeat
+          result={personalResult}
+          fallback={<p className="text-gray-400 text-base">Waiting for next question…</p>}
+        />
+        {personalResult && (
+          <p className="text-gray-400 text-xs">Host is moving on…</p>
+        )}
 
         <style>{`
           @keyframes confettiBurst {
@@ -1901,6 +1966,29 @@ function JoinPageInner() {
           />
         )}
 
+        {/* Top Movers — surfaces the bottom 80% of the room when somebody
+            jumps several places, even if they're still mid-pack. */}
+        {topMovers.length > 0 && (
+          <div className="rounded-2xl p-3 sm:p-4" style={{ background: '#FAFAF7', border: '1px solid #E5E7EB' }}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-2" style={{ color: '#6B7280' }}>
+              Top Movers
+            </p>
+            <div className="space-y-1.5">
+              {topMovers.map(m => (
+                <div key={m.name} className="flex items-center gap-2 rounded-xl p-2" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
+                  <span className="inline-flex items-center justify-center w-9 h-9 rounded-full text-xs font-black flex-shrink-0" style={{ background: '#DCFCE7', color: '#15803D' }}>
+                    ↑{m.delta}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold truncate" style={{ color: '#0F1B3D' }}>{m.name}</p>
+                    <p className="text-[11px]" style={{ color: '#6B7280' }}>#{m.fromRank} → #{m.toRank}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {team && teamLeaderboard && teamLeaderboard.length > 0 && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
             <p className="text-xs font-bold mb-3 uppercase tracking-widest text-gray-400">Team Standings</p>
@@ -1955,7 +2043,7 @@ function JoinPageInner() {
                     {t.name[0]}
                   </div>
                   <span className="flex-1 font-bold text-sm" style={{ color: '#1E1B4B' }}>Team {t.name}</span>
-                  {sessionMode === 'competitive' && (
+                  {(sessionMode === 'competitive' || sessionMode === 'accuracy') && (
                     <span className="text-sm font-black tabular-nums" style={{ color: t.color }}>{t.score.toLocaleString()}</span>
                   )}
                 </div>
