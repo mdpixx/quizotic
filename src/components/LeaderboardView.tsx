@@ -210,7 +210,7 @@ function CompactLeaderboard({ rows, highlightId, heading }: CompactLeaderboardPr
 
   return (
     <div
-      className="rounded-2xl p-3 overflow-hidden"
+      className="rounded-2xl p-2 sm:p-3 overflow-hidden w-full"
       style={{
         background: 'linear-gradient(180deg, #0F1B3D 0%, #1B2A5E 100%)',
         border: '1px solid rgba(255,255,255,0.08)',

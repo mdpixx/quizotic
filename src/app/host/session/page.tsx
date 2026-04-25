@@ -339,15 +339,10 @@ export default function SessionPage() {
       setQuestionEnded(true)
       if (hostTimerRef.current) { clearInterval(hostTimerRef.current); hostTimerRef.current = null }
       setHostTimeLeft(0)
-      // Transition to the dedicated standings screen only for competitive
-      // sessions AND scored question types (mcq / multiselect / truefalse).
-      // Non-scored types (poll, wordcloud, rating, ranking, qa, openended,
-      // drawing, case) aggregate responses that the host needs to review —
-      // we stay on the question screen until the host clicks Next Question.
-      const currentType = quizRef.current?.questions?.[questionIndexRef.current]?.type
-      if (sessionModeRef.current === 'competitive' && currentType && isScoredType(currentType)) {
-        setPhase('standings')
-      }
+      // Stay on the question screen so the host can review who answered
+      // right/wrong before advancing. The host clicks Next to move to the
+      // standings screen (scored types) or directly to the next question
+      // (non-scored types).
     })
 
     socket.on('leaderboard_update', ({ top, teamLeaderboard: tlb }: {
@@ -564,6 +559,20 @@ export default function SessionPage() {
       setRankingSubmissions([])
       // Host timer starts via question_show socket event (synchronized with server startAt)
     }
+  }
+
+  // Host pressed Next from the question-review screen. For competitive +
+  // scored types the next stop is the standings screen; for everything else
+  // we skip straight to the next question (or end the quiz on the last one).
+  function advanceFromQuestion() {
+    const currentType = quiz?.questions?.[questionIndex]?.type
+    const scored = currentType ? isScoredType(currentType) : false
+    if (sessionMode === 'competitive' && scored) {
+      socketRef.current?.emit('show_standings', { gameCode })
+      setPhase('standings')
+      return
+    }
+    nextQuestion()
   }
 
   function generateFollowups() {
@@ -1345,15 +1354,27 @@ export default function SessionPage() {
             >
               {paused ? 'Resume' : 'Pause'}
             </button>
-            <button
-              onClick={nextQuestion}
-              className={`inline-flex items-center gap-2 px-6 py-2.5 bg-amber-400 text-black font-black text-sm rounded-full hover:bg-amber-300 transition-colors shadow-md ${
-                answered === participants.size && participants.size > 0 ? 'animate-pulse' : ''
-              }`}
-            >
-              {questionIndex + 1 >= quiz.questions.length ? 'End Quiz' : 'Next Question'}
-              <span aria-hidden>→</span>
-            </button>
+            {(() => {
+              const isLast = questionIndex + 1 >= quiz.questions.length
+              const scoredQ = isScoredType(currentQuestion.type)
+              const goesToStandings = sessionMode === 'competitive' && scoredQ && questionEnded && !isLast
+              const label = isLast
+                ? 'End Quiz'
+                : goesToStandings
+                  ? 'View Standings'
+                  : 'Next Question'
+              return (
+                <button
+                  onClick={goesToStandings ? advanceFromQuestion : nextQuestion}
+                  className={`inline-flex items-center gap-2 px-6 py-2.5 bg-amber-400 text-black font-black text-sm rounded-full hover:bg-amber-300 transition-colors shadow-md ${
+                    questionEnded ? 'animate-pulse' : ''
+                  }`}
+                >
+                  {label}
+                  <span aria-hidden>→</span>
+                </button>
+              )
+            })()}
           </div>
         </div>
       )}

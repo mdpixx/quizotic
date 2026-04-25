@@ -591,6 +591,19 @@ app.prepare().then(async () => {
       console.log(`[session] resumed: ${gameCode}`)
     })
 
+    // Host advanced from the question-review screen to the standings screen.
+    // Server just relays the signal so all participants flip phase together;
+    // no scoring side-effect (the question has already been ended either by
+    // the auto-end timer, the all-answered detector, or a manual end).
+    socket.on('show_standings', (rawPayload) => {
+      const parsed = validateSocketPayload(socket, GameCodeOnlySchema, rawPayload, undefined, 'show_standings')
+      if (!parsed) return
+      const { gameCode } = parsed
+      const session = sessions.get(gameCode)
+      if (!session || session.hostSocketId !== socket.id) return
+      io.to(`session:${gameCode}`).emit('show_standings')
+    })
+
     socket.on('next_question', (rawPayload) => {
       const parsed = validateSocketPayload(socket, GameCodeOnlySchema, rawPayload, undefined, 'next_question')
       if (!parsed) return

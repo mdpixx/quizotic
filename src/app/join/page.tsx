@@ -795,18 +795,17 @@ function JoinPageInner() {
 
     socket.on('question_ended', ({ explanation: exp }: { correctAnswer: string; explanation: string | null }) => {
       setExplanation(exp)
-      // Only transition to the standings screen for competitive sessions AND
-      // scored question types. Non-scored types (wordcloud, poll, rating,
-      // etc.) aggregate responses the host needs to review on their screen,
-      // so participants stay on the answered screen until the next question
-      // arrives.
-      const currentType = questionRef.current?.type as QuestionType | undefined
-      const scored = currentType ? isScoredType(currentType) : false
-      if (sessionModeRef.current === 'competitive'
-          && scored
-          && (phaseRef.current === 'answered' || phaseRef.current === 'question')) {
-        setPhase('standings')
-      }
+      // Don't auto-transition. Participants stay on the answered/question
+      // screen showing personal feedback until the host explicitly broadcasts
+      // 'show_standings' (then phase = 'standings') or 'question_show'
+      // (then phase = 'question').
+    })
+
+    // Host clicked the Next button on the question screen and chose to show
+    // the standings screen — broadcast tells every participant to switch.
+    socket.on('show_standings', () => {
+      if (sessionModeRef.current !== 'competitive') return
+      if (phaseRef.current !== 'standings') setPhase('standings')
     })
 
     socket.on('leaderboard_update', ({ top, teamLeaderboard: tlb }: {
@@ -1860,7 +1859,7 @@ function JoinPageInner() {
   // ─── Standings Phase (between questions, competitive only) ─────────────────
   if (phase === 'standings') {
     return (
-      <div className="min-h-screen p-4 max-w-md mx-auto py-6 flex flex-col gap-4">
+      <div className="min-h-screen px-2 py-4 sm:px-4 sm:py-6 max-w-xl mx-auto flex flex-col gap-4">
         <div className="text-center">
           <p className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: '#9CA3AF' }}>Standings</p>
           <h2 className="text-2xl font-black mt-0.5" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
