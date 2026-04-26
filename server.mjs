@@ -19,6 +19,11 @@ import {
 import pg from 'pg'
 import { parse as parseCookie } from 'cookie'
 import { randomUUID } from 'crypto'
+import {
+  getConnectedCount as _getConnectedCount,
+  buildSessionStateSnapshot as _buildSessionStateSnapshot,
+  flushPendingPersist as _flushPendingPersist,
+} from './src/lib/session-state.mjs'
 
 // ─── Startup env var validation ────────────────────────────────
 if (process.env.NODE_ENV === 'production') {
@@ -152,8 +157,48 @@ async function insertAttendee(sessionDbId, { nickname, realName, email, archetyp
 // Persist a single answer to the audit log. Fire-and-forget — never blocks
 // the submit_answer hot path. Idempotent via the (sessionId, participantId,
 // questionIndex) unique constraint, so client outbox retries are safe.
-function persistAnswer({ sessionDbId, attendeeId, participantId, questionIndex, answer, isCorrect, basePoints, streakBonus, points, timeMs, confidence }) {
-  if (!dbPool || !sessionDbId || !participantId) return
+//
+// Robustness: if `session` is supplied and its DB row hasn't landed yet
+// (ensureGameSessionRow Promise still in flight), the payload is queued on
+// `session._pendingPersist` and flushed once the row is created. Without
+// this, the very first participant's answer can hit the no-op early-return
+// and be silently dropped.
+function persistAnswer({ session, sessionDbId, attendeeId, participantId, questionIndex, answer, isCorrect, basePoints, streakBonus, points, timeMs, confidence }) {
+  if (!dbPool || !participantId) return
+  const dbId = sessionDbId || session?.dbId || null
+  const payload = {
+    attendeeId: attendeeId || null,
+    participantId,
+    questionIndex: Number(questionIndex) || 0,
+    answer,
+    isCorrect: isCorrect == null ? null : Boolean(isCorrect),
+    basePoints: Number(basePoints) || 0,
+    streakBonus: Number(streakBonus) || 0,
+    points: Number(points) || 0,
+    timeMs: Number(timeMs) || 0,
+    confidence: confidence == null ? null : String(confidence),
+  }
+  if (!dbId) {
+    if (session) {
+      if (!session._pendingPersist) session._pendingPersist = []
+      session._pendingPersist.push(payload)
+      // Trigger flush once the in-flight insert completes.
+      if (session._dbInsertPromise && !session._pendingFlushBound) {
+        session._pendingFlushBound = true
+        session._dbInsertPromise.then((newId) => {
+          session._pendingFlushBound = false
+          flushPendingPersist(session, newId || session.dbId)
+        }).catch(() => { session._pendingFlushBound = false })
+      }
+    } else {
+      console.warn(`[db] answer skipped: no sessionDbId and no session ref (pid=${participantId} q=${payload.questionIndex})`)
+    }
+    return
+  }
+  insertAnswerRow(dbId, payload)
+}
+
+function insertAnswerRow(sessionDbId, p) {
   dbPool.query(
     `INSERT INTO "Answer" (id, "sessionId", "attendeeId", "participantId", "questionIndex", answer, "isCorrect", "basePoints", "streakBonus", points, "timeMs", confidence, "submittedAt")
      VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, $12, now())
@@ -161,18 +206,25 @@ function persistAnswer({ sessionDbId, attendeeId, participantId, questionIndex, 
     [
       randomUUID(),
       sessionDbId,
-      attendeeId || null,
-      participantId,
-      Number(questionIndex) || 0,
-      JSON.stringify(answer ?? null),
-      isCorrect == null ? null : Boolean(isCorrect),
-      Number(basePoints) || 0,
-      Number(streakBonus) || 0,
-      Number(points) || 0,
-      Number(timeMs) || 0,
-      confidence == null ? null : String(confidence),
+      p.attendeeId,
+      p.participantId,
+      p.questionIndex,
+      JSON.stringify(p.answer ?? null),
+      p.isCorrect,
+      p.basePoints,
+      p.streakBonus,
+      p.points,
+      p.timeMs,
+      p.confidence,
     ]
-  ).catch(err => console.error('[db] answer insert failed:', err.message))
+  ).catch(err => console.error(`[db] answer insert failed (pid=${p.participantId} q=${p.questionIndex}):`, err.message))
+}
+
+function flushPendingPersist(session, sessionDbId) {
+  const flushed = _flushPendingPersist(session, sessionDbId, insertAnswerRow)
+  if (flushed > 0) {
+    console.log(`[db] flushed ${flushed} buffered answer(s) for session dbId=${sessionDbId}`)
+  }
 }
 
 // Recovery path used at session end. If RAM scores look wrong (lost participant
@@ -506,6 +558,9 @@ app.prepare().then(async () => {
 
       socket.join(`session:${gameCode}`)
       socket.join(`host:${gameCode}`)
+      // Start the periodic state broadcast right away so the host UI can
+      // reconcile even before the first participant joins.
+      startSessionStateBroadcast(io, gameCode, sessions.get(gameCode))
       console.log(`[session] created: ${gameCode}${teamMode ? ` (teams: ${numTeams})` : ''}`)
       callback({ success: true, gameCode, hostResumeToken })
     })
@@ -727,19 +782,38 @@ app.prepare().then(async () => {
     // P3.4 — Drawing question type: participant submits a drawing (base64 JPEG).
     // The drawing is stored in their answer record and relayed to the host for gallery display.
     // Payload limited server-side: dataUrl is truncated at 100 KB to prevent abuse.
-    socket.on('submit_drawing', (rawPayload) => {
+    socket.on('submit_drawing', (rawPayload, ackCallback) => {
       const parsed = validateSocketPayload(socket, SubmitDrawingSchema, rawPayload, undefined, 'submit_drawing')
       if (!parsed) return
       const { gameCode, participantId: incomingPid, dataUrl } = parsed
       const session = sessions.get(gameCode)
+      const ack = typeof ackCallback === 'function' ? ackCallback : null
 
       const reject = (reason, extra = {}) => {
-        console.warn(`[submit_drawing:reject] code=${gameCode} sid=${socket.id} reason=${reason}`)
+        console.warn(`[submit_drawing:reject] code=${gameCode} sid=${socket.id} pid=${incomingPid || 'none'} reason=${reason}`)
         socket.emit('answer_rejected', { reason, gameCode, ...extra })
+        if (ack) ack({ accepted: false, reason, ...extra })
       }
 
       if (!session) return reject('no_session')
       let participant = (incomingPid && session.participantsById?.get(incomingPid)) || session.participants.get(socket.id)
+      // Same disconnected-map rescue as submit_answer.
+      if (!participant && incomingPid && session.disconnectedParticipants) {
+        for (const [key, entry] of session.disconnectedParticipants.entries()) {
+          if (entry?.participant?.participantId === incomingPid) {
+            const recovered = entry.participant
+            session.participants.delete(entry.socketId)
+            delete recovered.disconnectedAt
+            delete recovered.disconnectedSocketId
+            recovered.socketId = socket.id
+            session.participants.set(socket.id, recovered)
+            session.disconnectedParticipants.delete(key)
+            participant = recovered
+            console.warn(`[submit_drawing:recover] code=${gameCode} pid=${incomingPid} re-linked from disconnected map`)
+            break
+          }
+        }
+      }
       if (!participant) return reject('unknown_participant')
       if (participant.socketId !== socket.id) {
         if (participant.socketId && session.participants.has(participant.socketId)) {
@@ -769,9 +843,11 @@ app.prepare().then(async () => {
         totalScore: participant.score,
         streakCount: 0,
       })
+      if (ack) ack({ accepted: true, questionIndex: qi })
 
       io.to(`host:${gameCode}`).emit('answer_received', {
-        total: session.participants.size,
+        total: getConnectedCount(session),
+        connectedCount: getConnectedCount(session),
         answered: countAnswers(session, qi),
       })
     })
@@ -786,6 +862,7 @@ app.prepare().then(async () => {
       // Stop the pending auto-end timer so it doesn't fire after the session
       // has been torn down.
       if (session.endTimer) { clearTimeout(session.endTimer); session.endTimer = null }
+      stopSessionStateBroadcast(session)
       session.questionEnded = true
 
       emitQuestionEnded(io, gameCode, session, session.currentQuestionIndex)
@@ -901,6 +978,7 @@ app.prepare().then(async () => {
 
       socket.join(`session:${gameCode}`)
       socket.join(`host:${gameCode}`)
+      startSessionStateBroadcast(io, gameCode, sessions.get(gameCode))
       console.log(`[presenter] created: ${gameCode}`)
       callback({ success: true, gameCode, hostResumeToken: presenterHostResumeToken })
     })
@@ -963,15 +1041,54 @@ app.prepare().then(async () => {
       io.to(`session:${gameCode}`).emit('mirror_mode_changed', { mirrorToParticipants: session.mirrorToParticipants })
     })
 
-    socket.on('submit_presenter_response', (rawPayload) => {
+    socket.on('submit_presenter_response', (rawPayload, ackCallback) => {
       const parsed = validateSocketPayload(socket, PresenterResponseSchema, rawPayload, undefined, 'submit_presenter_response')
       if (!parsed) return
-      const { gameCode, slideIndex, response } = parsed
+      const { gameCode, slideIndex, response, participantId: incomingPid } = parsed
       const session = sessions.get(gameCode)
-      if (!session || session.type !== 'presenter') return
+      const ack = typeof ackCallback === 'function' ? ackCallback : null
+      if (!session || session.type !== 'presenter') {
+        if (ack) ack({ accepted: false, reason: 'no_session' })
+        return
+      }
 
-      const participant = session.participants.get(socket.id)
-      if (!participant) return
+      let participant = session.participants.get(socket.id)
+      // Recover via participantId if the socket was rebound after a reconnect.
+      if (!participant && incomingPid && session.participantsById) {
+        const byId = session.participantsById.get(incomingPid)
+        if (byId) {
+          if (byId.socketId && session.participants.has(byId.socketId)) {
+            session.participants.delete(byId.socketId)
+          }
+          byId.socketId = socket.id
+          delete byId.disconnectedAt
+          delete byId.disconnectedSocketId
+          session.participants.set(socket.id, byId)
+          participant = byId
+        }
+      }
+      // Last-resort: scan disconnectedParticipants by participantId.
+      if (!participant && incomingPid && session.disconnectedParticipants) {
+        for (const [key, entry] of session.disconnectedParticipants.entries()) {
+          if (entry?.participant?.participantId === incomingPid) {
+            const recovered = entry.participant
+            session.participants.delete(entry.socketId)
+            delete recovered.disconnectedAt
+            delete recovered.disconnectedSocketId
+            recovered.socketId = socket.id
+            session.participants.set(socket.id, recovered)
+            session.disconnectedParticipants.delete(key)
+            participant = recovered
+            console.warn(`[presenter_response:recover] code=${gameCode} pid=${incomingPid} re-linked from disconnected map`)
+            break
+          }
+        }
+      }
+      if (!participant) {
+        socket.emit('answer_rejected', { reason: 'unknown_participant', gameCode })
+        if (ack) ack({ accepted: false, reason: 'unknown_participant' })
+        return
+      }
 
       // Prevent double-voting per slide per participant
       if (participant.votedSlides?.[slideIndex]) return
@@ -1006,6 +1123,7 @@ app.prepare().then(async () => {
       }
 
       socket.emit('presenter_response_confirmed')
+      if (ack) ack({ accepted: true, slideIndex })
 
       // Route aggregate updates based on responseMode
       const responseMode = slide?.responseMode || 'instant'
@@ -1042,6 +1160,7 @@ app.prepare().then(async () => {
       if (!session || session.hostSocketId !== socket.id || session.type !== 'presenter') return
 
       session.status = 'ended'
+      stopSessionStateBroadcast(session)
 
       // Send aggregates to host before cleanup so client can persist analytics
       socket.emit('presenter_session_summary', {
@@ -1092,7 +1211,7 @@ app.prepare().then(async () => {
     socket.on('join_presenter_session', async (rawPayload, callback) => {
       const parsed = validateSocketPayload(socket, JoinSessionSchema, rawPayload, callback, 'join_presenter_session')
       if (!parsed) return
-      const { gameCode, displayName, email } = parsed
+      const { gameCode, displayName, email, participantId: incomingPid } = parsed
       const session = sessions.get(gameCode)
       if (!session || session.type !== 'presenter') {
         callback({ success: false, error: 'Presenter session not found.' })
@@ -1103,10 +1222,48 @@ app.prepare().then(async () => {
         return
       }
 
+      // Reconnect path — same shape as quiz join_session: prefer participantId
+      // match, then fall back to disconnected-name grace.
+      if (incomingPid) {
+        const existing = session.participantsById?.get(incomingPid)
+        if (existing) {
+          if (existing.socketId && existing.socketId !== socket.id && session.participants.has(existing.socketId)) {
+            session.participants.delete(existing.socketId)
+          }
+          existing.socketId = socket.id
+          delete existing.disconnectedAt
+          delete existing.disconnectedSocketId
+          session.participants.set(socket.id, existing)
+          const dKey = (existing.realName || existing.name || '').toLowerCase()
+          if (dKey) session.disconnectedParticipants?.delete(dKey)
+          socket.join(`session:${gameCode}`)
+          const currentSlide = session.presentationData.slides[session.currentSlideIndex]
+          callback({
+            success: true,
+            presentationTitle: session.presentationData.title,
+            currentSlideIndex: session.currentSlideIndex,
+            totalSlides: session.presentationData.slides.length,
+            currentSlide,
+            responseMode: currentSlide?.responseMode || 'instant',
+            archetype: existing.archetype,
+            reconnected: true,
+            participantId: existing.participantId,
+          })
+          io.to(`host:${gameCode}`).emit('presenter_participant_rejoined', {
+            name: existing.name,
+            participantId: existing.participantId,
+            archetype: existing.archetype,
+            connectedCount: getConnectedCount(session),
+          })
+          console.log(`[presenter] ${existing.name} reconnected via participantId to ${gameCode}`)
+          return
+        }
+      }
+
       // Participant limit check for presenter sessions
       const presenterPlan = await getSessionHostPlan(session)
       const presenterMaxP = presenterPlan === 'pro' ? Infinity : 50
-      if (session.participants.size >= presenterMaxP) {
+      if (getConnectedCount(session) >= presenterMaxP) {
         callback({ success: false, error: 'This session is full (max 50 participants on Free plan). The host can upgrade to Pro for unlimited participants.' })
         return
       }
@@ -1114,13 +1271,19 @@ app.prepare().then(async () => {
       const safeName = String(displayName ?? '').slice(0, 30).trim() || 'Anonymous'
       const safeEmail = sanitizeEmail(email)
       const archetype = assignArchetype()
+      const newPid = incomingPid || randomUUID()
       const participant = {
+        participantId: newPid,
+        socketId: socket.id,
         name: safeName,
+        realName: safeName,
         archetype,
         votedSlides: {},
         joinedAt: new Date(),
       }
       session.participants.set(socket.id, participant)
+      if (!session.participantsById) session.participantsById = new Map()
+      session.participantsById.set(newPid, participant)
       socket.join(`session:${gameCode}`)
 
       // Persist attendee record (best-effort, don't block join on DB error).
@@ -1150,13 +1313,17 @@ app.prepare().then(async () => {
         currentSlide,
         responseMode: currentSlide?.responseMode || 'instant',
         archetype,
+        participantId: newPid,
       })
 
       io.to(`host:${gameCode}`).emit('presenter_participant_joined', {
         name: safeName,
+        participantId: newPid,
         archetype,
-        count: session.participants.size,
+        count: getConnectedCount(session),
+        connectedCount: getConnectedCount(session),
       })
+      startSessionStateBroadcast(io, gameCode, session)
       console.log(`[presenter] ${displayName} joined ${gameCode}`)
     })
 
@@ -1291,6 +1458,16 @@ app.prepare().then(async () => {
             participantId: existing.participantId,
           })
           sendCurrentQuestionToSocket(socket, session)
+          // Notify host that a known participant returned. Distinct from
+          // participant_joined so the UI updates the existing entry rather
+          // than creating a new one (which would inflate the count).
+          io.to(`host:${gameCode}`).emit('participant_rejoined', {
+            name: existing.name,
+            participantId: existing.participantId,
+            archetype: existing.archetype,
+            team: existing.team,
+            connectedCount: getConnectedCount(session),
+          })
           return
         }
       }
@@ -1305,8 +1482,22 @@ app.prepare().then(async () => {
       }
 
       // ─── Reconnect path 2 — legacy name-based grace (fallback) ───────────
+      // Tries name match first; if that fails BUT we have a participantId,
+      // also scan the disconnected map by participantId — handles cases where
+      // the archetype/displayName drifts on rejoin (e.g. anonymous-mode
+      // reassignment) but the localStorage UUID is still intact.
       const disconnectedKey = safeName.toLowerCase()
-      const disconnectedEntry = session.disconnectedParticipants?.get(disconnectedKey)
+      let disconnectedEntry = session.disconnectedParticipants?.get(disconnectedKey)
+      let matchedKey = disconnectedKey
+      if (!disconnectedEntry && incomingPid && session.disconnectedParticipants) {
+        for (const [key, entry] of session.disconnectedParticipants.entries()) {
+          if (entry?.participant?.participantId === incomingPid) {
+            disconnectedEntry = entry
+            matchedKey = key
+            break
+          }
+        }
+      }
       if (disconnectedEntry) {
         // Restore the participant under the new socket ID
         const oldParticipant = disconnectedEntry.participant
@@ -1315,7 +1506,7 @@ app.prepare().then(async () => {
         delete oldParticipant.disconnectedSocketId
         oldParticipant.socketId = socket.id
         session.participants.set(socket.id, oldParticipant)
-        session.disconnectedParticipants.delete(disconnectedKey)
+        session.disconnectedParticipants.delete(matchedKey)
         // Backfill participantId on the existing entry if the client has one now.
         if (incomingPid && !oldParticipant.participantId) {
           oldParticipant.participantId = incomingPid
@@ -1323,7 +1514,7 @@ app.prepare().then(async () => {
           session.participantsById.set(incomingPid, oldParticipant)
         }
         socket.join(`session:${gameCode}`)
-        console.log(`[participant] ${safeName} reconnected (name match) to ${gameCode}`)
+        console.log(`[participant] ${safeName} reconnected (name/pid match) to ${gameCode}`)
         callback({
           success: true,
           status: session.status,
@@ -1338,6 +1529,15 @@ app.prepare().then(async () => {
           participantId: oldParticipant.participantId,
         })
         sendCurrentQuestionToSocket(socket, session)
+        // Same guarantee as the participantId fast path — host UI gets a
+        // rejoin event so its Map entry is updated, not duplicated.
+        io.to(`host:${gameCode}`).emit('participant_rejoined', {
+          name: oldParticipant.name,
+          participantId: oldParticipant.participantId || null,
+          archetype: oldParticipant.archetype,
+          team: oldParticipant.team,
+          connectedCount: getConnectedCount(session),
+        })
         return
       }
 
@@ -1408,26 +1608,35 @@ app.prepare().then(async () => {
 
       io.to(`host:${gameCode}`).emit('participant_joined', {
         name: displayStoredName,
+        participantId: newPid,
         archetype,
-        count: session.participants.size,
+        // `count` retained for back-compat with older host clients;
+        // `connectedCount` is the new authoritative field.
+        count: getConnectedCount(session),
+        connectedCount: getConnectedCount(session),
         team,
       })
+
+      // Make sure the periodic state broadcast is running (idempotent).
+      startSessionStateBroadcast(io, gameCode, session)
 
       console.log(`[session] ${displayName} (${archetype}${team ? `, Team ${team.name}` : ''}) joined ${gameCode}`)
     })
 
-    socket.on('submit_answer', (rawPayload) => {
+    socket.on('submit_answer', (rawPayload, ackCallback) => {
       const parsed = validateSocketPayload(socket, SubmitAnswerSchema, rawPayload, undefined, 'submit_answer')
       if (!parsed) return
       const { gameCode, participantId: incomingPid, answer, timeMs: clientReportedTimeMs, confidence, serverSubmittedAt } = parsed
       const receivedAt = Date.now()
       const session = sessions.get(gameCode)
+      const ack = typeof ackCallback === 'function' ? ackCallback : null
 
       // Unified rejection — single shape, structured log, client-actionable reason.
       // Client listens for `answer_rejected` and forces re-join on `unknown_participant`.
       const reject = (reason, extra = {}) => {
-        console.warn(`[submit_answer:reject] code=${gameCode} sid=${socket.id} reason=${reason}`)
+        console.warn(`[submit_answer:reject] code=${gameCode} sid=${socket.id} pid=${incomingPid || 'none'} reason=${reason}`)
         socket.emit('answer_rejected', { reason, gameCode, ...extra })
+        if (ack) ack({ accepted: false, reason, ...extra })
       }
 
       if (!session) return reject('no_session')
@@ -1437,6 +1646,39 @@ app.prepare().then(async () => {
       // Prefer participantId match (durable across reconnects); fall back to
       // socket.id for clients that haven't sent a participantId yet.
       let participant = (incomingPid && session.participantsById?.get(incomingPid)) || session.participants.get(socket.id)
+
+      // Last-resort recovery: if the participantId is unknown to participantsById
+      // (e.g. socket.id-keyed entry was evicted but pid never registered) but
+      // the disconnected map has a matching entry, re-link it. This is the
+      // "first participant idled, reconnected, sent answer before re-join
+      // handshake completed" case — without this rescue, the answer is dropped.
+      if (!participant && incomingPid && session.disconnectedParticipants) {
+        for (const [key, entry] of session.disconnectedParticipants.entries()) {
+          if (entry?.participant?.participantId === incomingPid) {
+            const recovered = entry.participant
+            session.participants.delete(entry.socketId)
+            delete recovered.disconnectedAt
+            delete recovered.disconnectedSocketId
+            recovered.socketId = socket.id
+            session.participants.set(socket.id, recovered)
+            session.disconnectedParticipants.delete(key)
+            if (!session.participantsById) session.participantsById = new Map()
+            session.participantsById.set(incomingPid, recovered)
+            participant = recovered
+            console.warn(`[submit_answer:recover] code=${gameCode} pid=${incomingPid} re-linked from disconnected map`)
+            // Tell the host this player is back so the count un-greys.
+            io.to(`host:${gameCode}`).emit('participant_rejoined', {
+              name: recovered.name,
+              participantId: recovered.participantId,
+              archetype: recovered.archetype,
+              team: recovered.team,
+              connectedCount: getConnectedCount(session),
+            })
+            break
+          }
+        }
+      }
+
       if (!participant) return reject('unknown_participant')
 
       // Re-bind socket→participant mapping if we matched via participantId but
@@ -1478,6 +1720,7 @@ app.prepare().then(async () => {
         const deadline = timerMs + 2000
         if (rawElapsed > deadline) {
           socket.emit('answer_confirmed', { isCorrect: false, points: 0, totalScore: participant.score, late: true })
+          if (ack) ack({ accepted: false, reason: 'late', late: true, questionIndex: qi })
           return
         }
       }
@@ -1486,6 +1729,7 @@ app.prepare().then(async () => {
       if (question.type === 'ranking' && Array.isArray(answer)) {
         participant.answers[qi] = { answer, timeMs: serverTimeMs, clientReportedTimeMs, confidence: confidence ?? 'unsure', isNonScored: true }
         persistAnswer({
+          session,
           sessionDbId: session.dbId,
           attendeeId: participant.attendeeId,
           participantId: participant.participantId,
@@ -1502,12 +1746,14 @@ app.prepare().then(async () => {
         const numOptions = question.options?.length ?? 4
         io.to(`host:${gameCode}`).emit('answer_received', {
           count: countAnswers(session, qi),
-          total: session.participants.size,
+          total: getConnectedCount(session),
+          connectedCount: getConnectedCount(session),
           optionCounts: countAnswersByOption(session, qi, numOptions),
         })
         // Payload field name `ranking` matches the host listener. Kept `order`
         // for any older clients still in the wild; harmless duplicate.
         io.to(`host:${gameCode}`).emit('ranking_submission', { ranking: answer, order: answer })
+        if (ack) ack({ accepted: true, isNonScored: true, questionIndex: qi })
         return
       }
 
@@ -1536,6 +1782,7 @@ app.prepare().then(async () => {
       // Audit log: persist every accepted answer immediately so scores are
       // recoverable even if RAM state is lost (server restart, redeploy).
       persistAnswer({
+        session,
         sessionDbId: session.dbId,
         attendeeId: participant.attendeeId,
         participantId: participant.participantId,
@@ -1558,11 +1805,13 @@ app.prepare().then(async () => {
         totalScore: participant.score,
         isNonScored,
       })
+      if (ack) ack({ accepted: true, questionIndex: qi, isCorrect, points, totalScore: participant.score })
 
       const numOptions = question.options?.length ?? 4
       io.to(`host:${gameCode}`).emit('answer_received', {
         count: countAnswers(session, qi),
-        total: session.participants.size,
+        total: getConnectedCount(session),
+        connectedCount: getConnectedCount(session),
         optionCounts: countAnswersByOption(session, qi, numOptions),
       })
 
@@ -1634,6 +1883,7 @@ app.prepare().then(async () => {
               const s = sessions.get(code)
               if (s && s.hostSocketId === socket.id) {
                 if (s.endTimer) { clearTimeout(s.endTimer); s.endTimer = null }
+                stopSessionStateBroadcast(s)
                 io.to(`session:${code}`).emit('host_disconnected')
                 sessions.delete(code)
                 console.log(`[session] deleted (host never returned): ${code}`)
@@ -1642,6 +1892,7 @@ app.prepare().then(async () => {
             continue
           }
           if (session.endTimer) { clearTimeout(session.endTimer); session.endTimer = null }
+          stopSessionStateBroadcast(session)
           io.to(`session:${code}`).emit('host_disconnected')
           sessions.delete(code)
           console.log(`[session] deleted (host left): ${code}`)
@@ -1650,6 +1901,7 @@ app.prepare().then(async () => {
         if (session.participants.has(socket.id)) {
           const participant = session.participants.get(socket.id)
           const name = participant.name
+          const participantId = participant.participantId || null
           // Grace period: mark as disconnected, allow 20 minutes to reconnect.
           // Covers long lobbies, multi-hour presentations where phones may lock
           // for 15+ minutes between polls, and noisy mobile networks. Cost is
@@ -1658,7 +1910,17 @@ app.prepare().then(async () => {
           participant.disconnectedSocketId = socket.id
           if (!session.disconnectedParticipants) session.disconnectedParticipants = new Map()
           session.disconnectedParticipants.set(name.toLowerCase(), { socketId: socket.id, participant, gameCode: code })
-          console.log(`[participant] ${name} disconnected from ${code}, grace period 20min`)
+          console.log(`[participant] ${name} (pid=${participantId}) disconnected from ${code}, grace period 20min`)
+
+          // IMMEDIATE notification — host UI must show the count drop right
+          // away. The 20-min grace governs full removal, not visibility.
+          const connectedCount = getConnectedCount(session)
+          if (session.type === 'presenter') {
+            io.to(`host:${code}`).emit('presenter_participant_disconnected', { name, participantId, connectedCount })
+          } else {
+            io.to(`host:${code}`).emit('participant_disconnected', { name, participantId, connectedCount })
+          }
+
           setTimeout(() => {
             const entry = session.disconnectedParticipants?.get(name.toLowerCase())
             if (entry && entry.socketId === socket.id) {
@@ -1671,10 +1933,11 @@ app.prepare().then(async () => {
               if (participant.attendeeId) {
                 updateAttendeeOnLeave(participant.attendeeId, participant.joinedAt).catch(console.error)
               }
+              const finalConnectedCount = getConnectedCount(session)
               if (session.type === 'presenter') {
-                io.to(`host:${code}`).emit('presenter_participant_left', { count: session.participants.size })
+                io.to(`host:${code}`).emit('presenter_participant_left', { name, participantId, count: finalConnectedCount, connectedCount: finalConnectedCount })
               } else {
-                io.to(`host:${code}`).emit('participant_left', { name, count: session.participants.size })
+                io.to(`host:${code}`).emit('participant_left', { name, participantId, count: finalConnectedCount, connectedCount: finalConnectedCount })
               }
               console.log(`[participant] ${name} removed from ${code} after grace period (participantsById retained)`)
             }
@@ -1827,6 +2090,36 @@ function realParticipantCount(participants) {
     if (!sid.startsWith('ghost::')) count++
   }
   return count
+}
+
+// Thin wrappers around the pure helpers in src/lib/session-state.mjs so the
+// rest of this file keeps reading naturally. Exported helpers are unit-tested
+// directly; these wrappers stay trivial.
+const getConnectedCount = _getConnectedCount
+const buildSessionStateSnapshot = _buildSessionStateSnapshot
+
+// Periodic authoritative state broadcast — keeps the host UI in sync even if
+// individual events are missed (network drops between server and host, hot
+// reloads, race conditions). Started at session creation, cleared at end.
+function startSessionStateBroadcast(io, gameCode, session) {
+  if (!session || session._stateBroadcastTimer) return
+  const tick = () => {
+    const s = sessions.get(gameCode)
+    if (!s || s !== session || s.status === 'ended') {
+      stopSessionStateBroadcast(session)
+      return
+    }
+    const snapshot = buildSessionStateSnapshot(s)
+    io.to(`host:${gameCode}`).emit('session_state', snapshot)
+  }
+  session._stateBroadcastTimer = setInterval(tick, 5000)
+}
+
+function stopSessionStateBroadcast(session) {
+  if (session?._stateBroadcastTimer) {
+    clearInterval(session._stateBroadcastTimer)
+    session._stateBroadcastTimer = null
+  }
 }
 
 // Sum of max points across scoreable questions in a session.

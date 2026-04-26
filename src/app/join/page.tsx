@@ -413,6 +413,28 @@ function clearParticipantId(gameCode: string): void {
   } catch { /* noop */ }
 }
 
+// Persistent top status banner: shows live socket health and any one-shot
+// answer error (e.g. "Question already closed"). Mounts in every in-game
+// phase return so the user is never silently disconnected.
+function StatusBanner({ connectionState, answerToast }: { connectionState: 'connected' | 'reconnecting'; answerToast: string }) {
+  const reconnecting = connectionState === 'reconnecting'
+  if (!reconnecting && !answerToast) return null
+  return (
+    <div className="fixed top-0 left-0 right-0 z-[70] flex flex-col items-stretch pointer-events-none">
+      {reconnecting && (
+        <div className="bg-red-500/95 text-white px-4 py-2 text-sm font-bold text-center shadow-md">
+          Connection lost — reconnecting…
+        </div>
+      )}
+      {answerToast && (
+        <div className="bg-yellow-400/95 text-black px-4 py-2 text-sm font-bold text-center shadow-md">
+          {answerToast}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function JoinPageInner() {
   const { t, locale, setLocale } = useI18n()
   const searchParams = useSearchParams()
@@ -428,6 +450,12 @@ function JoinPageInner() {
   // Durable participant identity (Layer 2). Set when the user joins or when
   // the server echoes back a participantId in the join callback.
   const participantIdRef = useRef<string>('')
+  // Outbox flush gate. Stays false from socket-disconnect until the next
+  // successful join_session callback. This prevents the classic race where a
+  // buffered answer is flushed on the new socket BEFORE the rejoin handshake
+  // completes — the server wouldn't recognise the new socket.id and reject
+  // the answer as `unknown_participant`.
+  const joinAckedRef = useRef<boolean>(false)
 
   const followupParam = searchParams.get('followup')
   const modeParam = searchParams.get('mode') // 'presenter' for presenter sessions
@@ -461,6 +489,17 @@ function JoinPageInner() {
   const [showEmailInput, setShowEmailInput] = useState(false)
   const [error, setError] = useState('')
   const [quizTitle, setQuizTitle] = useState('')
+  // Live socket health — drives the in-game "Reconnecting…" banner so the
+  // user is never silently disconnected while the question screen is open.
+  const [connectionState, setConnectionState] = useState<'connected' | 'reconnecting'>('connected')
+  // One-shot toast for answer-related issues that aren't already surfaced
+  // via the dedicated phase UI (e.g. unknown_participant after long idle).
+  const [answerToast, setAnswerToast] = useState<string>('')
+  useEffect(() => {
+    if (!answerToast) return
+    const t = setTimeout(() => setAnswerToast(''), 4000)
+    return () => clearTimeout(t)
+  }, [answerToast])
 
   // Avatar
   const [archetype, setArchetype] = useState<string | null>(null)
@@ -589,10 +628,24 @@ function JoinPageInner() {
   // ─── Answer outbox helpers ─────────────────────────────────────────────────
   // Buffered submissions retried on reconnect / after forced re-join. Refs only,
   // so closures stay stable and useCallback deps stay empty.
+  //
+  // Strict ack semantics: an answer is only removed from the outbox when the
+  // server's ack callback fires positively. If the socket drops mid-send, the
+  // entry stays in the outbox and gets re-flushed once the new join handshake
+  // completes (joinAckedRef === true). This guarantees no silent drops.
   const trySendAnswer = useCallback((item: OutboxItem) => {
     const s = socketRef.current
     if (!s || !s.connected) return
-    s.emit('submit_answer', item.payload)
+    if (!joinAckedRef.current) return  // wait for re-join handshake
+    s.emit('submit_answer', item.payload, (res?: { accepted: boolean; reason?: string }) => {
+      if (res?.accepted) {
+        outboxRef.current.delete(item.id)
+      }
+      // On non-accept the existing answer_rejected listener handles UX —
+      // and entries like 'duplicate' / 'late' / 'not_active' are explicitly
+      // dropped there. unknown_participant triggers a forced re-join then
+      // re-flushes the outbox.
+    })
   }, [])
 
   const enqueueAnswer = useCallback((payload: SubmitAnswerPayload, questionIndex: number) => {
@@ -642,6 +695,9 @@ function JoinPageInner() {
     socket.on('connect', () => {
       if (stopClockSync) stopClockSync()
       stopClockSync = startClockSync(socket)
+      // Hold the outbox flush until the rejoin handshake confirms identity.
+      joinAckedRef.current = false
+      setConnectionState('connected')
       if (gameCodeRef.current && displayNameRef.current) {
         const pid = participantIdRef.current || getOrCreateParticipantId(gameCodeRef.current)
         if (pid) participantIdRef.current = pid
@@ -654,21 +710,29 @@ function JoinPageInner() {
             participantIdRef.current = res.participantId
             setParticipantId(gameCodeRef.current, res.participantId)
           }
+          if (res?.success) {
+            joinAckedRef.current = true
+          }
           // Re-flush any unconfirmed answers after a successful (re)join.
           flushAnswerOutboxRef.current()
         })
       } else {
-        // No active game yet, but a reconnect could still need the outbox flushed.
+        // No active game yet — outbox stays disabled until the user actually
+        // submits the join form.
         flushAnswerOutboxRef.current()
       }
     })
 
     socket.on('disconnect', () => {
+      joinAckedRef.current = false
+      setConnectionState('reconnecting')
       setError('Connection lost. Reconnecting...')
       if (stopClockSync) { stopClockSync(); stopClockSync = null }
     })
 
     socket.on('connect_error', () => {
+      joinAckedRef.current = false
+      setConnectionState('reconnecting')
       setError('Connection lost. Reconnecting...')
     })
 
@@ -691,6 +755,7 @@ function JoinPageInner() {
         return
       }
       if (reason === 'unknown_participant' || reason === 'no_session') {
+        joinAckedRef.current = false
         if (gameCodeRef.current && displayNameRef.current) {
           const pid = participantIdRef.current || getOrCreateParticipantId(gameCodeRef.current)
           if (pid) participantIdRef.current = pid
@@ -702,6 +767,9 @@ function JoinPageInner() {
             if (res?.participantId) {
               participantIdRef.current = res.participantId
               setParticipantId(gameCodeRef.current, res.participantId)
+            }
+            if (res?.success) {
+              joinAckedRef.current = true
             }
             flushAnswerOutboxRef.current()
           })
@@ -716,10 +784,12 @@ function JoinPageInner() {
           }
         }
         setError('Question already closed.')
+        setAnswerToast('Question already closed — your answer was not counted.')
         return
       }
       // Fallback: surface a retry hint without trapping the user.
       setError('Submit failed — tap an option to retry.')
+      setAnswerToast('Submit failed — tap to retry.')
       setSelectedAnswer(null)
       setPendingAnswer(null)
     })
@@ -1136,6 +1206,8 @@ function JoinPageInner() {
         participantIdRef.current = res.participantId
         setParticipantId(trimmedCode, res.participantId)
       }
+      // The server has accepted us — the outbox is now safe to flush.
+      joinAckedRef.current = true
 
       if (joinEvent === 'join_presenter_session') {
         setPresenterTitle(res.presentationTitle ?? '')
@@ -1522,6 +1594,7 @@ function JoinPageInner() {
     const sharedScreenSimple = displayMode === 'shared-screen' && sharedScreenEligible
     return (
       <div className="min-h-screen p-4 flex flex-col max-w-xl mx-auto">
+        <StatusBanner connectionState={connectionState} answerToast={answerToast} />
         {getReadyVisible && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ background: 'rgba(15,27,61,0.92)' }}>
             <div className="text-center">
@@ -1825,6 +1898,7 @@ function JoinPageInner() {
     const isNonScored = !(question && isScoredType(question.type as QuestionType))
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 max-w-md mx-auto text-center gap-5 relative overflow-hidden">
+        <StatusBanner connectionState={connectionState} answerToast={answerToast} />
         {/* Screen-reader live announcement for result */}
         <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
           {isNonScored ? 'Response recorded.' : isCorrect ? `Correct! You earned ${pointsEarned} points. Total score: ${totalScore}.` : `Incorrect. Total score: ${totalScore}.`}

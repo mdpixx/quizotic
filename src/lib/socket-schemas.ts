@@ -74,6 +74,7 @@ export const PresenterResponseSchema = z.object({
   gameCode: z.string().min(4).max(10),
   slideIndex: z.number().int().min(0).max(500),
   response: z.any(),
+  participantId: z.string().uuid().optional(),
 })
 
 export const CreatePresenterSessionSchema = z.object({

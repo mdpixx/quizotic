@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 
@@ -153,8 +153,27 @@ export default function SessionPage() {
   const quizRef = useRef<Quiz | null>(null)
   const questionIndexRef = useRef<number>(0)
   const [gameCode, setGameCode] = useState('')
-  const [participants, setParticipants] = useState<Map<string, { archetype: string; team?: { index: number; name: string; color: string } | null }>>(new Map())
-  // key = displayName, value = { archetype, team }
+  // key = participantId (preferred) or `name:<displayName>` for legacy events.
+  // Storing connection state here lets us render a single list with offline
+  // dimming during the disconnect grace period instead of removing entries.
+  const [participants, setParticipants] = useState<Map<string, { name: string; archetype: string; team?: { index: number; name: string; color: string } | null; connected: boolean }>>(new Map())
+  // Derived: count of currently CONNECTED participants. Used everywhere the
+  // host UI shows a "players" number — drives the lobby chip, the start
+  // button, the answered/total fraction, and the % calculations during
+  // questions. Disconnected entries (within grace) are not counted here so
+  // the host UI matches the server's authoritative connectedCount.
+  const connectedCount = useMemo(() => {
+    let n = 0
+    for (const p of participants.values()) if (p.connected) n++
+    return n
+  }, [participants])
+  // Connected entries first, then disconnected (greyed) — keeps the lobby
+  // tile order stable so a momentary blip doesn't reshuffle the grid.
+  const playerEntries = useMemo(() => {
+    const list = Array.from(participants.entries())
+    list.sort((a, b) => Number(b[1].connected) - Number(a[1].connected))
+    return list
+  }, [participants])
   const [sessionMode, setSessionMode] = useState<SessionMode>('competitive')
   const sessionModeRef = useRef<SessionMode>('competitive')
   useEffect(() => { sessionModeRef.current = sessionMode }, [sessionMode])
@@ -321,12 +340,57 @@ export default function SessionPage() {
       setSessionError('Connection failed. Check your network.')
     })
 
-    socket.on('participant_joined', ({ name, archetype, team }: { name: string; archetype: string; count: number; team?: { index: number; name: string; color: string } | null }) => {
-      setParticipants(prev => new Map(prev).set(name, { archetype, team }))
+    // participantId (UUID) is the durable identity. We fall back to name-keyed
+    // entries only for older server payloads that haven't been redeployed yet.
+    const keyFor = (participantId?: string | null, name?: string) =>
+      participantId ? `pid:${participantId}` : `name:${(name || 'unknown').toLowerCase()}`
+
+    socket.on('participant_joined', ({ name, archetype, team, participantId }: { name: string; archetype: string; count?: number; connectedCount?: number; team?: { index: number; name: string; color: string } | null; participantId?: string }) => {
+      setParticipants(prev => new Map(prev).set(keyFor(participantId, name), { name, archetype, team, connected: true }))
     })
 
-    socket.on('participant_left', ({ name }: { name: string }) => {
-      setParticipants(prev => { const next = new Map(prev); next.delete(name); return next })
+    // Same person returning (server matched by participantId or name-grace).
+    // Map.set is idempotent on the participantId key, so the count never
+    // inflates even if this fires multiple times.
+    socket.on('participant_rejoined', ({ name, archetype, team, participantId }: { name: string; archetype: string; team?: { index: number; name: string; color: string } | null; participantId?: string; connectedCount?: number }) => {
+      setParticipants(prev => new Map(prev).set(keyFor(participantId, name), { name, archetype, team, connected: true }))
+    })
+
+    // Immediate disconnect — flip to offline but DO NOT remove. Removal only
+    // happens on participant_left (after the 20-min grace expires).
+    socket.on('participant_disconnected', ({ name, participantId }: { name: string; participantId?: string; connectedCount?: number }) => {
+      setParticipants(prev => {
+        const next = new Map(prev)
+        const k = keyFor(participantId, name)
+        const existing = next.get(k)
+        if (existing) next.set(k, { ...existing, connected: false })
+        return next
+      })
+    })
+
+    socket.on('participant_left', ({ name, participantId }: { name: string; participantId?: string; count?: number; connectedCount?: number }) => {
+      setParticipants(prev => {
+        const next = new Map(prev)
+        next.delete(keyFor(participantId, name))
+        // Legacy fallback — older server emits may have only sent name.
+        if (!participantId) next.delete(`name:${(name || '').toLowerCase()}`)
+        return next
+      })
+    })
+
+    // Authoritative state from server every 5s — replace the entire Map so
+    // any drift (missed events, late hot-reload) is corrected.
+    socket.on('session_state', ({ active, disconnected }: { active: Array<{ participantId: string | null; name: string; archetype: string | null; team: { index: number; name: string; color: string } | null }>; disconnected: Array<{ participantId: string | null; name: string; archetype: string | null; team: { index: number; name: string; color: string } | null }>; connectedCount: number; totalCount: number }) => {
+      setParticipants(() => {
+        const next = new Map<string, { name: string; archetype: string; team?: { index: number; name: string; color: string } | null; connected: boolean }>()
+        for (const p of active || []) {
+          next.set(keyFor(p.participantId, p.name), { name: p.name, archetype: p.archetype || '', team: p.team, connected: true })
+        }
+        for (const p of disconnected || []) {
+          next.set(keyFor(p.participantId, p.name), { name: p.name, archetype: p.archetype || '', team: p.team, connected: false })
+        }
+        return next
+      })
     })
 
     socket.on('answer_received', ({ count, optionCounts: counts }: { count: number; optionCounts?: number[] }) => {
@@ -489,7 +553,10 @@ export default function SessionPage() {
       socket.off('disconnect')
       socket.off('connect_error')
       socket.off('participant_joined')
+      socket.off('participant_rejoined')
+      socket.off('participant_disconnected')
       socket.off('participant_left')
+      socket.off('session_state')
       socket.off('answer_received')
       socket.off('question_started')
       socket.off('ranking_submission')
@@ -908,7 +975,7 @@ export default function SessionPage() {
                   {{ competitive: '⚡ Competitive', accuracy: '✓ Accuracy', reflection: '🌙 Reflection', selfpaced: '🎯 Self-paced', assessment: '📋 Assessment' }[sessionMode] ?? '⚡ Competitive'}
                 </span>
                 <span className="text-sm font-black px-4 py-1.5 rounded-full text-[#46107a]" style={{ background: '#F5E642', boxShadow: '0 4px 0 rgba(0,0,0,0.15)' }}>
-                  {participants.size} {participants.size === 1 ? 'player' : 'players'}
+                  {connectedCount} {connectedCount === 1 ? 'player' : 'players'}
                 </span>
               </div>
             </div>
@@ -960,28 +1027,35 @@ export default function SessionPage() {
             <div className="rounded-3xl p-6" style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(10px)', border: '1.5px solid rgba(255,255,255,0.22)' }}>
               <div className="flex items-center justify-between mb-4">
                 <p className="text-lg font-black text-white uppercase tracking-wide flex items-center gap-2">
-                  {participants.size === 0 ? (
+                  {connectedCount === 0 ? (
                     <>
                       <span className="inline-block w-2.5 h-2.5 rounded-full animate-pulse" style={{ background: '#F5E642' }} />
                       Waiting for players…
                     </>
                   ) : (
                     <>
-                      <span>🎉</span> {participants.size} joined
+                      <span>🎉</span> {connectedCount} joined
                     </>
                   )}
                 </p>
               </div>
-              {participants.size === 0 ? (
+              {playerEntries.length === 0 ? (
                 <p className="text-white/70 text-sm">Players will appear here as they join. Share the code above.</p>
               ) : (
                 <div className="flex flex-wrap gap-4">
-                  {Array.from(participants.entries()).map(([pName, pInfo]) => (
-                    <div key={pName} className="flex flex-col items-center gap-1 lobby-join-pop">
+                  {playerEntries.map(([pKey, pInfo]) => (
+                    <div
+                      key={pKey}
+                      className="flex flex-col items-center gap-1 lobby-join-pop"
+                      style={{ opacity: pInfo.connected ? 1 : 0.45, filter: pInfo.connected ? 'none' : 'grayscale(0.6)' }}
+                      title={pInfo.connected ? '' : 'Offline — waiting for reconnect'}
+                    >
                       <div className="ring-2 rounded-full overflow-hidden" style={{ borderColor: pInfo.team?.color ?? '#F5E642' }}>
                         <Avatar archetype={pInfo.archetype} size={56} />
                       </div>
-                      <p className="text-sm text-white font-bold max-w-[80px] truncate text-center">{pName}</p>
+                      <p className="text-sm text-white font-bold max-w-[80px] truncate text-center">
+                        {pInfo.name}{pInfo.connected ? '' : ' (offline)'}
+                      </p>
                       {pInfo.team ? (
                         <p className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ background: pInfo.team.color }}>{pInfo.team.name}</p>
                       ) : (
@@ -1007,16 +1081,16 @@ export default function SessionPage() {
 
             <button
               onClick={startQuiz}
-              disabled={participants.size === 0 || !socketConnected}
+              disabled={connectedCount === 0 || !socketConnected}
               className="w-full font-black rounded-2xl py-5 text-xl disabled:opacity-40 disabled:pointer-events-none transition-all hover:scale-[1.01]"
               style={{
-                background: participants.size > 0 && socketConnected ? 'linear-gradient(135deg, #F5E642 0%, #FFB800 100%)' : 'rgba(255,255,255,0.25)',
-                color: participants.size > 0 && socketConnected ? '#46107a' : '#ffffff',
-                boxShadow: participants.size > 0 && socketConnected ? '0 8px 0 rgba(0,0,0,0.2)' : undefined,
+                background: connectedCount > 0 && socketConnected ? 'linear-gradient(135deg, #F5E642 0%, #FFB800 100%)' : 'rgba(255,255,255,0.25)',
+                color: connectedCount > 0 && socketConnected ? '#46107a' : '#ffffff',
+                boxShadow: connectedCount > 0 && socketConnected ? '0 8px 0 rgba(0,0,0,0.2)' : undefined,
                 fontFamily: 'var(--font-heading)',
               }}
             >
-              {!socketConnected ? 'Reconnecting…' : participants.size === 0 ? 'Waiting for players…' : `▶ Start Quiz (${participants.size})`}
+              {!socketConnected ? 'Reconnecting…' : connectedCount === 0 ? 'Waiting for players…' : `▶ Start Quiz (${connectedCount})`}
             </button>
           </div>
 
@@ -1098,7 +1172,7 @@ export default function SessionPage() {
                 )
               )}
               <span className="bg-blue-50 border border-blue-100 rounded-full px-5 py-2 text-xl font-bold" style={{ color: '#0F1B3D' }}>
-                {answered} / {participants.size} answered
+                {answered} / {connectedCount} answered
               </span>
             </div>
           </div>
@@ -1107,7 +1181,7 @@ export default function SessionPage() {
           <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden">
             <div
               className="h-full bg-amber-400 rounded-full transition-all duration-300"
-              style={{ width: participants.size > 0 ? `${(answered / participants.size) * 100}%` : '0%' }}
+              style={{ width: connectedCount > 0 ? `${(answered / connectedCount) * 100}%` : '0%' }}
             />
           </div>
 
@@ -1330,7 +1404,7 @@ export default function SessionPage() {
           <div className="grid grid-cols-2 gap-4">
             {getEffectiveOptions(currentQuestion)?.map((opt, i) => {
               const votes = optionCounts[i] ?? 0
-              const pct = participants.size > 0 ? (votes / participants.size) * 100 : 0
+              const pct = connectedCount > 0 ? (votes / connectedCount) * 100 : 0
               const isCorrect = String(i) === currentQuestion.correctAnswer
               // Green ring only for scored types AND only after host reveals the answer.
               // This prevents leaking the correct answer on projector screens.

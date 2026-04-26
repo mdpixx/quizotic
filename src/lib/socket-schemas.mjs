@@ -80,6 +80,10 @@ export const PresenterResponseSchema = z.object({
   gameCode: z.string().min(4).max(10),
   slideIndex: z.number().int().min(0).max(500),
   response: z.any(),
+  // Optional — when present, server can rebind the participant on a fresh
+  // socket so a presenter response submitted right after a network blip
+  // isn't dropped as `unknown_participant`.
+  participantId: z.string().uuid().optional(),
 })
 
 export const CreatePresenterSessionSchema = z.object({
