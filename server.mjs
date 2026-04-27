@@ -97,6 +97,38 @@ async function persistGameSession(data, attempt = 1) {
   }
 }
 
+// Snapshot the quiz content into a QuizVersion row so historical session
+// reports stay accurate even if the host edits the quiz afterwards.
+// Returns the QuizVersion id (or null if anything fails — best-effort).
+async function snapshotQuizVersion(session) {
+  if (!dbPool) return null
+  if (!session?.quizData) return null
+  if (session.quizVersionId) return session.quizVersionId
+  try {
+    const id = randomUUID()
+    const questions = Array.isArray(session.quizData.questions) ? session.quizData.questions : []
+    await dbPool.query(
+      `INSERT INTO "QuizVersion" (id, "quizId", title, subject, language, theme, snapshot, "questionCount", "createdAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, now())`,
+      [
+        id,
+        session.quizData.id || null,
+        String(session.quizData.title || 'Untitled Quiz').slice(0, 200),
+        session.quizData.subject || null,
+        session.quizData.language || null,
+        session.quizData.theme || null,
+        JSON.stringify(questions),
+        questions.length,
+      ]
+    )
+    session.quizVersionId = id
+    return id
+  } catch (err) {
+    console.error('[db] snapshotQuizVersion failed:', err.message)
+    return null
+  }
+}
+
 // Lazily insert a GameSession row the first time a participant joins so
 // per-attendee inserts can reference it. Returns the row id (or null on failure).
 async function ensureGameSessionRow(session, code, type) {
@@ -106,14 +138,20 @@ async function ensureGameSessionRow(session, code, type) {
   const id = randomUUID()
   session._dbInsertPromise = (async () => {
     try {
+      // Take a content snapshot first (only for quiz sessions). The
+      // GameSession row references it via quizVersionId. If snapshot fails
+      // we still create the GameSession row — the snapshot is an
+      // observability win, not a correctness requirement.
+      const quizVersionId = type === 'quiz' ? await snapshotQuizVersion(session) : null
       await dbPool.query(
-        `INSERT INTO "GameSession" (id, code, type, "quizId", "presentationId", "userId", "hostName", status, "participantCount", "createdAt")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'active', 0, now())`,
+        `INSERT INTO "GameSession" (id, code, type, "quizId", "quizVersionId", "presentationId", "userId", "hostName", status, "participantCount", "createdAt")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active', 0, now())`,
         [
           id,
           code,
           type,
           type === 'quiz' ? (session.quizData?.id || null) : null,
+          quizVersionId,
           type === 'presentation' ? (session.presentationData?.id || null) : null,
           session.userId || null,
           session.hostName || null,

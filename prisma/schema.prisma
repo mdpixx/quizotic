@@ -165,8 +165,29 @@ model Quiz {
 
   user     User?         @relation(fields: [userId], references: [id])
   sessions GameSession[]
+  versions QuizVersion[]
 
   @@index([userId])
+}
+
+// QuizVersion: immutable snapshot of a quiz's content at session-start
+// time. Without this, a host who edits a quiz after running it produces
+// session reports that reference questions the participants never saw.
+model QuizVersion {
+  id            String       @id @default(cuid())
+  quizId        String?      // nullable: ad-hoc quizzes have no source row
+  title         String
+  subject       String?
+  language      String?
+  theme         String?
+  snapshot      Json         // the questions array at session-start time
+  questionCount Int          @default(0)
+  createdAt     DateTime     @default(now())
+
+  quiz     Quiz?         @relation(fields: [quizId], references: [id], onDelete: SetNull)
+  sessions GameSession[]
+
+  @@index([quizId, createdAt])
 }
 
 model Presentation {
@@ -189,6 +210,7 @@ model GameSession {
   code             String    @unique // 6-digit room code
   type             String // 'quiz' | 'presentation'
   quizId           String?
+  quizVersionId    String?   // Session-5 snapshot — preferred over Quiz.questions for historical session reports
   presentationId   String?
   userId           String?
   hostName         String?
@@ -199,12 +221,14 @@ model GameSession {
   endedAt          DateTime?
 
   quiz         Quiz?         @relation(fields: [quizId], references: [id])
+  quizVersion  QuizVersion?  @relation(fields: [quizVersionId], references: [id])
   presentation Presentation? @relation(fields: [presentationId], references: [id])
   user         User?         @relation(fields: [userId], references: [id])
   attendees    Attendee[]
   answers      Answer[]
 
   @@index([userId])
+  @@index([quizVersionId])
 }
 
 model Attendee {
