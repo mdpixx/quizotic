@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect, Suspense, useCallback } from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { saveQuiz, loadQuizzes, setActiveSession } from '@/lib/quiz-storage'
 import { draftKey, readDraft, writeDraft, clearDraft, formatDraftAge } from '@/lib/draft-storage'
@@ -793,6 +794,10 @@ function CreateQuizPageInner() {
   // AI generation state
   const [aiGenerating, setAiGenerating] = useState(false)
   const [aiGenError, setAiGenError] = useState('')
+  // Surfaces non-error feedback after successful generation — currently
+  // used to flag OCR-based extraction so the host knows the questions are
+  // grounded in PDF imagery rather than embedded text and should be reviewed.
+  const [aiGenNotice, setAiGenNotice] = useState('')
   const [translating, setTranslating] = useState(false)
 
   // Tab-specific inputs
@@ -1034,12 +1039,14 @@ function CreateQuizPageInner() {
     setSelectedQuestions(new Set())
     setTranslatedTo(null)
     setAiGenError('')
+    setAiGenNotice('')
   }
 
   // ── Unified AI generate handler ─────────────────────────────────────────────
 
   async function handleGenerate() {
     setAiGenError('')
+    setAiGenNotice('')
 
     if (tab === 'aitopic' && !aiTopic.trim()) { setAiGenError('Enter a topic first'); return }
     if (tab === 'aiurl' && !aiUrl.startsWith('https://')) { setAiGenError('URL must start with https://'); return }
@@ -1081,6 +1088,21 @@ function CreateQuizPageInner() {
       const data = await res.json()
       if (!res.ok) { setAiGenError(data.error ?? 'Generation failed'); return }
 
+      // Surface the extraction provenance so the host knows when a non-text
+      // tier was used. OCR and vision both have failure modes (recognition
+      // errors, diagram-as-text interpretations) so the questions deserve a
+      // review pass before publishing.
+      const extractionSource = res.headers.get('x-quizotic-extraction-source')
+      const ocrPages = Number(res.headers.get('x-quizotic-ocr-pages') ?? 0)
+      const visionPages = Number(res.headers.get('x-quizotic-vision-pages') ?? 0)
+      if (extractionSource === 'vision') {
+        setAiGenNotice(`Read this PDF using AI vision (${visionPages} page${visionPages === 1 ? '' : 's'}) — some content was interpreted from diagrams. Please review the questions before publishing.`)
+      } else if (extractionSource === 'ocr') {
+        setAiGenNotice(`Read this PDF using OCR (${ocrPages} page${ocrPages === 1 ? '' : 's'}) — please review the questions before publishing.`)
+      } else {
+        setAiGenNotice('')
+      }
+
       const generated = applyGeneratedQuestions(data, tab)
 
       refreshAiUsage()
@@ -1121,6 +1143,7 @@ function CreateQuizPageInner() {
 
     setAiGenerating(true)
     setAiGenError('')
+    setAiGenNotice('')
 
     try {
       let res: Response
@@ -1150,6 +1173,17 @@ function CreateQuizPageInner() {
 
       const data = await res.json()
       if (!res.ok) { setAiGenError(data.error ?? 'Regeneration failed'); return }
+
+      const extractionSource = res.headers.get('x-quizotic-extraction-source')
+      const ocrPages = Number(res.headers.get('x-quizotic-ocr-pages') ?? 0)
+      const visionPages = Number(res.headers.get('x-quizotic-vision-pages') ?? 0)
+      if (extractionSource === 'vision') {
+        setAiGenNotice(`Regenerated using AI vision (${visionPages} page${visionPages === 1 ? '' : 's'}) — please review the questions before publishing.`)
+      } else if (extractionSource === 'ocr') {
+        setAiGenNotice(`Regenerated using OCR (${ocrPages} page${ocrPages === 1 ? '' : 's'}) — please review the questions before publishing.`)
+      } else {
+        setAiGenNotice('')
+      }
 
       const newQs: Question[] = (data as Question[]).map(q => ({ ...q, id: crypto.randomUUID() }))
       let newIdx = 0
@@ -1396,10 +1430,14 @@ function CreateQuizPageInner() {
 
       {/* ── Top Bar ── */}
       <header className="flex items-center gap-3 px-4 py-2.5 border-b" style={{ background: '#fff', borderColor: '#E2E8F0' }}>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+        <Link
+          href="/host"
+          aria-label="Quizotic home"
+          className="flex items-center gap-1.5 flex-shrink-0 hover:opacity-80 transition-opacity"
+        >
           <div className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black" style={{ background: '#F5E642', color: '#0D0D0D' }}>Q</div>
           <span className="text-sm font-extrabold hidden sm:inline" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Quizotic</span>
-        </div>
+        </Link>
         <button onClick={() => router.push('/host')} className="w-9 h-9 rounded-lg border flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors flex-shrink-0" style={{ borderColor: '#E2E8F0' }}>
           <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4"><path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </button>
@@ -1743,16 +1781,22 @@ function CreateQuizPageInner() {
                       </button>
                     </div>
                   ) : (
-                    <label
-                      htmlFor="aidoc-file-input"
-                      className="w-full block cursor-pointer rounded-2xl border-2 border-dashed px-5 py-10 text-center transition-all hover:bg-gray-50"
-                      style={{ borderColor: '#CBD5E1', background: '#FAFBFC' }}
-                    >
-                      <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl mx-auto mb-3" style={{ background: '#EEF2FF', color: '#4F46E5' }}>
-                        ⇡
-                      </div>
-                      <p className="text-sm font-bold" style={{ color: '#0F1B3D' }}>Drop a file or click to upload</p>
-                      <p className="text-xs mt-1" style={{ color: '#64748B' }}>Accepts PDF / DOCX · up to 20 MB</p>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <label
+                        htmlFor="aidoc-file-input"
+                        className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 active:translate-y-px"
+                        style={{
+                          background: '#F5E642',
+                          color: '#0D0D0D',
+                          border: '2px solid #0D0D0D',
+                          boxShadow: '3px 3px 0 #0D0D0D',
+                          fontFamily: 'var(--font-heading)',
+                        }}
+                      >
+                        <span aria-hidden="true">⇡</span>
+                        Choose file
+                      </label>
+                      <p className="text-xs" style={{ color: '#64748B' }}>Accepts PDF / DOCX · up to 20 MB</p>
                       <input
                         id="aidoc-file-input"
                         type="file"
@@ -1769,7 +1813,7 @@ function CreateQuizPageInner() {
                         }}
                         className="hidden"
                       />
-                    </label>
+                    </div>
                   )}
                 </div>
               )}
@@ -1860,6 +1904,15 @@ function CreateQuizPageInner() {
               {aiGenError && (
                 <div className="rounded-xl p-4 border" style={{ background: '#FEF2F2', borderColor: '#FECACA' }}>
                   <p className="text-sm font-semibold" style={{ color: '#DC2626' }}>{aiGenError}</p>
+                </div>
+              )}
+
+              {/* OCR / extraction-provenance notice — shown when the PDF
+                  was image-based and we had to OCR it. Recognition is
+                  imperfect so the host should sanity-check the questions. */}
+              {aiGenNotice && (
+                <div className="rounded-xl p-4 border" style={{ background: '#FEF9C3', borderColor: '#FDE68A' }}>
+                  <p className="text-sm font-semibold" style={{ color: '#92400E' }}>{aiGenNotice}</p>
                 </div>
               )}
 

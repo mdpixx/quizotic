@@ -50,3 +50,9 @@ remotion/node_modules
 remotion/out
 remotion/.cache
 
+# Tesseract.js language packs — downloaded at runtime by the worker on
+# first use. ~5MB binaries; never commit. Railway re-downloads once per
+# container restart and caches in memory thereafter.
+*.traineddata
+tessdata/
+

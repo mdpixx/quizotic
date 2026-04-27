@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useEffect, useRef, Suspense } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   type Slide, type SlideType, type Presentation,
@@ -2241,10 +2242,14 @@ function PresentCreatePageInner() {
       {/* ── Header ── */}
       <header className="sticky top-0 z-20 border-b" style={{ background: 'rgba(250,251,252,0.96)', backdropFilter: 'blur(8px)', borderColor: '#E2E8F0' }}>
         <div className="flex items-center gap-3 px-3 h-12 md:px-5 md:h-14">
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          <Link
+            href="/host"
+            aria-label="Quizotic home"
+            className="flex items-center gap-1.5 flex-shrink-0 hover:opacity-80 transition-opacity"
+          >
             <div className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black" style={{ background: '#F5E642', color: '#0D0D0D' }}>Q</div>
             <span className="text-sm font-extrabold hidden sm:inline" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Quizotic</span>
-          </div>
+          </Link>
           <button onClick={() => router.push('/host')}
             className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-semibold transition-colors hover:bg-gray-100"
             style={{ color: '#9CA3AF' }}>

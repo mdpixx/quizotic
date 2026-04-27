@@ -7,6 +7,21 @@ import { getCurrentUser } from '@/lib/auth-helpers'
 import { PLAN_LIMITS } from '@/lib/limits'
 import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 import { checkAiQuota, logAiUsage } from '@/lib/ai-quota'
+import { extractPdfText } from '@/lib/pdf-extract.mjs'
+
+// Maximum characters of source content to send to the AI. The previous
+// limit of 3000 was so aggressive that even successful text extractions had
+// 95% of a typical training deck chopped off — leaving the AI to invent
+// content to fill the requested question count. Gemini 2.0 Flash has a 1M
+// token context window; 50k chars is comfortably inside the cheap range.
+const CONTENT_SLICE_LIMIT = 50_000
+
+// A lightweight check on extracted text quality. The PDF extractor already
+// applies its own MIN_USEFUL_CHARS heuristic before declaring success, but
+// .docx / URL paths come in here too and we want a single guardrail before
+// the AI is ever called. Bug history: a previously-empty string was happily
+// passed to Gemini, which then hallucinated a quiz on a random topic.
+const MIN_AI_INPUT_CHARS = 200
 
 const PRIVATE_IPV4_PATTERNS = [
   /^10\./,
@@ -299,6 +314,13 @@ export async function POST(req: NextRequest) {
   let typeMix: TypeMix | undefined
   let mode = 'document'
   let topicOrUrl: string | null = null
+  // For analytics + UI transparency: which extraction tier produced the
+  // content. logAiUsage records this so we can audit success rates and
+  // catch regressions where one tier suddenly stops working.
+  let extractionSource: 'text' | 'ocr' | 'vision' | 'none' | 'docx' | 'topic' | 'url' = 'topic'
+  let extractionPageCount = 0
+  let extractionOcrPages = 0
+  let extractionVisionPages = 0
   const maxQ = PLAN_LIMITS[plan].maxQuestionsPerGeneration
 
   try {
@@ -320,14 +342,34 @@ export async function POST(req: NextRequest) {
       const fileName = file.name.toLowerCase()
 
       if (fileName.endsWith('.pdf')) {
-        const { PDFParse } = await import('pdf-parse')
-        const parser = new PDFParse({ data: buffer })
-        const result = await parser.getText()
-        contentText = result.text.slice(0, 3000)
+        // Robust three-tier extractor: text → Tesseract OCR → Vision LLM.
+        // See src/lib/pdf-extract.mjs for the policy.
+        const extracted = await extractPdfText(buffer) as { text: string; source: 'text' | 'ocr' | 'vision' | 'none'; pageCount: number; ocrPagesUsed: number; visionPagesUsed: number; charCount: number }
+        extractionSource = extracted.source
+        extractionPageCount = extracted.pageCount
+        extractionOcrPages = extracted.ocrPagesUsed
+        extractionVisionPages = extracted.visionPagesUsed ?? 0
+
+        if (extracted.source === 'none') {
+          // CRITICAL — the original bug was sending empty content to the AI,
+          // which then fabricated a wildly-unrelated quiz. With three tiers
+          // (text, OCR, vision LLM) failing all together is rare, but when
+          // it happens we refuse and skip the AI call so the user isn't
+          // charged quota for garbage. 422 lets the client show the message
+          // verbatim.
+          console.warn(`[generate-quiz] PDF extraction returned no usable content from any tier: pages=${extracted.pageCount} ocrPages=${extracted.ocrPagesUsed} visionPages=${extracted.visionPagesUsed} fileName=${file.name}`)
+          return NextResponse.json({
+            error: "We couldn't read enough text from this PDF to generate a quiz. The file may be corrupted, password-protected, or contain only blank pages. Try a different file, or paste the content directly.",
+            code: 'extraction_failed',
+            pageCount: extracted.pageCount,
+          }, { status: 422 })
+        }
+        contentText = extracted.text  // already slice-limited inside the helper
       } else if (fileName.endsWith('.docx')) {
         const mammoth = await import('mammoth')
         const result = await mammoth.extractRawText({ buffer })
-        contentText = result.value.slice(0, 3000)
+        contentText = result.value.slice(0, CONTENT_SLICE_LIMIT)
+        extractionSource = 'docx'
       } else {
         return NextResponse.json({ error: 'Only .pdf and .docx files are supported' }, { status: 400 })
       }
@@ -344,6 +386,7 @@ export async function POST(req: NextRequest) {
         if (!body.topic) return NextResponse.json({ error: 'Topic is required' }, { status: 400 })
         contentText = `Topic: ${body.topic}`
         topicOrUrl = body.topic?.slice(0, 100) || null
+        extractionSource = 'topic'
       } else if (mode === 'url') {
         const url: string = body.url ?? ''
         topicOrUrl = url.slice(0, 200)
@@ -365,7 +408,8 @@ export async function POST(req: NextRequest) {
           clearTimeout(timeout)
         }
         // Strip HTML tags, collapse whitespace, truncate
-        contentText = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 3000)
+        contentText = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, CONTENT_SLICE_LIMIT)
+        extractionSource = 'url'
       } else {
         return NextResponse.json({ error: 'Invalid mode' }, { status: 400 })
       }
@@ -373,6 +417,18 @@ export async function POST(req: NextRequest) {
 
     // Clamp questionCount to plan limits
     questionCount = Math.min(Math.max(questionCount, 3), maxQ)
+
+    // Final guardrail before we burn AI quota. Topic mode is naturally short
+    // ("Topic: photosynthesis") and that's fine — the AI is generating from
+    // its own knowledge rather than from a passage. For document/url modes
+    // we require real content so the AI grounds its questions in the source.
+    if (mode !== 'topic' && contentText.replace(/\s+/g, ' ').trim().length < MIN_AI_INPUT_CHARS) {
+      console.warn(`[generate-quiz] aborted before AI call — content too short: source=${extractionSource} chars=${contentText.length}`)
+      return NextResponse.json({
+        error: 'Not enough content to generate a meaningful quiz. Try a larger document or paste the text directly.',
+        code: 'content_too_short',
+      }, { status: 422 })
+    }
 
     // ── Call model, validate, retry once on bad JSON ───────────────────────────
     let questions: unknown[]
@@ -419,9 +475,24 @@ export async function POST(req: NextRequest) {
       mode,
       typeMix: typeMix ? { ...typeMix } : null,
       topic: topicOrUrl,
+      extractionSource,
+      extractionPageCount,
+      extractionOcrPages,
+      extractionVisionPages,
+      contentChars: contentText.length,
     })
 
-    return NextResponse.json(questions)
+    // Keep the response body shape (a JSON array) for back-compat with
+    // existing client code. Metadata about how the source content was
+    // extracted ships in custom response headers so the UI can show a
+    // contextual notice (e.g. "Read via OCR — please review").
+    const res = NextResponse.json(questions)
+    res.headers.set('x-quizotic-extraction-source', extractionSource)
+    res.headers.set('x-quizotic-page-count', String(extractionPageCount))
+    res.headers.set('x-quizotic-ocr-pages', String(extractionOcrPages))
+    res.headers.set('x-quizotic-vision-pages', String(extractionVisionPages))
+    res.headers.set('x-quizotic-content-chars', String(contentText.length))
+    return res
   } catch (err) {
     console.error('[generate-quiz]', err)
     return NextResponse.json({ error: 'Generation failed' }, { status: 500 })
