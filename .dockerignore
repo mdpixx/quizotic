@@ -11,3 +11,22 @@ mockup-landing.html
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Dev-only / local-environment directories — never needed in the prod
+# Docker image. Listed here so any upload path (rsync, `railway up`,
+# manual zip) produces a working build, not just the deploy script.
+# These mirror the --exclude list in scripts/deploy-to-railway.sh; keep
+# them in sync when adding new dev-only dirs.
+remotion/
+assets/
+brand logo/
+mockups/
+.claude/
+.cursor/
+.vscode/
+.worktrees/
+.superpowers/
+
+# Build cache files — local only, not part of the prod image
+*.tsbuildinfo
+next-env.d.ts
