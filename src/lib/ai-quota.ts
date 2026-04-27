@@ -39,22 +39,32 @@ function bucketFor(action: AiAction): AiBucket {
 
 async function countQuestions(userId: string, since: Date): Promise<number> {
   // Typed column read — Session 2 promoted questionCount out of JSON.
-  // Historical rows were backfilled by the same migration, but defend
-  // against a stray 0 by falling back to DEFAULT_QUESTION_COST per row in
-  // the rare case both the typed column AND the JSON metadata are missing.
-  const result = await prisma.usageLog.aggregate({
+  // For rows where the typed column is still 0 (backfill never ran, or a
+  // future caller forgot to populate it) we read the JSON shadow value
+  // and sum that instead. Last-resort fallback is DEFAULT_QUESTION_COST so
+  // a degenerate row still gets metered — never let the count drift to 0
+  // when rows clearly exist.
+  const rows = await prisma.usageLog.findMany({
     where: { userId, action: { in: QUESTION_ACTIONS }, createdAt: { gte: since } },
-    _sum: { questionCount: true },
-    _count: { _all: true },
+    select: { questionCount: true, metadata: true },
   })
-  const summed = result._sum.questionCount ?? 0
-  // If we have rows but they all sum to 0 (truly degenerate state), fall
-  // back to assuming DEFAULT_QUESTION_COST per row so the user still gets
-  // metered. Prevents a "free credits" drift bug.
-  if (summed === 0 && result._count._all > 0) {
-    return result._count._all * DEFAULT_QUESTION_COST
+  let total = 0
+  for (const r of rows) {
+    if (r.questionCount > 0) {
+      total += r.questionCount
+      continue
+    }
+    // Typed column missing — try the JSON shadow.
+    const meta = r.metadata as Record<string, unknown> | null
+    const fromJson = meta?.questionCount
+    if (typeof fromJson === 'number' && Number.isFinite(fromJson) && fromJson > 0) {
+      total += Math.floor(fromJson)
+      continue
+    }
+    // Both empty — assume the legacy default so the user still gets metered.
+    total += DEFAULT_QUESTION_COST
   }
-  return summed
+  return total
 }
 
 async function countEnhancements(userId: string, since: Date): Promise<number> {
