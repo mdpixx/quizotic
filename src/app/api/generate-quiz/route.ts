@@ -10,11 +10,15 @@ import { checkAiQuota, logAiUsage } from '@/lib/ai-quota'
 import { extractPdfText } from '@/lib/pdf-extract.mjs'
 
 // Maximum characters of source content to send to the AI. The previous
-// limit of 3000 was so aggressive that even successful text extractions had
-// 95% of a typical training deck chopped off — leaving the AI to invent
-// content to fill the requested question count. Gemini 2.0 Flash has a 1M
-// token context window; 50k chars is comfortably inside the cheap range.
-const CONTENT_SLICE_LIMIT = 50_000
+// limit was 3000 (too aggressive — chopped off 95% of typical training
+// decks, forcing the AI to invent fill content). I bumped it to 50k which
+// turned out to be too generous: Gemini 2.0 Flash via OpenRouter started
+// 504-timing-out and 429-rate-limiting on document mode while topic mode
+// stayed fine, because each request was 16× heavier. 12k is a safer
+// middle ground — still 4× the original limit so substance is preserved,
+// while keeping per-request token spend low enough that OpenRouter's
+// upstream provider (Google Gemini) doesn't reject us under load.
+const CONTENT_SLICE_LIMIT = 12_000
 
 // A lightweight check on extracted text quality. The PDF extractor already
 // applies its own MIN_USEFUL_CHARS heuristic before declaring success, but
@@ -22,6 +26,64 @@ const CONTENT_SLICE_LIMIT = 50_000
 // the AI is ever called. Bug history: a previously-empty string was happily
 // passed to Gemini, which then hallucinated a quiz on a random topic.
 const MIN_AI_INPUT_CHARS = 200
+
+// Sleep with a small randomised jitter so concurrent retries don't all hit
+// the upstream provider at the same instant.
+function sleep(ms: number): Promise<void> {
+  const jittered = ms + Math.floor(Math.random() * 250)
+  return new Promise(resolve => setTimeout(resolve, jittered))
+}
+
+// Pull the HTTP status off whatever error shape the OpenAI SDK / OpenRouter
+// throws. Mostly the SDK throws an APIError with `.status`, but network
+// aborts surface as plain Errors with the status embedded in `.message`
+// like "504 The operation was aborted". We extract from both.
+function inferUpstreamStatus(err: unknown): number | null {
+  if (typeof err !== 'object' || err === null) return null
+  const e = err as { status?: number; statusCode?: number; code?: string; message?: string }
+  if (typeof e.status === 'number') return e.status
+  if (typeof e.statusCode === 'number') return e.statusCode
+  if (typeof e.message === 'string') {
+    const m = e.message.match(/\b(4\d{2}|5\d{2})\b/)
+    if (m) return Number(m[1])
+  }
+  return null
+}
+
+// Map an upstream OpenRouter / provider failure to a user-facing message
+// that tells the host what to do. The previous catch-all message
+// ("Generation failed — please try again") is misleading because retrying
+// against a 429 just reproduces the failure.
+function describeAiFailure(status: number | null): { message: string; httpStatus: number } {
+  if (status === 429) {
+    return {
+      message: 'AI service is busy right now (rate-limited). Please wait a minute and try again, or try a shorter document.',
+      httpStatus: 429,
+    }
+  }
+  if (status === 504 || status === 408) {
+    return {
+      message: 'The AI took too long to respond. Try a shorter document, fewer questions, or simpler question types.',
+      httpStatus: 504,
+    }
+  }
+  if (status && status >= 500) {
+    return {
+      message: 'The AI provider had a temporary error. Please try again in a moment.',
+      httpStatus: 502,
+    }
+  }
+  if (status && status >= 400) {
+    return {
+      message: 'The AI rejected this request. Try a different document or fewer questions.',
+      httpStatus: 502,
+    }
+  }
+  return {
+    message: 'Generation failed. Please try again.',
+    httpStatus: 500,
+  }
+}
 
 const PRIVATE_IPV4_PATTERNS = [
   /^10\./,
@@ -200,13 +262,13 @@ function buildSimplePrompt(text: string, questionCount: number, difficulty: stri
   return buildUserPrompt(text, questionCount, difficulty, { mcq: questionCount })
 }
 
-async function callModel(contentText: string, questionCount: number, difficulty: string, typeMix?: TypeMix): Promise<unknown[]> {
+async function callModel(contentText: string, questionCount: number, difficulty: string, typeMix?: TypeMix, modelOverride?: string): Promise<unknown[]> {
   const prompt = typeMix
     ? buildUserPrompt(contentText, questionCount, difficulty, typeMix)
     : buildSimplePrompt(contentText, questionCount, difficulty)
 
   const response = await client.chat.completions.create({
-    model: MODEL,
+    model: modelOverride ?? MODEL,
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
       { role: 'user', content: prompt },
@@ -430,23 +492,42 @@ export async function POST(req: NextRequest) {
       }, { status: 422 })
     }
 
-    // ── Call model, validate, retry once on bad JSON ───────────────────────────
-    let questions: unknown[]
-    try {
-      questions = await callModel(contentText, questionCount, difficulty, typeMix)
-    } catch (err) {
-      console.error('[generate-quiz] first attempt failed:', err instanceof Error ? err.message : err)
-      // Retry once
+    // ── Call model with backoff retry ──────────────────────────────────────────
+    // Three attempts: original, after 1.5s, after 3.5s. Without the backoff
+    // a 504/429 retry hits the same upstream rate-window and just fails
+    // again. The fallback model on the third attempt is a different size
+    // tier so a model-specific 429 doesn't doom us.
+    const FALLBACK_MODEL = process.env.QUIZ_AI_FALLBACK_MODEL ?? 'google/gemini-flash-1.5'
+    const attempts: Array<{ delayMs: number; model?: string }> = [
+      { delayMs: 0 },
+      { delayMs: 1_500 },
+      { delayMs: 3_500, model: FALLBACK_MODEL },
+    ]
+    let questions: unknown[] | null = null
+    let lastStatus: number | null = null
+    let lastErr: unknown = null
+    for (let i = 0; i < attempts.length; i++) {
+      const a = attempts[i]
+      if (a.delayMs > 0) await sleep(a.delayMs)
       try {
-        questions = await callModel(contentText, questionCount, difficulty, typeMix)
-      } catch (retryErr) {
-        console.error('[generate-quiz] retry failed:', retryErr instanceof Error ? retryErr.message : retryErr)
-        return NextResponse.json({ error: 'Generation failed — please try again' }, { status: 500 })
+        questions = await callModel(contentText, questionCount, difficulty, typeMix, a.model)
+        break
+      } catch (err) {
+        lastErr = err
+        lastStatus = inferUpstreamStatus(err)
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error(`[generate-quiz] attempt ${i + 1}/${attempts.length} failed (model=${a.model ?? MODEL} status=${lastStatus ?? 'unknown'} contentChars=${contentText.length}): ${msg}`)
       }
+    }
+    if (questions === null) {
+      const description = describeAiFailure(lastStatus)
+      console.error(`[generate-quiz] all ${attempts.length} attempts failed; surfacing ${description.httpStatus} to client`, { lastStatus, lastErr: lastErr instanceof Error ? lastErr.message : lastErr })
+      return NextResponse.json({ error: description.message, code: lastStatus === 429 ? 'rate_limited' : lastStatus === 504 ? 'upstream_timeout' : 'ai_error' }, { status: description.httpStatus })
     }
 
     if (!validateQuestions(questions)) {
-      return NextResponse.json({ error: 'Generation failed' }, { status: 500 })
+      console.error('[generate-quiz] validation failed — model returned malformed JSON', { sample: JSON.stringify(questions).slice(0, 500) })
+      return NextResponse.json({ error: 'AI returned an unexpected format. Please try again.' }, { status: 502 })
     }
 
     // Shuffle MCQ options so the correct answer isn't always in the same position
