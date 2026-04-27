@@ -223,6 +223,15 @@ export default function AdminDashboard() {
         {/* Coupons — promotional codes (credits / pro_days / future percent_off) */}
         <CouponsPanel />
 
+        {/* Moderation — user-submitted reports queue */}
+        <ModerationPanel />
+
+        {/* Data deletion requests — GDPR / DPDP right-to-erasure */}
+        <DeletionsPanel />
+
+        {/* Feature flags — staged rollouts and kill switches */}
+        <FeatureFlagsPanel />
+
         {/* Top Users by Quiz Count */}
         <TableSection title="Top Users by Quiz Count">
           <table className="w-full text-sm">
@@ -871,6 +880,667 @@ function CouponCreateModal({ onClose, onSuccess }: { onClose: () => void; onSucc
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
           <button type="submit" disabled={!codeValid || submitting} className="px-4 py-2 rounded-lg bg-yellow-300 hover:bg-yellow-400 text-gray-900 text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
             {submitting ? "Creating…" : "Create coupon"}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+// ─── Moderation panel ──────────────────────────────────────────────────────
+// User-submitted reports of inappropriate content. Lists open + reviewing
+// flags by default; admin can transition to resolved / dismissed with a
+// disposition and required reason.
+
+interface ModerationFlag {
+  id: string; reporterId: string | null; targetType: string; targetId: string
+  category: string; details: string | null; status: string; disposition: string | null
+  reviewedBy: string | null; reviewedAt: string | null; createdAt: string
+}
+
+function ModerationPanel() {
+  const [flags, setFlags] = useState<ModerationFlag[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<'open' | 'reviewing' | 'resolved' | 'dismissed' | 'all'>('open')
+  const [reviewingId, setReviewingId] = useState<string | null>(null)
+
+  async function refresh() {
+    try {
+      const url = statusFilter === 'all' ? '/api/admin/moderation' : `/api/admin/moderation?status=${statusFilter}`
+      const res = await fetch(url)
+      const body = await res.json()
+      if (!res.ok) { setError(body.error ?? 'Load failed'); return }
+      setFlags(body.flags as ModerationFlag[])
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Load failed')
+    }
+  }
+
+  useEffect(() => { void refresh() }, [statusFilter])
+
+  return (
+    <TableSection title="Moderation — user reports">
+      <div className="px-5 py-4 space-y-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <p className="text-xs text-gray-500">{flags === null ? 'Loading…' : `${flags.length} flag${flags.length === 1 ? '' : 's'}`}</p>
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value as typeof statusFilter)}
+            className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs text-gray-900 dark:text-white"
+          >
+            <option value="open">Open</option>
+            <option value="reviewing">Reviewing</option>
+            <option value="resolved">Resolved</option>
+            <option value="dismissed">Dismissed</option>
+            <option value="all">All</option>
+          </select>
+        </div>
+
+        {error && <div className="rounded-lg p-3 text-sm bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400">{error}</div>}
+
+        {flags && flags.length > 0 && (
+          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 dark:bg-gray-800/50">
+                <tr className="text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-3 py-2">Target</th>
+                  <th className="px-3 py-2">Category</th>
+                  <th className="px-3 py-2">Details</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2">When</th>
+                  <th className="px-3 py-2"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                {flags.map(f => (
+                  <tr key={f.id}>
+                    <td className="px-3 py-2 text-xs">
+                      <Badge text={f.targetType} color="gray" />
+                      <code className="ml-1.5 text-gray-500">{f.targetId.slice(0, 12)}…</code>
+                    </td>
+                    <td className="px-3 py-2"><Badge text={f.category} color={f.category === 'spam' ? 'gray' : f.category === 'copyright' ? 'blue' : 'red'} /></td>
+                    <td className="px-3 py-2 text-xs text-gray-700 dark:text-gray-300 max-w-xs truncate" title={f.details ?? ''}>{f.details ?? '—'}</td>
+                    <td className="px-3 py-2">
+                      <Badge text={f.status} color={f.status === 'open' ? 'red' : f.status === 'reviewing' ? 'yellow' : f.status === 'resolved' ? 'green' : 'gray'} />
+                      {f.disposition && <p className="text-xs text-gray-400 mt-0.5">{f.disposition}</p>}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">{formatDate(f.createdAt)}</td>
+                    <td className="px-3 py-2 text-right">
+                      {(f.status === 'open' || f.status === 'reviewing') && (
+                        <button onClick={() => setReviewingId(f.id)} className="text-xs text-blue-600 hover:underline">Review</button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {flags && flags.length === 0 && (
+          <p className="text-sm text-gray-400 px-1">Nothing in this queue. Clean inbox.</p>
+        )}
+      </div>
+
+      {reviewingId && (
+        <ModerationReviewModal
+          flag={flags?.find(f => f.id === reviewingId) ?? null}
+          onClose={() => setReviewingId(null)}
+          onSuccess={() => { setReviewingId(null); void refresh() }}
+        />
+      )}
+    </TableSection>
+  )
+}
+
+function ModerationReviewModal({ flag, onClose, onSuccess }: { flag: ModerationFlag | null; onClose: () => void; onSuccess: () => void }) {
+  const [status, setStatus] = useState<'reviewing' | 'resolved' | 'dismissed'>('resolved')
+  const [disposition, setDisposition] = useState<'removed' | 'no_action' | 'banned' | ''>('removed')
+  const [reason, setReason] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  if (!flag) return null
+
+  const reasonValid = reason.trim().length >= 5 && reason.trim().length <= 500
+  const canSubmit = reasonValid && !submitting
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!canSubmit) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      const body: Record<string, unknown> = { id: flag!.id, status, reason: reason.trim() }
+      if (status === 'resolved' && disposition) body.disposition = disposition
+      const res = await fetch('/api/admin/moderation', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error ?? 'Update failed'); return }
+      onSuccess()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Update failed')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+      <form onClick={e => e.stopPropagation()} onSubmit={submit} className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 max-w-lg w-full p-6 space-y-4">
+        <div>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Review report</h3>
+          <p className="text-sm text-gray-500 mt-0.5">
+            <Badge text={flag.targetType} color="gray" />
+            <span className="ml-2">{flag.category}</span>
+          </p>
+          <p className="text-xs text-gray-500 mt-2"><code>{flag.targetId}</code></p>
+          {flag.details && <p className="text-sm text-gray-700 dark:text-gray-300 mt-2 italic">&ldquo;{flag.details}&rdquo;</p>}
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2 block">New status</label>
+          <div className="flex gap-2">
+            {(['reviewing', 'resolved', 'dismissed'] as const).map(s => (
+              <button key={s} type="button" onClick={() => setStatus(s)} className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold border ${status === s ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600'}`}>{s}</button>
+            ))}
+          </div>
+        </div>
+
+        {status === 'resolved' && (
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2 block">Disposition</label>
+            <select value={disposition} onChange={e => setDisposition(e.target.value as typeof disposition)} className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white">
+              <option value="removed">Content removed</option>
+              <option value="no_action">No action needed</option>
+              <option value="banned">User banned</option>
+            </select>
+          </div>
+        )}
+
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">
+            Reason <span className="text-red-500">*</span>
+            <span className="float-right font-normal text-gray-400">{reason.trim().length}/500</span>
+          </label>
+          <textarea
+            rows={3}
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            placeholder="What did you find when reviewing? What action was taken?"
+            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white resize-none"
+          />
+        </div>
+
+        {error && <div className="rounded-lg p-3 text-sm bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400">{error}</div>}
+
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+          <button type="submit" disabled={!canSubmit} className="px-4 py-2 rounded-lg bg-yellow-300 hover:bg-yellow-400 text-gray-900 text-sm font-bold disabled:opacity-50">
+            {submitting ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+// ─── Deletion requests panel ───────────────────────────────────────────────
+// GDPR / DPDP right-to-erasure queue. User files via /api/user/data-deletion;
+// 7-day grace before approval; admin can approve early, reject, or mark
+// completed after running the actual deletion job.
+
+interface DeletionRequest {
+  id: string; userId: string; status: string; reason: string | null
+  requestedAt: string; graceExpiresAt: string; completedAt: string | null
+  user: { email: string; name: string | null }
+}
+
+function DeletionsPanel() {
+  const [requests, setRequests] = useState<DeletionRequest[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<'pending' | 'approved' | 'completed' | 'rejected' | 'cancelled' | 'all'>('pending')
+  const [actingId, setActingId] = useState<string | null>(null)
+
+  async function refresh() {
+    try {
+      const url = statusFilter === 'all' ? '/api/admin/deletions' : `/api/admin/deletions?status=${statusFilter}`
+      const res = await fetch(url)
+      const body = await res.json()
+      if (!res.ok) { setError(body.error ?? 'Load failed'); return }
+      setRequests(body.requests as DeletionRequest[])
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Load failed')
+    }
+  }
+
+  useEffect(() => { void refresh() }, [statusFilter])
+
+  return (
+    <TableSection title="Data deletion requests — GDPR / DPDP">
+      <div className="px-5 py-4 space-y-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <p className="text-xs text-gray-500">{requests === null ? 'Loading…' : `${requests.length} request${requests.length === 1 ? '' : 's'}`}</p>
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value as typeof statusFilter)}
+            className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs text-gray-900 dark:text-white"
+          >
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="completed">Completed</option>
+            <option value="rejected">Rejected</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="all">All</option>
+          </select>
+        </div>
+
+        {error && <div className="rounded-lg p-3 text-sm bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400">{error}</div>}
+
+        {requests && requests.length > 0 && (
+          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 dark:bg-gray-800/50">
+                <tr className="text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-3 py-2">User</th>
+                  <th className="px-3 py-2">Reason</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2">Filed</th>
+                  <th className="px-3 py-2">Grace ends</th>
+                  <th className="px-3 py-2"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                {requests.map(r => {
+                  const graceExpired = new Date(r.graceExpiresAt).getTime() < Date.now()
+                  return (
+                    <tr key={r.id}>
+                      <td className="px-3 py-2 text-xs">
+                        <div className="font-semibold text-gray-900 dark:text-white">{r.user.name ?? '—'}</div>
+                        <div className="text-gray-500">{r.user.email}</div>
+                      </td>
+                      <td className="px-3 py-2 text-xs text-gray-700 dark:text-gray-300 max-w-xs truncate" title={r.reason ?? ''}>{r.reason ?? '—'}</td>
+                      <td className="px-3 py-2">
+                        <Badge text={r.status} color={r.status === 'pending' ? 'yellow' : r.status === 'approved' ? 'red' : r.status === 'completed' ? 'gray' : 'green'} />
+                      </td>
+                      <td className="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">{formatDate(r.requestedAt)}</td>
+                      <td className="px-3 py-2 text-xs whitespace-nowrap" style={{ color: graceExpired ? '#dc2626' : '#6b7280' }}>
+                        {graceExpired && r.status === 'pending' ? 'Ready ' : ''}{new Date(r.graceExpiresAt).toLocaleDateString('en-IN')}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {(r.status === 'pending' || r.status === 'approved') && (
+                          <button onClick={() => setActingId(r.id)} className="text-xs text-blue-600 hover:underline">Action</button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {requests && requests.length === 0 && <p className="text-sm text-gray-400 px-1">No requests in this status.</p>}
+      </div>
+
+      {actingId && (
+        <DeletionActionModal
+          request={requests?.find(r => r.id === actingId) ?? null}
+          onClose={() => setActingId(null)}
+          onSuccess={() => { setActingId(null); void refresh() }}
+        />
+      )}
+    </TableSection>
+  )
+}
+
+function DeletionActionModal({ request, onClose, onSuccess }: { request: DeletionRequest | null; onClose: () => void; onSuccess: () => void }) {
+  const [status, setStatus] = useState<'approved' | 'completed' | 'rejected'>('approved')
+  const [reason, setReason] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  if (!request) return null
+  const reasonValid = reason.trim().length >= 5 && reason.trim().length <= 500
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!reasonValid || submitting) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/admin/deletions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: request!.id, status, reason: reason.trim() }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error ?? 'Update failed'); return }
+      onSuccess()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Update failed')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+      <form onClick={e => e.stopPropagation()} onSubmit={submit} className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 max-w-lg w-full p-6 space-y-4">
+        <div>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Action deletion request</h3>
+          <p className="text-sm text-gray-500 mt-0.5">{request.user.name ?? '—'} ({request.user.email})</p>
+          {request.reason && <p className="text-sm italic text-gray-700 dark:text-gray-300 mt-2">&ldquo;{request.reason}&rdquo;</p>}
+          <p className="text-xs text-gray-400 mt-2">Filed {formatDate(request.requestedAt)} · Grace ends {new Date(request.graceExpiresAt).toLocaleDateString('en-IN')}</p>
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2 block">Action</label>
+          <div className="flex gap-2 flex-wrap">
+            {(['approved', 'completed', 'rejected'] as const).map(s => (
+              <button key={s} type="button" onClick={() => setStatus(s)} className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold border ${status === s ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600'}`}>{s}</button>
+            ))}
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            <strong>approved</strong> = ready for deletion job to run ·{' '}
+            <strong>completed</strong> = data has been removed ·{' '}
+            <strong>rejected</strong> = denied (open dispute / legal hold)
+          </p>
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">
+            Reason <span className="text-red-500">*</span>
+            <span className="float-right font-normal text-gray-400">{reason.trim().length}/500</span>
+          </label>
+          <textarea
+            rows={3}
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            placeholder="Why this action? Required for the audit trail."
+            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white resize-none"
+          />
+        </div>
+
+        {error && <div className="rounded-lg p-3 text-sm bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400">{error}</div>}
+
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+          <button type="submit" disabled={!reasonValid || submitting} className="px-4 py-2 rounded-lg bg-yellow-300 hover:bg-yellow-400 text-gray-900 text-sm font-bold disabled:opacity-50">
+            {submitting ? 'Saving…' : 'Apply'}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+// ─── FeatureFlags panel ────────────────────────────────────────────────────
+// Three-mode toggles: master enabled, % rollout, per-user assignment.
+// Admin can create new flags, toggle enabled, dial rollout %, delete.
+
+interface FeatureFlag {
+  id: string; key: string; description: string | null; enabled: boolean
+  rolloutPercent: number; createdAt: string; updatedAt: string
+  _count: { assignments: number }
+}
+
+function FeatureFlagsPanel() {
+  const [flags, setFlags] = useState<FeatureFlag[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [showCreate, setShowCreate] = useState(false)
+  const [editingKey, setEditingKey] = useState<string | null>(null)
+
+  async function refresh() {
+    try {
+      const res = await fetch('/api/admin/flags')
+      const body = await res.json()
+      if (!res.ok) { setError(body.error ?? 'Load failed'); return }
+      setFlags(body.flags as FeatureFlag[])
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Load failed')
+    }
+  }
+
+  useEffect(() => { void refresh() }, [])
+
+  async function quickToggle(flag: FeatureFlag) {
+    const res = await fetch(`/api/admin/flags/${encodeURIComponent(flag.key)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: !flag.enabled, reason: flag.enabled ? `Quick disable: ${flag.key}` : `Quick enable: ${flag.key}` }),
+    })
+    if (res.ok) void refresh()
+  }
+
+  async function deleteFlag(flag: FeatureFlag) {
+    if (!confirm(`Delete flag "${flag.key}" and all its assignments? This cannot be undone.`)) return
+    const res = await fetch(`/api/admin/flags/${encodeURIComponent(flag.key)}`, { method: 'DELETE' })
+    if (res.ok) void refresh()
+  }
+
+  return (
+    <TableSection title="Feature flags — staged rollouts and kill switches">
+      <div className="px-5 py-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-gray-500">{flags === null ? 'Loading…' : `${flags.length} flag${flags.length === 1 ? '' : 's'}`}</p>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-yellow-300 hover:bg-yellow-400 text-gray-900 text-sm font-bold transition-colors"
+          >
+            + New flag
+          </button>
+        </div>
+
+        {error && <div className="rounded-lg p-3 text-sm bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400">{error}</div>}
+
+        {flags && flags.length > 0 && (
+          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 dark:bg-gray-800/50">
+                <tr className="text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-3 py-2">Key</th>
+                  <th className="px-3 py-2">Description</th>
+                  <th className="px-3 py-2">Master</th>
+                  <th className="px-3 py-2">Rollout</th>
+                  <th className="px-3 py-2">Overrides</th>
+                  <th className="px-3 py-2"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                {flags.map(f => (
+                  <tr key={f.id}>
+                    <td className="px-3 py-2 font-mono font-semibold text-gray-900 dark:text-white">{f.key}</td>
+                    <td className="px-3 py-2 text-xs text-gray-700 dark:text-gray-300 max-w-xs truncate" title={f.description ?? ''}>{f.description ?? '—'}</td>
+                    <td className="px-3 py-2">
+                      <button onClick={() => quickToggle(f)} className="cursor-pointer">
+                        <Badge text={f.enabled ? 'enabled' : 'disabled'} color={f.enabled ? 'green' : 'gray'} />
+                      </button>
+                    </td>
+                    <td className="px-3 py-2 font-mono text-sm">{f.rolloutPercent}%</td>
+                    <td className="px-3 py-2 text-xs text-gray-500">{f._count.assignments}</td>
+                    <td className="px-3 py-2 text-right whitespace-nowrap">
+                      <button onClick={() => setEditingKey(f.key)} className="text-xs text-blue-600 hover:underline mr-3">Edit</button>
+                      <button onClick={() => deleteFlag(f)} className="text-xs text-red-600 hover:underline">Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {flags && flags.length === 0 && (
+          <p className="text-sm text-gray-400 px-1">No flags yet. Create one to gate a feature.</p>
+        )}
+      </div>
+
+      {showCreate && (
+        <FlagCreateModal
+          onClose={() => setShowCreate(false)}
+          onSuccess={() => { setShowCreate(false); void refresh() }}
+        />
+      )}
+
+      {editingKey && (
+        <FlagEditModal
+          flag={flags?.find(f => f.key === editingKey) ?? null}
+          onClose={() => setEditingKey(null)}
+          onSuccess={() => { setEditingKey(null); void refresh() }}
+        />
+      )}
+    </TableSection>
+  )
+}
+
+function FlagCreateModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const [key, setKey] = useState('')
+  const [description, setDescription] = useState('')
+  const [enabled, setEnabled] = useState(false)
+  const [rolloutPercent, setRolloutPercent] = useState(0)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const keyValid = /^[a-z0-9_]{2,80}$/.test(key)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!keyValid || submitting) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/admin/flags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, description: description.trim() || undefined, enabled, rolloutPercent }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error ?? 'Create failed'); return }
+      onSuccess()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Create failed')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+      <form onClick={e => e.stopPropagation()} onSubmit={submit} className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 max-w-lg w-full p-6 space-y-4">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white">New feature flag</h3>
+
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">Key (lowercase, snake_case)</label>
+          <input value={key} onChange={e => setKey(e.target.value.toLowerCase())} placeholder="e.g. pdf_vision_tier" className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm font-mono text-gray-900 dark:text-white" />
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">Description</label>
+          <input value={description} onChange={e => setDescription(e.target.value)} placeholder="What does this flag control?" className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} className="rounded" />
+            Master enabled
+          </label>
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">Rollout %</label>
+            <input type="number" min={0} max={100} value={rolloutPercent} onChange={e => setRolloutPercent(Number(e.target.value))} className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" />
+          </div>
+        </div>
+
+        {error && <div className="rounded-lg p-3 text-sm bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400">{error}</div>}
+
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+          <button type="submit" disabled={!keyValid || submitting} className="px-4 py-2 rounded-lg bg-yellow-300 hover:bg-yellow-400 text-gray-900 text-sm font-bold disabled:opacity-50">
+            {submitting ? 'Creating…' : 'Create flag'}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+function FlagEditModal({ flag, onClose, onSuccess }: { flag: FeatureFlag | null; onClose: () => void; onSuccess: () => void }) {
+  const [enabled, setEnabled] = useState(flag?.enabled ?? false)
+  const [rolloutPercent, setRolloutPercent] = useState(flag?.rolloutPercent ?? 0)
+  const [description, setDescription] = useState(flag?.description ?? '')
+  const [reason, setReason] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  if (!flag) return null
+  const reasonValid = reason.trim().length >= 5
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!reasonValid || submitting) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/admin/flags/${encodeURIComponent(flag!.key)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled, rolloutPercent, description: description.trim() || undefined, reason: reason.trim() }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error ?? 'Update failed'); return }
+      onSuccess()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Update failed')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+      <form onClick={e => e.stopPropagation()} onSubmit={submit} className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 max-w-lg w-full p-6 space-y-4">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white">Edit <code className="font-mono">{flag.key}</code></h3>
+
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">Description</label>
+          <input value={description} onChange={e => setDescription(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} className="rounded" />
+            Master enabled
+          </label>
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">Rollout %</label>
+            <input type="number" min={0} max={100} value={rolloutPercent} onChange={e => setRolloutPercent(Number(e.target.value))} className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" />
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">
+            Reason <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            rows={2}
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            placeholder="Why this change?"
+            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white resize-none"
+          />
+        </div>
+
+        {error && <div className="rounded-lg p-3 text-sm bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400">{error}</div>}
+
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+          <button type="submit" disabled={!reasonValid || submitting} className="px-4 py-2 rounded-lg bg-yellow-300 hover:bg-yellow-400 text-gray-900 text-sm font-bold disabled:opacity-50">
+            {submitting ? 'Saving…' : 'Save'}
           </button>
         </div>
       </form>
