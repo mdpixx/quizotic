@@ -220,6 +220,9 @@ export default function AdminDashboard() {
         {/* Credits — manual AI credit grants for support / comp flows */}
         <CreditsPanel />
 
+        {/* Coupons — promotional codes (credits / pro_days / future percent_off) */}
+        <CouponsPanel />
+
         {/* Top Users by Quiz Count */}
         <TableSection title="Top Users by Quiz Count">
           <table className="w-full text-sm">
@@ -615,6 +618,259 @@ function GrantModal({ targetEmail, onClose, onSuccess }: { targetEmail: string; 
             className="px-4 py-2 rounded-lg bg-yellow-300 hover:bg-yellow-400 text-gray-900 text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {submitting ? 'Granting…' : 'Grant credits'}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+// ─── Coupons panel ─────────────────────────────────────────────────────────
+// List existing promotional codes + create new ones. Toggle active /
+// extend validity from the same panel. The user-facing redeem endpoint at
+// /api/coupons/redeem consumes whatever lives here.
+
+interface Coupon {
+  id: string; code: string; kind: string; value: number
+  bucket: string | null; currency: string | null
+  description: string | null
+  maxRedemptions: number | null; redemptionCount: number; perUserLimit: number
+  validFrom: string | null; validUntil: string | null; active: boolean
+  createdAt: string
+}
+
+function CouponsPanel() {
+  const [coupons, setCoupons] = useState<Coupon[] | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+
+  async function refresh() {
+    try {
+      const res = await fetch("/api/admin/coupons")
+      const body = await res.json()
+      if (!res.ok) { setLoadError(body.error ?? "Load failed"); return }
+      setCoupons(body.coupons as Coupon[])
+      setLoadError(null)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Load failed")
+    }
+  }
+
+  useEffect(() => { void refresh() }, [])
+
+  async function toggleActive(c: Coupon) {
+    const res = await fetch(`/api/admin/coupons/${c.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active: !c.active, reason: c.active ? "Manual deactivation" : "Manual reactivation" }),
+    })
+    if (res.ok) {
+      setToast(c.active ? `Deactivated ${c.code}` : `Activated ${c.code}`)
+      setTimeout(() => setToast(null), 3000)
+      void refresh()
+    }
+  }
+
+  return (
+    <TableSection title="Coupons — promotional codes">
+      <div className="px-5 py-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-gray-500">{coupons === null ? "Loading…" : `${coupons.length} codes`}</p>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-yellow-300 hover:bg-yellow-400 text-gray-900 text-sm font-bold transition-colors"
+          >
+            + New coupon
+          </button>
+        </div>
+
+        {loadError && (
+          <div className="rounded-lg p-3 text-sm bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400">{loadError}</div>
+        )}
+
+        {coupons && coupons.length > 0 && (
+          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 dark:bg-gray-800/50">
+                <tr className="text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-3 py-2">Code</th>
+                  <th className="px-3 py-2">Kind</th>
+                  <th className="px-3 py-2">Value</th>
+                  <th className="px-3 py-2">Used</th>
+                  <th className="px-3 py-2">Per-user</th>
+                  <th className="px-3 py-2">Expires</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                {coupons.map(c => (
+                  <tr key={c.id} className={c.active ? "" : "opacity-50"}>
+                    <td className="px-3 py-2 font-mono font-semibold text-gray-900 dark:text-white">{c.code}</td>
+                    <td className="px-3 py-2"><Badge text={c.kind} color={c.kind === "credits" ? "blue" : c.kind === "pro_days" ? "purple" : "gray"} /></td>
+                    <td className="px-3 py-2 font-mono">{c.value}{c.bucket ? ` ${c.bucket}` : ""}{c.kind === "percent_off" ? "%" : ""}</td>
+                    <td className="px-3 py-2 text-xs">{c.redemptionCount}{c.maxRedemptions ? ` / ${c.maxRedemptions}` : ""}</td>
+                    <td className="px-3 py-2 text-xs">{c.perUserLimit}</td>
+                    <td className="px-3 py-2 text-xs text-gray-500">{c.validUntil ? new Date(c.validUntil).toLocaleDateString("en-IN") : "Never"}</td>
+                    <td className="px-3 py-2"><Badge text={c.active ? "Active" : "Inactive"} color={c.active ? "green" : "gray"} /></td>
+                    <td className="px-3 py-2 text-right">
+                      <button onClick={() => toggleActive(c)} className="text-xs text-blue-600 hover:underline">{c.active ? "Deactivate" : "Reactivate"}</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {coupons && coupons.length === 0 && (
+          <p className="text-sm text-gray-400 px-1">No coupons yet. Create one to start a promo.</p>
+        )}
+      </div>
+
+      {showCreateModal && (
+        <CouponCreateModal
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={(code) => {
+            setShowCreateModal(false)
+            setToast(`Created ${code}`)
+            setTimeout(() => setToast(null), 3000)
+            void refresh()
+          }}
+        />
+      )}
+
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold shadow-lg">{toast}</div>
+      )}
+    </TableSection>
+  )
+}
+
+function CouponCreateModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (code: string) => void }) {
+  const [code, setCode] = useState("")
+  const [kind, setKind] = useState<"credits" | "pro_days" | "percent_off" | "amount_off">("credits")
+  const [value, setValue] = useState<number>(50)
+  const [bucket, setBucket] = useState<"questions" | "enhancements">("questions")
+  const [currency, setCurrency] = useState<"usd" | "inr">("inr")
+  const [description, setDescription] = useState("")
+  const [maxRedemptions, setMaxRedemptions] = useState<number | "">("")
+  const [perUserLimit, setPerUserLimit] = useState<number>(1)
+  const [validUntil, setValidUntil] = useState("")
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const codeValid = /^[A-Z0-9_-]{3,40}$/i.test(code)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!codeValid || submitting) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      const body: Record<string, unknown> = {
+        code: code.toUpperCase(),
+        kind,
+        value,
+        description: description.trim() || undefined,
+        perUserLimit,
+        active: true,
+      }
+      if (kind === "credits") body.bucket = bucket
+      if (kind === "amount_off") body.currency = currency
+      if (maxRedemptions !== "") body.maxRedemptions = maxRedemptions
+      if (validUntil) body.validUntil = new Date(validUntil + "T23:59:59Z").toISOString()
+
+      const res = await fetch("/api/admin/coupons", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error ?? "Create failed"); return }
+      onSuccess(json.coupon.code)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Create failed")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+      <form onClick={e => e.stopPropagation()} onSubmit={submit} className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 max-w-lg w-full p-6 space-y-4">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white">New coupon</h3>
+
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">Code</label>
+          <input value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder="e.g. WELCOME50" className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm font-mono uppercase text-gray-900 dark:text-white" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">Kind</label>
+            <select value={kind} onChange={e => setKind(e.target.value as typeof kind)} className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white">
+              <option value="credits">credits</option>
+              <option value="pro_days">pro_days</option>
+              <option value="percent_off">percent_off (checkout)</option>
+              <option value="amount_off">amount_off (checkout)</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">Value</label>
+            <input type="number" value={value} onChange={e => setValue(Number(e.target.value))} className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" />
+          </div>
+        </div>
+
+        {kind === "credits" && (
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">Bucket</label>
+            <select value={bucket} onChange={e => setBucket(e.target.value as typeof bucket)} className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white">
+              <option value="questions">questions</option>
+              <option value="enhancements">enhancements</option>
+            </select>
+          </div>
+        )}
+
+        {kind === "amount_off" && (
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">Currency</label>
+            <select value={currency} onChange={e => setCurrency(e.target.value as typeof currency)} className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white">
+              <option value="inr">INR</option>
+              <option value="usd">USD</option>
+            </select>
+          </div>
+        )}
+
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">Per-user limit</label>
+            <input type="number" min={1} value={perUserLimit} onChange={e => setPerUserLimit(Number(e.target.value))} className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">Total max</label>
+            <input type="number" min={1} value={maxRedemptions} onChange={e => setMaxRedemptions(e.target.value === "" ? "" : Number(e.target.value))} placeholder="∞" className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">Expires</label>
+            <input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" />
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">Description (optional)</label>
+          <input value={description} onChange={e => setDescription(e.target.value)} placeholder="e.g. Onboarding promo for first 100 signups" className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" />
+        </div>
+
+        {error && (
+          <div className="rounded-lg p-3 text-sm bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400">{error}</div>
+        )}
+
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+          <button type="submit" disabled={!codeValid || submitting} className="px-4 py-2 rounded-lg bg-yellow-300 hover:bg-yellow-400 text-gray-900 text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+            {submitting ? "Creating…" : "Create coupon"}
           </button>
         </div>
       </form>
