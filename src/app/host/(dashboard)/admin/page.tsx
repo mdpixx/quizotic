@@ -613,7 +613,7 @@ function GrantModal({ targetEmail, onClose, onSuccess }: { targetEmail: string; 
           </div>
         )}
 
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="sticky bottom-0 -mx-6 -mb-6 px-6 pb-6 pt-3 mt-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 rounded-b-2xl flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
@@ -876,7 +876,7 @@ function CouponCreateModal({ onClose, onSuccess }: { onClose: () => void; onSucc
           <div className="rounded-lg p-3 text-sm bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400">{error}</div>
         )}
 
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="sticky bottom-0 -mx-6 -mb-6 px-6 pb-6 pt-3 mt-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 rounded-b-2xl flex justify-end gap-2">
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
           <button type="submit" disabled={!codeValid || submitting} className="px-4 py-2 rounded-lg bg-yellow-300 hover:bg-yellow-400 text-gray-900 text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
             {submitting ? "Creating…" : "Create coupon"}
@@ -1078,7 +1078,7 @@ function ModerationReviewModal({ flag, onClose, onSuccess }: { flag: ModerationF
 
         {error && <div className="rounded-lg p-3 text-sm bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400">{error}</div>}
 
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="sticky bottom-0 -mx-6 -mb-6 px-6 pb-6 pt-3 mt-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 rounded-b-2xl flex justify-end gap-2">
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
           <button type="submit" disabled={!canSubmit} className="px-4 py-2 rounded-lg bg-yellow-300 hover:bg-yellow-400 text-gray-900 text-sm font-bold disabled:opacity-50">
             {submitting ? 'Saving…' : 'Save'}
@@ -1269,7 +1269,7 @@ function DeletionActionModal({ request, onClose, onSuccess }: { request: Deletio
 
         {error && <div className="rounded-lg p-3 text-sm bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400">{error}</div>}
 
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="sticky bottom-0 -mx-6 -mb-6 px-6 pb-6 pt-3 mt-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 rounded-b-2xl flex justify-end gap-2">
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
           <button type="submit" disabled={!reasonValid || submitting} className="px-4 py-2 rounded-lg bg-yellow-300 hover:bg-yellow-400 text-gray-900 text-sm font-bold disabled:opacity-50">
             {submitting ? 'Saving…' : 'Apply'}
@@ -1458,7 +1458,7 @@ function FlagCreateModal({ onClose, onSuccess }: { onClose: () => void; onSucces
 
         {error && <div className="rounded-lg p-3 text-sm bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400">{error}</div>}
 
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="sticky bottom-0 -mx-6 -mb-6 px-6 pb-6 pt-3 mt-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 rounded-b-2xl flex justify-end gap-2">
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
           <button type="submit" disabled={!keyValid || submitting} className="px-4 py-2 rounded-lg bg-yellow-300 hover:bg-yellow-400 text-gray-900 text-sm font-bold disabled:opacity-50">
             {submitting ? 'Creating…' : 'Create flag'}
@@ -1537,7 +1537,7 @@ function FlagEditModal({ flag, onClose, onSuccess }: { flag: FeatureFlag | null;
 
         {error && <div className="rounded-lg p-3 text-sm bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400">{error}</div>}
 
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="sticky bottom-0 -mx-6 -mb-6 px-6 pb-6 pt-3 mt-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 rounded-b-2xl flex justify-end gap-2">
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
           <button type="submit" disabled={!reasonValid || submitting} className="px-4 py-2 rounded-lg bg-yellow-300 hover:bg-yellow-400 text-gray-900 text-sm font-bold disabled:opacity-50">
             {submitting ? 'Saving…' : 'Save'}
