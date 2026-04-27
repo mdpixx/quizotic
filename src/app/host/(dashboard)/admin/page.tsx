@@ -525,7 +525,7 @@ function GrantModal({ targetEmail, onClose, onSuccess }: { targetEmail: string; 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <form
         onClick={e => e.stopPropagation()}
         onSubmit={submit}
@@ -807,7 +807,7 @@ function CouponCreateModal({ onClose, onSuccess }: { onClose: () => void; onSucc
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <form onClick={e => e.stopPropagation()} onSubmit={submit} className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <h3 className="text-lg font-bold text-gray-900 dark:text-white">New coupon</h3>
 
@@ -1030,7 +1030,7 @@ function ModerationReviewModal({ flag, onClose, onSuccess }: { flag: ModerationF
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <form onClick={e => e.stopPropagation()} onSubmit={submit} className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <div>
           <h3 className="text-lg font-bold text-gray-900 dark:text-white">Review report</h3>
@@ -1230,7 +1230,7 @@ function DeletionActionModal({ request, onClose, onSuccess }: { request: Deletio
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <form onClick={e => e.stopPropagation()} onSubmit={submit} className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <div>
           <h3 className="text-lg font-bold text-gray-900 dark:text-white">Action deletion request</h3>
@@ -1431,7 +1431,7 @@ function FlagCreateModal({ onClose, onSuccess }: { onClose: () => void; onSucces
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <form onClick={e => e.stopPropagation()} onSubmit={submit} className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <h3 className="text-lg font-bold text-gray-900 dark:text-white">New feature flag</h3>
 
@@ -1502,7 +1502,7 @@ function FlagEditModal({ flag, onClose, onSuccess }: { flag: FeatureFlag | null;
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <form onClick={e => e.stopPropagation()} onSubmit={submit} className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <h3 className="text-lg font-bold text-gray-900 dark:text-white">Edit <code className="font-mono">{flag.key}</code></h3>
 
