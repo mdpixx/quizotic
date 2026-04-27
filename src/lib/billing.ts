@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 
 export type Plan = 'free' | 'pro'
+export type AiBucket = 'questions' | 'enhancements'
 
 export async function getUserPlan(userId: string): Promise<Plan> {
   const sub = await prisma.subscription.findUnique({
@@ -15,14 +16,52 @@ export async function getUserPlan(userId: string): Promise<Plan> {
 }
 
 /**
- * Get bonus AI credits earned from referrals (10 per referral, max 100).
+ * Get bonus AI credits for a user in a given bucket. Sums two sources:
+ *
+ *  1. Referral rewards — historic bonus from referring others. Capped at 100.
+ *     Counts only toward the 'questions' bucket since that's all referral
+ *     rewards have ever granted.
+ *  2. Active CreditGrant rows — admin-issued comp / refund / promotional
+ *     credits. Negative grants are allowed (admin can revoke). No cap; the
+ *     AdminAuditLog is the safeguard.
+ *
+ * `expiresAt` is honoured — expired grants are excluded.
+ *
+ * Used by the AI quota library to compute a user's effective monthly limit.
+ */
+export async function getBonusCredits(userId: string, bucket: AiBucket): Promise<number> {
+  const now = new Date()
+
+  // Referral reward (questions bucket only)
+  const referralPromise = bucket === 'questions'
+    ? prisma.referral.aggregate({
+        where: { referrerId: userId, status: 'rewarded' },
+        _sum: { rewardValue: true },
+      })
+    : Promise.resolve({ _sum: { rewardValue: 0 } as { rewardValue: number | null } })
+
+  // Active manual grants for this bucket
+  const grantsPromise = prisma.creditGrant.aggregate({
+    where: {
+      userId,
+      bucket,
+      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+    },
+    _sum: { amount: true },
+  })
+
+  const [referralResult, grantsResult] = await Promise.all([referralPromise, grantsPromise])
+  const referralCredits = Math.min(referralResult._sum.rewardValue ?? 0, 100)
+  const grantCredits = grantsResult._sum.amount ?? 0
+  return referralCredits + grantCredits
+}
+
+/**
+ * Back-compat wrapper for code that only cares about question-bucket credits.
+ * Prefer `getBonusCredits(userId, bucket)` in new code.
  */
 export async function getReferralBonusCredits(userId: string): Promise<number> {
-  const result = await prisma.referral.aggregate({
-    where: { referrerId: userId, status: 'rewarded' },
-    _sum: { rewardValue: true },
-  })
-  return Math.min(result._sum.rewardValue ?? 0, 100)
+  return getBonusCredits(userId, 'questions')
 }
 
 export const PRICES = {

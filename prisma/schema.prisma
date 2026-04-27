@@ -11,32 +11,33 @@ datasource db {
 
 // ─── User (NextAuth-compatible) ─────────────────────────────────
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  role             String?   // teacher, trainer, student, hr, manager, other
-  orgType          String?   // school, college, coaching, corporate, government, other
-  organization     String?   // school/company name
+  id               String    @id @default(cuid())
+  name             String?
+  email            String    @unique
+  emailVerified    DateTime?
+  image            String?
+  role             String? // teacher, trainer, student, hr, manager, other
+  orgType          String? // school, college, coaching, corporate, government, other
+  organization     String? // school/company name
   onboarded        Boolean   @default(false)
   referralCode     String?   @unique // "mahesh-k7x2"
-  referredByCode   String?           // code used at signup
-  discoveryChannel String?           // "google" | "social" | "friend" | "event" | "other"
-  apiKey           String?   @unique    // Bearer token for Public REST API v1
+  referredByCode   String? // code used at signup
+  discoveryChannel String? // "google" | "social" | "friend" | "event" | "other"
+  apiKey           String?   @unique // Bearer token for Public REST API v1
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  accounts      Account[]
-  sessions      Session[]
-  subscription  Subscription?
-  payments      Payment[]
-  usageLogs     UsageLog[]
-  quizzes       Quiz[]
-  presentations Presentation[]
-  gameSessions  GameSession[]
-  referralsGiven    Referral[] @relation("referrals_given")
-  referralsReceived Referral[] @relation("referrals_received")
+  accounts          Account[]
+  sessions          Session[]
+  subscription      Subscription?
+  payments          Payment[]
+  usageLogs         UsageLog[]
+  quizzes           Quiz[]
+  presentations     Presentation[]
+  gameSessions      GameSession[]
+  referralsGiven    Referral[]     @relation("referrals_given")
+  referralsReceived Referral[]     @relation("referrals_received")
+  creditGrants      CreditGrant[]
 }
 
 // ─── NextAuth Account (OAuth providers) ─────────────────────────
@@ -84,7 +85,7 @@ model Subscription {
   userId                 String    @unique
   plan                   String    @default("free") // "free" | "pro_monthly" | "pro_yearly"
   status                 String    @default("active") // "active" | "cancelled" | "past_due" | "expired"
-  provider               String?   // "stripe" | "razorpay"
+  provider               String? // "stripe" | "razorpay"
   providerSubscriptionId String?
   providerCustomerId     String?
   currentPeriodStart     DateTime?
@@ -102,14 +103,14 @@ model Payment {
   id                String   @id @default(cuid())
   userId            String
   subscriptionId    String?
-  provider          String   // "stripe" | "razorpay"
+  provider          String // "stripe" | "razorpay"
   providerPaymentId String   @unique
   providerEventId   String?  @unique // webhook event ID for idempotency (race-safe dedupe)
-  amount            Int      // in smallest unit: cents (USD) or paise (INR)
-  currency          String   // "usd" | "inr"
-  status            String   // "succeeded" | "failed" | "refunded"
+  amount            Int // in smallest unit: cents (USD) or paise (INR)
+  currency          String // "usd" | "inr"
+  status            String // "succeeded" | "failed" | "refunded"
   invoiceUrl        String?
-  metadata          Json?    // raw webhook payload for audit
+  metadata          Json? // raw webhook payload for audit
   createdAt         DateTime @default(now())
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -123,8 +124,8 @@ model Payment {
 model UsageLog {
   id        String   @id @default(cuid())
   userId    String
-  action    String   // "ai_generate" | "ai_translate"
-  metadata  Json?    // { model, questionCount, etc. }
+  action    String // "ai_generate" | "ai_translate"
+  metadata  Json? // { model, questionCount, etc. }
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -139,8 +140,8 @@ model Quiz {
   title     String
   subject   String?
   language  String?
-  theme     String?  // theme id from QUIZ_THEMES catalog; null = default
-  questions Json     // array of Question objects
+  theme     String? // theme id from QUIZ_THEMES catalog; null = default
+  questions Json // array of Question objects
   userId    String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -154,8 +155,8 @@ model Quiz {
 model Presentation {
   id        String   @id @default(cuid())
   title     String
-  theme     String?  // theme id from QUIZ_THEMES catalog; null = default
-  slides    Json     // array of Slide objects
+  theme     String? // theme id from QUIZ_THEMES catalog; null = default
+  slides    Json // array of Slide objects
   userId    String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -167,17 +168,17 @@ model Presentation {
 }
 
 model GameSession {
-  id               String        @id @default(cuid())
-  code             String        @unique // 6-digit room code
-  type             String        // 'quiz' | 'presentation'
+  id               String    @id @default(cuid())
+  code             String    @unique // 6-digit room code
+  type             String // 'quiz' | 'presentation'
   quizId           String?
   presentationId   String?
   userId           String?
   hostName         String?
-  status           String        @default("waiting") // 'waiting' | 'active' | 'ended'
-  results          Json?         // aggregate per-slide/question results
-  participantCount Int           @default(0)
-  createdAt        DateTime      @default(now())
+  status           String    @default("waiting") // 'waiting' | 'active' | 'ended'
+  results          Json? // aggregate per-slide/question results
+  participantCount Int       @default(0)
+  createdAt        DateTime  @default(now())
   endedAt          DateTime?
 
   quiz         Quiz?         @relation(fields: [quizId], references: [id])
@@ -213,19 +214,19 @@ model Attendee {
 // (server restart, redeploy mid-game). The unique constraint also serves as
 // anti-replay protection — client outbox retries are safe.
 model Answer {
-  id            String      @id @default(cuid())
+  id            String   @id @default(cuid())
   sessionId     String
   attendeeId    String?
-  participantId String      // client-generated UUID, stable across reconnects
+  participantId String // client-generated UUID, stable across reconnects
   questionIndex Int
-  answer        Json        // raw answer (string | number | array)
+  answer        Json // raw answer (string | number | array)
   isCorrect     Boolean?
-  basePoints    Int         @default(0)
-  streakBonus   Int         @default(0)
-  points        Int         @default(0)
-  timeMs        Int         @default(0)
-  confidence    String?     // 'sure' | 'unsure' | null
-  submittedAt   DateTime    @default(now())
+  basePoints    Int      @default(0)
+  streakBonus   Int      @default(0)
+  points        Int      @default(0)
+  timeMs        Int      @default(0)
+  confidence    String? // 'sure' | 'unsure' | null
+  submittedAt   DateTime @default(now())
 
   session GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
@@ -234,14 +235,59 @@ model Answer {
   @@index([attendeeId])
 }
 
+// ─── CreditGrant (admin-issued AI credit adjustments) ────────────
+// Manual grants from the admin compensation flow. Aggregated alongside
+// Referral.rewardValue when the quota library computes how many bonus AI
+// credits a user has. Negative amounts are allowed — admins can revoke
+// grants if needed. Audit trail lives in AdminAuditLog, not here.
+model CreditGrant {
+  id        String    @id @default(cuid())
+  userId    String
+  bucket    String // 'questions' | 'enhancements'
+  amount    Int // positive = grant, negative = revoke
+  reason    String // free-text, required — surfaces in admin UI + email
+  expiresAt DateTime? // null = never expires
+  grantedBy String // admin user id; intentionally not a FK so audit survives admin deletion
+  metadata  Json? // optional ticket id, screenshot link, etc.
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, bucket, expiresAt])
+}
+
+// ─── AdminAuditLog (every admin mutation, forever) ──────────────
+// Read-only after insert. Source of truth for "who did what, when, why".
+// Used by every admin write endpoint — credits/grant in this session,
+// grant-pro / refund / data-deletion in future sessions.
+model AdminAuditLog {
+  id          String   @id @default(cuid())
+  actorId     String // admin user id
+  actorEmail  String // denormalised so the log survives admin user deletion
+  action      String // 'credit_grant' | 'plan_grant' | 'plan_revoke' | etc.
+  targetType  String? // 'user' | 'subscription' | 'quiz' | etc.
+  targetId    String?
+  payload     Json // full request body (sanitised — no auth tokens)
+  beforeState Json? // state of target before the action (where applicable)
+  afterState  Json? // state of target after the action
+  reason      String // required — propagated from the action's reason field
+  ipAddress   String? // request IP for forensic context
+  userAgent   String? // request UA
+  createdAt   DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([targetType, targetId, createdAt])
+  @@index([action, createdAt])
+}
+
 // ─── Referral (reward tracking) ─────────────────────────────────
 model Referral {
   id          String    @id @default(cuid())
-  referrerId  String    // user who shared the code
-  refereeId   String    // user who signed up
+  referrerId  String // user who shared the code
+  refereeId   String // user who signed up
   status      String    @default("pending") // "pending" | "completed" | "rewarded"
-  rewardType  String?   // "ai_credits"
-  rewardValue Int?      // e.g., 10 (bonus AI credits)
+  rewardType  String? // "ai_credits"
+  rewardValue Int? // e.g., 10 (bonus AI credits)
   rewardedAt  DateTime?
   createdAt   DateTime  @default(now())
 

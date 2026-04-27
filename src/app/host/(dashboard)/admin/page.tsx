@@ -217,6 +217,9 @@ export default function AdminDashboard() {
           </TableSection>
         </div>
 
+        {/* Credits — manual AI credit grants for support / comp flows */}
+        <CreditsPanel />
+
         {/* Top Users by Quiz Count */}
         <TableSection title="Top Users by Quiz Count">
           <table className="w-full text-sm">
@@ -250,6 +253,337 @@ export default function AdminDashboard() {
           Data pulled live from database. For user behavior analytics (clicks, funnels, recordings), check PostHog.
         </p>
       </div>
+    </div>
+  )
+}
+
+// ─── Credits panel ────────────────────────────────────────────────────────────
+// Search a user by email, see their plan + monthly usage + bonus credits +
+// recent grants, and issue a manual credit adjustment with required reason.
+// Every grant writes an AdminAuditLog row server-side and triggers a
+// notification email to the user.
+
+interface CreditsLookup {
+  user: { id: string; email: string; name: string | null; role: string | null; organization: string | null; createdAt: string }
+  plan: string
+  monthlyUsage: {
+    questions: { used: number; limit: number; bonusCredits: number }
+    enhancements: { used: number; limit: number; bonusCredits: number }
+  }
+  grants: Array<{
+    id: string; bucket: string; amount: number; reason: string
+    expiresAt: string | null; grantedBy: string; grantedAt: string; isActive: boolean
+  }>
+}
+
+function CreditsPanel() {
+  const [emailInput, setEmailInput] = useState('')
+  const [data, setData] = useState<CreditsLookup | null>(null)
+  const [searching, setSearching] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [showGrantModal, setShowGrantModal] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+
+  async function search(email: string) {
+    if (!email.trim()) return
+    setSearching(true)
+    setSearchError(null)
+    try {
+      const res = await fetch(`/api/admin/credits/list?email=${encodeURIComponent(email.trim())}`)
+      const body = await res.json()
+      if (!res.ok) {
+        setData(null)
+        setSearchError(body.error ?? 'Lookup failed')
+      } else {
+        setData(body as CreditsLookup)
+      }
+    } catch (err) {
+      setSearchError(err instanceof Error ? err.message : 'Lookup failed')
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  function refresh() {
+    if (data?.user.email) void search(data.user.email)
+  }
+
+  return (
+    <TableSection title="Credits — manual AI credit grants">
+      <div className="px-5 py-4 space-y-4">
+        <form
+          onSubmit={(e) => { e.preventDefault(); void search(emailInput) }}
+          className="flex flex-wrap items-center gap-2"
+        >
+          <input
+            type="email"
+            placeholder="user@example.com"
+            value={emailInput}
+            onChange={e => setEmailInput(e.target.value)}
+            className="flex-1 min-w-[240px] px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-200"
+          />
+          <button
+            type="submit"
+            disabled={searching || !emailInput.trim()}
+            className="px-4 py-2 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
+          >
+            {searching ? 'Searching…' : 'Search'}
+          </button>
+        </form>
+
+        {searchError && (
+          <div className="rounded-lg p-3 text-sm bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+            {searchError}
+          </div>
+        )}
+
+        {data && (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-white/50 dark:bg-gray-900/30">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-gray-900 dark:text-white">{data.user.name ?? 'Unnamed'} <span className="text-sm font-normal text-gray-500">({data.user.email})</span></p>
+                  {(data.user.role || data.user.organization) && (
+                    <p className="text-xs text-gray-500 mt-0.5">{[data.user.role, data.user.organization].filter(Boolean).join(' · ')}</p>
+                  )}
+                </div>
+                <Badge text={data.plan === 'pro' ? 'Pro' : 'Free'} color={data.plan === 'pro' ? 'purple' : 'gray'} />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                <BucketStat label="Questions" used={data.monthlyUsage.questions.used} limit={data.monthlyUsage.questions.limit} bonus={data.monthlyUsage.questions.bonusCredits} />
+                <BucketStat label="Enhancements" used={data.monthlyUsage.enhancements.used} limit={data.monthlyUsage.enhancements.limit} bonus={data.monthlyUsage.enhancements.bonusCredits} />
+              </div>
+              <div className="mt-4">
+                <button
+                  onClick={() => setShowGrantModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-yellow-300 hover:bg-yellow-400 text-gray-900 text-sm font-bold transition-colors"
+                >
+                  + Grant credits
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">Recent grants ({data.grants.length})</h4>
+              {data.grants.length === 0 ? (
+                <p className="text-sm text-gray-400">No grants for this user yet.</p>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 dark:bg-gray-800/50">
+                      <tr className="text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        <th className="px-3 py-2">Bucket</th>
+                        <th className="px-3 py-2">Amount</th>
+                        <th className="px-3 py-2">Reason</th>
+                        <th className="px-3 py-2">Expires</th>
+                        <th className="px-3 py-2">By</th>
+                        <th className="px-3 py-2">When</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                      {data.grants.map(g => (
+                        <tr key={g.id} className={g.isActive ? '' : 'opacity-50'}>
+                          <td className="px-3 py-2"><Badge text={g.bucket} color={g.bucket === 'questions' ? 'blue' : 'yellow'} /></td>
+                          <td className="px-3 py-2 font-mono font-semibold text-gray-900 dark:text-white">{g.amount > 0 ? `+${g.amount}` : g.amount}</td>
+                          <td className="px-3 py-2 text-gray-700 dark:text-gray-300 max-w-xs truncate" title={g.reason}>{g.reason}</td>
+                          <td className="px-3 py-2 text-xs text-gray-500">{g.expiresAt ? new Date(g.expiresAt).toLocaleDateString('en-IN') : 'Never'}</td>
+                          <td className="px-3 py-2 text-xs text-gray-500">{g.grantedBy}</td>
+                          <td className="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">{formatDate(g.grantedAt)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {showGrantModal && data && (
+        <GrantModal
+          targetEmail={data.user.email}
+          onClose={() => setShowGrantModal(false)}
+          onSuccess={(emailSent) => {
+            setShowGrantModal(false)
+            setToast(emailSent ? 'Credits granted — email sent.' : 'Credits granted (email failed; check Resend).')
+            setTimeout(() => setToast(null), 4000)
+            refresh()
+          }}
+        />
+      )}
+
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold shadow-lg">
+          {toast}
+        </div>
+      )}
+    </TableSection>
+  )
+}
+
+function BucketStat({ label, used, limit, bonus }: { label: string; used: number; limit: number; bonus: number }) {
+  const limitText = !isFinite(limit) ? '∞' : String(limit)
+  return (
+    <div className="rounded-lg bg-gray-50 dark:bg-gray-800/50 p-3">
+      <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">{label}</p>
+      <p className="text-lg font-bold text-gray-900 dark:text-white mt-1">{used} / {limitText}</p>
+      <p className="text-xs text-gray-500 mt-0.5">Bonus credits: <span className="font-semibold text-gray-700 dark:text-gray-300">{bonus}</span></p>
+    </div>
+  )
+}
+
+function GrantModal({ targetEmail, onClose, onSuccess }: { targetEmail: string; onClose: () => void; onSuccess: (emailSent: boolean) => void }) {
+  const [bucket, setBucket] = useState<'questions' | 'enhancements'>('questions')
+  const [amount, setAmount] = useState<number>(50)
+  const [reason, setReason] = useState('')
+  const [expiresAt, setExpiresAt] = useState('') // YYYY-MM-DD or empty for never
+  const [ticketId, setTicketId] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const reasonValid = reason.trim().length >= 5 && reason.trim().length <= 500
+  const amountValid = Number.isFinite(amount) && amount !== 0
+  const canSubmit = reasonValid && amountValid && !submitting
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!canSubmit) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      const body = {
+        email: targetEmail,
+        bucket,
+        amount,
+        reason: reason.trim(),
+        expiresAt: expiresAt ? new Date(expiresAt + 'T23:59:59Z').toISOString() : null,
+        ticketId: ticketId.trim() || undefined,
+      }
+      const res = await fetch('/api/admin/credits/grant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setError(json.error ?? 'Grant failed')
+        return
+      }
+      onSuccess(json.emailSent ?? false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Grant failed')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+      <form
+        onClick={e => e.stopPropagation()}
+        onSubmit={submit}
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 max-w-lg w-full p-6 space-y-4"
+      >
+        <div>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Grant credits</h3>
+          <p className="text-sm text-gray-500 mt-0.5">Target: <span className="font-mono">{targetEmail}</span></p>
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2 block">Bucket</label>
+          <div className="flex gap-2">
+            {(['questions', 'enhancements'] as const).map(b => (
+              <button
+                key={b}
+                type="button"
+                onClick={() => setBucket(b)}
+                className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold border transition-colors ${
+                  bucket === b
+                    ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white'
+                    : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
+                }`}
+              >
+                {b === 'questions' ? 'Questions' : 'Enhancements'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">Amount</label>
+            <input
+              type="number"
+              value={amount}
+              onChange={e => setAmount(Number(e.target.value))}
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
+            />
+            <p className="text-xs text-gray-400 mt-1">Negative to revoke.</p>
+          </div>
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">Expires</label>
+            <input
+              type="date"
+              value={expiresAt}
+              onChange={e => setExpiresAt(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
+            />
+            <p className="text-xs text-gray-400 mt-1">Empty = never.</p>
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">
+            Reason <span className="text-red-500">*</span>
+            <span className="float-right font-normal text-gray-400">{reason.trim().length}/500</span>
+          </label>
+          <textarea
+            rows={3}
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            placeholder="e.g. Comp for AI generation failure on 2026-04-26"
+            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white resize-none"
+          />
+          {!reasonValid && reason.length > 0 && (
+            <p className="text-xs text-red-500 mt-1">Reason must be 5-500 characters.</p>
+          )}
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">Ticket ID (optional)</label>
+          <input
+            type="text"
+            value={ticketId}
+            onChange={e => setTicketId(e.target.value)}
+            placeholder="e.g. SUP-123"
+            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
+          />
+        </div>
+
+        {error && (
+          <div className="rounded-lg p-3 text-sm bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+            {error}
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={!canSubmit}
+            className="px-4 py-2 rounded-lg bg-yellow-300 hover:bg-yellow-400 text-gray-900 text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {submitting ? 'Granting…' : 'Grant credits'}
+          </button>
+        </div>
+      </form>
     </div>
   )
 }
