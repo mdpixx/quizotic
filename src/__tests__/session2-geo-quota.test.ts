@@ -86,7 +86,12 @@ describe('extractGeo combined', () => {
 })
 
 // ─── lastActiveAt debounce ──────────────────────────────────────────────────
-const updateMock = vi.fn<(...args: unknown[]) => Promise<unknown>>(() => Promise.resolve({}))
+// vi.hoisted() ensures the mock is available when vi.mock's factory runs
+// (which is hoisted to the top of the file before imports).
+const { updateMock } = vi.hoisted(() => ({
+  updateMock: vi.fn(() => Promise.resolve({})),
+}))
+
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     user: { update: updateMock },

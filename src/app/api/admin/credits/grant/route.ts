@@ -94,6 +94,9 @@ export async function POST(req: NextRequest) {
       subject: tpl.subject,
       html: tpl.html,
       text: tpl.text,
+      category: 'credit_grant',
+      userId: targetUser.id,
+      metadata: { grantId: grant.id, bucket, amount, ticketId: parsed.ticketId ?? null },
       tags: [
         { name: 'category', value: 'credit_grant' },
         { name: 'bucket', value: bucket },

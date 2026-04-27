@@ -44,6 +44,7 @@ model User {
   referralsGiven    Referral[]     @relation("referrals_given")
   referralsReceived Referral[]     @relation("referrals_received")
   creditGrants      CreditGrant[]
+  emails            EmailLog[]
 
   @@index([lastActiveAt])
   @@index([country])
@@ -293,6 +294,53 @@ model AdminAuditLog {
   @@index([actorId, createdAt])
   @@index([targetType, targetId, createdAt])
   @@index([action, createdAt])
+}
+
+// ─── WebhookEvent (every inbound webhook, raw) ──────────────────
+// Captured before any business logic so we can replay, forensically
+// reconstruct, and answer "did we ever receive event X?" without parsing
+// Payment.metadata blobs by hand. Idempotency continues to live on
+// Payment.providerEventId; this is the audit trail.
+model WebhookEvent {
+  id           String    @id @default(cuid())
+  provider     String   // 'razorpay' | 'stripe' | future
+  eventType    String   // e.g. 'payment.captured', 'invoice.paid'
+  eventId      String?  // provider-supplied event id
+  rawPayload   Json     // full request body
+  headers      Json?    // selected headers (signatures, etc.)
+  status       String   @default("received") // 'received' | 'processed' | 'failed' | 'duplicate'
+  errorMessage String?
+  processedAt  DateTime?
+  ipAddress    String?
+  createdAt    DateTime  @default(now())
+
+  @@index([provider, eventType, createdAt])
+  @@index([eventId])
+  @@index([status, createdAt])
+}
+
+// ─── EmailLog (every email send via the email helper) ────────────
+// Powers "did the user actually get the email?" support questions and
+// bounce/spam analysis. Provider id (Resend's message id) stored for
+// cross-reference. userId is nullable because not every send is to a
+// User row (e.g. magic link to a new email address).
+model EmailLog {
+  id           String   @id @default(cuid())
+  userId       String?
+  toEmail      String
+  subject      String
+  category     String   // 'credit_grant' | 'welcome' | 'magic_link' | 'transactional' etc.
+  providerId   String?  // Resend message id when send succeeded
+  status       String   @default("queued") // 'queued' | 'sent' | 'failed'
+  errorMessage String?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([category, createdAt])
+  @@index([status, createdAt])
 }
 
 // ─── Referral (reward tracking) ─────────────────────────────────

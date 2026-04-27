@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
 import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
+import { recordWebhook } from '@/lib/webhook-log'
 import type Stripe from 'stripe'
 import type { Prisma } from '@prisma/client'
 
@@ -49,9 +50,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
+  // Audit-log the inbound webhook BEFORE business logic.
+  const recorded = await recordWebhook({
+    req, provider: 'stripe', eventType: event.type, eventId: event.id, rawPayload: event,
+  })
+
   // Idempotency check
   const existing = await prisma.payment.findFirst({ where: { providerEventId: event.id } })
   if (existing) {
+    await recorded?.markStatus('duplicate')
     return NextResponse.json({ received: true })
   }
 
@@ -189,8 +196,10 @@ export async function POST(req: NextRequest) {
     }
   } catch (err) {
     console.error('[stripe-webhook]', err)
+    await recorded?.markStatus('failed', err instanceof Error ? err.message : String(err))
     return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 })
   }
 
+  await recorded?.markStatus('processed')
   return NextResponse.json({ received: true })
 }

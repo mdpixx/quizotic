@@ -4,8 +4,12 @@
 // id on success or an error string — never throws, so admin actions can
 // continue even if email delivery fails.
 //
-// Future Session 3 will add an EmailLog table that captures every send
-// here for support replay; for now we just console.log.
+// Session 3 added EmailLog persistence — every send (success or failure)
+// writes one row so support can answer "did the user actually get this?"
+// without trawling Resend's dashboard.
+
+import { Prisma } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 
 const FROM_DEFAULT = process.env.RESEND_FROM_EMAIL ?? 'Quizotic <hello@quizotic.live>'
 
@@ -16,6 +20,10 @@ export interface SendEmailArgs {
   text: string
   tags?: { name: string; value: string }[]
   replyTo?: string
+  // For EmailLog persistence:
+  category?: string             // e.g. 'credit_grant', 'welcome', 'magic_link'
+  userId?: string | null        // FK to User if applicable
+  metadata?: Record<string, unknown> | null
 }
 
 export type SendEmailResult =
@@ -23,9 +31,13 @@ export type SendEmailResult =
   | { ok: false; error: string }
 
 export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
+  const toEmail = Array.isArray(args.to) ? args.to[0] : args.to
+  const category = args.category ?? 'transactional'
+
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) {
     console.warn('[email] RESEND_API_KEY not configured; email skipped', { subject: args.subject, to: args.to })
+    await logEmailRow({ ...args, toEmail, category, status: 'failed', errorMessage: 'RESEND_API_KEY not configured' })
     return { ok: false, error: 'RESEND_API_KEY not configured' }
   }
 
@@ -33,7 +45,9 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
   try {
     resendModule = await import('resend')
   } catch (err) {
-    console.warn('[email] resend module load failed:', err instanceof Error ? err.message : err)
+    const msg = err instanceof Error ? err.message : String(err)
+    console.warn('[email] resend module load failed:', msg)
+    await logEmailRow({ ...args, toEmail, category, status: 'failed', errorMessage: 'resend module not loadable' })
     return { ok: false, error: 'resend module not loadable' }
   }
 
@@ -52,14 +66,48 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
     })
     if (result.error) {
       console.warn('[email] resend returned error:', result.error.message, { subject: args.subject, to: args.to })
+      await logEmailRow({ ...args, toEmail, category, status: 'failed', errorMessage: result.error.message })
       return { ok: false, error: result.error.message }
     }
     const id = result.data?.id ?? 'unknown'
     console.log(`[email] sent: id=${id} subject=${JSON.stringify(args.subject)} to=${Array.isArray(args.to) ? args.to.join(',') : args.to}`)
+    await logEmailRow({ ...args, toEmail, category, status: 'sent', providerId: id })
     return { ok: true, id }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.warn('[email] send threw:', msg, { subject: args.subject, to: args.to })
+    await logEmailRow({ ...args, toEmail, category, status: 'failed', errorMessage: msg })
     return { ok: false, error: msg }
+  }
+}
+
+async function logEmailRow(args: {
+  toEmail: string
+  subject: string
+  category: string
+  userId?: string | null
+  status: string
+  providerId?: string
+  errorMessage?: string
+  metadata?: Record<string, unknown> | null
+}): Promise<void> {
+  try {
+    await prisma.emailLog.create({
+      data: {
+        userId: args.userId ?? null,
+        toEmail: args.toEmail,
+        subject: args.subject.slice(0, 500),
+        category: args.category,
+        providerId: args.providerId ?? null,
+        status: args.status,
+        errorMessage: args.errorMessage ?? null,
+        metadata: args.metadata
+          ? (args.metadata as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
+      },
+    })
+  } catch (err) {
+    // Never block on audit-log failure.
+    console.warn('[email] EmailLog write failed:', err instanceof Error ? err.message : err)
   }
 }

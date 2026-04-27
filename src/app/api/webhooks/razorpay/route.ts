@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
+import { recordWebhook } from '@/lib/webhook-log'
 import crypto from 'crypto'
 import type { Prisma } from '@prisma/client'
 
@@ -53,13 +54,22 @@ export async function POST(req: NextRequest) {
   const entityId = payload.payment?.entity?.id ?? payload.subscription?.entity?.id
   if (!entityId) {
     // Unknown event type with no entity ID — acknowledge but skip processing
+    await recordWebhook({ req, provider: 'razorpay', eventType: eventId || 'unknown', eventId: null, rawPayload: event })
+      .then(rec => rec?.markStatus('processed'))
     return NextResponse.json({ received: true })
   }
   const eventCreatedAt: number = typeof event.created_at === 'number' ? event.created_at : 0
   const providerEventId = `${eventId}_${entityId}_${eventCreatedAt}`
 
+  // Audit-log the inbound webhook BEFORE business logic, so a failure
+  // downstream still leaves a trace.
+  const recorded = await recordWebhook({
+    req, provider: 'razorpay', eventType: eventId, eventId: providerEventId, rawPayload: event,
+  })
+
   const existing = await prisma.payment.findFirst({ where: { providerEventId } })
   if (existing) {
+    await recorded?.markStatus('duplicate')
     return NextResponse.json({ received: true })
   }
 
@@ -157,8 +167,10 @@ export async function POST(req: NextRequest) {
     }
   } catch (err) {
     console.error('[razorpay-webhook]', err)
+    await recorded?.markStatus('failed', err instanceof Error ? err.message : String(err))
     return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 })
   }
 
+  await recorded?.markStatus('processed')
   return NextResponse.json({ received: true })
 }
