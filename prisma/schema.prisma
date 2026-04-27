@@ -46,6 +46,8 @@ model User {
   creditGrants      CreditGrant[]
   emails            EmailLog[]
   couponRedemptions CouponRedemption[]
+  deletionRequests  DataDeletionRequest[]
+  moderationReports ModerationFlag[]   @relation("moderation_reports")
 
   @@index([lastActiveAt])
   @@index([country])
@@ -413,6 +415,53 @@ model CouponRedemption {
 
   @@index([userId, couponId])
   @@index([couponId])
+}
+
+// ─── DataDeletionRequest (GDPR / DPDP Act right-to-erasure) ─────
+// User files a request to have their data removed. 7-day grace lets
+// them cancel; after that an admin (or scheduled job) processes the
+// deletion. The row is retained as an audit artefact even after
+// completion.
+model DataDeletionRequest {
+  id             String    @id @default(cuid())
+  userId         String
+  status         String    @default("pending") // 'pending' | 'approved' | 'completed' | 'cancelled' | 'rejected'
+  reason         String?
+  requestedAt    DateTime  @default(now())
+  graceExpiresAt DateTime
+  completedAt    DateTime?
+  completedBy    String?   // admin user id when manually completed
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status, graceExpiresAt])
+}
+
+// ─── ModerationFlag (user-submitted reports of inappropriate content) ─
+// Same row shape used for spam, hate speech, sexual content,
+// copyright complaints. targetType narrows the polymorphic foreign
+// key (quiz / session / answer / user).
+model ModerationFlag {
+  id          String    @id @default(cuid())
+  reporterId  String?  // nullable for anonymous attendees
+  targetType  String   // 'quiz' | 'session' | 'answer' | 'user'
+  targetId    String
+  category    String   // 'spam' | 'hate' | 'sexual' | 'copyright' | 'other'
+  details     String?
+  status      String    @default("open") // 'open' | 'reviewing' | 'resolved' | 'dismissed'
+  disposition String?  // 'removed' | 'no_action' | 'banned'
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+
+  reporter User? @relation("moderation_reports", fields: [reporterId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([targetType, targetId])
 }
 
 // ─── Referral (reward tracking) ─────────────────────────────────
