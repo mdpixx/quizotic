@@ -31,7 +31,10 @@ export async function GET(req: NextRequest) {
 
   const user = await prisma.user.findUnique({
     where: { email },
-    select: { id: true, email: true, name: true, createdAt: true, role: true, organization: true },
+    select: {
+      id: true, email: true, name: true, createdAt: true, role: true, organization: true,
+      country: true, locale: true, lastActiveAt: true,
+    },
   })
   if (!user) {
     return NextResponse.json({ error: `No user found with email: ${email}` }, { status: 404 })
@@ -77,6 +80,9 @@ export async function GET(req: NextRequest) {
       name: user.name,
       role: user.role,
       organization: user.organization,
+      country: user.country,
+      locale: user.locale,
+      lastActiveAt: user.lastActiveAt?.toISOString() ?? null,
       createdAt: user.createdAt.toISOString(),
     },
     plan: usage.plan,

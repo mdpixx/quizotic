@@ -24,6 +24,12 @@ model User {
   referredByCode   String? // code used at signup
   discoveryChannel String? // "google" | "social" | "friend" | "event" | "other"
   apiKey           String?   @unique // Bearer token for Public REST API v1
+  // Geo + activity (Session 2). country and locale are captured at first
+  // sign-in from request headers and not overwritten on later logins.
+  // lastActiveAt is debounce-updated by the auth helpers.
+  lastActiveAt     DateTime?
+  country          String? // ISO 3166-1 alpha-2 e.g. "IN", "US"
+  locale           String? // BCP 47 e.g. "en-IN", "en-US"
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -38,6 +44,9 @@ model User {
   referralsGiven    Referral[]     @relation("referrals_given")
   referralsReceived Referral[]     @relation("referrals_received")
   creditGrants      CreditGrant[]
+
+  @@index([lastActiveAt])
+  @@index([country])
 }
 
 // ─── NextAuth Account (OAuth providers) ─────────────────────────
@@ -121,12 +130,18 @@ model Payment {
 }
 
 // ─── UsageLog (AI rate limiting) ────────────────────────────────
+// Quota math used to read `metadata.questionCount` out of the JSON blob,
+// which made the entire monthly limit one schema-drift away from a billing
+// incident. Session 2 promoted questionCount + model to typed columns.
+// Historical rows were backfilled by the same migration.
 model UsageLog {
-  id        String   @id @default(cuid())
-  userId    String
-  action    String // "ai_generate" | "ai_translate"
-  metadata  Json? // { model, questionCount, etc. }
-  createdAt DateTime @default(now())
+  id            String   @id @default(cuid())
+  userId        String
+  action        String // "ai_generate" | "ai_translate" | "ai_enhance"
+  questionCount Int      @default(0) // count for this single call (0 for non-question actions)
+  model         String? // e.g. "google/gemini-2.0-flash-001"
+  metadata      Json? // ad-hoc context: difficulty, mode, extractionSource, etc.
+  createdAt     DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

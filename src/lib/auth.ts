@@ -3,8 +3,10 @@ import Google from 'next-auth/providers/google'
 import MicrosoftEntraID from 'next-auth/providers/microsoft-entra-id'
 import Nodemailer from 'next-auth/providers/nodemailer'
 import { PrismaAdapter } from '@auth/prisma-adapter'
+import { headers as nextHeaders } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { createUniqueReferralCode } from '@/lib/referral'
+import { extractGeo } from '@/lib/geo'
 
 // ── Gmail API email sender (HTTPS, not SMTP) ───────────────────────────────────
 
@@ -279,13 +281,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   events: {
     async createUser({ user }) {
-      if (user.id && user.name) {
-        const code = await createUniqueReferralCode(user.name)
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { referralCode: code },
-        })
+      if (!user.id) return
+      // Capture geo + locale from the signin request — only at user
+      // creation, not on later logins (a user travelling abroad shouldn't
+      // appear to relocate). Best-effort; null is fine.
+      let geo: { country: string | null; locale: string | null } = { country: null, locale: null }
+      try {
+        const hdrs = await nextHeaders()
+        geo = extractGeo(hdrs)
+      } catch (err) {
+        console.warn('[auth] geo extraction failed:', err instanceof Error ? err.message : err)
       }
+
+      const updates: { referralCode?: string; country?: string; locale?: string; lastActiveAt?: Date } = {
+        lastActiveAt: new Date(),
+      }
+      if (user.name) {
+        updates.referralCode = await createUniqueReferralCode(user.name)
+      }
+      if (geo.country) updates.country = geo.country
+      if (geo.locale) updates.locale = geo.locale
+
+      await prisma.user.update({ where: { id: user.id }, data: updates })
+
       if (user.email) {
         sendWelcomeEmail(user.email, user.name ?? null)
           .catch(err => console.error('[auth] welcome email failed:', err))

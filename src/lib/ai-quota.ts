@@ -38,15 +38,23 @@ function bucketFor(action: AiAction): AiBucket {
 }
 
 async function countQuestions(userId: string, since: Date): Promise<number> {
-  const logs = await prisma.usageLog.findMany({
+  // Typed column read — Session 2 promoted questionCount out of JSON.
+  // Historical rows were backfilled by the same migration, but defend
+  // against a stray 0 by falling back to DEFAULT_QUESTION_COST per row in
+  // the rare case both the typed column AND the JSON metadata are missing.
+  const result = await prisma.usageLog.aggregate({
     where: { userId, action: { in: QUESTION_ACTIONS }, createdAt: { gte: since } },
-    select: { metadata: true },
+    _sum: { questionCount: true },
+    _count: { _all: true },
   })
-  return logs.reduce((sum, log) => {
-    const meta = log.metadata as Record<string, unknown> | null
-    const count = meta?.questionCount
-    return sum + (typeof count === 'number' ? count : DEFAULT_QUESTION_COST)
-  }, 0)
+  const summed = result._sum.questionCount ?? 0
+  // If we have rows but they all sum to 0 (truly degenerate state), fall
+  // back to assuming DEFAULT_QUESTION_COST per row so the user still gets
+  // metered. Prevents a "free credits" drift bug.
+  if (summed === 0 && result._count._all > 0) {
+    return result._count._all * DEFAULT_QUESTION_COST
+  }
+  return summed
 }
 
 async function countEnhancements(userId: string, since: Date): Promise<number> {
@@ -93,8 +101,27 @@ export async function logAiUsage(
   action: AiAction,
   metadata: Record<string, unknown>,
 ): Promise<void> {
+  // Typed columns mirror the metadata fields the quota library depends on,
+  // so a future caller that forgets to populate metadata.questionCount
+  // can't quietly under-bill the user. The JSON column keeps the rest
+  // (mode, difficulty, extractionSource, etc.) for ad-hoc analytics.
+  const rawCount = metadata?.questionCount
+  const questionCount = typeof rawCount === 'number' && Number.isFinite(rawCount) && rawCount > 0
+    ? Math.floor(rawCount)
+    : (action === 'ai_enhance' ? 0 : 5) // ai_enhance is per-call; questions default to 5
+  const rawModel = metadata?.model
+  const model = typeof rawModel === 'string' && rawModel.length > 0 ? rawModel.slice(0, 200) : null
+
   await prisma.usageLog
-    .create({ data: { userId, action, metadata: metadata as Prisma.InputJsonValue } })
+    .create({
+      data: {
+        userId,
+        action,
+        questionCount,
+        model,
+        metadata: metadata as Prisma.InputJsonValue,
+      },
+    })
     .catch(err => console.error('[usage-log] failed to record:', err instanceof Error ? err.message : err))
 }
 
