@@ -229,10 +229,41 @@ const CRITICAL_INDEXES = [
   `CREATE INDEX IF NOT EXISTS "FeatureFlagAssignment_userId_idx" ON "FeatureFlagAssignment" ("userId")`,
 ]
 
+// Idempotent data backfills. Each one reconciles a typed column with the
+// JSON metadata source-of-truth on every boot, so a missed migration UPDATE
+// can't silently undercount usage / billing. Tight WHERE clauses limit
+// scope to rows that need fixing — after the first pass succeeds, every
+// subsequent boot's UPDATE matches 0 rows and finishes instantly.
+//
+// When you add a future migration that contains a backfill UPDATE, mirror
+// it here using the same idempotent pattern. The migration deploys to fresh
+// DBs; this entry covers prod ledgers that drift.
+const CRITICAL_BACKFILLS = [
+  {
+    label: 'UsageLog.questionCount from JSON metadata',
+    sql: `UPDATE "UsageLog"
+          SET "questionCount" = COALESCE(NULLIF(metadata->>'questionCount', '')::int, 5)
+          WHERE "questionCount" = 0
+            AND action IN ('ai_generate', 'ai_translate')
+            AND metadata IS NOT NULL`,
+  },
+  {
+    label: 'UsageLog.model from JSON metadata',
+    sql: `UPDATE "UsageLog"
+          SET model = NULLIF(metadata->>'model', '')
+          WHERE model IS NULL
+            AND metadata IS NOT NULL
+            AND metadata ? 'model'`,
+  },
+]
+
 async function runStatement(pool, sql, label) {
   try {
-    await pool.query(sql)
-    console.log(`[ensure-columns] OK — ${label}`)
+    const result = await pool.query(sql)
+    const rowSuffix = typeof result?.rowCount === 'number' && result.command !== 'CREATE' && result.command !== 'ALTER'
+      ? ` rowCount=${result.rowCount}`
+      : ''
+    console.log(`[ensure-columns] OK — ${label}${rowSuffix}`)
   } catch (err) {
     console.warn(`[ensure-columns] skipped ${label}: ${err.message}`)
   }
@@ -259,11 +290,16 @@ async function main() {
         `${table}.${column}`,
       )
     }
-    // Indexes last.
+    // Indexes next.
     for (let i = 0; i < CRITICAL_INDEXES.length; i++) {
       const idxMatch = CRITICAL_INDEXES[i].match(/CREATE INDEX IF NOT EXISTS "(\w+)"/)
       const label = idxMatch ? `INDEX ${idxMatch[1]}` : `INDEX #${i}`
       await runStatement(pool, CRITICAL_INDEXES[i], label)
+    }
+    // Data backfills last — typed columns must exist before the UPDATE
+    // statements can populate them.
+    for (const { sql, label } of CRITICAL_BACKFILLS) {
+      await runStatement(pool, sql, label)
     }
   } finally {
     await pool.end()

@@ -700,7 +700,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'AI could not generate clean suggestions. Please try again.' }, { status: 500 })
     }
 
-    await logAiUsage(user.id, 'ai_enhance', { slideCount: suggestions.length, level })
+    await logAiUsage(user.id, 'ai_enhance', {
+      model: MODEL,
+      slideCount: suggestions.length,
+      level,
+    })
 
     const post = await checkAiQuota(user.id, 'ai_enhance', 0)
     return NextResponse.json({

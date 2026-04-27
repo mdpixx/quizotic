@@ -54,6 +54,30 @@ async function main() {
   console.log(`  sum(json metadata.questionCount):  ${sumJson}    <- truth before backfill`)
   console.log(`  what the library would return: ${sumWithFallback}    (fallback fires when typed=0 but rows exist: rows*5)`)
 
+  // Enhancement bucket — these are presentation AI enhancements. Each row
+  // counts as 1 toward the user's enhancement quota. metadata.slideCount
+  // tells us how many slides were generated in that single click.
+  const enhanceRes = await pool.query(`
+    SELECT
+      "questionCount" AS typed_count,
+      (metadata->>'slideCount')::text AS slide_count,
+      metadata->>'level' AS level,
+      model,
+      "createdAt"
+    FROM "UsageLog"
+    WHERE "userId" = $1
+      AND action = 'ai_enhance'
+      AND "createdAt" >= date_trunc('month', now())
+    ORDER BY "createdAt" DESC
+  `, [user.id])
+  console.log(`\nENHANCEMENT BUCKET (this month, ${enhanceRes.rowCount} rows = enhancement clicks):`)
+  for (const r of enhanceRes.rows) {
+    console.log(`  ${r.createdAt.toISOString()}  slideCount=${String(r.slide_count ?? '?').padStart(3)}  level=${r.level ?? 'null'}  model=${r.model ?? 'null'}`)
+  }
+  const slideCountSum = enhanceRes.rows.reduce((s, r) => s + (Number(r.slide_count) || 0), 0)
+  console.log(`  Enhancement clicks: ${enhanceRes.rowCount}    (this is what counts toward the Enhancements quota)`)
+  console.log(`  Total slides generated across those clicks: ${slideCountSum}`)
+
   // CreditGrant rows (for the bonus credit display)
   const grantsRes = await pool.query(`SELECT bucket, amount, reason, "createdAt" FROM "CreditGrant" WHERE "userId" = $1`, [user.id])
   console.log(`\nCREDIT GRANTS: ${grantsRes.rowCount} row(s)`)
