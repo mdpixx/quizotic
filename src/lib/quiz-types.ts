@@ -15,8 +15,38 @@ export type QuestionType =
 // Keep in sync with the `nonScored` set in server.mjs (emitQuestionEnded / buildQuestionStats / computeMaxScore).
 export const SCORED_TYPES: readonly QuestionType[] = ['mcq', 'multiselect', 'truefalse'] as const
 
+// Non-scored types that still need a host-visible reveal screen + dashboard card.
+// Keep order-stable for switch dispatch in QuestionResultsView.
+export const NON_SCORED_TYPES: readonly QuestionType[] = [
+  'poll', 'wordcloud', 'openended', 'qa', 'rating', 'ranking', 'case', 'drawing',
+] as const
+
 export function isScoredType(type: QuestionType): boolean {
   return SCORED_TYPES.includes(type)
+}
+
+// Maps each question type to the visualization used by QuestionResultsView.
+//   bars       → option distribution bar chart (poll, mcq, multiselect, truefalse)
+//   cloud      → word cloud sized by frequency (wordcloud)
+//   list       → scrolling text response list (openended, qa)
+//   histogram  → 1..N rating histogram + average (rating)
+//   ordered    → sorted list with avg rank pill (ranking)
+//   grid       → drawing thumbnail grid (drawing)
+//   inner      → case study; renderer recurses into inner question type
+export type ResultsRenderer = 'bars' | 'cloud' | 'list' | 'histogram' | 'ordered' | 'grid' | 'inner'
+
+export const RESULTS_RENDERER: Record<QuestionType, ResultsRenderer> = {
+  mcq: 'bars',
+  multiselect: 'bars',
+  truefalse: 'bars',
+  poll: 'bars',
+  wordcloud: 'cloud',
+  openended: 'list',
+  qa: 'list',
+  rating: 'histogram',
+  ranking: 'ordered',
+  case: 'inner',
+  drawing: 'grid',
 }
 
 // Default option arrays per question type. Used to backfill AI-generated
@@ -93,6 +123,21 @@ export interface ConfidenceGrid {
   unsureWrong: number
 }
 
+// One entry per text submission (openended, qa, wordcloud raw stream).
+export interface TextResponse {
+  name?: string
+  archetype?: string
+  answer: string
+  submittedAt: number
+}
+
+// One drawing submission (data URL kept compact at submission time).
+export interface DrawingThumbnail {
+  name?: string
+  archetype?: string
+  dataUrl: string
+}
+
 export interface QuestionStat {
   index: number
   text: string
@@ -102,6 +147,22 @@ export interface QuestionStat {
   bloomsLevel: BloomsLevel | null
   explanation: string | null
   isNonScored?: boolean
+  totalResponses?: number                 // total participants who submitted (any type)
+  // Bar-chart types (poll, mcq, multiselect, truefalse)
   optionDistribution?: number[] | null
   options?: string[]
+  // Wordcloud
+  wordFrequencies?: Record<string, number>
+  // Text responses (openended, qa, wordcloud raw stream)
+  textResponses?: TextResponse[]
+  // Rating
+  ratingHistogram?: number[]              // index = rating - 1, value = count
+  ratingAverage?: number | null
+  ratingMax?: number                      // 5 / 7 / 10 etc
+  // Ranking
+  rankingItems?: string[]                 // labels in original order
+  rankingAverages?: number[]              // average position per item (1-based)
+  rankingFirstPlaceCounts?: number[]      // # of #1 votes per item
+  // Drawing
+  drawingThumbnails?: DrawingThumbnail[]
 }

@@ -1791,6 +1791,7 @@ app.prepare().then(async () => {
         // Payload field name `ranking` matches the host listener. Kept `order`
         // for any older clients still in the wild; harmless duplicate.
         io.to(`host:${gameCode}`).emit('ranking_submission', { ranking: answer, order: answer })
+        emitLiveResponses(io, gameCode, session, qi)
         if (ack) ack({ accepted: true, isNonScored: true, questionIndex: qi })
         return
       }
@@ -1865,6 +1866,13 @@ app.prepare().then(async () => {
           answer,
           submittedAt: Date.now(),
         })
+      }
+
+      // Live aggregate for the host reveal-style live view. Emitted only for
+      // non-scored types — scored questions still hide the running tally so
+      // late voters aren't influenced by the visible bars.
+      if (isNonScored) {
+        emitLiveResponses(io, gameCode, session, qi)
       }
 
       console.log(`[submit_answer:accept] code=${gameCode} q=${qi} sid=${socket.id} pts=${points} correct=${isCorrect}`)
@@ -2277,9 +2285,23 @@ function emitQuestionEnded(io, gameCode, session, questionIndex) {
     }
   }
 
-  // Skip everything below for reflection mode or non-scored questions —
-  // there's no ranking to compute.
-  if (session.sessionMode === 'reflection' || isNonScored) return
+  // For non-scored questions, emit a `question_reveal` carrying the final
+  // type-appropriate aggregate so the host can show a Mentimeter-style reveal
+  // screen between questions. We still skip the standings/leaderboard logic
+  // below — non-scored questions don't move ranks.
+  if (isNonScored) {
+    const allStats = buildQuestionStats(session)
+    const stat = allStats[questionIndex]
+    if (stat) {
+      io.to(`host:${gameCode}`).emit('question_reveal', {
+        questionIndex,
+        stat,
+        totalParticipants: realParticipantCount(session.participants),
+      })
+    }
+    return
+  }
+  if (session.sessionMode === 'reflection') return
 
   const newRanks = rankByScore(session.participants)
   const top = buildLeaderboardSnapshot(session.participants, 5)
@@ -2379,7 +2401,31 @@ function emitQuestionEnded(io, gameCode, session, questionIndex) {
   session.previousRanks = newRanks
 }
 
-// Compute per-question stats from participant answers for the session report
+// Emit a running aggregate for a single non-scored question to the host room.
+// Called on every accepted answer so the host live view (poll bars, growing
+// word cloud, scrolling text list) can update in real time. Cheap — only
+// processes participants for one question, not the full quiz.
+function emitLiveResponses(io, gameCode, session, qi) {
+  const q = session.quizData?.questions?.[qi]
+  if (!q) return
+  const ps = Array.from(session.participants.values())
+  const answered = ps.filter(p => p.answers[qi] !== undefined)
+  const aggregate = computeNonScoredAggregate(q, answered, qi)
+  io.to(`host:${gameCode}`).emit('live_responses', {
+    questionIndex: qi,
+    type: q.type,
+    totalResponses: answered.length,
+    totalParticipants: realParticipantCount(session.participants),
+    options: q.options,
+    ...aggregate,
+  })
+}
+
+// Compute per-question stats from participant answers for the session report.
+// Each question type yields a different aggregate shape — see QuestionStat in
+// src/lib/quiz-types.ts for the full schema. All shapes are produced server-side
+// so SessionReport (PDF), PresentationSummary, and the live host reveal can
+// share a single QuestionResultsView dispatcher on the client.
 function buildQuestionStats(session) {
   const ps = Array.from(session.participants.values())
   return session.quizData.questions.map((q, i) => {
@@ -2390,24 +2436,19 @@ function buildQuestionStats(session) {
       return {
         index: i, text: q.text, type: q.type, correctPct: 0, confidenceGrid: null,
         bloomsLevel: q.bloomsLevel ?? null, explanation: q.explanation ?? null,
-        isNonScored, optionDistribution: null,
+        isNonScored, totalResponses: 0, optionDistribution: null,
       }
     }
 
-    // For polls / non-scored: compute option distribution instead of correctness
+    // For polls / non-scored: compute the type-appropriate aggregate.
     if (isNonScored) {
-      const numOptions = q.options?.length ?? 0
-      const optionDistribution = Array(numOptions).fill(0)
-      for (const p of answered) {
-        const idx = Number(p.answers[i].answer)
-        if (idx >= 0 && idx < numOptions) optionDistribution[idx]++
-      }
-      return {
+      const base = {
         index: i, text: q.text, type: q.type, correctPct: null, confidenceGrid: null,
         bloomsLevel: q.bloomsLevel ?? null, explanation: q.explanation ?? null,
-        isNonScored, optionDistribution,
+        isNonScored: true, totalResponses: total,
         options: q.options,
       }
+      return { ...base, ...computeNonScoredAggregate(q, answered, i) }
     }
 
     let correct = 0, sureCorrect = 0, sureWrong = 0, unsureCorrect = 0, unsureWrong = 0
@@ -2429,7 +2470,136 @@ function buildQuestionStats(session) {
       confidenceGrid: { sureCorrect, sureWrong, unsureCorrect, unsureWrong },
       bloomsLevel: q.bloomsLevel ?? null,
       explanation: q.explanation ?? null,
-      isNonScored: false, optionDistribution: null,
+      isNonScored: false, totalResponses: total, optionDistribution: null,
     }
   })
+}
+
+// Tokenize a wordcloud submission into 1+ tokens (some clients send "red blue
+// green" as a single answer string when maxWords > 1). Keeps multi-word
+// phrases up to 3 tokens to preserve "machine learning" intact.
+function tokenizeWordcloud(raw) {
+  if (raw === null || raw === undefined) return []
+  const s = String(raw).trim().toLowerCase()
+  if (!s) return []
+  // If it looks like a multi-word phrase (≤3 tokens), keep as one bucket.
+  const tokens = s.split(/\s+/)
+  if (tokens.length <= 3) return [tokens.join(' ')]
+  // Otherwise split — typical for paste-attacks or freeform.
+  return tokens
+}
+
+// Per-type aggregate computation for non-scored questions. Always returns an
+// object spread on top of the base QuestionStat — never mutates the input.
+function computeNonScoredAggregate(q, answered, qi) {
+  const renderer = ({
+    poll: 'bars', wordcloud: 'cloud', openended: 'list', qa: 'list',
+    rating: 'histogram', ranking: 'ordered', drawing: 'grid', case: 'inner',
+  })[q.type] || 'bars'
+
+  if (renderer === 'bars') {
+    const numOptions = q.options?.length ?? 0
+    const optionDistribution = Array(numOptions).fill(0)
+    for (const p of answered) {
+      const idx = Number(p.answers[qi].answer)
+      if (idx >= 0 && idx < numOptions) optionDistribution[idx]++
+    }
+    return { optionDistribution }
+  }
+
+  if (renderer === 'cloud') {
+    const wordFrequencies = {}
+    const textResponses = []
+    for (const p of answered) {
+      const raw = p.answers[qi].answer
+      const tokens = tokenizeWordcloud(raw)
+      for (const t of tokens) wordFrequencies[t] = (wordFrequencies[t] || 0) + 1
+      textResponses.push({
+        name: p.name || p.realName || 'Anonymous',
+        archetype: p.archetype,
+        answer: typeof raw === 'string' ? raw : String(raw ?? ''),
+        submittedAt: p.answers[qi].clientReportedTimeMs ?? Date.now(),
+      })
+    }
+    return { wordFrequencies, textResponses, optionDistribution: null }
+  }
+
+  if (renderer === 'list') {
+    const textResponses = answered.map(p => ({
+      name: p.name || p.realName || 'Anonymous',
+      archetype: p.archetype,
+      answer: typeof p.answers[qi].answer === 'string'
+        ? p.answers[qi].answer
+        : String(p.answers[qi].answer ?? ''),
+      submittedAt: p.answers[qi].clientReportedTimeMs ?? Date.now(),
+    }))
+    return { textResponses, optionDistribution: null }
+  }
+
+  if (renderer === 'histogram') {
+    const ratingMax = q.options?.length || 5
+    const ratingHistogram = Array(ratingMax).fill(0)
+    let sum = 0
+    let count = 0
+    for (const p of answered) {
+      // Stored answer is option-index string ("0".."N-1") → rating = idx + 1
+      const idx = Number(p.answers[qi].answer)
+      if (Number.isFinite(idx) && idx >= 0 && idx < ratingMax) {
+        ratingHistogram[idx]++
+        sum += idx + 1
+        count++
+      }
+    }
+    const ratingAverage = count > 0 ? Math.round((sum / count) * 100) / 100 : null
+    return { ratingHistogram, ratingAverage, ratingMax, optionDistribution: null }
+  }
+
+  if (renderer === 'ordered') {
+    const items = q.options ?? []
+    const n = items.length
+    const positionSums = Array(n).fill(0)
+    const positionCounts = Array(n).fill(0)
+    const firstPlace = Array(n).fill(0)
+    for (const p of answered) {
+      const order = p.answers[qi].answer
+      if (!Array.isArray(order)) continue
+      order.forEach((itemIdx, position) => {
+        const idx = Number(itemIdx)
+        if (Number.isFinite(idx) && idx >= 0 && idx < n) {
+          positionSums[idx] += position + 1
+          positionCounts[idx]++
+          if (position === 0) firstPlace[idx]++
+        }
+      })
+    }
+    const rankingAverages = positionSums.map((sum, idx) =>
+      positionCounts[idx] > 0 ? Math.round((sum / positionCounts[idx]) * 100) / 100 : null
+    )
+    return {
+      rankingItems: items.map(o => typeof o === 'string' ? o : (o?.text ?? '')),
+      rankingAverages,
+      rankingFirstPlaceCounts: firstPlace,
+      optionDistribution: null,
+    }
+  }
+
+  if (renderer === 'grid') {
+    const drawingThumbnails = answered
+      .filter(p => typeof p.answers[qi].dataUrl === 'string')
+      .map(p => ({
+        name: p.name || p.realName || 'Anonymous',
+        archetype: p.archetype,
+        dataUrl: p.answers[qi].dataUrl,
+      }))
+    return { drawingThumbnails, optionDistribution: null }
+  }
+
+  // 'inner' (case) — fall back to bars on inner type's options if any.
+  const numOptions = q.options?.length ?? 0
+  const optionDistribution = Array(numOptions).fill(0)
+  for (const p of answered) {
+    const idx = Number(p.answers[qi].answer)
+    if (idx >= 0 && idx < numOptions) optionDistribution[idx]++
+  }
+  return { optionDistribution }
 }

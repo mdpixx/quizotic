@@ -12,6 +12,7 @@ import {
   stopCheer,
   stopDrumroll,
 } from '@/lib/sounds'
+import { useConfetti, startConfettiLoop } from '@/hooks/useConfetti'
 
 interface PodiumEntry {
   name: string
@@ -42,8 +43,6 @@ const PHASE_TIMINGS: Array<{ at: number; next: Phase }> = [
   { at: 4300, next: 'winner' },
   { at: 6300, next: 'rest' },
 ]
-
-const CONFETTI_COLORS = ['#0F1B3D', '#F5E642', '#FF8A47', '#16A34A', '#2D3A8C', '#FFFFFF', '#DC2626', '#7C3AED']
 
 // Olympic-style podium: proper tier heights + rich metallic gradients.
 // Gold (1st) > Silver (2nd) > Bronze (3rd) with contrast-checked labels.
@@ -139,149 +138,6 @@ function usePrefersReducedMotion(): boolean {
   return useSyncExternalStore(subscribeReducedMotion, getReducedMotion, () => false)
 }
 
-// Continuous "celebration loop" — opens with a loud welcome burst, then
-// keeps the moment alive with side-cannon fireworks and gold raindrops on
-// a 1.8s cadence. Call returns a stop() — we clear all timers on unmount
-// so the celebration ends cleanly when the host leaves the screen.
-// Respects prefers-reduced-motion (no-ops if active).
-function startConfettiLoop(): () => void {
-  if (typeof window === 'undefined') return () => {}
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return () => {}
-
-  const goldish = ['#FFE066', '#F5E642', '#FFFFFF', '#FFC300']
-  const rainbow = ['#0F1B3D', '#F5E642', '#FF8A47', '#16A34A', '#2D3A8C', '#FFFFFF', '#DC2626']
-  let tick = 0
-  let stopped = false
-  const timers = { welcome: null as ReturnType<typeof setTimeout> | null, interval: null as ReturnType<typeof setInterval> | null }
-
-  import('canvas-confetti').then(mod => {
-    if (stopped) return
-    const confetti = mod.default
-
-    // Welcome burst — big, centre-stage, unmissable. Fires once on mount
-    // so it's clear the celebration is live.
-    const welcomeBurst = () => {
-      confetti({
-        particleCount: 160, spread: 120, startVelocity: 55,
-        scalar: 1.15, colors: rainbow, origin: { x: 0.5, y: 0.55 },
-      })
-      // Side cannons 200ms later
-      setTimeout(() => {
-        if (stopped) return
-        confetti({
-          particleCount: 90, angle: 60, spread: 70, startVelocity: 65,
-          scalar: 1.2, shapes: ['square'], colors: rainbow, origin: { x: 0.02, y: 0.8 },
-        })
-        confetti({
-          particleCount: 90, angle: 120, spread: 70, startVelocity: 65,
-          scalar: 1.2, shapes: ['square'], colors: rainbow, origin: { x: 0.98, y: 0.8 },
-        })
-      }, 200)
-    }
-
-    const fireSprinkle = () => {
-      tick++
-      const variant = tick % 3
-      if (variant === 0) {
-        // Gold raindrops from the top
-        confetti({
-          particleCount: 50, spread: 120, startVelocity: 28, gravity: 0.9,
-          ticks: 260, scalar: 1, colors: goldish, origin: { x: 0.5, y: 0 },
-        })
-      } else if (variant === 1) {
-        // Side firework cannons
-        confetti({
-          particleCount: 35, spread: 65, startVelocity: 55, angle: 60,
-          scalar: 1.1, shapes: ['circle'], colors: rainbow, origin: { x: 0.02, y: 0.8 },
-        })
-        confetti({
-          particleCount: 35, spread: 65, startVelocity: 55, angle: 120,
-          scalar: 1.1, shapes: ['circle'], colors: rainbow, origin: { x: 0.98, y: 0.8 },
-        })
-      } else {
-        // Gold star burst in the middle — feels like a firework
-        confetti({
-          particleCount: 60, spread: 100, startVelocity: 42,
-          scalar: 1.3, shapes: ['star'], colors: goldish, origin: { x: 0.5, y: 0.4 },
-        })
-      }
-    }
-
-    welcomeBurst()
-    timers.welcome = setTimeout(fireSprinkle, 900)
-    timers.interval = setInterval(fireSprinkle, 1800)
-  }).catch(() => { /* library unavailable — silently skip */ })
-
-  return () => {
-    stopped = true
-    if (timers.welcome) clearTimeout(timers.welcome)
-    if (timers.interval) clearInterval(timers.interval)
-  }
-}
-
-// Fire a dramatic, layered full-screen confetti celebration. Library is
-// dynamically imported so it's not in the initial participant bundle.
-// Sequence: opening burst → side cannons → streamer rain → secondary drop
-// → final gold-only crown burst. ~5s total.
-async function fireConfetti() {
-  try {
-    const mod = await import('canvas-confetti')
-    const confetti = mod.default
-    const base = { colors: CONFETTI_COLORS, disableForReducedMotion: true }
-
-    // 1) Wide center burst
-    confetti({ ...base, particleCount: 140, spread: 110, startVelocity: 60, origin: { y: 0.6 } })
-
-    // 2) Left & right streamer cannons
-    setTimeout(() => {
-      confetti({ ...base, particleCount: 90, angle: 60, spread: 75, startVelocity: 65, shapes: ['square'], scalar: 1.1, origin: { x: 0, y: 0.75 } })
-      confetti({ ...base, particleCount: 90, angle: 120, spread: 75, startVelocity: 65, shapes: ['square'], scalar: 1.1, origin: { x: 1, y: 0.75 } })
-    }, 220)
-
-    // 3) Streamer rain from top
-    setTimeout(() => {
-      confetti({ ...base, particleCount: 80, spread: 200, startVelocity: 28, scalar: 1, ticks: 300, gravity: 0.6, shapes: ['square', 'circle'], origin: { y: 0.15 } })
-    }, 650)
-
-    // 4) Secondary pop + side refills (keep the sky lively)
-    setTimeout(() => {
-      confetti({ ...base, particleCount: 60, spread: 120, startVelocity: 45, origin: { y: 0.5 } })
-      confetti({ ...base, particleCount: 50, angle: 75, spread: 60, origin: { x: 0.05, y: 0.8 } })
-      confetti({ ...base, particleCount: 50, angle: 105, spread: 60, origin: { x: 0.95, y: 0.8 } })
-    }, 1700)
-
-    // 5) Gold-only crown burst on the winner after the applause crests
-    setTimeout(() => {
-      confetti({
-        ...base,
-        colors: ['#FFE066', '#F5E642', '#FFFFFF', '#FFC300'],
-        particleCount: 120,
-        spread: 140,
-        startVelocity: 55,
-        scalar: 1.3,
-        shapes: ['circle'],
-        origin: { x: 0.5, y: 0.55 },
-      })
-    }, 3000)
-
-    // 6) Gold-foil star streamers timed with winnerSlam keyframe peak
-    setTimeout(() => {
-      confetti({
-        ...base,
-        colors: ['#FFE066', '#F5E642', '#FFC300', '#FFF3C4'],
-        particleCount: 70,
-        spread: 90,
-        startVelocity: 45,
-        scalar: 1.5,
-        shapes: ['star'],
-        origin: { x: 0.5, y: 0.4 },
-      })
-    }, 3500)
-  } catch {
-    // canvas-confetti not installed or failed — silently skip visual burst
-  }
-}
-
 export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = false, loopConfetti = false }: PodiumProps) {
   const reduced = usePrefersReducedMotion()
   const [rawPhase, setPhase] = useState<Phase>(skipIntro ? 'rest' : 'idle')
@@ -290,6 +146,7 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
   const top3 = leaderboard.slice(0, 3)
   const rest = leaderboard.slice(3)
   const firedWinnerEffects = useRef(false)
+  const fireConfetti = useConfetti()
 
   // Preload MP3s as soon as the podium mounts so there's no delay on reveal.
   useEffect(() => {
@@ -334,7 +191,7 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
       playBassBoom()
       playCheer()
       playCelebration()
-      fireConfetti()
+      fireConfetti('winner')
     }, PHASE_TIMINGS[3].at))
 
     return () => {
@@ -342,7 +199,7 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
       stopDrumroll()
       stopCheer()
     }
-  }, [reduced, skipIntro])
+  }, [reduced, skipIntro, fireConfetti])
 
   const skip = () => {
     stopDrumroll()
@@ -350,7 +207,7 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
     if (!firedWinnerEffects.current && !reduced) {
       firedWinnerEffects.current = true
       playCelebration()
-      fireConfetti()
+      fireConfetti('winner')
     }
     setPhase('rest')
   }

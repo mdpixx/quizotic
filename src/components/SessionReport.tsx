@@ -1,5 +1,6 @@
-import type { QuestionStat, BloomsLevel } from '@/lib/quiz-types'
+import type { QuestionStat, BloomsLevel, QuestionType } from '@/lib/quiz-types'
 import { QuizoticLogo } from './QuizoticLogo'
+import { QuestionResultsView } from './results/QuestionResultsView'
 
 const BLOOMS_COLORS: Record<BloomsLevel, string> = {
   remember: 'bg-blue-400',
@@ -77,6 +78,123 @@ function escapeHtml(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
+}
+
+// PDF-safe inline-style renderer for non-scored question results. Mirrors
+// QuestionResultsView dispatch but emits a self-contained HTML string so the
+// print window doesn't need any CSS classes or React mount.
+function renderResultsHtml(stat: QuestionStat): string {
+  const wrap = (inner: string) => `<div style="margin-top:10px">${inner}</div>`
+  const empty = (label: string) =>
+    wrap(`<p style="font-size:12px;color:#94a3b8;font-style:italic;margin:0">${escapeHtml(label)}</p>`)
+
+  const type = stat.type
+  // Bars (poll, mcq, multiselect, truefalse) ────────────────────────────────
+  if (!type || type === 'poll' || type === 'mcq' || type === 'multiselect' || type === 'truefalse') {
+    const dist = stat.optionDistribution ?? []
+    const options = stat.options ?? []
+    const total = dist.reduce((a, b) => a + b, 0)
+    if (options.length === 0) return empty('No options configured')
+    if (total === 0) return empty('No responses recorded')
+    return wrap(options.map((opt, oi) => {
+      const count = dist[oi] ?? 0
+      const pct = total > 0 ? Math.round((count / total) * 100) : 0
+      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:12px;">
+        <span style="color:#6b7280;width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(opt)}</span>
+        <div style="flex:1;height:14px;background:#f3f4f6;border-radius:99px;overflow:hidden"><div style="height:100%;width:${pct}%;background:#8B5CF6;border-radius:99px"></div></div>
+        <span style="color:#374151;font-weight:600;width:60px;text-align:right">${pct}% (${count})</span>
+      </div>`
+    }).join(''))
+  }
+
+  // Word cloud ────────────────────────────────────────────────────────────
+  if (type === 'wordcloud') {
+    const freq = stat.wordFrequencies ?? {}
+    const entries = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 60)
+    if (entries.length === 0) return empty('No words submitted')
+    const max = Math.max(...entries.map(([, n]) => n), 1)
+    const palette = ['#7C3AED', '#0F1B3D', '#FF8A47', '#16A34A', '#2D3A8C', '#DC2626']
+    const words = entries.map(([w, n], i) => {
+      const fontSize = Math.round(12 + (n / max) * 28)
+      return `<span style="font-size:${fontSize}px;color:${palette[i % palette.length]};font-weight:700;margin:0 6px">${escapeHtml(w)}</span>`
+    }).join('')
+    return wrap(`<div style="background:#fafafa;border:1px solid #f1f5f9;border-radius:10px;padding:12px;text-align:center;line-height:1.4">${words}</div>`)
+  }
+
+  // Text response list ─────────────────────────────────────────────────────
+  if (type === 'openended' || type === 'qa') {
+    const responses = stat.textResponses ?? []
+    if (responses.length === 0) return empty('No responses submitted')
+    const items = responses.slice(0, 30).map(r => `
+      <div style="border:1px solid #f1f5f9;border-radius:8px;padding:8px 10px;margin-bottom:6px;background:#ffffff;font-size:12px;color:#0F1B3D;">
+        <p style="margin:0;line-height:1.4">${escapeHtml(r.answer)}</p>
+        ${r.name ? `<p style="margin:4px 0 0;font-size:10px;color:#94a3b8">— ${escapeHtml(r.name)}</p>` : ''}
+      </div>`).join('')
+    const more = responses.length > 30
+      ? `<p style="font-size:11px;color:#94a3b8;margin:6px 0 0">…and ${responses.length - 30} more</p>` : ''
+    return wrap(`<div>${items}${more}</div>`)
+  }
+
+  // Rating histogram ──────────────────────────────────────────────────────
+  if (type === 'rating') {
+    const histogram = stat.ratingHistogram ?? []
+    const ratingMax = stat.ratingMax ?? histogram.length ?? 5
+    const total = histogram.reduce((a, b) => a + b, 0)
+    if (total === 0) return empty('No ratings yet')
+    const max = Math.max(...histogram, 1)
+    const avg = stat.ratingAverage ?? null
+    const bars = Array.from({ length: ratingMax }).map((_, idx) => {
+      const count = histogram[idx] ?? 0
+      const pct = total > 0 ? Math.round((count / total) * 100) : 0
+      const widthPct = max > 0 ? Math.round((count / max) * 100) : 0
+      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:12px;">
+        <span style="color:#475569;font-weight:700;width:30px;text-align:center">${idx + 1}</span>
+        <div style="flex:1;height:12px;background:#f3f4f6;border-radius:99px;overflow:hidden"><div style="height:100%;width:${widthPct}%;background:linear-gradient(90deg,#A855F7,#7C3AED);border-radius:99px"></div></div>
+        <span style="color:#374151;font-weight:600;width:60px;text-align:right">${pct}% (${count})</span>
+      </div>`
+    }).join('')
+    const avgLabel = avg !== null
+      ? `<p style="margin:0 0 8px;font-size:13px;color:#0F1B3D"><strong>Average:</strong> ${avg.toFixed(2)} / ${ratingMax} · ${total} ratings</p>`
+      : ''
+    return wrap(`<div>${avgLabel}${bars}</div>`)
+  }
+
+  // Ranking results ───────────────────────────────────────────────────────
+  if (type === 'ranking') {
+    const items = stat.rankingItems ?? stat.options ?? []
+    const averages = stat.rankingAverages ?? []
+    const firsts = stat.rankingFirstPlaceCounts ?? []
+    if (items.length === 0) return empty('No rankings submitted yet')
+    const ranked = items
+      .map((label, i) => ({ label, avg: averages[i], firsts: firsts[i] ?? 0 }))
+      .filter(r => r.avg !== null && r.avg !== undefined)
+      .sort((a, b) => (a.avg ?? 99) - (b.avg ?? 99))
+    if (ranked.length === 0) return empty('No rankings submitted yet')
+    const rows = ranked.map((r, i) => `
+      <div style="display:flex;align-items:center;gap:8px;border:1px solid #f1f5f9;border-radius:8px;padding:6px 10px;margin-bottom:4px;background:#fff;font-size:12px;">
+        <span style="display:inline-block;width:22px;height:22px;border-radius:99px;background:${i === 0 ? '#F5E642' : '#F1F5F9'};color:${i === 0 ? '#0F1B3D' : '#475569'};text-align:center;font-weight:900;line-height:22px">${i + 1}</span>
+        <span style="flex:1;color:#0F1B3D;font-weight:600">${escapeHtml(r.label)}</span>
+        <span style="color:#64748b">avg ${(r.avg ?? 0).toFixed(2)}</span>
+        ${r.firsts > 0 ? `<span style="background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:6px;font-weight:700">${r.firsts} × #1</span>` : ''}
+      </div>`).join('')
+    return wrap(`<div>${rows}</div>`)
+  }
+
+  // Drawing grid (PDF includes thumbnails inline as data URLs) ────────────
+  if (type === 'drawing') {
+    const thumbs = stat.drawingThumbnails ?? []
+    if (thumbs.length === 0) return empty('No drawings submitted yet')
+    const cells = thumbs.slice(0, 12).map(t => `
+      <div style="border:1px solid #f1f5f9;border-radius:8px;overflow:hidden;background:#fff">
+        <img src="${t.dataUrl}" alt="" style="display:block;width:100%;aspect-ratio:1/1;object-fit:cover" />
+        ${t.name ? `<p style="margin:0;padding:4px 6px;font-size:10px;color:#64748b">${escapeHtml(t.name)}</p>` : ''}
+      </div>`).join('')
+    const more = thumbs.length > 12
+      ? `<p style="font-size:11px;color:#94a3b8;margin:6px 0 0">…and ${thumbs.length - 12} more</p>` : ''
+    return wrap(`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">${cells}</div>${more}`)
+  }
+
+  return ''
 }
 
 interface AttendeeSummary {
@@ -203,19 +321,12 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
         ? `<span style="background:#dcfce7;color:#16a34a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:8px">Mastered</span>`
         : ''
 
-      // Option distribution bars for polls
+      // Type-aware results section for the PDF — mirrors QuestionResultsView
+      // dispatch on the client. Each branch is plain inline-style HTML so it
+      // survives the print-window rasterization without needing CSS classes.
       let distributionHtml = ''
-      if (isNonScored && stat.optionDistribution && stat.options) {
-        const total = stat.optionDistribution.reduce((a, b) => a + b, 0)
-        distributionHtml = `<div style="margin-top:10px;">${stat.options.map((opt, oi) => {
-          const count = stat.optionDistribution![oi] ?? 0
-          const pct = total > 0 ? Math.round((count / total) * 100) : 0
-          return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:12px;">
-            <span style="color:#6b7280;width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(opt)}</span>
-            <div style="flex:1;height:14px;background:#f3f4f6;border-radius:99px;overflow:hidden"><div style="height:100%;width:${pct}%;background:#8B5CF6;border-radius:99px"></div></div>
-            <span style="color:#374151;font-weight:600;width:32px;text-align:right">${pct}%</span>
-          </div>`
-        }).join('')}</div>`
+      if (isNonScored) {
+        distributionHtml = renderResultsHtml(stat)
       }
 
       const rightSide = isNonScored
@@ -455,23 +566,15 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
                 </div>
               </div>
 
-              {/* Option distribution for polls */}
-              {isNonScored && stat.optionDistribution && stat.options && (
-                <div className="mt-2 space-y-1.5">
-                  {stat.options.map((opt, oi) => {
-                    const count = stat.optionDistribution![oi] ?? 0
-                    const total = stat.optionDistribution!.reduce((a, b) => a + b, 0)
-                    const pct = total > 0 ? Math.round((count / total) * 100) : 0
-                    return (
-                      <div key={oi} className="flex items-center gap-2 text-xs">
-                        <span className="text-gray-500 w-20 truncate shrink-0">{opt}</span>
-                        <div className="flex-1 h-4 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: '#8B5CF6' }} />
-                        </div>
-                        <span className="text-gray-600 font-semibold w-8 text-right">{pct}%</span>
-                      </div>
-                    )
-                  })}
+              {/* Type-aware results view (poll bars, word cloud, text list,
+                  rating histogram, ranking, drawing grid) */}
+              {isNonScored && (
+                <div className="mt-2">
+                  <QuestionResultsView
+                    questionType={(stat.type ?? 'poll') as QuestionType}
+                    stat={stat}
+                    mode="final"
+                  />
                 </div>
               )}
 

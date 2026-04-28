@@ -5,6 +5,7 @@ import { Avatar } from '@/components/Avatar'
 import { Podium } from '@/components/Podium'
 import { CircularTimer } from '@/components/CircularTimer'
 import { playTick, playCorrect, playWrong, playStreak } from '@/lib/sounds'
+import { useConfetti } from '@/hooks/useConfetti'
 
 const DEMO_LEADERBOARD = [
   { name: 'Mahesh', archetype: 'Mystic Owl', score: 4200 },
@@ -197,7 +198,7 @@ function CountdownDemo() {
 
 // ─── Reactions Demo ────────────────────────────────────────────────────────────
 function ReactionsDemo() {
-  const [showConfetti, setShowConfetti] = useState(false)
+  const fireConfetti = useConfetti()
   const [showRedFlash, setShowRedFlash] = useState(false)
   const [streak, setStreak] = useState(0)
   const [lastAction, setLastAction] = useState<string | null>(null)
@@ -205,11 +206,10 @@ function ReactionsDemo() {
   function triggerCorrect() {
     const newStreak = streak + 1
     setStreak(newStreak)
-    setShowConfetti(true)
+    fireConfetti('mini')
     setLastAction('correct')
     if (newStreak >= 3) playStreak()
     else playCorrect()
-    setTimeout(() => setShowConfetti(false), 2000)
   }
 
   function triggerWrong() {
@@ -237,18 +237,7 @@ function ReactionsDemo() {
         )}
 
         {/* Confetti */}
-        {showConfetti && (
-          <div className="absolute inset-0 pointer-events-none z-20">
-            {Array.from({ length: 30 }).map((_, i) => (
-              <div key={i} className="absolute w-3 h-3 rounded-sm" style={{
-                left: `${10 + Math.random() * 80}%`,
-                top: '60%',
-                background: ['#0F1B3D', '#F5E642', '#FF8A47', '#16A34A', '#2D3A8C', '#5BC0EB'][i % 6],
-                animation: `confettiBurst ${0.8 + Math.random() * 0.8}s ease-out ${Math.random() * 0.2}s forwards`,
-              }} />
-            ))}
-          </div>
-        )}
+        {/* Confetti is fired via useConfetti('mini') in triggerCorrect. */}
 
         {/* Result display */}
         <div className="flex flex-col items-center gap-3 relative z-10">

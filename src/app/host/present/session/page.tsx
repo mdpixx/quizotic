@@ -13,6 +13,7 @@ import { SlideImageFrame } from '@/components/SlideImageFrame'
 import { ANSWER_COLORS } from '@/lib/answer-colors'
 import { PostSessionHeader } from '@/components/PostSessionHeader'
 import { PresentationSummary } from '@/components/PresentationSummary'
+import { useConfetti } from '@/hooks/useConfetti'
 
 // Canonical Kahoot palette for answer/option rendering — shared with quiz
 // host view and participant phone so colors match across every surface.
@@ -800,7 +801,7 @@ export default function PresentSessionPage() {
   const [toasts, setToasts] = useState<Toast[]>([])
   const [waveformData, setWaveformData] = useState<number[]>(Array(20).fill(0))
   const [milestoneLabel, setMilestoneLabel] = useState<string | null>(null)
-  const [confetti, setConfetti] = useState(false)
+  const fireConfetti = useConfetti()
   const [socketConnected, setSocketConnected] = useState(false)
   const [showWave, setShowWave] = useState(false)
   const [showQR, setShowQR] = useState(false)
@@ -998,14 +999,14 @@ export default function PresentSessionPage() {
     if (milestone) {
       reachedMilestonesRef.current.add(milestone.count)
       setMilestoneLabel(milestone.label)
-      setConfetti(true)
+      fireConfetti('milestone')
       if (soundOn) {
         if (!audioCtxRef.current) audioCtxRef.current = createAudioContext()
         if (audioCtxRef.current) playMilestoneSound(audioCtxRef.current)
       }
-      setTimeout(() => { setMilestoneLabel(null); setConfetti(false) }, 3000)
+      setTimeout(() => { setMilestoneLabel(null) }, 3000)
     }
-  }, [soundOn])
+  }, [soundOn, fireConfetti])
 
   function createSession() {
     if (!presentation) return
@@ -1274,21 +1275,8 @@ export default function PresentSessionPage() {
       data-theme={getQuizTheme(presentation?.theme).id}
     >
 
-      {/* ── Confetti overlay ─────────────────────────────────────────────────── */}
-      {confetti && (
-        <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
-          {Array.from({ length: 40 }).map((_, i) => (
-            <div key={i} className="absolute w-2 h-2 rounded-sm"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: '-8px',
-                background: VOTER_COLORS[i % VOTER_COLORS.length],
-                animation: `fall ${1.5 + Math.random()}s ease-in ${Math.random() * 0.5}s forwards`,
-                transform: `rotate(${Math.random() * 360}deg)`,
-              }} />
-          ))}
-        </div>
-      )}
+      {/* Confetti is fired via useConfetti('milestone') in the milestone
+          handler — see fireConfetti call near reachedMilestonesRef. */}
 
       {/* ── Milestone badge ──────────────────────────────────────────────────── */}
       {milestoneLabel && (

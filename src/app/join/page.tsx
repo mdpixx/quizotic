@@ -20,6 +20,7 @@ import { isScoredType, getEffectiveOptions } from '@/lib/quiz-types'
 import type { Question as QuizQuestion, QuestionType } from '@/lib/quiz-types'
 import { SlideImage } from '@/components/SlideImage'
 import { ANSWER_COLORS, ANSWER_LETTERS } from '@/lib/answer-colors'
+import { useConfetti } from '@/hooks/useConfetti'
 
 function phaseForPresenterSlide(
   slideType: string | undefined,
@@ -542,8 +543,8 @@ function JoinPageInner() {
 
   // Streak + reactions
   const [streak, setStreak] = useState(0)
-  const [showConfetti, setShowConfetti] = useState(false)
   const [showRedFlash, setShowRedFlash] = useState(false)
+  const fireConfetti = useConfetti()
 
   // Ended
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
@@ -811,7 +812,6 @@ function JoinPageInner() {
       setPendingAnswer(null)
       setConfidence(null)
       setTextAnswer('')
-      setShowConfetti(false)
       setShowRedFlash(false)
       setMultiselectChosen(new Set())
       setIntermediateRank(null)
@@ -881,8 +881,7 @@ function JoinPageInner() {
         setStreak(newStreak)
         if (newStreak >= 3) playStreak()
         else playCorrect()
-        setShowConfetti(true)
-        setTimeout(() => setShowConfetti(false), 2000)
+        fireConfetti('mini')
       } else {
         setStreak(0)
         playWrong()
@@ -1911,19 +1910,8 @@ function JoinPageInner() {
           }} />
         )}
 
-        {/* Confetti burst on correct answer */}
-        {showConfetti && (
-          <div className="fixed inset-0 pointer-events-none z-50">
-            {Array.from({ length: 30 }).map((_, i) => (
-              <div key={i} className="absolute w-3 h-3 rounded-sm" style={{
-                left: `${10 + Math.random() * 80}%`,
-                top: '50%',
-                background: ['#0F1B3D', '#F5E642', '#FF8A47', '#16A34A', '#2D3A8C', '#5BC0EB'][i % 6],
-                animation: `confettiBurst ${0.8 + Math.random() * 0.8}s ease-out ${Math.random() * 0.2}s forwards`,
-              }} />
-            ))}
-          </div>
-        )}
+        {/* Confetti burst on correct answer is fired via useConfetti('mini')
+            — see fireConfetti() call in the answer_confirmed handler. */}
 
         {isNonScored ? (
           <div className="w-32 h-32 rounded-full flex items-center justify-center text-5xl bg-blue-50 border-2 border-blue-200">

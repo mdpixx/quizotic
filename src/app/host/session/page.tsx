@@ -22,6 +22,7 @@ import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/qu
 import type { Quiz, QuestionStat, SessionMode } from '@/lib/quiz-types'
 import { ReflectionInsights } from '@/components/ReflectionInsights'
 import { getOptionText, getOptionImage, isScoredType, getEffectiveOptions } from '@/lib/quiz-types'
+import { QuestionResultsView } from '@/components/results/QuestionResultsView'
 import { CircularTimer } from '@/components/CircularTimer'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
 import { BrandWatermark } from '@/components/BrandWatermark'
@@ -256,6 +257,9 @@ export default function SessionPage() {
   const [qaEntries, setQaEntries] = useState<Array<{ name: string; archetype: string; text: string; at: number }>>([])
   const [openendedEntries, setOpenendedEntries] = useState<Array<{ name: string; archetype: string; text: string; at: number }>>([])
   const [ratingValues, setRatingValues] = useState<number[]>([])
+  // Running aggregate for non-scored questions — fed by `live_responses` while
+  // the question is open, frozen by `question_reveal` after it closes.
+  const [liveStat, setLiveStat] = useState<Partial<QuestionStat> | null>(null)
   // P2.5 — Ghost Mode
   const [ghostMode, setGhostMode] = useState(false)
 
@@ -413,6 +417,7 @@ export default function SessionPage() {
       setQaEntries([])
       setOpenendedEntries([])
       setRatingValues([])
+      setLiveStat(null)
 
       const msUntilStart = Math.max(0, effectiveStart - Date.now())
       const timerSeconds = quiz?.questions[index]?.timerSeconds ?? 20
@@ -484,6 +489,19 @@ export default function SessionPage() {
 
     socket.on('drawing_submitted', (entry: { name: string; archetype: string; dataUrl: string }) => {
       setDrawings(prev => [...prev, entry])
+    })
+
+    // Running aggregate for non-scored questions while the question is open.
+    // The shape mirrors QuestionStat so it can feed QuestionResultsView directly.
+    socket.on('live_responses', (payload: Partial<QuestionStat> & { questionIndex: number }) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { questionIndex: _qi, ...stat } = payload
+      setLiveStat(stat)
+    })
+
+    // Final reveal aggregate after a non-scored question closes.
+    socket.on('question_reveal', ({ stat }: { questionIndex: number; stat: QuestionStat; totalParticipants: number }) => {
+      setLiveStat(stat)
     })
 
     socket.on('text_submission', (entry: { type: string; name: string; archetype: string; answer: unknown; submittedAt: number }) => {
@@ -565,6 +583,8 @@ export default function SessionPage() {
       socket.off('session_ended')
       socket.off('leaderboard_update')
       socket.off('drawing_submitted')
+      socket.off('live_responses')
+      socket.off('question_reveal')
       socket.disconnect()
     }
   }, [quiz])
@@ -1464,6 +1484,28 @@ export default function SessionPage() {
           {plan === 'free' && (
             <div className="text-right mt-1">
               <span className="text-[10px] font-bold opacity-30" style={{ color: '#64748B' }}>quizotic.live</span>
+            </div>
+          )}
+
+          {/* Non-scored final reveal — Mentimeter-style result screen after
+              the timer ends. Bars (poll), word cloud (wordcloud), text list
+              (openended/qa), histogram (rating), ordered list (ranking), or
+              thumbnail grid (drawing). Driven by the `question_reveal` socket
+              event from server.mjs:emitQuestionEnded. Empty-state handled
+              inside QuestionResultsView. */}
+          {!isScoredType(currentQuestion.type) && questionEnded && liveStat && (
+            <div className="bg-white rounded-2xl border border-gray-200 p-5">
+              <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
+                Final Results
+                {typeof liveStat.totalResponses === 'number' && (
+                  <span className="ml-2 font-normal text-gray-500">· {liveStat.totalResponses} response{liveStat.totalResponses === 1 ? '' : 's'}</span>
+                )}
+              </p>
+              <QuestionResultsView
+                questionType={currentQuestion.type}
+                stat={liveStat}
+                mode="final"
+              />
             </div>
           )}
 
