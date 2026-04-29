@@ -2,6 +2,8 @@ import { MetadataRoute } from 'next'
 import { ALTERNATIVE_SLUGS } from '@/content/alternatives'
 import { VS_SLUGS } from '@/content/vs'
 import { USE_CASE_SLUGS } from '@/content/for'
+import { LEARN_SLUGS } from '@/content/learn'
+import { TEMPLATE_SLUGS } from '@/content/templates'
 
 const SITE = 'https://www.quizotic.live'
 
@@ -13,8 +15,7 @@ interface Entry {
   priority: number
 }
 
-// Static routes that exist today. Waves 2-5 will extend this via the helpers
-// below (solution pages, /for/*, /alternatives/*, /vs/*, /learn/*, /templates/*).
+// Static routes that exist today.
 const STATIC_ROUTES: Entry[] = [
   { path: '/', changeFrequency: 'weekly', priority: 1.0 },
   { path: '/features', changeFrequency: 'monthly', priority: 0.9 },
@@ -22,6 +23,8 @@ const STATIC_ROUTES: Entry[] = [
   { path: '/join', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/faq', changeFrequency: 'monthly', priority: 0.7 },
   { path: '/about', changeFrequency: 'monthly', priority: 0.6 },
+  { path: '/learn', changeFrequency: 'weekly', priority: 0.8 },
+  { path: '/templates', changeFrequency: 'weekly', priority: 0.8 },
   { path: '/privacy', changeFrequency: 'yearly', priority: 0.3 },
   { path: '/terms', changeFrequency: 'yearly', priority: 0.3 },
 ]
@@ -60,7 +63,7 @@ function comparisonRoutes(): Entry[] {
   return [...alternatives, ...vs]
 }
 
-function useCaseRoutes(): Entry[] {
+function forSlugRoutes(): Entry[] {
   return USE_CASE_SLUGS.map(slug => ({
     path: `/for/${slug}`,
     changeFrequency: 'monthly' as ChangeFreq,
@@ -69,11 +72,19 @@ function useCaseRoutes(): Entry[] {
 }
 
 function learnRoutes(): Entry[] {
-  return []
+  return LEARN_SLUGS.map(slug => ({
+    path: `/learn/${slug}`,
+    changeFrequency: 'monthly' as ChangeFreq,
+    priority: 0.7,
+  }))
 }
 
 function templateRoutes(): Entry[] {
-  return []
+  return TEMPLATE_SLUGS.map(slug => ({
+    path: `/templates/${slug}`,
+    changeFrequency: 'monthly' as ChangeFreq,
+    priority: 0.7,
+  }))
 }
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -82,7 +93,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...STATIC_ROUTES,
     ...solutionRoutes(),
     ...comparisonRoutes(),
-    ...useCaseRoutes(),
+    ...forSlugRoutes(),
     ...learnRoutes(),
     ...templateRoutes(),
   ]

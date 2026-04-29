@@ -73,6 +73,20 @@ export const metadata: Metadata = {
   },
 };
 
+// Verification meta tags are only emitted when the env vars are set.
+// Set NEXT_PUBLIC_GSC_VERIFICATION + NEXT_PUBLIC_BING_VERIFICATION on Railway after
+// creating the Search Console / Bing Webmaster properties.
+const GSC_TOKEN = process.env.NEXT_PUBLIC_GSC_VERIFICATION;
+const BING_TOKEN = process.env.NEXT_PUBLIC_BING_VERIFICATION;
+if (GSC_TOKEN || BING_TOKEN) {
+  metadata.verification = {
+    ...(GSC_TOKEN ? { google: GSC_TOKEN } : {}),
+    ...(BING_TOKEN ? { other: { 'msvalidate.01': BING_TOKEN } } : {}),
+  };
+}
+
+const GA4_ID = process.env.NEXT_PUBLIC_GA4_ID;
+
 export const viewport: Viewport = {
   themeColor: '#0D0D0D',
   width: 'device-width',
@@ -90,6 +104,24 @@ export default function RootLayout({
       lang="en"
       className={`${spaceGrotesk.variable} ${dmSans.variable} h-full antialiased`}
     >
+      <head>
+        {GA4_ID ? (
+          <>
+            <script
+              async
+              src={`https://www.googletagmanager.com/gtag/js?id=${GA4_ID}`}
+            />
+            <script
+              dangerouslySetInnerHTML={{
+                __html: `window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', '${GA4_ID}', { send_page_view: true });`,
+              }}
+            />
+          </>
+        ) : null}
+      </head>
       <body className="min-h-full flex flex-col overflow-x-hidden">
         <ServiceWorkerRegister />
         <AuthProvider>
