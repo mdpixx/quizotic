@@ -837,7 +837,7 @@ export const LEARN_ARTICLES: Record<string, LearnArticle> = {
       {
         heading: 'When to pick each',
         body:
-          'Mentimeter: USD-budget global team, no quiz needs, brand familiarity matters. Slido: already on Cisco/Webex. Quizotic: Indian L&D team, education sector, anyone wanting both polls and quizzes in one tool, slow Wi-Fi audiences.',
+          'Mentimeter: USD-budget global team, no quiz needs, brand familiarity matters. Slido: already on Cisco/Webex. Quizotic: Indian L&D team, education sector, anyone wanting both polls and quizzes in one tool, slow Wi-Fi audiences. For a deeper Slido-specific breakdown across 5 alternatives, see the related Slido alternatives 2026 guide and the Quizotic vs Slido head-to-head linked below.',
       },
     ],
     faqs: [
@@ -857,7 +857,12 @@ export const LEARN_ARTICLES: Record<string, LearnArticle> = {
           'On corporate Wi-Fi shared with 100+ devices, a 300KB page can take 10+ seconds to load on a phone. Audience attention is gone by then. ~80KB pages join in 1–2 seconds even on slow Wi-Fi.',
       },
     ],
-    related: CORPORATE_RELATED,
+    related: [
+      { title: 'Quizotic vs Slido', href: '/vs/slido', description: 'Side-by-side feature comparison.' },
+      { title: 'Slido alternative — overview', href: '/alternatives/slido', description: 'Full Slido alternative breakdown.' },
+      { title: 'Slido alternatives 2026', href: '/learn/slido-alternatives-india-2026', description: '5 Slido alternatives compared for Indian buyers.' },
+      { title: 'For Corporate Trainers', href: '/for/corporate-trainers', description: 'L&D, onboarding, compliance.' },
+    ],
     keywords: [
       'mentimeter vs slido',
       'mentimeter alternative india',
@@ -1571,10 +1576,10 @@ export const LEARN_ARTICLES: Record<string, LearnArticle> = {
       },
     ],
     related: [
+      { title: 'Quizotic vs Slido', href: '/vs/slido', description: 'Slido head-to-head — Q&A + polls + quiz depth.' },
+      { title: 'Slido alternatives 2026', href: '/learn/slido-alternatives-india-2026', description: '5 Slido alternatives compared for Indian conferences.' },
       { title: 'For Event Hosts', href: '/for/event-hosts', description: 'Conferences, town halls, trivia.' },
       { title: 'Live Polling', href: '/live-polling', description: 'Real-time audience polls.' },
-      { title: 'Interactive Presentation', href: '/interactive-presentation', description: 'Polls + quizzes in one deck.' },
-      { title: 'Pricing', href: '/pricing', description: 'Plans for event hosts.' },
     ],
     keywords: [
       'live polling conference',
@@ -1960,6 +1965,113 @@ export const LEARN_ARTICLES: Record<string, LearnArticle> = {
     readingMinutes: 4,
   },
 
+  // ============ Slido cluster (data-informed Day 2 priority) ============
+
+  'slido-alternatives-india-2026': {
+    slug: 'slido-alternatives-india-2026',
+    category: 'comparison',
+    metaTitle: '5 Slido Alternatives for Indian Trainers, Conferences & Workshops (2026)',
+    metaDescription:
+      'Looking for a Slido alternative with INR billing, UPI payments, and quiz mechanics built in? Five Slido alternatives compared — Quizotic, Mentimeter, AhaSlides, Wooclap, and Poll Everywhere.',
+    h1: '5 Slido alternatives for Indian trainers, conferences & workshops (2026)',
+    tagline:
+      'Slido is great for Webex shops. For everyone else — INR pricing, lighter pages, and quiz depth matter more.',
+    tldr: [
+      'Slido is purpose-built for Cisco Webex enterprises; outside Cisco, the value drops sharply.',
+      'For Indian trainers and conference organisers, INR billing + GST invoicing + lighter participant pages matter more.',
+      'Top 5 Slido alternatives in 2026: **Quizotic** (INR + quiz depth), Mentimeter (brand standard), AhaSlides (cheap USD option), Wooclap (higher-ed focus), Poll Everywhere (PowerPoint add-in).',
+      'For India specifically — Quizotic is the only INR-native option with UPI billing and Hindi support shipping.',
+      'For event-scale Q&A with crowded Wi-Fi — Quizotic\'s ~80KB participant page joins ~4× faster than Slido\'s ~350KB.',
+    ],
+    intro:
+      'Slido (acquired by Cisco in 2021) dominates the audience-Q&A category in Webex-heavy enterprises. But for the 80% of Indian trainers, college faculty, and event organisers who don\'t live inside Cisco — the integration value evaporates while you keep paying USD. This is a head-to-head of the five strongest Slido alternatives, weighted for Indian-buyer realities: INR billing, GST invoices, low-bandwidth participant pages, and quiz mechanics layered on top of Q&A.',
+    sections: [
+      {
+        heading: 'Why look at Slido alternatives in 2026',
+        body:
+          'Three reasons Indian trainers and event organisers are actively shopping for Slido alternatives this year. (1) **Pricing in USD with FX + card fees** — Slido Engage at $12.50/host/month effectively costs ~₹1,200/month in India once you add 3% FX markup, international card fees, and the GST input-credit reverse-charge headache. (2) **Webex lock-in** — Slido\'s killer feature is Cisco Webex native integration; if you don\'t use Webex (most Indian SMBs run Zoom, Teams, or Meet), the differentiator collapses to "audience Q&A," which every alternative also offers. (3) **Quiz mechanics gap** — Slido\'s competitive quiz tier is light. Trainers who want gamified quiz competition + audience polls in one tool look elsewhere. The combination of these three is what makes 2026 the year to evaluate alternatives seriously.',
+      },
+      {
+        heading: 'Quick comparison table',
+        body:
+          '| Tool | Entry price | INR billing | Quiz depth | Participant page | Best for | | --- | --- | --- | --- | --- | --- | | **Quizotic** | ₹499/mo | Yes (UPI, GST) | Full Kahoot-style | ~80KB | India + quiz-heavy use | | Mentimeter | $11.99/mo | No | Limited "Quiz Competition" | ~250KB | Polished templates, brand-first audiences | | AhaSlides | $7.95/mo | No | Solid quiz mode | ~300KB | Cheapest USD option | | Wooclap | $11.99/mo | No | University-grade | ~200KB | Higher-ed faculty | | Poll Everywhere | $20/mo | No | Limited | ~200KB | PowerPoint-bound workflows |',
+      },
+      {
+        heading: '1. Quizotic — INR-native, quiz + polls + Q&A in one tool',
+        body:
+          'Quizotic is the closest direct alternative for Indian buyers. INR pricing (₹499/mo Pro, ₹4,499/year), UPI billing via Razorpay, domestic GST invoices, and a participant page ~80KB on first load (4× lighter than Slido on crowded Wi-Fi). Coverage matches Slido on the audience surface — live Q&A with upvotes, polls, word clouds, ratings, ranking, open-text — and adds full quiz mechanics on top: leaderboard with speed bonus, team mode, 11 question types, AI quiz generation from PDFs, and Bloom-tagged reports. Hindi support shipping in v2; Tamil/Telugu/Marathi on the 2026 roadmap. The tradeoff: no native Cisco Webex integration; you share the host screen on Webex and attendees join via a 6-digit PIN at quizotic.live/join. For everyone outside Cisco shops, the feature density + pricing math usually wins. Compare side-by-side at /vs/slido or browse the full /alternatives/slido breakdown.',
+      },
+      {
+        heading: '2. Mentimeter — the brand standard for polished polling',
+        body:
+          'Mentimeter is the established leader for interactive presentations and audience polling, with a polished UI, deep template library, and native Microsoft PowerPoint add-in. Pricing: $11.99/mo Basic, $24.99/mo Pro — USD only, no UPI, no GST invoicing in India. For corporate trainers in global organisations where the parent company has standardised on Mentimeter, sticking with it is the path of least resistance. For Indian SMB trainers and educators paying out of pocket, the FX + card fees + lack of GST invoicing make Mentimeter ~30% more expensive than the sticker price, and the competitive quiz tier is thinner than Quizotic or AhaSlides.',
+      },
+      {
+        heading: '3. AhaSlides — cheapest USD option',
+        body:
+          'AhaSlides has aggressively positioned itself as the cheaper Mentimeter, with entry pricing at $7.95/mo and a strong listicle SEO presence on every "Slido alternatives" / "Mentimeter alternatives" comparison article. Feature parity is solid — interactive slides, polls, word clouds, quiz mode with leaderboard. No INR billing, no UPI, no GST. Best for trainers who specifically need Slido-style functionality at lowest USD cost and don\'t mind paying with international cards.',
+      },
+      {
+        heading: '4. Wooclap — higher-ed faculty focus',
+        body:
+          'Wooclap (French-built, university-positioned) targets college and university faculty with deep LMS integrations (Moodle, Canvas, Blackboard) and a dedicated higher-ed feature set. $11.99/mo Pro. If you\'re running graduate seminars or large lecture-hall sessions and need Moodle integration, Wooclap is a stronger fit than Slido. For Indian colleges, the trade-off is no INR billing and weaker brand recognition vs Mentimeter; Quizotic is also expanding higher-ed coverage with the /for/colleges template set.',
+      },
+      {
+        heading: '5. Poll Everywhere — PowerPoint-bound workflows',
+        body:
+          'Poll Everywhere\'s differentiator is a native PowerPoint and Keynote add-in — polls run inside your existing slide deck without switching tools. $20/mo Presenter tier. Expensive vs the alternatives, but if your entire workflow lives inside PowerPoint and you can\'t move attendees off, the add-in saves real friction. Outside that workflow, every alternative on this list is cheaper and feature-richer.',
+      },
+      {
+        heading: 'How to pick the right Slido alternative',
+        body:
+          'Start with three questions. **(1) Are you on Cisco Webex?** If yes, stay on Slido — the integration is genuinely deep and switching costs more than it saves. **(2) Do you bill in INR or need GST invoices?** If yes, Quizotic is the only fit on this list; everyone else issues international invoices. **(3) Do you need quiz mechanics on top of polls?** If yes, Quizotic and AhaSlides win. Mentimeter and Wooclap have lighter quiz tiers; Slido and Poll Everywhere have minimal quiz support. Combining these three: most Indian SMB trainers, college faculty, and event organisers who don\'t live in Cisco end up on Quizotic. Mentimeter remains a solid choice if INR billing isn\'t a hard requirement.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'Is Slido free for small audiences?',
+        answer:
+          'Slido has a free tier capped at ~100 participants per event, but it\'s Q&A-only — quiz mode and richer polls require Engage at $12.50/host/month. For small free audiences, Quizotic\'s free tier (50 participants, all features unlocked) is more usable.',
+      },
+      {
+        question: 'Can I get a GST invoice from Slido?',
+        answer:
+          'No. Slido invoices from Cisco\'s Ireland entity in USD — international invoice. Indian buyers can claim input credit via reverse-charge mechanism but the workflow is messy. Quizotic invoices via Razorpay (domestic Indian entity) with clean GST input credit.',
+      },
+      {
+        question: 'Which Slido alternative is best for a 1000-person conference?',
+        answer:
+          'For Webex conferences — Slido is purpose-built. For non-Webex conferences with 1000+ attendees on phones — Quizotic\'s ~80KB participant page handles crowded Wi-Fi 4× better than Slido\'s ~350KB. Mentimeter is the safe brand choice if you want polished templates and don\'t mind USD.',
+      },
+      {
+        question: 'Can I migrate my existing Slido polls?',
+        answer:
+          'No automated import yet to any alternative. Manual recreation of a typical 10–15 poll deck takes 30–60 minutes. Quizotic\'s /templates gallery has ready-to-import packs for common workshop and conference formats so you don\'t start from scratch.',
+      },
+      {
+        question: 'Does Quizotic work on Zoom, Teams, and Meet?',
+        answer:
+          'Yes — host shares screen, attendees join via a 6-digit PIN at quizotic.live/join in any phone browser. No app install, no plugin. Quizotic\'s mobile-first design (~80KB participant page) joins faster than any tool on this list, including Slido, on slow conference or office Wi-Fi.',
+      },
+    ],
+    related: [
+      { title: 'Quizotic vs Slido', href: '/vs/slido', description: 'Side-by-side feature comparison.' },
+      { title: 'Slido alternative — overview', href: '/alternatives/slido', description: 'Full Slido alternative breakdown.' },
+      { title: 'Live Polling', href: '/live-polling', description: 'Real-time audience polls.' },
+      { title: 'For Corporate Trainers', href: '/for/corporate-trainers', description: 'Workshops, all-hands, training.' },
+    ],
+    keywords: [
+      'slido alternative',
+      'slido alternative india',
+      'best slido alternative',
+      'slido vs mentimeter',
+      'slido alternatives 2026',
+    ],
+    publishedAt: '2026-04-29',
+    updatedAt: '2026-04-29',
+    readingMinutes: 6,
+  },
+
   // ============ More short articles to round out 30 ============
 
   'how-to-host-trivia-night-online': {
@@ -2067,7 +2179,12 @@ export const LEARN_ARTICLES: Record<string, LearnArticle> = {
         answer: 'Mentimeter and Slido have native MS Teams apps; Quizotic uses share-link in chat.',
       },
     ],
-    related: CORPORATE_RELATED,
+    related: [
+      { title: 'Quizotic vs Slido', href: '/vs/slido', description: 'Slido head-to-head feature comparison.' },
+      { title: 'Slido alternatives 2026', href: '/learn/slido-alternatives-india-2026', description: '5 Slido alternatives for Indian buyers.' },
+      { title: 'Mentimeter vs Slido vs Quizotic', href: '/learn/mentimeter-vs-slido-vs-quizotic', description: 'Three-way polling tool comparison.' },
+      { title: 'For Corporate Trainers', href: '/for/corporate-trainers', description: 'L&D and workshop use cases.' },
+    ],
     keywords: [
       'audience polling tool comparison',
       'mentimeter vs slido vs ahaslides',

@@ -171,6 +171,60 @@ export const VS: Record<string, VsContent> = {
     keywords: ['quizotic vs quizizz', 'quizizz vs quizotic', 'quizizz comparison', 'quizizz alternative'],
   },
 
+  slido: {
+    competitor: 'Slido',
+    metaTitle: 'Quizotic vs Slido — Feature Comparison for India (2026)',
+    metaDescription: 'Quizotic vs Slido — head-to-head comparison. Live Q&A, polls, word clouds, quiz mechanics, AI generation, INR pricing with UPI vs Cisco/Webex bundling.',
+    h1: 'Quizotic vs Slido — Side-by-Side',
+    tagline: 'Slido leads on Webex integration. Quizotic leads on quiz depth, AI generation, and Indian pricing — and the participant page is 4× lighter.',
+    intro: 'Slido (acquired by Cisco in 2021) is the standard for Q&A and audience polling in Webex-heavy enterprises. Quizotic covers the same Q&A + polls surface and adds full quiz mechanics — leaderboard, speed bonus, AI generation from PDFs, Bloom-tagged reports — plus INR billing with UPI. Here\'s the head-to-head, no hand-waving.',
+    rows: [
+      { feature: 'Pricing currency', quizotic: 'INR (UPI, cards, GST invoice)', competitor: 'USD (cards only, international invoice)', winner: 'quizotic' },
+      { feature: 'Free plan participants', quizotic: '50 per session', competitor: '100 per event (Q&A only)', winner: 'tie' },
+      { feature: 'Live Q&A with upvotes', quizotic: 'Yes', competitor: 'Yes (industry-leading)', winner: 'tie' },
+      { feature: 'Live polls (all formats)', quizotic: 'Yes — 11 question types', competitor: 'Yes — 6 poll types', winner: 'quizotic' },
+      { feature: 'Word clouds', quizotic: 'Yes', competitor: 'Yes', winner: 'tie' },
+      { feature: 'Competitive quiz with leaderboard + speed bonus', quizotic: 'Yes — full Kahoot-style quiz engine', competitor: 'Limited — Slido Quiz tier only', winner: 'quizotic' },
+      { feature: 'AI quiz generation from PDF / topic', quizotic: 'Free (30/month) — Bloom-tagged', competitor: 'No', winner: 'quizotic' },
+      { feature: 'Self-paced assessments', quizotic: 'Yes', competitor: 'No (live-only)', winner: 'quizotic' },
+      { feature: 'Bloom\'s Taxonomy tagging', quizotic: 'Built-in on every question', competitor: 'No', winner: 'quizotic' },
+      { feature: 'Confidence Grid (hubris/imposter cohorts)', quizotic: 'Built-in', competitor: 'No', winner: 'quizotic' },
+      { feature: 'Spaced-retrieval review queue', quizotic: 'Built-in', competitor: 'No', winner: 'quizotic' },
+      { feature: 'NCERT / India-curriculum library', quizotic: 'Yes — Classes 6–12', competitor: 'No', winner: 'quizotic' },
+      { feature: 'Participant page weight (mobile, first load)', quizotic: '~80KB', competitor: '~350KB', winner: 'quizotic' },
+      { feature: 'Cisco Webex native integration', quizotic: 'Screen-share / link in chat', competitor: 'Native (owned by Cisco)', winner: 'competitor' },
+      { feature: 'Zoom / Teams / Google Meet native', quizotic: 'Screen-share + chat link', competitor: 'Native add-ins', winner: 'competitor' },
+      { feature: 'Conference-scale Q&A track record', quizotic: 'Growing (events + classrooms)', competitor: 'Industry-standard for keynotes', winner: 'competitor' },
+      { feature: 'Hindi / Indian regional language support', quizotic: 'Hindi shipping (v2 — Tamil/Telugu/Marathi roadmap)', competitor: 'No', winner: 'quizotic' },
+      { feature: 'Brand recognition globally', quizotic: 'Growing (India-first)', competitor: 'Established in Cisco shops', winner: 'competitor' },
+    ],
+    honestNote: 'Slido\'s Cisco Webex integration is genuinely deep — login through Webex, polls embedded inside the meeting frame, attendee data merged. If your organisation runs all-hands, town-halls, and webinars on Webex, Slido is the path of least friction. Outside that stack — Indian schools, coaching institutes, corporate trainers using Zoom/Teams/Meet, conference organisers without Cisco partnerships — Quizotic\'s feature surface (quiz + polls + Q&A in one tool) and INR pricing are usually the better fit.',
+    faqs: [
+      {
+        question: 'Is Quizotic a true replacement for Slido?',
+        answer: 'For Q&A, polls, word clouds, and audience response — yes. Quizotic covers the full Slido feature surface and adds competitive quiz mode, AI generation, and Bloom tagging that Slido doesn\'t offer. Where Slido genuinely wins is Cisco Webex native integration; for Zoom/Teams/Meet/in-person, Quizotic is a stronger 1:1 fit.',
+      },
+      {
+        question: 'How does pricing compare in India?',
+        answer: 'Slido Engage starts at $12.50/host/month — about ₹1,050 plus 3% FX markup plus international card fees. Quizotic Pro is ₹499/month flat with UPI billing and a domestic GST invoice. For an institute with 10 hosts, the gap is ~₹6,000/month or ~₹72,000/year.',
+      },
+      {
+        question: 'Does Quizotic handle conference-scale Q&A?',
+        answer: 'Yes. Pro and Team plans support large audiences with the same upvote-sorted Q&A as Slido. The participant page is ~80KB on first load (vs Slido\'s ~350KB), so it joins faster on crowded conference Wi-Fi. For 1000+ attendee events, contact us for a Team plan quote.',
+      },
+      {
+        question: 'Can I add quiz competition to my conference like Slido Quiz?',
+        answer: 'Yes — and Quizotic\'s quiz engine is more developed than Slido Quiz. Speed bonus, streak multipliers, team mode, leaderboard with sectional rankings, and 11 question types (vs Slido\'s simpler MCQ-only quiz tier).',
+      },
+      {
+        question: 'Does Quizotic integrate with Cisco Webex?',
+        answer: 'Not natively (yet). Hosts share the Quizotic screen on Webex; attendees join via a 6-digit PIN at quizotic.live/join in their phone browser. Native Webex integration is on the roadmap for late 2026.',
+      },
+    ],
+    related: COMMON_RELATED,
+    keywords: ['quizotic vs slido', 'slido vs quizotic', 'slido comparison', 'slido alternative', 'slido alternative india'],
+  },
+
   ahaslides: {
     competitor: 'AhaSlides',
     metaTitle: 'Quizotic vs AhaSlides — Feature Comparison (2026)',
