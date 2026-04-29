@@ -203,8 +203,13 @@ export const ALTERNATIVES: Record<string, AlternativeContent> = {
         answer: 'Yes. Share your screen in Zoom; participants open quizotic.live/join in another tab. No Zoom plugin needed.',
       },
     ],
-    related: COMMON_RELATED,
-    keywords: ['slido alternative', 'slido alternative india', 'slido vs quizotic', 'cisco slido alternative'],
+    related: [
+      { title: 'Quizotic vs Slido', href: '/vs/slido', description: 'Side-by-side feature comparison.' },
+      { title: 'Slido alternatives 2026 (deep dive)', href: '/learn/slido-alternatives-india-2026', description: '5 Slido alternatives compared — Mentimeter, AhaSlides, Wooclap, Poll Everywhere, Quizotic.' },
+      { title: 'For Event Hosts', href: '/for/event-hosts', description: 'Conferences, town halls, trivia.' },
+      { title: 'For Corporate Trainers', href: '/for/corporate-trainers', description: 'Workshops, all-hands, training.' },
+    ],
+    keywords: ['slido alternative', 'slido alternative india', 'slido vs quizotic', 'cisco slido alternative', 'slido alternatives 2026', 'slido competitor india'],
   },
 
   ahaslides: {

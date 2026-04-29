@@ -411,14 +411,14 @@ export const USE_CASES: Record<string, UseCaseContent> = {
 
   'event-hosts': {
     persona: 'Event Hosts',
-    metaTitle: 'Interactive Event Tool — Quizotic (Conferences, Town Halls, Trivia Nights)',
+    metaTitle: 'Slido Alternative for Conferences & Trivia Nights — Quizotic',
     metaDescription:
-      'Interactive audience engagement for events. Live polls, trivia quizzes, word clouds, and Q&A for conferences, town halls, and pub-style events.',
+      'Slido alternative for conferences, town halls, and trivia nights — live polls, audience Q&A, multi-round trivia. INR billing, ~80KB participant page, no app install.',
     h1: 'Quizotic for Event Hosts — Live Trivia, Audience Polls, Interactive Conferences',
     tagline:
-      'Turn any audience into participants. Live polls, trivia rounds, and Q&A with a 6-digit game PIN.',
+      'A Slido alternative for conferences, town halls, and trivia nights. Live polls, audience Q&A, multi-round team leaderboards — 6-digit PIN, no app.',
     intro:
-      'Event hosts use Quizotic to energise conferences, town halls, community meetups, and trivia nights. Every audience member joins from their phone in under 100KB — no app, no signup. Run a live poll on stage, launch a multi-round trivia with a team leaderboard, or open Q&A with upvoting so the top questions float to the top. Session reports make great follow-up artefacts for sponsors and organisers.',
+      'Event hosts use Quizotic to energise conferences, town halls, community meetups, and trivia nights — often as a Slido alternative when Cisco Webex isn\'t the host platform. Every audience member joins from their phone with a 6-digit PIN — under 100KB on first load, no app install, no signup. Run a live poll on stage, launch a multi-round trivia with a team leaderboard, or open audience Q&A with upvoting so the top questions float to the top. Session reports make great follow-up artefacts for sponsors and organisers. Compared to Slido on a non-Webex stack, Quizotic adds full quiz mechanics on top of the same Q&A + polls surface, and bills in INR with GST invoicing.',
     scenarios: [
       {
         title: 'Conference opening poll',
@@ -476,13 +476,20 @@ export const USE_CASES: Record<string, UseCaseContent> = {
         answer: 'Yes. In-person and remote audiences join the same session. Everyone gets the same live leaderboard experience.',
       },
     ],
-    related: COMMON_RELATED,
+    related: [
+      { title: 'Quizotic vs Slido', href: '/vs/slido', description: 'Slido head-to-head — Q&A, polls, quiz depth.' },
+      { title: 'Slido alternatives 2026', href: '/learn/slido-alternatives-india-2026', description: '5 Slido alternatives compared for Indian conferences.' },
+      { title: 'Live Polling', href: '/live-polling', description: 'Real-time audience polls.' },
+      { title: 'Pricing', href: '/pricing', description: 'Plans for event hosts in INR.' },
+    ],
     keywords: [
       'event engagement platform',
       'conference audience polling',
       'trivia night platform',
       'live polling for events',
       'audience response tool india',
+      'slido alternative conference',
+      'slido alternative india',
     ],
   },
 }

@@ -13,6 +13,22 @@ const FOOTER_LINKS = [
   { href: '/terms', label: 'Terms' },
 ]
 
+const COMPARE_LINKS = [
+  { href: '/vs/slido', label: 'vs Slido' },
+  { href: '/vs/mentimeter', label: 'vs Mentimeter' },
+  { href: '/vs/kahoot', label: 'vs Kahoot' },
+  { href: '/vs/quizizz', label: 'vs Quizizz' },
+  { href: '/vs/ahaslides', label: 'vs AhaSlides' },
+]
+
+const RESOURCE_LINKS = [
+  { href: '/learn', label: 'Learn' },
+  { href: '/templates', label: 'Templates' },
+  { href: '/alternatives/slido', label: 'Slido alternatives' },
+  { href: '/alternatives/kahoot', label: 'Kahoot alternatives' },
+  { href: '/alternatives/mentimeter', label: 'Mentimeter alternatives' },
+]
+
 export function Footer() {
   return (
     <footer style={{ background: '#0F1B3D', borderTop: '2px solid #F5E642', padding: '48px 24px' }}>
@@ -31,6 +47,30 @@ export function Footer() {
                   onMouseEnter={e => (e.target as HTMLElement).style.color = '#F5E642'}
                   onMouseLeave={e => (e.target as HTMLElement).style.color = 'rgba(255,255,255,0.65)'}>{l.label}</a>
               : <Link key={l.href} href={l.href} style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 14, color: 'rgba(255,255,255,0.65)', textDecoration: 'none' }}>{l.label}</Link>
+          ))}
+        </div>
+
+        {/* Compare row */}
+        <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', justifyContent: 'center', marginTop: 4 }}>
+          <span style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 12, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1 }}>
+            Compare
+          </span>
+          {COMPARE_LINKS.map(l => (
+            <Link key={l.href} href={l.href} style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 13, color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>
+              {l.label}
+            </Link>
+          ))}
+        </div>
+
+        {/* Resources row */}
+        <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <span style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 12, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1 }}>
+            Resources
+          </span>
+          {RESOURCE_LINKS.map(l => (
+            <Link key={l.href} href={l.href} style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 13, color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>
+              {l.label}
+            </Link>
           ))}
         </div>
 
