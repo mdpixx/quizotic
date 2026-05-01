@@ -799,6 +799,16 @@ function JoinPageInner() {
       if (process.env.NODE_ENV !== 'production') {
         console.warn('[invalid_payload]', event, pErr)
       }
+      // Make schema-validation failures visible to the participant. Without this
+      // toast, a rejected submit_answer (e.g. timeMs out of bounds) is invisible
+      // — the host counter doesn't move and the player has no idea their tap
+      // was lost. Clearing selectedAnswer/pendingAnswer re-enables the option
+      // buttons so they can tap again.
+      if (event === 'submit_answer') {
+        setAnswerToast('Submit failed — tap an option to retry.')
+        setSelectedAnswer(null)
+        setPendingAnswer(null)
+      }
     })
 
     socket.on('question_show', ({ question, index, total, startAt }: { question: Omit<Question, 'index' | 'total'>; index: number; total: number; startAt?: number }) => {
@@ -852,7 +862,7 @@ function JoinPageInner() {
       }
     })
 
-    socket.on('answer_confirmed', ({ isCorrect, points, totalScore, streakCount }: { isCorrect: boolean; points: number; totalScore: number; streakCount?: number }) => {
+    socket.on('answer_confirmed', ({ isCorrect, points, totalScore, streakCount, late }: { isCorrect: boolean; points: number; totalScore: number; streakCount?: number; late?: boolean }) => {
       if (timerRef.current) clearInterval(timerRef.current)
       // Server has accepted at least one answer — drop outbox entries for the
       // current question so we don't double-submit on later reconnects.
@@ -865,6 +875,9 @@ function JoinPageInner() {
       setPointsEarned(points)
       setTotalScore(totalScore)
       setPhase('answered')
+      if (late) {
+        setAnswerToast('Submitted just past the buzzer — recorded but no points.')
+      }
 
       // For non-scored types (poll/rating/wordcloud/qa/openended/ranking/drawing/case)
       // there is no right/wrong — always celebrate the submission with a positive
@@ -1267,7 +1280,7 @@ function JoinPageInner() {
   function submitMultiselect() {
     if (multiselectChosen.size === 0 || selectedAnswer !== null || timeLeft <= 0) return
     setSelectedAnswer('multi')
-    const timeMs = Date.now() - answerTimeRef.current
+    const timeMs = Math.max(0, Date.now() - answerTimeRef.current)
     enqueueAnswer({
       gameCode: gameCodeRef.current,
       answer: Array.from(multiselectChosen).map(String),
@@ -1279,7 +1292,7 @@ function JoinPageInner() {
   function submitWithConfidence(level: 'sure' | 'unsure') {
     if (pendingAnswer === null) return
     setConfidence(level)
-    const timeMs = Date.now() - answerTimeRef.current
+    const timeMs = Math.max(0, Date.now() - answerTimeRef.current)
     enqueueAnswer({
       gameCode: gameCodeRef.current,
       answer: pendingAnswer,
@@ -1291,7 +1304,7 @@ function JoinPageInner() {
   function submitTextAnswer() {
     if (!textAnswer.trim() || selectedAnswer !== null || timeLeft <= 0) return
     setSelectedAnswer('text')
-    const timeMs = Date.now() - answerTimeRef.current
+    const timeMs = Math.max(0, Date.now() - answerTimeRef.current)
     enqueueAnswer({
       gameCode: gameCodeRef.current,
       answer: textAnswer.trim(),
@@ -1307,7 +1320,7 @@ function JoinPageInner() {
     if (selectedAnswer !== null || timeLeft <= 0) return
     setSelectedAnswer(selectedMarker ?? (typeof answer === 'number' ? String(answer) : 'submitted'))
     setPendingAnswer(null)
-    const timeMs = Date.now() - answerTimeRef.current
+    const timeMs = Math.max(0, Date.now() - answerTimeRef.current)
     enqueueAnswer({
       gameCode: gameCodeRef.current,
       answer: answer as string | number | number[] | string[],

@@ -1753,19 +1753,19 @@ app.prepare().then(async () => {
       }
       const serverTimeMs = Math.min(timerMs, networkAdjusted)
 
-      // Enforce deadline using server-authoritative timing (2s grace window).
-      if (session.questionStartedAt) {
-        const deadline = timerMs + 2000
-        if (rawElapsed > deadline) {
-          socket.emit('answer_confirmed', { isCorrect: false, points: 0, totalScore: participant.score, late: true })
-          if (ack) ack({ accepted: false, reason: 'late', late: true, questionIndex: qi })
-          return
-        }
+      // Past-the-buzzer submission: still record the answer with 0 points so the
+      // host counter is honest and the audit row exists. The participant gets
+      // `late: true` in answer_confirmed and the streak does not advance.
+      // Previously this branch did an early `return` and silently dropped the
+      // answer, leaving the host stuck at "0 answered" forever.
+      const isLate = !!(session.questionStartedAt && rawElapsed > timerMs + 2000)
+      if (isLate) {
+        console.warn(`[submit_answer:late-but-recorded] code=${gameCode} q=${qi} sid=${socket.id} pid=${participant.participantId} rawElapsed=${rawElapsed}ms deadline=${timerMs + 2000}ms`)
       }
 
       // Ranking questions: accept an array of option indices, store raw, do not score.
       if (question.type === 'ranking' && Array.isArray(answer)) {
-        participant.answers[qi] = { answer, timeMs: serverTimeMs, clientReportedTimeMs, confidence: confidence ?? 'unsure', isNonScored: true }
+        participant.answers[qi] = { answer, timeMs: serverTimeMs, clientReportedTimeMs, confidence: confidence ?? 'unsure', isNonScored: true, ...(isLate ? { late: true } : {}) }
         persistAnswer({
           session,
           sessionDbId: session.dbId,
@@ -1780,7 +1780,7 @@ app.prepare().then(async () => {
           timeMs: serverTimeMs,
           confidence: confidence ?? 'unsure',
         })
-        socket.emit('answer_confirmed', { isCorrect: null, points: 0, totalScore: participant.score, isNonScored: true })
+        socket.emit('answer_confirmed', { isCorrect: null, points: 0, totalScore: participant.score, isNonScored: true, ...(isLate ? { late: true } : {}) })
         const numOptions = question.options?.length ?? 4
         io.to(`host:${gameCode}`).emit('answer_received', {
           count: countAnswers(session, qi),
@@ -1792,18 +1792,23 @@ app.prepare().then(async () => {
         // for any older clients still in the wild; harmless duplicate.
         io.to(`host:${gameCode}`).emit('ranking_submission', { ranking: answer, order: answer })
         emitLiveResponses(io, gameCode, session, qi)
-        if (ack) ack({ accepted: true, isNonScored: true, questionIndex: qi })
+        if (ack) ack({ accepted: true, isNonScored: true, questionIndex: qi, ...(isLate ? { late: true } : {}) })
         return
       }
 
       const isNonScored = ['poll', 'case', 'wordcloud', 'openended', 'qa', 'rating', 'ranking', 'drawing'].includes(question.type)
-      const isCorrect = isNonScored ? null : checkAnswer(question, answer)
+      const rawIsCorrect = isNonScored ? null : checkAnswer(question, answer)
+      // Late scored answers are treated as wrong (0 points, isCorrect=false) so
+      // the audit trail is honest — the player did submit, but past the buzzer.
+      const isCorrect = isLate && !isNonScored ? false : rawIsCorrect
       // Scoring formula picks 'classic' (Kahoot-style speed-scaled) or
       // 'accuracy' (flat base, no speed component, no streak — calm
       // assessment mode). Defaults to classic for back-compat.
       const formula = session.scoringFormula ?? 'classic'
-      const basePoints = isCorrect ? calcPoints(question.points || 1000, serverTimeMs, question.timerSeconds || 20, formula) : 0
-      const streakBonus = formula === 'accuracy' ? 0 : applyStreak(participant, isCorrect, isNonScored)
+      const basePoints = (!isLate && isCorrect) ? calcPoints(question.points || 1000, serverTimeMs, question.timerSeconds || 20, formula) : 0
+      // Late submissions never advance the streak; applyStreak still runs on
+      // non-late answers so the participant.streakCount stays in sync.
+      const streakBonus = isLate ? 0 : (formula === 'accuracy' ? 0 : applyStreak(participant, isCorrect, isNonScored))
       const points = basePoints + streakBonus
 
       participant.answers[qi] = {
@@ -1815,6 +1820,7 @@ app.prepare().then(async () => {
         timeMs: serverTimeMs,
         clientReportedTimeMs,
         confidence: confidence ?? 'unsure',
+        ...(isLate ? { late: true } : {}),
       }
       participant.score += points
 
@@ -1843,8 +1849,9 @@ app.prepare().then(async () => {
         streakCount: participant.streakCount || 0,
         totalScore: participant.score,
         isNonScored,
+        ...(isLate ? { late: true } : {}),
       })
-      if (ack) ack({ accepted: true, questionIndex: qi, isCorrect, points, totalScore: participant.score })
+      if (ack) ack({ accepted: true, questionIndex: qi, isCorrect, points, totalScore: participant.score, ...(isLate ? { late: true } : {}) })
 
       const numOptions = question.options?.length ?? 4
       io.to(`host:${gameCode}`).emit('answer_received', {

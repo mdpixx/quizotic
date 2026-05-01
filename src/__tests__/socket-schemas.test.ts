@@ -39,8 +39,23 @@ describe('SubmitAnswerSchema', () => {
     expect(r.success).toBe(true)
   })
 
-  it('rejects negative timeMs', () => {
-    const r = SubmitAnswerSchema.safeParse({ gameCode: 'ABCD12', answer: '0', timeMs: -1 })
+  // Small negative timeMs values are accepted because the participant client
+  // anchors `answerTimeRef` to the future `startAt` during the 3-2-1 countdown
+  // — taps during the countdown legitimately produce slightly negative values.
+  // The server clamps to [0, timerMs] when computing serverTimeMs anyway, so
+  // letting these through Zod prevents a silent drop with no user feedback.
+  it('accepts small negative timeMs (countdown taps)', () => {
+    const r = SubmitAnswerSchema.safeParse({ gameCode: 'ABCD12', answer: '0', timeMs: -1500 })
+    expect(r.success).toBe(true)
+  })
+
+  it('rejects excessively negative timeMs (clearly bogus)', () => {
+    const r = SubmitAnswerSchema.safeParse({ gameCode: 'ABCD12', answer: '0', timeMs: -20000 })
+    expect(r.success).toBe(false)
+  })
+
+  it('rejects timeMs above the 600s upper bound', () => {
+    const r = SubmitAnswerSchema.safeParse({ gameCode: 'ABCD12', answer: '0', timeMs: 600001 })
     expect(r.success).toBe(false)
   })
 

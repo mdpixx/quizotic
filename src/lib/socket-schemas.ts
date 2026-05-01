@@ -21,7 +21,11 @@ export const SubmitAnswerSchema = z.object({
     z.array(z.string()).max(10),
     z.array(z.number()).max(10),
   ]),
-  timeMs: z.number().int().min(0).max(600000),
+  // Client-reported tap-to-submit duration. The server clamps this to [0, timerMs]
+  // anyway via serverTimeMs, so a brief negative value (e.g. tap during the 3-2-1
+  // countdown when answerTimeRef is anchored to a future startAt) must not silently
+  // fail validation. Bounded loosely against bogus values.
+  timeMs: z.number().int().min(-10000).max(600000),
   confidence: z.enum(['sure', 'unsure']).nullable().optional(),
   // NTP-corrected client tap moment, in server clock space (Date.now() + offset).
   // When present, used as the authoritative submit time instead of the
