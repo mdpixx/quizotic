@@ -657,7 +657,11 @@ function JoinPageInner() {
     // its own clock without the receivedAt - rtt/2 hack.
     const enriched: SubmitAnswerPayload = {
       ...payload,
-      serverSubmittedAt: getServerNow(),
+      // Floor to integer ms — the server clock-sync offset is a fractional
+      // average and getServerNow() returns Date.now() + offsetMs which is
+      // a float. Sending the float used to slip past dev but get silently
+      // rejected by the (now relaxed) server schema in production.
+      serverSubmittedAt: Math.floor(getServerNow()),
       ...(participantIdRef.current ? { participantId: participantIdRef.current } : {}),
     }
     const item: OutboxItem = { id, questionIndex, payload: enriched, ts: Date.now() }

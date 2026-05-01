@@ -29,8 +29,11 @@ export const SubmitAnswerSchema = z.object({
   confidence: z.enum(['sure', 'unsure']).nullable().optional(),
   // NTP-corrected client tap moment, in server clock space (Date.now() + offset).
   // When present, used as the authoritative submit time instead of the
-  // receivedAt - rtt/2 estimate.
-  serverSubmittedAt: z.number().int().positive().optional(),
+  // receivedAt - rtt/2 estimate. NOT `.int()` — `getServerNow()` returns
+  // `Date.now() + offsetMs` where offsetMs is a fractional average from
+  // clock-sync, so the value is naturally a float. Requiring int silently
+  // rejected every submission in production.
+  serverSubmittedAt: z.number().positive().optional(),
 })
 
 export const SubmitDrawingSchema = z.object({

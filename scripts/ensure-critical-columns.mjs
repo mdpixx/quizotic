@@ -36,6 +36,27 @@ const CRITICAL_COLUMNS = [
 // SQL statement that creates the table only if it does not exist. Indexes
 // follow in CRITICAL_INDEXES.
 const CRITICAL_TABLES = [
+  // Per-question answer audit log. Live quizzes silently failed in production
+  // when this table was missing — `relation "Answer" does not exist` killed
+  // every persistAnswer call, so scores existed only in RAM. Mirrored from
+  // prisma/migrations/20260419_add_answer_model/migration.sql.
+  `CREATE TABLE IF NOT EXISTS "Answer" (
+     "id" TEXT NOT NULL,
+     "sessionId" TEXT NOT NULL,
+     "attendeeId" TEXT,
+     "participantId" TEXT NOT NULL,
+     "questionIndex" INTEGER NOT NULL,
+     "answer" JSONB NOT NULL,
+     "isCorrect" BOOLEAN,
+     "basePoints" INTEGER NOT NULL DEFAULT 0,
+     "streakBonus" INTEGER NOT NULL DEFAULT 0,
+     "points" INTEGER NOT NULL DEFAULT 0,
+     "timeMs" INTEGER NOT NULL DEFAULT 0,
+     "confidence" TEXT,
+     "submittedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     CONSTRAINT "Answer_pkey" PRIMARY KEY ("id"),
+     CONSTRAINT "Answer_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "GameSession"("id") ON DELETE CASCADE ON UPDATE CASCADE
+   )`,
   // Session 1 — CreditGrant
   `CREATE TABLE IF NOT EXISTS "CreditGrant" (
      "id" TEXT PRIMARY KEY,
@@ -196,6 +217,10 @@ const CRITICAL_TABLES = [
 ]
 
 const CRITICAL_INDEXES = [
+  // Answer (per-question audit log) — unique key gives idempotent INSERT … ON CONFLICT
+  `CREATE UNIQUE INDEX IF NOT EXISTS "Answer_sessionId_participantId_questionIndex_key" ON "Answer" ("sessionId", "participantId", "questionIndex")`,
+  `CREATE INDEX IF NOT EXISTS "Answer_sessionId_idx" ON "Answer" ("sessionId")`,
+  `CREATE INDEX IF NOT EXISTS "Answer_attendeeId_idx" ON "Answer" ("attendeeId")`,
   // Session 1
   `CREATE INDEX IF NOT EXISTS "CreditGrant_userId_bucket_expiresAt_idx" ON "CreditGrant" ("userId", "bucket", "expiresAt")`,
   `CREATE INDEX IF NOT EXISTS "AdminAuditLog_actorId_createdAt_idx" ON "AdminAuditLog" ("actorId", "createdAt")`,

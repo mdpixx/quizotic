@@ -33,7 +33,10 @@ export const SubmitAnswerSchema = z.object({
   // Optional NTP-corrected client tap moment, in server clock space.
   // When provided, the server uses this as the authoritative submit time
   // instead of receivedAt - rtt/2. Bounded loosely against bogus values.
-  serverSubmittedAt: z.number().int().positive().optional(),
+  // NOT `.int()` — `getServerNow()` returns `Date.now() + offsetMs` where
+  // offsetMs is a fractional average from clock-sync, so the value is
+  // naturally a float. Requiring int silently rejected every submission.
+  serverSubmittedAt: z.number().positive().optional(),
 })
 
 export const SubmitDrawingSchema = z.object({
