@@ -42,6 +42,8 @@ rsync -a --delete \
   --exclude='.env.local' \
   --exclude='*.tsbuildinfo' \
   --exclude='.DS_Store' \
+  --exclude='test-results/' \
+  --exclude='playwright-report/' \
   --exclude='assets/' \
   --exclude='brand logo/' \
   --exclude='Screenshots/' \

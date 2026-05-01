@@ -14,7 +14,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "predeploy": "bash scripts/predeploy-check.sh",
-    "deploy": "bash scripts/predeploy-check.sh && bash scripts/deploy-to-railway.sh",
+    "deploy": "bash scripts/deploy-to-railway.sh",
     "deploy:force": "bash scripts/deploy-to-railway.sh",
     "repair-schema": "node scripts/ensure-critical-columns.mjs",
     "rewrite-r2-urls": "node scripts/rewrite-r2-urls.mjs"
