@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
@@ -36,7 +37,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https:",
               "font-src 'self' https://fonts.gstatic.com",
-              "connect-src 'self' wss: https://api.razorpay.com https://lux-gateway.razorpay.com https://eu.i.posthog.com https://eu-assets.i.posthog.com",
+              "connect-src 'self' wss: https://api.razorpay.com https://lux-gateway.razorpay.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
               "frame-src https://api.razorpay.com https://checkout.razorpay.com",
               "frame-ancestors 'none'",
               "worker-src 'self'",
@@ -49,4 +50,19 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// withSentryConfig wraps the build so source maps upload + tunnel route
+// happen on `next build`. Auth token is only needed for source-map upload —
+// without it Sentry still receives errors, you just see minified frames.
+// Setting `silent: true` keeps build logs clean.
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: true,
+  // Skip source-map upload entirely if no auth token — graceful for first
+  // deploy before the Sentry account is wired up.
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+  // Tunnel through a Next.js route so adblockers don't drop client errors.
+  tunnelRoute: '/monitoring',
+});
+

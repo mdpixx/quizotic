@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/components/AuthProvider";
 import { PostHogProvider } from "@/components/PostHogProvider";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
+import { FloatingFeedbackButton } from "@/components/FloatingFeedbackButton";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
@@ -129,6 +130,7 @@ gtag('config', '${GA4_ID}', { send_page_view: true });`,
             <ThemeProvider>
               <Background />
               {children}
+              <FloatingFeedbackButton />
             </ThemeProvider>
           </PostHogProvider>
         </AuthProvider>

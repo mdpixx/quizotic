@@ -1,6 +1,28 @@
 import { createServer } from 'http'
 import next from 'next'
 import { Server } from 'socket.io'
+
+// ─── Sentry (Socket.IO + custom server runtime) ────────────────
+// Initialized at the very top so any module-load throw is captured.
+// Graceful no-DSN: if SENTRY_DSN isn't set, init is skipped silently.
+// This is the layer where the 2026-05-01 bug class lives — schema
+// validation rejects, scoring guards, persist failures — every one
+// of which previously logged once to stdout and was forgotten until
+// a customer complained.
+if (process.env.SENTRY_DSN && process.env.NODE_ENV === 'production') {
+  try {
+    const Sentry = await import('@sentry/node')
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      tracesSampleRate: 0.05,
+      environment: process.env.RAILWAY_ENVIRONMENT || 'production',
+    })
+    console.log('[sentry] initialized for custom server')
+  } catch (err) {
+    console.warn('[sentry] init failed:', err instanceof Error ? err.message : err)
+  }
+}
+
 import { assignArchetype } from './src/lib/archetypes.mjs'
 import {
   CreateSessionSchema,

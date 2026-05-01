@@ -12,7 +12,10 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "deploy": "bash scripts/deploy-to-railway.sh",
+    "test:e2e": "playwright test",
+    "predeploy": "bash scripts/predeploy-check.sh",
+    "deploy": "bash scripts/predeploy-check.sh && bash scripts/deploy-to-railway.sh",
+    "deploy:force": "bash scripts/deploy-to-railway.sh",
     "repair-schema": "node scripts/ensure-critical-columns.mjs",
     "rewrite-r2-urls": "node scripts/rewrite-r2-urls.mjs"
   },
@@ -27,6 +30,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@prisma/adapter-pg": "^7.6.0",
     "@prisma/client": "^7.6.0",
+    "@sentry/nextjs": "^10.51.0",
     "@socket.io/redis-adapter": "^8.3.0",
     "browser-image-compression": "^2.0.2",
     "canvas-confetti": "^1.9.4",
@@ -58,6 +62,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
     "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^20",
