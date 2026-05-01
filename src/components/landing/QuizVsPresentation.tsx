@@ -139,7 +139,7 @@ export function QuizVsPresentation() {
                 {/* Embedded poll result */}
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 10 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
-                    <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 10, color: 'rgba(255,255,255,0.55)' }}>Embedded Poll · "Rate your confidence"</div>
+                    <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 10, color: 'rgba(255,255,255,0.55)' }}>Embedded Poll · &ldquo;Rate your confidence&rdquo;</div>
                     <span style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 9, fontWeight: 600, color: '#F5E642', border: '1px solid rgba(245,230,66,0.35)', borderRadius: 8, padding: '1px 6px' }}>28 voted</span>
                   </div>
                   {[[5,'#16A34A',11],[4,'#4ADE80',9],[3,'#CA8A04',5],[2,'#EA580C',2],[1,'#DC2626',1]].map(([star, color, count]) => (

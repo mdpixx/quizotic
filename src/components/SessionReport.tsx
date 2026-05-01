@@ -31,7 +31,7 @@ function BloomsDistribution({ stats }: { stats: QuestionStat[] }) {
 
   return (
     <div className="mb-5">
-      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Bloom's Distribution</p>
+      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Bloom&apos;s Distribution</p>
       <div className="flex flex-wrap gap-2">
         {(Object.entries(counts) as [BloomsLevel, number][]).map(([level, count]) => (
           <span key={level} className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-full px-3 py-1 text-xs text-gray-700">

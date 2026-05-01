@@ -23,11 +23,13 @@ const OPTION_HEX = ANSWER_COLORS.map(c => c.hex)
 
 interface AggregateData {
   total: number
-  counts?: number[]        // bar chart types
-  words?: Record<string, number>  // word cloud
-  scores?: number[]        // rating/scale
-  emojis?: Record<string, number> // emoji pulse
+  counts?: number[]                 // bar chart types
+  words?: Record<string, number>    // word cloud (frequency-bucketed)
+  responses?: string[]              // open_text (full free-text strings)
+  scores?: number[]                 // rating / scale
+  emojis?: Record<string, number>   // emoji pulse
   pins?: { x: number; y: number }[] // pinpoint / grid_2x2
+  rankings?: number[][]             // ranking (each entry is [first, second, …] option indices)
 }
 
 interface FloatingVoter { id: string; x: number; color: string; emoji: string }
@@ -377,20 +379,45 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
       )
     }
 
-    case 'open_text':
+    case 'open_text': {
+      // Free-text wall — render the most recent responses as colored cards.
+      // Different from word_cloud (frequency bucket of single words) — open
+      // text preserves full sentences with original casing.
+      const responses = aggregate.responses ?? []
+      // Stable per-card colors so re-renders don't flicker.
+      const palette = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4']
+      const visible = responses.slice(-30) // last 30 fit comfortably; older scroll off
       return (
         <div className="flex flex-col h-full gap-4">
           <h2 className="leading-snug flex-shrink-0 break-words" style={{ ...headingStyle, fontSize: 'clamp(22px, 3.4cqw, 44px)' }}>
             {slide.question || <span className="opacity-30">Question text...</span>}
           </h2>
           <SlideImageFrame url={slide.contentImageUrl} />
-          <div className="flex-1 flex items-center justify-center">
-            {showResults && aggregate.words && (
-              <WordCloud words={aggregate.words} />
+          <div className="flex-1 flex items-start justify-center overflow-hidden p-2">
+            {showResults && visible.length > 0 ? (
+              <div className="flex flex-wrap gap-3 content-start justify-center max-h-full overflow-auto">
+                {visible.map((text, i) => {
+                  const color = palette[i % palette.length]
+                  return (
+                    <div
+                      key={`${i}-${text.slice(0, 20)}`}
+                      className="rounded-2xl px-4 py-3 text-sm sm:text-base font-medium max-w-[45%] break-words"
+                      style={{ background: `${color}14`, color, border: `1px solid ${color}40` }}
+                    >
+                      {text}
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              showResults && (
+                <p className="text-2xl opacity-40">Waiting for responses…</p>
+              )
             )}
           </div>
         </div>
       )
+    }
 
     case 'word_cloud':
       return (
@@ -453,7 +480,26 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
         </div>
       )
 
-    case 'ranking':
+    case 'ranking': {
+      // Borda count: each ordering [a, b, c, d] gives a=N, b=N-1, c=N-2, d=1.
+      // Sum across all submissions, sort descending → consensus ranking.
+      // Historical bug: server stored Number([0,1,2]) (=NaN) into counts,
+      // so the bars never moved. Now the server stores the full ordering
+      // array in `aggregate.rankings` and we compute the consensus here.
+      const numItems = slide.items.length
+      const rankings = aggregate.rankings ?? []
+      const scoreByItem = new Array(numItems).fill(0)
+      for (const ordering of rankings) {
+        ordering.forEach((optionIdx, position) => {
+          if (optionIdx >= 0 && optionIdx < numItems) {
+            scoreByItem[optionIdx] += (numItems - position)
+          }
+        })
+      }
+      const ranked = slide.items
+        .map((label, i) => ({ label: label || `Item ${i + 1}`, score: scoreByItem[i], originalIndex: i }))
+        .sort((a, b) => b.score - a.score)
+      const maxScore = Math.max(1, ...scoreByItem)
       return (
         <div className="flex flex-col h-full gap-4">
           <h2 className="leading-snug flex-shrink-0 break-words" style={{ ...headingStyle, fontSize: 'clamp(22px, 3.4cqw, 44px)' }}>
@@ -461,17 +507,28 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
           </h2>
           <SlideImageFrame url={slide.contentImageUrl} />
           <div className="flex-1 flex flex-col justify-center">
-            {showResults && aggregate.counts && (
+            {showResults && rankings.length > 0 ? (
               <div className="space-y-3">
-                {slide.items.map((item, i) => (
-                  <PollBar key={i} label={item || `Item ${i+1}`}
-                    count={aggregate.counts?.[i] ?? 0} total={aggregate.total} color="#4F46E5" />
+                {ranked.map((item, displayPos) => (
+                  <PollBar
+                    key={item.originalIndex}
+                    label={`#${displayPos + 1} · ${item.label}`}
+                    count={item.score}
+                    total={maxScore}
+                    color="#4F46E5"
+                  />
                 ))}
+                <p className="text-sm opacity-60 text-center pt-2">
+                  Consensus from {rankings.length} {rankings.length === 1 ? 'response' : 'responses'} (Borda count)
+                </p>
               </div>
+            ) : (
+              showResults && <p className="text-2xl opacity-40 text-center">Waiting for rankings…</p>
             )}
           </div>
         </div>
       )
+    }
 
     case 'scale_100':
       return (

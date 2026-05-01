@@ -49,9 +49,11 @@ interface PresenterAggregateData {
   total: number
   counts?: number[]
   words?: Record<string, number>
+  responses?: string[]              // open_text — full strings
   scores?: number[]
   emojis?: Record<string, number>
   pins?: { x: number; y: number }[]
+  rankings?: number[][]             // ranking — full orderings
 }
 
 type QuestionOption = string | { text: string; imageUrl?: string }
@@ -682,7 +684,12 @@ function JoinPageInner() {
   // ─── Deferred Socket.io — connect only when user joins ─────────────────────
   const initSocket = useCallback(() => {
     if (socketRef.current) return socketRef.current
-    // Dynamic import to keep socket.io-client out of the initial form bundle
+    // Dynamic import to keep socket.io-client out of the initial form bundle.
+    // ESLint complains about require() in TS but a dynamic require IS what we
+    // want here — `await import()` would force the surrounding fn to be async
+    // and rewriting initSocket's call sites to handle Promise<Socket> is more
+    // churn than this single line warrants.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { io: ioConnect } = require('socket.io-client') as typeof import('socket.io-client')
     const socket: Socket = ioConnect({
       reconnection: true,
@@ -2740,22 +2747,41 @@ function JoinPageInner() {
 
       if (slideType === 'ranking') {
         const items: string[] = slide.items || []
-        const counts = agg.counts ?? new Array(items.length).fill(0)
-        const maxCount = Math.max(1, ...counts)
+        // Borda count from the rankings array. Each ordering [a,b,c,d]
+        // gives a=N, b=N-1, c=N-2, d=1. Falls back to the legacy `counts`
+        // field if rankings isn't populated yet (mid-deploy aggregates).
+        const rankings: number[][] = Array.isArray(agg.rankings) ? agg.rankings : []
+        const numItems = items.length || (agg.counts?.length ?? 0)
+        const scoreByItem = new Array(numItems).fill(0) as number[]
+        if (rankings.length > 0) {
+          for (const ordering of rankings) {
+            ordering.forEach((optionIdx: number, position: number) => {
+              if (optionIdx >= 0 && optionIdx < numItems) {
+                scoreByItem[optionIdx] += (numItems - position)
+              }
+            })
+          }
+        } else if (Array.isArray(agg.counts)) {
+          // Legacy aggregate from before the fix — display whatever's there.
+          agg.counts.forEach((c: number, i: number) => { scoreByItem[i] = c })
+        }
+        const ranked = items
+          .map((label: string, i: number) => ({ label: label || `Item ${i + 1}`, score: scoreByItem[i] ?? 0, originalIndex: i }))
+          .sort((a, b) => b.score - a.score)
+        const maxScore = Math.max(1, ...scoreByItem)
         return (
           <div className="space-y-3 w-full">
-            {items.map((item: string, i: number) => {
-              const count = counts[i] ?? 0
-              const pct = maxCount > 0 ? (count / maxCount) * 100 : 0
+            {ranked.map((item, displayPos) => {
+              const pct = maxScore > 0 ? (item.score / maxScore) * 100 : 0
               return (
-                <div key={i} className="space-y-1">
+                <div key={item.originalIndex} className="space-y-1">
                   <div className="flex items-center justify-between text-sm font-semibold" style={{ color: textLight }}>
-                    <span className="truncate mr-2">{item || `Item ${i + 1}`}</span>
-                    <span style={{ color: 'rgba(255,255,255,0.5)' }}>{count}</span>
+                    <span className="truncate mr-2">#{displayPos + 1} · {item.label}</span>
+                    <span style={{ color: 'rgba(255,255,255,0.5)' }}>{item.score}</span>
                   </div>
                   <div className="h-3 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
                     <div className="h-full rounded-full transition-all duration-500"
-                      style={{ width: `${pct}%`, background: '#4F46E5', minWidth: count > 0 ? 8 : 0 }} />
+                      style={{ width: `${pct}%`, background: '#4F46E5', minWidth: item.score > 0 ? 8 : 0 }} />
                   </div>
                 </div>
               )
@@ -2764,8 +2790,34 @@ function JoinPageInner() {
         )
       }
 
-      // Word cloud / open text
-      if (slideType === 'word_cloud' || slideType === 'open_text') {
+      // Open text — responses array as a wall of text bubbles.
+      if (slideType === 'open_text') {
+        const responses: string[] = Array.isArray(agg.responses) ? agg.responses : []
+        if (responses.length === 0) {
+          return <p className="text-lg text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>Waiting for responses...</p>
+        }
+        const palette = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4']
+        const visible = responses.slice(-30)
+        return (
+          <div className="flex flex-wrap gap-2 justify-center max-h-full overflow-auto">
+            {visible.map((text, i) => {
+              const color = palette[i % palette.length]
+              return (
+                <div
+                  key={`${i}-${text.slice(0, 16)}`}
+                  className="rounded-xl px-3 py-2 text-xs font-medium max-w-[45%] break-words"
+                  style={{ background: `${color}24`, color, border: `1px solid ${color}55` }}
+                >
+                  {text}
+                </div>
+              )
+            })}
+          </div>
+        )
+      }
+
+      // Word cloud (frequency-bucketed words)
+      if (slideType === 'word_cloud') {
         const words = agg.words ?? {}
         const entries = Object.entries(words).sort((a, b) => b[1] - a[1]).slice(0, 20)
         const maxFreq = entries.length > 0 ? entries[0][1] : 1

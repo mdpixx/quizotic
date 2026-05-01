@@ -905,10 +905,13 @@ app.prepare().then(async () => {
       })
       if (ack) ack({ accepted: true, questionIndex: qi })
 
+      // Host listener at src/app/host/session/page.tsx:400 destructures
+      // `count` (not `answered`); historical mismatch caused drawing
+      // questions to show "undefined / N answered" on the host UI.
       io.to(`host:${gameCode}`).emit('answer_received', {
+        count: countAnswers(session, qi),
         total: getConnectedCount(session),
         connectedCount: getConnectedCount(session),
-        answered: countAnswers(session, qi),
       })
     })
 
@@ -1155,18 +1158,60 @@ app.prepare().then(async () => {
       if (!participant.votedSlides) participant.votedSlides = {}
       participant.votedSlides[slideIndex] = true
 
-      // Initialize aggregate for this slide
+      // Initialize aggregate for this slide. Each field corresponds to one
+      // visualization mode — we keep them separate so a renderer never has
+      // to guess what shape the data is in.
+      //   counts    — index → tally          (bar-chart types)
+      //   words     — lowercased word → tally (word_cloud)
+      //   responses — full text strings       (open_text — text wall)
+      //   scores    — numeric values          (rating_scale, scale_100)
+      //   emojis    — emoji char → tally      (emoji_pulse)
+      //   pins      — {x,y} coords            (pinpoint, grid_2x2)
+      //   rankings  — array of orderings      (ranking — drag-to-order)
       if (!session.aggregates[slideIndex]) {
-        session.aggregates[slideIndex] = { total: 0, counts: [], words: {}, scores: [], emojis: {}, pins: [] }
+        session.aggregates[slideIndex] = {
+          total: 0,
+          counts: [],
+          words: {},
+          responses: [],
+          scores: [],
+          emojis: {},
+          pins: [],
+          rankings: [],
+        }
       }
       const agg = session.aggregates[slideIndex]
+      // Defensive: legacy aggregates from before this commit may not have
+      // the new fields. Fill them in so renderers can read unconditionally.
+      if (!agg.responses) agg.responses = []
+      if (!agg.rankings) agg.rankings = []
       agg.total++
 
-      // Accumulate based on response type
+      // Accumulate based on response type. Historical bug: ranking went
+      // through the bar-chart else-branch and `Number([0,1,2])` became NaN,
+      // so ranking aggregates were silently broken. open_text was bucketed
+      // into `words` and rendered as a word cloud instead of a text wall.
       const slide = session.presentationData.slides[slideIndex]
-      if (slide?.type === 'word_cloud' || slide?.type === 'open_text') {
+      if (slide?.type === 'word_cloud') {
         const word = String(response).trim().toLowerCase().slice(0, 100)
         if (word) agg.words[word] = (agg.words[word] || 0) + 1
+      } else if (slide?.type === 'open_text') {
+        // Free-text wall — preserve the original casing/punctuation. Cap at
+        // 500 chars per response and 200 responses per slide so a runaway
+        // session can't blow memory.
+        const text = String(response).trim().slice(0, 500)
+        if (text && agg.responses.length < 200) agg.responses.push(text)
+      } else if (slide?.type === 'ranking') {
+        // Store the full ordering. Each entry is [optionIndex, ...] meaning
+        // "first choice, second choice, …". Renderer can compute Borda count
+        // or per-position frequencies. Cap entries to 100 options + 500 rows.
+        if (Array.isArray(response)) {
+          const ordering = response
+            .slice(0, 100)
+            .map(v => Number(v))
+            .filter(v => Number.isInteger(v) && v >= 0)
+          if (ordering.length > 0 && agg.rankings.length < 500) agg.rankings.push(ordering)
+        }
       } else if (slide?.type === 'rating_scale' || slide?.type === 'scale_100') {
         agg.scores.push(Number(response))
       } else if (slide?.type === 'emoji_pulse') {
@@ -1176,10 +1221,12 @@ app.prepare().then(async () => {
         const pin = typeof response === 'object' ? response : {}
         agg.pins.push({ x: Number(pin.x) || 0, y: Number(pin.y) || 0 })
       } else {
-        // All bar-chart types: multiple_choice, word_duel, live_race, ranking, image_choice, quick_fire
+        // Bar-chart types: multiple_choice, word_duel, live_race, image_choice, quick_fire.
         const idx = Number(response)
-        while (agg.counts.length <= idx) agg.counts.push(0)
-        agg.counts[idx]++
+        if (Number.isInteger(idx) && idx >= 0) {
+          while (agg.counts.length <= idx) agg.counts.push(0)
+          agg.counts[idx]++
+        }
       }
 
       socket.emit('presenter_response_confirmed')
@@ -2031,7 +2078,16 @@ app.prepare().then(async () => {
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
 function sanitizeQuestion(q) {
-  const { correctAnswer, ...safe } = q
+  // Strip answer-revealing fields before broadcasting to the participant
+  // room. Historical bug: only `correctAnswer` was stripped, so the
+  // multiselect `correctAnswers` array leaked in the question_show payload
+  // — anyone with dev-tools could win every multiselect.
+  // Note: explanation/debrief are intentionally left in place — the client
+  // already gates their display behind the post-answer reveal phase, and
+  // including them keeps the late-joiner catch-up path working without an
+  // extra round-trip.
+  const { correctAnswer: _ca, correctAnswers: _cas, ...safe } = q
+  void _ca; void _cas
   return safe
 }
 
@@ -2140,12 +2196,21 @@ function countAnswers(session, questionIndex) {
 }
 
 function countAnswersByOption(session, questionIndex, numOptions) {
+  // Counts each participant's tap PER option, supporting both single-choice
+  // (mcq/truefalse — answer is a string/number index) and multiselect
+  // (answer is an array of indices). Historical bug: `Number(['0','2'])`
+  // returns NaN, so multiselect submissions never moved the host's bar
+  // chart — the host saw [0,0,0,0] forever even when participants picked
+  // multiple options correctly.
   const counts = Array(numOptions).fill(0)
   for (const p of session.participants.values()) {
     const a = p.answers[questionIndex]
-    if (a !== undefined) {
-      const idx = Number(a.answer)
-      if (idx >= 0 && idx < numOptions) counts[idx]++
+    if (a === undefined) continue
+    const raw = a.answer
+    const indices = Array.isArray(raw) ? raw : [raw]
+    for (const v of indices) {
+      const idx = Number(v)
+      if (Number.isInteger(idx) && idx >= 0 && idx < numOptions) counts[idx]++
     }
   }
   return counts

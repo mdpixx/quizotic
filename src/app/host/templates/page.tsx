@@ -26,7 +26,7 @@ export default function TemplatesPage() {
     ? QUIZ_TEMPLATES
     : QUIZ_TEMPLATES.filter(t => t.audience === filter)
 
-  function useTemplate(templateId: string) {
+  function applyTemplate(templateId: string) {
     setLoading(templateId)
     const template = QUIZ_TEMPLATES.find(t => t.id === templateId)
     if (!template) { setLoading(null); return }
@@ -165,7 +165,7 @@ export default function TemplatesPage() {
                     Preview
                   </button>
                   <button
-                    onClick={() => useTemplate(template.id)}
+                    onClick={() => applyTemplate(template.id)}
                     disabled={isLoading}
                     className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
                     style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
@@ -238,7 +238,7 @@ export default function TemplatesPage() {
             </div>
             <div className="sticky bottom-0 bg-white p-5 border-t" style={{ borderColor: '#DBEAFE' }}>
               <button
-                onClick={() => { setPreviewId(null); useTemplate(previewTemplate.id) }}
+                onClick={() => { setPreviewId(null); applyTemplate(previewTemplate.id) }}
                 className="w-full py-3 rounded-xl text-sm font-bold transition-all hover:opacity-90"
                 style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
               >
