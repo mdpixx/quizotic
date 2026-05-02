@@ -21,6 +21,7 @@ import type { Question as QuizQuestion, QuestionType } from '@/lib/quiz-types'
 import { SlideImage } from '@/components/SlideImage'
 import { ANSWER_COLORS, ANSWER_LETTERS } from '@/lib/answer-colors'
 import { useConfetti } from '@/hooks/useConfetti'
+import { useWakeLock } from '@/hooks/useWakeLock'
 
 function phaseForPresenterSlide(
   slideType: string | undefined,
@@ -464,6 +465,11 @@ function JoinPageInner() {
   const modeParam = searchParams.get('mode') // 'presenter' for presenter sessions
   const [phase, setPhase] = useState<Phase>(followupParam ? 'connecting' : 'form')
   const phaseRef = useRef<Phase>(followupParam ? 'connecting' : 'form')
+
+  // Keep the participant phone screen awake while they're in a session.
+  // Active for every phase except the pre-join name form and the post-quiz
+  // "ended" / "selfpaced-done" terminal screens.
+  useWakeLock(phase !== 'form' && phase !== 'ended' && phase !== 'selfpaced-done')
   const [code, setCode] = useState(searchParams.get('code') ?? '')
   const nameInputRef = useRef<HTMLInputElement>(null)
 

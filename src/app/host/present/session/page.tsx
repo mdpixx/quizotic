@@ -14,6 +14,7 @@ import { ANSWER_COLORS } from '@/lib/answer-colors'
 import { PostSessionHeader } from '@/components/PostSessionHeader'
 import { PresentationSummary } from '@/components/PresentationSummary'
 import { useConfetti } from '@/hooks/useConfetti'
+import { playBackgroundMusic, stopBackgroundMusic } from '@/lib/sounds'
 
 // Canonical Kahoot palette for answer/option rendering — shared with quiz
 // host view and participant phone so colors match across every surface.
@@ -865,9 +866,26 @@ export default function PresentSessionPage() {
   const [showWave, setShowWave] = useState(false)
   const [showQR, setShowQR] = useState(false)
   const [mirrorOn, setMirrorOn] = useState(false)
+  const [musicOn, setMusicOn] = useState(false)
   const waveTriggeredRef = useRef(false)
   const endingRef = useRef(false)
   const [plan, setPlan] = useState<'free' | 'pro'>('free')
+
+  // Hydrate background-music preference from localStorage on mount.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (localStorage.getItem('quizotic_host_musicOn') === 'true') setMusicOn(true)
+  }, [])
+
+  // Drive background music on/off + persist the host's choice. Cleanup stops
+  // the loop on unmount so navigating away or ending the session kills audio.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (musicOn) playBackgroundMusic()
+    else stopBackgroundMusic()
+    localStorage.setItem('quizotic_host_musicOn', String(musicOn))
+    return () => { stopBackgroundMusic() }
+  }, [musicOn])
 
   const currentSlide = presentation?.slides[slideIndex] ?? null
   const totalSlides = presentation?.slides.length ?? 0
@@ -1152,6 +1170,7 @@ export default function PresentSessionPage() {
 
   function endSession() {
     endingRef.current = true
+    stopBackgroundMusic()
     socketRef.current?.emit('end_presenter_session', { gameCode })
     // Safety fallback if summary doesn't arrive within 3s
     setTimeout(() => { if (endingRef.current) router.push('/host') }, 3000)
@@ -1528,6 +1547,17 @@ export default function PresentSessionPage() {
               border: `1.5px solid ${soundOn ? '#86EFAC' : '#E5E7EB'}`,
             }}>
             {soundOn ? '🔊 Sound On' : '🔇 Sound Off'}
+          </button>
+          <button
+            onClick={() => setMusicOn(m => !m)}
+            title={musicOn ? 'Background music is playing — click to mute' : 'Play low-volume background music during the quiz'}
+            className="flex items-center gap-2 px-5 py-3 rounded-xl text-base font-bold transition-all"
+            style={{
+              background: musicOn ? '#FEF3C7' : '#fff',
+              color: musicOn ? '#B45309' : '#6B7280',
+              border: `1.5px solid ${musicOn ? '#FCD34D' : '#E5E7EB'}`,
+            }}>
+            {musicOn ? '🎵 Music On' : '🎶 Music Off'}
           </button>
           <button
             onClick={() => {

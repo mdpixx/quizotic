@@ -47,6 +47,38 @@ export function preloadCelebrationSounds(): void {
   getMp3('/sounds/drumroll.mp3')
 }
 
+// Continuous background music for live quiz sessions. Host-only — plays in the
+// presenter browser at low volume to keep the room lively between question
+// reveals. The asset is a seamlessly-looping royalty-free instrumental at
+// /sounds/bg-loop.mp3. If the file is missing, playback silently fails.
+const BG_MUSIC_PATH = '/sounds/bg-loop.mp3'
+const DEFAULT_BG_VOLUME = 0.15
+
+export function playBackgroundMusic(volume: number = DEFAULT_BG_VOLUME): Promise<void> {
+  const el = getMp3(BG_MUSIC_PATH, volume)
+  if (!el) return Promise.resolve()
+  try {
+    el.loop = true
+    el.volume = volume
+    const p = el.play()
+    return p instanceof Promise ? p.catch(() => {}) : Promise.resolve()
+  } catch {
+    return Promise.resolve()
+  }
+}
+
+export function stopBackgroundMusic(): void {
+  const el = mp3Cache.get(BG_MUSIC_PATH)
+  if (!el) return
+  try { el.pause(); el.currentTime = 0 } catch {}
+}
+
+export function setBackgroundMusicVolume(volume: number): void {
+  const el = mp3Cache.get(BG_MUSIC_PATH)
+  if (!el) return
+  try { el.volume = Math.max(0, Math.min(1, volume)) } catch {}
+}
+
 export function playTick() {
   const ctx = getCtx()
   const osc = ctx.createOscillator()
