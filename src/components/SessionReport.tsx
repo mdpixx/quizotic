@@ -113,9 +113,10 @@ function renderResultsHtml(stat: QuestionStat): string {
     const entries = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 60)
     if (entries.length === 0) return empty('No words submitted')
     const max = Math.max(...entries.map(([, n]) => n), 1)
-    const palette = ['#7C3AED', '#0F1B3D', '#FF8A47', '#16A34A', '#2D3A8C', '#DC2626']
+    // Same light palette used in the live presentation and results views.
+    const palette = ['#7C82FF', '#FF8A8A', '#5DB6E5', '#F4A582', '#B19CD9', '#FFB088', '#94B3D1', '#F2A9C0']
     const words = entries.map(([w, n], i) => {
-      const fontSize = Math.round(12 + (n / max) * 28)
+      const fontSize = Math.round(12 + (n / max) * 32)
       return `<span style="font-size:${fontSize}px;color:${palette[i % palette.length]};font-weight:700;margin:0 6px">${escapeHtml(w)}</span>`
     }).join('')
     return wrap(`<div style="background:#fafafa;border:1px solid #f1f5f9;border-radius:10px;padding:12px;text-align:center;line-height:1.4">${words}</div>`)

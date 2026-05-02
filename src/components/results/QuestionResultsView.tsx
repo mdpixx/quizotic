@@ -103,7 +103,8 @@ function WordCloud({ stat, mode, className }: RendererProps) {
   if (entries.length === 0) return <EmptyState label="No words submitted yet" className={className} />
 
   const max = Math.max(...entries.map(([, n]) => n), 1)
-  const palette = ['#7C3AED', '#0F1B3D', '#FF8A47', '#16A34A', '#2D3A8C', '#DC2626', '#0891B2']
+  // Light, Mentimeter-style palette — same set used by the live presentation cloud.
+  const palette = ['#7C82FF', '#FF8A8A', '#5DB6E5', '#F4A582', '#B19CD9', '#FFB088', '#94B3D1', '#F2A9C0']
   const isLive = mode === 'live'
 
   return (
@@ -113,7 +114,7 @@ function WordCloud({ stat, mode, className }: RendererProps) {
     >
       {entries.map(([word, n], i) => {
         const weight = n / max
-        const fontSize = Math.round(14 + weight * 38)
+        const fontSize = Math.round(13 + weight * 47) // 13px → 60px for stronger size hierarchy
         const color = palette[i % palette.length]
         return (
           <span
@@ -121,7 +122,7 @@ function WordCloud({ stat, mode, className }: RendererProps) {
             style={{
               fontSize,
               color,
-              fontWeight: weight > 0.5 ? 800 : 600,
+              fontWeight: weight > 0.5 ? 800 : 700,
               lineHeight: 1.1,
               transition: isLive ? 'font-size 400ms ease' : 'none',
             }}

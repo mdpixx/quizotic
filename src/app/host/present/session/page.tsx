@@ -126,7 +126,9 @@ function PollBar({ label, count, total, color }: { label: string; count: number;
 function WordCloud({ words }: { words: Record<string, number> }) {
   const entries = Object.entries(words).sort((a, b) => b[1] - a[1]).slice(0, 30)
   const max = entries[0]?.[1] ?? 1
-  const colors = ['#0F1B3D', '#FF8A47', '#0891B2', '#16A34A', '#EA580C', '#6B8AFF', '#DC2626', '#7C3AED']
+  // Light, Mentimeter-style palette: muted but readable on white. All horizontal,
+  // size scales with frequency, colour cycles by rank.
+  const colors = ['#7C82FF', '#FF8A8A', '#5DB6E5', '#F4A582', '#B19CD9', '#FFB088', '#94B3D1', '#F2A9C0']
   // Interleave by rank so the biggest words land near the middle of the flex-wrap flow
   const ordered: [string, number, number][] = []
   entries.forEach(([w, c], i) => ordered.push([w, c, i]))
@@ -140,7 +142,7 @@ function WordCloud({ words }: { words: Record<string, number> }) {
     <div className="flex flex-wrap items-center justify-center w-full h-full gap-x-8 gap-y-3 px-6 py-4">
       {arranged.filter(Boolean).map(([word, count, rank]) => {
         const ratio = count / max
-        const size = 28 + Math.round(ratio * 82) // 28px → 110px range
+        const size = 24 + Math.round(ratio * 106) // 24px → 130px range for stronger hierarchy
         return (
           <span key={word} className="font-black leading-none transition-all duration-500"
             style={{ fontSize: size, color: colors[rank % colors.length], fontFamily: 'var(--font-heading)' }}>

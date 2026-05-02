@@ -317,7 +317,7 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
           { text: 'Honest', weight: 0.22 },
           { text: 'Kind', weight: 0.2 },
         ]
-        const palette = ['#0F1B3D', '#FF8A47', '#0891B2', '#16A34A', '#EA580C', '#6B8AFF', '#DC2626', '#7C3AED']
+        const palette = ['#7C82FF', '#FF8A8A', '#5DB6E5', '#F4A582', '#B19CD9', '#FFB088', '#94B3D1', '#F2A9C0']
         // Interleave: biggest in middle, smaller toward the edges.
         const arranged: typeof wcWords = []
         const mid = Math.floor(wcWords.length / 2)
