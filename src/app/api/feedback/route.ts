@@ -22,7 +22,7 @@ const FeedbackSchema = z.object({
   userAgent: z.string().max(500).optional(),
 })
 
-const FEEDBACK_TO = process.env.FEEDBACK_TO_EMAIL || 'dhiman.mahesh@gmail.com'
+const FEEDBACK_TO = process.env.FEEDBACK_TO_EMAIL || 'info@quizotic.live'
 
 function escapeHtml(s: string): string {
   return s
