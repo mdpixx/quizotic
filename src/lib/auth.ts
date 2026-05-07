@@ -26,7 +26,21 @@ async function getGmailAccessToken(): Promise<string> {
   return data.access_token
 }
 
-function buildMagicLinkHtml(url: string): string {
+// 6-digit numeric code. Used as the verification token directly — NextAuth
+// stores it in `VerificationToken.token`, then verifies on submit with no
+// schema change. Switched away from clickable magic links because corporate
+// firewalls (IOCL, school networks) block or rewrite the link, expiring it
+// before the user can click.
+function generateOtpCode(): string {
+  // crypto.randomInt is unbiased for the [100000, 999999] range; Math.random
+  // would skew distribution and make the lower digits ever-so-slightly
+  // predictable. Worth the import for an auth primitive.
+  const buf = new Uint32Array(1)
+  crypto.getRandomValues(buf)
+  return String(100000 + (buf[0] % 900000))
+}
+
+function buildOtpHtml(code: string): string {
   return `
 <!DOCTYPE html>
 <html>
@@ -43,15 +57,13 @@ function buildMagicLinkHtml(url: string): string {
           </tr></table>
         </td></tr>
         <!-- Body -->
-        <tr><td style="padding:36px 32px 40px;">
-          <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#0F1B3D;">Sign in to Quizotic</h1>
-          <p style="margin:0 0 28px;font-size:15px;line-height:1.6;color:#475569;">Click the button below to securely sign in. No password needed.</p>
-          <table cellpadding="0" cellspacing="0" width="100%"><tr><td align="center">
-            <a href="${url}" style="display:inline-block;background:#F5E642;color:#0D0D0D;text-decoration:none;padding:14px 36px;border-radius:10px;font-size:15px;font-weight:700;border:2px solid #0D0D0D;">
-              Sign In →
-            </a>
-          </td></tr></table>
-          <p style="margin:28px 0 0;font-size:13px;line-height:1.5;color:#94A3B8;">This link expires in 24 hours. If you didn't request this, you can safely ignore this email.</p>
+        <tr><td style="padding:36px 32px 40px;text-align:center;">
+          <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#0F1B3D;">Your sign-in code</h1>
+          <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#475569;">Enter this code on Quizotic to sign in. No password needed.</p>
+          <div style="display:inline-block;background:#FEFCE8;border:2px solid #F5E642;border-radius:14px;padding:18px 32px;margin-bottom:6px;">
+            <span style="font-family:'SF Mono','Monaco','Inconsolata','Roboto Mono',monospace;font-size:36px;font-weight:800;letter-spacing:8px;color:#0F1B3D;">${code}</span>
+          </div>
+          <p style="margin:24px 0 0;font-size:13px;line-height:1.5;color:#94A3B8;">This code expires in 15 minutes. If you didn't request it, you can safely ignore this email.</p>
         </td></tr>
         <!-- Footer -->
         <tr><td style="background:#F8FAFC;padding:16px 32px;border-top:1px solid #E2E8F0;">
@@ -189,13 +201,13 @@ async function sendWelcomeEmail(to: string, name: string | null) {
   }
 }
 
-async function sendMagicLinkEmail(to: string, magicLinkUrl: string) {
-  console.log('[auth] Sending magic link email to:', to)
+async function sendOtpEmail(to: string, code: string) {
+  console.log('[auth] Sending OTP email to:', to)
   const accessToken = await getGmailAccessToken()
   console.log('[auth] Got Gmail access token, sending email...')
   const from = process.env.EMAIL_FROM || 'Quizotic <info@quizotic.live>'
-  const subject = 'Sign in to Quizotic'
-  const htmlBody = buildMagicLinkHtml(magicLinkUrl)
+  const subject = `${code} is your Quizotic sign-in code`
+  const htmlBody = buildOtpHtml(code)
 
   const mime = [
     `From: ${from}`,
@@ -266,11 +278,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       ? [Nodemailer({
           server: { host: 'localhost', port: 25, auth: { user: 'x', pass: 'x' } },
           from: emailFrom,
-          sendVerificationRequest: async ({ identifier, url }) => {
-            console.log('[auth] sendVerificationRequest called for:', identifier)
+          // 15 minutes is short enough to limit brute-force exposure on a
+          // 6-digit code (with rate limiting on the verify endpoint) and
+          // long enough that a delayed corporate-firewall email still
+          // arrives in time. The previous magic-link 24h was way too
+          // generous for a numeric code.
+          maxAge: 15 * 60,
+          // Override NextAuth's default URL-safe token with a 6-digit code.
+          // The code IS the token — NextAuth stores it in
+          // VerificationToken.token and validates it on submit. No schema
+          // change required; the column is just `String`.
+          generateVerificationToken: async () => generateOtpCode(),
+          sendVerificationRequest: async ({ identifier, token }) => {
+            console.log('[auth] sendVerificationRequest (OTP) for:', identifier)
             try {
-              await sendMagicLinkEmail(identifier, url)
-              console.log('[auth] Magic link email sent successfully')
+              await sendOtpEmail(identifier, token)
+              console.log('[auth] OTP email sent successfully')
             } catch (err) {
               console.error('[auth] sendVerificationRequest failed:', err)
               throw err
