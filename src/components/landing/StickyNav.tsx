@@ -50,11 +50,18 @@ export function StickyNav() {
             ))}
           </div>
 
-          {/* Right button desktop */}
+          {/* Right buttons desktop — Sign in (quiet) + Sign up (loud CTA),
+              same convention as Notion / Canva / Linear. Both routes go to
+              /auth/signin since we have a single auth page; the "Sign up"
+              query param can later be used to flag first-time visitors. */}
           <div className="nav-right" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Link href="/auth/signin" className="nav-start"
+            <Link href="/auth/signin" className="nav-signin"
+              style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.85)', textDecoration: 'none', padding: '8px 14px', borderRadius: 10 }}>
+              Sign in
+            </Link>
+            <Link href="/auth/signin?intent=signup" className="nav-start"
               style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontSize: 14, fontWeight: 700, color: '#0D0D0D', textDecoration: 'none', padding: '8px 20px', borderRadius: 10, background: '#F5E642', border: '2px solid #0D0D0D', boxShadow: '3px 3px 0 #0D0D0D' }}>
-              Start Free →
+              Sign up
             </Link>
           </div>
 
@@ -84,13 +91,19 @@ export function StickyNav() {
           </a>
         ))}
         <Link href="/auth/signin" onClick={() => setMenuOpen(false)}
+          style={{ marginTop: 8, display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontSize: 16, fontWeight: 600, color: 'rgba(255,255,255,0.85)', textDecoration: 'none', padding: '10px 0', textAlign: 'center', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          Sign in
+        </Link>
+        <Link href="/auth/signin?intent=signup" onClick={() => setMenuOpen(false)}
           style={{ marginTop: 8, display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontSize: 16, fontWeight: 700, color: '#0D0D0D', textDecoration: 'none', padding: '12px 24px', borderRadius: 10, background: '#F5E642', border: '2px solid #0D0D0D', boxShadow: '3px 3px 0 #0D0D0D', textAlign: 'center' }}>
-          Start Free →
+          Sign up
         </Link>
       </div>
 
       <style>{`
         .nav-link:hover { color: #fff !important; background: rgba(255,255,255,0.08); }
+        .nav-signin:hover { color: #fff !important; background: rgba(255,255,255,0.08); }
+        .nav-signin { transition: background 0.15s, color 0.15s; }
         .nav-start:hover { transform: translate(2px,2px); box-shadow: 1px 1px 0 #0D0D0D !important; }
         .nav-start { transition: transform 0.15s, box-shadow 0.15s; }
         @media (max-width: 768px) {

@@ -64,9 +64,24 @@ const app = next({ dev })
 const handle = app.getRequestHandler()
 
 // ─── Database pool for session persistence ─────────────────────
+// max=20: a live quiz with 50+ participants fans out into many concurrent
+// auth checks, Prisma queries, and persist writes. The previous max=5 was
+// the dominant cause of the "site is sometimes unreachable" reports —
+// requests queued behind a tiny pool, hit Cloudflare's edge timeout, and
+// surfaced as 503s. Neon's pooled endpoint comfortably supports this.
 let dbPool = null
 if (process.env.DATABASE_URL) {
-  dbPool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 5 })
+  dbPool = new pg.Pool({
+    connectionString: process.env.DATABASE_URL,
+    max: 20,
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 5_000,
+  })
+  dbPool.on('error', (err) => {
+    // Idle connections can drop (Neon scale-to-zero, network blip) — log
+    // but don't crash; the pool will reconnect on the next checkout.
+    console.error('[db:pool] idle client error:', err?.message ?? err)
+  })
 }
 
 // ─── Belt-and-suspenders schema guard ──────────────────────────
@@ -2073,6 +2088,56 @@ app.prepare().then(async () => {
   httpServer.listen(port, () => {
     console.log(`> Quizotic running at http://localhost:${port} [${dev ? 'dev' : 'production'}]`)
   })
+
+  // ─── Graceful shutdown ───────────────────────────────────────────
+  // Without these handlers, every Railway redeploy hard-killed in-flight
+  // sockets and DB transactions. New instance took 30–60s to boot, so
+  // users saw "site unreachable" during every push (we shipped 4 today
+  // alone). On SIGTERM: stop accepting new connections, flush pending
+  // persists, close sockets, then exit. Railway gives 30s by default.
+  let shuttingDown = false
+  async function shutdown(signal) {
+    if (shuttingDown) return
+    shuttingDown = true
+    console.log(`[shutdown] received ${signal} — draining...`)
+    try {
+      // Stop accepting new HTTP/socket connections
+      io.close()
+      httpServer.close()
+      // Best-effort flush of any queued session-state persists
+      try { await _flushPendingPersist() } catch (err) { console.warn('[shutdown] flushPendingPersist failed:', err?.message ?? err) }
+      // Drain DB pool
+      if (dbPool) await dbPool.end().catch(() => {})
+      console.log('[shutdown] drained — exiting')
+    } catch (err) {
+      console.error('[shutdown] error during drain:', err)
+    } finally {
+      // Hard exit after 25s no matter what — beats Railway's 30s SIGKILL
+      setTimeout(() => process.exit(0), 25_000).unref()
+      process.exit(0)
+    }
+  }
+  process.on('SIGTERM', () => shutdown('SIGTERM'))
+  process.on('SIGINT', () => shutdown('SIGINT'))
+}).catch((err) => {
+  // Without this, a throw inside app.prepare() (Next.js boot failure,
+  // Sentry init crash, schema-guard timeout) silently hung the process.
+  console.error('[fatal] app.prepare failed:', err)
+  process.exit(1)
+})
+
+// ─── Top-level safety net ──────────────────────────────────────────
+// `app.prepare()` was previously a fire-and-forget — if it threw, the
+// process hung without ever calling `listen()`, looking healthy to
+// `ps` but invisible to traffic. Same for unhandled async rejections
+// inside socket handlers. Log loudly and let Railway restart us.
+process.on('uncaughtException', (err) => {
+  console.error('[fatal] uncaughtException:', err)
+  // Give logs/Sentry a moment to flush, then exit so Railway respawns.
+  setTimeout(() => process.exit(1), 1_000).unref()
+})
+process.on('unhandledRejection', (reason) => {
+  console.error('[fatal] unhandledRejection:', reason)
 })
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
