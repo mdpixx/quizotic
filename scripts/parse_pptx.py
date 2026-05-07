@@ -42,7 +42,11 @@ def render_slides_as_images(pptx_path, output_dir):
         print(f'PDF not created. LibreOffice stdout: {result.stdout}, stderr: {result.stderr}', file=sys.stderr)
         return []
 
-    # Step 2: PDF -> PNG images via pdftoppm.
+    return render_pdf_as_images(pdf_path, output_dir)
+
+
+def render_pdf_as_images(pdf_path, output_dir):
+    """Convert PDF -> PNG images via pdftoppm. Returns list of image paths in order."""
     # 150 DPI is plenty for presentation/browser display — 200 DPI doubles
     # file size and pdftoppm wall time with no perceptible quality gain on
     # typical 16:9 slide layouts. Import feels noticeably snappier.
@@ -173,17 +177,38 @@ if __name__ == '__main__':
     os.makedirs(output_dir, exist_ok=True)
 
     try:
-        # Text extraction and image rendering both read the PPTX independently
-        # and never share state — run them concurrently so the ~1-5s of
-        # python-pptx work happens while LibreOffice + pdftoppm chew through
-        # the 30-90s image pipeline, not after.
         from concurrent.futures import ThreadPoolExecutor
 
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            text_future = pool.submit(extract_text, filepath)
-            images_future = pool.submit(render_slides_as_images, filepath, output_dir)
-            text_data = text_future.result()
-            image_paths = images_future.result()
+        is_pdf = filepath.lower().endswith('.pdf')
+
+        if is_pdf:
+            # PDF input: skip LibreOffice, render pages directly with pdftoppm.
+            # No python-pptx text extraction — create title stubs per page.
+            image_paths = render_pdf_as_images(filepath, output_dir)
+            text_data = [{
+                'index': i,
+                'title': f'Slide {i + 1}',
+                'subtitle': None,
+                'bodyText': '',
+                'speakerNotes': None,
+                'fullText': '',
+                'layoutName': 'PDF',
+            } for i in range(len(image_paths))]
+        else:
+            # PPTX input: text extraction and image rendering run concurrently
+            # so the ~1-5s of python-pptx work happens while LibreOffice +
+            # pdftoppm chew through the 30-90s image pipeline, not after.
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                text_future = pool.submit(extract_text, filepath)
+                images_future = pool.submit(render_slides_as_images, filepath, output_dir)
+                text_data = text_future.result()
+                image_paths = images_future.result()
+
+            # LibreOffice sometimes emits one extra blank page at the start of
+            # the PDF output. Trim leading extras so image positions align with
+            # python-pptx slide indices.
+            if len(image_paths) > len(text_data):
+                image_paths = image_paths[len(image_paths) - len(text_data):]
 
         # Combine: pair each slide's text with its image path
         result = []
