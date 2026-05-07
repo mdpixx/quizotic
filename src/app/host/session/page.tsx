@@ -1444,13 +1444,13 @@ export default function SessionPage() {
                       {OPTION_LABELS[i]}
                     </span>
                     <span className="text-xl flex-1 text-gray-800 font-medium">{optText}</span>
-                    <span className="text-lg font-bold text-gray-400">{votes}</span>
+                    {correctRevealed && <span className="text-lg font-bold text-gray-400">{votes}</span>}
                     {highlightCorrect && <span className="text-green-600 text-lg font-bold">✓</span>}
                   </div>
                   <div className="h-2 bg-gray-100">
                     <div
                       className={`h-full transition-all duration-500 ${OPTION_COLORS[i]}`}
-                      style={{ width: `${pct}%` }}
+                      style={{ width: correctRevealed ? `${pct}%` : '0%' }}
                     />
                   </div>
                 </div>

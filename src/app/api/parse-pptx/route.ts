@@ -131,10 +131,11 @@ interface ProcessedPptx {
   tmpDir: string
 }
 
-async function processPptx(buffer: Buffer): Promise<ProcessedPptx> {
+async function processPptx(buffer: Buffer, originalName: string): Promise<ProcessedPptx> {
   const uuid = crypto.randomUUID()
   const tmpDir = path.join(tmpdir(), `pptx-${uuid}`)
-  const tmpPath = path.join(tmpDir, 'input.pptx')
+  const ext = originalName.toLowerCase().endsWith('.pdf') ? '.pdf' : '.pptx'
+  const tmpPath = path.join(tmpDir, `input${ext}`)
 
   const { mkdir } = await import('fs/promises')
   await mkdir(tmpDir, { recursive: true })
@@ -178,9 +179,10 @@ export async function POST(req: NextRequest) {
   }
 
   const name = file.name.toLowerCase()
-  if (!name.endsWith('.pptx')) {
+  const isPdf = name.endsWith('.pdf')
+  if (!name.endsWith('.pptx') && !isPdf) {
     return NextResponse.json(
-      { success: false, error: 'Invalid file type. Only .pptx files are supported.' },
+      { success: false, error: 'Invalid file type. Only .pptx and .pdf files are supported.' },
       { status: 400 }
     )
   }
@@ -196,26 +198,29 @@ export async function POST(req: NextRequest) {
   try {
     const buffer = Buffer.from(await file.arrayBuffer())
 
-    // Fast pre-check — reject oversized decks before running LibreOffice so
-    // users don't wait minutes only to learn the file is too big.
-    const quickCount = await countSlidesQuick(buffer)
-    if (quickCount > MAX_SLIDES) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Too many slides (${quickCount}). Maximum is ${MAX_SLIDES}. Please split your presentation into smaller decks and try again.`,
-        },
-        { status: 400 }
-      )
-    }
-    if (quickCount === 0) {
-      return NextResponse.json(
-        { success: false, error: 'No slides found in the presentation.' },
-        { status: 400 }
-      )
+    // Fast pre-check for PPTX only — reject oversized decks before running
+    // LibreOffice so users don't wait minutes only to learn the file is too big.
+    // PDF page count is determined by the Python script after rendering.
+    if (!isPdf) {
+      const quickCount = await countSlidesQuick(buffer)
+      if (quickCount > MAX_SLIDES) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Too many slides (${quickCount}). Maximum is ${MAX_SLIDES}. Please split your presentation into smaller decks and try again.`,
+          },
+          { status: 400 }
+        )
+      }
+      if (quickCount === 0) {
+        return NextResponse.json(
+          { success: false, error: 'No slides found in the presentation.' },
+          { status: 400 }
+        )
+      }
     }
 
-    const result = await processPptx(buffer)
+    const result = await processPptx(buffer, name)
     const pySlides = result.slides
     tmpDir = result.tmpDir
 

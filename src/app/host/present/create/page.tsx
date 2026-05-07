@@ -2005,7 +2005,7 @@ function PresentCreatePageInner() {
 
 
   async function importPptx(file: File) {
-    if (file.size > 20 * 1024 * 1024) { alert('PPTX must be under 20 MB'); return }
+    if (file.size > 20 * 1024 * 1024) { alert('File must be under 20 MB'); return }
     setPptxImporting(true)
     setPptxPercent(5)
     setPptxProgress('Uploading file...')
@@ -2374,8 +2374,8 @@ function PresentCreatePageInner() {
               <svg viewBox="0 0 20 20" fill="none" className="w-3.5 h-3.5">
                 <path d="M10 3v10m0 0l-3-3m3 3l3-3M4 14v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              Import from PowerPoint
-              <input type="file" accept=".pptx" className="hidden"
+              Import PDF / PPT
+              <input type="file" accept=".pptx,.pdf" className="hidden"
                 onChange={e => {
                   const file = e.target.files?.[0]
                   if (file) importPptx(file)
@@ -2383,7 +2383,7 @@ function PresentCreatePageInner() {
                 }} />
             </label>
             <p className="text-[12px] flex-1 min-w-0" style={{ color: '#0C4A6E' }}>
-              <strong>New deck?</strong> Upload a .pptx — we&apos;ll render each slide as an image. Then AI can add polls or quizzes between them.
+              <strong>New deck?</strong> Upload a .pptx or .pdf — we&apos;ll render each slide as an image. Then AI can add polls or quizzes between them.
             </p>
             <button
               type="button"
