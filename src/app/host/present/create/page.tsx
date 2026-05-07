@@ -1658,6 +1658,11 @@ function PresentCreatePageInner() {
   // Blocks autosave (and suppresses its error toast) while PPTX import is in flight.
   // One explicit post-import save runs in importPptx's finally — so genuine errors still surface then.
   const importingRef = useRef(false)
+  // Tracks the in-flight save fetch so a newer save (or unmount) can cancel
+  // the older one. Without this, rapid edits stack up parallel requests
+  // racing each other on classroom Wi-Fi, which surfaces as "Failed to fetch"
+  // toasts that never clear.
+  const saveAbortRef = useRef<AbortController | null>(null)
   // Stable ref to the current presentation id so autosave can write the draft key.
   // Pre-mint for new presentations so the hook has a key before the first save.
   const presentationIdRef = useRef<string>('')
@@ -1832,11 +1837,25 @@ function PresentCreatePageInner() {
     // This ensures a refresh can recover work even if the API call fails.
     const dk = draftKey('presentation', presentation.id)
     writeDraft(dk, payload)
+
+    // Cancel any save still in flight from a previous edit. On classroom
+    // Wi-Fi, rapid edits would otherwise stack up parallel requests racing
+    // each other; the slowest one's "Failed to fetch" surfaces as a toast.
+    saveAbortRef.current?.abort()
+    const controller = new AbortController()
+    saveAbortRef.current = controller
+    // 30s wall-clock cap. Cloudflare's edge timeout is ~100s, but anything
+    // over 30s on save is almost certainly hung — fail fast and let the
+    // hook's retry loop kick in instead of leaving the user staring at
+    // a spinner.
+    const timeoutId = setTimeout(() => controller.abort(new DOMException('Request timed out', 'TimeoutError')), 30_000)
+
     try {
       const res = await fetch('/api/presentations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: controller.signal,
       })
       const json = await res.json() as { success: boolean; data?: Presentation; error?: string }
       if (res.status === 403) {
@@ -1866,7 +1885,27 @@ function PresentCreatePageInner() {
       if (isManual) setSaved(true)
       return true
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Save failed'
+      // Aborted by a newer save — not an error, just stale. The newer save
+      // owns the result; pretend success so the autosave hook doesn't retry.
+      if (err instanceof DOMException && err.name === 'AbortError' && saveAbortRef.current !== controller) {
+        return true
+      }
+      // Translate the opaque "Failed to fetch" / TimeoutError into something
+      // a user can act on. Network errors are the dominant failure mode on
+      // classroom Wi-Fi; saying so + reassuring them their work is local
+      // is far more useful than the raw browser string.
+      let msg: string
+      if (err instanceof DOMException && err.name === 'TimeoutError') {
+        msg = 'Server took too long to respond. Your work is saved on this device — we\'ll keep retrying.'
+      } else if (err instanceof DOMException && err.name === 'AbortError') {
+        msg = 'Save was interrupted. Your work is saved on this device — we\'ll keep retrying.'
+      } else if (err instanceof TypeError) {
+        // Browser fetch throws TypeError for network failures (offline, DNS,
+        // CORS, dropped connection). Almost always a connectivity issue.
+        msg = 'Couldn\'t reach the server — check your connection. Your work is saved on this device.'
+      } else {
+        msg = err instanceof Error ? err.message : 'Save failed'
+      }
       // Suppress the error toast for autosaves that race with an ongoing PPTX import —
       // those transient failures clear themselves when the post-import manual save runs.
       if (importingRef.current && !isManual) {
@@ -1876,6 +1915,8 @@ function PresentCreatePageInner() {
       }
       return false
     } finally {
+      clearTimeout(timeoutId)
+      if (saveAbortRef.current === controller) saveAbortRef.current = null
       if (isManual) setSaving(false)
     }
   }
