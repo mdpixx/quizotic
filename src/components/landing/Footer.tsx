@@ -29,6 +29,38 @@ const RESOURCE_LINKS = [
   { href: '/alternatives/mentimeter', label: 'Mentimeter alternatives' },
 ]
 
+// Audience landing pages — give Google a clear signal that we serve each
+// segment, and surface them within 1 click of the home page.
+const FOR_LINKS = [
+  { href: '/for/teachers', label: 'For Teachers' },
+  { href: '/for/coaching-institutes', label: 'For Coaching Institutes' },
+  { href: '/for/corporate-trainers', label: 'For Corporate Trainers' },
+  { href: '/for/event-hosts', label: 'For Event Hosts' },
+]
+
+// Solution landing pages — high-intent product keywords. Each has its own
+// SEO page; without a footer link they were 2+ clicks deep and Google
+// deprioritized crawling them.
+const SOLUTION_LINKS = [
+  { href: '/live-quiz', label: 'Live Quiz' },
+  { href: '/interactive-presentation', label: 'Interactive Presentation' },
+  { href: '/ai-quiz-generator', label: 'AI Quiz Generator' },
+  { href: '/live-polling', label: 'Live Polling' },
+  { href: '/pdf-to-quiz', label: 'PDF to Quiz' },
+  { href: '/ncert-quiz-generator', label: 'NCERT Quiz Generator' },
+]
+
+// Hand-picked /learn articles with the strongest India-market search
+// intent. The full /learn index is still linked above for crawlers to
+// reach the long tail.
+const GUIDE_LINKS = [
+  { href: '/learn/how-to-run-a-live-quiz-cbse-classroom', label: 'Live quiz in CBSE class' },
+  { href: '/learn/best-quiz-app-jee-neet-coaching-institutes', label: 'Best quiz app for JEE/NEET' },
+  { href: '/learn/how-to-create-quiz-from-pdf', label: 'Make a quiz from a PDF' },
+  { href: '/learn/cbse-class-10-free-quiz-questions', label: 'CBSE Class 10 quiz bank' },
+  { href: '/learn/how-to-make-interactive-presentation', label: 'Interactive presentation guide' },
+]
+
 export function Footer() {
   return (
     <footer style={{ background: '#0F1B3D', borderTop: '2px solid #F5E642', padding: '48px 24px' }}>
@@ -68,6 +100,42 @@ export function Footer() {
             Resources
           </span>
           {RESOURCE_LINKS.map(l => (
+            <Link key={l.href} href={l.href} style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 13, color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>
+              {l.label}
+            </Link>
+          ))}
+        </div>
+
+        {/* For (audience) row */}
+        <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <span style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 12, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1 }}>
+            For
+          </span>
+          {FOR_LINKS.map(l => (
+            <Link key={l.href} href={l.href} style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 13, color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>
+              {l.label}
+            </Link>
+          ))}
+        </div>
+
+        {/* Solutions row */}
+        <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <span style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 12, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1 }}>
+            Solutions
+          </span>
+          {SOLUTION_LINKS.map(l => (
+            <Link key={l.href} href={l.href} style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 13, color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>
+              {l.label}
+            </Link>
+          ))}
+        </div>
+
+        {/* Popular guides row */}
+        <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <span style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 12, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1 }}>
+            Popular guides
+          </span>
+          {GUIDE_LINKS.map(l => (
             <Link key={l.href} href={l.href} style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 13, color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>
               {l.label}
             </Link>
