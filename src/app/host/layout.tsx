@@ -5,6 +5,11 @@ import { prisma } from '@/lib/prisma'
 
 export const metadata: Metadata = {
   title: 'Dashboard',
+  // Auth-gated app pages must never appear in search results. robots.txt
+  // already disallows /host/, but this is defence-in-depth: if a logged-in
+  // user shares a /host/* URL externally, the meta tag still tells crawlers
+  // not to index it.
+  robots: { index: false, follow: false },
 }
 
 export default async function HostLayout({ children }: { children: React.ReactNode }) {

@@ -1,4 +1,7 @@
-export const metadata = { title: 'Check Your Email' }
+export const metadata = {
+  title: 'Check Your Email',
+  robots: { index: false, follow: false },
+}
 
 export default function VerifyPage() {
   return (

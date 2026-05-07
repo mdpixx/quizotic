@@ -28,5 +28,9 @@ export async function GET(
     })
   }
 
+  // Tell crawlers not to index referral redirect URLs themselves — they're
+  // utility endpoints, not search-worthy pages.
+  response.headers.set('X-Robots-Tag', 'noindex, nofollow')
+
   return response
 }
