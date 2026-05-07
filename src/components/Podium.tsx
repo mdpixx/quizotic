@@ -261,7 +261,7 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
 
       {/* Podium — wider spacing and clipped internally so shake never pushes glow past the edge */}
       <div
-        className="flex items-end justify-center gap-5 sm:gap-6 relative"
+        className="flex items-end justify-center gap-3 sm:gap-6 relative"
         style={{
           minHeight: 320,
           animation: shake ? 'podiumShake 0.4s ease-in-out 1' : undefined,
@@ -279,8 +279,7 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
           return (
             <div
               key={entry.name}
-              className="flex flex-col items-center gap-2 relative"
-              style={{ width: top3.length === 1 ? 160 : 118 }}
+              className={`flex flex-col items-center gap-2 relative ${top3.length === 1 ? 'w-40' : 'w-[92px] sm:w-[118px]'}`}
             >
               {/* Spotlight halo behind winner — compact + softer so it doesn't spill outward */}
               {isWinner && !reduced && (phase === 'drumroll' || phase === 'winner' || phase === 'rest') && (
@@ -367,20 +366,26 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
 
               {/* Olympic-style step — metallic gradient bar with a brighter
                   top edge so it reads as a 3D tier. Label is white/dark
-                  chosen per tier for WCAG-AA contrast against the gradient. */}
+                  chosen per tier for WCAG-AA contrast against the gradient.
+                  Layout reserves the full height upfront and animates the
+                  visual via scaleY from the bottom, so the page does not
+                  reflow as bars grow (otherwise content below shifts down
+                  every frame). */}
               <div
                 className="w-full rounded-t-xl flex items-end justify-center relative overflow-hidden"
                 style={{
-                  height: visible ? (reduced ? cfg.height : 0) : 0,
+                  height: cfg.height,
+                  transformOrigin: 'bottom center',
+                  transform: visible
+                    ? reduced ? 'scaleY(1)' : undefined
+                    : 'scaleY(0)',
                   background: cfg.gradient,
-                  animation: visible && !reduced ? 'growBar 0.8s ease-out forwards' : undefined,
+                  animation: visible && !reduced ? 'growBarScale 0.8s ease-out forwards' : undefined,
                   boxShadow: isWinner
                     ? '0 -3px 12px rgba(255,179,0,0.22), inset 0 -6px 12px rgba(0,0,0,0.18)'
                     : 'inset 0 -4px 10px rgba(0,0,0,0.15)',
                   zIndex: 1,
                   paddingBottom: 14,
-                  // @ts-expect-error CSS custom property
-                  '--bar-height': `${cfg.height}px`,
                 }}
               >
                 {/* Top highlight strip — sells the "shiny metallic step" look */}
@@ -463,9 +468,9 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
       )}
 
       <style>{`
-        @keyframes growBar {
-          0% { height: 0; }
-          100% { height: var(--bar-height); }
+        @keyframes growBarScale {
+          0% { transform: scaleY(0); }
+          100% { transform: scaleY(1); }
         }
         @keyframes crownBounce {
           0% { transform: scale(0) rotate(-20deg); }

@@ -2116,8 +2116,8 @@ function JoinPageInner() {
   // ─── Ended Phase ───────────────────────────────────────────────────────────
   if (phase === 'ended') {
     return (
-      <div className="min-h-screen p-4 max-w-md mx-auto relative">
-        <h2 className="text-4xl font-black mb-6 text-center" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Quiz Over!</h2>
+      <div className="min-h-screen px-3 sm:px-4 pt-8 sm:pt-6 pb-4 max-w-md mx-auto relative overflow-x-hidden" style={{ paddingTop: 'max(2rem, env(safe-area-inset-top, 0px))' }}>
+        <h2 className="text-3xl sm:text-4xl font-black mb-5 text-center" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Quiz Over!</h2>
 
         {/* Team leaderboard */}
         {teamLeaderboard && teamLeaderboard.length > 0 && (

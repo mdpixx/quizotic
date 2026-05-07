@@ -223,25 +223,43 @@ function LiveVerticalBars({
               />
             </div>
 
-            {/* Floor line */}
+            {/* Floor line — drawn at the same y across all columns because
+                the label area below has a fixed min-height (2 lines worth)
+                regardless of how many lines the actual label wraps to. */}
             <div style={{ width: '100%', height: 2, background: 'rgba(0,0,0,0.08)', borderRadius: 1, margin: '3px 0' }} />
 
-            {/* Option label */}
-            <div style={{ textAlign: 'center', maxWidth: '100%', paddingTop: 4 }}>
+            {/* Option label + percentage — fixed height container so the
+                floor line and bar baseline stay aligned across columns
+                even when one label wraps to 2 lines. */}
+            <div style={{
+              textAlign: 'center',
+              maxWidth: '100%',
+              paddingTop: 4,
+              minHeight: '3.6em',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'flex-start',
+              alignItems: 'center',
+              gap: 3,
+            }}>
               <div style={{
                 fontSize: options.length > 4 ? 15 : 18,
                 fontWeight: 700,
                 color: isCorrect ? '#16A34A' : '#0F1B3D',
                 overflow: 'hidden',
-                textOverflow: 'ellipsis',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
                 whiteSpace: options.length > 6 ? 'nowrap' : 'normal',
+                textOverflow: 'ellipsis',
                 maxWidth: '100%',
                 lineHeight: 1.3,
+                wordBreak: 'break-word',
               }}>
                 {opt || `Option ${i + 1}`}
               </div>
               {showResults && total > 0 && (
-                <div style={{ fontSize: 15, color, fontWeight: 700, marginTop: 3 }}>
+                <div style={{ fontSize: 15, color, fontWeight: 700 }}>
                   {pct}%
                 </div>
               )}
