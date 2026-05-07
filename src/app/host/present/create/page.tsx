@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   type Slide, type SlideType, type Presentation,
-  SLIDE_TYPE_META, SLIDE_CATEGORIES, makeSlide,
+  SLIDE_TYPE_META, SLIDE_CATEGORIES, makeSlide, getSlideBg,
 } from '@/lib/presentation-types'
 import QRCode from 'react-qr-code'
 import { QuizThemePicker } from '@/components/host/QuizThemePicker'
@@ -173,31 +173,10 @@ const SLIDE_TYPE_DESCRIPTIONS: Record<SlideType, string> = {
 
 // ─── Gradient helpers for slide previews ──────────────────────────────────────
 
-function getSlideGradient(slide: Slide): string {
-  // Custom bgColor override for any slide
-  if (slide.bgColor) return slide.bgColor
-  switch (slide.type) {
-    case 'title': return '#FAFAF8'
-    case 'multiple_choice': return '#FFFFFF'
-    case 'open_text': return '#FFFFFF'
-    case 'word_cloud': return '#FFFFFF'
-    case 'rating_scale': return '#FFFFFF'
-    case 'ranking': return '#FFFFFF'
-    case 'image_choice': return '#E0F2FE'
-    case 'scale_100': return '#DCFCE7'
-    case 'pinpoint': return '#F3E8FF'
-    case 'grid_2x2': return '#CCFBF1'
-    case 'wheel': return '#FEF3C7'
-    case 'word_duel': return '#FEE2E2'
-    case 'live_race': return '#FFEDD5'
-    case 'emoji_pulse': return '#0F1B3D'
-    case 'quick_fire': return '#FFE4E6'
-    case 'bullets': return '#F8FAFC'
-    case 'quote': return '#1E293B'
-    case 'video': return '#0F172A'
-    case 'image': return '#F3F4F6'
-  }
-}
+// Slide background resolution lives in `@/lib/presentation-types` so the
+// editor preview, the live presenter view, and the participant view all paint
+// the same color. See `getSlideBg` import above.
+const getSlideGradient = getSlideBg
 
 function getBgLuminance(slide: Slide): number {
   const bg = slide.bgColor
@@ -592,12 +571,15 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
       case 'image_choice': {
         const opts = (slide as { options: string[]; imageUrls?: string[] }).options
         const imgs = (slide as { imageUrls?: string[] }).imageUrls || []
+        // Equal-share rows + items-stretch keeps every card the same size
+        // regardless of image presence. Without this, an uploaded image
+        // expands its row and the empty-placeholder row collapses.
         return (
-          <div className="w-full grid grid-cols-2 gap-2.5 h-full">
+          <div className="w-full grid grid-cols-2 gap-2.5 h-full" style={{ gridAutoRows: '1fr', alignItems: 'stretch' }}>
             {opts.slice(0, 6).map((opt, i) => (
-              <div key={i} className="rounded-xl overflow-hidden flex flex-col min-h-0"
-                style={{ background: '#F8FAFC', border: '2px solid #94A3B8', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-                <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden" style={{ background: '#E2E8F0' }}>
+              <div key={i} className="rounded-xl overflow-hidden flex flex-col"
+                style={{ background: '#F8FAFC', border: '2px solid #94A3B8', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', minHeight: 0 }}>
+                <div className="flex-1 flex items-center justify-center overflow-hidden" style={{ background: '#E2E8F0', minHeight: 0 }}>
                   {imgs[i] ? (
                     <img src={imgs[i]} alt={opt || `Choice ${i + 1}`} className="w-full h-full object-cover" />
                   ) : (

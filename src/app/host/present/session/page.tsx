@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { io, Socket } from 'socket.io-client'
 import QRCode from 'react-qr-code'
 import type { Slide, Presentation } from '@/lib/presentation-types'
-import { SLIDE_TYPE_META, shouldAutoShowResults } from '@/lib/presentation-types'
+import { SLIDE_TYPE_META, shouldAutoShowResults, getSlideBg } from '@/lib/presentation-types'
 import { getQuizTheme } from '@/lib/quiz-themes'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
 import { SlideImage } from '@/components/SlideImage'
@@ -576,13 +576,16 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
       )
 
     case 'title':
+      // Note: do NOT use slide.bgColor as the text color here — bgColor is
+      // the slide background (applied on the stage container via getSlideBg).
+      // headingStyle already provides theme-appropriate text color.
       return (
         <div className="flex flex-col items-center justify-center h-full text-center gap-4 px-4" style={{ containerType: 'inline-size' }}>
-          <h1 className="font-black leading-tight break-words" style={{ ...headingStyle, color: slide.bgColor || '#0F1B3D', fontSize: 'clamp(28px, 6cqw, 80px)' }}>
+          <h1 className="font-black leading-tight break-words" style={{ ...headingStyle, fontSize: 'clamp(28px, 6cqw, 80px)' }}>
             {slide.heading || 'Title'}
           </h1>
           {slide.subheading && (
-            <p className="break-words" style={{ color: (slide.bgColor || '#0F1B3D') + 'cc', fontSize: 'clamp(16px, 2.6cqw, 32px)' }}>{slide.subheading}</p>
+            <p className="break-words" style={{ ...headingStyle, opacity: 0.8, fontSize: 'clamp(16px, 2.6cqw, 32px)' }}>{slide.subheading}</p>
           )}
           <SlideImageFrame url={slide.contentImageUrl} />
         </div>
@@ -737,7 +740,7 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
           <h2 className="leading-snug flex-shrink-0 break-words" style={{ ...headingStyle, fontSize: 'clamp(20px, 3cqw, 40px)' }}>
             {slide.question || <span className="opacity-30">Question text...</span>}
           </h2>
-          <div className="flex-1 min-h-0 grid gap-4" style={{ gridTemplateColumns: `repeat(${Math.max(options.length, 1)}, minmax(0, 1fr))` }}>
+          <div className="flex-1 min-h-0 grid gap-4" style={{ gridTemplateColumns: `repeat(${Math.max(options.length, 1)}, minmax(0, 1fr))`, gridAutoRows: '1fr', alignItems: 'stretch' }}>
             {options.map((opt, i) => {
               const count = counts[i] ?? 0
               const pct = aggregate.total > 0 ? Math.round((count / aggregate.total) * 100) : 0
@@ -1407,7 +1410,10 @@ export default function PresentSessionPage() {
       )}
 
       {/* ── Main projected slide area ─────────────────────────────────────── */}
-      <div className="flex-1 relative overflow-hidden" style={{ minHeight: 0 }}>
+      {/* Per-slide bgColor wins over the theme background. Without this,
+          colors picked in the editor showed in the preview but vanished
+          on the projector. See getSlideBg() for the per-type fallback. */}
+      <div className="flex-1 relative overflow-hidden" style={{ minHeight: 0, background: getSlideBg(currentSlide) }}>
 
         {/* Floating top-right bar: votes + participants + always-visible join pill */}
         <div className="absolute top-4 right-4 flex items-center gap-2 z-30">

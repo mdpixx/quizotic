@@ -94,6 +94,35 @@ export function shouldAutoShowResults(type: SlideType | string | undefined): boo
   return (AUTO_SHOW_RESULT_TYPES as readonly string[]).includes(type)
 }
 
+// Resolves the slide's background color: explicit `bgColor` wins, otherwise a
+// per-type default. Used by both the editor preview and the live presentation
+// renderer so colors stay consistent — without this shared helper the editor
+// shows the chosen color but the live stage paints over it with the theme.
+export function getSlideBg(slide: { type: SlideType; bgColor?: string }): string {
+  if (slide.bgColor) return slide.bgColor
+  switch (slide.type) {
+    case 'title': return '#FAFAF8'
+    case 'multiple_choice':
+    case 'open_text':
+    case 'word_cloud':
+    case 'rating_scale':
+    case 'ranking': return '#FFFFFF'
+    case 'image_choice': return '#E0F2FE'
+    case 'scale_100': return '#DCFCE7'
+    case 'pinpoint': return '#F3E8FF'
+    case 'grid_2x2': return '#CCFBF1'
+    case 'wheel': return '#FEF3C7'
+    case 'word_duel': return '#FEE2E2'
+    case 'live_race': return '#FFEDD5'
+    case 'emoji_pulse': return '#0F1B3D'
+    case 'quick_fire': return '#FFE4E6'
+    case 'bullets': return '#F8FAFC'
+    case 'quote': return '#1E293B'
+    case 'video': return '#0F172A'
+    case 'image': return '#F3F4F6'
+  }
+}
+
 // ─── Slide data shapes ────────────────────────────────────────────────────────
 
 interface SlideBase {
