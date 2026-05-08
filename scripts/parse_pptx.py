@@ -67,6 +67,37 @@ def render_pdf_as_images(pdf_path, output_dir):
     return [os.path.join(output_dir, img) for img in images]
 
 
+def extract_pdf_text(pdf_path):
+    """Extract text per page from a PDF. Returns list of slide metadata
+    matching the shape produced by extract_text() for PPTX. Title is the
+    first non-empty line if it's short enough to look like a heading; falls
+    back to 'Slide N' otherwise so the sidebar list stays readable."""
+    from pypdf import PdfReader
+
+    reader = PdfReader(pdf_path)
+    out = []
+    for i, page in enumerate(reader.pages):
+        raw = (page.extract_text() or '').strip()
+        first_line = ''
+        if raw:
+            for line in raw.splitlines():
+                stripped = line.strip()
+                if stripped:
+                    first_line = stripped
+                    break
+        title = first_line if 0 < len(first_line) <= 80 else f'Slide {i + 1}'
+        out.append({
+            'index': i,
+            'title': title,
+            'subtitle': None,
+            'bodyText': raw,
+            'speakerNotes': None,
+            'fullText': raw,
+            'layoutName': 'PDF',
+        })
+    return out
+
+
 def extract_text(pptx_path):
     """Extract text per slide using python-pptx. Returns list of slide metadata."""
     prs = Presentation(pptx_path)
@@ -183,17 +214,37 @@ if __name__ == '__main__':
 
         if is_pdf:
             # PDF input: skip LibreOffice, render pages directly with pdftoppm.
-            # No python-pptx text extraction — create title stubs per page.
+            # Extract text per page so AI Enhance has context, falling back to
+            # title-only stubs if pypdf can't read the file (encrypted, etc).
             image_paths = render_pdf_as_images(filepath, output_dir)
-            text_data = [{
-                'index': i,
-                'title': f'Slide {i + 1}',
-                'subtitle': None,
-                'bodyText': '',
-                'speakerNotes': None,
-                'fullText': '',
-                'layoutName': 'PDF',
-            } for i in range(len(image_paths))]
+            try:
+                text_data = extract_pdf_text(filepath)
+            except Exception as e:
+                print(f'pypdf text extraction failed, using stubs: {e}', file=sys.stderr)
+                text_data = [{
+                    'index': i,
+                    'title': f'Slide {i + 1}',
+                    'subtitle': None,
+                    'bodyText': '',
+                    'speakerNotes': None,
+                    'fullText': '',
+                    'layoutName': 'PDF',
+                } for i in range(len(image_paths))]
+            # Align text page count with rendered image count if pypdf and
+            # pdftoppm disagree (rare, but defensive).
+            if len(text_data) > len(image_paths):
+                text_data = text_data[:len(image_paths)]
+            elif len(text_data) < len(image_paths):
+                for i in range(len(text_data), len(image_paths)):
+                    text_data.append({
+                        'index': i,
+                        'title': f'Slide {i + 1}',
+                        'subtitle': None,
+                        'bodyText': '',
+                        'speakerNotes': None,
+                        'fullText': '',
+                        'layoutName': 'PDF',
+                    })
         else:
             # PPTX input: text extraction and image rendering run concurrently
             # so the ~1-5s of python-pptx work happens while LibreOffice +

@@ -10,60 +10,18 @@ import { writeFile, unlink, readFile, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import path from 'path'
 import JSZip from 'jszip'
+import {
+  type MappedSlide,
+  type PythonSlideOutput,
+  isAllowedDeckFilename,
+  pickPresentationTitle,
+  toBulletsFallback,
+} from '@/lib/parse-pptx-helpers'
 
 const execFileAsync = promisify(execFile)
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024 // 20MB
 const MAX_SLIDES = 50
-
-// ─── Python output types ────────────────────────────────────────────────────
-
-interface PythonSlideOutput {
-  index: number
-  title: string | null
-  subtitle: string | null
-  bodyText: string
-  speakerNotes: string | null
-  fullText: string
-  layoutName: string
-  imagePath: string | null
-}
-
-// ─── Mapped slide output ────────────────────────────────────────────────────
-
-type MappedSlide =
-  | {
-      suggestedType: 'image'
-      imageUrl: string
-      caption: string
-      aiContext?: string // hidden text for AI enhancement
-      originalIndex: number
-    }
-  | {
-      // Fallback when image rendering or R2 upload fails for a single slide —
-      // we keep the slide in the deck so users don't silently lose content,
-      // using python-pptx's extracted title + body text.
-      suggestedType: 'bullets'
-      heading: string
-      bullets: string[]
-      aiContext?: string
-      originalIndex: number
-    }
-
-function toBulletsFallback(slide: PythonSlideOutput): Extract<MappedSlide, { suggestedType: 'bullets' }> {
-  const bullets = (slide.bodyText || '')
-    .split('\n')
-    .map(b => b.trim())
-    .filter(Boolean)
-    .slice(0, 6)
-  return {
-    suggestedType: 'bullets',
-    heading: slide.title ?? `Slide ${slide.index + 1}`,
-    bullets: bullets.length > 0 ? bullets : ['(image could not be rendered)'],
-    aiContext: slide.fullText || undefined,
-    originalIndex: slide.index,
-  }
-}
 
 // ─── R2 upload helper ───────────────────────────────────────────────────────
 
@@ -180,7 +138,7 @@ export async function POST(req: NextRequest) {
 
   const name = file.name.toLowerCase()
   const isPdf = name.endsWith('.pdf')
-  if (!name.endsWith('.pptx') && !isPdf) {
+  if (!isAllowedDeckFilename(name)) {
     return NextResponse.json(
       { success: false, error: 'Invalid file type. Only .pptx and .pdf files are supported.' },
       { status: 400 }
@@ -242,22 +200,7 @@ export async function POST(req: NextRequest) {
 
     // Get presentation title from first slide with a title.
     // Defensive truncation in case Python returned a long mashed title anyway.
-    let presTitle: string | undefined
-    for (const s of pySlides) {
-      if (s.title && s.title.length > 0) {
-        let t = s.title
-        if (t.length > 100) {
-          const breakAt = t.search(/[.\n]/)
-          t = (breakAt > 10 ? t.slice(0, breakAt) : t.slice(0, 100)).trim()
-        }
-        // Fall back to filename if title is still too long / looks concatenated
-        if (t.length > 100) {
-          t = file.name.replace(/\.pptx$/i, '').slice(0, 80)
-        }
-        presTitle = t
-        break
-      }
-    }
+    const presTitle = pickPresentationTitle(pySlides, file.name)
 
     // Upload slide images to R2 in batches
     const BATCH_SIZE = 5
