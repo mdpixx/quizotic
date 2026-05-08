@@ -2446,8 +2446,8 @@ function PresentCreatePageInner() {
                 <svg viewBox="0 0 20 20" fill="none" className="w-3.5 h-3.5">
                   <path d="M10 3v10m0 0l-3-3m3 3l3-3M4 14v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-                {pptxImportedCount > 0 ? `Import PPTX (${pptxImportedCount} added)` : 'Import PPTX'}
-                <input type="file" accept=".pptx" className="hidden"
+                {pptxImportedCount > 0 ? `Import PPTX/PDF (${pptxImportedCount} added)` : 'Import PPTX/PDF'}
+                <input type="file" accept=".pptx,.pdf" className="hidden"
                   onChange={e => {
                     const file = e.target.files?.[0]
                     if (file) importPptx(file)
@@ -3046,7 +3046,7 @@ function PresentCreatePageInner() {
           <div className="flex items-start gap-2 pt-2 border-t" style={{ borderColor: '#E0E7FF' }}>
             <span className="text-sm flex-shrink-0" aria-hidden>🎬</span>
             <p className="text-[11px] leading-snug" style={{ color: '#6B7280' }}>
-              Had videos in your deck? PPTX import captures them as still
+              Had videos in your deck? Slide imports capture them as still
               images — use <strong style={{ color: '#4F46E5' }}>Add Slide → Video</strong> to paste a YouTube/Vimeo URL at the right position.
             </p>
           </div>
