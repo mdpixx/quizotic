@@ -12,7 +12,7 @@ import { PostSessionHeader } from '@/components/PostSessionHeader'
 import { CelebrationConfetti } from '@/components/CelebrationConfetti'
 import { SessionReport } from '@/components/SessionReport'
 import { LeaderboardView } from '@/components/LeaderboardView'
-import { playLeaderboardJingle, playTick } from '@/lib/sounds'
+import { playLeaderboardJingle, playTick, playBackgroundMusic, stopBackgroundMusic } from '@/lib/sounds'
 
 const CelebrationOverlay = dynamic(
   () => import('@/components/CelebrationOverlay').then(m => m.CelebrationOverlay),
@@ -202,6 +202,7 @@ export default function SessionPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
   const [optionCounts, setOptionCounts] = useState<number[]>([])
   const [paused, setPaused] = useState(false)
+  const [musicOn, setMusicOn] = useState(false)
   const [hostTimeLeft, setHostTimeLeft] = useState(0)
   const hostTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [plan, setPlan] = useState<'free' | 'pro'>('free')
@@ -295,6 +296,22 @@ export default function SessionPage() {
       if (d.plan === 'pro') setPlan('pro')
     }).catch(() => {})
   }, [])
+
+  // Hydrate background-music preference from localStorage on mount.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (localStorage.getItem('quizotic_host_musicOn') === 'true') setMusicOn(true)
+  }, [])
+
+  // Drive background music on/off + persist the host's choice. Cleanup stops
+  // the loop on unmount so navigating away or ending the session kills audio.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (musicOn) playBackgroundMusic()
+    else stopBackgroundMusic()
+    localStorage.setItem('quizotic_host_musicOn', String(musicOn))
+    return () => { stopBackgroundMusic() }
+  }, [musicOn])
 
   // Load ghost candidates when ghost mode is enabled
   useEffect(() => {
@@ -1532,7 +1549,19 @@ export default function SessionPage() {
             </button>
           )}
 
-          <div className="flex items-center justify-end gap-3 pt-3">
+          <div className="flex items-center justify-between gap-3 pt-3 flex-wrap">
+            <button
+              onClick={() => setMusicOn(m => !m)}
+              title={musicOn ? 'Background music is playing — click to mute' : 'Play low-volume background music during the quiz'}
+              className="flex items-center gap-2 px-5 py-3 rounded-xl text-base font-bold transition-all"
+              style={{
+                background: musicOn ? '#FEF3C7' : '#fff',
+                color: musicOn ? '#B45309' : '#6B7280',
+                border: `1.5px solid ${musicOn ? '#FCD34D' : '#E5E7EB'}`,
+              }}>
+              {musicOn ? '🎵 Music On' : '🎶 Music Off'}
+            </button>
+            <div className="flex items-center gap-3">
             <button
               onClick={() => {
                 if (paused) {
@@ -1604,6 +1633,7 @@ export default function SessionPage() {
                 </button>
               )
             })()}
+            </div>
           </div>
         </div>
       )}
