@@ -29,6 +29,7 @@ import { BrandWatermark } from '@/components/BrandWatermark'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
 import { JoinPill } from '@/components/host/JoinPill'
 import { getQuizTheme } from '@/lib/quiz-themes'
+import { buildLeaderboardStageRows, getPostQuestionAction } from '@/lib/host-stage'
 
 type Phase = 'loading' | 'error' | 'idle' | 'lobby' | 'question' | 'standings' | 'ended'
 
@@ -210,6 +211,9 @@ export default function SessionPage() {
   const [rankingSubmissions, setRankingSubmissions] = useState<number[][]>([])
   const [attendees, setAttendees] = useState<Array<{ joinedAt: string; leftAt: string | null; durationSec: number | null }>>([])
   const [intermediateLeaderboard, setIntermediateLeaderboard] = useState<LeaderboardEntry[]>([])
+  const intermediateLeaderboardRef = useRef<LeaderboardEntry[]>([])
+  useEffect(() => { intermediateLeaderboardRef.current = intermediateLeaderboard }, [intermediateLeaderboard])
+  const [previousIntermediateLeaderboard, setPreviousIntermediateLeaderboard] = useState<LeaderboardEntry[]>([])
   const [topMovers, setTopMovers] = useState<TopMover[]>([])
   const [standingsRecommended, setStandingsRecommended] = useState(false)
   const [countdownValue, setCountdownValue] = useState<number | null>(null)
@@ -219,6 +223,7 @@ export default function SessionPage() {
   // Soft auto-advance on standings — null means disabled / cancelled.
   // Number is the remaining ms before nextQuestion() fires automatically.
   const [standingsAutoMs, setStandingsAutoMs] = useState<number | null>(null)
+  const isHostStagePreview = process.env.NODE_ENV !== 'production' && typeof window !== 'undefined' && window.location.search.includes('preview=host-stage')
 
   // Soft auto-advance — when the host enters the standings phase, start the
   // countdown. Hitting "Hold" sets standingsAutoMs to null and the countdown
@@ -228,8 +233,12 @@ export default function SessionPage() {
       setStandingsAutoMs(null)
       return
     }
+    if (isHostStagePreview) {
+      setStandingsAutoMs(null)
+      return
+    }
     setStandingsAutoMs(STANDINGS_AUTO_TOTAL_MS)
-  }, [phase])
+  }, [phase, isHostStagePreview])
 
   useEffect(() => {
     if (phase !== 'standings') return
@@ -283,13 +292,51 @@ export default function SessionPage() {
 
   useEffect(() => {
     const session = getActiveSession()
+    if (!session && isHostStagePreview) {
+      const previewQuiz: Quiz = {
+        id: 'preview-host-stage',
+        title: 'Host Stage Preview',
+        subject: 'Demo',
+        language: 'en',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        questions: [
+          {
+            id: 'q1',
+            type: 'mcq',
+            text: 'Which planet is closest to the Sun?',
+            options: ['Mercury', 'Venus', 'Earth', 'Mars'],
+            correctAnswer: '0',
+            timerSeconds: 20,
+            points: 1000,
+            explanation: 'Mercury is the innermost planet in our Solar System.',
+            bloomsLevel: 'remember',
+          },
+          {
+            id: 'q2',
+            type: 'mcq',
+            text: 'A student answers correctly in the final second. What should the scoring system still reward?',
+            options: ['Nothing', 'Accuracy with lower speed points', 'Only streaks', 'Manual points'],
+            correctAnswer: '1',
+            timerSeconds: 30,
+            points: 1000,
+            explanation: 'A good live quiz rewards correctness while still making speed matter.',
+            bloomsLevel: 'understand',
+          },
+        ],
+      }
+      setActiveSession(previewQuiz)
+      setQuiz(previewQuiz)
+      setPhase('idle')
+      return
+    }
     if (!session) {
       setPhase('error')
       return
     }
     setQuiz(session)
     setPhase('idle')
-  }, [])
+  }, [isHostStagePreview])
 
   useEffect(() => {
     fetch('/api/billing/status').then(r => r.json()).then(d => {
@@ -495,6 +542,7 @@ export default function SessionPage() {
       topMovers?: TopMover[];
       standingsRecommended?: boolean;
     }) => {
+      setPreviousIntermediateLeaderboard(intermediateLeaderboardRef.current)
       setIntermediateLeaderboard(top)
       if (tlb) setTeamLeaderboard(tlb)
       setTopMovers(tm ?? [])
@@ -700,6 +748,9 @@ export default function SessionPage() {
     socketRef.current.emit('start_quiz', { gameCode })
     setAnswered(0)
     setOptionCounts([])
+    setIntermediateLeaderboard([])
+    setPreviousIntermediateLeaderboard([])
+    setTopMovers([])
     setQuestionStartedAt(null)
     setRankingSubmissions([])
     setQuestionIndex(0)
@@ -767,6 +818,61 @@ export default function SessionPage() {
   function goBackToLibrary() {
     clearActiveSession()
     router.push('/host')
+  }
+
+  function seedHostStagePreviewParticipants() {
+    const previewPlayers: Array<[string, { name: string; archetype: string; connected: boolean }]> = [
+      ['pid:preview-asha', { name: 'Asha', archetype: 'Solar Panther', connected: true }],
+      ['pid:preview-ravi', { name: 'Ravi', archetype: 'Mystic Eagle', connected: true }],
+      ['pid:preview-meera', { name: 'Meera', archetype: 'Neon Tiger', connected: true }],
+      ['pid:preview-kabir', { name: 'Kabir', archetype: 'Cosmic Fox', connected: true }],
+      ['pid:preview-zoya', { name: 'Zoya', archetype: 'Pixel Falcon', connected: true }],
+      ['pid:preview-isha', { name: 'Isha', archetype: 'Thunder Panda', connected: true }],
+      ['pid:preview-aman', { name: 'Aman', archetype: 'Lunar Shark', connected: true }],
+      ['pid:preview-nia', { name: 'Nia', archetype: 'Emerald Lynx', connected: true }],
+    ]
+    setParticipants(new Map(previewPlayers))
+    setAnswered(6)
+    setOptionCounts([4, 1, 1, 0])
+    setQuestionEnded(false)
+    setCorrectRevealed(false)
+    setExplanation(null)
+  }
+
+  function revealHostStagePreviewAnswers() {
+    if (participants.size === 0) seedHostStagePreviewParticipants()
+    setAnswered(8)
+    setOptionCounts([5, 1, 1, 1])
+    setQuestionEnded(true)
+    setCorrectRevealed(true)
+    setExplanation(currentQuestion?.explanation ?? null)
+    setHostTimeLeft(0)
+    if (hostTimerRef.current) { clearInterval(hostTimerRef.current); hostTimerRef.current = null }
+  }
+
+  function showHostStagePreviewStandings() {
+    setPreviousIntermediateLeaderboard([
+      { name: 'Asha', archetype: 'Solar Panther', score: 1840 },
+      { name: 'Ravi', archetype: 'Mystic Eagle', score: 1710 },
+      { name: 'Meera', archetype: 'Neon Tiger', score: 1320 },
+      { name: 'Kabir', archetype: 'Cosmic Fox', score: 1120 },
+      { name: 'Zoya', archetype: 'Pixel Falcon', score: 900 },
+      { name: 'Isha', archetype: 'Thunder Panda', score: 820 },
+    ])
+    setIntermediateLeaderboard([
+      { name: 'Meera', archetype: 'Neon Tiger', score: 2310 },
+      { name: 'Asha', archetype: 'Solar Panther', score: 2190 },
+      { name: 'Ravi', archetype: 'Mystic Eagle', score: 1810 },
+      { name: 'Isha', archetype: 'Thunder Panda', score: 1640 },
+      { name: 'Kabir', archetype: 'Cosmic Fox', score: 1120 },
+      { name: 'Zoya', archetype: 'Pixel Falcon', score: 900 },
+    ])
+    setTopMovers([
+      { name: 'Meera', archetype: 'Neon Tiger', fromRank: 3, toRank: 1, delta: 2 },
+      { name: 'Isha', archetype: 'Thunder Panda', fromRank: 6, toRank: 4, delta: 2 },
+    ])
+    setStandingsRecommended(true)
+    setPhase('standings')
   }
 
   if (phase === 'loading') {
@@ -1118,16 +1224,16 @@ export default function SessionPage() {
 
             <button
               onClick={startQuiz}
-              disabled={connectedCount === 0 || !socketConnected}
+              disabled={(!isHostStagePreview && connectedCount === 0) || !socketConnected}
               className="w-full font-black rounded-2xl py-5 text-xl disabled:opacity-40 disabled:pointer-events-none transition-all hover:scale-[1.01]"
               style={{
-                background: connectedCount > 0 && socketConnected ? 'linear-gradient(135deg, #F5E642 0%, #FFB800 100%)' : 'rgba(255,255,255,0.25)',
-                color: connectedCount > 0 && socketConnected ? '#46107a' : '#ffffff',
-                boxShadow: connectedCount > 0 && socketConnected ? '0 8px 0 rgba(0,0,0,0.2)' : undefined,
+                background: (connectedCount > 0 || isHostStagePreview) && socketConnected ? 'linear-gradient(135deg, #F5E642 0%, #FFB800 100%)' : 'rgba(255,255,255,0.25)',
+                color: (connectedCount > 0 || isHostStagePreview) && socketConnected ? '#46107a' : '#ffffff',
+                boxShadow: (connectedCount > 0 || isHostStagePreview) && socketConnected ? '0 8px 0 rgba(0,0,0,0.2)' : undefined,
                 fontFamily: 'var(--font-heading)',
               }}
             >
-              {!socketConnected ? 'Reconnecting…' : connectedCount === 0 ? 'Waiting for players…' : `▶ Start Quiz (${connectedCount})`}
+              {!socketConnected ? 'Reconnecting…' : connectedCount === 0 && !isHostStagePreview ? 'Waiting for players…' : `▶ Start Quiz (${connectedCount})`}
             </button>
           </div>
 
@@ -1165,7 +1271,14 @@ export default function SessionPage() {
 
       {/* QUESTION */}
       {phase === 'question' && currentQuestion && quiz && (
-        <div className="p-4 max-w-2xl mx-auto py-8 space-y-4">
+        <div
+          className="min-h-screen px-4 py-5 lg:px-8 lg:py-6 space-y-5"
+          style={{
+            background:
+              'radial-gradient(circle at 15% 12%, rgba(245,230,66,0.22), transparent 28%), radial-gradient(circle at 85% 18%, rgba(19,104,206,0.22), transparent 30%), linear-gradient(135deg, #071126 0%, #0F1B3D 52%, #111827 100%)',
+            color: '#FFFFFF',
+          }}
+        >
           {/* Persistent join pill — lets late participants jump in mid-session */}
           <JoinPill gameCode={gameCode} />
           {/* 3-2-1 Countdown overlay */}
@@ -1198,29 +1311,77 @@ export default function SessionPage() {
             </div>
           )}
 
-          <div className="flex items-center justify-between">
-            <span className="text-xl text-gray-500 font-semibold">Q{questionIndex + 1} / {quiz.questions.length}</span>
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+            <div>
+              <span className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: 'rgba(255,255,255,0.52)' }}>
+                Live Question
+              </span>
+              <div className="mt-1 flex items-center gap-3">
+                <span className="text-3xl md:text-4xl font-black tabular-nums" style={{ fontFamily: 'var(--font-heading)', color: '#F5E642' }}>
+                  Q{questionIndex + 1}
+                </span>
+                <span className="text-lg md:text-xl font-bold" style={{ color: 'rgba(255,255,255,0.72)' }}>
+                  of {quiz.questions.length}
+                </span>
+              </div>
+            </div>
             <div className="flex items-center gap-3">
               {currentQuestion.timerSeconds > 0 && (
                 questionStartedAt == null || Date.now() < questionStartedAt ? (
-                  <span className="text-sm font-semibold text-gray-400 animate-pulse px-3 py-1">Loading…</span>
+                  <span className="text-sm font-semibold animate-pulse px-4 py-2 rounded-full" style={{ color: '#F5E642', background: 'rgba(255,255,255,0.08)' }}>Loading…</span>
                 ) : (
                   <CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} />
                 )
               )}
-              <span className="bg-blue-50 border border-blue-100 rounded-full px-5 py-2 text-xl font-bold" style={{ color: '#0F1B3D' }}>
-                {answered} / {connectedCount} answered
+              <span className="rounded-full px-5 py-2 text-xl font-black tabular-nums" style={{ color: '#0F1B3D', background: '#F5E642', boxShadow: '0 6px 0 rgba(0,0,0,0.24)' }}>
+                {answered}/{connectedCount}
+                <span className="ml-2 text-sm uppercase tracking-wider">answered</span>
               </span>
             </div>
           </div>
 
           {/* Progress bar */}
-          <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden">
+          <div className="max-w-7xl mx-auto h-3 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.14)' }}>
             <div
-              className="h-full bg-amber-400 rounded-full transition-all duration-300"
-              style={{ width: connectedCount > 0 ? `${(answered / connectedCount) * 100}%` : '0%' }}
+              className="h-full rounded-full transition-all duration-300"
+              style={{
+                width: connectedCount > 0 ? `${(answered / connectedCount) * 100}%` : '0%',
+                background: 'linear-gradient(90deg, #F5E642 0%, #22C55E 100%)',
+              }}
             />
           </div>
+
+          {isHostStagePreview && (
+            <div className="max-w-7xl mx-auto flex flex-wrap items-center gap-2 rounded-2xl p-3" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.16)' }}>
+              <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: 'rgba(255,255,255,0.58)' }}>
+                Preview simulator
+              </span>
+              <button
+                type="button"
+                onClick={seedHostStagePreviewParticipants}
+                className="px-3 py-2 rounded-xl text-xs font-black transition-all hover:scale-[1.02]"
+                style={{ background: '#FFFFFF', color: '#0F1B3D' }}
+              >
+                Fill live answers
+              </button>
+              <button
+                type="button"
+                onClick={revealHostStagePreviewAnswers}
+                className="px-3 py-2 rounded-xl text-xs font-black transition-all hover:scale-[1.02]"
+                style={{ background: '#16A34A', color: '#FFFFFF' }}
+              >
+                Reveal sample answer
+              </button>
+              <button
+                type="button"
+                onClick={showHostStagePreviewStandings}
+                className="px-3 py-2 rounded-xl text-xs font-black transition-all hover:scale-[1.02]"
+                style={{ background: '#F5E642', color: '#0F1B3D' }}
+              >
+                Show moving standings
+              </button>
+            </div>
+          )}
 
           {/* Case scenario card (shown for 'case' type) */}
           {currentQuestion.type === 'case' && currentQuestion.scenarioText && (
@@ -1234,20 +1395,27 @@ export default function SessionPage() {
           )}
 
           {/* Question card — text auto-scales so long questions stay in view */}
-          <div className={`bg-white rounded-2xl shadow-sm border p-8 ${currentQuestion.type === 'case' ? 'border-blue-200 border-t-4 border-t-blue-500' : 'border-gray-200 border-t-4 border-t-amber-400'}`}>
+          <div
+            className={`max-w-7xl mx-auto rounded-[28px] shadow-2xl border p-8 md:p-12 ${currentQuestion.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
+            style={{
+              background: 'rgba(255,255,255,0.96)',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.35)',
+            }}
+          >
             <p
               className="font-bold leading-snug break-words"
               style={{
                 color: '#0F1B3D',
                 fontSize: (() => {
                   const len = currentQuestion.text.length
-                  if (len > 240) return '1.125rem'
-                  if (len > 180) return '1.25rem'
-                  if (len > 120) return '1.5rem'
-                  if (len > 70) return '1.75rem'
-                  return '1.875rem'
+                  if (len > 240) return '1.75rem'
+                  if (len > 180) return '2rem'
+                  if (len > 120) return '2.35rem'
+                  if (len > 70) return '2.75rem'
+                  return '3.25rem'
                 })(),
-                lineHeight: 1.3,
+                lineHeight: 1.08,
+                fontFamily: 'var(--font-heading)',
               }}
             >
               {currentQuestion.text}
@@ -1438,7 +1606,7 @@ export default function SessionPage() {
               )}
             </div>
           ) : (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
             {getEffectiveOptions(currentQuestion)?.map((opt, i) => {
               const votes = optionCounts[i] ?? 0
               const pct = connectedCount > 0 ? (votes / connectedCount) * 100 : 0
@@ -1451,29 +1619,60 @@ export default function SessionPage() {
               return (
                 <div
                   key={i}
-                  className={`rounded-xl overflow-hidden border ${highlightCorrect ? 'ring-2 ring-green-400 border-green-300 bg-green-50' : 'bg-white border-gray-200'}`}
+                  className={`rounded-2xl overflow-hidden border-2 transition-all ${highlightCorrect ? 'ring-4 ring-green-300 border-green-200' : 'border-white/15'}`}
+                  style={{
+                    background: highlightCorrect
+                      ? '#DCFCE7'
+                      : 'rgba(255,255,255,0.96)',
+                    boxShadow: highlightCorrect
+                      ? '0 18px 50px rgba(34,197,94,0.3)'
+                      : '0 12px 34px rgba(0,0,0,0.22)',
+                  }}
                 >
                   {optImage && (
                     <img src={optImage} alt="" className="w-full h-32 object-cover" loading="lazy" />
                   )}
-                  <div className="p-5 flex items-center gap-3">
-                    <span className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold text-white flex-shrink-0 ${OPTION_COLORS[i]}`}>
+                  <div className="p-5 md:p-7 flex items-center gap-4">
+                    <span className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black text-white flex-shrink-0 ${OPTION_COLORS[i]}`} style={{ boxShadow: '0 6px 0 rgba(0,0,0,0.16)' }}>
                       {OPTION_LABELS[i]}
                     </span>
-                    <span className="text-xl flex-1 text-gray-800 font-medium">{optText}</span>
-                    {correctRevealed && <span className="text-lg font-bold text-gray-400">{votes}</span>}
-                    {highlightCorrect && <span className="text-green-600 text-lg font-bold">✓</span>}
+                    <span className="text-2xl md:text-3xl flex-1 text-gray-900 font-black leading-tight">{optText}</span>
+                    {correctRevealed && <span className="text-2xl font-black tabular-nums text-gray-500">{votes}</span>}
+                    {highlightCorrect && <span className="text-green-600 text-3xl font-black">✓</span>}
                   </div>
-                  <div className="h-2 bg-gray-100">
+                  <div className={`h-3 ${highlightCorrect ? 'bg-[#BBF7D0]' : 'bg-gray-100'}`}>
                     <div
-                      className={`h-full transition-all duration-500 ${OPTION_COLORS[i]}`}
-                      style={{ width: correctRevealed ? `${pct}%` : '0%' }}
+                      className={`h-full transition-all duration-500 ${highlightCorrect ? 'bg-green-500' : OPTION_COLORS[i]}`}
+                      style={{ width: highlightCorrect ? '100%' : correctRevealed ? `${pct}%` : '0%' }}
                     />
                   </div>
                 </div>
               )
             })}
           </div>
+          )}
+
+          {isScoredType(currentQuestion.type) && questionEnded && correctRevealed && (
+            <div
+              className="max-w-7xl mx-auto rounded-3xl p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-4"
+              style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.18)' }}
+            >
+              <div className="flex-1">
+                <p className="text-xs font-black uppercase tracking-[0.22em]" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                  Answer Reveal
+                </p>
+                <p className="mt-1 text-2xl md:text-3xl font-black" style={{ color: '#FFFFFF', fontFamily: 'var(--font-heading)' }}>
+                  {connectedCount > 0
+                    ? `${Math.round(((optionCounts[Number(currentQuestion.correctAnswer)] ?? 0) / connectedCount) * 100)}% got it right`
+                    : 'Waiting for answers'}
+                </p>
+              </div>
+              {explanation && (
+                <p className="md:max-w-2xl text-base md:text-lg leading-snug font-semibold" style={{ color: 'rgba(255,255,255,0.82)' }}>
+                  {explanation}
+                </p>
+              )}
+            </div>
           )}
 
           {/* Drawing gallery — P3.4 */}
@@ -1584,7 +1783,6 @@ export default function SessionPage() {
             {(() => {
               const isLast = questionIndex + 1 >= quiz.questions.length
               const scoredQ = isScoredType(currentQuestion.type)
-              const goesToStandings = sessionMode === 'competitive' && scoredQ && questionEnded && !isLast
               if (!questionEnded) {
                 // Live question — primary action is intentionally muted to
                 // prevent accidental skips. Two-tap confirmation: first tap
@@ -1614,18 +1812,32 @@ export default function SessionPage() {
                   </button>
                 )
               }
-              const label = isLast
-                ? 'End Quiz'
-                : goesToStandings
+              const action = getPostQuestionAction({
+                sessionMode,
+                isScored: scoredQ,
+                questionEnded,
+                correctRevealed,
+                isLastQuestion: isLast,
+              })
+              const label = action === 'reveal'
+                ? 'Reveal Answer'
+                : action === 'standings'
                   ? (standingsRecommended ? 'View Standings (recommended)' : 'View Standings')
-                  : 'Next Question'
+                  : action === 'end'
+                    ? 'End Quiz'
+                    : 'Next Question'
+              const onClick = action === 'reveal'
+                ? () => setCorrectRevealed(true)
+                : action === 'standings'
+                  ? advanceFromQuestion
+                  : nextQuestion
               return (
                 <button
-                  onClick={goesToStandings ? advanceFromQuestion : nextQuestion}
+                  onClick={onClick}
                   className="inline-flex items-center gap-2 px-6 py-2.5 font-black text-sm rounded-full transition-colors shadow-md animate-pulse"
                   style={{
-                    background: goesToStandings && standingsRecommended ? '#F5E642' : '#FBBF24',
-                    color: '#0F1B3D',
+                    background: action === 'reveal' ? '#16A34A' : action === 'standings' && standingsRecommended ? '#F5E642' : '#FBBF24',
+                    color: action === 'reveal' ? '#FFFFFF' : '#0F1B3D',
                   }}
                 >
                   {label}
@@ -1640,28 +1852,30 @@ export default function SessionPage() {
 
       {/* STANDINGS — dedicated between-questions screen for competitive quizzes */}
       {phase === 'standings' && quiz && currentQuestion && (
-        <div className="p-4 max-w-4xl mx-auto py-8 space-y-6">
+        <div
+          className="min-h-screen px-4 py-6 lg:px-8 space-y-6"
+          style={{
+            background:
+              'radial-gradient(circle at 20% 10%, rgba(245,230,66,0.18), transparent 26%), radial-gradient(circle at 80% 18%, rgba(34,197,94,0.16), transparent 28%), linear-gradient(135deg, #F8FAFC 0%, #EEF2FF 100%)',
+          }}
+        >
+          <div className="max-w-7xl mx-auto space-y-6">
           <div className="text-center">
             <p className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: '#9CA3AF' }}>
               After Question {questionIndex + 1} of {quiz.questions.length}
             </p>
-            <h2 className="text-3xl md:text-4xl font-black mt-1" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
-              Current Standings
+            <h2 className="text-4xl md:text-6xl font-black mt-1" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
+              Places Are Moving
             </h2>
           </div>
 
           {intermediateLeaderboard.length > 0 && (
-            <div className="rounded-2xl" style={{ background: '#fff', border: '1px solid #E5E7EB', padding: '18px 12px', minHeight: 360 }}>
+            <div className="rounded-[28px]" style={{ background: '#fff', border: '1px solid #E5E7EB', padding: '22px 18px', minHeight: 500, boxShadow: '0 24px 80px rgba(15,27,61,0.12)' }}>
               <LeaderboardView
                 variant="fullscreen"
                 topN={10}
                 heading="Leaderboard"
-                rows={intermediateLeaderboard.map(entry => ({
-                  id: entry.name,
-                  name: entry.name,
-                  score: entry.score,
-                  archetype: entry.archetype,
-                }))}
+                rows={buildLeaderboardStageRows(intermediateLeaderboard, previousIntermediateLeaderboard, 10)}
               />
             </div>
           )}
@@ -1669,19 +1883,19 @@ export default function SessionPage() {
           {/* Top Movers — recognises the bottom 80% of the room when somebody
               jumps several places, even if they're still mid-pack. */}
           {topMovers.length > 0 && (
-            <div className="rounded-2xl p-4" style={{ background: '#FAFAF7', border: '1px solid #E5E7EB' }}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-2" style={{ color: '#6B7280' }}>
+            <div className="rounded-[28px] p-5" style={{ background: '#0F1B3D', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 18px 60px rgba(15,27,61,0.22)' }}>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-3" style={{ color: 'rgba(255,255,255,0.55)' }}>
                 Top Movers This Round
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {topMovers.map(m => (
-                  <div key={m.name} className="flex items-center gap-2 rounded-xl p-2" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-                    <span className="inline-flex items-center justify-center w-9 h-9 rounded-full text-xs font-black" style={{ background: '#DCFCE7', color: '#15803D' }}>
+                  <div key={m.name} className="flex items-center gap-3 rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                    <span className="inline-flex items-center justify-center w-14 h-14 rounded-2xl text-lg font-black" style={{ background: '#DCFCE7', color: '#15803D' }}>
                       ↑{m.delta}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold truncate" style={{ color: '#0F1B3D' }}>{m.name}</p>
-                      <p className="text-[11px]" style={{ color: '#6B7280' }}>#{m.fromRank} → #{m.toRank}</p>
+                      <p className="text-xl font-black truncate" style={{ color: '#FFFFFF' }}>{m.name}</p>
+                      <p className="text-sm font-bold" style={{ color: '#F5E642' }}>#{m.fromRank} → #{m.toRank}</p>
                     </div>
                   </div>
                 ))}
@@ -1715,6 +1929,19 @@ export default function SessionPage() {
           )}
 
           <div className="flex justify-center items-center gap-2 pt-2">
+            {isHostStagePreview && (
+              <button
+                onClick={() => {
+                  setPhase('question')
+                  setQuestionEnded(true)
+                  setCorrectRevealed(true)
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-3 rounded-full font-bold text-sm border-2 transition-all"
+                style={{ borderColor: '#CBD5E1', color: '#475569', background: '#FFFFFF' }}
+              >
+                Back to reveal
+              </button>
+            )}
             {standingsAutoMs !== null && standingsAutoMs > 0 && (
               <button
                 onClick={() => setStandingsAutoMs(null)}
@@ -1743,6 +1970,7 @@ export default function SessionPage() {
               {questionIndex + 1 >= quiz.questions.length ? 'End Quiz' : 'Next Question'}
               <span aria-hidden>→</span>
             </button>
+          </div>
           </div>
         </div>
       )}
@@ -1891,6 +2119,8 @@ export default function SessionPage() {
                   setActiveSession(quiz)
                   setPhase('idle')
                   setLeaderboard([])
+                  setIntermediateLeaderboard([])
+                  setPreviousIntermediateLeaderboard([])
                   setTeamLeaderboard(null)
                   setQuestionStats([])
                   setQuestionIndex(0)
