@@ -225,6 +225,21 @@ export default function SessionPage() {
   const [standingsAutoMs, setStandingsAutoMs] = useState<number | null>(null)
   const isHostStagePreview = process.env.NODE_ENV !== 'production' && typeof window !== 'undefined' && window.location.search.includes('preview=host-stage')
 
+  useEffect(() => {
+    const html = document.documentElement
+    const shouldHideFeedback = phase === 'question' || phase === 'standings' || phase === 'ended'
+    if (shouldHideFeedback) html.setAttribute('data-feedback-hidden', 'host-session')
+    else if (html.getAttribute('data-feedback-hidden') === 'host-session') html.removeAttribute('data-feedback-hidden')
+
+    return () => {
+      if (html.getAttribute('data-feedback-hidden') === 'host-session') html.removeAttribute('data-feedback-hidden')
+    }
+  }, [phase])
+
+  useEffect(() => {
+    if (phase === 'question' || phase === 'standings') window.scrollTo(0, 0)
+  }, [phase, questionIndex])
+
   // Soft auto-advance — when the host enters the standings phase, start the
   // countdown. Hitting "Hold" sets standingsAutoMs to null and the countdown
   // stops. Reaching 0 fires nextQuestion() once.
@@ -891,6 +906,7 @@ export default function SessionPage() {
   }
 
   const quizTheme = getQuizTheme(quiz?.theme)
+  const isLiveHostStage = phase === 'question' || phase === 'standings' || phase === 'ended'
 
   return (
     <div
@@ -898,7 +914,7 @@ export default function SessionPage() {
       style={{ background: quizTheme.background, color: quizTheme.textColor }}
       data-theme={quizTheme.id}
     >
-      <BrandWatermark placement="host" />
+      {!isLiveHostStage && <BrandWatermark placement="host" />}
 
       {/* IDLE */}
       {phase === 'idle' && quiz && (
@@ -1272,15 +1288,13 @@ export default function SessionPage() {
       {/* QUESTION */}
       {phase === 'question' && currentQuestion && quiz && (
         <div
-          className="min-h-screen px-4 py-5 lg:px-8 lg:py-6 space-y-5"
+          className="min-h-screen px-4 pt-5 pb-36 lg:px-8 lg:pt-6 lg:pb-32 space-y-5"
           style={{
             background:
               'radial-gradient(circle at 15% 12%, rgba(245,230,66,0.22), transparent 28%), radial-gradient(circle at 85% 18%, rgba(19,104,206,0.22), transparent 30%), linear-gradient(135deg, #071126 0%, #0F1B3D 52%, #111827 100%)',
             color: '#FFFFFF',
           }}
         >
-          {/* Persistent join pill — lets late participants jump in mid-session */}
-          <JoinPill gameCode={gameCode} />
           {/* 3-2-1 Countdown overlay */}
           {countdownValue !== null && (
             <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(15,27,61,0.92)' }}>
@@ -1311,7 +1325,7 @@ export default function SessionPage() {
             </div>
           )}
 
-          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
             <div>
               <span className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: 'rgba(255,255,255,0.52)' }}>
                 Live Question
@@ -1325,18 +1339,26 @@ export default function SessionPage() {
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center justify-start lg:justify-end gap-3">
               {currentQuestion.timerSeconds > 0 && (
                 questionStartedAt == null || Date.now() < questionStartedAt ? (
-                  <span className="text-sm font-semibold animate-pulse px-4 py-2 rounded-full" style={{ color: '#F5E642', background: 'rgba(255,255,255,0.08)' }}>Loading…</span>
+                  <span className="min-w-16 text-center text-sm font-semibold animate-pulse px-4 py-2 rounded-full" style={{ color: '#F5E642', background: 'rgba(255,255,255,0.08)' }}>Loading…</span>
                 ) : (
-                  <CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} />
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(15,27,61,0.42)' }}>
+                    <CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} />
+                  </div>
                 )
               )}
-              <span className="rounded-full px-5 py-2 text-xl font-black tabular-nums" style={{ color: '#0F1B3D', background: '#F5E642', boxShadow: '0 6px 0 rgba(0,0,0,0.24)' }}>
+              <span className="inline-flex h-14 items-center rounded-full px-5 text-xl font-black tabular-nums whitespace-nowrap" style={{ color: '#0F1B3D', background: '#F5E642', boxShadow: '0 6px 0 rgba(0,0,0,0.24)' }}>
                 {answered}/{connectedCount}
                 <span className="ml-2 text-sm uppercase tracking-wider">answered</span>
               </span>
+              <div className="hidden xl:block">
+                <JoinPill gameCode={gameCode} variant="dock" />
+              </div>
+              <div className="hidden md:block xl:hidden">
+                <JoinPill gameCode={gameCode} variant="compact" />
+              </div>
             </div>
           </div>
 
@@ -1748,39 +1770,57 @@ export default function SessionPage() {
             </button>
           )}
 
-          <div className="flex items-center justify-between gap-3 pt-3 flex-wrap">
-            <button
-              onClick={() => setMusicOn(m => !m)}
-              title={musicOn ? 'Background music is playing — click to mute' : 'Play low-volume background music during the quiz'}
-              className="flex items-center gap-2 px-5 py-3 rounded-xl text-base font-bold transition-all"
+          <div
+            className="fixed left-4 right-4 z-30 pointer-events-none"
+            style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
+          >
+            <div
+              className="max-w-7xl mx-auto pointer-events-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-3xl px-4 py-3"
               style={{
-                background: musicOn ? '#FEF3C7' : '#fff',
-                color: musicOn ? '#B45309' : '#6B7280',
-                border: `1.5px solid ${musicOn ? '#FCD34D' : '#E5E7EB'}`,
-              }}>
-              {musicOn ? '🎵 Music On' : '🎶 Music Off'}
-            </button>
-            <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                if (paused) {
-                  socketRef.current?.emit('resume_quiz', { gameCode })
-                  setPaused(false)
-                } else {
-                  socketRef.current?.emit('pause_quiz', { gameCode })
-                  setPaused(true)
-                }
-              }}
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full font-bold text-sm border-2 transition-all hover:scale-[1.02]"
-              style={{
-                borderColor: paused ? '#16A34A' : '#F59E0B',
-                color: paused ? '#16A34A' : '#92400E',
-                background: paused ? '#F0FDF4' : '#FFFBEB',
+                background: 'rgba(15,27,61,0.78)',
+                border: '1px solid rgba(255,255,255,0.16)',
+                boxShadow: '0 18px 60px rgba(0,0,0,0.34)',
+                backdropFilter: 'blur(14px)',
+                WebkitBackdropFilter: 'blur(14px)',
               }}
             >
-              {paused ? 'Resume' : 'Pause'}
-            </button>
-            {(() => {
+              <div className="flex items-center gap-3 min-w-0">
+                <button
+                  onClick={() => setMusicOn(m => !m)}
+                  title={musicOn ? 'Background music is playing — click to mute' : 'Play low-volume background music during the quiz'}
+                  className="flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-black transition-all shrink-0"
+                  style={{
+                    background: musicOn ? '#FEF3C7' : 'rgba(255,255,255,0.1)',
+                    color: musicOn ? '#B45309' : '#FFFFFF',
+                    border: `1.5px solid ${musicOn ? '#FCD34D' : 'rgba(255,255,255,0.16)'}`,
+                  }}>
+                  {musicOn ? 'Music On' : 'Music Off'}
+                </button>
+                <span className="hidden md:inline-flex items-center rounded-full px-3 py-2 text-xs font-black tracking-wide" style={{ color: '#0F1B3D', background: '#F5E642' }}>
+                  Quizotic
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center justify-end gap-3">
+              <button
+                onClick={() => {
+                  if (paused) {
+                    socketRef.current?.emit('resume_quiz', { gameCode })
+                    setPaused(false)
+                  } else {
+                    socketRef.current?.emit('pause_quiz', { gameCode })
+                    setPaused(true)
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full font-bold text-sm border-2 transition-all hover:scale-[1.02]"
+                style={{
+                  borderColor: paused ? '#16A34A' : '#F59E0B',
+                  color: paused ? '#16A34A' : '#92400E',
+                  background: paused ? '#F0FDF4' : '#FFFBEB',
+                }}
+              >
+                {paused ? 'Resume' : 'Pause'}
+              </button>
+              {(() => {
               const isLast = questionIndex + 1 >= quiz.questions.length
               const scoredQ = isScoredType(currentQuestion.type)
               if (!questionEnded) {
@@ -1844,7 +1884,8 @@ export default function SessionPage() {
                   <span aria-hidden>→</span>
                 </button>
               )
-            })()}
+              })()}
+              </div>
             </div>
           </div>
         </div>
