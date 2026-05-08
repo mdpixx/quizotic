@@ -54,6 +54,17 @@ export function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Local-only design preview: lets us inspect the host runtime UI without
+  // going through OAuth. The page itself seeds a throwaway quiz when this
+  // query flag is present. Never enabled in production.
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    pathname === '/host/session' &&
+    request.nextUrl.searchParams.get('preview') === 'host-stage'
+  ) {
+    return NextResponse.next()
+  }
+
   // Protected routes — check for session token cookie
   const token =
     request.cookies.get('authjs.session-token')?.value ||

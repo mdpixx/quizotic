@@ -10,7 +10,6 @@
 // positions instead of jumping — the missing "dopamine hit" Kahoot used to
 // have. Bar widths animate proportionally to the top score.
 
-import { useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Avatar } from './Avatar'
 
@@ -20,6 +19,10 @@ export interface LeaderboardRow {
   score: number
   archetype?: string
   teamColor?: string
+  rank?: number
+  previousRank?: number | null
+  rankDelta?: number
+  scoreDelta?: number
 }
 
 interface LeaderboardViewProps {
@@ -108,6 +111,10 @@ export function LeaderboardView({
           {sorted.map((row, i) => {
             const widthPct = maxScore > 0 ? Math.max(8, (row.score / maxScore) * 100) : 8
             const gradient = pickGradient(i, row.teamColor)
+            const rank = row.rank ?? i + 1
+            const rankDelta = row.rankDelta ?? 0
+            const previousRank = row.previousRank ?? null
+            const scoreDelta = row.scoreDelta ?? 0
             return (
               <motion.div
                 key={row.id}
@@ -122,10 +129,10 @@ export function LeaderboardView({
                   className="w-10 text-center text-2xl font-black tabular-nums flex-shrink-0"
                   style={{ color: '#0F1B3D' }}
                 >
-                  {i < 3 ? MEDAL_EMOJI[i] : `#${i + 1}`}
+                  {i < 3 ? MEDAL_EMOJI[i] : `#${rank}`}
                 </span>
 
-                <div className="flex-1 relative h-12 md:h-14 rounded-xl overflow-hidden bg-gray-100">
+                <div className="flex-1 relative h-16 md:h-[72px] rounded-xl overflow-hidden bg-gray-100">
                   <motion.div
                     className="absolute inset-y-0 left-0 rounded-xl"
                     style={{ background: gradient }}
@@ -140,24 +147,47 @@ export function LeaderboardView({
                   />
                   <div className="absolute inset-0 flex items-center gap-3 px-3">
                     {row.archetype && (
-                      <div className="w-8 h-8 md:w-9 md:h-9 rounded-full overflow-hidden flex-shrink-0 bg-white/70">
-                        <Avatar archetype={row.archetype} size={36} />
+                      <div className="w-10 h-10 md:w-11 md:h-11 rounded-full overflow-hidden flex-shrink-0 bg-white/70">
+                        <Avatar archetype={row.archetype} size={44} />
                       </div>
                     )}
-                    <span
-                      className="flex-1 text-base md:text-lg font-black truncate"
-                      style={{
-                        color: i < 3 ? '#0F1B3D' : '#FFFFFF',
-                        textShadow: i < 3 ? 'none' : '0 1px 2px rgba(0,0,0,0.25)',
-                      }}
-                    >
-                      {row.name}
-                    </span>
+                    <div className="flex-1 min-w-0">
+                      <span
+                        className="block text-lg md:text-2xl font-black truncate"
+                        style={{
+                          color: i < 3 ? '#0F1B3D' : '#FFFFFF',
+                          textShadow: i < 3 ? 'none' : '0 1px 2px rgba(0,0,0,0.25)',
+                        }}
+                      >
+                        {row.name}
+                      </span>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        {previousRank !== null && (
+                          <span
+                            className="rounded-full px-2 py-0.5 text-[10px] md:text-xs font-black tabular-nums"
+                            style={{
+                              color: rankDelta > 0 ? '#14532D' : rankDelta < 0 ? '#7F1D1D' : '#334155',
+                              background: rankDelta > 0 ? 'rgba(187,247,208,0.95)' : rankDelta < 0 ? 'rgba(254,202,202,0.95)' : 'rgba(255,255,255,0.75)',
+                            }}
+                          >
+                            {rankDelta > 0 ? `UP ${rankDelta}` : rankDelta < 0 ? `DOWN ${Math.abs(rankDelta)}` : 'HELD'}
+                          </span>
+                        )}
+                        {scoreDelta > 0 && (
+                          <span
+                            className="rounded-full px-2 py-0.5 text-[10px] md:text-xs font-black tabular-nums"
+                            style={{ color: '#0F1B3D', background: 'rgba(245,230,66,0.92)' }}
+                          >
+                            +{scoreDelta.toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
                 <span
-                  className="w-24 text-right text-xl md:text-2xl font-black tabular-nums flex-shrink-0"
+                  className="w-28 text-right text-xl md:text-3xl font-black tabular-nums flex-shrink-0"
                   style={{ color: '#0F1B3D' }}
                 >
                   {row.score.toLocaleString()}
@@ -191,23 +221,6 @@ const COMPACT_TILE: Record<number, { bg: string; textColor: string; border: stri
 }
 
 function CompactLeaderboard({ rows, highlightId, heading }: CompactLeaderboardProps) {
-  // Track previous rank per participant so we can show ↑/↓ deltas when the
-  // board updates after a question. Compute deltas from the read-only ref
-  // during render, then update the snapshot in a post-commit effect so we
-  // don't mutate during render (react 19 strict-mode safe).
-  const prevRanks = useRef<Map<string, number>>(new Map())
-  const deltas = new Map<string, number>()
-  rows.forEach((row, i) => {
-    const prev = prevRanks.current.get(row.id)
-    if (prev !== undefined && prev !== i) deltas.set(row.id, prev - i)
-  })
-
-  useEffect(() => {
-    const next = new Map<string, number>()
-    rows.forEach((row, i) => next.set(row.id, i))
-    prevRanks.current = next
-  })
-
   return (
     <div
       className="rounded-2xl p-2 sm:p-3 overflow-hidden w-full"
@@ -229,7 +242,7 @@ function CompactLeaderboard({ rows, highlightId, heading }: CompactLeaderboardPr
         <AnimatePresence initial={false}>
           {rows.map((row, i) => {
             const tile = COMPACT_TILE[i]
-            const delta = deltas.get(row.id)
+            const delta = row.rankDelta
             const isTop = i < 3
             return (
               <motion.div
