@@ -123,6 +123,31 @@ export function getSlideBg(slide: { type: SlideType; bgColor?: string }): string
   }
 }
 
+// Relative luminance (0–1) of a slide's resolved background. Honors explicit
+// `bgColor`; otherwise falls back to per-type defaults so dark slide types
+// (`emoji_pulse`, `quote`, `video`) report low luminance even without a
+// custom color set.
+export function getBgLuminance(slide: { type: SlideType; bgColor?: string }): number {
+  const bg = slide.bgColor
+  if (bg && bg.startsWith('#') && bg.length === 7) {
+    const r = parseInt(bg.slice(1, 3), 16)
+    const g = parseInt(bg.slice(3, 5), 16)
+    const b = parseInt(bg.slice(5, 7), 16)
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  }
+  const darkTypes: SlideType[] = ['emoji_pulse', 'quote', 'video']
+  return darkTypes.includes(slide.type) ? 0.2 : 0.9
+}
+
+// Text color that contrasts the slide background. `vizTextColor` (manual
+// override) wins; otherwise pick white on dark, dark navy on light. Used by
+// the editor preview, the side-panel thumbnail, and the live presenter view
+// so every surface paints text the same way.
+export function getSlideTextColor(slide: { type: SlideType; bgColor?: string; vizTextColor?: string }): string {
+  if (slide.vizTextColor) return slide.vizTextColor
+  return getBgLuminance(slide) > 0.5 ? '#0F1B3D' : '#fff'
+}
+
 // ─── Slide data shapes ────────────────────────────────────────────────────────
 
 interface SlideBase {
