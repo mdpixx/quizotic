@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { io, Socket } from 'socket.io-client'
 import QRCode from 'react-qr-code'
 import type { Slide, Presentation } from '@/lib/presentation-types'
-import { SLIDE_TYPE_META, shouldAutoShowResults, getSlideBg } from '@/lib/presentation-types'
+import { SLIDE_TYPE_META, shouldAutoShowResults, getSlideBg, getSlideTextColor } from '@/lib/presentation-types'
 import { getQuizTheme } from '@/lib/quiz-themes'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
 import { SlideImage } from '@/components/SlideImage'
@@ -363,7 +363,8 @@ function getVideoEmbedUrl(url: string): string {
 // ─── Slide content renderer ───────────────────────────────────────────────────
 
 function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slide: Slide; aggregate: AggregateData; showResults: boolean; correctRevealed: boolean }) {
-  const headingStyle: React.CSSProperties = { fontFamily: 'var(--font-heading)', color: '#0F1B3D', fontWeight: 900 }
+  const textColor = getSlideTextColor(slide)
+  const headingStyle: React.CSSProperties = { fontFamily: 'var(--font-heading)', color: textColor, fontWeight: 900 }
 
   switch (slide.type) {
     case 'multiple_choice':
@@ -459,17 +460,17 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
             {slide.question || <span className="opacity-30">Question text...</span>}
           </h2>
           <SlideImageFrame url={slide.contentImageUrl} />
-          <div className="flex items-center justify-between text-xl font-semibold flex-shrink-0" style={{ color: '#9CA3AF' }}>
+          <div className="flex items-center justify-between text-xl font-semibold flex-shrink-0" style={{ color: textColor, opacity: 0.6 }}>
             <span>{slide.minLabel}</span>
             <span>{slide.maxLabel}</span>
           </div>
           <div className="flex-1 flex items-center justify-center">
             {showResults && aggregate.scores && aggregate.scores.length > 0 && (
               <div className="text-center">
-                <p className="text-7xl font-black" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>
+                <p className="text-7xl font-black" style={{ color: textColor, fontFamily: 'var(--font-heading)' }}>
                   {(aggregate.scores.reduce((a, b) => a + b, 0) / aggregate.scores.length).toFixed(1)}
                 </p>
-                <p className="text-xl mt-2" style={{ color: '#6B7280' }}>average rating · {aggregate.total} responses</p>
+                <p className="text-xl mt-2" style={{ color: textColor, opacity: 0.6 }}>average rating · {aggregate.total} responses</p>
               </div>
             )}
           </div>
@@ -489,7 +490,7 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
                 {slide.emojis.map(em => (
                   <div key={em} className="flex flex-col items-center gap-2">
                     <span className="text-6xl">{em}</span>
-                    <span className="text-2xl font-black" style={{ color: '#0F1B3D' }}>
+                    <span className="text-2xl font-black" style={{ color: textColor }}>
                       {aggregate.emojis?.[em] ?? 0}
                     </span>
                   </div>
@@ -557,17 +558,17 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
             {slide.question || <span className="opacity-30">Question text...</span>}
           </h2>
           <SlideImageFrame url={slide.contentImageUrl} />
-          <div className="flex items-center justify-between text-xl font-semibold flex-shrink-0" style={{ color: '#9CA3AF' }}>
+          <div className="flex items-center justify-between text-xl font-semibold flex-shrink-0" style={{ color: textColor, opacity: 0.6 }}>
             <span>0 · {slide.minLabel}</span>
             <span>{slide.maxLabel} · 100</span>
           </div>
           <div className="flex-1 flex items-center justify-center">
             {showResults && aggregate.scores && aggregate.scores.length > 0 && (
               <div className="text-center">
-                <p className="text-7xl font-black" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>
+                <p className="text-7xl font-black" style={{ color: textColor, fontFamily: 'var(--font-heading)' }}>
                   {Math.round(aggregate.scores.reduce((a, b) => a + b, 0) / aggregate.scores.length)}
                 </p>
-                <p className="text-xl mt-2" style={{ color: '#6B7280' }}>average · {aggregate.total} responses</p>
+                <p className="text-xl mt-2" style={{ color: textColor, opacity: 0.6 }}>average · {aggregate.total} responses</p>
               </div>
             )}
           </div>
@@ -575,9 +576,8 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
       )
 
     case 'title':
-      // Note: do NOT use slide.bgColor as the text color here — bgColor is
-      // the slide background (applied on the stage container via getSlideBg).
-      // headingStyle already provides theme-appropriate text color.
+      // Heading color comes from `getSlideTextColor(slide)` so the live stage
+      // matches the editor preview and the side-panel thumbnail.
       return (
         <div className="flex flex-col items-center justify-center h-full text-center gap-4 px-4" style={{ containerType: 'inline-size' }}>
           <h1 className="font-black leading-tight break-words" style={{ ...headingStyle, fontSize: 'clamp(28px, 6cqw, 80px)' }}>
@@ -597,8 +597,8 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
           <SlideImageFrame url={slide.contentImageUrl} />
           <ul className="space-y-3 flex-1 min-h-0 overflow-y-auto">
             {slide.bullets.map((b, i) => (
-              <li key={i} className="flex items-start gap-3 text-xl" style={{ color: '#1A0A2E' }}>
-                <span className="mt-1.5 w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#0F1B3D' }} />
+              <li key={i} className="flex items-start gap-3 text-xl" style={{ color: textColor }}>
+                <span className="mt-1.5 w-2 h-2 rounded-full flex-shrink-0" style={{ background: textColor }} />
                 {b}
               </li>
             ))}
@@ -609,11 +609,11 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
     case 'quote':
       return (
         <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
-          <p className="text-[28px] leading-relaxed italic" style={{ color: '#1A0A2E' }}>
+          <p className="text-[28px] leading-relaxed italic" style={{ color: textColor }}>
             &ldquo;{slide.quote}&rdquo;
           </p>
           {slide.attribution && (
-            <p className="text-base font-semibold" style={{ color: '#0F1B3D' }}>{slide.attribution}</p>
+            <p className="text-base font-semibold" style={{ color: textColor, opacity: 0.8 }}>{slide.attribution}</p>
           )}
           <SlideImageFrame url={slide.contentImageUrl} />
         </div>
@@ -627,7 +627,7 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
               <iframe src={getVideoEmbedUrl(slide.url)} className="w-full h-full" allowFullScreen />
             </div>
           )}
-          {slide.caption && <p className="text-sm text-center" style={{ color: '#6B7280' }}>{slide.caption}</p>}
+          {slide.caption && <p className="text-sm text-center" style={{ color: textColor, opacity: 0.7 }}>{slide.caption}</p>}
         </div>
       )
 
@@ -645,7 +645,7 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
               tone="light"
             />
           )}
-          {showCaption && <p className="text-lg font-medium text-center flex-shrink-0" style={{ color: '#374151' }}>{slide.caption}</p>}
+          {showCaption && <p className="text-lg font-medium text-center flex-shrink-0" style={{ color: textColor, opacity: 0.8 }}>{slide.caption}</p>}
         </div>
       )
     }
@@ -675,12 +675,12 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
           </div>
           <div className="flex-shrink-0 text-center">
             {showResults ? (
-              <p className="text-sm" style={{ color: '#9CA3AF' }}>
+              <p className="text-sm" style={{ color: textColor, opacity: 0.6 }}>
                 <span className="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style={{ background: VOTER_COLORS[0] }} />
                 {pins.length} pin{pins.length !== 1 ? 's' : ''} placed
               </p>
             ) : slide.imageUrl ? (
-              <p className="text-sm font-semibold" style={{ color: '#64748B' }}>Participants: tap anywhere on the image to drop your pin</p>
+              <p className="text-sm font-semibold" style={{ color: textColor, opacity: 0.7 }}>Participants: tap anywhere on the image to drop your pin</p>
             ) : null}
           </div>
         </div>
@@ -695,9 +695,9 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
           <div className="relative flex">
             {/* Y-axis label */}
             <div className="flex flex-col justify-between items-center py-2 mr-2" style={{ width: 24 }}>
-              <span className="text-[10px] font-bold" style={{ color: '#9CA3AF' }}>{slide.yMax || 'High'}</span>
-              <span className="text-[10px] font-bold rotate-180" style={{ color: '#9CA3AF', writingMode: 'vertical-lr' }}>{slide.yLabel}</span>
-              <span className="text-[10px] font-bold" style={{ color: '#9CA3AF' }}>{slide.yMin || 'Low'}</span>
+              <span className="text-[10px] font-bold" style={{ color: textColor, opacity: 0.6 }}>{slide.yMax || 'High'}</span>
+              <span className="text-[10px] font-bold rotate-180" style={{ color: textColor, opacity: 0.6, writingMode: 'vertical-lr' }}>{slide.yLabel}</span>
+              <span className="text-[10px] font-bold" style={{ color: textColor, opacity: 0.6 }}>{slide.yMin || 'Low'}</span>
             </div>
             <div className="flex-1">
               {/* Grid area */}
@@ -713,13 +713,13 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
               </div>
               {/* X-axis labels */}
               <div className="flex justify-between mt-1">
-                <span className="text-[10px] font-bold" style={{ color: '#9CA3AF' }}>{slide.xMin || 'Low'}</span>
-                <span className="text-[10px] font-bold" style={{ color: '#9CA3AF' }}>{slide.xLabel}</span>
-                <span className="text-[10px] font-bold" style={{ color: '#9CA3AF' }}>{slide.xMax || 'High'}</span>
+                <span className="text-[10px] font-bold" style={{ color: textColor, opacity: 0.6 }}>{slide.xMin || 'Low'}</span>
+                <span className="text-[10px] font-bold" style={{ color: textColor, opacity: 0.6 }}>{slide.xLabel}</span>
+                <span className="text-[10px] font-bold" style={{ color: textColor, opacity: 0.6 }}>{slide.xMax || 'High'}</span>
               </div>
             </div>
           </div>
-          {showResults && <p className="text-sm text-center" style={{ color: '#9CA3AF' }}>{pins.length} response{pins.length !== 1 ? 's' : ''}</p>}
+          {showResults && <p className="text-sm text-center" style={{ color: textColor, opacity: 0.6 }}>{pins.length} response{pins.length !== 1 ? 's' : ''}</p>}
         </div>
       )
     }
@@ -756,7 +756,7 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
                   </div>
                   <div className="flex-shrink-0">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-semibold truncate" style={{ color: '#0F1B3D' }}>{opt || `Option ${i + 1}`}</span>
+                      <span className="text-sm font-semibold truncate" style={{ color: textColor }}>{opt || `Option ${i + 1}`}</span>
                       <span className="text-sm font-bold tabular-nums" style={{ color }}>
                         {showResults ? count : 0} <span className="text-xs font-normal opacity-60">({showResults ? pct : 0}%)</span>
                       </span>
@@ -782,8 +782,8 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
       const fallback = slide as Slide
       return (
         <div className="text-center py-12">
-          <p className="text-lg font-bold" style={{ color: '#0F1B3D' }}>{SLIDE_TYPE_META[fallback.type].label}</p>
-          <p className="text-sm mt-2" style={{ color: '#9CA3AF' }}>Live view coming soon</p>
+          <p className="text-lg font-bold" style={{ color: textColor }}>{SLIDE_TYPE_META[fallback.type].label}</p>
+          <p className="text-sm mt-2" style={{ color: textColor, opacity: 0.6 }}>Live view coming soon</p>
         </div>
       )
     }
