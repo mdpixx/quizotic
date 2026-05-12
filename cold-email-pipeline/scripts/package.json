@@ -1,0 +1,24 @@
+{
+  "name": "quizotic-lead-scraper",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Scrape CBSE/ICSE schools and pattern-generate emails for Quizotic cold outreach",
+  "scripts": {
+    "fetch:cbse": "node 01-fetch-cbse.js",
+    "fetch:icse": "node 02-fetch-icse.js",
+    "enrich": "node 03-enrich-maps.js",
+    "rank": "node 04-score-and-rank.js",
+    "emails": "node 05-pattern-emails.js",
+    "csv": "node 06-write-csv.js",
+    "push": "node 07-push-to-sheet.js",
+    "all": "bash run-all.sh"
+  },
+  "dependencies": {
+    "csv-writer": "^1.6.0",
+    "p-limit": "^5.0.0",
+    "puppeteer": "^22.6.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  }
+}
