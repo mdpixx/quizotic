@@ -237,10 +237,12 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
 
   return (
     <div
-      className="relative"
+      className="relative max-w-full"
       style={{
         // Clip the halo, confetti, and shake inside the podium bounds so
-        // yellow glow doesn't bleed onto the rest of the page.
+        // yellow glow doesn't bleed onto the rest of the page. max-w-full
+        // + overflow:hidden also prevents the wide medal SVGs from causing
+        // horizontal scroll on the participant mobile view.
         overflow: 'hidden',
         borderRadius: 18,
         padding: '24px 12px 8px',
@@ -279,7 +281,7 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
           return (
             <div
               key={entry.name}
-              className={`flex flex-col items-center gap-2 relative ${top3.length === 1 ? 'w-40' : 'w-[92px] sm:w-[118px]'}`}
+              className={`flex flex-col items-center gap-2 relative ${top3.length === 1 ? 'w-44' : 'w-[110px] sm:w-[140px]'}`}
             >
               {/* Spotlight halo behind winner — compact + softer so it doesn't spill outward */}
               {isWinner && !reduced && (phase === 'drumroll' || phase === 'winner' || phase === 'rest') && (
@@ -346,12 +348,33 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
                 >
                   <Avatar archetype={entry.archetype ?? entry.name} size={isWinner ? 72 : 52} />
                 </div>
-                <div className="flex flex-col items-center w-full">
-                  <span className="text-sm font-bold text-center truncate w-full" style={{ color: '#1E1B4B' }}>
+                <div className="flex flex-col items-center w-full px-1">
+                  <span
+                    className="text-xs sm:text-sm font-bold text-center w-full leading-tight break-words hyphens-auto"
+                    style={{
+                      color: '#1E1B4B',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      wordBreak: 'break-word',
+                    }}
+                  >
                     {entry.name || entry.archetype}
                   </span>
                   {entry.name && entry.archetype && (
-                    <span className="text-xs text-gray-500 mt-0.5 truncate w-full text-center">{entry.archetype}</span>
+                    <span
+                      className="text-[10px] sm:text-xs text-gray-500 mt-0.5 w-full text-center leading-tight"
+                      style={{
+                        display: '-webkit-box',
+                        WebkitLineClamp: 1,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {entry.archetype}
+                    </span>
                   )}
                 </div>
                 {isCompetitive && (
@@ -454,7 +477,19 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
                 >
                   <div className="flex-shrink-0"><ParticipationRibbon rank={rank} size={24} /></div>
                   <Avatar archetype={entry.archetype ?? entry.name} size={36} />
-                  <span className="flex-1 font-semibold text-sm truncate" style={{ color: '#1E1B4B' }}>{entry.name}</span>
+                  <span
+                    className="flex-1 font-semibold text-sm min-w-0 leading-tight"
+                    style={{
+                      color: '#1E1B4B',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {entry.name}
+                  </span>
                   {isCompetitive && (
                     <span className="text-sm font-bold tabular-nums" style={{ color: '#4B5563' }}>
                       {entry.score.toLocaleString()}

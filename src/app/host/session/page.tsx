@@ -28,15 +28,22 @@ import { QuizoticLogo } from '@/components/QuizoticLogo'
 import { BrandWatermark } from '@/components/BrandWatermark'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
 import { JoinPill } from '@/components/host/JoinPill'
+import { EndQuizConfirmModal } from '@/components/host/EndQuizConfirmModal'
 import { getQuizTheme } from '@/lib/quiz-themes'
 import { buildLeaderboardStageRows, getPostQuestionAction } from '@/lib/host-stage'
+import { startClockSync, getServerNow, resyncClock } from '@/lib/clock-sync'
 
 type Phase = 'loading' | 'error' | 'idle' | 'lobby' | 'question' | 'standings' | 'ended'
 
 // Soft auto-advance on the standings screen — gives the host ~6 seconds to
 // review before the engine quietly moves to the next question. The "Hold"
 // button cancels the countdown for the current screen only.
-const STANDINGS_AUTO_TOTAL_MS = 6000
+const STANDINGS_AUTO_TOTAL_MS = 8000
+// Delay between mounting the leaderboard at PRIOR positions and swapping it
+// to the NEW standings. This gives framer-motion two distinct layout frames
+// so its `layout` prop animates the tile shuffle. Must be less than
+// STANDINGS_AUTO_TOTAL_MS so the animation completes before the auto-advance.
+const STANDINGS_ANIM_SEED_MS = 900
 
 interface LeaderboardEntry {
   name: string
@@ -197,6 +204,8 @@ export default function SessionPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [teamLeaderboard, setTeamLeaderboard] = useState<{ name: string; color: string; score: number; members: number }[] | null>(null)
   const [showCelebration, setShowCelebration] = useState(false)
+  const [showOverflowMenu, setShowOverflowMenu] = useState(false)
+  const [showEndQuizConfirm, setShowEndQuizConfirm] = useState(false)
   const [followups, setFollowups] = useState<{ label: string; code: string }[]>([])
   const [followupLoading, setFollowupLoading] = useState(false)
   const [followupError, setFollowupError] = useState('')
@@ -214,6 +223,13 @@ export default function SessionPage() {
   const intermediateLeaderboardRef = useRef<LeaderboardEntry[]>([])
   useEffect(() => { intermediateLeaderboardRef.current = intermediateLeaderboard }, [intermediateLeaderboard])
   const [previousIntermediateLeaderboard, setPreviousIntermediateLeaderboard] = useState<LeaderboardEntry[]>([])
+  // Visually-displayed leaderboard for the standings phase. Seeded with the
+  // PREVIOUS standings on phase entry so framer-motion's `layout` prop has
+  // a starting position to animate FROM. After 900ms we swap to the new
+  // standings — that bounding-box delta triggers the rank-shuffle motion.
+  // Without this, the LeaderboardView mounts with already-sorted new data
+  // and tiles snap to position instantly (no Kahoot-style movement).
+  const [displayedLeaderboard, setDisplayedLeaderboard] = useState<LeaderboardEntry[]>([])
   const [topMovers, setTopMovers] = useState<TopMover[]>([])
   const [standingsRecommended, setStandingsRecommended] = useState(false)
   const [countdownValue, setCountdownValue] = useState<number | null>(null)
@@ -239,6 +255,24 @@ export default function SessionPage() {
   useEffect(() => {
     if (phase === 'question' || phase === 'standings') window.scrollTo(0, 0)
   }, [phase, questionIndex])
+
+  // Leaderboard tile-shuffle animation: when we enter the standings phase,
+  // first show the PRIOR standings, then after STANDINGS_ANIM_SEED_MS swap
+  // to the new ones. The bounding-box change triggers framer-motion's
+  // `layout` prop on LeaderboardView rows, producing the Kahoot-style rank
+  // movement. See STANDINGS_ANIM_SEED_MS comment for why.
+  useEffect(() => {
+    if (phase !== 'standings') return
+    // Seed: if there is no prior standings (first question), show current
+    // immediately — animating from nothing looks like a snap anyway.
+    if (previousIntermediateLeaderboard.length === 0) {
+      setDisplayedLeaderboard(intermediateLeaderboard)
+      return
+    }
+    setDisplayedLeaderboard(previousIntermediateLeaderboard)
+    const t = setTimeout(() => setDisplayedLeaderboard(intermediateLeaderboard), STANDINGS_ANIM_SEED_MS)
+    return () => clearTimeout(t)
+  }, [phase, intermediateLeaderboard, previousIntermediateLeaderboard])
 
   // Soft auto-advance — when the host enters the standings phase, start the
   // countdown. Hitting "Hold" sets standingsAutoMs to null and the countdown
@@ -396,6 +430,13 @@ export default function SessionPage() {
     const socket = io()
     socketRef.current = socket
 
+    // Start NTP-style clock sync so host's timer math is anchored on server
+    // time, not the drifted local clock. Without this, a host laptop whose
+    // clock has drifted (common on projector laptops with NTP disabled)
+    // computes elapsed = clientNow - serverStartAt and ends up showing the
+    // timer in the red zone immediately.
+    const stopClockSync = startClockSync(socket)
+
     socket.on('connect', () => {
       setSocketConnected(true)
       setSessionError('')
@@ -498,8 +539,13 @@ export default function SessionPage() {
       setRatingValues([])
       setLiveStat(null)
 
-      const msUntilStart = Math.max(0, effectiveStart - Date.now())
-      const timerSeconds = quiz?.questions[index]?.timerSeconds ?? 20
+      // Tighten the clock offset right when a new question arrives — same
+      // reasoning as the participant client.
+      resyncClock()
+
+      const msUntilStart = Math.max(0, effectiveStart - getServerNow())
+      const rawTimerSeconds = quiz?.questions[index]?.timerSeconds ?? 20
+      const timerSeconds = Math.max(5, Math.min(120, Number(rawTimerSeconds) || 20))
 
       if (msUntilStart > 500) {
         // Wall-clock-anchored 3-2-1 countdown. Both host and participant use
@@ -510,7 +556,7 @@ export default function SessionPage() {
         if (countdownTimerRef.current) clearInterval(countdownTimerRef.current)
         let lastShown = 0
         const updateCountdown = () => {
-          const remainingMs = effectiveStart - Date.now()
+          const remainingMs = effectiveStart - getServerNow()
           const value = Math.max(0, Math.min(3, Math.ceil(remainingMs / 1000)))
           if (value <= 0) {
             if (countdownTimerRef.current) {
@@ -614,7 +660,15 @@ export default function SessionPage() {
       setPhase('ended')
       // Trigger the full-screen celebration overlay only when we actually have
       // a competitive leaderboard to celebrate.
-      if (lb.length > 0 && sm === 'competitive') setShowCelebration(true)
+      if (lb.length > 0 && sm === 'competitive') {
+        setShowCelebration(true)
+        // Auto-dismiss the overlay so the host's projected screen reveals
+        // the Podium even if the host never clicks. Without this, the live
+        // session never showed rank 1/2/3 on the big screen (participants
+        // had it on their mobiles but the projector stayed on the overlay).
+        // 7.5s ≈ overlay's canDismiss (6.5s) + a beat to read the confetti.
+        setTimeout(() => setShowCelebration(false), 7500)
+      }
       // Game over — invalidate the host resume token for this gameCode.
       if (gameCodeRef.current) clearHostResumeToken(gameCodeRef.current)
       hostResumeTokenRef.current = ''
@@ -665,6 +719,7 @@ export default function SessionPage() {
       socket.off('drawing_submitted')
       socket.off('live_responses')
       socket.off('question_reveal')
+      stopClockSync()
       socket.disconnect()
     }
   }, [quiz])
@@ -732,12 +787,17 @@ export default function SessionPage() {
 
   function startHostTimer(seconds: number, serverTimestamp?: number) {
     if (hostTimerRef.current) clearInterval(hostTimerRef.current)
-    timerDurationRef.current = seconds
-    timerStartRef.current = serverTimestamp ?? Date.now()
-    setHostTimeLeft(seconds)
-    let lastTickSecond = seconds + 1
+    // Belt-and-suspenders clamp matching server-side sanitizeQuestion.
+    const safeSeconds = Math.max(5, Math.min(120, Number(seconds) || 20))
+    timerDurationRef.current = safeSeconds
+    // Anchor on the server timestamp (always). getServerNow() vs server start
+    // means we measure elapsed in SERVER time regardless of how the host
+    // laptop's clock has drifted — this was the source of the red-zone bug.
+    timerStartRef.current = serverTimestamp ?? getServerNow()
+    setHostTimeLeft(safeSeconds)
+    let lastTickSecond = safeSeconds + 1
     hostTimerRef.current = setInterval(() => {
-      const elapsed = (Date.now() - timerStartRef.current) / 1000
+      const elapsed = (getServerNow() - timerStartRef.current) / 1000
       const remaining = Math.max(0, Math.ceil(timerDurationRef.current - elapsed))
       setHostTimeLeft(remaining)
       // Tick on host for the final 5 seconds — stays in sync with the
@@ -765,6 +825,7 @@ export default function SessionPage() {
     setOptionCounts([])
     setIntermediateLeaderboard([])
     setPreviousIntermediateLeaderboard([])
+    setDisplayedLeaderboard([])
     setTopMovers([])
     setQuestionStartedAt(null)
     setRankingSubmissions([])
@@ -1944,7 +2005,14 @@ export default function SessionPage() {
                 variant="fullscreen"
                 topN={10}
                 heading="Leaderboard"
-                rows={buildLeaderboardStageRows(intermediateLeaderboard, previousIntermediateLeaderboard, 10)}
+                rows={buildLeaderboardStageRows(
+                  // displayedLeaderboard is seeded with prior standings for
+                  // ~900ms then swapped to current → triggers framer-motion
+                  // layout animation on the row tiles.
+                  displayedLeaderboard.length > 0 ? displayedLeaderboard : intermediateLeaderboard,
+                  previousIntermediateLeaderboard,
+                  10,
+                )}
               />
             </div>
           )}
@@ -2080,20 +2148,14 @@ export default function SessionPage() {
             </div>
           )}
 
-          {/* Animated Podium Leaderboard (static once the CelebrationOverlay has played).
-              Kept hidden while the CelebrationOverlay is active so the winner
-              isn't spoiled by a 1-frame paint under the modal. visibility:hidden
-              preserves layout; aria-hidden keeps it out of the a11y tree. */}
-          <div
-            style={{
-              visibility: showCelebration && leaderboard.length > 0 ? 'hidden' : 'visible',
-              opacity: showCelebration && leaderboard.length > 0 ? 0 : 1,
-              transition: 'opacity 220ms ease-out',
-              overflow: 'hidden',
-              borderRadius: 18,
-            }}
-            aria-hidden={showCelebration && leaderboard.length > 0}
-          >
+          {/* Animated Podium Leaderboard — rendered immediately so the host's
+              projected screen always has the final standings visible. The
+              CelebrationOverlay sits on top during its ~7s play, then
+              auto-dismisses (see session_ended handler), revealing the Podium
+              underneath. Without this, the host's big screen was blank on the
+              60-participant live session because the overlay was modal-only
+              and the host had no opportunity to click to dismiss it. */}
+          <div style={{ overflow: 'hidden', borderRadius: 18 }}>
             <Podium
               leaderboard={leaderboard}
               sessionMode={sessionMode}
@@ -2190,6 +2252,7 @@ export default function SessionPage() {
                   setLeaderboard([])
                   setIntermediateLeaderboard([])
                   setPreviousIntermediateLeaderboard([])
+                  setDisplayedLeaderboard([])
                   setTeamLeaderboard(null)
                   setQuestionStats([])
                   setQuestionIndex(0)
@@ -2269,6 +2332,79 @@ export default function SessionPage() {
         </div>
         </>
       )}
+
+      {/* Floating ⋯ menu in top-right corner. Only visible mid-session
+          (question or standings) so the host can end the quiz early without
+          having to find a button buried in the bottom action bar (which is
+          a high-touch zone and would risk accidental taps). */}
+      {(phase === 'question' || phase === 'standings') && (
+        <div className="fixed top-3 right-3 z-40">
+          <button
+            type="button"
+            aria-label="More options"
+            aria-haspopup="menu"
+            aria-expanded={showOverflowMenu}
+            onClick={() => setShowOverflowMenu(v => !v)}
+            className="w-10 h-10 rounded-full flex items-center justify-center font-bold transition-transform hover:scale-105"
+            style={{
+              background: 'rgba(15,27,61,0.85)',
+              color: '#FFFFFF',
+              border: '1px solid rgba(255,255,255,0.18)',
+              boxShadow: '0 6px 14px rgba(0,0,0,0.18)',
+            }}
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden>
+              <circle cx="5" cy="12" r="2" />
+              <circle cx="12" cy="12" r="2" />
+              <circle cx="19" cy="12" r="2" />
+            </svg>
+          </button>
+          {showOverflowMenu && (
+            <>
+              {/* Click-away backdrop */}
+              <div
+                className="fixed inset-0 z-30"
+                onClick={() => setShowOverflowMenu(false)}
+                aria-hidden
+              />
+              <div
+                role="menu"
+                className="absolute right-0 mt-2 min-w-[180px] rounded-xl overflow-hidden z-40"
+                style={{
+                  background: '#FFFFFF',
+                  border: '1px solid rgba(15,27,61,0.12)',
+                  boxShadow: '0 12px 28px rgba(15,27,61,0.18)',
+                }}
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { setShowOverflowMenu(false); setShowEndQuizConfirm(true) }}
+                  className="w-full text-left px-4 py-3 font-bold text-sm flex items-center gap-2 transition-colors"
+                  style={{ color: '#DC2626', background: '#FFFFFF' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#FEF2F2')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '#FFFFFF')}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden>
+                    <rect x="6" y="6" width="12" height="12" rx="1" />
+                  </svg>
+                  End Quiz
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      <EndQuizConfirmModal
+        open={showEndQuizConfirm}
+        onClose={() => setShowEndQuizConfirm(false)}
+        questionsRemaining={quiz ? Math.max(0, quiz.questions.length - questionIndex - 1) : 0}
+        onConfirm={() => {
+          if (!socketRef.current?.connected || !gameCode) return
+          socketRef.current.emit('end_session', { gameCode })
+        }}
+      />
 
     </div>
   )

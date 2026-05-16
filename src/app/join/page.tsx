@@ -10,7 +10,7 @@ import { ShareQuizotic } from '@/components/ShareQuizotic'
 import { playTick, playCorrect, playWrong, playStreak } from '@/lib/sounds'
 import { LeaderboardView } from '@/components/LeaderboardView'
 import { ResultBeat, type PersonalResult } from '@/components/ResultBeat'
-import { startClockSync, getServerNow } from '@/lib/clock-sync'
+import { startClockSync, getServerNow, resyncClock } from '@/lib/clock-sync'
 import { useI18n } from '@/lib/use-i18n'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
@@ -852,11 +852,23 @@ function JoinPageInner() {
       }
       setPhase('question')
 
-      const effectiveStartAt = typeof startAt === 'number' ? startAt : Date.now()
-      const endAt = effectiveStartAt + question.timerSeconds * 1000
-      const initialLeft = Math.max(0, Math.ceil((endAt - Date.now()) / 1000))
+      // Tighten the clock offset before doing any timer math. Without this,
+      // a participant device whose local clock has drifted (15-20s is common
+      // over a 10-minute session) will compute remaining = endAt - Date.now()
+      // against a stale offset and render the timer in the red zone from frame 1.
+      resyncClock()
+
+      // Clamp incoming timer to [5,120] as a client-side belt-and-suspenders
+      // alongside the server clamp in sanitizeQuestion.
+      const safeTimerSeconds = Math.max(5, Math.min(120, Number(question.timerSeconds) || 20))
+      const effectiveStartAt = typeof startAt === 'number' ? startAt : getServerNow()
+      const endAt = effectiveStartAt + safeTimerSeconds * 1000
+      // Compare against SERVER time (getServerNow), not raw client clock. Mixing
+      // a server timestamp with a drifted client clock was the root cause of
+      // the "starts at 2s" red-zone bug.
+      const initialLeft = Math.max(0, Math.ceil((endAt - getServerNow()) / 1000))
       setTimeLeft(initialLeft)
-      setGetReadyVisible(Date.now() < effectiveStartAt)
+      setGetReadyVisible(getServerNow() < effectiveStartAt)
       answerTimeRef.current = effectiveStartAt
 
       if (timerRef.current) clearInterval(timerRef.current)
@@ -864,8 +876,7 @@ function JoinPageInner() {
       const startTick = () => {
         if (timerRef.current) clearInterval(timerRef.current)
         timerRef.current = setInterval(() => {
-          const now = Date.now()
-          const left = Math.max(0, Math.ceil((endAt - now) / 1000))
+          const left = Math.max(0, Math.ceil((endAt - getServerNow()) / 1000))
           setTimeLeft(prev => {
             if (left <= 0) { clearInterval(timerRef.current!); return 0 }
             if (left <= 6 && left > 0 && left < prev) playTick()
@@ -874,7 +885,7 @@ function JoinPageInner() {
         }, 250)
       }
 
-      const delay = effectiveStartAt - Date.now()
+      const delay = effectiveStartAt - getServerNow()
       if (delay > 0) {
         setTimeout(() => {
           setGetReadyVisible(false)
@@ -1631,7 +1642,7 @@ function JoinPageInner() {
     const sharedScreenEligible = ['mcq', 'multiselect', 'truefalse', 'image_choice', 'poll'].includes(question.type)
     const sharedScreenSimple = displayMode === 'shared-screen' && sharedScreenEligible
     return (
-      <div className="min-h-screen p-4 flex flex-col max-w-xl mx-auto">
+      <div className="min-h-screen p-4 flex flex-col max-w-xl mx-auto overflow-x-hidden">
         <StatusBanner connectionState={connectionState} answerToast={answerToast} />
         {getReadyVisible && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ background: 'rgba(15,27,61,0.92)' }}>
@@ -2032,7 +2043,7 @@ function JoinPageInner() {
   // ─── Standings Phase (between questions, competitive only) ─────────────────
   if (phase === 'standings') {
     return (
-      <div className="min-h-screen px-2 py-4 sm:px-4 sm:py-6 max-w-xl mx-auto flex flex-col gap-4">
+      <div className="min-h-screen px-2 py-4 sm:px-4 sm:py-6 max-w-xl mx-auto flex flex-col gap-4 overflow-x-hidden">
         <div className="text-center">
           <p className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: '#9CA3AF' }}>Standings</p>
           <h2 className="text-2xl font-black mt-0.5" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
@@ -2181,7 +2192,7 @@ function JoinPageInner() {
   if (phase === 'selfpaced' && spQuestions.length > 0) {
     const q = spQuestions[spIndex]
     return (
-      <div className="min-h-screen p-4 flex flex-col max-w-lg mx-auto">
+      <div className="min-h-screen p-4 flex flex-col max-w-lg mx-auto overflow-x-hidden">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
