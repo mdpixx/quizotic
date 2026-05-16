@@ -1532,6 +1532,11 @@ export default function SessionPage() {
                 avg: counts[i] > 0 ? sums[i] / counts[i] : Number.POSITIVE_INFINITY,
                 hasData: counts[i] > 0,
               })).sort((a, b) => a.avg - b.avg)
+              const getRankingOptionId = (opt: NonNullable<typeof currentQuestion.options>[number]) => {
+                if (typeof opt === 'string') return opt
+                const maybeWithId = opt as unknown as Record<string, unknown>
+                return typeof maybeWithId.id === 'string' ? maybeWithId.id : opt.text
+              }
 
               return (
                 <div className="space-y-3">
@@ -1540,7 +1545,7 @@ export default function SessionPage() {
                     <div className="space-y-2">
                       <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Correct order</p>
                       {(currentQuestion.correctOrder ?? []).map((optIdx, pos) => {
-                        const opt = typeof optIdx === 'number' ? currentQuestion.options?.[optIdx] : currentQuestion.options?.find((o) => typeof o === 'string' ? o === optIdx : (o as any).id === optIdx)
+                        const opt = typeof optIdx === 'number' ? currentQuestion.options?.[optIdx] : currentQuestion.options?.find((o) => getRankingOptionId(o) === optIdx)
                         return (
                           <div key={`${optIdx}-${pos}`} className="flex items-center gap-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-3">
                             <span className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black bg-green-500 text-white flex-shrink-0">
