@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 
 // DOM-based celebration particle layer — a deterministic, CSS-only backup
 // for canvas-confetti. Paints pure <span>s with keyframe animations so it
@@ -22,7 +22,7 @@ const COLORS = [
   '#DC2626', '#7C3AED', '#0EA5E9', '#FBBF24', '#EC4899',
 ]
 
-type Shape = 'rect' | 'ribbon' | 'circle'
+type Shape = 'rect' | 'ribbon' | 'circle' | 'curl'
 type Path = 'cannonL' | 'cannonR' | 'rain'
 
 interface Particle {
@@ -53,13 +53,13 @@ function makeBatch(seedOffset: number, count: number): Particle[] {
     const r3 = rand(id * 31 + 11)
     const r4 = rand(id * 71 + 23)
 
-    // 65% circle (reads as "petals"/"bubbles", not boxes), 25% ribbon, 10% rect.
-    // Prior 60% rect mix is what made the celebration look "mechanical".
-    const shape: Shape = r2 < 0.65 ? 'circle' : r2 < 0.9 ? 'ribbon' : 'rect'
+    // Mix small dots, ribbons, and curled streamers. The curls make the fall
+    // feel less like rectangular debris and more like celebration streamers.
+    const shape: Shape = r2 < 0.42 ? 'circle' : r2 < 0.68 ? 'ribbon' : r2 < 0.88 ? 'curl' : 'rect'
     // Keep particles small per user feedback — tighter range 6–10px
     // (was 5–12) gives more visual consistency. Big confetti reads cluttered.
     const size = 6 + Math.floor(r4 * 5)         // 6–10 px
-    const width = shape === 'circle' ? size : shape === 'ribbon' ? size * 7 : size * 3
+    const width = shape === 'circle' ? size : shape === 'ribbon' ? size * 7 : shape === 'curl' ? size * 2.6 : size * 3
 
     // 30% left cannon, 30% right cannon, 40% drift rain. Heavier rain weighting
     // means more slow-drift particles, fewer abrupt cannon arcs.
@@ -88,30 +88,34 @@ function makeBatch(seedOffset: number, count: number): Particle[] {
   return batch
 }
 
+function subscribeReducedMotion(cb: () => void) {
+  if (typeof window === 'undefined') return () => {}
+  const m = window.matchMedia('(prefers-reduced-motion: reduce)')
+  m.addEventListener('change', cb)
+  return () => m.removeEventListener('change', cb)
+}
+
+function getReducedMotion() {
+  if (typeof window === 'undefined') return false
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
 function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false)
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const m = window.matchMedia('(prefers-reduced-motion: reduce)')
-    setReduced(m.matches)
-    const onChange = () => setReduced(m.matches)
-    m.addEventListener('change', onChange)
-    return () => m.removeEventListener('change', onChange)
-  }, [])
-  return reduced
+  return useSyncExternalStore(subscribeReducedMotion, getReducedMotion, () => false)
 }
 
 interface CelebrationConfettiProps {
   active: boolean
   batchSize?: number
   intervalMs?: number
+  layer?: 'fixed' | 'absolute'
 }
 
 // Quieter density (32 per batch, was 48) + longer interval (3600ms, was 2400ms)
 // — combined with the slower fall durations above, total particles on screen
 // stay around 60–70 instead of 100+, so the celebration reads as graceful
 // rather than chaotic.
-export function CelebrationConfetti({ active, batchSize = 32, intervalMs = 3600 }: CelebrationConfettiProps) {
+export function CelebrationConfetti({ active, batchSize = 32, intervalMs = 3600, layer = 'fixed' }: CelebrationConfettiProps) {
   const reduced = usePrefersReducedMotion()
   const [seed, setSeed] = useState(0)
 
@@ -131,7 +135,7 @@ export function CelebrationConfetti({ active, batchSize = 32, intervalMs = 3600 
     <div
       aria-hidden
       style={{
-        position: 'fixed',
+        position: layer,
         inset: 0,
         overflow: 'hidden',
         pointerEvents: 'none',
@@ -151,9 +155,12 @@ export function CelebrationConfetti({ active, batchSize = 32, intervalMs = 3600 
               bottom,
               left: `${p.startX}vw`,
               width: p.width,
-              height: p.size,
-              background: p.color,
-              borderRadius: p.shape === 'circle' ? '50%' : 1,
+              height: p.shape === 'curl' ? p.size * 2.6 : p.size,
+              background: p.shape === 'curl' ? 'transparent' : p.color,
+              border: p.shape === 'curl' ? `2px solid ${p.color}` : undefined,
+              borderLeftColor: p.shape === 'curl' ? 'transparent' : undefined,
+              borderBottomColor: p.shape === 'curl' ? 'transparent' : undefined,
+              borderRadius: p.shape === 'circle' || p.shape === 'curl' ? '999px' : 1,
               boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
               opacity: 0,
               animation: `${animationName} ${p.duration}s cubic-bezier(0.18, 0.7, 0.32, 1) ${p.delay}s both`,
@@ -165,22 +172,24 @@ export function CelebrationConfetti({ active, batchSize = 32, intervalMs = 3600 
         )
       })}
       <style>{`
-        /* Side cannons fire upward, peak around 65% of screen height, then
-           gravity pulls them down past the bottom. Two-phase keyframe — pop
-           up first, then fall — is what makes the motion read as "real". */
+        /* Side cannons fire upward, travel in a loose arc, then keep falling
+           past the viewport. The extra midpoints avoid the old rise → hover
+           → drop motion that looked unnatural on the final podium screen. */
         @keyframes celebCannonL {
-          0%   { opacity: 0; transform: translate3d(0, 0, 0) rotate(0deg); }
+          0%   { opacity: 0; transform: translate3d(0, 10vh, 0) rotate(0deg) scale(0.82); }
           8%   { opacity: 1; }
-          35%  { transform: translate3d(calc(20vw + var(--drift-x)), -65vh, 0) rotate(calc(var(--rotate) * 0.4)); }
-          90%  { opacity: 1; }
-          100% { opacity: 0; transform: translate3d(calc(28vw + var(--drift-x)), 12vh, 0) rotate(var(--rotate)); }
+          24%  { transform: translate3d(calc(13vw + var(--drift-x) * 0.25), -38vh, 0) rotate(calc(var(--rotate) * 0.22)) scale(1); }
+          52%  { transform: translate3d(calc(25vw + var(--drift-x) * 0.7), -66vh, 0) rotate(calc(var(--rotate) * 0.58)); }
+          76%  { opacity: 1; transform: translate3d(calc(33vw + var(--drift-x)), -22vh, 0) rotate(calc(var(--rotate) * 0.82)); }
+          100% { opacity: 0; transform: translate3d(calc(42vw + var(--drift-x)), 98vh, 0) rotate(var(--rotate)); }
         }
         @keyframes celebCannonR {
-          0%   { opacity: 0; transform: translate3d(0, 0, 0) rotate(0deg); }
+          0%   { opacity: 0; transform: translate3d(0, 10vh, 0) rotate(0deg) scale(0.82); }
           8%   { opacity: 1; }
-          35%  { transform: translate3d(calc(-20vw + var(--drift-x)), -65vh, 0) rotate(calc(var(--rotate) * 0.4)); }
-          90%  { opacity: 1; }
-          100% { opacity: 0; transform: translate3d(calc(-28vw + var(--drift-x)), 12vh, 0) rotate(var(--rotate)); }
+          24%  { transform: translate3d(calc(-13vw + var(--drift-x) * 0.25), -38vh, 0) rotate(calc(var(--rotate) * 0.22)) scale(1); }
+          52%  { transform: translate3d(calc(-25vw + var(--drift-x) * 0.7), -66vh, 0) rotate(calc(var(--rotate) * 0.58)); }
+          76%  { opacity: 1; transform: translate3d(calc(-33vw + var(--drift-x)), -22vh, 0) rotate(calc(var(--rotate) * 0.82)); }
+          100% { opacity: 0; transform: translate3d(calc(-42vw + var(--drift-x)), 98vh, 0) rotate(var(--rotate)); }
         }
         /* Rain — slow drift from above with sine-wobble horizontal sway so
            particles meander instead of falling straight. The mid-keyframe

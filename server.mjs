@@ -766,16 +766,23 @@ app.prepare().then(async () => {
     // emitQuestionEnded for the current index if it isn't already ended,
     // mirroring what the auto-end timer would have done. The host then stays
     // on the question-review screen and advances when ready.
-    socket.on('end_question', (rawPayload) => {
-      const parsed = validateSocketPayload(socket, GameCodeOnlySchema, rawPayload, undefined, 'end_question')
+    socket.on('end_question', (rawPayload, callback) => {
+      const parsed = validateSocketPayload(socket, GameCodeOnlySchema, rawPayload, callback, 'end_question')
       if (!parsed) return
       const { gameCode } = parsed
       const session = sessions.get(gameCode)
-      if (!session || session.hostSocketId !== socket.id) return
-      if (session.questionEnded) return
+      if (!session || session.hostSocketId !== socket.id) {
+        if (typeof callback === 'function') callback({ success: false, error: 'Session not found.' })
+        return
+      }
+      if (session.questionEnded) {
+        if (typeof callback === 'function') callback({ success: true, ended: false, questionIndex: session.currentQuestionIndex })
+        return
+      }
       session.questionEnded = true
       if (session.endTimer) { clearTimeout(session.endTimer); session.endTimer = null }
       emitQuestionEnded(io, gameCode, session, session.currentQuestionIndex)
+      if (typeof callback === 'function') callback({ success: true, ended: true, questionIndex: session.currentQuestionIndex })
     })
 
     // Host advanced from the question-review screen to the standings screen.
