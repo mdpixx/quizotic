@@ -30,6 +30,8 @@ let burstTimer: ReturnType<typeof setInterval> | null = null
 let steadyTimer: ReturnType<typeof setInterval> | null = null
 let bestRttMs = Infinity
 let burstFiresLeft = 0
+let activeSocket: Socket | null = null
+let lastResyncAt = 0
 
 function ping(socket: Socket): void {
   if (!socket.connected) return
@@ -63,6 +65,7 @@ export function startClockSync(socket: Socket): () => void {
   state.rttMs = 0
   state.samples = 0
   bestRttMs = Infinity
+  activeSocket = socket
 
   // Burst: 6 pings 250ms apart at connect → quickly converge on a low-rtt sample.
   burstFiresLeft = 6
@@ -71,8 +74,9 @@ export function startClockSync(socket: Socket): () => void {
     if (burstFiresLeft <= 0) {
       if (burstTimer) clearInterval(burstTimer)
       burstTimer = null
-      // Steady state: every 30s to track drift on long sessions.
-      steadyTimer = setInterval(() => ping(socket), 30_000)
+      // Steady state: every 15s to track drift on long sessions (tightened
+      // from 30s after live-session red-zone timer report).
+      steadyTimer = setInterval(() => ping(socket), 15_000)
       return
     }
     burstFiresLeft--
@@ -82,7 +86,31 @@ export function startClockSync(socket: Socket): () => void {
   return () => {
     if (burstTimer) { clearInterval(burstTimer); burstTimer = null }
     if (steadyTimer) { clearInterval(steadyTimer); steadyTimer = null }
+    activeSocket = null
   }
+}
+
+// On-demand 3-ping burst, throttled to at most once every 2s. Call this from
+// the participant client when a `question_show` arrives — it tightens the
+// offset right before the timer math runs, catching drift that would
+// otherwise make the question start in the red zone.
+export function resyncClock(): void {
+  if (!activeSocket || !activeSocket.connected) return
+  const now = Date.now()
+  if (now - lastResyncAt < 2000) return
+  lastResyncAt = now
+  // Reset best-rtt so a fresh tight ping can replace a stale offset.
+  bestRttMs = Infinity
+  let firesLeft = 3
+  ping(activeSocket)
+  const t = setInterval(() => {
+    if (firesLeft <= 0 || !activeSocket?.connected) {
+      clearInterval(t)
+      return
+    }
+    firesLeft--
+    ping(activeSocket)
+  }, 120)
 }
 
 export function getServerTimeOffsetMs(): number {

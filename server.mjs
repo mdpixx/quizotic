@@ -2238,7 +2238,26 @@ function sanitizeQuestion(q) {
   // extra round-trip.
   const { correctAnswer: _ca, correctAnswers: _cas, correctOrder: _co, ...safe } = q
   void _ca; void _cas; void _co
+  // Clamp timerSeconds to [5, 120] so a corrupted DB row can't ship a
+  // sub-second timer to clients (host reported red-zone starts in live sessions).
+  safe.timerSeconds = clampTimerSeconds(safe.timerSeconds, safe.id ?? '(no-id)')
   return safe
+}
+
+// Hard floor/ceiling on timerSeconds. Returns the clamped value and warns once
+// per offending question so we can clean the row later.
+const _clampWarned = new Set()
+function clampTimerSeconds(raw, qid) {
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n < 5 || n > 120) {
+    if (!_clampWarned.has(qid)) {
+      _clampWarned.add(qid)
+      console.warn(`[timer-clamp] question ${qid} has timerSeconds=${raw} — clamping to [5,120]`)
+    }
+    if (!Number.isFinite(n)) return 20
+    return Math.max(5, Math.min(120, n))
+  }
+  return n
 }
 
 // Catch-up emit for late joiners and reconnects. If the session is active and
@@ -2247,10 +2266,21 @@ function sanitizeQuestion(q) {
 // they missed the room-level question_show broadcast.
 function sendCurrentQuestionToSocket(socket, session) {
   if (!session || session.status !== 'active') return
+  // Don't replay a stale question payload to a reconnecting client when the
+  // current question has already ended (between-question gap). Without this
+  // guard the client would compute remaining = endAt - now from a past
+  // startAt and render the timer in the red zone for ~1-2 seconds.
+  if (session.questionEnded) return
   const { currentQuestionIndex, quizData, questionStartedAt } = session
   if (!quizData || typeof currentQuestionIndex !== 'number' || currentQuestionIndex < 0) return
   const q = quizData.questions?.[currentQuestionIndex]
   if (!q) return
+  // Additional safety: if the question is mid-flight but the remaining time
+  // is less than 1.5s, skip the replay — the next question_show is imminent
+  // and a sub-second timer paint looks like a bug to the user.
+  const safeTimer = clampTimerSeconds(q.timerSeconds, q.id ?? '(no-id)')
+  const endsAt = (questionStartedAt || 0) + safeTimer * 1000
+  if (Date.now() > endsAt - 1500) return
   socket.emit('question_show', {
     question: sanitizeQuestion(q),
     index: currentQuestionIndex,
@@ -2455,7 +2485,7 @@ function scheduleQuestionAutoEnd(io, gameCode, session, overrideMs) {
     totalMs = Math.max(0, overrideMs)
   } else {
     const q = session.quizData?.questions?.[session.currentQuestionIndex]
-    const timerSeconds = q?.timerSeconds ?? 20
+    const timerSeconds = clampTimerSeconds(q?.timerSeconds, q?.id ?? '(no-id)')
     // 3.5s intro countdown + question timer + 0.5s grace so the client gets a
     // chance to paint the final "0" before we transition.
     totalMs = 3500 + timerSeconds * 1000 + 500
