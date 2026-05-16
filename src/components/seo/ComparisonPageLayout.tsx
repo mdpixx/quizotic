@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { JsonLd } from './JsonLd'
 import { Breadcrumbs, type BreadcrumbItem } from './Breadcrumbs'
 import { RelatedLinks, type RelatedLink } from './RelatedLinks'
+import { NextSteps } from './NextSteps'
 
 export interface ComparisonRow {
   feature: string
@@ -30,6 +31,24 @@ export interface ComparisonPageProps {
 }
 
 const SITE = 'https://www.quizotic.live'
+
+const COMPETITOR_LEARN: Record<string, { href: string; title: string; description: string }> = {
+  kahoot: { href: '/learn/kahoot-pricing-india-vs-alternatives', title: 'Kahoot Pricing in India', description: 'Real cost of Kahoot for Indian buyers in 2026.' },
+  slido: { href: '/learn/slido-alternatives-india-2026', title: 'Slido Alternatives India 2026', description: 'Ranked comparison of Slido alternatives for Indian teams.' },
+  quizizz: { href: '/learn/best-quiz-app-jee-neet-coaching-institutes', title: 'Best Quiz App for JEE/NEET', description: 'How coaching institutes pick their quiz platform.' },
+  mentimeter: { href: '/learn/how-to-make-interactive-presentation', title: 'Interactive Presentation Guide', description: 'Step-by-step guide to running interactive presentations.' },
+  ahaslides: { href: '/learn/how-to-make-interactive-presentation', title: 'Interactive Presentation Guide', description: 'Step-by-step guide to running interactive presentations.' },
+  'poll-everywhere': { href: '/learn/slido-alternatives-india-2026', title: 'Slido Alternatives India 2026', description: 'Includes Poll Everywhere alternatives comparison.' },
+}
+
+const COMPETITOR_TEMPLATE: Record<string, { href: string; title: string; description: string }> = {
+  kahoot: { href: '/templates#audience-school-teachers', title: 'School Teacher Templates', description: 'Free CBSE/NCERT quiz templates — import and launch in one click.' },
+  slido: { href: '/templates#audience-corporate-trainers', title: 'Corporate Training Templates', description: 'POSH, onboarding, cybersecurity quiz templates for L&D teams.' },
+  quizizz: { href: '/templates#audience-coaching-institutes', title: 'Coaching Institute Templates', description: 'JEE/NEET/UPSC quiz templates ready to import.' },
+  mentimeter: { href: '/templates#audience-corporate-trainers', title: 'Corporate Training Templates', description: 'POSH, onboarding, cybersecurity quiz templates for L&D teams.' },
+  ahaslides: { href: '/templates#audience-event-hosts', title: 'Event Host Templates', description: 'Trivia, office fun, Bollywood, cricket quiz templates.' },
+  'poll-everywhere': { href: '/templates#audience-corporate-trainers', title: 'Corporate Training Templates', description: 'POSH, onboarding, cybersecurity quiz templates for L&D teams.' },
+}
 
 export function ComparisonPageLayout({
   kind,
@@ -73,11 +92,7 @@ export function ComparisonPageLayout({
       '@type': 'Offer',
       price: '0',
       priceCurrency: 'INR',
-    },
-    aggregateRating: {
-      '@type': 'AggregateRating',
-      ratingValue: '4.8',
-      ratingCount: '120',
+      availability: 'https://schema.org/InStock',
     },
   }
 
@@ -192,6 +207,35 @@ export function ComparisonPageLayout({
               ))}
             </div>
           </section>
+
+          {COMPETITOR_LEARN[slug] && COMPETITOR_TEMPLATE[slug] && (
+            <NextSteps steps={[
+              {
+                label: 'Next read',
+                title: COMPETITOR_LEARN[slug].title,
+                description: COMPETITOR_LEARN[slug].description,
+                href: COMPETITOR_LEARN[slug].href,
+              },
+              {
+                label: 'Compare',
+                title: kind === 'vs'
+                  ? `${competitor} Alternatives`
+                  : `Quizotic vs ${competitor}`,
+                description: kind === 'vs'
+                  ? `Browse all ${competitor} alternatives for India.`
+                  : `Side-by-side feature comparison.`,
+                href: kind === 'vs'
+                  ? `/alternatives/${slug}`
+                  : `/vs/${slug}`,
+              },
+              {
+                label: 'Try a template',
+                title: COMPETITOR_TEMPLATE[slug].title,
+                description: COMPETITOR_TEMPLATE[slug].description,
+                href: COMPETITOR_TEMPLATE[slug].href,
+              },
+            ]} />
+          )}
 
           <div className="text-center pt-2 mb-14">
             <Link

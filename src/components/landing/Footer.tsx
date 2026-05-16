@@ -26,14 +26,19 @@ const RESOURCE_LINKS = [
   { href: '/templates', label: 'Templates' },
   { href: '/alternatives/slido', label: 'Slido alternatives' },
   { href: '/alternatives/kahoot', label: 'Kahoot alternatives' },
+  { href: '/alternatives/quizizz', label: 'Quizizz alternatives' },
   { href: '/alternatives/mentimeter', label: 'Mentimeter alternatives' },
+  { href: '/alternatives/poll-everywhere', label: 'Poll Everywhere alternatives' },
+  { href: '/alternatives/ahaslides', label: 'AhaSlides alternatives' },
 ]
 
 // Audience landing pages — give Google a clear signal that we serve each
 // segment, and surface them within 1 click of the home page.
 const FOR_LINKS = [
   { href: '/for/teachers', label: 'For Teachers' },
+  { href: '/for/schools', label: 'For Schools' },
   { href: '/for/coaching-institutes', label: 'For Coaching Institutes' },
+  { href: '/for/colleges', label: 'For Colleges' },
   { href: '/for/corporate-trainers', label: 'For Corporate Trainers' },
   { href: '/for/event-hosts', label: 'For Event Hosts' },
 ]
@@ -45,7 +50,9 @@ const SOLUTION_LINKS = [
   { href: '/live-quiz', label: 'Live Quiz' },
   { href: '/interactive-presentation', label: 'Interactive Presentation' },
   { href: '/ai-quiz-generator', label: 'AI Quiz Generator' },
+  { href: '/gamified-learning', label: 'Gamified Learning' },
   { href: '/live-polling', label: 'Live Polling' },
+  { href: '/quiz-maker', label: 'Quiz Maker' },
   { href: '/pdf-to-quiz', label: 'PDF to Quiz' },
   { href: '/ncert-quiz-generator', label: 'NCERT Quiz Generator' },
 ]
@@ -59,6 +66,9 @@ const GUIDE_LINKS = [
   { href: '/learn/how-to-create-quiz-from-pdf', label: 'Make a quiz from a PDF' },
   { href: '/learn/cbse-class-10-free-quiz-questions', label: 'CBSE Class 10 quiz bank' },
   { href: '/learn/how-to-make-interactive-presentation', label: 'Interactive presentation guide' },
+  { href: '/learn/slido-alternatives-india-2026', label: 'Slido alternatives India' },
+  { href: '/learn/compliance-training-quiz-tool-india', label: 'Compliance training quizzes' },
+  { href: '/learn/kahoot-pricing-india-vs-alternatives', label: 'Kahoot pricing vs alternatives' },
 ]
 
 export function Footer() {

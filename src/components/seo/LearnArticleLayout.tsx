@@ -2,10 +2,43 @@ import Link from 'next/link'
 import { JsonLd } from './JsonLd'
 import { Breadcrumbs, type BreadcrumbItem } from './Breadcrumbs'
 import { RelatedLinks } from './RelatedLinks'
+import { NextSteps } from './NextSteps'
 import type { LearnArticle } from '@/content/learn'
 import { LEARN_CATEGORIES } from '@/content/learn'
 
 const SITE = 'https://www.quizotic.live'
+
+const CATEGORY_NEXT_STEPS: Record<string, {
+  read: { title: string; description: string; href: string }
+  compare: { title: string; description: string; href: string }
+  template: { title: string; description: string; href: string }
+}> = {
+  'how-to': {
+    read: { title: 'Interactive Presentation Guide', href: '/learn/how-to-make-interactive-presentation', description: 'Make any deck interactive with live polls and quizzes.' },
+    compare: { title: 'vs Kahoot', href: '/vs/kahoot', description: 'Quizotic vs Kahoot — feature comparison.' },
+    template: { title: 'All Templates', href: '/templates', description: 'Browse 50+ free quiz templates.' },
+  },
+  comparison: {
+    read: { title: 'Slido Alternatives India 2026', href: '/learn/slido-alternatives-india-2026', description: 'Ranked comparison of Slido alternatives for Indian teams.' },
+    compare: { title: 'vs Kahoot', href: '/vs/kahoot', description: 'Quizotic vs Kahoot — feature comparison.' },
+    template: { title: 'All Templates', href: '/templates', description: 'Browse 50+ free quiz templates.' },
+  },
+  'cbse-ncert': {
+    read: { title: 'CBSE Class 10 Quiz Questions', href: '/learn/cbse-class-10-free-quiz-questions', description: 'Free CBSE Class 10 quiz questions for teachers.' },
+    compare: { title: 'vs Quizizz', href: '/vs/quizizz', description: 'Quizotic vs Quizizz — which fits Indian schools?' },
+    template: { title: 'School Teacher Templates', href: '/templates#audience-school-teachers', description: 'Free CBSE/NCERT quiz templates for school teachers.' },
+  },
+  'corporate-training': {
+    read: { title: 'Compliance Training Quiz Guide', href: '/learn/compliance-training-quiz-tool-india', description: 'Running effective compliance quizzes in India.' },
+    compare: { title: 'vs Slido', href: '/vs/slido', description: 'Quizotic vs Slido — which is better for corporate training?' },
+    template: { title: 'Corporate Training Templates', href: '/templates#audience-corporate-trainers', description: 'POSH, onboarding, cybersecurity quiz templates.' },
+  },
+  'hindi-regional': {
+    read: { title: 'CBSE Live Quiz Guide', href: '/learn/how-to-run-a-live-quiz-cbse-classroom', description: 'Running live quizzes in Indian classrooms.' },
+    compare: { title: 'vs Quizizz', href: '/vs/quizizz', description: 'Quizotic vs Quizizz — which fits Indian schools?' },
+    template: { title: 'School Teacher Templates', href: '/templates#audience-school-teachers', description: 'Free CBSE/NCERT quiz templates for school teachers.' },
+  },
+}
 
 interface LearnArticleLayoutProps {
   article: LearnArticle
@@ -15,7 +48,7 @@ export function LearnArticleLayout({ article }: LearnArticleLayoutProps) {
   const breadcrumbs: BreadcrumbItem[] = [
     { name: 'Home', href: '/' },
     { name: 'Learn', href: '/learn' },
-    { name: LEARN_CATEGORIES[article.category].label, href: `/learn?category=${article.category}` },
+    { name: LEARN_CATEGORIES[article.category].label, href: `/learn#category-${article.category}` },
     { name: article.h1, href: `/learn/${article.slug}` },
   ]
 
@@ -198,6 +231,15 @@ export function LearnArticleLayout({ article }: LearnArticleLayoutProps) {
               ))}
             </div>
           </section>
+
+          {/* Next steps rail */}
+          {CATEGORY_NEXT_STEPS[article.category] && (
+            <NextSteps steps={[
+              { label: 'Next read', ...CATEGORY_NEXT_STEPS[article.category].read },
+              { label: 'Compare', ...CATEGORY_NEXT_STEPS[article.category].compare },
+              { label: 'Try a template', ...CATEGORY_NEXT_STEPS[article.category].template },
+            ]} />
+          )}
 
           {/* CTA */}
           <div className="text-center pt-2 mb-14">

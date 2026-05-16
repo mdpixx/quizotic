@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Breadcrumbs } from '@/components/seo/Breadcrumbs'
 
 export const metadata: Metadata = {
   title: 'About Quizotic',
@@ -12,13 +13,12 @@ export default function AboutPage() {
   return (
     <div className="min-h-screen" style={{ background: '#FFFFFF' }}>
       <div className="max-w-3xl mx-auto px-6 py-12">
-        <Link
-          href="/"
-          className="text-sm font-semibold mb-6 inline-block"
-          style={{ color: '#0F1B3D' }}
-        >
-          &larr; Back to Home
-        </Link>
+        <div className="mb-6">
+          <Breadcrumbs items={[
+            { name: 'Home', href: '/' },
+            { name: 'About', href: '/about' },
+          ]} />
+        </div>
 
         <h1
           className="text-3xl font-black mb-2"

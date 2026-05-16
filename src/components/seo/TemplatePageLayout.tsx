@@ -18,7 +18,7 @@ export function TemplatePageLayout({ template }: TemplatePageLayoutProps) {
   const breadcrumbs: BreadcrumbItem[] = [
     { name: 'Home', href: '/' },
     { name: 'Templates', href: '/templates' },
-    { name: TEMPLATE_AUDIENCES[template.audience].label, href: `/templates?audience=${template.audience}` },
+    { name: TEMPLATE_AUDIENCES[template.audience].label, href: `/templates#audience-${template.audience}` },
     { name: template.title, href: `/templates/${template.slug}` },
   ]
 
@@ -72,11 +72,35 @@ export function TemplatePageLayout({ template }: TemplatePageLayoutProps) {
     },
   }
 
+  // LearningResource — what AI engines extract for "quiz on X for grade Y"
+  const learningResourceLd = {
+    '@context': 'https://schema.org',
+    '@type': 'LearningResource',
+    name: template.title,
+    description: template.shortDescription,
+    educationalLevel: TEMPLATE_GRADES[template.grade],
+    learningResourceType: 'Quiz',
+    audience: {
+      '@type': 'EducationalAudience',
+      educationalRole: TEMPLATE_AUDIENCES[template.audience].label,
+    },
+    teaches: template.subject,
+    numberOfQuestions: template.totalQuestions,
+    timeRequired: `PT${template.durationMinutes}M`,
+    inLanguage: 'en-IN',
+    url: `${SITE}/templates/${template.slug}`,
+    publisher: {
+      '@type': 'Organization',
+      name: 'Quizotic',
+      url: SITE,
+    },
+  }
+
   const importHref = `/auth/signin?next=${encodeURIComponent(`/host/create?template=${template.slug}`)}`
 
   return (
     <>
-      <JsonLd data={[quizLd, creativeWorkLd]} />
+      <JsonLd data={[quizLd, creativeWorkLd, learningResourceLd]} />
       <div className="min-h-screen" style={{ background: '#FFFFFF' }}>
         <div className="max-w-4xl mx-auto px-6 py-12">
           <div className="mb-6">
