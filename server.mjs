@@ -691,9 +691,18 @@ app.prepare().then(async () => {
 
       session.status = 'active'
       session.currentQuestionIndex = 0
-      const question = sanitizeQuestion(session.quizData.questions[0])
+      let question = sanitizeQuestion(session.quizData.questions[0])
       const startAt = Date.now() + 3500  // 3-second countdown window
       session.questionStartedAt = startAt
+
+      // If sequence ranking: shuffle options and store shuffled IDs for answer validation
+      if (isSequenceRanking(session.quizData.questions[0])) {
+        const shuffledOptions = fisherYatesShuffle(question.options || [])
+        session.currentRankingShuffledIds = shuffledOptions.map(o => o.id)
+        question = { ...question, options: shuffledOptions }
+      } else {
+        session.currentRankingShuffledIds = null
+      }
 
       io.to(`session:${gameCode}`).emit('question_show', {
         question,
@@ -842,7 +851,17 @@ app.prepare().then(async () => {
 
       const startAt = Date.now() + 3500  // 3-second countdown window
       session.questionStartedAt = startAt
-      const question = sanitizeQuestion(quizData.questions[currentQuestionIndex])
+      let question = sanitizeQuestion(quizData.questions[currentQuestionIndex])
+
+      // If sequence ranking: shuffle options and store shuffled IDs for answer validation
+      if (isSequenceRanking(quizData.questions[currentQuestionIndex])) {
+        const shuffledOptions = fisherYatesShuffle(question.options || [])
+        session.currentRankingShuffledIds = shuffledOptions.map(o => o.id)
+        question = { ...question, options: shuffledOptions }
+      } else {
+        session.currentRankingShuffledIds = null
+      }
+
       io.to(`session:${gameCode}`).emit('question_show', {
         question,
         index: currentQuestionIndex,
@@ -1847,9 +1866,48 @@ app.prepare().then(async () => {
         console.warn(`[submit_answer:late-but-recorded] code=${gameCode} q=${qi} sid=${socket.id} pid=${participant.participantId} rawElapsed=${rawElapsed}ms deadline=${timerMs + 2000}ms`)
       }
 
-      // Ranking questions: accept an array of option indices, store raw, do not score.
+      // Ranking questions: accept an array of option indices. Score if sequence ranking, else non-scored.
       if (question.type === 'ranking' && Array.isArray(answer)) {
-        participant.answers[qi] = { answer, timeMs: serverTimeMs, clientReportedTimeMs, confidence: confidence ?? 'unsure', isNonScored: true, ...(isLate ? { late: true } : {}) }
+        const isSequence = isSequenceRanking(question)
+        let isCorrect = null
+        let basePoints = 0
+        let correctPositions = 0
+        let totalPositions = 0
+
+        if (isSequence && session.currentRankingShuffledIds) {
+          // Sequence ranking with scoring: map submitted indices to option IDs via shuffled order
+          const submittedOrder = answer.map(i => session.currentRankingShuffledIds[i]).filter(id => id !== undefined)
+          const correctOrder = question.correctOrder || []
+          totalPositions = correctOrder.length
+          correctPositions = submittedOrder.filter((id, i) => correctOrder[i] === id).length
+          const accuracy = totalPositions > 0 ? correctPositions / totalPositions : 0
+          const formula = session.scoringFormula ?? 'classic'
+          const timerMs = (question.timerSeconds || 20) * 1000
+          const speedMultiplier = formula === 'accuracy' ? 1 : Math.max(0.2, 1 - serverTimeMs / timerMs)
+          basePoints = !isLate && correctPositions > 0 ? Math.round(accuracy * (question.points || 1000) * speedMultiplier) : 0
+          isCorrect = correctPositions === totalPositions
+        } else {
+          // Non-scored ranking: accept and emit for consensus view
+          isCorrect = null
+          basePoints = 0
+        }
+
+        const streakBonus = 0  // Ranking doesn't use streak
+        const points = basePoints
+        participant.answers[qi] = {
+          answer,
+          isCorrect,
+          points,
+          basePoints,
+          streakBonus,
+          timeMs: serverTimeMs,
+          clientReportedTimeMs,
+          confidence: confidence ?? 'unsure',
+          ...(isLate ? { late: true } : {}),
+          ...(isSequence ? { correctPositions, totalPositions } : {}),
+        }
+        participant.score += points
+
         persistAnswer({
           session,
           sessionDbId: session.dbId,
@@ -1857,14 +1915,26 @@ app.prepare().then(async () => {
           participantId: participant.participantId,
           questionIndex: qi,
           answer,
-          isCorrect: null,
-          basePoints: 0,
-          streakBonus: 0,
-          points: 0,
+          isCorrect,
+          basePoints,
+          streakBonus,
+          points,
           timeMs: serverTimeMs,
           confidence: confidence ?? 'unsure',
         })
-        socket.emit('answer_confirmed', { isCorrect: null, points: 0, totalScore: participant.score, isNonScored: true, ...(isLate ? { late: true } : {}) })
+
+        socket.emit('answer_confirmed', {
+          isCorrect,
+          points,
+          basePoints,
+          streakBonus,
+          streakCount: participant.streakCount || 0,
+          totalScore: participant.score,
+          isNonScored: !isSequence,
+          ...(isSequence && totalPositions > 0 ? { correctPositions, totalPositions } : {}),
+          ...(isLate ? { late: true } : {}),
+        })
+
         const numOptions = question.options?.length ?? 4
         io.to(`host:${gameCode}`).emit('answer_received', {
           count: countAnswers(session, qi),
@@ -1872,11 +1942,12 @@ app.prepare().then(async () => {
           connectedCount: getConnectedCount(session),
           optionCounts: countAnswersByOption(session, qi, numOptions),
         })
+
         // Payload field name `ranking` matches the host listener. Kept `order`
         // for any older clients still in the wild; harmless duplicate.
         io.to(`host:${gameCode}`).emit('ranking_submission', { ranking: answer, order: answer })
         emitLiveResponses(io, gameCode, session, qi)
-        if (ack) ack({ accepted: true, isNonScored: true, questionIndex: qi, ...(isLate ? { late: true } : {}) })
+        if (ack) ack({ accepted: true, isNonScored: !isSequence, questionIndex: qi, ...(isLate ? { late: true } : {}) })
         return
       }
 
@@ -2142,6 +2213,20 @@ process.on('unhandledRejection', (reason) => {
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
+function isSequenceRanking(question) {
+  return question?.type === 'ranking' && Array.isArray(question?.correctOrder) && question.correctOrder.length > 0
+}
+
+function fisherYatesShuffle(array) {
+  // Shuffle array in place using Fisher-Yates algorithm. Returns the shuffled array.
+  const arr = [...array]
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
+
 function sanitizeQuestion(q) {
   // Strip answer-revealing fields before broadcasting to the participant
   // room. Historical bug: only `correctAnswer` was stripped, so the
@@ -2151,8 +2236,8 @@ function sanitizeQuestion(q) {
   // already gates their display behind the post-answer reveal phase, and
   // including them keeps the late-joiner catch-up path working without an
   // extra round-trip.
-  const { correctAnswer: _ca, correctAnswers: _cas, ...safe } = q
-  void _ca; void _cas
+  const { correctAnswer: _ca, correctAnswers: _cas, correctOrder: _co, ...safe } = q
+  void _ca; void _cas; void _co
   return safe
 }
 
@@ -2550,6 +2635,8 @@ function emitQuestionEnded(io, gameCode, session, questionIndex) {
       isFastest: socketId === fastestKey,
       crossedTopFive: typeof toRank === 'number' && toRank <= 5
         && (typeof fromRank !== 'number' || fromRank > 5),
+      ...(ans?.correctPositions !== undefined ? { correctPositions: ans.correctPositions } : {}),
+      ...(ans?.totalPositions !== undefined ? { totalPositions: ans.totalPositions } : {}),
     }
     io.to(socketId).emit('personal_result', personal)
     // Keep the legacy my_rank_update event for back-compat with any older
@@ -2719,9 +2806,34 @@ function computeNonScoredAggregate(q, answered, qi) {
     const positionSums = Array(n).fill(0)
     const positionCounts = Array(n).fill(0)
     const firstPlace = Array(n).fill(0)
+    let fullCorrectCount = 0
+
+    // Check if this is a sequence ranking question
+    const isSequenceRanking = q.correctOrder && Array.isArray(q.correctOrder) && q.correctOrder.length > 0
+    const correctOrder = isSequenceRanking ? q.correctOrder : null
+
     for (const p of answered) {
       const order = p.answers[qi].answer
       if (!Array.isArray(order)) continue
+
+      // For sequence ranking, check if all positions match the correct order
+      if (isSequenceRanking && correctOrder) {
+        let allCorrect = true
+        if (order.length === correctOrder.length) {
+          for (let pos = 0; pos < order.length; pos++) {
+            const submittedOptId = items[Number(order[pos])]?.id
+            const correctOptId = correctOrder[pos]
+            if (submittedOptId !== correctOptId) {
+              allCorrect = false
+              break
+            }
+          }
+          if (allCorrect) fullCorrectCount++
+        } else {
+          allCorrect = false
+        }
+      }
+
       order.forEach((itemIdx, position) => {
         const idx = Number(itemIdx)
         if (Number.isFinite(idx) && idx >= 0 && idx < n) {
@@ -2731,15 +2843,27 @@ function computeNonScoredAggregate(q, answered, qi) {
         }
       })
     }
+
     const rankingAverages = positionSums.map((sum, idx) =>
       positionCounts[idx] > 0 ? Math.round((sum / positionCounts[idx]) * 100) / 100 : null
     )
-    return {
+
+    const result = {
       rankingItems: items.map(o => typeof o === 'string' ? o : (o?.text ?? '')),
       rankingAverages,
       rankingFirstPlaceCounts: firstPlace,
       optionDistribution: null,
     }
+
+    if (isSequenceRanking) {
+      result.correctOrder = correctOrder.map(optId => {
+        const item = items.find(o => (typeof o === 'string' ? o : o?.id) === optId)
+        return typeof item === 'string' ? item : (item?.text ?? '')
+      })
+      result.fullCorrectCount = fullCorrectCount
+    }
+
+    return result
   }
 
   if (renderer === 'grid') {

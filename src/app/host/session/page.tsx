@@ -1447,9 +1447,10 @@ export default function SessionPage() {
             )}
           </div>
 
-          {/* Ranking: show average rank per option */}
+          {/* Ranking: show correct order (if scored) and consensus ranking */}
           {currentQuestion.type === 'ranking' ? (
             (() => {
+              const isSequenceRanking = currentQuestion.correctOrder && currentQuestion.correctOrder.length > 0
               const numOpts = currentQuestion.options?.length ?? 0
               const sums = Array(numOpts).fill(0)
               const counts = Array(numOpts).fill(0)
@@ -1470,23 +1471,51 @@ export default function SessionPage() {
                 avg: counts[i] > 0 ? sums[i] / counts[i] : Number.POSITIVE_INFINITY,
                 hasData: counts[i] > 0,
               })).sort((a, b) => a.avg - b.avg)
+
               return (
-                <div className="space-y-2">
-                  <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Consensus ranking · {rankingSubmissions.length} submission{rankingSubmissions.length !== 1 ? 's' : ''}</p>
-                  {rows.map((row, pos) => (
-                    <div key={row.i} className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl p-3">
-                      <span className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black bg-gray-100 text-gray-600 flex-shrink-0">
-                        {pos + 1}
-                      </span>
-                      <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ${OPTION_COLORS[row.i]}`}>
-                        {row.label}
-                      </span>
-                      <span className="flex-1 text-base text-gray-800 font-medium">{row.text}</span>
-                      <span className="text-sm font-bold text-gray-600 tabular-nums">
-                        {row.hasData ? `avg ${row.avg.toFixed(1)}` : '—'}
-                      </span>
+                <div className="space-y-3">
+                  {/* Correct order panel (for sequence ranking) */}
+                  {isSequenceRanking && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Correct order</p>
+                      {(currentQuestion.correctOrder ?? []).map((optId, pos) => {
+                        const opt = currentQuestion.options?.find(o => o.id === optId)
+                        const optIdx = currentQuestion.options?.indexOf(opt || {}) ?? -1
+                        return (
+                          <div key={optId} className="flex items-center gap-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-3">
+                            <span className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black bg-green-500 text-white flex-shrink-0">
+                              {pos + 1}
+                            </span>
+                            <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ${optIdx >= 0 && optIdx < OPTION_COLORS.length ? OPTION_COLORS[optIdx] : 'bg-gray-400'}`}>
+                              {OPTION_LABELS[optIdx] ?? String(optIdx + 1)}
+                            </span>
+                            <span className="flex-1 text-base text-gray-800 font-medium">{getOptionText(opt)}</span>
+                          </div>
+                        )
+                      })}
                     </div>
-                  ))}
+                  )}
+
+                  {/* Consensus ranking */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">
+                      {isSequenceRanking ? 'Consensus ranking' : 'Rankings'} · {rankingSubmissions.length} submission{rankingSubmissions.length !== 1 ? 's' : ''}
+                    </p>
+                    {rows.map((row, pos) => (
+                      <div key={row.i} className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl p-3">
+                        <span className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black bg-gray-100 text-gray-600 flex-shrink-0">
+                          {pos + 1}
+                        </span>
+                        <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ${OPTION_COLORS[row.i]}`}>
+                          {row.label}
+                        </span>
+                        <span className="flex-1 text-base text-gray-800 font-medium">{row.text}</span>
+                        <span className="text-sm font-bold text-gray-600 tabular-nums">
+                          {row.hasData ? `avg ${row.avg.toFixed(1)}` : '—'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )
             })()
