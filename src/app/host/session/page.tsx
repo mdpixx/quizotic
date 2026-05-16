@@ -1478,18 +1478,17 @@ export default function SessionPage() {
                   {isSequenceRanking && (
                     <div className="space-y-2">
                       <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Correct order</p>
-                      {(currentQuestion.correctOrder ?? []).map((optId, pos) => {
-                        const opt = currentQuestion.options?.find(o => o.id === optId)
-                        const optIdx = currentQuestion.options?.indexOf(opt || {}) ?? -1
+                      {(currentQuestion.correctOrder ?? []).map((optIdx, pos) => {
+                        const opt = typeof optIdx === 'number' ? currentQuestion.options?.[optIdx] : currentQuestion.options?.find((o) => typeof o === 'string' ? o === optIdx : (o as any).id === optIdx)
                         return (
-                          <div key={optId} className="flex items-center gap-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-3">
+                          <div key={`${optIdx}-${pos}`} className="flex items-center gap-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-3">
                             <span className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black bg-green-500 text-white flex-shrink-0">
                               {pos + 1}
                             </span>
-                            <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ${optIdx >= 0 && optIdx < OPTION_COLORS.length ? OPTION_COLORS[optIdx] : 'bg-gray-400'}`}>
-                              {OPTION_LABELS[optIdx] ?? String(optIdx + 1)}
+                            <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ${typeof optIdx === 'number' && optIdx >= 0 && optIdx < OPTION_COLORS.length ? OPTION_COLORS[optIdx] : 'bg-gray-400'}`}>
+                              {typeof optIdx === 'number' ? (OPTION_LABELS[optIdx] ?? String(optIdx + 1)) : String(optIdx)}
                             </span>
-                            <span className="flex-1 text-base text-gray-800 font-medium">{getOptionText(opt)}</span>
+                            <span className="flex-1 text-base text-gray-800 font-medium">{opt ? getOptionText(opt) : `Option ${typeof optIdx === 'number' ? optIdx + 1 : optIdx}`}</span>
                           </div>
                         )
                       })}

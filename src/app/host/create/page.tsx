@@ -318,6 +318,16 @@ function QuestionPreview({
     onChange({ ...question, options })
   }
 
+  function handleAddOption() {
+    const options = [...(question.options ?? []), '']
+    onChange({ ...question, options })
+  }
+
+  function handleRemoveOption(i: number) {
+    const options = question.options?.filter((_, idx) => idx !== i) ?? []
+    onChange({ ...question, options })
+  }
+
   return (
     <div className="w-full max-w-[1400px] rounded-2xl overflow-hidden" style={{ boxShadow: '0 12px 40px rgba(0,0,0,0.10)' }}>
       {/* Header — inline-editable question text */}
