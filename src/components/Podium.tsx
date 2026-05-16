@@ -12,7 +12,7 @@ import {
   stopCheer,
   stopDrumroll,
 } from '@/lib/sounds'
-import { useConfetti, startConfettiLoop } from '@/hooks/useConfetti'
+import { startConfettiLoop } from '@/hooks/useConfetti'
 
 interface PodiumEntry {
   name: string
@@ -157,7 +157,6 @@ export function Podium({
   const top3 = leaderboard.slice(0, 3)
   const rest = leaderboard.slice(3)
   const firedWinnerEffects = useRef(false)
-  const fireConfetti = useConfetti()
 
   // Preload MP3s as soon as the podium mounts so there's no delay on reveal.
   useEffect(() => {
@@ -202,7 +201,8 @@ export function Podium({
       playBassBoom()
       playCheer()
       playCelebration()
-      fireConfetti('winner')
+      // Floating-gold CelebrationConfetti layer handles the visual celebration
+      // now — avoid a competing canvas-confetti burst on the same moment.
     }, PHASE_TIMINGS[3].at))
 
     return () => {
@@ -210,7 +210,7 @@ export function Podium({
       stopDrumroll()
       stopCheer()
     }
-  }, [reduced, skipIntro, fireConfetti])
+  }, [reduced, skipIntro])
 
   const skip = () => {
     stopDrumroll()
@@ -218,7 +218,6 @@ export function Podium({
     if (!firedWinnerEffects.current && !reduced) {
       firedWinnerEffects.current = true
       playCelebration()
-      fireConfetti('winner')
     }
     setPhase('rest')
   }
@@ -277,7 +276,7 @@ export function Podium({
       <div
         className="flex items-end justify-center gap-3 sm:gap-6 relative"
         style={{
-          minHeight: isFinale ? 440 : 320,
+          minHeight: isFinale ? 380 : 280,
           // Shake removed — read as "jittery" on a projector. The spotlight
           // halo + crown bounce + winnerSlam already sell the winner moment
           // without the whole podium twitching sideways.
