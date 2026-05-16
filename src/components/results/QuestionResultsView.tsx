@@ -219,13 +219,13 @@ function RankingResults({ stat, className }: RendererProps) {
   const averages = stat.rankingAverages ?? []
   const firsts = stat.rankingFirstPlaceCounts ?? []
   const correctOrder = stat.correctOrder
-  const fullCorrectCount = (stat as any).fullCorrectCount ?? 0
+  const fullCorrectCount = stat.fullCorrectCount ?? 0
   const optionIdAt = (index: number) => {
-    const option = stat.options?.[index]
+    const option = stat.options?.[index] as unknown
     if (!option) return undefined
     if (typeof option === 'string') return option
     const maybeWithId = option as unknown as Record<string, unknown>
-    return typeof maybeWithId.id === 'string' ? maybeWithId.id : option.text
+    return typeof maybeWithId.id === 'string' ? maybeWithId.id : typeof maybeWithId.text === 'string' ? maybeWithId.text : undefined
   }
 
   if (items.length === 0 || averages.every(a => a === null || a === undefined)) {
@@ -252,7 +252,7 @@ function RankingResults({ stat, className }: RendererProps) {
                 : items.find((_, i) => optionIdAt(i) === String(optId))
               const optLabel = typeof opt === 'string' ? opt : opt || `Option ${idx + 1}`
               return (
-                <li key={optId + idx} className="flex items-center gap-2.5 text-sm">
+                <li key={`${optId}-${idx}`} className="flex items-center gap-2.5 text-sm">
                   <span
                     className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black"
                     style={{ background: '#10b981', color: 'white' }}

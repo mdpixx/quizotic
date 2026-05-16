@@ -35,7 +35,7 @@ const GOLD_COLORS = ['#FFE066', '#F5E642', '#FFFFFF', '#FFC300', '#FBBF24', '#FF
 // the participant join page (which doesn't celebrate) never pays the cost.
 let cached: {
   confetti: ConfettiFn
-  shapes: { rect: Shape; ribbon: Shape; star: Shape; circle: Shape; square: Shape }
+  shapes: { rect: Shape; ribbon: Shape; curl: Shape; star: Shape; circle: Shape; square: Shape }
 } | null = null
 
 async function loadConfetti() {
@@ -49,9 +49,10 @@ async function loadConfetti() {
     // canvas-confetti so they tumble naturally on the way down.
     const rect: Shape = make ? make({ path: 'M 0 0 L 9 0 L 9 3 L 0 3 Z' }) : 'square'
     const ribbon: Shape = make ? make({ path: 'M 0 0 L 24 0 L 24 3 L 0 3 Z' }) : 'square'
+    const curl: Shape = make ? make({ path: 'M 1 10 C 1 2 19 2 19 10 C 19 18 7 18 7 11 L 11 11 C 11 14 15 14 15 10 C 15 6 5 6 5 10 Z' }) : 'circle'
     cached = {
       confetti,
-      shapes: { rect, ribbon, star: 'star', circle: 'circle', square: 'square' },
+      shapes: { rect, ribbon, curl, star: 'star', circle: 'circle', square: 'square' },
     }
     return cached
   } catch {
@@ -101,7 +102,7 @@ async function firePreset(preset: Preset) {
     gravity: 1.0,
   }
   // Mostly rectangles, some ribbons and circles, occasional star.
-  const mixedShapes = [shapes.rect, shapes.rect, shapes.rect, shapes.ribbon, shapes.circle, shapes.star]
+  const mixedShapes = [shapes.rect, shapes.rect, shapes.ribbon, shapes.curl, shapes.circle, shapes.star]
 
   if (preset === 'winner') {
     fireWinner(confetti, base, mixedShapes, shapes, factor)
@@ -141,7 +142,7 @@ function fireWinner(
   confetti: ConfettiFn,
   base: ConfettiOptions,
   mixedShapes: Shape[],
-  shapes: { rect: Shape; ribbon: Shape; star: Shape; circle: Shape },
+  shapes: { rect: Shape; ribbon: Shape; curl: Shape; star: Shape; circle: Shape },
   factor: number,
 ) {
   // Phase 1 (t=0): two side cannons firing inward and upward.
@@ -162,7 +163,7 @@ function fireWinner(
 
   // Phase 3 (t=900): side cannons reload — heavier on ribbons for streamer feel.
   setTimeout(() => {
-    const ribbonHeavy = [shapes.ribbon, shapes.ribbon, shapes.ribbon, shapes.rect, shapes.circle]
+    const ribbonHeavy = [shapes.ribbon, shapes.ribbon, shapes.curl, shapes.curl, shapes.rect, shapes.circle]
     confetti(scale({
       ...base, origin: { x: 0.02, y: 0.85 }, angle: 75, spread: 50,
       particleCount: 60, startVelocity: 70, ticks: 400, scalar: 1.15, shapes: ribbonHeavy,
@@ -232,7 +233,7 @@ export function startConfettiLoop(): () => void {
   loadConfetti().then(lib => {
     if (stopped || !lib) return
     const { confetti, shapes } = lib
-    const mixed = [shapes.rect, shapes.rect, shapes.ribbon, shapes.circle, shapes.star]
+    const mixed = [shapes.rect, shapes.ribbon, shapes.curl, shapes.circle, shapes.star]
 
     // Welcome burst — the same physics as `winner` Phase 1+2 so the loop
     // begins with momentum instead of trickling in.

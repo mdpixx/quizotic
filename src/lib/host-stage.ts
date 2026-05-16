@@ -20,6 +20,8 @@ interface PostQuestionActionInput {
   questionEnded: boolean
   correctRevealed: boolean
   isLastQuestion: boolean
+  answered?: number
+  connectedCount?: number
 }
 
 function entryId(entry: LeaderboardStageEntry): string {
@@ -62,8 +64,11 @@ export function getPostQuestionAction({
   questionEnded,
   correctRevealed,
   isLastQuestion,
+  answered = 0,
+  connectedCount = 0,
 }: PostQuestionActionInput): PostQuestionAction {
-  if (!questionEnded) return 'waiting'
+  const everyoneAnswered = connectedCount > 0 && answered >= connectedCount
+  if (!questionEnded && !everyoneAnswered) return 'waiting'
   if (isLastQuestion) {
     if (sessionMode === 'competitive' && isScored && !correctRevealed) return 'reveal'
     return 'end'

@@ -32,6 +32,8 @@ interface PodiumProps {
   // mounted — stops when the host dismisses or leaves the screen. Respects
   // prefers-reduced-motion.
   loopConfetti?: boolean
+  showRest?: boolean
+  variant?: 'standard' | 'finale'
 }
 
 type Phase = 'idle' | 'third' | 'second' | 'drumroll' | 'winner' | 'rest'
@@ -138,11 +140,20 @@ function usePrefersReducedMotion(): boolean {
   return useSyncExternalStore(subscribeReducedMotion, getReducedMotion, () => false)
 }
 
-export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = false, loopConfetti = false }: PodiumProps) {
+export function Podium({
+  leaderboard,
+  sessionMode,
+  highlightName,
+  skipIntro = false,
+  loopConfetti = false,
+  showRest = true,
+  variant = 'standard',
+}: PodiumProps) {
   const reduced = usePrefersReducedMotion()
   const [rawPhase, setPhase] = useState<Phase>(skipIntro ? 'rest' : 'idle')
   const phase: Phase = reduced || skipIntro ? 'rest' : rawPhase
   const isCompetitive = sessionMode === 'competitive'
+  const isFinale = variant === 'finale'
   const top3 = leaderboard.slice(0, 3)
   const rest = leaderboard.slice(3)
   const firedWinnerEffects = useRef(false)
@@ -219,11 +230,14 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
       ? [top3[1], top3[0]]
       : [top3[0]]
 
-  const configForCount = top3.length >= 3
+  const baseConfigForCount = top3.length >= 3
     ? PODIUM_CONFIG
     : top3.length === 2
       ? [PODIUM_CONFIG[0], PODIUM_CONFIG[1]]
       : [PODIUM_CONFIG[1]]
+  const configForCount = isFinale
+    ? baseConfigForCount.map(cfg => ({ ...cfg, height: Math.round(cfg.height * 1.22) }))
+    : baseConfigForCount
 
   // Which places have been revealed yet?
   const placeIsVisible = (place: number): boolean => {
@@ -243,7 +257,7 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
         // horizontal scroll on the participant mobile view.
         overflow: 'hidden',
         borderRadius: 18,
-        padding: '24px 12px 8px',
+        padding: isFinale ? '28px 12px 14px' : '24px 12px 8px',
       }}
     >
       {/* Skip intro animation — visible during every phase except rest */}
@@ -263,7 +277,7 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
       <div
         className="flex items-end justify-center gap-3 sm:gap-6 relative"
         style={{
-          minHeight: 320,
+          minHeight: isFinale ? 440 : 320,
           // Shake removed — read as "jittery" on a projector. The spotlight
           // halo + crown bounce + winnerSlam already sell the winner moment
           // without the whole podium twitching sideways.
@@ -282,7 +296,7 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
           return (
             <div
               key={entry.name}
-              className={`flex flex-col items-center gap-2 relative ${top3.length === 1 ? 'w-44' : 'w-[110px] sm:w-[140px]'}`}
+              className={`flex flex-col items-center gap-2 relative ${top3.length === 1 ? (isFinale ? 'w-60' : 'w-44') : isFinale ? 'w-[150px] sm:w-[190px]' : 'w-[110px] sm:w-[140px]'}`}
             >
               {/* Spotlight halo behind winner — compact + softer so it doesn't spill outward */}
               {isWinner && !reduced && (phase === 'drumroll' || phase === 'winner' || phase === 'rest') && (
@@ -291,8 +305,8 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
                   className="absolute left-1/2 -translate-x-1/2 pointer-events-none rounded-full"
                   style={{
                     bottom: 0,
-                    width: 170,
-                    height: 170,
+                    width: isFinale ? 240 : 170,
+                    height: isFinale ? 240 : 170,
                     background: 'radial-gradient(circle, rgba(245,230,66,0.32) 0%, rgba(245,230,66,0) 72%)',
                     animation: winnerPending
                       ? 'spotlightPulse 0.9s ease-in-out infinite'
@@ -306,8 +320,17 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
 
               {/* Crown for winner */}
               {isWinner && winnerRevealed && (
-                <div style={{ animation: 'crownBounce 0.6s ease-out forwards', fontSize: '2.25rem', zIndex: 2 }}>
-                  👑
+                <div
+                  className="rounded-full px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.24em]"
+                  style={{
+                    animation: 'crownBounce 0.6s ease-out forwards',
+                    zIndex: 2,
+                    color: '#5C2D00',
+                    background: 'linear-gradient(180deg, #FFF3C4, #F5E642)',
+                    boxShadow: '0 8px 24px rgba(245,230,66,0.32)',
+                  }}
+                >
+                  Winner
                 </div>
               )}
               {/* Placeholder mystery mark while drumroll builds suspense */}
@@ -340,18 +363,18 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
                       marginBottom: -6,
                     }}
                   >
-                    <Medal place={cfg.place as 1 | 2 | 3} size={isWinner ? 44 : 34} />
+                    <Medal place={cfg.place as 1 | 2 | 3} size={isWinner ? (isFinale ? 58 : 44) : (isFinale ? 42 : 34)} />
                   </div>
                 )}
                 <div
                   className={`rounded-full overflow-hidden ${isHighlighted ? 'ring-3' : ''}`}
                   style={isHighlighted ? ({ '--tw-ring-color': '#F5E642' } as React.CSSProperties) : undefined}
                 >
-                  <Avatar archetype={entry.archetype ?? entry.name} size={isWinner ? 72 : 52} />
+                  <Avatar archetype={entry.archetype ?? entry.name} size={isWinner ? (isFinale ? 104 : 72) : (isFinale ? 72 : 52)} />
                 </div>
                 <div className="flex flex-col items-center w-full px-1">
                   <span
-                    className="text-xs sm:text-sm font-bold text-center w-full leading-tight break-words hyphens-auto"
+                    className={`${isFinale ? 'text-base sm:text-lg' : 'text-xs sm:text-sm'} font-bold text-center w-full leading-tight break-words hyphens-auto`}
                     style={{
                       color: '#1E1B4B',
                       display: '-webkit-box',
@@ -365,7 +388,7 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
                   </span>
                   {entry.name && entry.archetype && (
                     <span
-                      className="text-[10px] sm:text-xs text-gray-500 mt-0.5 w-full text-center leading-tight"
+                      className={`${isFinale ? 'text-xs sm:text-sm' : 'text-[10px] sm:text-xs'} text-gray-500 mt-0.5 w-full text-center leading-tight`}
                       style={{
                         display: '-webkit-box',
                         WebkitLineClamp: 1,
@@ -380,7 +403,7 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
                 </div>
                 {isCompetitive && (
                   <p
-                    className="text-xs font-black tabular-nums"
+                    className={`${isFinale ? 'text-base' : 'text-xs'} font-black tabular-nums`}
                     style={{ color: isWinner ? '#92400E' : '#6B7280' }}
                   >
                     {entry.score.toLocaleString()} pts
@@ -436,7 +459,7 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
       </div>
 
       {/* Honorable Mentions — glass-panel list of ranks 4+ */}
-      {rest.length > 0 && (
+      {showRest && rest.length > 0 && (
         <div
           className="rounded-3xl p-4 md:p-5"
           style={{

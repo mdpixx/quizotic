@@ -39,6 +39,54 @@ describe('buildLeaderboardStageRows', () => {
 })
 
 describe('getPostQuestionAction', () => {
+  it('keeps live questions waiting when nobody is connected', () => {
+    expect(getPostQuestionAction({
+      sessionMode: 'competitive',
+      isScored: false,
+      questionEnded: false,
+      correctRevealed: false,
+      isLastQuestion: false,
+      answered: 0,
+      connectedCount: 0,
+    })).toBe('waiting')
+  })
+
+  it('lets a live non-scored question advance when all connected participants answered', () => {
+    expect(getPostQuestionAction({
+      sessionMode: 'competitive',
+      isScored: false,
+      questionEnded: false,
+      correctRevealed: false,
+      isLastQuestion: false,
+      answered: 1,
+      connectedCount: 1,
+    })).toBe('next')
+  })
+
+  it('lets a live final non-scored question end when all connected participants answered', () => {
+    expect(getPostQuestionAction({
+      sessionMode: 'competitive',
+      isScored: false,
+      questionEnded: false,
+      correctRevealed: false,
+      isLastQuestion: true,
+      answered: 1,
+      connectedCount: 1,
+    })).toBe('end')
+  })
+
+  it('reveals live scored answers first when all connected participants answered', () => {
+    expect(getPostQuestionAction({
+      sessionMode: 'competitive',
+      isScored: true,
+      questionEnded: false,
+      correctRevealed: false,
+      isLastQuestion: false,
+      answered: 3,
+      connectedCount: 3,
+    })).toBe('reveal')
+  })
+
   it('reveals competitive scored answers before standings', () => {
     expect(getPostQuestionAction({
       sessionMode: 'competitive',

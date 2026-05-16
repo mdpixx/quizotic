@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import dynamic from 'next/dynamic'
 
 import { io, Socket } from 'socket.io-client'
 import QRCode from 'react-qr-code'
+import { motion, useReducedMotion } from 'framer-motion'
 import { Avatar } from '@/components/Avatar'
 import { Podium } from '@/components/Podium'
 import { PostSessionHeader } from '@/components/PostSessionHeader'
@@ -13,11 +13,6 @@ import { CelebrationConfetti } from '@/components/CelebrationConfetti'
 import { SessionReport } from '@/components/SessionReport'
 import { LeaderboardView } from '@/components/LeaderboardView'
 import { playLeaderboardJingle, playTick, playBackgroundMusic, stopBackgroundMusic } from '@/lib/sounds'
-
-const CelebrationOverlay = dynamic(
-  () => import('@/components/CelebrationOverlay').then(m => m.CelebrationOverlay),
-  { ssr: false },
-)
 import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/quiz-storage'
 import type { Quiz, QuestionStat, SessionMode } from '@/lib/quiz-types'
 import { ReflectionInsights } from '@/components/ReflectionInsights'
@@ -129,6 +124,41 @@ function ShareLinks({ gameCode, quizTitle }: { gameCode: string; quizTitle: stri
   )
 }
 
+function buildHostStagePreviewQuiz(): Quiz {
+  return {
+    id: 'preview-host-stage',
+    title: 'Host Stage Preview',
+    subject: 'Demo',
+    language: 'en',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    questions: [
+      {
+        id: 'q1',
+        type: 'mcq',
+        text: 'Which planet is closest to the Sun?',
+        options: ['Mercury', 'Venus', 'Earth', 'Mars'],
+        correctAnswer: '0',
+        timerSeconds: 20,
+        points: 1000,
+        explanation: 'Mercury is the innermost planet in our Solar System.',
+        bloomsLevel: 'remember',
+      },
+      {
+        id: 'q2',
+        type: 'mcq',
+        text: 'A student answers correctly in the final second. What should the scoring system still reward?',
+        options: ['Nothing', 'Accuracy with lower speed points', 'Only streaks', 'Manual points'],
+        correctAnswer: '1',
+        timerSeconds: 30,
+        points: 1000,
+        explanation: 'A good live quiz rewards correctness while still making speed matter.',
+        bloomsLevel: 'understand',
+      },
+    ],
+  }
+}
+
 
 // Layer 3.3 — host re-attach. Token survives a tab reload but is scoped to
 // this browser tab (sessionStorage). Server issues it at create_session and
@@ -151,14 +181,23 @@ function clearHostResumeToken(gameCode: string): void {
 
 export default function SessionPage() {
   const router = useRouter()
+  const reduceStageMotion = useReducedMotion()
+  const isHostStagePreview = typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
+    window.location.search.includes('preview=host-stage')
+  const [initialQuiz] = useState<Quiz | null>(() => {
+    const session = getActiveSession()
+    if (session) return session
+    return isHostStagePreview ? buildHostStagePreviewQuiz() : null
+  })
   const socketRef = useRef<Socket | null>(null)
   const sessionStartTimeRef = useRef<number>(0)
   // Refs that initSocket's stable closure needs to read on reconnect.
   const gameCodeRef = useRef<string>('')
   const hostResumeTokenRef = useRef<string>('')
 
-  const [phase, setPhase] = useState<Phase>('loading')
-  const [quiz, setQuiz] = useState<Quiz | null>(null)
+  const [phase, setPhase] = useState<Phase>(initialQuiz ? 'idle' : 'loading')
+  const [quiz, setQuiz] = useState<Quiz | null>(initialQuiz)
   const quizRef = useRef<Quiz | null>(null)
   const questionIndexRef = useRef<number>(0)
   const [gameCode, setGameCode] = useState('')
@@ -203,7 +242,6 @@ export default function SessionPage() {
   const [answered, setAnswered] = useState(0)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [teamLeaderboard, setTeamLeaderboard] = useState<{ name: string; color: string; score: number; members: number }[] | null>(null)
-  const [showCelebration, setShowCelebration] = useState(false)
   const [showOverflowMenu, setShowOverflowMenu] = useState(false)
   const [showEndQuizConfirm, setShowEndQuizConfirm] = useState(false)
   const [followups, setFollowups] = useState<{ label: string; code: string }[]>([])
@@ -239,8 +277,6 @@ export default function SessionPage() {
   // Soft auto-advance on standings — null means disabled / cancelled.
   // Number is the remaining ms before nextQuestion() fires automatically.
   const [standingsAutoMs, setStandingsAutoMs] = useState<number | null>(null)
-  const isHostStagePreview = process.env.NODE_ENV !== 'production' && typeof window !== 'undefined' && window.location.search.includes('preview=host-stage')
-
   useEffect(() => {
     const html = document.documentElement
     const shouldHideFeedback = phase === 'question' || phase === 'standings' || phase === 'ended'
@@ -342,38 +378,7 @@ export default function SessionPage() {
   useEffect(() => {
     const session = getActiveSession()
     if (!session && isHostStagePreview) {
-      const previewQuiz: Quiz = {
-        id: 'preview-host-stage',
-        title: 'Host Stage Preview',
-        subject: 'Demo',
-        language: 'en',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        questions: [
-          {
-            id: 'q1',
-            type: 'mcq',
-            text: 'Which planet is closest to the Sun?',
-            options: ['Mercury', 'Venus', 'Earth', 'Mars'],
-            correctAnswer: '0',
-            timerSeconds: 20,
-            points: 1000,
-            explanation: 'Mercury is the innermost planet in our Solar System.',
-            bloomsLevel: 'remember',
-          },
-          {
-            id: 'q2',
-            type: 'mcq',
-            text: 'A student answers correctly in the final second. What should the scoring system still reward?',
-            options: ['Nothing', 'Accuracy with lower speed points', 'Only streaks', 'Manual points'],
-            correctAnswer: '1',
-            timerSeconds: 30,
-            points: 1000,
-            explanation: 'A good live quiz rewards correctness while still making speed matter.',
-            bloomsLevel: 'understand',
-          },
-        ],
-      }
+      const previewQuiz = buildHostStagePreviewQuiz()
       setActiveSession(previewQuiz)
       setQuiz(previewQuiz)
       setPhase('idle')
@@ -658,14 +663,6 @@ export default function SessionPage() {
       setTeamLeaderboard(tlb ?? null)
       setQuestionStats(qs ?? [])
       setPhase('ended')
-      // Trigger the full-screen celebration overlay only when we actually have
-      // a competitive leaderboard to celebrate. The overlay self-manages a
-      // 2.5s autoDismissMs + 0.6s fade so the projected screen smoothly
-      // hands off to the page-level Podium beneath (no flash). The Podium
-      // beneath then plays its full 6.3s rise sequence (3rd → 2nd → 1st).
-      if (lb.length > 0 && sm === 'competitive') {
-        setShowCelebration(true)
-      }
       // Game over — invalidate the host resume token for this gameCode.
       if (gameCodeRef.current) clearHostResumeToken(gameCodeRef.current)
       hostResumeTokenRef.current = ''
@@ -849,6 +846,52 @@ export default function SessionPage() {
       setRankingSubmissions([])
       // Host timer starts via question_show socket event (synchronized with server startAt)
     }
+  }
+
+  function endCurrentQuestion(): Promise<boolean> {
+    if (!socketRef.current?.connected || !gameCode) return Promise.resolve(false)
+    return new Promise(resolve => {
+      let settled = false
+      const timeout = setTimeout(() => {
+        if (settled) return
+        settled = true
+        resolve(false)
+      }, 3000)
+      socketRef.current?.emit('end_question', { gameCode }, (res?: { success?: boolean; error?: string; ended?: boolean; questionIndex?: number }) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timeout)
+        resolve(!!res?.success)
+      })
+    })
+  }
+
+  function stopLiveQuestionTimer() {
+    if (hostTimerRef.current) {
+      clearInterval(hostTimerRef.current)
+      hostTimerRef.current = null
+    }
+    setHostTimeLeft(0)
+  }
+
+  async function revealCurrentAnswer() {
+    if (!questionEnded) {
+      const ok = await endCurrentQuestion()
+      if (!ok) return
+      setQuestionEnded(true)
+      stopLiveQuestionTimer()
+    }
+    setCorrectRevealed(true)
+  }
+
+  async function advanceAfterEndingCurrentQuestion() {
+    if (!questionEnded) {
+      const ok = await endCurrentQuestion()
+      if (!ok) return
+      setQuestionEnded(true)
+      stopLiveQuestionTimer()
+    }
+    nextQuestion()
   }
 
   // Host pressed Next from the question-review screen. For competitive +
@@ -1345,8 +1388,12 @@ export default function SessionPage() {
 
       {/* QUESTION */}
       {phase === 'question' && currentQuestion && quiz && (
-        <div
-          className="min-h-screen px-4 pt-3 pb-24 lg:px-8 lg:pt-4 lg:pb-20 space-y-3 host-question-stage"
+        <motion.div
+          key={`host-question-${questionIndex}-${currentQuestion.type}`}
+          initial={reduceStageMotion ? false : { opacity: 0, y: 18, scale: 0.99 }}
+          animate={reduceStageMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.32, ease: [0.22, 0.61, 0.36, 1] }}
+          className="min-h-screen h-screen max-h-screen overflow-hidden px-4 pt-3 pb-24 lg:px-8 lg:pt-4 lg:pb-20 flex flex-col gap-3 host-question-stage"
           style={{
             background:
               'radial-gradient(circle at 15% 12%, rgba(245,230,66,0.22), transparent 28%), radial-gradient(circle at 85% 18%, rgba(19,104,206,0.22), transparent 30%), linear-gradient(135deg, #071126 0%, #0F1B3D 52%, #111827 100%)',
@@ -1476,7 +1523,7 @@ export default function SessionPage() {
 
           {/* Question card — text auto-scales so long questions stay in view */}
           <div
-            className={`max-w-7xl mx-auto rounded-[28px] shadow-2xl border p-5 md:p-7 ${currentQuestion.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
+            className={`max-w-7xl mx-auto w-full rounded-[28px] shadow-2xl border ${currentQuestion.type === 'wordcloud' ? 'p-4 md:p-5 host-question-card-compact' : 'p-5 md:p-7'} ${currentQuestion.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
             style={{
               background: 'rgba(255,255,255,0.96)',
               boxShadow: '0 24px 80px rgba(0,0,0,0.35)',
@@ -1491,6 +1538,11 @@ export default function SessionPage() {
                 // upper bound was 3.25rem which alone ate ~80px.
                 fontSize: (() => {
                   const len = currentQuestion.text.length
+                  if (currentQuestion.type === 'wordcloud') {
+                    if (len > 150) return '1.45rem'
+                    if (len > 90) return '1.8rem'
+                    return '2.15rem'
+                  }
                   if (len > 240) return '1.5rem'
                   if (len > 180) return '1.75rem'
                   if (len > 120) return '2rem'
@@ -1515,6 +1567,11 @@ export default function SessionPage() {
               const numOpts = currentQuestion.options?.length ?? 0
               const sums = Array(numOpts).fill(0)
               const counts = Array(numOpts).fill(0)
+              const getRankingOptionId = (opt: NonNullable<typeof currentQuestion.options>[number]) => {
+                if (typeof opt === 'string') return opt
+                const maybeWithId = opt as unknown as Record<string, unknown>
+                return typeof maybeWithId.id === 'string' ? maybeWithId.id : opt.text
+              }
               for (const arr of rankingSubmissions) {
                 if (!Array.isArray(arr)) continue
                 for (let pos = 0; pos < arr.length; pos++) {
@@ -1532,14 +1589,9 @@ export default function SessionPage() {
                 avg: counts[i] > 0 ? sums[i] / counts[i] : Number.POSITIVE_INFINITY,
                 hasData: counts[i] > 0,
               })).sort((a, b) => a.avg - b.avg)
-              const getRankingOptionId = (opt: NonNullable<typeof currentQuestion.options>[number]) => {
-                if (typeof opt === 'string') return opt
-                const maybeWithId = opt as unknown as Record<string, unknown>
-                return typeof maybeWithId.id === 'string' ? maybeWithId.id : opt.text
-              }
 
               return (
-                <div className="space-y-3">
+                <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 space-y-3 host-answer-stage host-ranking-stage">
                   {/* Correct order panel (for sequence ranking) */}
                   {isSequenceRanking && (
                     <div className="space-y-2">
@@ -1547,7 +1599,7 @@ export default function SessionPage() {
                       {(currentQuestion.correctOrder ?? []).map((optIdx, pos) => {
                         const opt = typeof optIdx === 'number' ? currentQuestion.options?.[optIdx] : currentQuestion.options?.find((o) => getRankingOptionId(o) === optIdx)
                         return (
-                          <div key={`${optIdx}-${pos}`} className="flex items-center gap-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-3">
+                          <div key={`${optIdx}-${pos}`} className="host-ranking-row flex items-center gap-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-3">
                             <span className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black bg-green-500 text-white flex-shrink-0">
                               {pos + 1}
                             </span>
@@ -1567,7 +1619,7 @@ export default function SessionPage() {
                       {isSequenceRanking ? 'Consensus ranking' : 'Rankings'} · {rankingSubmissions.length} submission{rankingSubmissions.length !== 1 ? 's' : ''}
                     </p>
                     {rows.map((row, pos) => (
-                      <div key={row.i} className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl p-3">
+                      <div key={row.i} className="host-ranking-row flex items-center gap-3 bg-white border border-gray-200 rounded-xl p-3">
                         <span className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black bg-gray-100 text-gray-600 flex-shrink-0">
                           {pos + 1}
                         </span>
@@ -1604,17 +1656,17 @@ export default function SessionPage() {
               const maxCount = entries[0]?.count ?? 1
               // sqrt scaling: count=1 → 35% of range, count=max → 100% of range.
               // This matches how humans perceive area/scale differences.
-              const MIN_PX = 22
-              const MAX_PX = 88
+              const MIN_PX = 28
+              const MAX_PX = 118
               return (
-                <div className="bg-white rounded-2xl border border-gray-200 p-6 min-h-[240px] relative overflow-hidden">
+                <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 bg-white rounded-2xl border border-gray-200 p-5 md:p-7 relative overflow-hidden host-answer-stage host-wordcloud-stage">
                   <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
                     Word cloud · {wordcloudWords.length} word{wordcloudWords.length !== 1 ? 's' : ''} from {freq.size} unique
                   </p>
                   {entries.length === 0 ? (
                     <p className="text-gray-400 italic text-center py-12">Waiting for responses…</p>
                   ) : (
-                    <div className="flex flex-wrap items-baseline justify-center gap-x-5 gap-y-3 py-6">
+                    <div className="host-wordcloud-words flex flex-wrap items-center justify-center gap-x-5 gap-y-3 py-6">
                       {entries.map((entry, i) => {
                         const ratio = Math.sqrt(entry.count / maxCount)
                         const fontSize = Math.round(MIN_PX + ratio * (MAX_PX - MIN_PX))
@@ -1656,7 +1708,7 @@ export default function SessionPage() {
               }
               const maxBucket = Math.max(1, ...buckets)
               return (
-                <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5">
+                <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 bg-white rounded-2xl border border-gray-200 p-6 space-y-5 host-answer-stage">
                   <div className="flex items-end gap-3">
                     <span className="text-6xl font-black tabular-nums" style={{ color: '#F59E0B', fontFamily: 'var(--font-heading)' }}>
                       {total > 0 ? avg.toFixed(1) : '—'}
@@ -1690,14 +1742,14 @@ export default function SessionPage() {
               )
             })()
           ) : currentQuestion.type === 'qa' ? (
-            <div className="bg-white rounded-2xl border border-gray-200 p-6">
+            <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 bg-white rounded-2xl border border-gray-200 p-6 host-answer-stage host-text-stage">
               <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
-                Questions from participants · {qaEntries.length}
+                Answers from participants · {qaEntries.length}
               </p>
               {qaEntries.length === 0 ? (
-                <p className="text-gray-400 italic text-center py-10">Waiting for questions…</p>
+                <p className="text-gray-400 italic text-center py-10">Waiting for answers…</p>
               ) : (
-                <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+                <div className="space-y-2 h-full overflow-y-auto pr-1">
                   {qaEntries.map((e, i) => (
                     <div key={`${e.at}-${i}`} className="flex gap-3 p-3 rounded-xl border border-gray-100 bg-gray-50">
                       <div className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-white font-black text-xs" style={{ background: '#7C3AED' }}>
@@ -1713,14 +1765,14 @@ export default function SessionPage() {
               )}
             </div>
           ) : currentQuestion.type === 'openended' ? (
-            <div className="bg-white rounded-2xl border border-gray-200 p-6">
+            <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 bg-white rounded-2xl border border-gray-200 p-6 host-answer-stage host-text-stage">
               <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
-                Responses · {openendedEntries.length}
+                Answers from participants · {openendedEntries.length}
               </p>
               {openendedEntries.length === 0 ? (
-                <p className="text-gray-400 italic text-center py-10">Waiting for responses…</p>
+                <p className="text-gray-400 italic text-center py-10">Waiting for answers…</p>
               ) : (
-                <div className="grid sm:grid-cols-2 gap-3 max-h-[420px] overflow-y-auto pr-1">
+                <div className="grid sm:grid-cols-2 gap-3 h-full overflow-y-auto pr-1">
                   {openendedEntries.map((e, i) => (
                     <div key={`${e.at}-${i}`} className="p-4 rounded-xl border-l-4 bg-gradient-to-br from-white to-gray-50" style={{ borderLeftColor: ['#E21B3C', '#1368CE', '#D89E00', '#26890C', '#7C3AED'][i % 5] }}>
                       <p className="text-[11px] font-bold text-gray-500 mb-1 truncate">{e.name}{e.archetype && ` · ${e.archetype}`}</p>
@@ -1731,7 +1783,7 @@ export default function SessionPage() {
               )}
             </div>
           ) : (
-          <div className="max-w-7xl mx-auto grid grid-cols-2 gap-3 md:gap-4">
+          <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 grid grid-cols-2 gap-3 md:gap-4 host-answer-stage host-options-stage">
             {getEffectiveOptions(currentQuestion)?.map((opt, i) => {
               const votes = optionCounts[i] ?? 0
               const pct = connectedCount > 0 ? (votes / connectedCount) * 100 : 0
@@ -1930,7 +1982,16 @@ export default function SessionPage() {
               {(() => {
               const isLast = questionIndex + 1 >= quiz.questions.length
               const scoredQ = isScoredType(currentQuestion.type)
-              if (!questionEnded) {
+              const action = getPostQuestionAction({
+                sessionMode,
+                isScored: scoredQ,
+                questionEnded,
+                correctRevealed,
+                isLastQuestion: isLast,
+                answered,
+                connectedCount,
+              })
+              if (!questionEnded && action === 'waiting') {
                 // Live question — primary action is intentionally muted to
                 // prevent accidental skips. Two-tap confirmation: first tap
                 // arms, second tap fires.
@@ -1946,7 +2007,11 @@ export default function SessionPage() {
                       }
                       if (endNowArmTimerRef.current) clearTimeout(endNowArmTimerRef.current)
                       setEndNowArmed(false)
-                      socketRef.current?.emit('end_question', { gameCode })
+                      void endCurrentQuestion().then(ok => {
+                        if (!ok) return
+                        setQuestionEnded(true)
+                        stopLiveQuestionTimer()
+                      })
                     }}
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm border-2 transition-all"
                     style={{
@@ -1959,13 +2024,6 @@ export default function SessionPage() {
                   </button>
                 )
               }
-              const action = getPostQuestionAction({
-                sessionMode,
-                isScored: scoredQ,
-                questionEnded,
-                correctRevealed,
-                isLastQuestion: isLast,
-              })
               const label = action === 'reveal'
                 ? 'Reveal Answer'
                 : action === 'standings'
@@ -1974,10 +2032,12 @@ export default function SessionPage() {
                     ? 'End Quiz'
                     : 'Next Question'
               const onClick = action === 'reveal'
-                ? () => setCorrectRevealed(true)
+                ? () => { void revealCurrentAnswer() }
                 : action === 'standings'
                   ? advanceFromQuestion
-                  : nextQuestion
+                  : questionEnded
+                    ? nextQuestion
+                    : () => { void advanceAfterEndingCurrentQuestion() }
               return (
                 <button
                   onClick={onClick}
@@ -1995,12 +2055,15 @@ export default function SessionPage() {
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* STANDINGS — dedicated between-questions screen for competitive quizzes */}
       {phase === 'standings' && quiz && currentQuestion && (
-        <div
+        <motion.div
+          initial={reduceStageMotion ? false : { opacity: 0, y: 20, scale: 0.99 }}
+          animate={reduceStageMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.36, ease: [0.22, 0.61, 0.36, 1] }}
           className="min-h-screen px-4 py-6 lg:px-8 space-y-6"
           style={{
             background:
@@ -2127,7 +2190,7 @@ export default function SessionPage() {
             </button>
           </div>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* ENDED */}
@@ -2137,19 +2200,60 @@ export default function SessionPage() {
           title={quiz?.title}
           subtitle={leaderboard.length > 0 ? `${leaderboard.length} participant${leaderboard.length === 1 ? '' : 's'} · Session complete` : 'Session complete'}
           onBack={goBackToLibrary}
-          dimmed={showCelebration && leaderboard.length > 0}
+          dimmed={false}
         />
-        <div className="p-4 max-w-2xl mx-auto py-8 space-y-4">
-          <h2 className="text-4xl font-black" style={{ color: '#0F1B3D' }}>Session Complete</h2>
+        <motion.div
+          initial={reduceStageMotion ? false : { opacity: 0, y: 18 }}
+          animate={reduceStageMotion ? undefined : { opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: [0.22, 0.61, 0.36, 1] }}
+          className="px-4 max-w-7xl mx-auto py-8 space-y-8"
+        >
+          {sessionMode === 'competitive' && leaderboard.length > 0 ? (
+            <section
+              className="relative min-h-[calc(100vh-140px)] overflow-hidden rounded-[32px] px-5 py-8 md:px-10 md:py-10 flex flex-col"
+              style={{
+                background:
+                  'radial-gradient(circle at 50% 8%, rgba(245,230,66,0.24), transparent 24%), radial-gradient(circle at 8% 72%, rgba(34,211,238,0.18), transparent 24%), linear-gradient(145deg, #071126 0%, #0F1B3D 58%, #111827 100%)',
+                boxShadow: '0 30px 90px rgba(15,27,61,0.28)',
+              }}
+            >
+              <CelebrationConfetti active batchSize={42} intervalMs={4200} layer="absolute" />
+              <div className="relative z-10 text-center">
+                <p className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: 'rgba(245,230,66,0.72)' }}>
+                  Final Standings
+                </p>
+                <h2 className="mt-2 text-4xl md:text-6xl font-black" style={{ color: '#FFFFFF', fontFamily: 'var(--font-heading)', letterSpacing: 0 }}>
+                  Session Complete
+                </h2>
+                <p className="mt-2 text-base md:text-lg font-semibold" style={{ color: 'rgba(255,255,255,0.68)' }}>
+                  {leaderboard.length} participant{leaderboard.length === 1 ? '' : 's'} finished
+                </p>
+              </div>
+
+              <div className="relative z-10 flex-1 min-h-0 flex items-center justify-center mt-4">
+                <div className="w-full max-w-5xl rounded-[28px] p-3 md:p-6" style={{ background: 'rgba(255,255,255,0.96)', boxShadow: '0 24px 80px rgba(0,0,0,0.35)' }}>
+                  <Podium
+                    leaderboard={leaderboard}
+                    sessionMode={sessionMode}
+                    loopConfetti={false}
+                    showRest={false}
+                    variant="finale"
+                  />
+                </div>
+              </div>
+            </section>
+          ) : (
+            <h2 className="text-4xl font-black max-w-3xl mx-auto" style={{ color: '#0F1B3D' }}>Session Complete</h2>
+          )}
 
           {/* Team Leaderboard */}
           {teamLeaderboard && teamLeaderboard.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-3 max-w-3xl mx-auto">
               <h3 className="text-xl font-black" style={{ color: '#0F1B3D' }}>Team Standings</h3>
               {teamLeaderboard.map((team, i) => (
                 <div key={team.name} className="flex items-center gap-3 rounded-xl p-4 bg-white border border-gray-200">
                   <span className="text-2xl font-black w-8 text-center" style={{ color: team.color }}>
-                    {i === 0 ? '🏆' : i + 1}
+                    {i + 1}
                   </span>
                   <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm" style={{ background: team.color }}>
                     {team.name[0]}
@@ -2166,45 +2270,16 @@ export default function SessionPage() {
             </div>
           )}
 
-          {/* Animated Podium Leaderboard — rendered immediately so the host's
-              projected screen always has the final standings visible. The
-              CelebrationOverlay sits on top for ~2.5s of excitement build
-              (title drop, card lift, stars + confetti burst), then fades
-              out over 600ms — at which point this Podium underneath starts
-              its full reveal sequence (3rd → 2nd → drumroll → 1st). The
-              participant join-page Podium keeps skipIntro for instant
-              display; only the host's big screen gets the full show. */}
-          <div style={{ overflow: 'hidden', borderRadius: 18 }}>
-            <Podium
-              leaderboard={leaderboard}
-              sessionMode={sessionMode}
-              loopConfetti={!showCelebration && sessionMode === 'competitive'}
+          {/* Session Report */}
+          <div className="max-w-3xl mx-auto">
+            <SessionReport
+              questionStats={questionStats}
+              quizTitle={quiz?.title}
+              participantCount={leaderboard.length}
+              sessionDate={new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
+              attendees={attendees}
             />
           </div>
-          {/* Continuous celebration backdrop — paints falling particles across
-              the Session Report until the host clicks Back to Library (which
-              unmounts this page). Gated on competitive mode and the
-              CelebrationOverlay having been dismissed so we don't double up. */}
-          <CelebrationConfetti active={!showCelebration && sessionMode === 'competitive' && leaderboard.length > 0} />
-
-          {showCelebration && leaderboard.length > 0 && (
-            <CelebrationOverlay
-              leaderboard={leaderboard}
-              sessionMode={sessionMode}
-              title={quiz?.title ? `${quiz.title} — Complete!` : 'Quiz Complete!'}
-              autoDismissMs={2500}
-              onDismiss={() => setShowCelebration(false)}
-            />
-          )}
-
-          {/* Session Report */}
-          <SessionReport
-            questionStats={questionStats}
-            quizTitle={quiz?.title}
-            participantCount={leaderboard.length}
-            sessionDate={new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
-            attendees={attendees}
-          />
 
           {/* Reflection Insights */}
           <ReflectionInsights gameCode={gameCode} questionStats={questionStats} />
@@ -2348,7 +2423,7 @@ export default function SessionPage() {
           >
             Back to Library
           </button>
-        </div>
+        </motion.div>
         </>
       )}
 

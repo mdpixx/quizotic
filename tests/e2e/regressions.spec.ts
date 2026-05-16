@@ -174,6 +174,71 @@ test.describe('Regressions — quiz', () => {
       host.disconnect(); participant.disconnect()
     }
   })
+
+  test('ranking: host can advance as soon as all participants answered', async () => {
+    // Real hosting regression from 2026-05-16: a 1/1 ranking question showed
+    // all answers in, but the host had no safe next-question path until the
+    // full timer reached zero. The host should be able to end the current
+    // question with an ack, receive the reveal aggregate, then move on.
+    const host = await connect()
+    const participant = await connect()
+    try {
+      const created = await emit<{ success: boolean; gameCode?: string }>(host, 'create_session', {
+        quizData: {
+          title: 'Ranking early advance test',
+          questions: [
+            {
+              id: 'r1',
+              type: 'ranking',
+              text: 'Rank these leaders',
+              options: ['A', 'B', 'C', 'D'],
+              timerSeconds: 60,
+              points: 1000,
+            },
+            {
+              id: 'p1',
+              type: 'poll',
+              text: 'Ready for the next one?',
+              options: ['Yes', 'No'],
+              timerSeconds: 20,
+              points: 1000,
+            },
+          ],
+        },
+      })
+      const gameCode = created.gameCode!
+
+      const joined = await emit<{ participantId?: string }>(participant, 'join_session', { gameCode, displayName: 'Ranker' })
+      const q1Shown = waitFor<{ index: number }>(participant, 'question_show')
+      host.emit('start_quiz', { gameCode })
+      expect((await q1Shown).index).toBe(0)
+      await new Promise(r => setTimeout(r, 4_000))
+
+      const answerReceived = waitFor<{ count: number }>(host, 'answer_received')
+      await emit<{ accepted: boolean; isNonScored?: boolean }>(participant, 'submit_answer', {
+        gameCode,
+        participantId: joined.participantId,
+        answer: [0, 1, 2, 3],
+        timeMs: 1_000,
+        confidence: 'sure',
+        serverSubmittedAt: Date.now() + 0.1,
+      })
+      expect((await answerReceived).count).toBe(1)
+
+      const ended = waitFor<{ isNonScored: boolean }>(host, 'question_ended')
+      const reveal = waitFor<{ questionIndex: number; stat?: { totalResponses?: number } }>(host, 'question_reveal')
+      const endAck = await emit<{ success: boolean; ended?: boolean; questionIndex?: number }>(host, 'end_question', { gameCode })
+      expect(endAck).toMatchObject({ success: true, ended: true, questionIndex: 0 })
+      expect((await ended).isNonScored).toBe(true)
+      expect((await reveal).stat?.totalResponses).toBe(1)
+
+      const q2Shown = waitFor<{ index: number }>(participant, 'question_show', 5_000)
+      host.emit('next_question', { gameCode })
+      expect((await q2Shown).index).toBe(1)
+    } finally {
+      host.disconnect(); participant.disconnect()
+    }
+  })
 })
 
 test.describe('Regressions — presentation', () => {
