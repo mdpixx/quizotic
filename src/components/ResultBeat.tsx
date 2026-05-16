@@ -21,6 +21,8 @@ export interface PersonalResult {
   isFastest: boolean
   crossedTopFive: boolean
   teamContribution?: number
+  correctPositions?: number
+  totalPositions?: number
 }
 
 interface ResultBeatProps {
@@ -52,16 +54,38 @@ function CountUp({ to, duration = 700 }: { to: number; duration?: number }) {
 export function ResultBeat({ result, fallback }: ResultBeatProps) {
   if (!result) return <>{fallback ?? null}</>
 
-  const { isCorrect, pointsEarned, streakCount, streakBonus, rank, delta, isFastest, crossedTopFive, totalScore } = result
+  const { isCorrect, pointsEarned, streakCount, streakBonus, rank, delta, isFastest, crossedTopFive, totalScore, correctPositions, totalPositions } = result
   const correct = isCorrect === true
   const wrong = isCorrect === false
+  const isSequenceRanking = correctPositions !== undefined && totalPositions !== undefined && totalPositions > 0
 
   const accent = correct ? '#16A34A' : wrong ? '#DC2626' : '#0F1B3D'
 
   return (
     <div className="w-full flex flex-col items-stretch gap-3">
+      {/* Sequence ranking feedback */}
+      {isSequenceRanking && (
+        <div
+          className="rounded-2xl p-5 flex items-center justify-between"
+          style={{ background: 'linear-gradient(135deg, #0F1B3D 0%, #1B2A5E 100%)', color: '#fff' }}
+        >
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.2em] font-bold opacity-60">Your sequence</p>
+            <p className="text-4xl font-black tabular-nums">
+              <CountUp to={correctPositions!} /> of <CountUp to={totalPositions!} />
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] uppercase tracking-[0.2em] font-bold opacity-60">Points</p>
+            <p className="text-2xl font-black tabular-nums">
+              +<CountUp to={pointsEarned} />
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Headline points or wrong-but-okay state */}
-      {correct && pointsEarned > 0 && (
+      {!isSequenceRanking && correct && pointsEarned > 0 && (
         <div
           className="rounded-2xl p-5 flex items-center justify-between"
           style={{ background: 'linear-gradient(135deg, #0F1B3D 0%, #1B2A5E 100%)', color: '#fff' }}

@@ -25,6 +25,10 @@ export function isScoredType(type: QuestionType): boolean {
   return SCORED_TYPES.includes(type)
 }
 
+export function isSequenceRanking(q: Question): boolean {
+  return q.type === 'ranking' && Array.isArray(q.correctOrder) && q.correctOrder.length > 0
+}
+
 // Maps each question type to the visualization used by QuestionResultsView.
 //   bars       → option distribution bar chart (poll, mcq, multiselect, truefalse)
 //   cloud      → word cloud sized by frequency (wordcloud)
@@ -93,6 +97,7 @@ export interface Question {
   options?: QuestionOption[] // undefined for openended/wordcloud/qa
   correctAnswer?: string    // string index "0"/"1"/"2"/"3"; undefined for poll/openended/etc (legacy single-correct)
   correctAnswers?: string[] // multiselect: array of option-index strings (e.g. ["0","2"])
+  correctOrder?: string[]   // ranking: array of option ids in the correct sequence (when set, ranking is scored)
   timerSeconds: 10 | 15 | 20 | 30 | 60
   points: 500 | 1000 | 2000
   explanation?: string      // shown to host + participant after answer reveal; for 'case' type = debrief text

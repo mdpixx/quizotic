@@ -843,6 +843,13 @@ function JoinPageInner() {
       setMultiselectChosen(new Set())
       setIntermediateRank(null)
       setPersonalResult(null)
+      // For ranking questions, initialize rankingOrder from the received options (which may be shuffled for sequence ranking)
+      if (question.type === 'ranking') {
+        const opts = question.options || []
+        setRankingOrder(opts.map((_, i) => i))
+      } else {
+        setRankingOrder([])
+      }
       setPhase('question')
 
       const effectiveStartAt = typeof startAt === 'number' ? startAt : Date.now()
@@ -879,7 +886,7 @@ function JoinPageInner() {
       }
     })
 
-    socket.on('answer_confirmed', ({ isCorrect, points, totalScore, streakCount, late }: { isCorrect: boolean; points: number; totalScore: number; streakCount?: number; late?: boolean }) => {
+    socket.on('answer_confirmed', ({ isCorrect, points, totalScore, streakCount, late, correctPositions, totalPositions }: { isCorrect: boolean; points: number; totalScore: number; streakCount?: number; late?: boolean; correctPositions?: number; totalPositions?: number }) => {
       if (timerRef.current) clearInterval(timerRef.current)
       // Server has accepted at least one answer — drop outbox entries for the
       // current question so we don't double-submit on later reconnects.
@@ -896,10 +903,12 @@ function JoinPageInner() {
         setAnswerToast('Submitted just past the buzzer — recorded but no points.')
       }
 
-      // For non-scored types (poll/rating/wordcloud/qa/openended/ranking/drawing/case)
+      // Sequence ranking questions are scored even though they're type 'ranking'
+      const isSequenceRanking = question?.type === 'ranking' && correctPositions !== undefined && totalPositions !== undefined && totalPositions > 0
+      // For non-scored types (poll/rating/wordcloud/qa/openended/ranking/drawing/case, excluding sequence ranking)
       // there is no right/wrong — always celebrate the submission with a positive
       // sound and skip the red-flash buzz, regardless of what server reports.
-      const scored = question ? isScoredType(question.type as QuestionType) : false
+      const scored = question ? (isScoredType(question.type as QuestionType) || isSequenceRanking) : false
       if (!scored) {
         setStreak(0)
         playCorrect()

@@ -7,11 +7,27 @@ import { saveQuiz, loadQuizzes, setActiveSession } from '@/lib/quiz-storage'
 import { draftKey, readDraft, writeDraft, clearDraft, formatDraftAge } from '@/lib/draft-storage'
 import { useAutosave } from '@/lib/use-autosave'
 import type { Question, QuestionType, BloomsLevel, Quiz, QuestionOption } from '@/lib/quiz-types'
-import { getOptionText, getOptionImage, isScoredType } from '@/lib/quiz-types'
+import { getOptionText, getOptionImage, isScoredType, isSequenceRanking } from '@/lib/quiz-types'
 import { ImageUpload } from '@/components/ImageUpload'
 import { QuizThemePicker } from '@/components/host/QuizThemePicker'
 import { getQuizTheme, type QuizThemeId } from '@/lib/quiz-themes'
 import QRCode from 'react-qr-code'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 type Tab = 'manual' | 'aitopic' | 'aiurl' | 'aidoc' | 'library' | 'csv'
 
@@ -176,8 +192,10 @@ function optionsForType(type: QuestionType): string[] | undefined {
   return undefined
 }
 
-function hasCorrectAnswer(type: QuestionType): boolean {
-  return type === 'mcq' || type === 'truefalse'
+function hasCorrectAnswer(type: QuestionType, question?: Question): boolean {
+  if (type === 'mcq' || type === 'truefalse') return true
+  if (type === 'ranking' && question?.correctOrder && question.correctOrder.length > 0) return true
+  return false
 }
 
 // Picks a responsive Tailwind text size based on question length so long
@@ -193,6 +211,47 @@ function questionTextSizeClass(text: string): string {
 
 function getTypePill(type: QuestionType) {
   return TYPE_PILLS.find(t => t.value === type) ?? TYPE_PILLS[0]
+}
+
+// ─── Sortable Ranking Option (for drag-to-sort in builder) ────────────────────
+
+interface SortableRankingItemProps {
+  id: string
+  index: number
+  text: string
+  isOrdinal: boolean
+}
+
+function SortableRankingItem({ id, index, text, isOrdinal }: SortableRankingItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  const ordinals = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th']
+  const badge = isOrdinal ? ordinals[index] || `${index + 1}th` : (index + 1).toString()
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2.5 bg-gray-50 rounded-lg px-3 py-2.5 cursor-grab active:cursor-grabbing"
+      {...attributes}
+      {...listeners}
+    >
+      <span className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold" style={{ background: '#4F46E5', color: '#fff' }}>
+        {badge}
+      </span>
+      <span className="flex-1 text-sm font-medium" style={{ color: '#374151' }}>
+        {text || '(empty)'}
+      </span>
+      <svg className="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M8 19h8M8 5h8M5 10h14M5 14h14" />
+      </svg>
+    </div>
+  )
 }
 
 // ─── Autosave Badge ──────────────────────────────────────────────────────────
@@ -350,20 +409,105 @@ function QuestionPreview({
         )}
 
         {question.type === 'ranking' && opts.length > 0 && (
-          <div className="space-y-2 py-2">
-            {opts.map((opt, i) => (
-              <div key={i} className="flex items-center gap-2.5 bg-gray-50 rounded-lg px-3 py-2.5">
-                <span className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold" style={{ background: '#4F46E5', color: '#fff' }}>{i + 1}</span>
-                <input
-                  type="text"
-                  value={getOptionText(opt)}
-                  onChange={e => handleOptionChange(i, e.target.value)}
-                  placeholder={`Item ${i + 1}`}
-                  className="flex-1 text-sm font-medium bg-transparent outline-none border-0"
-                  style={{ color: '#374151' }}
-                />
-              </div>
-            ))}
+          <div className="space-y-4 py-2">
+            {/* Correct Sequence toggle */}
+            <div className="flex items-center gap-2 p-3 rounded-lg" style={{ background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
+              <input
+                type="checkbox"
+                id="correct-seq-toggle"
+                checked={isSequenceRanking(question)}
+                onChange={e => {
+                  if (e.target.checked) {
+                    onChange({ ...question, correctOrder: opts.map((_, i) => String(i)) })
+                  } else {
+                    onChange({ ...question, correctOrder: undefined })
+                  }
+                }}
+                className="w-4 h-4 cursor-pointer"
+              />
+              <label htmlFor="correct-seq-toggle" className="flex-1 text-xs font-semibold cursor-pointer" style={{ color: '#15803D' }}>
+                Correct Sequence (scored)
+              </label>
+            </div>
+
+            {/* Items list with add/remove buttons */}
+            <div className="space-y-2">
+              {isSequenceRanking(question) ? (
+                <DndContext
+                  sensors={useSensors(
+                    useSensor(PointerSensor),
+                    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+                  )}
+                  collisionDetection={closestCenter}
+                  onDragEnd={(event) => {
+                    const { active, over } = event
+                    if (over && active.id !== over.id) {
+                      const oldIndex = opts.findIndex((_, i) => String(i) === active.id)
+                      const newIndex = opts.findIndex((_, i) => String(i) === over.id)
+                      const reorderedOpts = arrayMove(opts, oldIndex, newIndex)
+                      onChange({ ...question, options: reorderedOpts, correctOrder: reorderedOpts.map((_, i) => String(i)) })
+                    }
+                  }}
+                >
+                  <SortableContext items={opts.map((_, i) => String(i))} strategy={verticalListSortingStrategy}>
+                    {opts.map((opt, i) => (
+                      <SortableRankingItem
+                        key={i}
+                        id={String(i)}
+                        index={i}
+                        text={getOptionText(opt)}
+                        isOrdinal={true}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
+              ) : (
+                opts.map((opt, i) => (
+                  <div key={i} className="flex items-center gap-2.5 bg-gray-50 rounded-lg px-3 py-2.5">
+                    <span className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold" style={{ background: '#4F46E5', color: '#fff' }}>{i + 1}</span>
+                    <input
+                      type="text"
+                      value={getOptionText(opt)}
+                      onChange={e => handleOptionChange(i, e.target.value)}
+                      placeholder={`Item ${i + 1}`}
+                      className="flex-1 text-sm font-medium bg-transparent outline-none border-0"
+                      style={{ color: '#374151' }}
+                    />
+                    {opts.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveOption(i)}
+                        className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                        title="Remove item"
+                      >
+                        <span className="text-lg leading-none">×</span>
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Add/Remove buttons */}
+            <div className="flex gap-2 pt-1">
+              {opts.length < 8 && (
+                <button
+                  type="button"
+                  onClick={handleAddOption}
+                  className="flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-colors"
+                  style={{ background: '#F3F4F6', color: '#0F1B3D', border: '1px dashed #D1D5DB' }}
+                >
+                  + Add item
+                </button>
+              )}
+            </div>
+
+            {/* Info text for correct sequence mode */}
+            {isSequenceRanking(question) && (
+              <p className="text-[10px]" style={{ color: '#64748B' }}>
+                Drag items to set correct order. Participants will see these jumbled.
+              </p>
+            )}
           </div>
         )}
 
@@ -459,6 +603,16 @@ function QuestionEditor({
     const options = [...(question.options ?? [])]
     const text = getOptionText(options[i] ?? '')
     options[i] = text
+    onChange({ ...question, options })
+  }
+
+  function handleAddOption() {
+    const options = [...(question.options ?? []), '']
+    onChange({ ...question, options })
+  }
+
+  function handleRemoveOption(i: number) {
+    const options = question.options?.filter((_, idx) => idx !== i) ?? []
     onChange({ ...question, options })
   }
 

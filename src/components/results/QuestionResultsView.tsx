@@ -218,6 +218,9 @@ function RankingResults({ stat, className }: RendererProps) {
   const items = stat.rankingItems ?? stat.options ?? []
   const averages = stat.rankingAverages ?? []
   const firsts = stat.rankingFirstPlaceCounts ?? []
+  const correctOrder = stat.correctOrder
+  const fullCorrectCount = (stat as any).fullCorrectCount ?? 0
+
   if (items.length === 0 || averages.every(a => a === null || a === undefined)) {
     return <EmptyState label="No rankings submitted yet" className={className} />
   }
@@ -228,34 +231,70 @@ function RankingResults({ stat, className }: RendererProps) {
     .sort((a, b) => (a.avg ?? 99) - (b.avg ?? 99))
 
   return (
-    <ol className={`space-y-2 ${className ?? ''}`}>
-      {ranked.map((r, i) => (
-        <li
-          key={r.label + i}
-          className="flex items-center gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2"
-        >
-          <span
-            className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black tabular-nums"
-            style={{
-              background: i === 0 ? '#F5E642' : '#F1F5F9',
-              color: i === 0 ? '#0F1B3D' : '#475569',
-            }}
-          >
-            {i + 1}
-          </span>
-          <span className="flex-1 text-sm font-semibold truncate" style={{ color: '#0F1B3D' }}>{r.label}</span>
-          <span className="text-[11px] tabular-nums" style={{ color: '#64748B' }}>
-            avg {(r.avg ?? 0).toFixed(2)}
-          </span>
-          {r.firsts > 0 && (
-            <span className="text-[11px] tabular-nums px-1.5 py-0.5 rounded-md font-bold"
-              style={{ background: '#FEF3C7', color: '#92400E' }}>
-              {r.firsts} × #1
-            </span>
+    <div className={`space-y-4 ${className ?? ''}`}>
+      {correctOrder && correctOrder.length > 0 && (
+        <div className="rounded-lg border border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 px-3 py-3">
+          <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: '#059669' }}>
+            Correct Order
+          </p>
+          <ol className="space-y-1.5">
+            {correctOrder.map((optId, idx) => {
+              const opt = items.find((_, i) => {
+                const item = stat.options?.[i]
+                return item && (typeof item === 'string' ? item === optId : item.id === optId)
+              })
+              const optLabel = typeof opt === 'string' ? opt : (opt as any)?.text || opt || `Option ${idx + 1}`
+              return (
+                <li key={optId + idx} className="flex items-center gap-2.5 text-sm">
+                  <span
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black"
+                    style={{ background: '#10b981', color: 'white' }}
+                  >
+                    {idx + 1}
+                  </span>
+                  <span className="flex-1 truncate" style={{ color: '#0F1B3D' }}>
+                    {optLabel}
+                  </span>
+                </li>
+              )
+            })}
+          </ol>
+          {fullCorrectCount > 0 && (
+            <p className="text-xs mt-2 pt-2 border-t border-green-200" style={{ color: '#047857' }}>
+              <span className="font-bold">{fullCorrectCount}</span> {fullCorrectCount === 1 ? 'participant' : 'participants'} got it perfect
+            </p>
           )}
-        </li>
-      ))}
-    </ol>
+        </div>
+      )}
+      <ol className="space-y-2">
+        {ranked.map((r, i) => (
+          <li
+            key={r.label + i}
+            className="flex items-center gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2"
+          >
+            <span
+              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black tabular-nums"
+              style={{
+                background: i === 0 ? '#F5E642' : '#F1F5F9',
+                color: i === 0 ? '#0F1B3D' : '#475569',
+              }}
+            >
+              {i + 1}
+            </span>
+            <span className="flex-1 text-sm font-semibold truncate" style={{ color: '#0F1B3D' }}>{r.label}</span>
+            <span className="text-[11px] tabular-nums" style={{ color: '#64748B' }}>
+              avg {(r.avg ?? 0).toFixed(2)}
+            </span>
+            {r.firsts > 0 && (
+              <span className="text-[11px] tabular-nums px-1.5 py-0.5 rounded-md font-bold"
+                style={{ background: '#FEF3C7', color: '#92400E' }}>
+                {r.firsts} × #1
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
+    </div>
   )
 }
 
