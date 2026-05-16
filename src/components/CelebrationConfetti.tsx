@@ -53,13 +53,17 @@ function makeBatch(seedOffset: number, count: number): Particle[] {
     const r3 = rand(id * 31 + 11)
     const r4 = rand(id * 71 + 23)
 
-    // 60% rect, 25% ribbon, 15% circle.
-    const shape: Shape = r2 < 0.6 ? 'rect' : r2 < 0.85 ? 'ribbon' : 'circle'
-    const size = 5 + Math.floor(r4 * 7)         // 5–12 px
-    const width = shape === 'circle' ? size : shape === 'ribbon' ? size * 8 : size * 3
+    // 65% circle (reads as "petals"/"bubbles", not boxes), 25% ribbon, 10% rect.
+    // Prior 60% rect mix is what made the celebration look "mechanical".
+    const shape: Shape = r2 < 0.65 ? 'circle' : r2 < 0.9 ? 'ribbon' : 'rect'
+    // Keep particles small per user feedback — tighter range 6–10px
+    // (was 5–12) gives more visual consistency. Big confetti reads cluttered.
+    const size = 6 + Math.floor(r4 * 5)         // 6–10 px
+    const width = shape === 'circle' ? size : shape === 'ribbon' ? size * 7 : size * 3
 
-    // 35% left cannon, 35% right cannon, 30% drift rain.
-    const path: Path = r1 < 0.35 ? 'cannonL' : r1 < 0.7 ? 'cannonR' : 'rain'
+    // 30% left cannon, 30% right cannon, 40% drift rain. Heavier rain weighting
+    // means more slow-drift particles, fewer abrupt cannon arcs.
+    const path: Path = r1 < 0.3 ? 'cannonL' : r1 < 0.6 ? 'cannonR' : 'rain'
     const startX = path === 'rain'
       ? r3 * 100
       : path === 'cannonL' ? 2 + r3 * 6 : 92 + r3 * 6
@@ -67,12 +71,15 @@ function makeBatch(seedOffset: number, count: number): Particle[] {
     batch.push({
       id,
       delay: r2 * 1.4,
-      duration: path === 'rain' ? 4.0 + r3 * 1.6 : 2.4 + r3 * 1.0,
+      // Slower fall = smoother visual feel. Cannons 4.0–6.0s (was 2.4–3.4s),
+      // rain 7.0–10.0s (was 4.0–5.6s). User explicitly wanted "smooth, slow".
+      duration: path === 'rain' ? 7.0 + r3 * 3.0 : 4.0 + r3 * 2.0,
       size,
       width,
       color: COLORS[id % COLORS.length],
-      driftX: (r3 - 0.5) * 60,
-      rotate: (r4 > 0.5 ? 1 : -1) * (540 + Math.floor(r1 * 720)),
+      // Wider sway (±55px was ±30) makes the fall organic, not gravity-sim.
+      driftX: (r3 - 0.5) * 110,
+      rotate: (r4 > 0.5 ? 1 : -1) * (360 + Math.floor(r1 * 720)),
       shape,
       path,
       startX,
@@ -100,7 +107,11 @@ interface CelebrationConfettiProps {
   intervalMs?: number
 }
 
-export function CelebrationConfetti({ active, batchSize = 48, intervalMs = 2400 }: CelebrationConfettiProps) {
+// Quieter density (32 per batch, was 48) + longer interval (3600ms, was 2400ms)
+// — combined with the slower fall durations above, total particles on screen
+// stay around 60–70 instead of 100+, so the celebration reads as graceful
+// rather than chaotic.
+export function CelebrationConfetti({ active, batchSize = 32, intervalMs = 3600 }: CelebrationConfettiProps) {
   const reduced = usePrefersReducedMotion()
   const [seed, setSeed] = useState(0)
 
@@ -171,10 +182,13 @@ export function CelebrationConfetti({ active, batchSize = 48, intervalMs = 2400 
           90%  { opacity: 1; }
           100% { opacity: 0; transform: translate3d(calc(-28vw + var(--drift-x)), 12vh, 0) rotate(var(--rotate)); }
         }
-        /* Rain — slow drift from above with steady gravity. */
+        /* Rain — slow drift from above with sine-wobble horizontal sway so
+           particles meander instead of falling straight. The mid-keyframe
+           at 50% flips the drift sign, producing a gentle S-curve path. */
         @keyframes celebRain {
           0%   { opacity: 0; transform: translate3d(0, 0, 0) rotate(0deg); }
           8%   { opacity: 1; }
+          50%  { transform: translate3d(calc(var(--drift-x) * -0.7), 55vh, 0) rotate(calc(var(--rotate) * 0.55)); }
           85%  { opacity: 1; }
           100% { opacity: 0; transform: translate3d(var(--drift-x), 118vh, 0) rotate(var(--rotate)); }
         }
