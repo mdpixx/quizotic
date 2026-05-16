@@ -238,19 +238,17 @@ function RankingResults({ stat, className }: RendererProps) {
             Correct Order
           </p>
           <ol className="space-y-1.5">
-            {correctOrder.map((optId, idx) => {
-              const opt = items.find((_, i) => {
-                const item = stat.options?.[i]
-                return item && (typeof item === 'string' ? item === optId : item.id === optId)
-              })
-              const optLabel = typeof opt === 'string' ? opt : (opt as any)?.text || opt || `Option ${idx + 1}`
+            {correctOrder.map((optIdx, pos) => {
+              const optIdxNum = typeof optIdx === 'number' ? optIdx : parseInt(optIdx, 10)
+              const opt = !isNaN(optIdxNum) && optIdxNum >= 0 && optIdxNum < (stat.options?.length || 0) ? stat.options?.[optIdxNum] : undefined
+              const optLabel = opt ? (typeof opt === 'string' ? opt : (opt as any)?.text) : `Option ${optIdxNum + 1}`
               return (
-                <li key={optId + idx} className="flex items-center gap-2.5 text-sm">
+                <li key={optIdx + pos} className="flex items-center gap-2.5 text-sm">
                   <span
                     className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black"
                     style={{ background: '#10b981', color: 'white' }}
                   >
-                    {idx + 1}
+                    {pos + 1}
                   </span>
                   <span className="flex-1 truncate" style={{ color: '#0F1B3D' }}>
                     {optLabel}

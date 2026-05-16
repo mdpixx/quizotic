@@ -168,6 +168,8 @@ export interface QuestionStat {
   rankingItems?: string[]                 // labels in original order
   rankingAverages?: number[]              // average position per item (1-based)
   rankingFirstPlaceCounts?: number[]      // # of #1 votes per item
+  correctOrder?: string[]                 // sequence ranking: array of option indices in correct order
+  fullCorrectCount?: number               // sequence ranking: count of participants who got all positions right
   // Drawing
   drawingThumbnails?: DrawingThumbnail[]
 }
