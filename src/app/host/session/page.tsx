@@ -2312,7 +2312,7 @@ export default function SessionPage() {
                 <button
                   onClick={generateFollowups}
                   disabled={followupLoading}
-                  className="w-full py-3 rounded-xl text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
+                  className="w-full py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
                   style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
                 >
                   {followupLoading ? 'Generating…' : 'Create Follow-up Series'}
@@ -2346,9 +2346,10 @@ export default function SessionPage() {
             )}
           </div>
 
-          {/* Action buttons */}
-          <div className="flex flex-col gap-3 mt-2">
-            {/* Row 1: Primary CTA */}
+          {/* Action buttons — tight max-w-md block, hierarchical:
+              Play Again (primary pill) → Export pills (small) → Back link (ghost). */}
+          <div className="max-w-md mx-auto mt-2 space-y-4 text-center">
+            {/* Primary CTA */}
             <button
               onClick={() => {
                 if (quiz) {
@@ -2370,14 +2371,15 @@ export default function SessionPage() {
                   socketInitialized.current = false
                 }
               }}
-              className="w-full font-bold rounded-xl py-4 text-lg transition-all hover:scale-[1.02]"
+              className="w-full font-bold rounded-xl py-3 text-base transition-all hover:scale-[1.02]"
               style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
             >
               Play Again
             </button>
 
-            {/* Row 2: Export grid */}
-            <div className={`grid gap-2 ${plan === 'pro' && gameCode ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1'}`}>
+            {/* Export pills — compact row */}
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              <span className="text-xs font-semibold text-gray-500">Export:</span>
               <button
                 onClick={() => {
                   if (!quiz || leaderboard.length === 0) return
@@ -2403,7 +2405,7 @@ export default function SessionPage() {
                   a.click()
                   URL.revokeObjectURL(url)
                 }}
-                className="w-full font-semibold rounded-xl py-2.5 text-sm border border-gray-200 hover:border-gray-400 transition-all text-gray-700 bg-white"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 hover:border-gray-400 transition-all text-gray-700 bg-white"
               >
                 CSV
               </button>
@@ -2412,14 +2414,14 @@ export default function SessionPage() {
                   <a
                     href={`/api/sessions/${gameCode}/export/xlsx`}
                     download
-                    className="w-full font-semibold rounded-xl py-2.5 text-sm border border-gray-200 hover:border-gray-400 transition-all text-center text-gray-700 bg-white"
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 hover:border-gray-400 transition-all text-gray-700 bg-white"
                   >
                     XLSX
                   </a>
                   <a
                     href={`/api/sessions/${gameCode}/export/pdf`}
                     download
-                    className="w-full font-semibold rounded-xl py-2.5 text-sm border border-gray-200 hover:border-gray-400 transition-all text-center text-gray-700 bg-white"
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 hover:border-gray-400 transition-all text-gray-700 bg-white"
                   >
                     PDF
                   </a>
@@ -2428,12 +2430,15 @@ export default function SessionPage() {
             </div>
           </div>
 
-          <button
-            onClick={goBackToLibrary}
-            className="w-full border border-gray-300 text-gray-600 rounded-xl py-3 hover:border-gray-400 transition-colors font-semibold"
-          >
-            Back to Library
-          </button>
+          {/* Tertiary action — quiet ghost link at the very bottom */}
+          <div className="flex justify-center pt-2">
+            <button
+              onClick={goBackToLibrary}
+              className="text-sm font-semibold text-gray-500 hover:text-gray-700 underline-offset-4 hover:underline transition-colors"
+            >
+              ← Back to Library
+            </button>
+          </div>
         </motion.div>
         </>
       )}

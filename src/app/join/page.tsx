@@ -1694,7 +1694,7 @@ function JoinPageInner() {
             <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Tap the colour matching your answer</p>
           </div>
         ) : (
-        <div className={`bg-white rounded-2xl shadow-sm border p-6 mb-4 ${question.type === 'case' ? 'border-t-4' : 'border-gray-200 border-t-4'}`} style={{ borderTopColor: question.type === 'case' ? '#2D3A8C' : '#F5E642' }}>
+        <div className={`bg-white rounded-2xl shadow-sm border p-4 sm:p-6 mb-4 ${question.type === 'case' ? 'border-t-4' : 'border-gray-200 border-t-4'}`} style={{ borderTopColor: question.type === 'case' ? '#2D3A8C' : '#F5E642' }}>
           <div className="flex items-center justify-between mb-3">
             <span className="text-base text-gray-400 font-semibold">Q{question.index + 1} / {question.total}</span>
             {isScoredType(question.type as QuestionType) && (
@@ -1850,7 +1850,7 @@ function JoinPageInner() {
         ) : (() => {
           const effectiveOpts = getEffectiveOptions(question as unknown as QuizQuestion)
           return (
-          <div className={`gap-2 flex-1 ${
+          <div className={`gap-2 ${
             question.type === 'rating' && effectiveOpts?.length === 5
               ? 'grid grid-cols-5'
               : effectiveOpts?.length === 2
@@ -1865,6 +1865,11 @@ function JoinPageInner() {
               const optText = getOptText(opt)
               const optImage = getOptImage(opt)
               const isTwoOption = (question.options?.length ?? 0) === 2
+              const isRating5 = question.type === 'rating' && effectiveOpts?.length === 5
+              // Grid-cell-shaped (aspect-square) tiles for the standard 2-col
+              // MCQ layout so phones don't render 167×261 vertical strips.
+              // 2-option and 5-rating layouts keep their own existing shapes.
+              const useAspectSquare = !isTwoOption && !isRating5
               return (
                 <button
                   key={idx}
@@ -1873,7 +1878,7 @@ function JoinPageInner() {
                   aria-label={`Option ${OPTION_LABELS[idx]}: ${optText}`}
                   aria-pressed={isSelected}
                   className={`${OPTION_GRADIENTS[idx]} rounded-lg p-3 text-white text-left transition-all focus-visible:outline focus-visible:outline-4 focus-visible:outline-white
-                    ${isTwoOption ? 'flex items-center gap-4 py-4' : 'min-h-[84px]'}
+                    ${isTwoOption ? 'flex items-center gap-4 py-4' : useAspectSquare ? 'aspect-square min-h-[120px]' : 'min-h-[84px]'}
                     ${isSelected ? 'ring-4 ring-white scale-[0.97]' : ''}
                     ${isDisabled && !isSelected ? 'opacity-50 pointer-events-none' : ''}
                   `}
