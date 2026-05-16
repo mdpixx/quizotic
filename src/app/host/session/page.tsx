@@ -376,6 +376,11 @@ export default function SessionPage() {
   const currentQuestion = quiz?.questions[questionIndex] ?? null
 
   useEffect(() => {
+    // useState lazy initializer already loaded the quiz from localStorage —
+    // re-setting it here with a fresh JSON.parse'd object would change the
+    // reference, retrigger the socket-init useEffect's cleanup, and kill the
+    // socket. See plans/in-quizotic-the-quiz-shimmering-quasar.md.
+    if (quiz) return
     const session = getActiveSession()
     if (!session && isHostStagePreview) {
       const previewQuiz = buildHostStagePreviewQuiz()
@@ -390,7 +395,7 @@ export default function SessionPage() {
     }
     setQuiz(session)
     setPhase('idle')
-  }, [isHostStagePreview])
+  }, [isHostStagePreview, quiz])
 
   useEffect(() => {
     fetch('/api/billing/status').then(r => r.json()).then(d => {
