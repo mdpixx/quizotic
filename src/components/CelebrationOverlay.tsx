@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Podium } from './Podium'
 import { CelebrationConfetti } from './CelebrationConfetti'
 
@@ -9,34 +9,66 @@ interface CelebrationOverlayProps {
   sessionMode: string
   onDismiss: () => void
   title?: string
+  // When set, the overlay starts fading out at this many ms after mount,
+  // then calls onDismiss after the 600ms fade completes. Used by the host
+  // page so the projected screen automatically hands off to the underlying
+  // Podium without a click. Without this prop the overlay stays until the
+  // host manually clicks "View Report →".
+  autoDismissMs?: number
 }
 
 // Full-screen celebration shown to the host when a session ends. Wraps
 // <Podium> which owns the staggered reveal, sounds, and confetti burst. The
 // dismiss button appears only after the reveal completes (~6.5s) so it
 // doesn't short-circuit the moment.
+const FADE_OUT_MS = 600
+
 export function CelebrationOverlay({
   leaderboard,
   sessionMode,
   onDismiss,
   title = 'Quiz complete!',
+  autoDismissMs,
 }: CelebrationOverlayProps) {
   const [canDismiss, setCanDismiss] = useState(false)
+  const [dismissing, setDismissing] = useState(false)
+  const onDismissRef = useRef(onDismiss)
+  onDismissRef.current = onDismiss
 
   useEffect(() => {
     const t = setTimeout(() => setCanDismiss(true), 6500)
     return () => clearTimeout(t)
   }, [])
 
+  // Smooth fade-out before unmount. beginFade flips opacity to 0; after the
+  // 600ms CSS transition completes we call the parent's onDismiss, which
+  // unmounts us. Without this two-step the previous behavior was a hard cut
+  // from overlay → podium, visible as a "flash" on the projected screen.
+  const beginFade = () => {
+    if (dismissing) return
+    setDismissing(true)
+    setTimeout(() => onDismissRef.current(), FADE_OUT_MS)
+  }
+
+  // Auto-dismiss after the configured delay so the host's projected screen
+  // hands off to the Podium underneath without needing a click.
+  useEffect(() => {
+    if (typeof autoDismissMs !== 'number') return
+    const t = setTimeout(beginFade, autoDismissMs)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoDismissMs])
+
   // Close on Escape for keyboard users (only after reveal completes).
   useEffect(() => {
     if (!canDismiss) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onDismiss()
+      if (e.key === 'Escape') beginFade()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [canDismiss, onDismiss])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canDismiss])
 
   return (
     <div
@@ -46,6 +78,9 @@ export function CelebrationOverlay({
       className="fixed inset-0 z-50 flex items-center justify-center p-6"
       style={{
         background: 'radial-gradient(circle at 50% 40%, #1E2B6B 0%, #0F1B3D 70%)',
+        opacity: dismissing ? 0 : 1,
+        transition: `opacity ${FADE_OUT_MS}ms ease-out`,
+        pointerEvents: dismissing ? 'none' : undefined,
       }}
     >
       {/* DOM-based falling-particle layer — paints at z-index 60 above this
@@ -90,7 +125,7 @@ export function CelebrationOverlay({
           {canDismiss && (
             <button
               type="button"
-              onClick={onDismiss}
+              onClick={beginFade}
               className="px-6 py-3 rounded-xl font-bold text-sm transition-transform hover:scale-105 active:scale-95"
               style={{
                 background: '#F5E642',

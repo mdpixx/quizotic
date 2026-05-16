@@ -233,8 +233,6 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
     return false
   }
 
-  const shake = phase === 'winner' && !reduced
-
   return (
     <div
       className="relative max-w-full"
@@ -266,7 +264,10 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
         className="flex items-end justify-center gap-3 sm:gap-6 relative"
         style={{
           minHeight: 320,
-          animation: shake ? 'podiumShake 0.4s ease-in-out 1' : undefined,
+          // Shake removed — read as "jittery" on a projector. The spotlight
+          // halo + crown bounce + winnerSlam already sell the winner moment
+          // without the whole podium twitching sideways.
+          animation: undefined,
         }}
       >
         {ordered.map((entry, i) => {
@@ -324,7 +325,7 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
                   opacity: visible ? 1 : 0,
                   animation: visible
                     ? isWinner && winnerRevealed && !reduced
-                      ? 'winnerSlam 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both'
+                      ? 'winnerSlam 0.85s cubic-bezier(0.34, 1.32, 0.64, 1) both'
                       : !reduced
                         ? 'fadeSlideUp 0.5s ease-out both'
                         : undefined
@@ -403,7 +404,7 @@ export function Podium({ leaderboard, sessionMode, highlightName, skipIntro = fa
                     ? reduced ? 'scaleY(1)' : undefined
                     : 'scaleY(0)',
                   background: cfg.gradient,
-                  animation: visible && !reduced ? 'growBarScale 0.8s ease-out forwards' : undefined,
+                  animation: visible && !reduced ? 'growBarScale 1.4s cubic-bezier(0.22, 0.61, 0.36, 1) forwards' : undefined,
                   boxShadow: isWinner
                     ? '0 -3px 12px rgba(255,179,0,0.22), inset 0 -6px 12px rgba(0,0,0,0.18)'
                     : 'inset 0 -4px 10px rgba(0,0,0,0.15)',

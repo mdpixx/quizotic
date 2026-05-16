@@ -659,15 +659,12 @@ export default function SessionPage() {
       setQuestionStats(qs ?? [])
       setPhase('ended')
       // Trigger the full-screen celebration overlay only when we actually have
-      // a competitive leaderboard to celebrate.
+      // a competitive leaderboard to celebrate. The overlay self-manages a
+      // 2.5s autoDismissMs + 0.6s fade so the projected screen smoothly
+      // hands off to the page-level Podium beneath (no flash). The Podium
+      // beneath then plays its full 6.3s rise sequence (3rd → 2nd → 1st).
       if (lb.length > 0 && sm === 'competitive') {
         setShowCelebration(true)
-        // Auto-dismiss the overlay so the host's projected screen reveals
-        // the Podium even if the host never clicks. Without this, the live
-        // session never showed rank 1/2/3 on the big screen (participants
-        // had it on their mobiles but the projector stayed on the overlay).
-        // 7.5s ≈ overlay's canDismiss (6.5s) + a beat to read the confetti.
-        setTimeout(() => setShowCelebration(false), 7500)
       }
       // Game over — invalidate the host resume token for this gameCode.
       if (gameCodeRef.current) clearHostResumeToken(gameCodeRef.current)
@@ -1349,7 +1346,7 @@ export default function SessionPage() {
       {/* QUESTION */}
       {phase === 'question' && currentQuestion && quiz && (
         <div
-          className="min-h-screen px-4 pt-5 pb-36 lg:px-8 lg:pt-6 lg:pb-32 space-y-5"
+          className="min-h-screen px-4 pt-3 pb-24 lg:px-8 lg:pt-4 lg:pb-20 space-y-3 host-question-stage"
           style={{
             background:
               'radial-gradient(circle at 15% 12%, rgba(245,230,66,0.22), transparent 28%), radial-gradient(circle at 85% 18%, rgba(19,104,206,0.22), transparent 30%), linear-gradient(135deg, #071126 0%, #0F1B3D 52%, #111827 100%)',
@@ -1479,7 +1476,7 @@ export default function SessionPage() {
 
           {/* Question card — text auto-scales so long questions stay in view */}
           <div
-            className={`max-w-7xl mx-auto rounded-[28px] shadow-2xl border p-8 md:p-12 ${currentQuestion.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
+            className={`max-w-7xl mx-auto rounded-[28px] shadow-2xl border p-5 md:p-7 ${currentQuestion.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
             style={{
               background: 'rgba(255,255,255,0.96)',
               boxShadow: '0 24px 80px rgba(0,0,0,0.35)',
@@ -1489,22 +1486,25 @@ export default function SessionPage() {
               className="font-bold leading-snug break-words"
               style={{
                 color: '#0F1B3D',
+                // Capped font sizes so a long question + image + 4 options
+                // still fit on a 1080p projector without scrolling. Prior
+                // upper bound was 3.25rem which alone ate ~80px.
                 fontSize: (() => {
                   const len = currentQuestion.text.length
-                  if (len > 240) return '1.75rem'
-                  if (len > 180) return '2rem'
-                  if (len > 120) return '2.35rem'
-                  if (len > 70) return '2.75rem'
-                  return '3.25rem'
+                  if (len > 240) return '1.5rem'
+                  if (len > 180) return '1.75rem'
+                  if (len > 120) return '2rem'
+                  if (len > 70) return '2.35rem'
+                  return '2.65rem'
                 })(),
-                lineHeight: 1.08,
+                lineHeight: 1.1,
                 fontFamily: 'var(--font-heading)',
               }}
             >
               {currentQuestion.text}
             </p>
             {currentQuestion.imageUrl && (
-              <img src={currentQuestion.imageUrl} alt={`Image for question ${questionIndex + 1}`} className="mt-4 rounded-xl max-h-64 w-full object-contain" loading="lazy" />
+              <img src={currentQuestion.imageUrl} alt={`Image for question ${questionIndex + 1}`} className="mt-3 rounded-xl w-full object-contain" style={{ maxHeight: 'min(22vh, 240px)' }} loading="lazy" />
             )}
           </div>
 
@@ -1581,8 +1581,11 @@ export default function SessionPage() {
             })()
           ) : currentQuestion.type === 'wordcloud' ? (
             (() => {
-              // Tag cloud: frequency → font size, index → color, deterministic angle.
-              const CLOUD_COLORS = ['#E21B3C', '#1368CE', '#D89E00', '#26890C', '#7C3AED', '#EC4899', '#0EA5E9', '#F97316']
+              // Industry-standard wordcloud: square-root perceptual scaling so
+              // the most-mentioned word reads as visually dominant without a
+              // 10×-mention word being literally 10× larger (which looks
+              // broken). Clean horizontal flow, no rotation, brand-aligned
+              // colors instead of a clown-suit rainbow.
               const normalize = (w: string) => w.toLowerCase().replace(/[^\p{L}\p{N}\s'-]/gu, '').trim()
               const freq = new Map<string, { display: string; count: number }>()
               for (const w of wordcloudWords) {
@@ -1594,6 +1597,10 @@ export default function SessionPage() {
               }
               const entries = Array.from(freq.values()).sort((a, b) => b.count - a.count)
               const maxCount = entries[0]?.count ?? 1
+              // sqrt scaling: count=1 → 35% of range, count=max → 100% of range.
+              // This matches how humans perceive area/scale differences.
+              const MIN_PX = 22
+              const MAX_PX = 88
               return (
                 <div className="bg-white rounded-2xl border border-gray-200 p-6 min-h-[240px] relative overflow-hidden">
                   <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
@@ -1602,23 +1609,25 @@ export default function SessionPage() {
                   {entries.length === 0 ? (
                     <p className="text-gray-400 italic text-center py-12">Waiting for responses…</p>
                   ) : (
-                    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 py-4">
+                    <div className="flex flex-wrap items-baseline justify-center gap-x-5 gap-y-3 py-6">
                       {entries.map((entry, i) => {
-                        const ratio = entry.count / maxCount
-                        const fontSize = Math.round(16 + ratio * 44)
-                        const color = CLOUD_COLORS[i % CLOUD_COLORS.length]
-                        const angle = (i * 37) % 25 - 12 // deterministic -12..+12 degrees
+                        const ratio = Math.sqrt(entry.count / maxCount)
+                        const fontSize = Math.round(MIN_PX + ratio * (MAX_PX - MIN_PX))
+                        // Top-3 most-mentioned words get deep navy + yellow
+                        // accent underline; the long tail goes to warm grey.
+                        const isTop = i < 3
+                        const color = isTop ? '#0F1B3D' : '#475569'
                         return (
                           <span
                             key={entry.display + i}
-                            className="inline-block font-black transition-all"
+                            className="inline-block font-black"
                             style={{
                               fontSize,
                               color,
-                              transform: `rotate(${angle}deg)`,
                               fontFamily: 'var(--font-heading)',
-                              lineHeight: 1.1,
-                              padding: '2px 4px',
+                              lineHeight: 1.05,
+                              padding: '2px 6px',
+                              borderBottom: isTop ? '4px solid #F5E642' : 'none',
                             }}
                             title={`${entry.display} — ${entry.count}×`}
                           >
@@ -1717,7 +1726,7 @@ export default function SessionPage() {
               )}
             </div>
           ) : (
-          <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+          <div className="max-w-7xl mx-auto grid grid-cols-2 gap-3 md:gap-4">
             {getEffectiveOptions(currentQuestion)?.map((opt, i) => {
               const votes = optionCounts[i] ?? 0
               const pct = connectedCount > 0 ? (votes / connectedCount) * 100 : 0
@@ -1741,15 +1750,15 @@ export default function SessionPage() {
                   }}
                 >
                   {optImage && (
-                    <img src={optImage} alt="" className="w-full h-32 object-cover" loading="lazy" />
+                    <img src={optImage} alt="" className="w-full object-cover" style={{ height: 'min(14vh, 128px)' }} loading="lazy" />
                   )}
-                  <div className="p-5 md:p-7 flex items-center gap-4">
-                    <span className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black text-white flex-shrink-0 ${OPTION_COLORS[i]}`} style={{ boxShadow: '0 6px 0 rgba(0,0,0,0.16)' }}>
+                  <div className="p-3 md:p-4 flex items-center gap-3">
+                    <span className={`w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-xl font-black text-white flex-shrink-0 ${OPTION_COLORS[i]}`} style={{ boxShadow: '0 4px 0 rgba(0,0,0,0.16)' }}>
                       {OPTION_LABELS[i]}
                     </span>
-                    <span className="text-2xl md:text-3xl flex-1 text-gray-900 font-black leading-tight">{optText}</span>
-                    {correctRevealed && <span className="text-2xl font-black tabular-nums text-gray-500">{votes}</span>}
-                    {highlightCorrect && <span className="text-green-600 text-3xl font-black">✓</span>}
+                    <span className="text-lg md:text-2xl flex-1 text-gray-900 font-black leading-tight">{optText}</span>
+                    {correctRevealed && <span className="text-xl font-black tabular-nums text-gray-500">{votes}</span>}
+                    {highlightCorrect && <span className="text-green-600 text-2xl font-black">✓</span>}
                   </div>
                   <div className={`h-3 ${highlightCorrect ? 'bg-[#BBF7D0]' : 'bg-gray-100'}`}>
                     <div
@@ -1820,7 +1829,11 @@ export default function SessionPage() {
               thumbnail grid (drawing). Driven by the `question_reveal` socket
               event from server.mjs:emitQuestionEnded. Empty-state handled
               inside QuestionResultsView. */}
-          {!isScoredType(currentQuestion.type) && questionEnded && liveStat && (
+          {/* Wordcloud has its own live panel above that already updates in
+              real time and stays as the final view once questionEnded — a
+              second "Final Results" QuestionResultsView would duplicate it
+              with different sizing/font, so exclude that type here. */}
+          {!isScoredType(currentQuestion.type) && currentQuestion.type !== 'wordcloud' && questionEnded && liveStat && (
             <div className="bg-white rounded-2xl border border-gray-200 p-5">
               <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
                 Final Results
@@ -2150,16 +2163,16 @@ export default function SessionPage() {
 
           {/* Animated Podium Leaderboard — rendered immediately so the host's
               projected screen always has the final standings visible. The
-              CelebrationOverlay sits on top during its ~7s play, then
-              auto-dismisses (see session_ended handler), revealing the Podium
-              underneath. Without this, the host's big screen was blank on the
-              60-participant live session because the overlay was modal-only
-              and the host had no opportunity to click to dismiss it. */}
+              CelebrationOverlay sits on top for ~2.5s of excitement build
+              (title drop, card lift, stars + confetti burst), then fades
+              out over 600ms — at which point this Podium underneath starts
+              its full reveal sequence (3rd → 2nd → drumroll → 1st). The
+              participant join-page Podium keeps skipIntro for instant
+              display; only the host's big screen gets the full show. */}
           <div style={{ overflow: 'hidden', borderRadius: 18 }}>
             <Podium
               leaderboard={leaderboard}
               sessionMode={sessionMode}
-              skipIntro
               loopConfetti={!showCelebration && sessionMode === 'competitive'}
             />
           </div>
@@ -2174,6 +2187,7 @@ export default function SessionPage() {
               leaderboard={leaderboard}
               sessionMode={sessionMode}
               title={quiz?.title ? `${quiz.title} — Complete!` : 'Quiz Complete!'}
+              autoDismissMs={2500}
               onDismiss={() => setShowCelebration(false)}
             />
           )}
