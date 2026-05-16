@@ -220,6 +220,13 @@ function RankingResults({ stat, className }: RendererProps) {
   const firsts = stat.rankingFirstPlaceCounts ?? []
   const correctOrder = stat.correctOrder
   const fullCorrectCount = (stat as any).fullCorrectCount ?? 0
+  const optionIdAt = (index: number) => {
+    const option = stat.options?.[index]
+    if (!option) return undefined
+    if (typeof option === 'string') return option
+    const maybeWithId = option as unknown as Record<string, unknown>
+    return typeof maybeWithId.id === 'string' ? maybeWithId.id : option.text
+  }
 
   if (items.length === 0 || averages.every(a => a === null || a === undefined)) {
     return <EmptyState label="No rankings submitted yet" className={className} />
@@ -238,17 +245,19 @@ function RankingResults({ stat, className }: RendererProps) {
             Correct Order
           </p>
           <ol className="space-y-1.5">
-            {correctOrder.map((optIdx, pos) => {
-              const optIdxNum = typeof optIdx === 'number' ? optIdx : parseInt(optIdx, 10)
-              const opt = !isNaN(optIdxNum) && optIdxNum >= 0 && optIdxNum < (stat.options?.length || 0) ? stat.options?.[optIdxNum] : undefined
-              const optLabel = opt ? (typeof opt === 'string' ? opt : (opt as any)?.text) : `Option ${optIdxNum + 1}`
+            {correctOrder.map((optId, idx) => {
+              const optIdxNum = typeof optId === 'number' ? optId : Number.parseInt(String(optId), 10)
+              const opt = Number.isInteger(optIdxNum) && optIdxNum >= 0 && optIdxNum < items.length
+                ? items[optIdxNum]
+                : items.find((_, i) => optionIdAt(i) === String(optId))
+              const optLabel = typeof opt === 'string' ? opt : opt || `Option ${idx + 1}`
               return (
-                <li key={optIdx + pos} className="flex items-center gap-2.5 text-sm">
+                <li key={optId + idx} className="flex items-center gap-2.5 text-sm">
                   <span
                     className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black"
                     style={{ background: '#10b981', color: 'white' }}
                   >
-                    {pos + 1}
+                    {idx + 1}
                   </span>
                   <span className="flex-1 truncate" style={{ color: '#0F1B3D' }}>
                     {optLabel}
