@@ -15,12 +15,6 @@ export interface AlternativeContent {
   keywords: string[]
 }
 
-const COMMON_RELATED: RelatedLink[] = [
-  { title: 'Live Quiz', href: '/live-quiz', description: 'Live multiplayer quiz with leaderboard.' },
-  { title: 'Interactive Presentation', href: '/interactive-presentation', description: 'Polls, word clouds, Q&A in one deck.' },
-  { title: 'AI Quiz Generator', href: '/ai-quiz-generator', description: 'Generate quizzes from a PDF or topic.' },
-  { title: 'Pricing', href: '/pricing', description: 'Free, Pro, Team — in INR with UPI.' },
-]
 
 export const ALTERNATIVES: Record<string, AlternativeContent> = {
   kahoot: {
@@ -65,7 +59,14 @@ export const ALTERNATIVES: Record<string, AlternativeContent> = {
         answer: 'After each answer, participants rate their confidence. The report plots Correct-vs-Confident on a 2×2 grid — surfacing "Hubris" (confident but wrong) and "Imposter" (correct but unsure) cohorts for targeted follow-up. No other major quiz platform offers this.',
       },
     ],
-    related: COMMON_RELATED,
+    related: [
+      { title: 'Quizotic vs Kahoot', href: '/vs/kahoot', description: 'Feature-by-feature comparison with Kahoot.' },
+      { title: 'For Teachers', href: '/for/teachers', description: 'How Indian teachers use Quizotic for live quizzes.' },
+      { title: 'For Coaching Institutes', href: '/for/coaching-institutes', description: 'Batch-wise mocks and Bloom mastery tracking.' },
+      { title: 'Kahoot Pricing in India', href: '/learn/kahoot-pricing-india-vs-alternatives', description: 'USD vs INR: real cost of Kahoot for Indian buyers.' },
+      { title: 'School Teacher Templates', href: '/templates#audience-school-teachers', description: 'Free CBSE/NCERT quiz templates for school teachers.' },
+      { title: 'NCERT Quiz Generator', href: '/ncert-quiz-generator', description: 'Generate NCERT chapter quizzes with AI.' },
+    ],
     keywords: ['kahoot alternative', 'kahoot alternative india', 'kahoot vs quizotic', 'kahoot free alternative', 'kahoot inr'],
   },
 
@@ -111,7 +112,14 @@ export const ALTERNATIVES: Record<string, AlternativeContent> = {
         answer: 'Yes. Every session report exports as XLSX with per-participant answers, word-cloud submissions, and aggregate visualisations.',
       },
     ],
-    related: COMMON_RELATED,
+    related: [
+      { title: 'Quizotic vs Mentimeter', href: '/vs/mentimeter', description: 'Feature-by-feature comparison with Mentimeter.' },
+      { title: 'For Corporate Trainers', href: '/for/corporate-trainers', description: 'Gamified onboarding, compliance quizzes, live workshops.' },
+      { title: 'For Colleges', href: '/for/colleges', description: 'Interactive lectures, live polls, in-class quizzes.' },
+      { title: 'Interactive Presentation', href: '/interactive-presentation', description: 'Polls, word clouds, Q&A in one deck.' },
+      { title: 'Corporate Training Templates', href: '/templates#audience-corporate-trainers', description: 'POSH, onboarding, cybersecurity quiz templates.' },
+      { title: 'Live Polling', href: '/live-polling', description: 'Real-time audience polls for events and training.' },
+    ],
     keywords: ['mentimeter alternative', 'mentimeter alternative india', 'mentimeter vs quizotic', 'mentimeter free alternative', 'menti alternative'],
   },
 
@@ -157,7 +165,14 @@ export const ALTERNATIVES: Record<string, AlternativeContent> = {
         answer: 'Export from Quizizz to Excel, then import into Quizotic. MCQs and True/False transfer cleanly; image-based questions need a re-upload.',
       },
     ],
-    related: COMMON_RELATED,
+    related: [
+      { title: 'Quizotic vs Quizizz', href: '/vs/quizizz', description: 'Feature-by-feature comparison with Quizizz.' },
+      { title: 'For Teachers', href: '/for/teachers', description: 'How Indian teachers use Quizotic for live quizzes.' },
+      { title: 'For Coaching Institutes', href: '/for/coaching-institutes', description: 'JEE/NEET quiz apps for coaching institutes.' },
+      { title: 'Best Quiz App for JEE/NEET', href: '/learn/best-quiz-app-jee-neet-coaching-institutes', description: 'How coaching institutes run competitive quiz sessions.' },
+      { title: 'School Templates', href: '/templates#audience-school-teachers', description: 'Free CBSE/NCERT quiz templates for teachers.' },
+      { title: 'PDF to Quiz', href: '/pdf-to-quiz', description: 'Convert any PDF into a quiz with AI.' },
+    ],
     keywords: ['quizizz alternative', 'quizizz alternative india', 'quizizz vs quizotic', 'quizizz free alternative'],
   },
 
@@ -254,7 +269,14 @@ export const ALTERNATIVES: Record<string, AlternativeContent> = {
         answer: 'Yes. Corporate trainers use Quizotic for onboarding, compliance, and sales enablement — Bloom tagging helps justify ROI to L&D leadership.',
       },
     ],
-    related: COMMON_RELATED,
+    related: [
+      { title: 'Quizotic vs AhaSlides', href: '/vs/ahaslides', description: 'Feature-by-feature comparison with AhaSlides.' },
+      { title: 'For Event Hosts', href: '/for/event-hosts', description: 'Live trivia, audience polls, interactive conferences.' },
+      { title: 'For Corporate Trainers', href: '/for/corporate-trainers', description: 'Gamified training sessions and compliance quizzes.' },
+      { title: 'Interactive Presentation', href: '/interactive-presentation', description: 'Polls, word clouds, Q&A in one deck.' },
+      { title: 'Event Host Templates', href: '/templates#audience-event-hosts', description: 'Trivia, office fun, Bollywood quiz templates.' },
+      { title: 'Live Polling', href: '/live-polling', description: 'Real-time audience polls for events and training.' },
+    ],
     keywords: ['ahaslides alternative', 'ahaslides alternative india', 'ahaslides vs quizotic', 'ahaslides free alternative'],
   },
 
@@ -300,7 +322,14 @@ export const ALTERNATIVES: Record<string, AlternativeContent> = {
         answer: 'Yes. That\'s actually the core Quizotic use case — one deck mixing polls, word clouds, Q&A, and scored quiz questions.',
       },
     ],
-    related: COMMON_RELATED,
+    related: [
+      { title: 'Quizotic vs Slido', href: '/vs/slido', description: 'Quizotic vs Slido — similar event polling use case.' },
+      { title: 'For Corporate Trainers', href: '/for/corporate-trainers', description: 'Gamified training sessions and compliance quizzes.' },
+      { title: 'For Event Hosts', href: '/for/event-hosts', description: 'Live trivia, audience polls, interactive conferences.' },
+      { title: 'Live Polling', href: '/live-polling', description: 'Real-time audience polls for events and training.' },
+      { title: 'Interactive Presentation', href: '/interactive-presentation', description: 'Polls, word clouds, Q&A in one deck.' },
+      { title: 'Corporate Training Templates', href: '/templates#audience-corporate-trainers', description: 'POSH, onboarding, cybersecurity quiz templates.' },
+    ],
     keywords: ['poll everywhere alternative', 'poll everywhere alternative india', 'pollev alternative', 'poll everywhere vs quizotic'],
   },
 }

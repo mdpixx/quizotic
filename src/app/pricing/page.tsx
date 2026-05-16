@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { PLAN_LIMITS } from '@/lib/limits'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
+import { Breadcrumbs } from '@/components/seo/Breadcrumbs'
 
 export const metadata: Metadata = {
   title: 'Pricing — Free While We Grow',
@@ -46,13 +47,12 @@ export default function PricingPage() {
       />
       <div className="min-h-screen" style={{ background: '#FFFFFF' }}>
         <div className="max-w-3xl mx-auto px-6 py-12">
-          <Link
-            href="/"
-            className="text-sm font-semibold mb-6 inline-block"
-            style={{ color: '#0F1B3D' }}
-          >
-            &larr; Back to Home
-          </Link>
+          <div className="mb-6">
+            <Breadcrumbs items={[
+              { name: 'Home', href: '/' },
+              { name: 'Pricing', href: '/pricing' },
+            ]} />
+          </div>
 
           {/* Seedling hero */}
           <div className="flex flex-col items-center text-center mb-12 pt-4">

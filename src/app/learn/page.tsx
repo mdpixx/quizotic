@@ -88,16 +88,42 @@ export default function LearnIndexPage() {
           >
             Learn
           </h1>
-          <p className="text-base mb-12" style={{ color: '#6B7280' }}>
+          <p className="text-base mb-6" style={{ color: '#6B7280' }}>
             Practical guides on running live quizzes, interactive presentations, classroom engagement, and India-specific training playbooks.
           </p>
+
+          {/* Popular topics pill bar */}
+          <div className="flex flex-wrap gap-2 mb-12">
+            {[
+              { label: 'Slido alternatives India', href: '/learn/slido-alternatives-india-2026' },
+              { label: 'Live quiz in CBSE class', href: '/learn/how-to-run-a-live-quiz-cbse-classroom' },
+              { label: 'PDF to quiz guide', href: '/learn/how-to-create-quiz-from-pdf' },
+              { label: 'JEE/NEET quiz apps', href: '/learn/best-quiz-app-jee-neet-coaching-institutes' },
+              { label: 'Corporate training quizzes', href: '/learn/compliance-training-quiz-tool-india' },
+              { label: 'Kahoot pricing vs alternatives', href: '/learn/kahoot-pricing-india-vs-alternatives' },
+              { label: 'Interactive presentations', href: '/learn/how-to-make-interactive-presentation' },
+              { label: 'CBSE Class 10 quiz bank', href: '/learn/cbse-class-10-free-quiz-questions' },
+              { label: 'vs Quizizz', href: '/vs/quizizz' },
+              { label: 'vs Slido', href: '/vs/slido' },
+              { label: 'vs Kahoot', href: '/vs/kahoot' },
+            ].map(item => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="text-sm px-3 py-1 rounded-full"
+                style={{ background: '#F3F4F6', color: '#374151', textDecoration: 'none', border: '1px solid #E5E7EB' }}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
 
           {(Object.keys(LEARN_CATEGORIES) as LearnCategory[]).map(cat => {
             const articles = grouped[cat]
             if (articles.length === 0) return null
             const meta = LEARN_CATEGORIES[cat]
             return (
-              <section key={cat} className="mb-14">
+              <section key={cat} id={`category-${cat}`} className="mb-14">
                 <h2 className="text-xl md:text-2xl font-bold mb-2" style={{ color: '#0F1B3D' }}>
                   {meta.label}
                 </h2>

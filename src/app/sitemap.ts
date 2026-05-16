@@ -2,10 +2,13 @@ import { MetadataRoute } from 'next'
 import { ALTERNATIVE_SLUGS } from '@/content/alternatives'
 import { VS_SLUGS } from '@/content/vs'
 import { USE_CASE_SLUGS } from '@/content/for'
-import { LEARN_SLUGS } from '@/content/learn'
-import { TEMPLATE_SLUGS } from '@/content/templates'
+import { LEARN_ARTICLES } from '@/content/learn'
+import { TEMPLATES } from '@/content/templates'
 
 const SITE = 'https://www.quizotic.live'
+
+// Bump this date when static page copy changes.
+const STATIC_LAST_MODIFIED = '2026-05-15'
 
 type ChangeFreq = 'always' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'never'
 
@@ -13,9 +16,9 @@ interface Entry {
   path: string
   changeFrequency: ChangeFreq
   priority: number
+  lastModified?: string
 }
 
-// Static routes that exist today.
 const STATIC_ROUTES: Entry[] = [
   { path: '/', changeFrequency: 'weekly', priority: 1.0 },
   { path: '/features', changeFrequency: 'monthly', priority: 0.9 },
@@ -29,20 +32,19 @@ const STATIC_ROUTES: Entry[] = [
   { path: '/terms', changeFrequency: 'yearly', priority: 0.3 },
 ]
 
-// Extension point for Waves 2-5. Each wave returns a list of Entry; merge them
-// into the sitemap below.
+const SOLUTION_SLUGS = [
+  'live-quiz',
+  'interactive-presentation',
+  'ai-quiz-generator',
+  'gamified-learning',
+  'live-polling',
+  'quiz-maker',
+  'pdf-to-quiz',
+  'ncert-quiz-generator',
+]
+
 function solutionRoutes(): Entry[] {
-  const slugs = [
-    'live-quiz',
-    'interactive-presentation',
-    'ai-quiz-generator',
-    'gamified-learning',
-    'live-polling',
-    'quiz-maker',
-    'pdf-to-quiz',
-    'ncert-quiz-generator',
-  ]
-  return slugs.map(slug => ({
+  return SOLUTION_SLUGS.map(slug => ({
     path: `/${slug}`,
     changeFrequency: 'monthly' as ChangeFreq,
     priority: 0.9,
@@ -72,23 +74,24 @@ function forSlugRoutes(): Entry[] {
 }
 
 function learnRoutes(): Entry[] {
-  return LEARN_SLUGS.map(slug => ({
-    path: `/learn/${slug}`,
+  return Object.values(LEARN_ARTICLES).map(article => ({
+    path: `/learn/${article.slug}`,
     changeFrequency: 'monthly' as ChangeFreq,
     priority: 0.7,
+    lastModified: article.updatedAt || article.publishedAt,
   }))
 }
 
 function templateRoutes(): Entry[] {
-  return TEMPLATE_SLUGS.map(slug => ({
-    path: `/templates/${slug}`,
+  return Object.values(TEMPLATES).map(template => ({
+    path: `/templates/${template.slug}`,
     changeFrequency: 'monthly' as ChangeFreq,
     priority: 0.7,
+    lastModified: template.publishedAt,
   }))
 }
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const now = new Date()
   const all = [
     ...STATIC_ROUTES,
     ...solutionRoutes(),
@@ -99,7 +102,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   ]
   return all.map(entry => ({
     url: `${SITE}${entry.path}`,
-    lastModified: now,
+    lastModified: entry.lastModified ?? STATIC_LAST_MODIFIED,
     changeFrequency: entry.changeFrequency,
     priority: entry.priority,
   }))

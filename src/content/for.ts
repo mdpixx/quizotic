@@ -15,12 +15,6 @@ export interface UseCaseContent {
   keywords: string[]
 }
 
-const COMMON_RELATED: RelatedLink[] = [
-  { title: 'Live Quiz', href: '/live-quiz', description: 'Live multiplayer quiz with leaderboard.' },
-  { title: 'Interactive Presentation', href: '/interactive-presentation', description: 'Polls, word clouds, Q&A in one deck.' },
-  { title: 'AI Quiz Generator', href: '/ai-quiz-generator', description: 'Generate quizzes from a PDF or topic.' },
-  { title: 'Pricing', href: '/pricing', description: 'Free, Pro, Team — in INR with UPI.' },
-]
 
 export const USE_CASES: Record<string, UseCaseContent> = {
   teachers: {
@@ -91,7 +85,14 @@ export const USE_CASES: Record<string, UseCaseContent> = {
         answer: 'The Confidence Grid flags students who are unsure but correct ("imposter") and overconfident but wrong ("hubris") — both need different kinds of follow-up. The spaced-retrieval queue brings missed questions back automatically.',
       },
     ],
-    related: COMMON_RELATED,
+    related: [
+      { title: 'For Coaching Institutes', href: '/for/coaching-institutes', description: 'Batch-wise mocks and Bloom mastery tracking.' },
+      { title: 'For Schools', href: '/for/schools', description: 'Central admin, teacher accounts, and NCERT quizzes.' },
+      { title: 'NCERT Quiz Generator', href: '/ncert-quiz-generator', description: 'Generate NCERT chapter quizzes with AI.' },
+      { title: 'School Teacher Templates', href: '/templates#audience-school-teachers', description: 'Free CBSE/NCERT quiz templates for school teachers.' },
+      { title: 'vs Kahoot', href: '/vs/kahoot', description: 'Quizotic vs Kahoot — feature comparison for teachers.' },
+      { title: 'CBSE Live Quiz Guide', href: '/learn/how-to-run-a-live-quiz-cbse-classroom', description: 'Step-by-step guide to running a live quiz in a CBSE class.' },
+    ],
     keywords: [
       'quiz app for teachers',
       'quiz tool for teachers india',
@@ -168,7 +169,14 @@ export const USE_CASES: Record<string, UseCaseContent> = {
         answer: 'Yes. Every session generates a downloadable XLSX report; we also support webhook exports on the Team plan.',
       },
     ],
-    related: COMMON_RELATED,
+    related: [
+      { title: 'For Teachers', href: '/for/teachers', description: 'How individual teachers use Quizotic.' },
+      { title: 'For Schools', href: '/for/schools', description: 'School-wide quiz and admin tools.' },
+      { title: 'Coaching Institute Templates', href: '/templates#audience-coaching-institutes', description: 'JEE/NEET/UPSC quiz templates for coaching institutes.' },
+      { title: 'Best Quiz App for JEE/NEET', href: '/learn/best-quiz-app-jee-neet-coaching-institutes', description: 'How coaching institutes run competitive quiz sessions.' },
+      { title: 'PDF to Quiz', href: '/pdf-to-quiz', description: 'Convert PYQ PDFs into quiz sessions.' },
+      { title: 'vs Quizizz', href: '/vs/quizizz', description: 'Quizotic vs Quizizz — which fits coaching better?' },
+    ],
     keywords: [
       'quiz platform for coaching institutes',
       'jee mock test platform',
@@ -245,7 +253,14 @@ export const USE_CASES: Record<string, UseCaseContent> = {
         answer: 'Yes. Our NCERT library covers Classes 6–12. Schools can add their own ICSE or state-board questions to the school-level bank.',
       },
     ],
-    related: COMMON_RELATED,
+    related: [
+      { title: 'For Teachers', href: '/for/teachers', description: 'How classroom teachers use Quizotic.' },
+      { title: 'For Coaching Institutes', href: '/for/coaching-institutes', description: 'Batch-wise mocks for competitive exam prep.' },
+      { title: 'School Teacher Templates', href: '/templates#audience-school-teachers', description: 'Free CBSE/NCERT quiz templates for school teachers.' },
+      { title: 'NCERT Quiz Generator', href: '/ncert-quiz-generator', description: 'Generate NCERT chapter quizzes with AI.' },
+      { title: 'vs Quizizz', href: '/vs/quizizz', description: 'Quizotic vs Quizizz — which fits Indian schools better?' },
+      { title: 'Live Quiz', href: '/live-quiz', description: 'Live multiplayer quiz with leaderboard.' },
+    ],
     keywords: [
       'quiz platform for schools',
       'live quiz for schools india',
@@ -322,7 +337,14 @@ export const USE_CASES: Record<string, UseCaseContent> = {
         answer: 'Yes. We run free onboarding webinars for departments and colleges rolling out Quizotic to multiple faculty.',
       },
     ],
-    related: COMMON_RELATED,
+    related: [
+      { title: 'For Teachers', href: '/for/teachers', description: 'How individual teachers use Quizotic.' },
+      { title: 'For Corporate Trainers', href: '/for/corporate-trainers', description: 'Training quiz tools for corporate L&D.' },
+      { title: 'College Templates', href: '/templates#audience-colleges', description: 'Quiz and presentation templates for college lectures.' },
+      { title: 'Interactive Presentation Guide', href: '/learn/how-to-make-interactive-presentation', description: 'Step-by-step guide to making interactive presentations.' },
+      { title: 'Live Polling', href: '/live-polling', description: 'Real-time audience polls for lectures.' },
+      { title: 'vs Mentimeter', href: '/vs/mentimeter', description: 'Quizotic vs Mentimeter — which works better for college?' },
+    ],
     keywords: [
       'interactive lecture tool',
       'college classroom polling',
@@ -399,7 +421,14 @@ export const USE_CASES: Record<string, UseCaseContent> = {
         answer: 'Yes. The Team plan admin dashboard shows session counts, average scores, and Bloom-level mastery across all trainers.',
       },
     ],
-    related: COMMON_RELATED,
+    related: [
+      { title: 'For Colleges', href: '/for/colleges', description: 'Interactive lectures and in-class quizzes.' },
+      { title: 'For Event Hosts', href: '/for/event-hosts', description: 'Live trivia and audience polls for events.' },
+      { title: 'Corporate Training Templates', href: '/templates#audience-corporate-trainers', description: 'POSH, onboarding, cybersecurity quiz templates.' },
+      { title: 'Compliance Training Quiz Guide', href: '/learn/compliance-training-quiz-tool-india', description: 'Running effective compliance quizzes in India.' },
+      { title: 'vs Slido', href: '/vs/slido', description: 'Quizotic vs Slido — which is better for corporate training?' },
+      { title: 'Interactive Presentation', href: '/interactive-presentation', description: 'Polls, word clouds, Q&A in one deck.' },
+    ],
     keywords: [
       'corporate training platform',
       'interactive training tool',
@@ -478,9 +507,11 @@ export const USE_CASES: Record<string, UseCaseContent> = {
     ],
     related: [
       { title: 'Quizotic vs Slido', href: '/vs/slido', description: 'Slido head-to-head — Q&A, polls, quiz depth.' },
-      { title: 'Slido alternatives 2026', href: '/learn/slido-alternatives-india-2026', description: '5 Slido alternatives compared for Indian conferences.' },
-      { title: 'Live Polling', href: '/live-polling', description: 'Real-time audience polls.' },
-      { title: 'Pricing', href: '/pricing', description: 'Plans for event hosts in INR.' },
+      { title: 'Slido Alternatives India 2026', href: '/learn/slido-alternatives-india-2026', description: '5 Slido alternatives compared for Indian conferences.' },
+      { title: 'For Corporate Trainers', href: '/for/corporate-trainers', description: 'Gamified training sessions and compliance quizzes.' },
+      { title: 'Event Host Templates', href: '/templates#audience-event-hosts', description: 'Trivia, office fun, Bollywood, cricket quiz templates.' },
+      { title: 'Live Polling', href: '/live-polling', description: 'Real-time audience polls for events and training.' },
+      { title: 'Slido Alternatives', href: '/alternatives/slido', description: 'Slido alternatives with INR pricing for Indian events.' },
     ],
     keywords: [
       'event engagement platform',

@@ -80,6 +80,15 @@ const EVENT_RELATED: RelatedLink[] = [
   { title: 'Pricing', href: '/pricing', description: 'Event-host plans.' },
 ]
 
+const COLLEGE_RELATED: RelatedLink[] = [
+  { title: 'For Colleges', href: '/for/colleges', description: 'Interactive lectures and live polls for colleges.' },
+  { title: 'For Teachers', href: '/for/teachers', description: 'How individual teachers use Quizotic.' },
+  { title: 'College Templates', href: '/templates#audience-colleges', description: 'Quiz and presentation templates for college lectures.' },
+  { title: 'Interactive Presentation', href: '/interactive-presentation', description: 'Polls, word clouds, Q&A in one deck.' },
+  { title: 'vs Mentimeter', href: '/vs/mentimeter', description: 'Quizotic vs Mentimeter for college use.' },
+  { title: 'Live Polling', href: '/live-polling', description: 'Real-time audience polls for lectures.' },
+]
+
 // Compact builder so 50 templates don't bloat the file too much
 function makeTemplate(t: Partial<QuizTemplate> & {
   slug: string
@@ -888,7 +897,7 @@ export const TEMPLATES: Record<string, QuizTemplate> = {
       },
     ],
     tags: ['college', 'lecture', 'pulse poll'],
-    related: COMMON_RELATED,
+    related: COLLEGE_RELATED,
   }),
   'college-end-class-recap': makeTemplate({
     slug: 'college-end-class-recap',
@@ -908,7 +917,7 @@ export const TEMPLATES: Record<string, QuizTemplate> = {
       },
     ],
     tags: ['college', 'recap', 'formative assessment'],
-    related: COMMON_RELATED,
+    related: COLLEGE_RELATED,
   }),
   'college-flipped-classroom': makeTemplate({
     slug: 'college-flipped-classroom',
@@ -927,7 +936,7 @@ export const TEMPLATES: Record<string, QuizTemplate> = {
       },
     ],
     tags: ['college', 'flipped classroom'],
-    related: COMMON_RELATED,
+    related: COLLEGE_RELATED,
   }),
   'engineering-data-structures': makeTemplate({
     slug: 'engineering-data-structures',
@@ -946,7 +955,7 @@ export const TEMPLATES: Record<string, QuizTemplate> = {
       },
     ],
     tags: ['engineering', 'data structures', 'cs'],
-    related: COMMON_RELATED,
+    related: COLLEGE_RELATED,
   }),
   'mba-marketing-quiz': makeTemplate({
     slug: 'mba-marketing-quiz',
@@ -965,7 +974,7 @@ export const TEMPLATES: Record<string, QuizTemplate> = {
       },
     ],
     tags: ['mba', 'marketing', 'management'],
-    related: COMMON_RELATED,
+    related: COLLEGE_RELATED,
   }),
 
   // ============ Hindi-medium templates (5) ============
