@@ -289,7 +289,10 @@ export default function SessionPage() {
   }, [phase])
 
   useEffect(() => {
-    if (phase === 'question' || phase === 'standings') window.scrollTo(0, 0)
+    // Always reset scroll on phase change so the projector view starts at
+    // the top — the host shouldn't have to scroll up to see the podium when
+    // the quiz ends.
+    if (phase === 'question' || phase === 'standings' || phase === 'ended') window.scrollTo(0, 0)
   }, [phase, questionIndex])
 
   // Leaderboard tile-shuffle animation: when we enter the standings phase,
@@ -1398,7 +1401,7 @@ export default function SessionPage() {
           initial={reduceStageMotion ? false : { opacity: 0, y: 18, scale: 0.99 }}
           animate={reduceStageMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.32, ease: [0.22, 0.61, 0.36, 1] }}
-          className="min-h-screen h-screen max-h-screen overflow-hidden px-4 pt-3 pb-24 lg:px-8 lg:pt-4 lg:pb-20 flex flex-col gap-3 host-question-stage"
+          className="min-h-screen h-screen max-h-screen overflow-hidden px-4 pt-3 pb-3 lg:px-8 lg:pt-4 lg:pb-4 flex flex-col gap-3 host-question-stage"
           style={{
             background:
               'radial-gradient(circle at 15% 12%, rgba(245,230,66,0.22), transparent 28%), radial-gradient(circle at 85% 18%, rgba(19,104,206,0.22), transparent 30%), linear-gradient(135deg, #071126 0%, #0F1B3D 52%, #111827 100%)',
@@ -1746,47 +1749,43 @@ export default function SessionPage() {
                 </div>
               )
             })()
-          ) : currentQuestion.type === 'qa' ? (
-            <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 bg-white rounded-2xl border border-gray-200 p-6 host-answer-stage host-text-stage">
-              <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
-                Answers from participants · {qaEntries.length}
-              </p>
-              {qaEntries.length === 0 ? (
-                <p className="text-gray-400 italic text-center py-10">Waiting for answers…</p>
-              ) : (
-                <div className="space-y-2 h-full overflow-y-auto pr-1">
-                  {qaEntries.map((e, i) => (
-                    <div key={`${e.at}-${i}`} className="flex gap-3 p-3 rounded-xl border border-gray-100 bg-gray-50">
-                      <div className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-white font-black text-xs" style={{ background: '#7C3AED' }}>
-                        {(e.name[0] ?? '?').toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-gray-500 truncate">{e.name}{e.archetype && ` · ${e.archetype}`}</p>
-                        <p className="text-base text-gray-900 leading-snug mt-0.5 break-words">{e.text}</p>
-                      </div>
+          ) : currentQuestion.type === 'qa' || currentQuestion.type === 'openended' ? (
+            // Raw participant text is intentionally hidden from the projected
+            // host view — matches Kahoot/Slido/Mentimeter, protects privacy in
+            // mixed rooms, keeps the screen calm. Host reviews individual
+            // answers post-session in the SessionReport.
+            (() => {
+              const count = currentQuestion.type === 'qa' ? qaEntries.length : openendedEntries.length
+              return (
+                <div className="max-w-3xl mx-auto w-full flex-1 min-h-0 bg-white rounded-2xl border border-gray-200 p-8 md:p-10 host-answer-stage host-text-stage flex flex-col items-center justify-center text-center">
+                  <p className="text-xs font-black uppercase tracking-[0.22em] text-gray-400 mb-4">
+                    Answers Collected
+                  </p>
+                  <div className="text-[6rem] md:text-[8rem] leading-none font-black tabular-nums" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>
+                    {count}
+                  </div>
+                  <p className="mt-3 text-base md:text-lg font-semibold text-gray-500">
+                    {connectedCount > 0
+                      ? `of ${connectedCount} participant${connectedCount === 1 ? '' : 's'} responded`
+                      : 'Waiting for responses…'}
+                  </p>
+                  {connectedCount > 0 && (
+                    <div className="mt-6 w-full max-w-md h-2 rounded-full overflow-hidden" style={{ background: '#F3F4F6' }}>
+                      <div
+                        className="h-full rounded-full transition-all duration-300"
+                        style={{
+                          width: `${Math.min(100, (count / connectedCount) * 100)}%`,
+                          background: 'linear-gradient(90deg, #F5E642 0%, #22C55E 100%)',
+                        }}
+                      />
                     </div>
-                  ))}
+                  )}
+                  <p className="mt-5 text-xs font-medium text-gray-400 max-w-md">
+                    Individual responses stay private here — review them in the post-session report.
+                  </p>
                 </div>
-              )}
-            </div>
-          ) : currentQuestion.type === 'openended' ? (
-            <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 bg-white rounded-2xl border border-gray-200 p-6 host-answer-stage host-text-stage">
-              <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
-                Answers from participants · {openendedEntries.length}
-              </p>
-              {openendedEntries.length === 0 ? (
-                <p className="text-gray-400 italic text-center py-10">Waiting for answers…</p>
-              ) : (
-                <div className="grid sm:grid-cols-2 gap-3 h-full overflow-y-auto pr-1">
-                  {openendedEntries.map((e, i) => (
-                    <div key={`${e.at}-${i}`} className="p-4 rounded-xl border-l-4 bg-gradient-to-br from-white to-gray-50" style={{ borderLeftColor: ['#E21B3C', '#1368CE', '#D89E00', '#26890C', '#7C3AED'][i % 5] }}>
-                      <p className="text-[11px] font-bold text-gray-500 mb-1 truncate">{e.name}{e.archetype && ` · ${e.archetype}`}</p>
-                      <p className="text-sm text-gray-900 leading-snug break-words">{e.text}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+              )
+            })()
           ) : (
           <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 grid grid-cols-2 gap-3 md:gap-4 host-answer-stage host-options-stage">
             {getEffectiveOptions(currentQuestion)?.map((opt, i) => {
@@ -1934,12 +1933,9 @@ export default function SessionPage() {
             </button>
           )}
 
-          <div
-            className="fixed left-4 right-4 z-30 pointer-events-none"
-            style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
-          >
+          <div className="mt-auto w-full">
             <div
-              className="max-w-7xl mx-auto pointer-events-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-3xl px-4 py-3"
+              className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-3xl px-4 py-3"
               style={{
                 background: 'rgba(15,27,61,0.78)',
                 border: '1px solid rgba(255,255,255,0.16)',
@@ -2207,47 +2203,57 @@ export default function SessionPage() {
           onBack={goBackToLibrary}
           dimmed={false}
         />
+        {sessionMode === 'competitive' && leaderboard.length > 0 ? (
+          // Viewport-locked hero — fits any projector (720p/768p/1080p) so the
+          // podium + winner is always fully visible on the projected screen
+          // with no scrolling. Post-game details (team standings, report,
+          // share, follow-ups) live in a separate scrollable region below.
+          <motion.section
+            initial={reduceStageMotion ? false : { opacity: 0, y: 18 }}
+            animate={reduceStageMotion ? undefined : { opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: [0.22, 0.61, 0.36, 1] }}
+            className="relative overflow-hidden flex flex-col items-center justify-center px-4 md:px-8 py-4 md:py-6"
+            style={{
+              height: 'calc(100vh - 56px)',
+              background:
+                'radial-gradient(circle at 50% 8%, rgba(245,230,66,0.24), transparent 24%), radial-gradient(circle at 8% 72%, rgba(34,211,238,0.18), transparent 24%), linear-gradient(145deg, #071126 0%, #0F1B3D 58%, #111827 100%)',
+              boxShadow: '0 30px 90px rgba(15,27,61,0.28)',
+            }}
+          >
+            <CelebrationConfetti active layer="absolute" />
+            <div className="relative z-10 text-center">
+              <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.24em]" style={{ color: 'rgba(245,230,66,0.72)' }}>
+                Final Standings
+              </p>
+              <h2 className="mt-1 text-3xl md:text-5xl font-black" style={{ color: '#FFFFFF', fontFamily: 'var(--font-heading)', letterSpacing: 0 }}>
+                Session Complete
+              </h2>
+              <p className="mt-1 text-sm md:text-base font-semibold" style={{ color: 'rgba(255,255,255,0.68)' }}>
+                {leaderboard.length} participant{leaderboard.length === 1 ? '' : 's'} finished
+              </p>
+            </div>
+
+            <div className="relative z-10 flex-1 min-h-0 w-full flex items-center justify-center mt-3">
+              <div className="w-full max-w-5xl rounded-[28px] p-3 md:p-5" style={{ background: 'rgba(255,255,255,0.96)', boxShadow: '0 24px 80px rgba(0,0,0,0.35)' }}>
+                <Podium
+                  leaderboard={leaderboard}
+                  sessionMode={sessionMode}
+                  loopConfetti={false}
+                  showRest={false}
+                  variant="finale"
+                />
+              </div>
+            </div>
+          </motion.section>
+        ) : null}
+
         <motion.div
           initial={reduceStageMotion ? false : { opacity: 0, y: 18 }}
           animate={reduceStageMotion ? undefined : { opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.22, 0.61, 0.36, 1] }}
+          transition={{ duration: 0.4, ease: [0.22, 0.61, 0.36, 1], delay: 0.1 }}
           className="px-4 max-w-7xl mx-auto py-8 space-y-8"
         >
-          {sessionMode === 'competitive' && leaderboard.length > 0 ? (
-            <section
-              className="relative min-h-[calc(100vh-140px)] overflow-hidden rounded-[32px] px-5 py-8 md:px-10 md:py-10 flex flex-col"
-              style={{
-                background:
-                  'radial-gradient(circle at 50% 8%, rgba(245,230,66,0.24), transparent 24%), radial-gradient(circle at 8% 72%, rgba(34,211,238,0.18), transparent 24%), linear-gradient(145deg, #071126 0%, #0F1B3D 58%, #111827 100%)',
-                boxShadow: '0 30px 90px rgba(15,27,61,0.28)',
-              }}
-            >
-              <CelebrationConfetti active batchSize={42} intervalMs={4200} layer="absolute" />
-              <div className="relative z-10 text-center">
-                <p className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: 'rgba(245,230,66,0.72)' }}>
-                  Final Standings
-                </p>
-                <h2 className="mt-2 text-4xl md:text-6xl font-black" style={{ color: '#FFFFFF', fontFamily: 'var(--font-heading)', letterSpacing: 0 }}>
-                  Session Complete
-                </h2>
-                <p className="mt-2 text-base md:text-lg font-semibold" style={{ color: 'rgba(255,255,255,0.68)' }}>
-                  {leaderboard.length} participant{leaderboard.length === 1 ? '' : 's'} finished
-                </p>
-              </div>
-
-              <div className="relative z-10 flex-1 min-h-0 flex items-center justify-center mt-4">
-                <div className="w-full max-w-5xl rounded-[28px] p-3 md:p-6" style={{ background: 'rgba(255,255,255,0.96)', boxShadow: '0 24px 80px rgba(0,0,0,0.35)' }}>
-                  <Podium
-                    leaderboard={leaderboard}
-                    sessionMode={sessionMode}
-                    loopConfetti={false}
-                    showRest={false}
-                    variant="finale"
-                  />
-                </div>
-              </div>
-            </section>
-          ) : (
+          {!(sessionMode === 'competitive' && leaderboard.length > 0) && (
             <h2 className="text-4xl font-black max-w-3xl mx-auto" style={{ color: '#0F1B3D' }}>Session Complete</h2>
           )}
 

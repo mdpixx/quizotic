@@ -2,41 +2,35 @@
 
 import { useEffect, useState, useSyncExternalStore } from 'react'
 
-// DOM-based celebration particle layer — a deterministic, CSS-only backup
-// for canvas-confetti. Paints pure <span>s with keyframe animations so it
-// keeps celebrating even if canvas-confetti fails to load or is clipped by
-// an unexpected stacking context. Mounted on:
-//   - CelebrationOverlay (final "Quiz Complete!" modal)
-//   - Session Report page (continues until host clicks Back to Library)
+// Floating gold particle celebration — replaces the previous side-cannon
+// confetti that read as choreographed and mechanical on a projector.
+// Particles are small warm-gold dots that drift up from below the viewport,
+// sway gently in a sine path, glow softly, and fade in at the bottom edge
+// and out near the top. Inspired by the Mentimeter/Kahoot "premium" finale.
 //
-// Runs on a loop (new batch every `intervalMs`) until the parent unmounts it
-// or sets active=false. Respects prefers-reduced-motion.
-//
-// Particle shapes mix rectangles (3:1), thin ribbons (8:1), and circles —
-// matching the canvas-confetti look so the fallback feels visually consistent.
-// Two animation paths: side-cannon (pop up → arc → gravity fall) and rain
-// (slow drift from above) — split 70/30 so the dominant feel is the cannon.
+// Pure CSS keyframes on DOM <span>s — no canvas, no JS animation loop, no
+// per-frame state. Renders ~30 particles on screen at steady state; respects
+// prefers-reduced-motion.
 
+// Warm gold + cream palette only — feels premium and matches the Quizotic
+// brand yellow #F5E642 already used for the lobby Create button.
 const COLORS = [
-  '#F5E642', '#FF8A47', '#16A34A', '#2D3A8C', '#FFFFFF',
-  '#DC2626', '#7C3AED', '#0EA5E9', '#FBBF24', '#EC4899',
+  '#F5E642',  // brand yellow
+  '#FBBF24',  // amber 400
+  '#FCD34D',  // amber 300
+  '#FFE08A',  // warm gold
+  '#FFF7CC',  // cream
 ]
-
-type Shape = 'rect' | 'ribbon' | 'circle' | 'curl'
-type Path = 'cannonL' | 'cannonR' | 'rain'
 
 interface Particle {
   id: number
-  delay: number
-  duration: number
-  size: number          // base size (height for rect/ribbon, diameter for circle)
-  width: number         // px, computed from size + shape ratio
+  delay: number       // seconds before this particle's animation begins
+  duration: number    // total drift time, seconds
+  size: number        // diameter in px (4–9)
   color: string
-  driftX: number
-  rotate: number
-  shape: Shape
-  path: Path
-  startX: number        // 0–100 vw (for rain) or anchor x in vw
+  startX: number      // 0–100 vw — base horizontal position
+  driftAmplitude: number // px — how wide the sine sway is
+  driftPhase: number  // 0–1 — randomizes which way the sway starts
 }
 
 // Cheap deterministic PRNG so React keys + visuals stay stable across renders.
@@ -53,36 +47,21 @@ function makeBatch(seedOffset: number, count: number): Particle[] {
     const r3 = rand(id * 31 + 11)
     const r4 = rand(id * 71 + 23)
 
-    // Mix small dots, ribbons, and curled streamers. The curls make the fall
-    // feel less like rectangular debris and more like celebration streamers.
-    const shape: Shape = r2 < 0.42 ? 'circle' : r2 < 0.68 ? 'ribbon' : r2 < 0.88 ? 'curl' : 'rect'
-    // Keep particles small per user feedback — tighter range 6–10px
-    // (was 5–12) gives more visual consistency. Big confetti reads cluttered.
-    const size = 6 + Math.floor(r4 * 5)         // 6–10 px
-    const width = shape === 'circle' ? size : shape === 'ribbon' ? size * 7 : shape === 'curl' ? size * 2.6 : size * 3
-
-    // 30% left cannon, 30% right cannon, 40% drift rain. Heavier rain weighting
-    // means more slow-drift particles, fewer abrupt cannon arcs.
-    const path: Path = r1 < 0.3 ? 'cannonL' : r1 < 0.6 ? 'cannonR' : 'rain'
-    const startX = path === 'rain'
-      ? r3 * 100
-      : path === 'cannonL' ? 2 + r3 * 6 : 92 + r3 * 6
+    // Bias size toward 5–6 px (smaller = more dust-like). Range 4–9.
+    const sizeRoll = r4 * r4  // squared bias toward small
+    const size = 4 + Math.round(sizeRoll * 5)
 
     batch.push({
       id,
-      delay: r2 * 1.4,
-      // Slower fall = smoother visual feel. Cannons 4.0–6.0s (was 2.4–3.4s),
-      // rain 7.0–10.0s (was 4.0–5.6s). User explicitly wanted "smooth, slow".
-      duration: path === 'rain' ? 7.0 + r3 * 3.0 : 4.0 + r3 * 2.0,
+      delay: r2 * 1.2,
+      // 5–8s drift. Must finish before the parent re-renders this particle
+      // out of the DOM — see render-lifetime note on the parent component.
+      duration: 5.0 + r3 * 3.0,
       size,
-      width,
       color: COLORS[id % COLORS.length],
-      // Wider sway (±55px was ±30) makes the fall organic, not gravity-sim.
-      driftX: (r3 - 0.5) * 110,
-      rotate: (r4 > 0.5 ? 1 : -1) * (360 + Math.floor(r1 * 720)),
-      shape,
-      path,
-      startX,
+      startX: r1 * 100,
+      driftAmplitude: 24 + r3 * 36,  // 24–60 px sway
+      driftPhase: r2,
     })
   }
   return batch
@@ -111,11 +90,17 @@ interface CelebrationConfettiProps {
   layer?: 'fixed' | 'absolute'
 }
 
-// Quieter density (32 per batch, was 48) + longer interval (3600ms, was 2400ms)
-// — combined with the slower fall durations above, total particles on screen
-// stay around 60–70 instead of 100+, so the celebration reads as graceful
-// rather than chaotic.
-export function CelebrationConfetti({ active, batchSize = 32, intervalMs = 3600, layer = 'fixed' }: CelebrationConfettiProps) {
+// Render-lifetime constraint: each particle's <span> is only in the DOM for
+// ~2 × intervalMs (because keys are seeded from `seed` and `seed-1`, so a
+// particle survives the current render and the next). Its CSS animation
+// must therefore complete inside that window or it gets cut off when the
+// parent re-renders. Tuned: animation 5–8s, intervalMs 2400ms → particles
+// live ~4.8s in DOM, which fits the 5–8s envelope mostly (the longest tail
+// gets clipped, which is fine — the opacity envelope has them at ~0 by then).
+//
+// With batchSize 14 + intervalMs 2400ms + 2 overlapping batches, ~28
+// particles are on screen at any moment.
+export function CelebrationConfetti({ active, batchSize = 14, intervalMs = 2400, layer = 'fixed' }: CelebrationConfettiProps) {
   const reduced = usePrefersReducedMotion()
   const [seed, setSeed] = useState(0)
 
@@ -127,7 +112,7 @@ export function CelebrationConfetti({ active, batchSize = 32, intervalMs = 3600,
 
   if (!active || reduced) return null
 
-  // Two overlapping batches so a continuous stream is visible.
+  // Two overlapping batches so the stream feels continuous.
   const batchA = makeBatch(seed * batchSize, batchSize)
   const batchB = makeBatch((seed - 1) * batchSize, batchSize)
 
@@ -142,64 +127,46 @@ export function CelebrationConfetti({ active, batchSize = 32, intervalMs = 3600,
         zIndex: 60,
       }}
     >
-      {[...batchA, ...batchB].map(p => {
-        const animationName = p.path === 'rain' ? 'celebRain' : p.path === 'cannonL' ? 'celebCannonL' : 'celebCannonR'
-        const top = p.path === 'rain' ? '-8%' : 'auto'
-        const bottom = p.path === 'rain' ? 'auto' : '6%'
-        return (
-          <span
-            key={p.id}
-            style={{
-              position: 'absolute',
-              top,
-              bottom,
-              left: `${p.startX}vw`,
-              width: p.width,
-              height: p.shape === 'curl' ? p.size * 2.6 : p.size,
-              background: p.shape === 'curl' ? 'transparent' : p.color,
-              border: p.shape === 'curl' ? `2px solid ${p.color}` : undefined,
-              borderLeftColor: p.shape === 'curl' ? 'transparent' : undefined,
-              borderBottomColor: p.shape === 'curl' ? 'transparent' : undefined,
-              borderRadius: p.shape === 'circle' || p.shape === 'curl' ? '999px' : 1,
-              boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
-              opacity: 0,
-              animation: `${animationName} ${p.duration}s cubic-bezier(0.18, 0.7, 0.32, 1) ${p.delay}s both`,
-              // @ts-expect-error — CSS custom properties are strings
-              '--drift-x': `${p.driftX}px`,
-              '--rotate': `${p.rotate}deg`,
-            }}
-          />
-        )
-      })}
+      {[...batchA, ...batchB].map(p => (
+        <span
+          key={p.id}
+          style={{
+            position: 'absolute',
+            bottom: '-8%',
+            left: `${p.startX}vw`,
+            width: p.size,
+            height: p.size,
+            background: p.color,
+            borderRadius: '999px',
+            boxShadow: `0 0 ${p.size * 1.4}px ${p.color}66, 0 0 ${p.size * 0.6}px ${p.color}aa`,
+            opacity: 0,
+            // Custom property feeds the keyframe's sway amplitude. The
+            // per-particle delay desynchronizes start times so the group
+            // reads as organic, not choreographed.
+            ['--sway' as string]: `${p.driftAmplitude}px`,
+            animation: `celebDriftUp ${p.duration}s linear ${p.delay}s forwards, celebFade ${p.duration}s ease-in-out ${p.delay}s forwards`,
+          }}
+        />
+      ))}
       <style>{`
-        /* Side cannons fire upward, travel in a loose arc, then keep falling
-           past the viewport. The extra midpoints avoid the old rise → hover
-           → drop motion that looked unnatural on the final podium screen. */
-        @keyframes celebCannonL {
-          0%   { opacity: 0; transform: translate3d(0, 10vh, 0) rotate(0deg) scale(0.82); }
-          8%   { opacity: 1; }
-          24%  { transform: translate3d(calc(13vw + var(--drift-x) * 0.25), -38vh, 0) rotate(calc(var(--rotate) * 0.22)) scale(1); }
-          52%  { transform: translate3d(calc(25vw + var(--drift-x) * 0.7), -66vh, 0) rotate(calc(var(--rotate) * 0.58)); }
-          76%  { opacity: 1; transform: translate3d(calc(33vw + var(--drift-x)), -22vh, 0) rotate(calc(var(--rotate) * 0.82)); }
-          100% { opacity: 0; transform: translate3d(calc(42vw + var(--drift-x)), 98vh, 0) rotate(var(--rotate)); }
+        /* Drift up — pure vertical climb from below to above viewport, with
+           a slow sine-style horizontal sway (left-right-left) to feel organic.
+           The sway uses a 4-step keyframe pattern so the particle gently
+           weaves as it rises. */
+        @keyframes celebDriftUp {
+          0%   { transform: translate3d(0, 0, 0); }
+          25%  { transform: translate3d(var(--sway), -30vh, 0); }
+          50%  { transform: translate3d(0, -60vh, 0); }
+          75%  { transform: translate3d(calc(var(--sway) * -1), -90vh, 0); }
+          100% { transform: translate3d(0, -120vh, 0); }
         }
-        @keyframes celebCannonR {
-          0%   { opacity: 0; transform: translate3d(0, 10vh, 0) rotate(0deg) scale(0.82); }
-          8%   { opacity: 1; }
-          24%  { transform: translate3d(calc(-13vw + var(--drift-x) * 0.25), -38vh, 0) rotate(calc(var(--rotate) * 0.22)) scale(1); }
-          52%  { transform: translate3d(calc(-25vw + var(--drift-x) * 0.7), -66vh, 0) rotate(calc(var(--rotate) * 0.58)); }
-          76%  { opacity: 1; transform: translate3d(calc(-33vw + var(--drift-x)), -22vh, 0) rotate(calc(var(--rotate) * 0.82)); }
-          100% { opacity: 0; transform: translate3d(calc(-42vw + var(--drift-x)), 98vh, 0) rotate(var(--rotate)); }
-        }
-        /* Rain — slow drift from above with sine-wobble horizontal sway so
-           particles meander instead of falling straight. The mid-keyframe
-           at 50% flips the drift sign, producing a gentle S-curve path. */
-        @keyframes celebRain {
-          0%   { opacity: 0; transform: translate3d(0, 0, 0) rotate(0deg); }
-          8%   { opacity: 1; }
-          50%  { transform: translate3d(calc(var(--drift-x) * -0.7), 55vh, 0) rotate(calc(var(--rotate) * 0.55)); }
-          85%  { opacity: 1; }
-          100% { opacity: 0; transform: translate3d(var(--drift-x), 118vh, 0) rotate(var(--rotate)); }
+        /* Opacity envelope — particles fade in at the bottom and out near
+           the top so nothing visibly pops into existence at viewport edges. */
+        @keyframes celebFade {
+          0%   { opacity: 0; }
+          12%  { opacity: 0.85; }
+          82%  { opacity: 0.85; }
+          100% { opacity: 0; }
         }
       `}</style>
     </div>
