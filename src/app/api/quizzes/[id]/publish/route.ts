@@ -9,6 +9,7 @@ import { PLAN_LIMITS } from '@/lib/limits'
 import { ASYNC_GRADEABLE_TYPES } from '@/lib/scoring'
 
 type Params = { params: Promise<{ id: string }> }
+type GradeableQuestion = { type: string }
 
 function generateSlug(): string {
   const chars = 'abcdefghijkmnpqrstuvwxyz23456789'
@@ -34,6 +35,15 @@ async function findUniqueCode(): Promise<string> {
   return String(100000 + Math.floor(Math.random() * 900000))
 }
 
+function getGradeableQuestions(questions: unknown): GradeableQuestion[] {
+  const allQuestions = Array.isArray(questions) ? (questions as GradeableQuestion[]) : []
+  return allQuestions.filter(q => ASYNC_GRADEABLE_TYPES.has(q.type))
+}
+
+function needsRepublish(quizUpdatedAt: Date, versionCreatedAt: Date | null | undefined): boolean {
+  return !versionCreatedAt || quizUpdatedAt.getTime() > versionCreatedAt.getTime()
+}
+
 // POST /api/quizzes/[id]/publish — publish quiz as async self-serve link
 export async function POST(_req: NextRequest, { params }: Params) {
   try {
@@ -45,18 +55,74 @@ export async function POST(_req: NextRequest, { params }: Params) {
     const quiz = await prisma.quiz.findFirst({ where: { id, userId: user.id } })
     if (!quiz) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
 
+    const gradeable = getGradeableQuestions(quiz.questions)
+    if (gradeable.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'This quiz has no auto-gradeable questions (MCQ, True/False, or Multi-select). Add at least one to publish it as a self-paced quiz.',
+      }, { status: 400 })
+    }
+
     // Idempotent: return existing open async session if one exists
     const existing = await prisma.gameSession.findFirst({
-      where: { quizId: id, mode: 'async', status: 'open' },
-      select: { id: true, shareSlug: true, allowRetries: true, closesAt: true, quizVersionId: true },
+      where: { quizId: id, userId: user.id, mode: 'async', status: 'open' },
+      select: {
+        id: true,
+        shareSlug: true,
+        allowRetries: true,
+        closesAt: true,
+        createdAt: true,
+        participantCount: true,
+        quizVersionId: true,
+        quizVersion: { select: { questionCount: true, createdAt: true } },
+      },
     })
     if (existing) {
-      const version = existing.quizVersionId
-        ? await prisma.quizVersion.findUnique({ where: { id: existing.quizVersionId }, select: { questionCount: true } })
-        : null
+      const stale = needsRepublish(quiz.updatedAt, existing.quizVersion?.createdAt)
+      if (stale) {
+        const version = await prisma.quizVersion.create({
+          data: {
+            quizId: quiz.id,
+            title: quiz.title,
+            subject: quiz.subject ?? null,
+            language: quiz.language ?? null,
+            theme: quiz.theme ?? null,
+            snapshot: gradeable,
+            questionCount: gradeable.length,
+          },
+        })
+        await prisma.gameSession.update({
+          where: { id: existing.id },
+          data: { quizVersionId: version.id },
+        })
+        return NextResponse.json({
+          success: true,
+          data: {
+            sessionId: existing.id,
+            shareSlug: existing.shareSlug,
+            allowRetries: existing.allowRetries,
+            closesAt: existing.closesAt,
+            questionCount: version.questionCount,
+            responseCount: existing.participantCount ?? 0,
+            publishedAt: version.createdAt,
+            needsRepublish: false,
+            republished: true,
+          },
+        })
+      }
       return NextResponse.json({
         success: true,
-        data: { sessionId: existing.id, shareSlug: existing.shareSlug, allowRetries: existing.allowRetries, closesAt: existing.closesAt, questionCount: version?.questionCount ?? 0 },
+        data: {
+          sessionId: existing.id,
+          shareSlug: existing.shareSlug,
+          allowRetries: existing.allowRetries,
+          closesAt: existing.closesAt,
+          questionCount: existing.quizVersion?.questionCount ?? 0,
+          responseCount: existing.participantCount ?? 0,
+          publishedAt: existing.quizVersion?.createdAt ?? existing.createdAt,
+          needsRepublish: false,
+          republished: false,
+        },
       })
     }
 
@@ -71,16 +137,6 @@ export async function POST(_req: NextRequest, { params }: Params) {
           error: `Free plan allows ${asyncLimit} active self-serve quiz${asyncLimit === 1 ? '' : 'es'}. Close an existing one or upgrade to Pro.`,
         }, { status: 403 })
       }
-    }
-
-    // Filter to auto-gradeable questions only
-    const allQuestions = Array.isArray(quiz.questions) ? (quiz.questions as { type: string }[]) : []
-    const gradeable = allQuestions.filter(q => ASYNC_GRADEABLE_TYPES.has(q.type))
-    if (gradeable.length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: 'This quiz has no auto-gradeable questions (MCQ, True/False, or Multi-select). Add at least one to publish it as a self-serve quiz.',
-      }, { status: 400 })
     }
 
     const version = await prisma.quizVersion.create({
@@ -113,7 +169,17 @@ export async function POST(_req: NextRequest, { params }: Params) {
 
     return NextResponse.json({
       success: true,
-      data: { sessionId: session.id, shareSlug: slug, questionCount: gradeable.length, allowRetries: false, closesAt: null },
+      data: {
+        sessionId: session.id,
+        shareSlug: slug,
+        questionCount: gradeable.length,
+        allowRetries: false,
+        closesAt: null,
+        responseCount: 0,
+        publishedAt: version.createdAt,
+        needsRepublish: false,
+        republished: false,
+      },
     })
   } catch (err) {
     console.error('[publish:POST]', err instanceof Error ? err.message : err)
@@ -130,7 +196,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const { id } = await params
     const body = await req.json() as Record<string, unknown>
 
-    const session = await prisma.gameSession.findFirst({ where: { quizId: id, userId: user.id, mode: 'async' } })
+    const session = await prisma.gameSession.findFirst({ where: { quizId: id, userId: user.id, mode: 'async', status: 'open' } })
     if (!session) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
 
     const update: { allowRetries?: boolean; closesAt?: Date | null } = {}

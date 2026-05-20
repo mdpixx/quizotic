@@ -34,6 +34,9 @@ interface Result {
   finalScore: number
   rank: number
   total: number
+  correctCount: number
+  answeredCount: number
+  questionCount: number
 }
 
 // ─── Option display ──────────────────────────────────────────────────────────
@@ -48,13 +51,23 @@ function getOptImage(opt: QuestionOption): string | undefined {
   return typeof opt === 'string' ? undefined : opt.imageUrl
 }
 
+function formatMinutes(seconds: number): string {
+  const mins = Math.max(1, Math.round(seconds / 60))
+  return `${mins} min`
+}
+
+function formatCloseDate(iso: string | null): string | null {
+  if (!iso) return null
+  return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+}
+
 // ─── Main component ──────────────────────────────────────────────────────────
 
 export default function AsyncQuizPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params)
 
   const [phase, setPhase] = useState<Phase>('loading')
-  const [quizInfo, setQuizInfo] = useState<{ title: string; subject: string | null; questionCount: number; allowRetries: boolean } | null>(null)
+  const [quizInfo, setQuizInfo] = useState<{ title: string; subject: string | null; questionCount: number; allowRetries: boolean; closesAt: string | null; estimatedSeconds: number; maxBaseScore: number } | null>(null)
   const [name, setName] = useState('')
   const [nameError, setNameError] = useState('')
   const [starting, setStarting] = useState(false)
@@ -65,8 +78,10 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
   const [currentQ, setCurrentQ] = useState<PublicQuestion | null>(null)
   const [selectedIndices, setSelectedIndices] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
+  const [answerError, setAnswerError] = useState('')
   const [feedback, setFeedback] = useState<AnswerFeedback | null>(null)
   const [totalScore, setTotalScore] = useState(0)
+  const [correctCount, setCorrectCount] = useState(0)
   const questionStartRef = useRef<number>(0)
 
   const [result, setResult] = useState<Result | null>(null)
@@ -127,6 +142,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
 
       setCurrentQ(question)
       setSelectedIndices([])
+      setAnswerError('')
       setFeedback(null)
       questionStartRef.current = Date.now()
       setPhase('question')
@@ -148,6 +164,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
       )
     } else {
       // mcq / truefalse: select + immediately submit
+      setSelectedIndices([idx])
       submitAnswer(idx)
     }
   }
@@ -158,6 +175,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
     const q = currentQ
     if (!q || submitting || feedback) return
     setSubmitting(true)
+    setAnswerError('')
 
     const timeMs = Date.now() - questionStartRef.current
 
@@ -175,13 +193,16 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
       })
       const json = await res.json()
       if (!res.ok || !json.success) {
+        setAnswerError(json.message || json.error || 'Could not submit your answer. Please try again.')
         setSubmitting(false)
         return
       }
       if (json.data.isCorrect) setTotalScore(s => s + json.data.points)
+      if (json.data.isCorrect) setCorrectCount(c => c + 1)
       setFeedback(json.data)
       setPhase('feedback')
     } catch {
+      setAnswerError('Network error. Please check your connection and try again.')
       setSubmitting(false)
     } finally {
       setSubmitting(false)
@@ -200,6 +221,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
     if (feedback.nextQuestion) {
       setCurrentQ(feedback.nextQuestion)
       setSelectedIndices([])
+      setAnswerError('')
       setFeedback(null)
       questionStartRef.current = Date.now()
       setPhase('question')
@@ -212,9 +234,9 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
           body: JSON.stringify({ participantId: participantIdRef.current, attendeeId: attendeeIdRef.current }),
         })
         const json = await res.json()
-        setResult(json.success ? json.data : { finalScore: totalScore, rank: 1, total: 1 })
+        setResult(json.success ? json.data : { finalScore: totalScore, rank: 1, total: 1, correctCount, answeredCount: currentQ ? currentQ.index + 1 : correctCount, questionCount: quizInfo?.questionCount ?? correctCount })
       } catch {
-        setResult({ finalScore: totalScore, rank: 1, total: 1 })
+        setResult({ finalScore: totalScore, rank: 1, total: 1, correctCount, answeredCount: currentQ ? currentQ.index + 1 : correctCount, questionCount: quizInfo?.questionCount ?? correctCount })
       }
       setPhase('done')
     }
@@ -279,6 +301,29 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
           </div>
 
           <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div className="grid grid-cols-2 gap-2 mb-5">
+              <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Mode</p>
+                <p className="text-sm font-bold" style={{ color: '#fff' }}>Self-paced</p>
+              </div>
+              <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Time</p>
+                <p className="text-sm font-bold" style={{ color: '#fff' }}>{formatMinutes(quizInfo?.estimatedSeconds ?? 60)}</p>
+              </div>
+              <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Host</p>
+                <p className="text-sm font-bold" style={{ color: '#fff' }}>Not needed</p>
+              </div>
+              <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Retakes</p>
+                <p className="text-sm font-bold" style={{ color: '#fff' }}>{quizInfo?.allowRetries ? 'Allowed' : 'One try'}</p>
+              </div>
+            </div>
+            {formatCloseDate(quizInfo?.closesAt ?? null) && (
+              <p className="text-xs mb-4 rounded-lg px-3 py-2" style={{ background: 'rgba(245,230,66,0.1)', color: '#F5E642' }}>
+                Available until {formatCloseDate(quizInfo?.closesAt ?? null)}
+              </p>
+            )}
             <label className="block text-sm font-semibold mb-2" style={{ color: '#CBD5E1' }}>
               Your name
             </label>
@@ -401,6 +446,12 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
           </div>
         )}
 
+        {answerError && (
+          <div className="rounded-xl px-4 py-3 mb-4 text-sm font-semibold" style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }}>
+            {answerError}
+          </div>
+        )}
+
         {/* Multiselect submit button */}
         {!isFeedback && q.type === 'multiselect' && (
           <button
@@ -449,8 +500,9 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
   // ─── Render: results ─────────────────────────────────────────────────────
 
   if (phase === 'done' && result) {
-    const pct = quizInfo && quizInfo.questionCount > 0
-      ? Math.round((result.finalScore / (quizInfo.questionCount * 1000)) * 100)
+    const totalQuestions = result.questionCount || quizInfo?.questionCount || 0
+    const pct = totalQuestions > 0
+      ? Math.round((result.correctCount / totalQuestions) * 100)
       : 0
 
     return (
@@ -469,13 +521,23 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
             {result.finalScore} pts
           </p>
           <p className="text-sm mt-1" style={{ color: '#64748B' }}>
-            {pct}% accuracy
+            {result.correctCount} / {totalQuestions} correct · {pct}% accuracy
           </p>
         </div>
 
         <div className="rounded-2xl p-5 w-full text-left shadow-sm" style={{ background: '#fff', border: '1px solid #E2E8F0' }}>
           <p className="text-xs font-bold uppercase tracking-widest mb-0.5" style={{ color: '#0F1B3D' }}>Quiz</p>
           <p className="font-bold text-lg" style={{ color: '#0F1B3D' }}>{quizInfo?.title ?? 'Quiz'}</p>
+          <div className="grid grid-cols-2 gap-2 mt-4">
+            <div className="rounded-xl px-3 py-2" style={{ background: '#F8FAFC' }}>
+              <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Answered</p>
+              <p className="text-sm font-black" style={{ color: '#0F1B3D' }}>{result.answeredCount}</p>
+            </div>
+            <div className="rounded-xl px-3 py-2" style={{ background: '#F8FAFC' }}>
+              <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Retakes</p>
+              <p className="text-sm font-black" style={{ color: '#0F1B3D' }}>{quizInfo?.allowRetries ? 'Allowed' : 'Closed'}</p>
+            </div>
+          </div>
           {result.total > 1 && (
             <p className="text-sm mt-2" style={{ color: '#64748B' }}>
               Rank <span className="font-bold" style={{ color: '#0F1B3D' }}>#{result.rank}</span> of {result.total} player{result.total !== 1 ? 's' : ''}

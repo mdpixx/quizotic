@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto'
 import { prisma } from '@/lib/prisma'
 import { getUserPlan } from '@/lib/billing'
 import { PLAN_LIMITS } from '@/lib/limits'
-import { stripAnswers, type Question } from '@/lib/scoring'
+import { toPublicQuestion, type Question } from '@/lib/scoring'
 import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 
 type Params = { params: Promise<{ slug: string }> }
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     const participantId = randomUUID()
     const questions = (session.quizVersion?.snapshot as Question[] | null) ?? []
-    const firstQ = questions[0] ? stripAnswers(questions[0]) : null
+    const firstQ = questions[0] ? toPublicQuestion(questions[0]) : null
 
     return NextResponse.json({
       success: true,

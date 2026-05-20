@@ -22,7 +22,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
         status: true,
         allowRetries: true,
         closesAt: true,
-        quizVersion: { select: { title: true, questionCount: true, subject: true } },
+        quizVersion: { select: { title: true, questionCount: true, subject: true, snapshot: true } },
       },
     })
 
@@ -33,6 +33,12 @@ export async function GET(_req: NextRequest, { params }: Params) {
       return NextResponse.json({ success: false, error: 'Quiz is no longer available', code: 'closed' }, { status: 410 })
     }
 
+    const questions = Array.isArray(session.quizVersion?.snapshot)
+      ? (session.quizVersion?.snapshot as Array<{ timerSeconds?: number; points?: number }>)
+      : []
+    const estimatedSeconds = questions.reduce((sum, q) => sum + (typeof q.timerSeconds === 'number' ? q.timerSeconds : 20), 0)
+    const maxBaseScore = questions.reduce((sum, q) => sum + (typeof q.points === 'number' ? q.points : 1000), 0)
+
     return NextResponse.json({
       success: true,
       data: {
@@ -40,6 +46,9 @@ export async function GET(_req: NextRequest, { params }: Params) {
         subject: session.quizVersion?.subject ?? null,
         questionCount: session.quizVersion?.questionCount ?? 0,
         allowRetries: session.allowRetries,
+        closesAt: session.closesAt,
+        estimatedSeconds,
+        maxBaseScore,
       },
     })
   } catch (err) {

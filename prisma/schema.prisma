@@ -222,10 +222,11 @@ model GameSession {
   participantCount Int       @default(0)
   createdAt        DateTime  @default(now())
   endedAt          DateTime?
-  mode         String    @default("live") // 'live' | 'async'
-  shareSlug    String?   @unique
-  allowRetries Boolean   @default(false)
-  closesAt     DateTime?
+  mode             String    @default("live") // 'live' | 'async'
+  shareSlug        String?   @unique
+  allowRetries     Boolean   @default(false)
+  closesAt         DateTime?
+  timeLimitMinutes Int?      // optional per-participant quiz window (async only)
 
   quiz         Quiz?         @relation(fields: [quizId], references: [id])
   quizVersion  QuizVersion?  @relation(fields: [quizVersionId], references: [id])
@@ -253,6 +254,7 @@ model Attendee {
   durationSec Int?
   finalScore  Int         @default(0)
   team        String?
+  deadlineAt  DateTime?   // server-authoritative per-participant deadline (async timed quizzes)
 
   @@index([sessionId])
   @@index([email])

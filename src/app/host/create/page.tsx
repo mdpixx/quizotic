@@ -257,10 +257,10 @@ function SortableRankingItem({ id, index, text, isOrdinal }: SortableRankingItem
 // ─── Autosave Badge ──────────────────────────────────────────────────────────
 
 function AutosaveBadge({ state }: { state: { status: 'idle' | 'saving' | 'saved' | 'error'; lastSavedAt: number | null } }) {
-  const [, tick] = useState(0)
+  const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     if (state.status !== 'saved' || !state.lastSavedAt) return
-    const id = setInterval(() => tick(v => v + 1), 15_000)
+    const id = setInterval(() => setNow(Date.now()), 15_000)
     return () => clearInterval(id)
   }, [state.status, state.lastSavedAt])
 
@@ -283,7 +283,7 @@ function AutosaveBadge({ state }: { state: { status: 'idle' | 'saving' | 'saved'
     )
   }
   // saved
-  const secs = state.lastSavedAt ? Math.max(1, Math.round((Date.now() - state.lastSavedAt) / 1000)) : 0
+  const secs = state.lastSavedAt ? Math.max(1, Math.round((now - state.lastSavedAt) / 1000)) : 0
   const label = secs < 60 ? `Saved ${secs}s ago` : `Saved ${Math.round(secs / 60)}m ago`
   return (
     <span className={base} style={{ background: '#DCFCE7', color: '#14532D' }}>
@@ -309,6 +309,10 @@ function QuestionPreview({
 }) {
   const pill = getTypePill(question.type)
   const opts = question.options ?? []
+  const rankingSensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
 
   function handleOptionChange(i: number, value: string) {
     const options = [...(question.options ?? [])]
@@ -444,10 +448,7 @@ function QuestionPreview({
             <div className="space-y-2">
               {isSequenceRanking(question) ? (
                 <DndContext
-                  sensors={useSensors(
-                    useSensor(PointerSensor),
-                    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-                  )}
+                  sensors={rankingSensors}
                   collisionDetection={closestCenter}
                   onDragEnd={(event) => {
                     const { active, over } = event
@@ -914,6 +915,15 @@ function CreateQuizPageInner() {
   const [saving, setSaving] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ index: number; x: number; y: number } | null>(null)
   const [shareOpen, setShareOpen] = useState(false)
+  const [selfPacedShare, setSelfPacedShare] = useState<{ open: boolean; loading: boolean; url: string; error: string; copied: boolean; questionCount: number; responseCount: number }>({
+    open: false,
+    loading: false,
+    url: '',
+    error: '',
+    copied: false,
+    questionCount: 0,
+    responseCount: 0,
+  })
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false)
   const [mobileSlidesOpen, setMobileSlidesOpen] = useState(false)
   const [mobileAddOpen, setMobileAddOpen] = useState(false)
@@ -1443,15 +1453,15 @@ function CreateQuizPageInner() {
 
   function showSaveError(msg: string) { setSaveError(msg); setTimeout(() => setSaveError(''), 4000) }
 
-  async function handleSave() {
-    if (!title.trim()) { showSaveError('Quiz title is required'); return }
-    if (questions.length === 0) { showSaveError('Add at least one question'); return }
+  async function handleSave(): Promise<Quiz | null> {
+    if (!title.trim()) { showSaveError('Quiz title is required'); return null }
+    if (questions.length === 0) { showSaveError('Add at least one question'); return null }
     const emptyQ = questions.find(q => !q.text.trim())
-    if (emptyQ) { showSaveError('All questions must have text'); return }
+    if (emptyQ) { showSaveError('All questions must have text'); return null }
     const emptyOpt = questions.find(q =>
       ['mcq', 'poll', 'case'].includes(q.type) && q.options?.some((o: string | { text: string }) => !(typeof o === 'string' ? o : o.text).trim())
     )
-    if (emptyOpt) { showSaveError('All answer options must have text'); return }
+    if (emptyOpt) { showSaveError('All answer options must have text'); return null }
     setSaveError('')
     setSaving(true)
 
@@ -1527,6 +1537,43 @@ function CreateQuizPageInner() {
 
     setSaving(false)
     setSavedQuiz(finalQuiz)
+    return dbSaveFailed ? null : finalQuiz
+  }
+
+  async function handleShareSelfPaced() {
+    setSelfPacedShare(prev => ({ ...prev, open: true, loading: true, error: '', copied: false }))
+    const quiz = savedQuiz ?? await handleSave()
+    if (!quiz) {
+      setSelfPacedShare(prev => ({ ...prev, loading: false, error: 'Save this quiz to the server before creating a self-paced link.' }))
+      return
+    }
+    try {
+      const res = await fetch(`/api/quizzes/${quiz.id}/publish`, { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        setSelfPacedShare(prev => ({ ...prev, loading: false, error: json.error || 'Could not create self-paced link.' }))
+        return
+      }
+      const url = `${window.location.origin}/q/${json.data.shareSlug}`
+      setSelfPacedShare({
+        open: true,
+        loading: false,
+        url,
+        error: '',
+        copied: false,
+        questionCount: json.data.questionCount ?? 0,
+        responseCount: json.data.responseCount ?? 0,
+      })
+    } catch {
+      setSelfPacedShare(prev => ({ ...prev, loading: false, error: 'Network error. Please try again.' }))
+    }
+  }
+
+  function copySelfPacedLink() {
+    if (!selfPacedShare.url) return
+    navigator.clipboard.writeText(selfPacedShare.url).catch(() => {})
+    setSelfPacedShare(prev => ({ ...prev, copied: true }))
+    setTimeout(() => setSelfPacedShare(prev => ({ ...prev, copied: false })), 2000)
   }
 
   // ── Sidebar stats ───────────────────────────────────────────────────────────
@@ -1620,10 +1667,17 @@ function CreateQuizPageInner() {
           <span className="hidden md:inline-flex">
             <AutosaveBadge state={autosaveState} />
           </span>
-          <button onClick={() => setShareOpen(true)} title="Share"
-            className="hidden sm:flex w-9 h-9 rounded-lg border items-center justify-center transition-all hover:bg-gray-50 click-bounce"
+          <button onClick={() => { setTab('manual'); setMobileEditorOpen(false); setMobileSlidesOpen(false) }} title="Preview quiz"
+            className="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-bold transition-all hover:bg-gray-50 click-bounce"
             style={{ borderColor: '#E2E8F0', color: '#64748B' }}>
-            <svg viewBox="0 0 20 20" fill="none" className="w-4.5 h-4.5"><path d="M15 7a3 3 0 100-6 3 3 0 000 6zM5 13a3 3 0 100-6 3 3 0 000 6zM15 19a3 3 0 100-6 3 3 0 000 6zM7.59 11.51l4.83 2.98M12.41 5.51L7.59 8.49" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><path d="M2 10s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5Z" stroke="currentColor" strokeWidth="1.5"/><circle cx="10" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.5"/></svg>
+            Preview
+          </button>
+          <button onClick={handleShareSelfPaced} title="Share self-paced quiz"
+            className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-bold transition-all hover:bg-gray-50 click-bounce"
+            style={{ borderColor: '#E2E8F0', color: '#0F1B3D' }}>
+            <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><path d="M5 10v6a1.5 1.5 0 001.5 1.5h7A1.5 1.5 0 0015 16v-6M13 5l-3-3-3 3M10 2v11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            Share self-paced
           </button>
           {/* Themes — opens full-screen picker for quiz-wide theming */}
           <button
@@ -1660,7 +1714,7 @@ function CreateQuizPageInner() {
             <span className="play-dot">
               <svg viewBox="0 0 24 24" fill="#0F1B3D" className="w-2.5 h-2.5" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
             </span>
-            Start Live
+            Host live
           </button>
         </div>
       </header>
@@ -2516,6 +2570,55 @@ function CreateQuizPageInner() {
               </button>
             </div>
             <button onClick={() => setSavedQuiz(null)} className="w-full text-center text-sm text-gray-400 hover:text-gray-600 transition-colors">Continue editing</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Self-paced Share Modal ── */}
+      {selfPacedShare.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/40" onClick={() => setSelfPacedShare(prev => ({ ...prev, open: false }))} />
+          <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h3 className="text-lg font-extrabold" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Share self-paced quiz</h3>
+                <p className="text-sm mt-1" style={{ color: '#64748B' }}>Participants can take it anytime. No host or live code needed.</p>
+              </div>
+              <button onClick={() => setSelfPacedShare(prev => ({ ...prev, open: false }))} className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors text-gray-400 text-sm">&times;</button>
+            </div>
+
+            {selfPacedShare.loading ? (
+              <div className="flex items-center justify-center py-8">
+                <svg className="animate-spin w-5 h-5" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="#0F1B3D" strokeWidth="2" opacity="0.3"/><path d="M14 8a6 6 0 00-6-6" stroke="#0F1B3D" strokeWidth="2" strokeLinecap="round"/></svg>
+                <span className="ml-3 text-sm" style={{ color: '#64748B' }}>Saving and publishing...</span>
+              </div>
+            ) : selfPacedShare.error ? (
+              <div className="rounded-xl p-4" style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }}>
+                <p className="text-sm font-semibold">{selfPacedShare.error}</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  <div className="rounded-xl px-3 py-2" style={{ background: '#F8FAFC' }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Questions</p>
+                    <p className="text-sm font-black" style={{ color: '#0F1B3D' }}>{selfPacedShare.questionCount}</p>
+                  </div>
+                  <div className="rounded-xl px-3 py-2" style={{ background: '#F8FAFC' }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Responses</p>
+                    <p className="text-sm font-black" style={{ color: '#0F1B3D' }}>{selfPacedShare.responseCount}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 rounded-xl px-3 py-2 mb-4" style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }}>
+                  <span className="flex-1 text-sm truncate" style={{ color: '#0F1B3D', fontFamily: 'monospace' }}>{selfPacedShare.url}</span>
+                  <button onClick={copySelfPacedLink} className="px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: selfPacedShare.copied ? '#16A34A' : '#0F1B3D', color: '#fff' }}>
+                    {selfPacedShare.copied ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+                <button onClick={() => router.push('/host/quizzes')} className="w-full py-3 rounded-xl text-sm font-bold" style={{ background: '#F5E642', color: '#0D0D0D' }}>
+                  Manage link settings
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -30,6 +30,17 @@ export function stripAnswers(q: Question): PublicQuestion {
   return safe
 }
 
+// Like stripAnswers but also backfills options for types that omit them
+// (truefalse is stored without options; callers must never get undefined).
+export function toPublicQuestion(q: Question): PublicQuestion {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { correctAnswer, correctAnswers, correctOrder, ...safe } = q
+  const options = (safe.options && (safe.options as unknown[]).length > 0)
+    ? safe.options
+    : q.type === 'truefalse' ? ['True', 'False'] : safe.options
+  return { ...safe, options }
+}
+
 export function checkAnswer(question: Question, answer: unknown): boolean {
   if (question.type === 'mcq' || question.type === 'truefalse') {
     return String(answer) === String(question.correctAnswer)
