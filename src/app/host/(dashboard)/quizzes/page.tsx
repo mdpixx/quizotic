@@ -14,15 +14,27 @@ interface QuizRecord {
   language: string | null
   createdAt: string
   updatedAt: string
+  asyncShareSlug: string | null
+  asyncAllowRetries: boolean
+  asyncClosesAt: string | null
+  asyncPublishedAt: string | null
+  asyncQuestionCount: number
+  asyncResponseCount: number
+  asyncNeedsRepublish: boolean
 }
 
 interface ShareState {
   quizId: string
   slug: string | null
   questionCount: number
+  responseCount: number
   allowRetries: boolean
+  closesAt: string | null
+  publishedAt: string | null
+  needsRepublish: boolean
   publishing: boolean
   copied: boolean
+  messageCopied: boolean
 }
 
 // Gradient palette for quiz thumbnail cards — deterministic by id hash
@@ -45,20 +57,25 @@ function gradientFor(id: string): string {
 // gets unique star positions that don't shift between renders. Matches the
 // day-to-night brand theme. Purely decorative — sits behind the title.
 function QuizCoverMotif({ id }: { id: string }) {
-  let seed = 0
-  for (let i = 0; i < id.length; i++) seed = (seed * 131 + id.charCodeAt(i)) >>> 0
-  const rand = () => {
-    seed = (seed * 1664525 + 1013904223) >>> 0
-    return seed / 0xffffffff
+  let baseSeed = 0
+  for (let i = 0; i < id.length; i++) baseSeed = (baseSeed * 131 + id.charCodeAt(i)) >>> 0
+  const seededUnit = (step: number) => {
+    let value = (baseSeed + step * 0x9e3779b9) >>> 0
+    value ^= value >>> 16
+    value = Math.imul(value, 0x7feb352d)
+    value ^= value >>> 15
+    value = Math.imul(value, 0x846ca68b)
+    value ^= value >>> 16
+    return (value >>> 0) / 0xffffffff
   }
-  const stars = Array.from({ length: 14 }, () => ({
-    cx: 4 + rand() * 92,
-    cy: 4 + rand() * 92,
-    r: 0.3 + rand() * 1.2,
-    o: 0.25 + rand() * 0.6,
+  const stars = Array.from({ length: 14 }, (_, i) => ({
+    cx: 4 + seededUnit(i * 4 + 1) * 92,
+    cy: 4 + seededUnit(i * 4 + 2) * 92,
+    r: 0.3 + seededUnit(i * 4 + 3) * 1.2,
+    o: 0.25 + seededUnit(i * 4 + 4) * 0.6,
   }))
-  const orbX = 18 + rand() * 16
-  const orbY = 18 + rand() * 16
+  const orbX = 18 + seededUnit(81) * 16
+  const orbY = 18 + seededUnit(82) * 16
   return (
     <svg
       viewBox="0 0 100 100"
@@ -96,6 +113,16 @@ function timeAgo(iso: string): string {
   if (d < 7) return `${d}d ago`
   if (d < 30) return `${Math.floor(d / 7)}w ago`
   return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function formatDateTime(iso: string | null): string {
+  if (!iso) return 'Not set'
+  return new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+}
+
+function closeAtFor(days: number | null): string | null {
+  if (days === null) return null
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
 }
 
 export default function QuizzesPage() {
@@ -172,7 +199,7 @@ export default function QuizzesPage() {
   }
 
   async function handleShare(id: string) {
-    setShareModal({ quizId: id, slug: null, questionCount: 0, allowRetries: false, publishing: true, copied: false })
+    setShareModal({ quizId: id, slug: null, questionCount: 0, responseCount: 0, allowRetries: false, closesAt: null, publishedAt: null, needsRepublish: false, publishing: true, copied: false, messageCopied: false })
     try {
       const res = await fetch(`/api/quizzes/${id}/publish`, { method: 'POST' })
       const json = await res.json()
@@ -181,8 +208,18 @@ export default function QuizzesPage() {
         setShareModal(null)
         return
       }
-      const { shareSlug, questionCount, allowRetries } = json.data
-      setShareModal({ quizId: id, slug: shareSlug, questionCount, allowRetries, publishing: false, copied: false })
+      const { shareSlug, questionCount, responseCount, allowRetries, closesAt, publishedAt, needsRepublish } = json.data
+      setShareModal({ quizId: id, slug: shareSlug, questionCount, responseCount: responseCount ?? 0, allowRetries, closesAt: closesAt ?? null, publishedAt: publishedAt ?? null, needsRepublish: !!needsRepublish, publishing: false, copied: false, messageCopied: false })
+      setQuizzes(prev => prev.map(q => q.id === id ? {
+        ...q,
+        asyncShareSlug: shareSlug,
+        asyncQuestionCount: questionCount,
+        asyncResponseCount: responseCount ?? q.asyncResponseCount ?? 0,
+        asyncAllowRetries: allowRetries,
+        asyncClosesAt: closesAt ?? null,
+        asyncPublishedAt: publishedAt ?? new Date().toISOString(),
+        asyncNeedsRepublish: false,
+      } : q))
     } catch {
       setError('Could not create share link. Please try again.')
       setShareModal(null)
@@ -191,18 +228,43 @@ export default function QuizzesPage() {
 
   async function handleToggleRetries(allow: boolean) {
     if (!shareModal) return
-    await fetch(`/api/quizzes/${shareModal.quizId}/publish`, {
+    const res = await fetch(`/api/quizzes/${shareModal.quizId}/publish`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ allowRetries: allow }),
     })
+    if (!res.ok) return
     setShareModal(prev => prev ? { ...prev, allowRetries: allow } : prev)
+    setQuizzes(prev => prev.map(q => q.id === shareModal.quizId ? { ...q, asyncAllowRetries: allow } : q))
+  }
+
+  async function handleSetExpiry(closesAt: string | null) {
+    if (!shareModal) return
+    const res = await fetch(`/api/quizzes/${shareModal.quizId}/publish`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ closesAt }),
+    })
+    if (!res.ok) return
+    setShareModal(prev => prev ? { ...prev, closesAt } : prev)
+    setQuizzes(prev => prev.map(q => q.id === shareModal.quizId ? { ...q, asyncClosesAt: closesAt } : q))
   }
 
   async function handleUnpublish() {
     if (!shareModal) return
-    await fetch(`/api/quizzes/${shareModal.quizId}/publish`, { method: 'DELETE' })
+    const quizId = shareModal.quizId
+    await fetch(`/api/quizzes/${quizId}/publish`, { method: 'DELETE' })
     setShareModal(null)
+    setQuizzes(prev => prev.map(q => q.id === quizId ? {
+      ...q,
+      asyncShareSlug: null,
+      asyncQuestionCount: 0,
+      asyncResponseCount: 0,
+      asyncAllowRetries: false,
+      asyncClosesAt: null,
+      asyncPublishedAt: null,
+      asyncNeedsRepublish: false,
+    } : q))
   }
 
   function handleCopyLink() {
@@ -211,6 +273,20 @@ export default function QuizzesPage() {
     navigator.clipboard.writeText(url).catch(() => {})
     setShareModal(prev => prev ? { ...prev, copied: true } : prev)
     setTimeout(() => setShareModal(prev => prev ? { ...prev, copied: false } : prev), 2000)
+  }
+
+  function participantMessage(): string {
+    if (!shareModal?.slug || typeof window === 'undefined') return ''
+    const url = `${window.location.origin}/q/${shareModal.slug}`
+    return `Take this self-paced Quizotic quiz anytime:\n${url}\nNo host or live code needed.`
+  }
+
+  function handleCopyMessage() {
+    const msg = participantMessage()
+    if (!msg) return
+    navigator.clipboard.writeText(msg).catch(() => {})
+    setShareModal(prev => prev ? { ...prev, messageCopied: true } : prev)
+    setTimeout(() => setShareModal(prev => prev ? { ...prev, messageCopied: false } : prev), 2000)
   }
 
   // Unique subjects for filter chips
@@ -394,6 +470,16 @@ export default function QuizzesPage() {
                         <p className="text-[12px] mb-3" style={{ color: 'var(--color-text-muted)' }}>
                           Updated {timeAgo(quiz.updatedAt)}
                         </p>
+                        {quiz.asyncShareSlug && (
+                          <div className="mb-3 rounded-lg px-2.5 py-2" style={{ background: quiz.asyncNeedsRepublish ? '#FFFBEB' : '#F0FDF4', border: `1px solid ${quiz.asyncNeedsRepublish ? '#FDE68A' : '#BBF7D0'}` }}>
+                            <p className="text-[11px] font-bold" style={{ color: quiz.asyncNeedsRepublish ? '#92400E' : '#15803D' }}>
+                              {quiz.asyncNeedsRepublish ? 'Republish changes' : 'Self-paced live'}
+                            </p>
+                            <p className="text-[10px]" style={{ color: '#64748B' }}>
+                              {quiz.asyncResponseCount} response{quiz.asyncResponseCount === 1 ? '' : 's'} · {quiz.asyncQuestionCount} question{quiz.asyncQuestionCount === 1 ? '' : 's'}
+                            </p>
+                          </div>
+                        )}
                         <div className="flex gap-2 mt-auto">
                           <Link href={`/host/create?edit=${quiz.id}`} className="btn-secondary flex-1 justify-center" style={{ textDecoration: 'none', padding: '7px 10px', fontSize: '12px' }}>
                             Edit
@@ -401,17 +487,17 @@ export default function QuizzesPage() {
                           <button
                             onClick={() => handleShare(quiz.id)}
                             className="btn-secondary flex-1 justify-center"
-                            style={{ padding: '7px 10px', fontSize: '12px' }}
-                            title="Self-serve link"
+                            style={{ padding: '7px 9px', fontSize: '11px' }}
+                            title="Share self-paced quiz"
                           >
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                            Share
+                            {quiz.asyncNeedsRepublish ? 'Republish' : 'Self-paced'}
                           </button>
                           <button
                             onClick={() => handleStart(quiz.id)}
                             disabled={startingId === quiz.id}
                             className="btn-golive flex-1 justify-center"
-                            style={{ padding: '7px 10px', fontSize: '12px' }}
+                            style={{ padding: '7px 9px', fontSize: '11px' }}
                           >
                             {startingId === quiz.id ? (
                               <span className="flex items-center gap-1.5">
@@ -420,7 +506,7 @@ export default function QuizzesPage() {
                             ) : (
                               <>
                                 <span className="play-dot" style={{ width: '16px', height: '16px' }}><svg viewBox="0 0 24 24" fill="#0F1B3D" className="w-2 h-2"><path d="M8 5v14l11-7z"/></svg></span>
-                                Host
+                                Host live
                               </>
                             )}
                           </button>
@@ -458,6 +544,11 @@ export default function QuizzesPage() {
                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         {quiz.subject && <span className="chip" style={{ background: '#EFF6FF', color: '#1D4ED8' }}>{quiz.subject}</span>}
                         <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>Updated {timeAgo(quiz.updatedAt)}</span>
+                        {quiz.asyncShareSlug && (
+                          <span className="chip" style={{ background: quiz.asyncNeedsRepublish ? '#FFFBEB' : '#F0FDF4', color: quiz.asyncNeedsRepublish ? '#92400E' : '#15803D' }}>
+                            {quiz.asyncNeedsRepublish ? 'Republish changes' : `${quiz.asyncResponseCount} self-paced`}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="text-[11px] hidden md:block" style={{ color: 'var(--color-text-muted)' }}>
@@ -469,10 +560,12 @@ export default function QuizzesPage() {
                       </Link>
                       <button
                         onClick={() => handleShare(quiz.id)}
-                        className="btn-icon"
-                        title="Self-serve link"
+                        className="btn-secondary"
+                        style={{ padding: '6px 10px', fontSize: '12px' }}
+                        title="Share self-paced quiz"
                       >
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        {quiz.asyncNeedsRepublish ? 'Republish' : 'Self-paced'}
                       </button>
                       <button
                         onClick={() => handleStart(quiz.id)}
@@ -485,7 +578,7 @@ export default function QuizzesPage() {
                         ) : (
                           <>
                             <span className="play-dot" style={{ width: '14px', height: '14px' }}><svg viewBox="0 0 24 24" fill="#0F1B3D" className="w-2 h-2"><path d="M8 5v14l11-7z"/></svg></span>
-                            Host
+                            Host live
                           </>
                         )}
                       </button>
@@ -539,10 +632,25 @@ export default function QuizzesPage() {
                 </div>
               ) : (
                 <>
-                  <h3 className="text-lg font-black mb-1" style={{ color: '#0F1B3D' }}>Self-serve quiz link</h3>
+                  <h3 className="text-lg font-black mb-1" style={{ color: '#0F1B3D' }}>Self-paced quiz link</h3>
                   <p className="text-sm mb-4" style={{ color: '#64748B' }}>
-                    {shareModal.questionCount} question{shareModal.questionCount !== 1 ? 's' : ''} · Anyone with the link can take this quiz anytime.
+                    {shareModal.questionCount} question{shareModal.questionCount !== 1 ? 's' : ''} · No host needed · Works anytime.
                   </p>
+
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    <div className="rounded-xl px-3 py-2" style={{ background: '#F8FAFC' }}>
+                      <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Responses</p>
+                      <p className="text-sm font-black" style={{ color: '#0F1B3D' }}>{shareModal.responseCount}</p>
+                    </div>
+                    <div className="rounded-xl px-3 py-2" style={{ background: '#F8FAFC' }}>
+                      <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Published</p>
+                      <p className="text-xs font-bold" style={{ color: '#0F1B3D' }}>{shareModal.publishedAt ? timeAgo(shareModal.publishedAt) : 'now'}</p>
+                    </div>
+                    <div className="rounded-xl px-3 py-2" style={{ background: '#F8FAFC' }}>
+                      <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Closes</p>
+                      <p className="text-xs font-bold" style={{ color: '#0F1B3D' }}>{shareModal.closesAt ? formatDateTime(shareModal.closesAt) : 'Never'}</p>
+                    </div>
+                  </div>
 
                   {/* Link display + copy */}
                   <div className="flex items-center gap-2 rounded-xl px-3 py-2 mb-4" style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }}>
@@ -556,6 +664,44 @@ export default function QuizzesPage() {
                     >
                       {shareModal.copied ? 'Copied!' : 'Copy'}
                     </button>
+                  </div>
+
+                  <div className="rounded-xl p-3 mb-4" style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }}>
+                    <p className="text-xs font-bold mb-2" style={{ color: '#0F1B3D' }}>Participant message</p>
+                    <textarea
+                      readOnly
+                      value={participantMessage()}
+                      rows={3}
+                      className="w-full resize-none rounded-lg px-3 py-2 text-xs outline-none"
+                      style={{ background: '#fff', color: '#334155', border: '1px solid #E2E8F0' }}
+                    />
+                    <button
+                      onClick={handleCopyMessage}
+                      className="mt-2 w-full py-2 rounded-lg text-xs font-bold"
+                      style={{ background: shareModal.messageCopied ? '#16A34A' : '#E2E8F0', color: shareModal.messageCopied ? '#fff' : '#0F1B3D' }}
+                    >
+                      {shareModal.messageCopied ? 'Message copied!' : 'Copy participant message'}
+                    </button>
+                  </div>
+
+                  <div className="mb-4">
+                    <p className="text-xs font-bold mb-2" style={{ color: '#0F1B3D' }}>Link expiry</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: 'Never', value: null as number | null },
+                        { label: '7 days', value: 7 },
+                        { label: '30 days', value: 30 },
+                      ].map(opt => (
+                        <button
+                          key={opt.label}
+                          onClick={() => handleSetExpiry(closeAtFor(opt.value))}
+                          className="py-2 rounded-lg text-xs font-bold border"
+                          style={{ color: '#0F1B3D', borderColor: '#E2E8F0', background: '#fff' }}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Allow retries toggle */}

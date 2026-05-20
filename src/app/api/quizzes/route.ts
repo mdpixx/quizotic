@@ -17,9 +17,52 @@ export async function GET() {
     const quizzes = await prisma.quiz.findMany({
       where: { userId: user.id },
       orderBy: { updatedAt: 'desc' },
-      select: { id: true, title: true, subject: true, language: true, theme: true, createdAt: true, updatedAt: true },
+      select: {
+        id: true,
+        title: true,
+        subject: true,
+        language: true,
+        theme: true,
+        createdAt: true,
+        updatedAt: true,
+        sessions: {
+          where: { mode: 'async', status: 'open' },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: {
+            id: true,
+            shareSlug: true,
+            allowRetries: true,
+            closesAt: true,
+            createdAt: true,
+            participantCount: true,
+            quizVersion: { select: { questionCount: true, createdAt: true } },
+          },
+        },
+      },
     })
-    return NextResponse.json({ success: true, data: quizzes })
+    const data = quizzes.map(q => {
+      const asyncSession = q.sessions[0]
+      return {
+        id: q.id,
+        title: q.title,
+        subject: q.subject,
+        language: q.language,
+        theme: q.theme,
+        createdAt: q.createdAt,
+        updatedAt: q.updatedAt,
+        asyncShareSlug: asyncSession?.shareSlug ?? null,
+        asyncAllowRetries: asyncSession?.allowRetries ?? false,
+        asyncClosesAt: asyncSession?.closesAt ?? null,
+        asyncPublishedAt: asyncSession?.quizVersion?.createdAt ?? asyncSession?.createdAt ?? null,
+        asyncQuestionCount: asyncSession?.quizVersion?.questionCount ?? 0,
+        asyncResponseCount: asyncSession?.participantCount ?? 0,
+        asyncNeedsRepublish: asyncSession?.quizVersion?.createdAt
+          ? q.updatedAt.getTime() > asyncSession.quizVersion.createdAt.getTime()
+          : false,
+      }
+    })
+    return NextResponse.json({ success: true, data })
   } catch {
     return NextResponse.json({ success: false, error: 'Failed to load quizzes' }, { status: 500 })
   }

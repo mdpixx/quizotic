@@ -1466,6 +1466,9 @@ function JoinPageInner() {
             <p className="text-lg mt-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
               {t('join.title')}
             </p>
+            <p className="text-xs font-bold uppercase tracking-[0.14em] mt-2" style={{ color: '#F5E642' }}>
+              Join a live quiz with code
+            </p>
             {/* Language toggle */}
             <div className="flex justify-center gap-2 mt-1">
               <button

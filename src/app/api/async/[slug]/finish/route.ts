@@ -26,30 +26,41 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     const session = await prisma.gameSession.findUnique({
       where: { shareSlug: slug },
-      select: { id: true, mode: true },
+      select: { id: true, mode: true, quizVersion: { select: { questionCount: true } } },
     })
     if (!session || session.mode !== 'async') {
       return NextResponse.json({ success: false, error: 'Quiz not found' }, { status: 404 })
     }
 
+    const attendee = await prisma.attendee.findFirst({
+      where: { id: attendeeId, sessionId: session.id },
+      select: { id: true, leftAt: true, finalScore: true },
+    })
+    if (!attendee) {
+      return NextResponse.json({ success: false, error: 'Invalid participant session' }, { status: 403 })
+    }
+
     // Sum all Answer points for this participant
     const answers = await prisma.answer.findMany({
       where: { sessionId: session.id, participantId },
-      select: { points: true },
+      select: { points: true, isCorrect: true },
     })
     const finalScore = answers.reduce((s, a) => s + a.points, 0)
+    const correctCount = answers.filter(a => a.isCorrect).length
+    const answeredCount = answers.length
+    const questionCount = session.quizVersion?.questionCount ?? answeredCount
 
     const now = new Date()
-    await Promise.all([
-      prisma.attendee.update({
-        where: { id: attendeeId },
-        data: { leftAt: now, finalScore },
-      }),
-      prisma.gameSession.update({
+    const finalized = await prisma.attendee.updateMany({
+      where: { id: attendeeId, sessionId: session.id, leftAt: null },
+      data: { leftAt: now, finalScore },
+    })
+    if (finalized.count > 0) {
+      await prisma.gameSession.update({
         where: { id: session.id },
         data: { participantCount: { increment: 1 } },
-      }),
-    ])
+      })
+    }
 
     // Compute rank among all finished attendees
     const allFinished = await prisma.attendee.findMany({
@@ -60,7 +71,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     const total = allFinished.length
     const rank = allFinished.findIndex(a => a.finalScore <= finalScore) + 1
 
-    return NextResponse.json({ success: true, data: { finalScore, rank, total } })
+    return NextResponse.json({ success: true, data: { finalScore, rank, total, correctCount, answeredCount, questionCount } })
   } catch (err) {
     console.error('[async/finish:POST]', err instanceof Error ? err.message : err)
     return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 })

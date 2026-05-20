@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { type NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { checkAnswer, calcPoints, computeStreakBonus, stripAnswers, type Question } from '@/lib/scoring'
+import { checkAnswer, calcPoints, computeStreakBonus, toPublicQuestion, type Question } from '@/lib/scoring'
 import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 import type { Prisma } from '@prisma/client'
 
@@ -43,12 +43,23 @@ export async function POST(req: NextRequest, { params }: Params) {
     const question = questions[questionIndex]
     if (!question) return NextResponse.json({ success: false, error: 'Invalid question index' }, { status: 400 })
 
+    const attendee = await prisma.attendee.findFirst({
+      where: { id: attendeeId, sessionId: session.id },
+      select: { id: true, leftAt: true },
+    })
+    if (!attendee) {
+      return NextResponse.json({ success: false, error: 'Invalid participant session' }, { status: 403 })
+    }
+    if (attendee.leftAt) {
+      return NextResponse.json({ success: false, error: 'This attempt is already finished.' }, { status: 409 })
+    }
+
     // Idempotency: if answer already recorded, return cached result
     const existing = await prisma.answer.findFirst({
       where: { sessionId: session.id, participantId, questionIndex },
     })
     if (existing) {
-      const nextQ = questions[questionIndex + 1] ? { ...stripAnswers(questions[questionIndex + 1]), index: questionIndex + 1, total: questions.length } : null
+      const nextQ = questions[questionIndex + 1] ? { ...toPublicQuestion(questions[questionIndex + 1]), index: questionIndex + 1, total: questions.length } : null
       return NextResponse.json({
         success: true,
         data: {
@@ -92,7 +103,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     })
 
     const nextQ = questions[questionIndex + 1]
-      ? { ...stripAnswers(questions[questionIndex + 1]), index: questionIndex + 1, total: questions.length }
+      ? { ...toPublicQuestion(questions[questionIndex + 1]), index: questionIndex + 1, total: questions.length }
       : null
 
     return NextResponse.json({
