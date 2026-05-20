@@ -16,6 +16,15 @@ interface QuizRecord {
   updatedAt: string
 }
 
+interface ShareState {
+  quizId: string
+  slug: string | null
+  questionCount: number
+  allowRetries: boolean
+  publishing: boolean
+  copied: boolean
+}
+
 // Gradient palette for quiz thumbnail cards — deterministic by id hash
 // so the same quiz always gets the same gradient. Inspired by mockup 06.
 const CARD_GRADIENTS = [
@@ -100,6 +109,7 @@ export default function QuizzesPage() {
   const [error, setError] = useState('')
   const [activeSubject, setActiveSubject] = useState<string>('All')
   const [view, setView] = useState<'grid' | 'list'>('grid')
+  const [shareModal, setShareModal] = useState<ShareState | null>(null)
 
   const fetchQuizzes = useCallback(async () => {
     setLoading(true)
@@ -159,6 +169,48 @@ export default function QuizzesPage() {
     } catch {
       setError('Could not duplicate quiz.')
     }
+  }
+
+  async function handleShare(id: string) {
+    setShareModal({ quizId: id, slug: null, questionCount: 0, allowRetries: false, publishing: true, copied: false })
+    try {
+      const res = await fetch(`/api/quizzes/${id}/publish`, { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        setError(json.error || 'Could not create share link.')
+        setShareModal(null)
+        return
+      }
+      const { shareSlug, questionCount, allowRetries } = json.data
+      setShareModal({ quizId: id, slug: shareSlug, questionCount, allowRetries, publishing: false, copied: false })
+    } catch {
+      setError('Could not create share link. Please try again.')
+      setShareModal(null)
+    }
+  }
+
+  async function handleToggleRetries(allow: boolean) {
+    if (!shareModal) return
+    await fetch(`/api/quizzes/${shareModal.quizId}/publish`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ allowRetries: allow }),
+    })
+    setShareModal(prev => prev ? { ...prev, allowRetries: allow } : prev)
+  }
+
+  async function handleUnpublish() {
+    if (!shareModal) return
+    await fetch(`/api/quizzes/${shareModal.quizId}/publish`, { method: 'DELETE' })
+    setShareModal(null)
+  }
+
+  function handleCopyLink() {
+    if (!shareModal?.slug) return
+    const url = `${window.location.origin}/q/${shareModal.slug}`
+    navigator.clipboard.writeText(url).catch(() => {})
+    setShareModal(prev => prev ? { ...prev, copied: true } : prev)
+    setTimeout(() => setShareModal(prev => prev ? { ...prev, copied: false } : prev), 2000)
   }
 
   // Unique subjects for filter chips
@@ -347,6 +399,15 @@ export default function QuizzesPage() {
                             Edit
                           </Link>
                           <button
+                            onClick={() => handleShare(quiz.id)}
+                            className="btn-secondary flex-1 justify-center"
+                            style={{ padding: '7px 10px', fontSize: '12px' }}
+                            title="Self-serve link"
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                            Share
+                          </button>
+                          <button
                             onClick={() => handleStart(quiz.id)}
                             disabled={startingId === quiz.id}
                             className="btn-golive flex-1 justify-center"
@@ -407,6 +468,13 @@ export default function QuizzesPage() {
                         Edit
                       </Link>
                       <button
+                        onClick={() => handleShare(quiz.id)}
+                        className="btn-icon"
+                        title="Self-serve link"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      </button>
+                      <button
                         onClick={() => handleStart(quiz.id)}
                         disabled={startingId === quiz.id}
                         className="btn-golive"
@@ -444,6 +512,93 @@ export default function QuizzesPage() {
           )}
         </>
       )}
+
+      {/* Share / self-serve link modal */}
+      <AnimatePresence>
+        {shareModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.4)' }}
+            onClick={() => setShareModal(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="rounded-2xl p-6 max-w-sm w-full shadow-xl"
+              style={{ background: '#fff' }}
+              onClick={e => e.stopPropagation()}
+            >
+              {shareModal.publishing ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#0F1B3D', borderTopColor: 'transparent' }} />
+                  <span className="ml-3 text-sm" style={{ color: '#64748B' }}>Creating share link…</span>
+                </div>
+              ) : (
+                <>
+                  <h3 className="text-lg font-black mb-1" style={{ color: '#0F1B3D' }}>Self-serve quiz link</h3>
+                  <p className="text-sm mb-4" style={{ color: '#64748B' }}>
+                    {shareModal.questionCount} question{shareModal.questionCount !== 1 ? 's' : ''} · Anyone with the link can take this quiz anytime.
+                  </p>
+
+                  {/* Link display + copy */}
+                  <div className="flex items-center gap-2 rounded-xl px-3 py-2 mb-4" style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }}>
+                    <span className="flex-1 text-sm truncate" style={{ color: '#0F1B3D', fontFamily: 'monospace' }}>
+                      {typeof window !== 'undefined' ? `${window.location.origin}/q/${shareModal.slug}` : `/q/${shareModal.slug}`}
+                    </span>
+                    <button
+                      onClick={handleCopyLink}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 transition-colors"
+                      style={{ background: shareModal.copied ? '#16A34A' : '#0F1B3D', color: '#fff' }}
+                    >
+                      {shareModal.copied ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+
+                  {/* Allow retries toggle */}
+                  <div className="flex items-center justify-between mb-5 py-3 border-t border-b" style={{ borderColor: '#E2E8F0' }}>
+                    <div>
+                      <p className="text-sm font-semibold" style={{ color: '#0F1B3D' }}>Allow retakes</p>
+                      <p className="text-xs" style={{ color: '#94A3B8' }}>Let players take the quiz more than once</p>
+                    </div>
+                    <button
+                      onClick={() => handleToggleRetries(!shareModal.allowRetries)}
+                      className="w-11 h-6 rounded-full relative transition-colors flex-shrink-0"
+                      style={{ background: shareModal.allowRetries ? '#16A34A' : '#CBD5E1' }}
+                      aria-label="Toggle retakes"
+                    >
+                      <span
+                        className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform"
+                        style={{ left: shareModal.allowRetries ? '22px' : '4px' }}
+                      />
+                    </button>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleUnpublish}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-bold border transition-colors hover:bg-red-50"
+                      style={{ color: '#B91C1C', borderColor: '#FCA5A5' }}
+                    >
+                      Deactivate
+                    </button>
+                    <button
+                      onClick={() => setShareModal(null)}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors hover:bg-gray-50"
+                      style={{ color: '#0F1B3D', border: '1px solid #E2E8F0' }}
+                    >
+                      Done
+                    </button>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Delete confirmation modal */}
       <AnimatePresence>
