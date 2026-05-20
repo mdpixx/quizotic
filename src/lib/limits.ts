@@ -13,6 +13,8 @@ export const PLAN_LIMITS = {
     spacedRetrieval: false,
     showBranding: true,
     maxAiEnhancements: 10,     // AI-enhanced slides per month
+    maxAsyncQuizzes: 2,        // active self-serve quizzes at once
+    maxAsyncResponsesPerQuiz: 100, // responses per async quiz
   },
   pro: {
     maxParticipants: Infinity,
@@ -28,6 +30,8 @@ export const PLAN_LIMITS = {
     spacedRetrieval: true,
     showBranding: false,
     maxAiEnhancements: 50,     // AI-enhanced slides per month
+    maxAsyncQuizzes: Infinity,
+    maxAsyncResponsesPerQuiz: Infinity,
   },
 } as const
 

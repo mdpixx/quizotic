@@ -68,21 +68,28 @@ describe('checkAnswer — non-scored types', () => {
 // ─── calcPoints ───────────────────────────────────────────────────────────────
 
 describe('calcPoints', () => {
-  it('awards base + 500 bonus for instant answer', () => {
-    expect(calcPoints(1000, 0, 20)).toBe(1500)
+  it('awards full base for instant answer', () => {
+    // speedRatio = 1.0 → base * (0.5 + 0.5) = base
+    expect(calcPoints(1000, 0, 20)).toBe(1000)
   })
 
-  it('awards base + 0 bonus if answered at time limit', () => {
-    expect(calcPoints(1000, 20000, 20)).toBe(1000)
+  it('awards half base if answered at time limit', () => {
+    // speedRatio = 0 → base * 0.5
+    expect(calcPoints(1000, 20000, 20)).toBe(500)
   })
 
-  it('awards base + 0 bonus if answer is over time', () => {
-    expect(calcPoints(1000, 25000, 20)).toBe(1000)
+  it('awards half base if answer is over time', () => {
+    // speedRatio clamped to 0 → base * 0.5
+    expect(calcPoints(1000, 25000, 20)).toBe(500)
   })
 
-  it('awards partial bonus for mid-time answer', () => {
-    // timeMs = 10000ms, timerSeconds = 20s → speedRatio = 0.5 → bonus = 250
-    expect(calcPoints(1000, 10000, 20)).toBe(1250)
+  it('awards proportional points for mid-time answer', () => {
+    // timeMs = 10000ms, timerSeconds = 20s → speedRatio = 0.5 → base * 0.75
+    expect(calcPoints(1000, 10000, 20)).toBe(750)
+  })
+
+  it('awards full base in accuracy formula regardless of time', () => {
+    expect(calcPoints(1000, 19000, 20, 'accuracy')).toBe(1000)
   })
 })
 

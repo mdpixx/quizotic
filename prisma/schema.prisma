@@ -222,6 +222,10 @@ model GameSession {
   participantCount Int       @default(0)
   createdAt        DateTime  @default(now())
   endedAt          DateTime?
+  mode         String    @default("live") // 'live' | 'async'
+  shareSlug    String?   @unique
+  allowRetries Boolean   @default(false)
+  closesAt     DateTime?
 
   quiz         Quiz?         @relation(fields: [quizId], references: [id])
   quizVersion  QuizVersion?  @relation(fields: [quizVersionId], references: [id])
@@ -232,6 +236,7 @@ model GameSession {
 
   @@index([userId])
   @@index([quizVersionId])
+  @@index([shareSlug])
 }
 
 model Attendee {
