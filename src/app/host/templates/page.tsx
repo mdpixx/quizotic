@@ -214,14 +214,14 @@ export default function TemplatesPage() {
                         const optText = typeof opt === 'string' ? opt : opt.text
                         const isCorrect = q.correctAnswer === String(j)
                         return (
-                          <div key={j} className="text-xs rounded-lg px-2.5 py-1.5 flex items-center gap-1.5"
+                          <div key={j} className="text-xs rounded-lg px-2.5 py-1.5 flex items-start gap-1.5 overflow-hidden"
                             style={{
                               background: isCorrect ? '#DCFCE7' : '#F3F4F6',
                               color: isCorrect ? '#16A34A' : '#4B5563',
                               fontWeight: isCorrect ? 700 : 400,
                             }}>
-                            {isCorrect && <span>✓</span>}
-                            {optText}
+                            {isCorrect && <span className="flex-shrink-0">✓</span>}
+                            <span className="min-w-0 break-words">{optText}</span>
                           </div>
                         )
                       })}

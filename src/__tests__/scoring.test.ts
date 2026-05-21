@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { checkAnswer, calcPoints, applyStreak, validateAnswer } from '../lib/scoring'
+import { checkAnswer, calcPoints, applyStreak, validateAnswer, scoreRanking } from '../lib/scoring'
 
 // ─── checkAnswer ─────────────────────────────────────────────────────────────
 
@@ -250,6 +250,73 @@ describe('validateAnswer — ranking', () => {
 
   it('rejects duplicate indices (not a permutation)', () => {
     expect(validateAnswer(rankQ, [0, 0, 1]).ok).toBe(false)
+  })
+})
+
+// ─── scoreRanking ─────────────────────────────────────────────────────────────
+
+describe('scoreRanking — all-or-nothing', () => {
+  const q = { type: 'ranking', correctOrder: ['0', '1', '2', '3'], timerSeconds: 20, points: 1000 }
+
+  it('full correct at speed 1 → 1000 pts, isCorrect=true', () => {
+    const r = scoreRanking(q, [0, 1, 2, 3], 1)
+    expect(r.isCorrect).toBe(true)
+    expect(r.basePoints).toBe(1000)
+    expect(r.correctPositions).toBe(4)
+    expect(r.totalPositions).toBe(4)
+  })
+
+  it('full correct at speed 0.5 → 500 pts', () => {
+    const r = scoreRanking(q, [0, 1, 2, 3], 0.5)
+    expect(r.isCorrect).toBe(true)
+    expect(r.basePoints).toBe(500)
+  })
+
+  it('one position wrong → 0 pts, isCorrect=false', () => {
+    const r = scoreRanking(q, [0, 1, 3, 2], 1)
+    expect(r.isCorrect).toBe(false)
+    expect(r.basePoints).toBe(0)
+    expect(r.correctPositions).toBe(2)
+  })
+
+  it('fully reversed → 0 pts', () => {
+    const r = scoreRanking(q, [3, 2, 1, 0], 1)
+    expect(r.isCorrect).toBe(false)
+    expect(r.basePoints).toBe(0)
+    expect(r.correctPositions).toBe(0)
+  })
+
+  it('string answer normalises correctly', () => {
+    const r = scoreRanking(q, ['0', '1', '2', '3'], 1)
+    expect(r.isCorrect).toBe(true)
+    expect(r.basePoints).toBe(1000)
+  })
+
+  it('numeric correctOrder normalises correctly', () => {
+    const qNum = { ...q, correctOrder: [0, 1, 2, 3] as unknown as string[] }
+    const r = scoreRanking(qNum, [0, 1, 2, 3], 1)
+    expect(r.isCorrect).toBe(true)
+  })
+
+  it('no correctOrder → 0 pts, totalPositions=0', () => {
+    const qNone = { type: 'ranking', timerSeconds: 20, points: 1000 }
+    const r = scoreRanking(qNone, [0, 1, 2], 1)
+    expect(r.totalPositions).toBe(0)
+    expect(r.basePoints).toBe(0)
+    expect(r.isCorrect).toBe(false)
+  })
+
+  it('non-array answer → 0 pts, no throw', () => {
+    expect(() => scoreRanking(q, null, 1)).not.toThrow()
+    expect(scoreRanking(q, null, 1).basePoints).toBe(0)
+    expect(scoreRanking(q, 'bad', 1).basePoints).toBe(0)
+  })
+
+  it('late answer (speedMultiplier=0) → 0 pts but correctPositions still computed', () => {
+    const r = scoreRanking(q, [0, 1, 2, 3], 0)
+    expect(r.isCorrect).toBe(true)
+    expect(r.basePoints).toBe(0)
+    expect(r.correctPositions).toBe(4)
   })
 })
 

@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { type NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { checkAnswer, calcPoints, computeStreakBonus, isAsyncScoredType, toPublicQuestion, validateAnswer, type Question } from '@/lib/scoring'
+import { checkAnswer, calcPoints, computeStreakBonus, isAsyncScoredType, isAsyncScoredQuestion, scoreRanking, toPublicQuestion, validateAnswer, type Question } from '@/lib/scoring'
 import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 import type { Prisma } from '@prisma/client'
 
@@ -68,15 +68,17 @@ export async function POST(req: NextRequest, { params }: Params) {
       where: { sessionId: session.id, participantId, questionIndex },
     })
     if (existing) {
-      const isScored = isAsyncScoredType(question.type)
+      const isScored = isAsyncScoredQuestion(question)
+      const isRankingScored = isScored && question.type === 'ranking'
       const nextQ = questions[questionIndex + 1] ? { ...toPublicQuestion(questions[questionIndex + 1]), index: questionIndex + 1, total: questions.length } : null
       return NextResponse.json({
         success: true,
         data: {
           isCorrect: existing.isCorrect,
           points: existing.points,
-          correctAnswer: isScored ? question.correctAnswer ?? null : null,
-          correctAnswers: isScored ? question.correctAnswers ?? null : null,
+          correctAnswer: isScored && !isRankingScored ? question.correctAnswer ?? null : null,
+          correctAnswers: isScored && !isRankingScored ? question.correctAnswers ?? null : null,
+          correctOrder: isRankingScored ? question.correctOrder ?? null : null,
           explanation: question.explanation ?? null,
           nextQuestion: nextQ,
         },
@@ -84,11 +86,23 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
 
     // Server-side grading
-    const isScored = isAsyncScoredType(question.type)
-    const isCorrect = isScored ? checkAnswer(question, body.answer) : null
-    const basePoints = isCorrect ? calcPoints(question.points, timeMs, question.timerSeconds) : 0
+    const isScored = isAsyncScoredQuestion(question)
+    const isRankingScored = isScored && question.type === 'ranking'
+    let isCorrect: boolean | null = null
+    let basePoints = 0
+    if (isRankingScored) {
+      const maxMs = question.timerSeconds * 1000
+      const speedRatio = Math.max(0, 1 - timeMs / maxMs)
+      const speedMultiplier = 0.5 + 0.5 * speedRatio  // classic formula
+      const result = scoreRanking(question, validated.value, speedMultiplier)
+      isCorrect = result.isCorrect
+      basePoints = result.basePoints
+    } else if (isScored) {
+      isCorrect = checkAnswer(question, body.answer)
+      basePoints = isCorrect ? calcPoints(question.points, timeMs, question.timerSeconds) : 0
+    }
 
-    // Streak: query prior answers in order
+    // Streak: query prior answers in order (ranking never contributes to streak)
     const priorAnswers = await prisma.answer.findMany({
       where: { sessionId: session.id, participantId },
       orderBy: { questionIndex: 'asc' },
@@ -97,7 +111,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     const priorCorrect = priorAnswers
       .filter(a => typeof a.isCorrect === 'boolean')
       .map(a => a.isCorrect ?? false)
-    const streakBonus = isCorrect === null ? 0 : computeStreakBonus(priorCorrect, isCorrect)
+    const streakBonus = (isCorrect === null || isRankingScored) ? 0 : computeStreakBonus(priorCorrect, isCorrect)
     const totalPoints = basePoints + streakBonus
 
     await prisma.answer.create({
@@ -124,8 +138,9 @@ export async function POST(req: NextRequest, { params }: Params) {
       data: {
         isCorrect,
         points: totalPoints,
-        correctAnswer: isScored ? question.correctAnswer ?? null : null,
-        correctAnswers: isScored ? question.correctAnswers ?? null : null,
+        correctAnswer: isScored && !isRankingScored ? question.correctAnswer ?? null : null,
+        correctAnswers: isScored && !isRankingScored ? question.correctAnswers ?? null : null,
+        correctOrder: isRankingScored ? question.correctOrder ?? null : null,
         explanation: question.explanation ?? null,
         nextQuestion: nextQ,
       },

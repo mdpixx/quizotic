@@ -29,6 +29,39 @@ export function isAsyncScoredType(type: string): boolean {
   return ASYNC_GRADEABLE_TYPES.has(type)
 }
 
+export function isAsyncScoredQuestion(q: Question): boolean {
+  if (ASYNC_GRADEABLE_TYPES.has(q.type)) return true
+  if (q.type === 'ranking') return Array.isArray(q.correctOrder) && q.correctOrder.length > 0
+  return false
+}
+
+export interface RankingScore {
+  isCorrect: boolean
+  correctPositions: number
+  totalPositions: number
+  basePoints: number
+}
+
+// All-or-nothing ranking scorer. answer must be an array of original option
+// indices (the order the participant placed them, in original-index space).
+// correctOrder holds stringified positional indices ["0","1","2",...].
+// speedMultiplier: pass 0 for late answers, 1 for accuracy formula.
+export function scoreRanking(question: Question, answer: unknown, speedMultiplier: number): RankingScore {
+  const correctOrder = Array.isArray(question.correctOrder) ? question.correctOrder : []
+  const totalPositions = correctOrder.length
+  const zero: RankingScore = { isCorrect: false, correctPositions: 0, totalPositions, basePoints: 0 }
+  if (totalPositions === 0 || !Array.isArray(answer)) return zero
+  const submitted = (answer as unknown[]).map(String)
+  const correct = correctOrder.map(String)
+  let correctPositions = 0
+  for (let i = 0; i < totalPositions; i++) {
+    if (submitted[i] !== undefined && submitted[i] === correct[i]) correctPositions++
+  }
+  const isCorrect = correctPositions === totalPositions && submitted.length === totalPositions
+  const basePoints = isCorrect ? Math.round((question.points || 1000) * speedMultiplier) : 0
+  return { isCorrect, correctPositions, totalPositions, basePoints }
+}
+
 export function stripAnswers(q: Question): PublicQuestion {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { correctAnswer, correctAnswers, correctOrder, ...safe } = q

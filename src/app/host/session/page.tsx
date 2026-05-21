@@ -1816,7 +1816,7 @@ export default function SessionPage() {
                     <span className={`w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-xl md:text-2xl font-black text-white flex-shrink-0 ${OPTION_COLORS[i]}`} style={{ boxShadow: '0 4px 0 rgba(0,0,0,0.16)' }}>
                       {OPTION_LABELS[i]}
                     </span>
-                    <span className="text-xl md:text-3xl flex-1 text-gray-900 font-black leading-tight">{optText}</span>
+                    <span className="text-xl md:text-3xl flex-1 min-w-0 break-words text-gray-900 font-black leading-tight">{optText}</span>
                     {correctRevealed && <span className="text-xl font-black tabular-nums text-gray-500">{votes}</span>}
                     {highlightCorrect && <span className="text-green-600 text-2xl font-black">✓</span>}
                   </div>

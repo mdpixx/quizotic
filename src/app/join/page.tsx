@@ -1881,7 +1881,7 @@ function JoinPageInner() {
                   aria-label={`Option ${OPTION_LABELS[idx]}: ${optText}`}
                   aria-pressed={isSelected}
                   className={`${OPTION_GRADIENTS[idx]} rounded-lg p-3 text-white text-left transition-all focus-visible:outline focus-visible:outline-4 focus-visible:outline-white
-                    ${isTwoOption ? 'flex items-center gap-4 py-4' : useAspectSquare ? 'aspect-square min-h-[120px]' : 'min-h-[84px]'}
+                    ${isTwoOption ? 'flex items-center gap-4 py-4' : 'min-h-[120px]'}
                     ${isSelected ? 'ring-4 ring-white scale-[0.97]' : ''}
                     ${isDisabled && !isSelected ? 'opacity-50 pointer-events-none' : ''}
                   `}
@@ -1899,7 +1899,7 @@ function JoinPageInner() {
                     {question.type === 'rating' ? optText : OPTION_LABELS[idx]}
                   </span>
                   {question.type !== 'rating' && !sharedScreenSimple && (
-                    <span className="text-lg font-semibold leading-snug">{optText}</span>
+                    <span className="min-w-0 break-words text-lg font-semibold leading-snug">{optText}</span>
                   )}
                 </button>
               )
@@ -2252,10 +2252,10 @@ function JoinPageInner() {
                 {optImage && (
                   <img src={optImage} alt="" className="w-full h-16 object-cover rounded-xl mb-2" loading="lazy" />
                 )}
-                <span className="w-10 h-10 rounded-full bg-white/25 flex items-center justify-center font-black text-lg mb-2">
+                <span className="w-10 h-10 rounded-full bg-white/25 flex items-center justify-center font-black text-lg mb-2 flex-shrink-0">
                   {OPTION_LABELS[idx]}
                 </span>
-                <span className="text-lg font-semibold leading-snug">{optText}</span>
+                <span className="break-words text-lg font-semibold leading-snug">{optText}</span>
               </button>
             )
           })}

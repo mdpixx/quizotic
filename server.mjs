@@ -695,13 +695,14 @@ app.prepare().then(async () => {
       const startAt = Date.now() + 3500  // 3-second countdown window
       session.questionStartedAt = startAt
 
-      // If sequence ranking: shuffle options and store shuffled IDs for answer validation
+      // If sequence ranking: shuffle options and build a map from display slot → original index
       if (isSequenceRanking(session.quizData.questions[0])) {
-        const shuffledOptions = fisherYatesShuffle(question.options || [])
-        session.currentRankingShuffledIds = shuffledOptions.map(o => o.id)
-        question = { ...question, options: shuffledOptions }
+        const indexed = (question.options || []).map((opt, origIndex) => ({ opt, origIndex }))
+        const shuffled = fisherYatesShuffle(indexed)
+        session.currentRankingShuffleMap = shuffled.map(e => e.origIndex)
+        question = { ...question, options: shuffled.map(e => e.opt) }
       } else {
-        session.currentRankingShuffledIds = null
+        session.currentRankingShuffleMap = null
       }
 
       io.to(`session:${gameCode}`).emit('question_show', {
@@ -860,13 +861,14 @@ app.prepare().then(async () => {
       session.questionStartedAt = startAt
       let question = sanitizeQuestion(quizData.questions[currentQuestionIndex])
 
-      // If sequence ranking: shuffle options and store shuffled IDs for answer validation
+      // If sequence ranking: shuffle options and build a map from display slot → original index
       if (isSequenceRanking(quizData.questions[currentQuestionIndex])) {
-        const shuffledOptions = fisherYatesShuffle(question.options || [])
-        session.currentRankingShuffledIds = shuffledOptions.map(o => o.id)
-        question = { ...question, options: shuffledOptions }
+        const indexed = (question.options || []).map((opt, origIndex) => ({ opt, origIndex }))
+        const shuffled = fisherYatesShuffle(indexed)
+        session.currentRankingShuffleMap = shuffled.map(e => e.origIndex)
+        question = { ...question, options: shuffled.map(e => e.opt) }
       } else {
-        session.currentRankingShuffledIds = null
+        session.currentRankingShuffleMap = null
       }
 
       io.to(`session:${gameCode}`).emit('question_show', {
@@ -1881,18 +1883,21 @@ app.prepare().then(async () => {
         let correctPositions = 0
         let totalPositions = 0
 
-        if (isSequence && session.currentRankingShuffledIds) {
-          // Sequence ranking with scoring: map submitted indices to option IDs via shuffled order
-          const submittedOrder = answer.map(i => session.currentRankingShuffledIds[i]).filter(id => id !== undefined)
-          const correctOrder = question.correctOrder || []
-          totalPositions = correctOrder.length
-          correctPositions = submittedOrder.filter((id, i) => correctOrder[i] === id).length
-          const accuracy = totalPositions > 0 ? correctPositions / totalPositions : 0
+        // storedOrder: what we persist and emit — original-index space for sequence ranking,
+        // raw display-slot indices for non-sequence (consensus only, no scoring).
+        let storedOrder = answer
+        if (isSequence && session.currentRankingShuffleMap) {
+          // Translate display-slot indices to original-option indices, then score
+          const originalOrder = answer.map(slot => String(session.currentRankingShuffleMap[slot]))
+          storedOrder = originalOrder
           const formula = session.scoringFormula ?? 'classic'
           const timerMs = (question.timerSeconds || 20) * 1000
-          const speedMultiplier = formula === 'accuracy' ? 1 : Math.max(0.2, 1 - serverTimeMs / timerMs)
-          basePoints = !isLate && correctPositions > 0 ? Math.round(accuracy * (question.points || 1000) * speedMultiplier) : 0
-          isCorrect = correctPositions === totalPositions
+          const speedMultiplier = isLate ? 0 : (formula === 'accuracy' ? 1 : Math.max(0.5, 1 - serverTimeMs / timerMs))
+          const result = scoreRanking(question, originalOrder, speedMultiplier)
+          correctPositions = result.correctPositions
+          totalPositions = result.totalPositions
+          basePoints = result.basePoints
+          isCorrect = result.isCorrect
         } else {
           // Non-scored ranking: accept and emit for consensus view
           isCorrect = null
@@ -1902,7 +1907,7 @@ app.prepare().then(async () => {
         const streakBonus = 0  // Ranking doesn't use streak
         const points = basePoints
         participant.answers[qi] = {
-          answer,
+          answer: storedOrder,
           isCorrect,
           points,
           basePoints,
@@ -1921,7 +1926,7 @@ app.prepare().then(async () => {
           attendeeId: participant.attendeeId,
           participantId: participant.participantId,
           questionIndex: qi,
-          answer,
+          answer: storedOrder,
           isCorrect,
           basePoints,
           streakBonus,
@@ -1950,9 +1955,7 @@ app.prepare().then(async () => {
           optionCounts: countAnswersByOption(session, qi, numOptions),
         })
 
-        // Payload field name `ranking` matches the host listener. Kept `order`
-        // for any older clients still in the wild; harmless duplicate.
-        io.to(`host:${gameCode}`).emit('ranking_submission', { ranking: answer, order: answer })
+        io.to(`host:${gameCode}`).emit('ranking_submission', { ranking: storedOrder, order: storedOrder })
         emitLiveResponses(io, gameCode, session, qi)
         if (ack) ack({ accepted: true, isNonScored: !isSequence, questionIndex: qi, ...(isLate ? { late: true } : {}) })
         return
@@ -2317,6 +2320,25 @@ function checkAnswer(question, answer) {
   return false
 }
 
+// All-or-nothing ranking scorer. answer must be an array of original option
+// indices (in original-index space). correctOrder holds stringified positional
+// indices ["0","1","2",...]. Mirrors src/lib/scoring.ts scoreRanking.
+function scoreRanking(question, answer, speedMultiplier) {
+  const correctOrder = Array.isArray(question.correctOrder) ? question.correctOrder : []
+  const totalPositions = correctOrder.length
+  const zero = { isCorrect: false, correctPositions: 0, totalPositions, basePoints: 0 }
+  if (totalPositions === 0 || !Array.isArray(answer)) return zero
+  const submitted = answer.map(String)
+  const correct = correctOrder.map(String)
+  let correctPositions = 0
+  for (let i = 0; i < totalPositions; i++) {
+    if (submitted[i] !== undefined && submitted[i] === correct[i]) correctPositions++
+  }
+  const isCorrect = correctPositions === totalPositions && submitted.length === totalPositions
+  const basePoints = isCorrect ? Math.round((question.points || 1000) * speedMultiplier) : 0
+  return { isCorrect, correctPositions, totalPositions, basePoints }
+}
+
 // Kahoot-style classic scoring. A correct answer is worth between base/2 and
 // base, scaled by how fast it came in. Wrong = 0. Drama range is 100% (max
 // is 2× the min) instead of the previous 33%, so fast correct answers pull
@@ -2452,9 +2474,10 @@ function stopSessionStateBroadcast(session) {
 // Sum of max points across scoreable questions in a session.
 // Mirrors the non-scored filter used in emitQuestionEnded / buildQuestionStats.
 function computeMaxScore(session) {
-  const nonScored = new Set(['poll', 'case', 'wordcloud', 'openended', 'qa', 'rating', 'ranking', 'drawing'])
+  const alwaysNonScored = new Set(['poll', 'case', 'wordcloud', 'openended', 'qa', 'rating', 'drawing'])
   return session.quizData.questions.reduce((sum, q) => {
-    if (nonScored.has(q.type)) return sum
+    if (alwaysNonScored.has(q.type)) return sum
+    if (q.type === 'ranking' && !isSequenceRanking(q)) return sum
     return sum + (q.points || 1000)
   }, 0)
 }
@@ -2530,7 +2553,8 @@ function rankByScore(participants) {
 function emitQuestionEnded(io, gameCode, session, questionIndex) {
   const q = session.quizData.questions[questionIndex]
   if (!q) return
-  const isNonScored = ['poll', 'case', 'wordcloud', 'openended', 'qa', 'rating', 'ranking', 'drawing'].includes(q.type)
+  const isSequenceRankingQ = isSequenceRanking(q)
+  const isNonScored = !isSequenceRankingQ && ['poll', 'case', 'wordcloud', 'openended', 'qa', 'rating', 'ranking', 'drawing'].includes(q.type)
   const correctAnswer = isNonScored
     ? null
     : (q.correctAnswers ?? q.correctAnswer ?? null)
@@ -2541,6 +2565,7 @@ function emitQuestionEnded(io, gameCode, session, questionIndex) {
 
   io.to(`session:${gameCode}`).emit('question_ended', {
     correctAnswer,
+    correctOrder: isSequenceRankingQ ? q.correctOrder ?? null : null,
     explanation: q.explanation ?? null,
     isNonScored,
   })
@@ -2855,19 +2880,15 @@ function computeNonScoredAggregate(q, answered, qi) {
 
       // For sequence ranking, check if all positions match the correct order
       if (isSequenceRanking && correctOrder) {
-        let allCorrect = true
         if (order.length === correctOrder.length) {
+          let allCorrect = true
           for (let pos = 0; pos < order.length; pos++) {
-            const submittedOptId = items[Number(order[pos])]?.id
-            const correctOptId = correctOrder[pos]
-            if (submittedOptId !== correctOptId) {
+            if (String(order[pos]) !== String(correctOrder[pos])) {
               allCorrect = false
               break
             }
           }
           if (allCorrect) fullCorrectCount++
-        } else {
-          allCorrect = false
         }
       }
 
@@ -2893,8 +2914,8 @@ function computeNonScoredAggregate(q, answered, qi) {
     }
 
     if (isSequenceRanking) {
-      result.correctOrder = correctOrder.map(optId => {
-        const item = items.find(o => (typeof o === 'string' ? o : o?.id) === optId)
+      result.correctOrder = correctOrder.map(optIdx => {
+        const item = items[Number(optIdx)]
         return typeof item === 'string' ? item : (item?.text ?? '')
       })
       result.fullCorrectCount = fullCorrectCount

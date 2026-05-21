@@ -409,9 +409,9 @@ function QuestionPreview({
   }
 
   return (
-    <div className="w-full max-w-[1280px] rounded-2xl overflow-hidden" style={{ boxShadow: '0 12px 40px rgba(0,0,0,0.10)' }}>
+    <div className="w-full max-w-[1280px] rounded-2xl overflow-hidden h-full max-h-full flex flex-col" style={{ boxShadow: '0 12px 40px rgba(0,0,0,0.10)' }}>
       {/* Header — inline-editable question text */}
-      <div className="px-6 md:px-10 py-6 md:py-8 text-center" style={{ background: '#FAFAF8', borderBottom: '1px solid #EDE8E0' }}>
+      <div className="flex-shrink-0 px-6 md:px-10 py-4 md:py-5 text-center" style={{ background: '#FAFAF8', borderBottom: '1px solid #EDE8E0' }}>
         <p className="text-xs md:text-sm font-bold uppercase tracking-widest mb-3" style={{ color: '#94A3B8' }}>
           Question {index + 1} of {total}
         </p>
@@ -428,13 +428,13 @@ function QuestionPreview({
 
       {/* Image area */}
       {question.imageUrl && (
-        <div className="w-full h-56 md:h-64 flex items-center justify-center" style={{ background: '#F0EDE8' }}>
+        <div className="w-full flex-shrink-0 flex items-center justify-center" style={{ background: '#F0EDE8', height: 'clamp(120px, 22vh, 240px)' }}>
           <img src={question.imageUrl} alt="" className="max-w-full max-h-full object-contain" />
         </div>
       )}
 
       {/* Options — inline-editable with bar visualization */}
-      <div className="bg-white p-5 md:p-6">
+      <div className="bg-white p-4 md:p-5 flex-1 min-h-0 overflow-y-auto">
         {(question.type === 'mcq' || question.type === 'multiselect' || question.type === 'truefalse' || question.type === 'poll' || question.type === 'case') && opts.length > 0 && (
           <div>
             {needsCorrectAnswer(question.type) && (
@@ -483,13 +483,16 @@ function QuestionPreview({
                     >
                       {isCorrect ? <span className="text-base">&#10003;</span> : c.letter}
                     </button>
-                    <input
-                      type="text"
+                    <textarea
                       value={getOptionText(opt)}
-                      onChange={e => handleOptionChange(i, e.target.value)}
+                      onChange={e => handleOptionChange(i, e.target.value.replace(/\n/g, ''))}
+                      onInput={e => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px' }}
+                      onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
                       placeholder={`Option ${c.letter}`}
                       disabled={question.type === 'truefalse'}
-                      className="flex-1 min-h-[56px] text-lg md:text-2xl font-black bg-transparent outline-none border-0 text-white placeholder:text-white/60 disabled:opacity-70"
+                      rows={1}
+                      maxLength={150}
+                      className="flex-1 min-h-[44px] text-lg md:text-2xl font-black bg-transparent outline-none border-0 text-white placeholder:text-white/60 disabled:opacity-70 resize-none overflow-hidden"
                       style={{ textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}
                     />
                   </div>
@@ -640,7 +643,7 @@ function QuestionPreview({
       </div>
 
       {/* Footer */}
-      <div className="bg-white border-t border-gray-100 px-5 py-3 flex items-center justify-between">
+      <div className="flex-shrink-0 bg-white border-t border-gray-100 px-5 py-3 flex items-center justify-between">
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: '#F1F5F9', color: '#64748B' }}>
           &#9201; {question.timerSeconds}s
         </div>
@@ -1016,6 +1019,8 @@ function CreateQuizPageInner() {
   const [activeIndex, setActiveIndex] = useState(0)
   const [saving, setSaving] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ index: number; x: number; y: number } | null>(null)
+  const [addMenuOpen, setAddMenuOpen] = useState<{ x: number; y: number } | null>(null)
+  const [kebabMenuOpen, setKebabMenuOpen] = useState<{ x: number; y: number } | null>(null)
   const [shareOpen, setShareOpen] = useState(false)
   const [selfPacedShare, setSelfPacedShare] = useState<{ open: boolean; loading: boolean; url: string; error: string; copied: boolean; questionCount: number; responseCount: number }>({
     open: false,
@@ -1828,26 +1833,31 @@ function CreateQuizPageInner() {
           <span className="hidden md:inline-flex">
             <AutosaveBadge state={autosaveState} />
           </span>
-          <button onClick={() => { setTab('manual'); setMobileEditorOpen(false); setMobileSlidesOpen(false) }} title="Preview quiz"
-            className="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-bold transition-all hover:bg-gray-50 click-bounce"
-            style={{ borderColor: '#E2E8F0', color: '#64748B' }}>
-            <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><path d="M2 10s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5Z" stroke="currentColor" strokeWidth="1.5"/><circle cx="10" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.5"/></svg>
-            Preview
-          </button>
+          {/* + Add question button */}
           <button
-            onClick={() => setInspectorOpen(open => !open)}
-            title="Toggle question inspector"
+            onClick={e => {
+              const rect = e.currentTarget.getBoundingClientRect()
+              setAddMenuOpen(addMenuOpen ? null : { x: rect.left, y: rect.bottom + 6 })
+              setKebabMenuOpen(null)
+            }}
             className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-bold transition-all hover:bg-gray-50 click-bounce"
-            style={{ borderColor: '#E2E8F0', color: inspectorOpen ? '#0F1B3D' : '#64748B' }}
+            style={{ borderColor: '#E2E8F0', color: '#0F1B3D' }}
           >
-            <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><path d="M4 5h12M4 10h8M4 15h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-            Inspector
+            <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5"><path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+            Add question
           </button>
-          <button onClick={handleShareSelfPaced} title="Share self-paced quiz"
-            className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-bold transition-all hover:bg-gray-50 click-bounce"
-            style={{ borderColor: '#E2E8F0', color: '#0F1B3D' }}>
-            <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><path d="M5 10v6a1.5 1.5 0 001.5 1.5h7A1.5 1.5 0 0015 16v-6M13 5l-3-3-3 3M10 2v11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            Share self-paced
+          {/* ⋯ kebab menu */}
+          <button
+            onClick={e => {
+              const rect = e.currentTarget.getBoundingClientRect()
+              setKebabMenuOpen(kebabMenuOpen ? null : { x: rect.right - 176, y: rect.bottom + 6 })
+              setAddMenuOpen(null)
+            }}
+            className="hidden md:flex items-center justify-center w-9 h-9 rounded-lg border text-gray-500 hover:bg-gray-50 transition-colors"
+            style={{ borderColor: '#E2E8F0' }}
+            title="More options"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><circle cx="10" cy="4" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="10" cy="16" r="1.5"/></svg>
           </button>
           {/* Themes — opens full-screen picker for quiz-wide theming */}
           <button
@@ -1888,140 +1898,6 @@ function CreateQuizPageInner() {
           </button>
         </div>
       </header>
-
-      {/* ── Creation command bar (Tier 1 redesign) ──
-          Replaces the three grouped colored tab containers with one clean
-          pill bar. The underlying `tab` state is unchanged — pills just
-          toggle it, so all downstream rendering still works. */}
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b overflow-x-auto flex-shrink-0" style={{ background: 'var(--color-paper)', borderColor: 'var(--color-line)' }}>
-        <span className="text-[10px] font-bold uppercase tracking-[0.1em] pr-1 flex-shrink-0" style={{ color: 'var(--color-text-muted)' }}>
-          Add question
-        </span>
-        <div className="h-4 w-px flex-shrink-0" style={{ background: 'var(--color-line)' }} />
-
-        <button
-          onClick={() => { setTab('manual'); if (questions.length > 0) setActiveIndex(0) }}
-          className={`cmd-pill ${tab === 'manual' ? 'active' : ''}`}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
-          Manual
-        </button>
-
-        <div className="h-4 w-px flex-shrink-0" style={{ background: 'var(--color-line)' }} />
-
-        <span className="text-[10px] font-bold uppercase tracking-[0.1em] pr-1 flex-shrink-0" style={{ color: 'var(--color-accent-violet)' }}>
-          AI
-        </span>
-
-        <button
-          onClick={() => setTab('aitopic')}
-          className={`cmd-pill ai ${tab === 'aitopic' ? 'active' : ''}`}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5Z"/><path d="M19 15l1 3 3 1-3 1-1 3-1-3-3-1 3-1Z"/></svg>
-          From topic
-        </button>
-        <button
-          onClick={() => setTab('aiurl')}
-          className={`cmd-pill ai ${tab === 'aiurl' ? 'active' : ''}`}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"/></svg>
-          From URL
-        </button>
-        <button
-          onClick={() => setTab('aidoc')}
-          className={`cmd-pill ai ${tab === 'aidoc' ? 'active' : ''}`}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
-          From PDF
-        </button>
-
-        <div className="h-4 w-px flex-shrink-0" style={{ background: 'var(--color-line)' }} />
-
-        <button
-          onClick={() => setTab('csv')}
-          className={`cmd-pill ${tab === 'csv' ? 'active' : ''}`}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h18"/></svg>
-          CSV import
-        </button>
-        <button
-          onClick={() => setTab('library')}
-          className={`cmd-pill ${tab === 'library' ? 'active' : ''}`}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-          Library
-        </button>
-
-        <div className="ml-auto flex items-center gap-2 flex-shrink-0">
-          <span className="hidden lg:inline text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            {questions.length} question{questions.length === 1 ? '' : 's'} &middot; ~{estMinutes} min
-          </span>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3 px-4 py-2.5 border-b overflow-x-auto flex-shrink-0" style={{ background: '#fff', borderColor: '#E2E8F0' }}>
-        <span className="text-[10px] font-black uppercase tracking-[0.12em] flex-shrink-0" style={{ color: '#94A3B8' }}>
-          Launch
-        </span>
-        <button
-          onClick={() => {
-            if (savedQuiz) { setActiveSession(savedQuiz); router.push('/host/session') }
-            else { pendingLiveRef.current = true; handleSave() }
-          }}
-          className="builder-mode-card"
-          title="Host live with a room code, timer, and leaderboard"
-        >
-          <span className="builder-mode-icon live">
-            <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3"><path d="M8 5v14l11-7z"/></svg>
-          </span>
-          <span>
-            <span className="builder-mode-title">Host live</span>
-            <span className="builder-mode-copy">Join code + leaderboard</span>
-          </span>
-        </button>
-        <button
-          onClick={handleShareSelfPaced}
-          className="builder-mode-card"
-          title="Share a self-paced link for anytime attempts"
-        >
-          <span className="builder-mode-icon async">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          </span>
-          <span>
-            <span className="builder-mode-title">Share self-paced</span>
-            <span className="builder-mode-copy">{activePreset.selfPacedTimeLimitMinutes ? `${activePreset.selfPacedTimeLimitMinutes} min attempt` : 'Anytime link'}</span>
-          </span>
-        </button>
-
-        <div className="h-6 w-px flex-shrink-0" style={{ background: '#E2E8F0' }} />
-        <span className="text-[10px] font-black uppercase tracking-[0.12em] flex-shrink-0" style={{ color: '#94A3B8' }}>
-          Audience
-        </span>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          {AUDIENCE_PRESETS.map(preset => {
-            const active = preset.id === audiencePreset
-            return (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => applyAudiencePreset(preset)}
-                title={preset.note}
-                className="px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all whitespace-nowrap"
-                style={{
-                  background: active ? '#0F1B3D' : '#F8FAFC',
-                  color: active ? '#F5E642' : '#475569',
-                  borderColor: active ? '#0F1B3D' : '#E2E8F0',
-                }}
-              >
-                {preset.label}
-              </button>
-            )
-          })}
-        </div>
-        <span className="hidden xl:inline text-[11px] flex-shrink-0" style={{ color: '#64748B' }}>
-          {activePreset.note} · {activePreset.timerSeconds}s · {activePreset.points} pts
-        </span>
-      </div>
 
       {/* ── Three-Panel Layout ── */}
       <div className="flex-1 flex overflow-hidden">
@@ -2155,13 +2031,77 @@ function CreateQuizPageInner() {
           </>
         )}
 
+        {/* + Add question dropdown */}
+        {addMenuOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setAddMenuOpen(null)} />
+            <div
+              className="fixed z-50 w-52 py-1 bg-white rounded-xl shadow-xl border"
+              style={{ left: addMenuOpen.x, top: addMenuOpen.y, borderColor: '#E2E8F0' }}
+            >
+              {[
+                { label: 'Manual', tabKey: 'manual', icon: <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5 flex-shrink-0"><path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg> },
+                { label: 'AI from topic', tabKey: 'aitopic', icon: <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5 flex-shrink-0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 1l1 3 3 1-3 1-1 3-1-3-3-1 3-1Z"/><path d="M13 10l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7Z"/></svg> },
+                { label: 'AI from URL', tabKey: 'aiurl', icon: <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5 flex-shrink-0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M7 9a3.5 3.5 0 005.25.38l2-2A3.5 3.5 0 009.3 2.43l-1.14 1.13"/><path d="M9 7a3.5 3.5 0 00-5.25-.38l-2 2A3.5 3.5 0 006.7 13.57l1.14-1.13"/></svg> },
+                { label: 'AI from PDF', tabKey: 'aidoc', icon: <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5 flex-shrink-0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 1H4a1.5 1.5 0 00-1.5 1.5v11A1.5 1.5 0 004 15h8a1.5 1.5 0 001.5-1.5V6L9 1z"/><path d="M9 1v5h4.5"/></svg> },
+                { label: 'CSV import', tabKey: 'csv', icon: <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5 flex-shrink-0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="12" height="12" rx="1.5"/><path d="M6 2v12M2 6h12"/></svg> },
+                { label: 'Library', tabKey: 'library', icon: <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5 flex-shrink-0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 13A1.5 1.5 0 014 12h10"/><path d="M4 1.5H13v13H4A1.5 1.5 0 012.5 13V3A1.5 1.5 0 014 1.5z"/></svg> },
+              ].map(item => (
+                <button
+                  key={item.tabKey}
+                  onClick={() => { setTab(item.tabKey as typeof tab); setAddMenuOpen(null) }}
+                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[12px] font-semibold transition-colors hover:bg-gray-50 click-bounce-sm"
+                  style={{ color: '#374151' }}
+                >
+                  {item.icon}
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* ⋯ Kebab dropdown (Preview, Inspector, Share self-paced) */}
+        {kebabMenuOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setKebabMenuOpen(null)} />
+            <div
+              className="fixed z-50 w-44 py-1 bg-white rounded-xl shadow-xl border"
+              style={{ left: kebabMenuOpen.x, top: kebabMenuOpen.y, borderColor: '#E2E8F0' }}
+            >
+              <button
+                onClick={() => { setTab('manual'); setMobileEditorOpen(false); setMobileSlidesOpen(false); setKebabMenuOpen(null) }}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[12px] font-semibold transition-colors hover:bg-gray-50 click-bounce-sm"
+                style={{ color: '#374151' }}
+              >
+                <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5 flex-shrink-0" stroke="currentColor" strokeWidth="1.5"><path d="M1 8s2-4 7-4 7 4 7 4-2 4-7 4-7-4-7-4Z"/><circle cx="8" cy="8" r="2"/></svg>
+                Preview
+              </button>
+              <button
+                onClick={() => { setInspectorOpen(o => !o); setKebabMenuOpen(null) }}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[12px] font-semibold transition-colors hover:bg-gray-50 click-bounce-sm"
+                style={{ color: inspectorOpen ? '#0F1B3D' : '#374151' }}
+              >
+                <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5 flex-shrink-0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 4h12M2 8h8M2 12h12"/></svg>
+                Inspector {inspectorOpen ? '(on)' : '(off)'}
+              </button>
+              <button
+                onClick={() => { handleShareSelfPaced(); setKebabMenuOpen(null) }}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[12px] font-semibold transition-colors hover:bg-gray-50 click-bounce-sm"
+                style={{ color: '#374151' }}
+              >
+                <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5 flex-shrink-0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8v5a1 1 0 001 1h8a1 1 0 001-1V8M10 4L8 2 6 4M8 2v8"/></svg>
+                Share self-paced
+              </button>
+            </div>
+          </>
+        )}
+
         {/* ── CENTER PANEL: Preview / AI Settings / CSV / Library ──
-            Nested wrapper pattern: outer handles scrolling; inner uses
-            min-h-full so short content (manual preview) centers vertically,
-            while tall content (AI forms, CSV steps) flows from the top and
-            scrolls naturally. Fixes "content cut at top" bug (Tier 4.4). */}
-        <div className="flex-1 overflow-y-auto" style={{ background: 'var(--color-paper)' }}>
-        <div className="min-h-full flex items-start md:items-center justify-center px-4 md:px-6 lg:px-8 pt-8 pb-10">
+            Manual tab uses overflow-hidden so QuestionPreview fills height;
+            other tabs scroll naturally. */}
+        <div className={tab === 'manual' ? 'flex-1 overflow-hidden flex items-center justify-center px-4 md:px-6 py-4 md:py-6' : 'flex-1 overflow-y-auto'} style={{ background: 'var(--color-paper)' }}>
+        <div className={tab === 'manual' ? 'h-full w-full max-w-5xl' : 'min-h-full flex items-start md:items-center justify-center px-4 md:px-6 lg:px-8 pt-8 pb-10'}>
 
           {/* Manual tab → show preview */}
           {tab === 'manual' && activeQuestion && (
@@ -2568,6 +2508,34 @@ function CreateQuizPageInner() {
                 </label>
               </div>
             )}
+            <details className="insp-section" open>
+              <summary>
+                <span>Audience</span>
+                <svg className="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+              </summary>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {AUDIENCE_PRESETS.map(preset => {
+                  const active = preset.id === audiencePreset
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => applyAudiencePreset(preset)}
+                      title={preset.note}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all whitespace-nowrap"
+                      style={{
+                        background: active ? '#0F1B3D' : '#F8FAFC',
+                        color: active ? '#F5E642' : '#475569',
+                        borderColor: active ? '#0F1B3D' : '#E2E8F0',
+                      }}
+                    >
+                      {preset.label}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="mt-1.5 text-[10px]" style={{ color: '#64748B' }}>{activePreset.note} · {activePreset.timerSeconds}s · {activePreset.points} pts</p>
+            </details>
             <QuestionEditor
               question={activeQuestion}
               onChange={u => updateQuestion(safeIndex, u)}

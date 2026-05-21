@@ -753,20 +753,32 @@ export default function QuizzesPage() {
                   <div className="mb-4">
                     <p className="text-xs font-bold mb-2" style={{ color: '#0F1B3D' }}>Link expiry</p>
                     <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { label: 'Never', value: null as number | null },
-                        { label: '7 days', value: 7 },
-                        { label: '30 days', value: 30 },
-                      ].map(opt => (
-                        <button
-                          key={opt.label}
-                          onClick={() => handleSetExpiry(closeAtFor(opt.value))}
-                          className="py-2 rounded-lg text-xs font-bold border"
-                          style={{ color: '#0F1B3D', borderColor: '#E2E8F0', background: '#fff' }}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
+                      {(() => {
+                        const remainingMs = shareModal.closesAt ? new Date(shareModal.closesAt).getTime() - Date.now() : -1
+                        const currentDays = shareModal.closesAt === null ? null : (remainingMs < 14 * 86400000 ? 7 : 30)
+                        return [
+                          { label: 'Never', value: null as number | null },
+                          { label: '7 days', value: 7 },
+                          { label: '30 days', value: 30 },
+                        ].map(opt => {
+                          const active = currentDays === opt.value
+                          return (
+                            <button
+                              key={opt.label}
+                              onClick={() => handleSetExpiry(closeAtFor(opt.value))}
+                              aria-pressed={active}
+                              className="py-2 rounded-lg text-xs font-bold border transition-colors"
+                              style={{
+                                background: active ? '#0F1B3D' : '#fff',
+                                color: active ? '#F5E642' : '#0F1B3D',
+                                borderColor: active ? '#0F1B3D' : '#E2E8F0',
+                              }}
+                            >
+                              {opt.label}
+                            </button>
+                          )
+                        })
+                      })()}
                     </div>
                   </div>
 
