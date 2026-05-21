@@ -591,6 +591,51 @@ button.chip:active:not(:disabled) {
   border-color: var(--color-accent-violet);
 }
 
+.builder-mode-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #E2E8F0;
+  background: #F8FAFC;
+  color: var(--color-ink);
+  border-radius: 12px;
+  padding: 7px 10px;
+  min-width: 150px;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease;
+  flex-shrink: 0;
+}
+.builder-mode-card:hover {
+  transform: translateY(-1px);
+  border-color: #CBD5E1;
+  background: #fff;
+}
+.builder-mode-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.builder-mode-icon.live { background: var(--color-ink); color: var(--color-yellow); }
+.builder-mode-icon.async { background: #ECFDF5; color: #047857; }
+.builder-mode-title {
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.builder-mode-copy {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  line-height: 1.1;
+}
+
 /* WCAG 2.3.3 — honor the user's OS-level motion preference. Kills all
    keyframe animations, transitions, and smooth-scroll for users who opt out.
    Components that need behavioral adjustments (skipping intro phases, etc.)

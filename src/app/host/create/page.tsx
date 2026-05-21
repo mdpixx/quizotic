@@ -40,6 +40,62 @@ const QUESTION_COUNT_OPTIONS: Record<string, number[]> = {
   pro: [5, 10, 15, 20, 25],
 }
 
+type AudiencePresetId = 'classroom' | 'coaching' | 'corporate' | 'event'
+
+interface AudiencePreset {
+  id: AudiencePresetId
+  label: string
+  note: string
+  timerSeconds: 10 | 15 | 20 | 30 | 60
+  points: 500 | 1000 | 2000
+  difficulty: 'easy' | 'medium' | 'hard'
+  selfPacedTimeLimitMinutes: number | null
+  allowRetries: boolean
+}
+
+const AUDIENCE_PRESETS: AudiencePreset[] = [
+  {
+    id: 'classroom',
+    label: 'Classroom',
+    note: 'Readable pace for live teaching',
+    timerSeconds: 20,
+    points: 1000,
+    difficulty: 'medium',
+    selfPacedTimeLimitMinutes: null,
+    allowRetries: false,
+  },
+  {
+    id: 'coaching',
+    label: 'Coaching test',
+    note: 'Assessment pace with fewer repeats',
+    timerSeconds: 30,
+    points: 2000,
+    difficulty: 'hard',
+    selfPacedTimeLimitMinutes: 60,
+    allowRetries: false,
+  },
+  {
+    id: 'corporate',
+    label: 'Corporate training',
+    note: 'Calm timing with retakes',
+    timerSeconds: 30,
+    points: 1000,
+    difficulty: 'medium',
+    selfPacedTimeLimitMinutes: 45,
+    allowRetries: true,
+  },
+  {
+    id: 'event',
+    label: 'Event pulse',
+    note: 'Fast, lightweight engagement',
+    timerSeconds: 15,
+    points: 500,
+    difficulty: 'easy',
+    selfPacedTimeLimitMinutes: null,
+    allowRetries: true,
+  },
+]
+
 interface TypeMix {
   mcq: number
   multiselect: number
@@ -353,7 +409,7 @@ function QuestionPreview({
   }
 
   return (
-    <div className="w-full max-w-[1180px] rounded-2xl overflow-hidden" style={{ boxShadow: '0 12px 40px rgba(0,0,0,0.10)' }}>
+    <div className="w-full max-w-[1280px] rounded-2xl overflow-hidden" style={{ boxShadow: '0 12px 40px rgba(0,0,0,0.10)' }}>
       {/* Header — inline-editable question text */}
       <div className="px-6 md:px-10 py-6 md:py-8 text-center" style={{ background: '#FAFAF8', borderBottom: '1px solid #EDE8E0' }}>
         <p className="text-xs md:text-sm font-bold uppercase tracking-widest mb-3" style={{ color: '#94A3B8' }}>
@@ -371,18 +427,9 @@ function QuestionPreview({
       </div>
 
       {/* Image area */}
-      {question.imageUrl ? (
+      {question.imageUrl && (
         <div className="w-full h-56 md:h-64 flex items-center justify-center" style={{ background: '#F0EDE8' }}>
           <img src={question.imageUrl} alt="" className="max-w-full max-h-full object-contain" />
-        </div>
-      ) : (
-        <div className="w-full h-40 md:h-48 flex items-center justify-center cursor-pointer"
-          style={{ background: '#F0EDE8' }}
-          onClick={() => (document.querySelector('#q-image-upload-wrapper') as HTMLElement)?.click()}>
-          <div className="text-center">
-            <div className="text-3xl mb-1 opacity-30">&#128444;&#65039;</div>
-            <p className="text-sm" style={{ color: '#94A3B8' }}>Click to add image (or use Image panel →)</p>
-          </div>
         </div>
       )}
 
@@ -442,7 +489,7 @@ function QuestionPreview({
                       onChange={e => handleOptionChange(i, e.target.value)}
                       placeholder={`Option ${c.letter}`}
                       disabled={question.type === 'truefalse'}
-                      className="flex-1 text-base md:text-lg font-bold bg-transparent outline-none border-0 text-white placeholder:text-white/60 disabled:opacity-70"
+                      className="flex-1 min-h-[56px] text-lg md:text-2xl font-black bg-transparent outline-none border-0 text-white placeholder:text-white/60 disabled:opacity-70"
                       style={{ textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}
                     />
                   </div>
@@ -799,15 +846,15 @@ function QuestionEditor({
       })()}
 
       {/* Inline editing hint */}
-      <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
+      <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }}>
         <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#16A34A' }}>
           <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
         </svg>
-        <p className="text-[10px] font-semibold" style={{ color: '#15803D' }}>Edit question & answers directly on the slide preview</p>
+        <p className="text-[10px] font-semibold" style={{ color: '#64748B' }}>Edit the question and answers directly on the preview.</p>
       </div>
 
       {/* Image */}
-      <details className="insp-section" open>
+      <details className="insp-section">
         <summary>
           <span>Image</span>
           <svg className="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
@@ -885,7 +932,7 @@ function QuestionEditor({
       </details>
 
       {/* Learning goal (Bloom) — promoted to first-class with rationale */}
-      <details className="insp-section" open>
+      <details className="insp-section">
         <summary>
           <span className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--color-accent-violet)' }} />
@@ -926,7 +973,7 @@ function QuestionEditor({
       </details>
 
       {/* Explanation */}
-      <details className="insp-section" open>
+      <details className="insp-section">
         <summary>
           <span>{question.type === 'case' ? 'Debrief' : 'Explanation'}</span>
           <svg className="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
@@ -983,6 +1030,8 @@ function CreateQuizPageInner() {
   const [mobileSlidesOpen, setMobileSlidesOpen] = useState(false)
   const [mobileAddOpen, setMobileAddOpen] = useState(false)
   const [inspectorOpen, setInspectorOpen] = useState(true)
+  const [audiencePreset, setAudiencePreset] = useState<AudiencePresetId>('classroom')
+  const activePreset = AUDIENCE_PRESETS.find(p => p.id === audiencePreset) ?? AUDIENCE_PRESETS[0]
 
   // Navigate to live session when savedQuiz is set after "Start Live"
   useEffect(() => {
@@ -1156,6 +1205,16 @@ function CreateQuizPageInner() {
         return next
       })
     }
+  }
+
+  function applyAudiencePreset(preset: AudiencePreset) {
+    setAudiencePreset(preset.id)
+    setAiDifficulty(preset.difficulty)
+    setQuestions(prev => prev.map(q => ({
+      ...q,
+      timerSeconds: preset.timerSeconds,
+      points: isScoredType(q.type) ? preset.points : q.points,
+    })))
   }
 
   // ── Question mutations ──────────────────────────────────────────────────────
@@ -1637,13 +1696,25 @@ function CreateQuizPageInner() {
       return
     }
     try {
-      const res = await fetch(`/api/quizzes/${quiz.id}/publish`, { method: 'POST' })
+      const res = await fetch(`/api/quizzes/${quiz.id}/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timeLimitMinutes: activePreset.selfPacedTimeLimitMinutes }),
+      })
       const json = await res.json()
       if (!res.ok || !json.success) {
         const issueMessage = Array.isArray(json.issues) ? formatQuizValidationIssues(json.issues) : ''
         setSelfPacedShare(prev => ({ ...prev, loading: false, error: issueMessage || json.error || 'Could not create self-paced link.' }))
         return
       }
+      await fetch(`/api/quizzes/${quiz.id}/publish`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          allowRetries: activePreset.allowRetries,
+          timeLimitMinutes: activePreset.selfPacedTimeLimitMinutes,
+        }),
+      }).catch(() => {})
       const url = `${window.location.origin}/q/${json.data.shareSlug}`
       setSelfPacedShare({
         open: true,
@@ -1886,6 +1957,70 @@ function CreateQuizPageInner() {
             {questions.length} question{questions.length === 1 ? '' : 's'} &middot; ~{estMinutes} min
           </span>
         </div>
+      </div>
+
+      <div className="flex items-center gap-3 px-4 py-2.5 border-b overflow-x-auto flex-shrink-0" style={{ background: '#fff', borderColor: '#E2E8F0' }}>
+        <span className="text-[10px] font-black uppercase tracking-[0.12em] flex-shrink-0" style={{ color: '#94A3B8' }}>
+          Launch
+        </span>
+        <button
+          onClick={() => {
+            if (savedQuiz) { setActiveSession(savedQuiz); router.push('/host/session') }
+            else { pendingLiveRef.current = true; handleSave() }
+          }}
+          className="builder-mode-card"
+          title="Host live with a room code, timer, and leaderboard"
+        >
+          <span className="builder-mode-icon live">
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3"><path d="M8 5v14l11-7z"/></svg>
+          </span>
+          <span>
+            <span className="builder-mode-title">Host live</span>
+            <span className="builder-mode-copy">Join code + leaderboard</span>
+          </span>
+        </button>
+        <button
+          onClick={handleShareSelfPaced}
+          className="builder-mode-card"
+          title="Share a self-paced link for anytime attempts"
+        >
+          <span className="builder-mode-icon async">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </span>
+          <span>
+            <span className="builder-mode-title">Share self-paced</span>
+            <span className="builder-mode-copy">{activePreset.selfPacedTimeLimitMinutes ? `${activePreset.selfPacedTimeLimitMinutes} min attempt` : 'Anytime link'}</span>
+          </span>
+        </button>
+
+        <div className="h-6 w-px flex-shrink-0" style={{ background: '#E2E8F0' }} />
+        <span className="text-[10px] font-black uppercase tracking-[0.12em] flex-shrink-0" style={{ color: '#94A3B8' }}>
+          Audience
+        </span>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {AUDIENCE_PRESETS.map(preset => {
+            const active = preset.id === audiencePreset
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => applyAudiencePreset(preset)}
+                title={preset.note}
+                className="px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all whitespace-nowrap"
+                style={{
+                  background: active ? '#0F1B3D' : '#F8FAFC',
+                  color: active ? '#F5E642' : '#475569',
+                  borderColor: active ? '#0F1B3D' : '#E2E8F0',
+                }}
+              >
+                {preset.label}
+              </button>
+            )
+          })}
+        </div>
+        <span className="hidden xl:inline text-[11px] flex-shrink-0" style={{ color: '#64748B' }}>
+          {activePreset.note} · {activePreset.timerSeconds}s · {activePreset.points} pts
+        </span>
       </div>
 
       {/* ── Three-Panel Layout ── */}
@@ -2646,13 +2781,22 @@ function CreateQuizPageInner() {
               <h2 className="text-2xl font-black" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Quiz Saved!</h2>
               <p className="text-gray-500 mt-1">{savedQuiz.title} &middot; {savedQuiz.questions.length} question{savedQuiz.questions.length !== 1 ? 's' : ''}</p>
             </div>
-            <button
-              onClick={() => { setActiveSession(savedQuiz); router.push('/host/session') }}
-              className="w-full py-4 font-bold text-lg rounded-xl hover:opacity-90 transition-opacity"
-              style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
-            >
-              Start Live Session
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => { setActiveSession(savedQuiz); router.push('/host/session') }}
+                className="py-4 font-bold text-sm rounded-xl hover:opacity-90 transition-opacity"
+                style={{ background: '#0F1B3D', color: '#F5E642', fontFamily: 'var(--font-heading)' }}
+              >
+                Host live
+              </button>
+              <button
+                onClick={handleShareSelfPaced}
+                className="py-4 font-bold text-sm rounded-xl hover:opacity-90 transition-opacity"
+                style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
+              >
+                Share self-paced
+              </button>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <button onClick={() => router.push('/host')} className="py-3 text-sm font-semibold rounded-xl border-2 border-gray-200 text-gray-600 hover:border-gray-300 transition-colors">Go to Dashboard</button>
               <button
@@ -2681,7 +2825,9 @@ function CreateQuizPageInner() {
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
                 <h3 className="text-lg font-extrabold" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Share self-paced quiz</h3>
-                <p className="text-sm mt-1" style={{ color: '#64748B' }}>Participants can take it anytime. No host or live code needed.</p>
+                <p className="text-sm mt-1" style={{ color: '#64748B' }}>
+                  Participants can take it anytime. {activePreset.allowRetries ? 'Retakes are on for this preset.' : 'One attempt by default.'}
+                </p>
               </div>
               <button onClick={() => setSelfPacedShare(prev => ({ ...prev, open: false }))} className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors text-gray-400 text-sm">&times;</button>
             </div>
