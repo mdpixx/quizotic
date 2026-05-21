@@ -704,15 +704,15 @@ export default function QuizzesPage() {
                   </p>
 
                   <div className="grid grid-cols-3 gap-2 mb-4">
-                    <div className="rounded-xl px-3 py-2" style={{ background: '#F8FAFC' }}>
+                    <div className="rounded-xl px-3 py-2 min-h-[4rem]" style={{ background: '#F8FAFC' }}>
                       <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Responses</p>
                       <p className="text-sm font-black" style={{ color: '#0F1B3D' }}>{shareModal.responseCount}</p>
                     </div>
-                    <div className="rounded-xl px-3 py-2" style={{ background: '#F8FAFC' }}>
+                    <div className="rounded-xl px-3 py-2 min-h-[4rem]" style={{ background: '#F8FAFC' }}>
                       <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Published</p>
                       <p className="text-xs font-bold" style={{ color: '#0F1B3D' }}>{shareModal.publishedAt ? timeAgo(shareModal.publishedAt) : 'now'}</p>
                     </div>
-                    <div className="rounded-xl px-3 py-2" style={{ background: '#F8FAFC' }}>
+                    <div className="rounded-xl px-3 py-2 min-h-[4rem]" style={{ background: '#F8FAFC' }}>
                       <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Closes</p>
                       <p className="text-xs font-bold" style={{ color: '#0F1B3D' }}>{shareModal.closesAt ? formatDateTime(shareModal.closesAt) : 'Never'}</p>
                     </div>
