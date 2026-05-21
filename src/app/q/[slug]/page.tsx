@@ -461,7 +461,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
 
         <div className="flex-1 px-4 sm:px-6 lg:px-10 pb-8 pt-5 max-w-7xl mx-auto w-full">
           {/* Question stage */}
-          <div className="grid lg:grid-cols-[minmax(0,0.95fr)_minmax(420px,1.2fr)] gap-5 lg:gap-8 items-stretch min-h-[calc(100vh-112px)]">
+          <div className="grid lg:grid-cols-[minmax(0,0.95fr)_minmax(420px,1.2fr)] gap-5 lg:gap-8 items-stretch lg:min-h-[calc(100vh-112px)]">
           <div className="rounded-3xl p-6 sm:p-8 lg:p-10 shadow-sm flex flex-col justify-center"
             style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}>
             <p className="text-xs font-black uppercase tracking-[0.22em] mb-4" style={{ color: '#F5E642' }}>
@@ -478,7 +478,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
           </div>
 
           {/* Input / feedback */}
-          <div className="flex flex-col justify-center min-h-[360px]">
+          <div className="flex flex-col justify-center lg:min-h-[360px]">
           {isRecording ? (
             <div className="rounded-2xl px-4 py-8 text-center animate-pulse"
               style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)' }}>

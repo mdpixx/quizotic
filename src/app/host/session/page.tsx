@@ -1403,8 +1403,7 @@ export default function SessionPage() {
           transition={{ duration: 0.32, ease: [0.22, 0.61, 0.36, 1] }}
           className="min-h-screen h-screen max-h-screen overflow-hidden px-4 pt-3 pb-3 lg:px-8 lg:pt-4 lg:pb-4 flex flex-col gap-3 host-question-stage"
           style={{
-            background:
-              'radial-gradient(circle at 15% 12%, rgba(245,230,66,0.22), transparent 28%), radial-gradient(circle at 85% 18%, rgba(19,104,206,0.22), transparent 30%), linear-gradient(135deg, #071126 0%, #0F1B3D 52%, #111827 100%)',
+            background: 'linear-gradient(135deg, #071126 0%, #0F1B3D 55%, #102A43 100%)',
             color: '#FFFFFF',
           }}
         >
@@ -1551,11 +1550,11 @@ export default function SessionPage() {
                     if (len > 90) return '1.8rem'
                     return '2.15rem'
                   }
-                  if (len > 240) return '1.5rem'
-                  if (len > 180) return '1.75rem'
-                  if (len > 120) return '2rem'
-                  if (len > 70) return '2.35rem'
-                  return '2.65rem'
+                  if (len > 240) return '1.55rem'
+                  if (len > 180) return '1.85rem'
+                  if (len > 120) return '2.15rem'
+                  if (len > 70) return '2.55rem'
+                  return '3rem'
                 })(),
                 lineHeight: 1.1,
                 fontFamily: 'var(--font-heading)',
@@ -1787,7 +1786,7 @@ export default function SessionPage() {
               )
             })()
           ) : (
-          <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 grid grid-cols-2 gap-3 md:gap-4 host-answer-stage host-options-stage">
+          <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 grid grid-cols-2 gap-3 md:gap-5 host-answer-stage host-options-stage">
             {getEffectiveOptions(currentQuestion)?.map((opt, i) => {
               const votes = optionCounts[i] ?? 0
               const pct = connectedCount > 0 ? (votes / connectedCount) * 100 : 0
@@ -1813,11 +1812,11 @@ export default function SessionPage() {
                   {optImage && (
                     <img src={optImage} alt="" className="w-full object-cover" style={{ height: 'min(14vh, 128px)' }} loading="lazy" />
                   )}
-                  <div className="p-3 md:p-4 flex items-center gap-3">
-                    <span className={`w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-xl font-black text-white flex-shrink-0 ${OPTION_COLORS[i]}`} style={{ boxShadow: '0 4px 0 rgba(0,0,0,0.16)' }}>
+                  <div className="min-h-[112px] p-4 md:p-5 flex items-center gap-4">
+                    <span className={`w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-xl md:text-2xl font-black text-white flex-shrink-0 ${OPTION_COLORS[i]}`} style={{ boxShadow: '0 4px 0 rgba(0,0,0,0.16)' }}>
                       {OPTION_LABELS[i]}
                     </span>
-                    <span className="text-lg md:text-2xl flex-1 text-gray-900 font-black leading-tight">{optText}</span>
+                    <span className="text-xl md:text-3xl flex-1 text-gray-900 font-black leading-tight">{optText}</span>
                     {correctRevealed && <span className="text-xl font-black tabular-nums text-gray-500">{votes}</span>}
                     {highlightCorrect && <span className="text-green-600 text-2xl font-black">✓</span>}
                   </div>

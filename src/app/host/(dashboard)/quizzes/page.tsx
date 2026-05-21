@@ -68,7 +68,7 @@ function QuizCoverMotif({ id }: { id: string }) {
     value ^= value >>> 16
     return (value >>> 0) / 0xffffffff
   }
-  const marks = Array.from({ length: 10 }, (_, i) => ({
+  const dots = Array.from({ length: 8 }, (_, i) => ({
     cx: 4 + seededUnit(i * 4 + 1) * 92,
     cy: 4 + seededUnit(i * 4 + 2) * 92,
     o: 0.25 + seededUnit(i * 4 + 4) * 0.6,
@@ -80,16 +80,29 @@ function QuizCoverMotif({ id }: { id: string }) {
       className="absolute inset-0 w-full h-full pointer-events-none"
       aria-hidden
     >
-      <rect x="18" y="16" width="64" height="68" rx="8" fill="#fff" opacity="0.82" />
-      <path d="M31 35h38M31 47h28M31 59h34" stroke="#0F1B3D" strokeOpacity="0.24" strokeWidth="4" strokeLinecap="round" />
-      <path d="M25 24h50" stroke="#0F1B3D" strokeOpacity="0.16" strokeWidth="3" strokeLinecap="round" />
-      <circle cx="69" cy="70" r="8" fill="#F5E642" stroke="#0F1B3D" strokeOpacity="0.55" strokeWidth="2" />
-      <path d="M65.5 70l2.2 2.2 4.8-5" stroke="#0F1B3D" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      {marks.map((s, i) => (
-        <text key={i} x={s.cx} y={s.cy} fill="#0F1B3D" opacity={s.o} fontSize="8" fontWeight="900">?</text>
+      <rect x="19" y="15" width="62" height="70" rx="10" fill="#fff" opacity="0.88" />
+      <rect x="28" y="27" width="44" height="7" rx="3.5" fill="#0F1B3D" opacity="0.18" />
+      <rect x="28" y="43" width="38" height="6" rx="3" fill="#2563EB" opacity="0.22" />
+      <rect x="28" y="57" width="32" height="6" rx="3" fill="#16A34A" opacity="0.22" />
+      <circle cx="70" cy="66" r="9" fill="#F5E642" stroke="#0F1B3D" strokeOpacity="0.48" strokeWidth="2" />
+      <path d="M66.4 66l2.2 2.2 5-5.2" stroke="#0F1B3D" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      {dots.map((s, i) => (
+        <circle key={i} cx={s.cx} cy={s.cy} r="1.2" fill="#0F1B3D" opacity={s.o * 0.35} />
       ))}
     </svg>
   )
+}
+
+function modeStatus(quiz: QuizRecord): { label: string; tone: 'ready' | 'draft' | 'attention' } {
+  if (!quiz.asyncShareSlug) return { label: 'Draft', tone: 'draft' }
+  if (quiz.asyncNeedsRepublish) return { label: 'Republish', tone: 'attention' }
+  return { label: 'Self-paced', tone: 'ready' }
+}
+
+function statusStyle(tone: 'ready' | 'draft' | 'attention') {
+  if (tone === 'ready') return { background: '#ECFDF5', color: '#047857', border: '1px solid #BBF7D0' }
+  if (tone === 'attention') return { background: '#FFFBEB', color: '#92400E', border: '1px solid #FDE68A' }
+  return { background: '#F8FAFC', color: '#64748B', border: '1px solid #E2E8F0' }
 }
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
@@ -334,6 +347,27 @@ export default function QuizzesPage() {
         </div>
       )}
 
+      <div className="mb-5 grid md:grid-cols-2 gap-3">
+        <div className="rounded-[14px] bg-white border p-4 flex items-center gap-3" style={{ borderColor: 'var(--color-line)' }}>
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#0F1B3D', color: '#F5E642' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M8 5v14l11-7z"/></svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-black" style={{ color: '#0F1B3D' }}>Host live</p>
+            <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>Run a room with a join code, timer, and leaderboard.</p>
+          </div>
+        </div>
+        <div className="rounded-[14px] bg-white border p-4 flex items-center gap-3" style={{ borderColor: 'var(--color-line)' }}>
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#ECFDF5', color: '#047857' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-black" style={{ color: '#0F1B3D' }}>Share self-paced</p>
+            <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>Send a link for anytime attempts, retakes, and reports.</p>
+          </div>
+        </div>
+      </div>
+
       {/* Toolbar — search + subject chips + Grid/List toggle */}
       <div className="mb-6 rounded-[14px] px-3 py-2.5 flex items-center gap-3 flex-wrap" style={{ background: '#fff', border: '1px solid var(--color-line)' }}>
         <div className="relative flex-1 min-w-[200px] max-w-[360px]">
@@ -426,7 +460,9 @@ export default function QuizzesPage() {
 
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                 <AnimatePresence>
-                  {recent.map((quiz, i) => (
+                  {recent.map((quiz, i) => {
+                    const status = modeStatus(quiz)
+                    return (
                     <motion.div
                       key={quiz.id}
                       layout
@@ -434,16 +470,16 @@ export default function QuizzesPage() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.95 }}
                       transition={{ delay: i * 0.04 }}
-                      className="rounded-[12px] overflow-hidden flex flex-col"
+                      className="rounded-[12px] overflow-hidden flex flex-col transition-shadow hover:shadow-lg"
                       style={{ background: '#fff', border: '1px solid var(--color-line)' }}
                     >
-                      <div className="relative aspect-square overflow-hidden" style={{ background: gradientFor(quiz.id) }}>
+                      <div className="relative aspect-[5/3] overflow-hidden" style={{ background: gradientFor(quiz.id) }}>
                         {quiz.coverImageUrl ? (
                           <img src={quiz.coverImageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
                         ) : (
                           <QuizCoverMotif id={quiz.id} />
                         )}
-                        <div className="absolute inset-x-0 bottom-0 h-20" style={{ background: 'linear-gradient(to top, rgba(15,27,61,0.82), rgba(15,27,61,0))' }} />
+                        <div className="absolute inset-x-0 bottom-0 h-16" style={{ background: 'linear-gradient(to top, rgba(15,27,61,0.76), rgba(15,27,61,0))' }} />
                         <div className="relative z-10 h-full p-3 flex flex-col justify-between">
                           <div className="flex items-start justify-between">
                             <span className="chip" style={{ background: 'rgba(255,255,255,0.86)', color: '#0F1B3D', backdropFilter: 'blur(6px)' }}>
@@ -470,6 +506,7 @@ export default function QuizzesPage() {
                           {quiz.subject && (
                             <span className="chip" style={{ background: '#EFF6FF', color: '#1D4ED8' }}>{quiz.subject}</span>
                           )}
+                          <span className="chip" style={statusStyle(status.tone)}>{status.label}</span>
                           {quiz.language && quiz.language !== 'en' && (
                             <span className="chip" style={{ background: 'var(--color-paper-2)', color: 'var(--color-text-muted)' }}>{quiz.language.toUpperCase()}</span>
                           )}
@@ -525,7 +562,8 @@ export default function QuizzesPage() {
                         </div>
                       </div>
                     </motion.div>
-                  ))}
+                    )
+                  })}
                 </AnimatePresence>
               </div>
             </section>
@@ -544,10 +582,12 @@ export default function QuizzesPage() {
               </div>
 
               <div className="rounded-[16px] overflow-hidden" style={{ background: '#fff', border: '1px solid var(--color-line)' }}>
-                {(view === 'list' ? filtered : rest).map((quiz, i, arr) => (
+                {(view === 'list' ? filtered : rest).map((quiz, i, arr) => {
+                  const status = modeStatus(quiz)
+                  return (
                   <div
                     key={quiz.id}
-                    className={`grid grid-cols-[40px_1fr_140px_auto] gap-4 items-center p-3 ${i < arr.length - 1 ? 'border-b' : ''}`}
+                    className={`grid grid-cols-[40px_1fr] md:grid-cols-[40px_1fr_120px_auto] gap-3 md:gap-4 items-center p-3 ${i < arr.length - 1 ? 'border-b' : ''}`}
                     style={{ borderColor: 'var(--color-line)' }}
                   >
                     <div className="w-10 h-10 rounded-[8px] overflow-hidden relative" style={{ background: gradientFor(quiz.id) }}>
@@ -561,6 +601,7 @@ export default function QuizzesPage() {
                       <div className="text-[14px] font-semibold truncate" style={{ color: '#0F1B3D' }}>{quiz.title}</div>
                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         {quiz.subject && <span className="chip" style={{ background: '#EFF6FF', color: '#1D4ED8' }}>{quiz.subject}</span>}
+                        <span className="chip" style={statusStyle(status.tone)}>{status.label}</span>
                         <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{quiz.questionCount} questions</span>
                         <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>Updated {timeAgo(quiz.updatedAt)}</span>
                         {quiz.asyncShareSlug && (
@@ -578,7 +619,7 @@ export default function QuizzesPage() {
                     <div className="text-[11px] hidden md:block" style={{ color: 'var(--color-text-muted)' }}>
                       {new Date(quiz.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </div>
-                    <div className="flex items-center gap-1.5">
+                    <div className="col-span-2 md:col-span-1 flex items-center gap-1.5 justify-end">
                       <Link href={`/host/create?edit=${quiz.id}`} className="btn-secondary" style={{ textDecoration: 'none', padding: '6px 10px', fontSize: '12px' }}>
                         Edit
                       </Link>
@@ -623,7 +664,8 @@ export default function QuizzesPage() {
                       </button>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             </section>
           )}

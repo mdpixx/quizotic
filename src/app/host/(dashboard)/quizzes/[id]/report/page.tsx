@@ -191,7 +191,7 @@ export default function AsyncReportPage() {
       })
       .catch(() => setError('Failed to load report'))
 
-    fetch('/api/auth/plan').then(r => r.json()).then(json => {
+    fetch('/api/billing/status').then(r => r.json()).then(json => {
       if (json?.plan && json.plan !== 'free') setIsPro(true)
     }).catch(() => {})
   }, [id])

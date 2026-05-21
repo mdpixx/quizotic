@@ -30,7 +30,7 @@ fi
 # Remove folders that exist on destination but shouldn't (rsync --exclude
 # doesn't delete already-present excluded files, and --delete-excluded is
 # too aggressive because it would also nuke .git).
-rm -rf "$CACHE_DIR/remotion"
+rm -rf "$CACHE_DIR/remotion" "$CACHE_DIR/audits" "$CACHE_DIR/scripts/_pull-feedback.mjs"
 
 # Rsync source files (exclude everything the standalone repo doesn't need)
 echo "→ Syncing files from $SRC_DIR → $CACHE_DIR"
@@ -44,10 +44,12 @@ rsync -a --delete \
   --exclude='.DS_Store' \
   --exclude='test-results/' \
   --exclude='playwright-report/' \
+  --exclude='audits/' \
   --exclude='assets/' \
   --exclude='brand logo/' \
   --exclude='Screenshots/' \
   --exclude='brand-logo-mockup.html' \
+  --exclude='scripts/_pull-feedback.mjs' \
   --exclude='.claude/' \
   --exclude='.cursor/' \
   --exclude='.vscode/' \
