@@ -1,11 +1,12 @@
 'use client'
 
-import React, { useState, useRef, useEffect, Suspense, useCallback } from 'react'
+import React, { useState, useRef, useEffect, Suspense, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { saveQuiz, loadQuizzes, setActiveSession } from '@/lib/quiz-storage'
 import { draftKey, readDraft, writeDraft, clearDraft, formatDraftAge } from '@/lib/draft-storage'
 import { useAutosave } from '@/lib/use-autosave'
+import { useHistory } from '@/lib/use-history'
 import type { Question, QuestionType, BloomsLevel, Quiz, QuestionOption } from '@/lib/quiz-types'
 import { getOptionText, getOptionImage, isScoredType, isSequenceRanking } from '@/lib/quiz-types'
 import { ImageUpload } from '@/components/ImageUpload'
@@ -1008,6 +1009,18 @@ function CreateQuizPageInner() {
   const [theme, setThemeState] = useState<string | undefined>(undefined)
   const [themePickerOpen, setThemePickerOpen] = useState(false)
   const [questions, setQuestions] = useState<Question[]>([makeQuestion()])
+  const historyValue = useMemo(
+    () => ({ title, subject, questions, theme }),
+    [title, subject, questions, theme],
+  )
+  const history = useHistory(historyValue, (snap) => {
+    setTitle(snap.title)
+    setSubject(snap.subject)
+    setQuestions(snap.questions)
+    setThemeState(snap.theme)
+  })
+  const historyResetRef = useRef(history.reset)
+  historyResetRef.current = history.reset
   const [saveError, setSaveError] = useState('')
   const [savedQuiz, setSavedQuiz] = useState<Quiz | null>(null)
   const [recoveredDraft, setRecoveredDraft] = useState<{ savedAt: number; quizId: string } | null>(null)
@@ -1118,6 +1131,7 @@ function CreateQuizPageInner() {
       setQuestions(draft.value.questions)
       setRecoveredDraft({ savedAt: draft.savedAt, quizId: editId })
       setShowTitleModal(false)
+      historyResetRef.current({ title: draft.value.title, subject: draft.value.subject, questions: draft.value.questions, theme })
       return
     }
     if (saved) {
@@ -1126,6 +1140,7 @@ function CreateQuizPageInner() {
       setThemeState(saved.theme)
       setQuestions(saved.questions)
       setShowTitleModal(false)
+      historyResetRef.current({ title: saved.title, subject: saved.subject ?? '', questions: saved.questions, theme: saved.theme })
       return
     }
     // Not in this browser's localStorage — load authoritative copy from the DB
@@ -1139,11 +1154,13 @@ function CreateQuizPageInner() {
           setSubject(draft.value.subject)
           setQuestions(draft.value.questions)
           setRecoveredDraft({ savedAt: draft.savedAt, quizId: editId })
+          historyResetRef.current({ title: draft.value.title, subject: draft.value.subject, questions: draft.value.questions, theme })
         } else {
           setTitle(q.title ?? '')
           setSubject(q.subject ?? '')
           setThemeState(q.theme ?? undefined)
           setQuestions(q.questions ?? [])
+          historyResetRef.current({ title: q.title ?? '', subject: q.subject ?? '', questions: q.questions ?? [], theme: q.theme ?? undefined })
         }
         setShowTitleModal(false)
       })
@@ -1596,6 +1613,18 @@ function CreateQuizPageInner() {
     return () => window.removeEventListener('beforeunload', handler)
   }, [title, subject, questions])
 
+  // Undo/redo keyboard shortcuts (Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z, Ctrl+Y)
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const mod = e.ctrlKey || e.metaKey
+      if (!mod) return
+      if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); history.undo() }
+      else if ((e.key === 'z' && e.shiftKey) || (e.key === 'y' && !e.shiftKey)) { e.preventDefault(); history.redo() }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [history.undo, history.redo])
+
   // ── Save ────────────────────────────────────────────────────────────────────
 
   function showSaveError(msg: string) { setSaveError(msg); setTimeout(() => setSaveError(''), 4000) }
@@ -1815,7 +1844,7 @@ function CreateQuizPageInner() {
           <div className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black" style={{ background: '#F5E642', color: '#0D0D0D' }}>Q</div>
           <span className="text-sm font-extrabold hidden sm:inline" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Quizotic</span>
         </Link>
-        <button onClick={() => router.push('/host')} className="w-9 h-9 rounded-lg border flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors flex-shrink-0" style={{ borderColor: '#E2E8F0' }}>
+        <button onClick={() => router.push(editId ? '/host/quizzes' : '/host')} className="w-9 h-9 rounded-lg border flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors flex-shrink-0" style={{ borderColor: '#E2E8F0' }}>
           <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4"><path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </button>
         <div className="flex-1 min-w-0">
@@ -1833,6 +1862,34 @@ function CreateQuizPageInner() {
           <span className="hidden md:inline-flex">
             <AutosaveBadge state={autosaveState} />
           </span>
+          {/* Undo */}
+          <button
+            onClick={history.undo}
+            disabled={!history.canUndo}
+            title="Undo (Ctrl+Z)"
+            aria-label="Undo"
+            className="flex items-center justify-center w-9 h-9 rounded-lg border text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+            style={{ borderColor: '#E2E8F0' }}
+          >
+            <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" aria-hidden="true">
+              <path d="M4 7L2 5L4 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M2 5h7a4 4 0 010 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          {/* Redo */}
+          <button
+            onClick={history.redo}
+            disabled={!history.canRedo}
+            title="Redo (Ctrl+Shift+Z)"
+            aria-label="Redo"
+            className="flex items-center justify-center w-9 h-9 rounded-lg border text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+            style={{ borderColor: '#E2E8F0' }}
+          >
+            <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" aria-hidden="true">
+              <path d="M12 7L14 5L12 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M14 5H7a4 4 0 000 8h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
           {/* + Add question button */}
           <button
             onClick={e => {
