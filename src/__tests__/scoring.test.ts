@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { checkAnswer, calcPoints, applyStreak } from '../lib/scoring'
+import { checkAnswer, calcPoints, applyStreak, validateAnswer } from '../lib/scoring'
 
 // ─── checkAnswer ─────────────────────────────────────────────────────────────
 
@@ -134,5 +134,139 @@ describe('applyStreak', () => {
     const p = mkParticipant(3)
     expect(applyStreak(p, true, true)).toBe(0)
     expect(p.streakCount).toBe(3) // unchanged
+  })
+})
+
+// ─── validateAnswer ──────────────────────────────────────────────────────────
+
+const mcqQ = { type: 'mcq', options: ['A', 'B', 'C', 'D'], timerSeconds: 20, points: 1000 }
+const tfQ = { type: 'truefalse', timerSeconds: 15, points: 500 }
+const msQ = { type: 'multiselect', options: ['A', 'B', 'C'], timerSeconds: 30, points: 1000 }
+const oeQ = { type: 'openended', timerSeconds: 60, points: 0 }
+const ratingQ = { type: 'rating', options: ['1', '2', '3', '4', '5'], timerSeconds: 30, points: 0 }
+const rankQ = { type: 'ranking', options: ['A', 'B', 'C'], timerSeconds: 60, points: 0 }
+const drawQ = { type: 'drawing', timerSeconds: 120, points: 0 }
+
+describe('validateAnswer — mcq', () => {
+  it('accepts a valid integer index', () => {
+    const r = validateAnswer(mcqQ, 2)
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.value).toBe(2)
+  })
+
+  it('accepts a string index', () => {
+    const r = validateAnswer(mcqQ, '1')
+    expect(r.ok).toBe(true)
+  })
+
+  it('rejects out-of-range index', () => {
+    const r = validateAnswer(mcqQ, 5)
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.code).toBe('invalid_answer')
+  })
+
+  it('rejects negative index', () => {
+    expect(validateAnswer(mcqQ, -1).ok).toBe(false)
+  })
+})
+
+describe('validateAnswer — truefalse backfill', () => {
+  it('accepts 0 (True) even without explicit options', () => {
+    expect(validateAnswer(tfQ, 0).ok).toBe(true)
+  })
+
+  it('accepts 1 (False)', () => {
+    expect(validateAnswer(tfQ, 1).ok).toBe(true)
+  })
+
+  it('rejects 2', () => {
+    expect(validateAnswer(tfQ, 2).ok).toBe(false)
+  })
+})
+
+describe('validateAnswer — multiselect', () => {
+  it('accepts valid array', () => {
+    const r = validateAnswer(msQ, ['0', '2'])
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.value).toEqual(['0', '2'])
+  })
+
+  it('deduplicates repeated indices', () => {
+    const r = validateAnswer(msQ, ['1', '1'])
+    expect(r.ok).toBe(true)
+    if (r.ok) expect((r.value as string[]).length).toBe(1)
+  })
+
+  it('rejects empty array', () => {
+    expect(validateAnswer(msQ, []).ok).toBe(false)
+  })
+
+  it('rejects out-of-range index in array', () => {
+    expect(validateAnswer(msQ, ['0', '5']).ok).toBe(false)
+  })
+})
+
+describe('validateAnswer — openended / wordcloud / qa', () => {
+  it('accepts non-empty string', () => {
+    const r = validateAnswer(oeQ, '  my answer  ')
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.value).toBe('my answer')
+  })
+
+  it('rejects empty string', () => {
+    expect(validateAnswer(oeQ, '   ').ok).toBe(false)
+  })
+
+  it('caps at 2000 chars', () => {
+    const long = 'x'.repeat(3000)
+    const r = validateAnswer(oeQ, long)
+    expect(r.ok).toBe(true)
+    if (r.ok) expect((r.value as string).length).toBe(2000)
+  })
+})
+
+describe('validateAnswer — rating', () => {
+  it('accepts 0-based index string', () => {
+    const r = validateAnswer(ratingQ, '2')
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.value).toBe('2')
+  })
+
+  it('rejects index >= max', () => {
+    expect(validateAnswer(ratingQ, 5).ok).toBe(false)
+  })
+})
+
+describe('validateAnswer — ranking', () => {
+  it('accepts a valid permutation', () => {
+    const r = validateAnswer(rankQ, [2, 0, 1])
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.value).toEqual([2, 0, 1])
+  })
+
+  it('rejects wrong length', () => {
+    expect(validateAnswer(rankQ, [0, 1]).ok).toBe(false)
+  })
+
+  it('rejects duplicate indices (not a permutation)', () => {
+    expect(validateAnswer(rankQ, [0, 0, 1]).ok).toBe(false)
+  })
+})
+
+describe('validateAnswer — drawing', () => {
+  it('accepts a valid data URL', () => {
+    const r = validateAnswer(drawQ, 'data:image/png;base64,abc')
+    expect(r.ok).toBe(true)
+  })
+
+  it('rejects non-data-url', () => {
+    expect(validateAnswer(drawQ, 'https://example.com/img.png').ok).toBe(false)
+  })
+
+  it('rejects drawings over 200 000 chars', () => {
+    const big = 'data:image/png;base64,' + 'A'.repeat(200000)
+    const r = validateAnswer(drawQ, big)
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.code).toBe('answer_too_large')
   })
 })

@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { type NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
+import { isAsyncScoredType, ASYNC_PARTICIPATION_TYPES, type Question } from '@/lib/scoring'
 
 type Params = { params: Promise<{ slug: string }> }
 
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     const session = await prisma.gameSession.findUnique({
       where: { shareSlug: slug },
-      select: { id: true, mode: true, quizVersion: { select: { questionCount: true } } },
+      select: { id: true, mode: true, quizVersion: { select: { questionCount: true, snapshot: true } } },
     })
     if (!session || session.mode !== 'async') {
       return NextResponse.json({ success: false, error: 'Quiz not found' }, { status: 404 })
@@ -43,12 +44,18 @@ export async function POST(req: NextRequest, { params }: Params) {
     // Sum all Answer points for this participant
     const answers = await prisma.answer.findMany({
       where: { sessionId: session.id, participantId },
-      select: { points: true, isCorrect: true },
+      select: { points: true, isCorrect: true, questionIndex: true },
     })
     const finalScore = answers.reduce((s, a) => s + a.points, 0)
-    const correctCount = answers.filter(a => a.isCorrect).length
+    const correctCount = answers.filter(a => a.isCorrect === true).length
     const answeredCount = answers.length
+    const snapshot = (session.quizVersion?.snapshot as Question[] | null) ?? []
     const questionCount = session.quizVersion?.questionCount ?? answeredCount
+    const scoredQuestionCount = snapshot.filter(q => isAsyncScoredType(q.type)).length
+    const answeredIndexSet = new Set(answers.map(a => a.questionIndex))
+    const participationAnsweredCount = snapshot.filter(
+      (q, i) => answeredIndexSet.has(i) && ASYNC_PARTICIPATION_TYPES.has(q.type),
+    ).length
 
     const now = new Date()
     const finalized = await prisma.attendee.updateMany({
@@ -71,7 +78,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     const total = allFinished.length
     const rank = allFinished.findIndex(a => a.finalScore <= finalScore) + 1
 
-    return NextResponse.json({ success: true, data: { finalScore, rank, total, correctCount, answeredCount, questionCount } })
+    return NextResponse.json({ success: true, data: { finalScore, rank, total, correctCount, answeredCount, questionCount, scoredQuestionCount, participationAnsweredCount } })
   } catch (err) {
     console.error('[async/finish:POST]', err instanceof Error ? err.message : err)
     return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 })

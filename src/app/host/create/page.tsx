@@ -995,7 +995,7 @@ function CreateQuizPageInner() {
   const [modalTitle, setModalTitle] = useState('')
   const [modalSubject, setModalSubject] = useState('')
 
-  // Load existing quiz when editing — prefer a newer draft if one exists
+  // Load existing quiz when editing — prefer newer draft, then localStorage, then DB
   useEffect(() => {
     if (!editId) return
     quizIdRef.current = editId
@@ -1010,12 +1010,34 @@ function CreateQuizPageInner() {
       setShowTitleModal(false)
       return
     }
-    if (!saved) return
-    setTitle(saved.title)
-    setSubject(saved.subject ?? '')
-    setThemeState(saved.theme)
-    setQuestions(saved.questions)
-    setShowTitleModal(false)
+    if (saved) {
+      setTitle(saved.title)
+      setSubject(saved.subject ?? '')
+      setThemeState(saved.theme)
+      setQuestions(saved.questions)
+      setShowTitleModal(false)
+      return
+    }
+    // Not in this browser's localStorage — load authoritative copy from the DB
+    fetch(`/api/quizzes/${editId}`)
+      .then(r => r.json())
+      .then((json: { success: boolean; data?: { title: string; subject?: string; theme?: string; updatedAt: string; questions: Question[] } }) => {
+        if (!json.success || !json.data) return
+        const q = json.data
+        if (draft && draft.savedAt > new Date(q.updatedAt).getTime()) {
+          setTitle(draft.value.title)
+          setSubject(draft.value.subject)
+          setQuestions(draft.value.questions)
+          setRecoveredDraft({ savedAt: draft.savedAt, quizId: editId })
+        } else {
+          setTitle(q.title ?? '')
+          setSubject(q.subject ?? '')
+          setThemeState(q.theme ?? undefined)
+          setQuestions(q.questions ?? [])
+        }
+        setShowTitleModal(false)
+      })
+      .catch(() => { /* silent — editor stays at title modal so user can re-enter */ })
   }, [editId])
 
   function handleModalSubmit(e: React.FormEvent) {

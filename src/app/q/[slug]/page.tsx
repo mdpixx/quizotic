@@ -2,32 +2,31 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { use } from 'react'
+import { CountdownPill } from '@/components/async/CountdownPill'
+import { ErrorOverlay } from '@/components/async/ErrorOverlay'
+import { QuestionInput } from '@/components/async/QuestionInput'
+import type { AnswerValue, QuizQuestion } from '@/components/async/types'
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────
 
-type QuestionOption = string | { text: string; imageUrl?: string }
-
-interface PublicQuestion {
-  index: number
-  total: number
-  type: string
-  text: string
-  imageUrl?: string
-  options?: QuestionOption[]
-  timerSeconds: number
-  points: number
-  explanation?: string
+interface QuizInfo {
+  title: string
+  subject: string | null
+  questionCount: number
+  allowRetries: boolean
+  closesAt: string | null
+  estimatedSeconds: number
+  maxBaseScore: number
+  timeLimitMinutes: number | null
 }
 
-type Phase = 'loading' | 'closed' | 'entry' | 'question' | 'feedback' | 'done'
-
 interface AnswerFeedback {
-  isCorrect: boolean
+  isCorrect: boolean | null
   points: number
   correctAnswer: string | null
   correctAnswers: string[] | null
   explanation: string | null
-  nextQuestion: PublicQuestion | null
+  nextQuestion: QuizQuestion | null
 }
 
 interface Result {
@@ -39,21 +38,28 @@ interface Result {
   questionCount: number
 }
 
-// ─── Option display ──────────────────────────────────────────────────────────
+type Phase = 'loading' | 'entry' | 'question' | 'feedback' | 'recording' | 'done' | 'timeup' | 'closed'
 
-const OPTION_COLORS = ['#E21B3C', '#1368CE', '#D89E00', '#26890C', '#7C3AED']
-const OPTION_LETTERS = ['A', 'B', 'C', 'D', 'E']
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function getOptText(opt: QuestionOption): string {
-  return typeof opt === 'string' ? opt : opt.text
-}
-function getOptImage(opt: QuestionOption): string | undefined {
-  return typeof opt === 'string' ? undefined : opt.imageUrl
+function storageKey(slug: string) { return `qz-async-${slug}` }
+
+function saveSession(slug: string, participantId: string, attendeeId: string) {
+  try { localStorage.setItem(storageKey(slug), JSON.stringify({ participantId, attendeeId })) } catch { /* */ }
 }
 
-function formatMinutes(seconds: number): string {
-  const mins = Math.max(1, Math.round(seconds / 60))
-  return `${mins} min`
+function loadSession(slug: string): { participantId: string; attendeeId: string } | null {
+  try {
+    const raw = localStorage.getItem(storageKey(slug))
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (parsed?.participantId && parsed?.attendeeId) return parsed
+    return null
+  } catch { return null }
+}
+
+function clearSession(slug: string) {
+  try { localStorage.removeItem(storageKey(slug)) } catch { /* */ }
 }
 
 function formatCloseDate(iso: string | null): string | null {
@@ -61,123 +67,139 @@ function formatCloseDate(iso: string | null): string | null {
   return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
 }
 
-// ─── Main component ──────────────────────────────────────────────────────────
+// ─── Main ────────────────────────────────────────────────────────────────────
 
 export default function AsyncQuizPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params)
 
   const [phase, setPhase] = useState<Phase>('loading')
-  const [quizInfo, setQuizInfo] = useState<{ title: string; subject: string | null; questionCount: number; allowRetries: boolean; closesAt: string | null; estimatedSeconds: number; maxBaseScore: number } | null>(null)
+  const [quizInfo, setQuizInfo] = useState<QuizInfo | null>(null)
   const [name, setName] = useState('')
   const [nameError, setNameError] = useState('')
   const [starting, setStarting] = useState(false)
+  const [finishing, setFinishing] = useState(false)
 
   const attendeeIdRef = useRef<string | null>(null)
   const participantIdRef = useRef<string | null>(null)
 
-  const [currentQ, setCurrentQ] = useState<PublicQuestion | null>(null)
-  const [selectedIndices, setSelectedIndices] = useState<string[]>([])
-  const [submitting, setSubmitting] = useState(false)
-  const [answerError, setAnswerError] = useState('')
+  const [currentQ, setCurrentQ] = useState<QuizQuestion | null>(null)
   const [feedback, setFeedback] = useState<AnswerFeedback | null>(null)
   const [totalScore, setTotalScore] = useState(0)
   const [correctCount, setCorrectCount] = useState(0)
-  const questionStartRef = useRef<number>(0)
-
+  const [deadlineAt, setDeadlineAt] = useState<number | null>(null)
   const [result, setResult] = useState<Result | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const pendingAnswerRef = useRef<AnswerValue | null>(null)
+  const submittingRef = useRef(false)
+  const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Persisted participantId per slug to enforce single-attempt
-  const storedPidKey = `qz-async-pid-${slug}`
-
-  // ─── Load quiz info ──────────────────────────────────────────────────────
+  // ─── Load quiz info ────────────────────────────────────────────────────────
 
   useEffect(() => {
     fetch(`/api/async/${slug}`)
       .then(r => r.json())
       .then(json => {
-        if (json.success) {
-          setQuizInfo(json.data)
-          setPhase('entry')
+        if (!json.success) { setPhase('closed'); return }
+        setQuizInfo(json.data)
+
+        if (typeof window !== 'undefined') {
+          const session = loadSession(slug)
+          if (session) {
+            resumeSession(session.participantId, session.attendeeId)
+          } else {
+            setPhase('entry')
+          }
         } else {
-          setPhase('closed')
+          setPhase('entry')
         }
       })
       .catch(() => setPhase('closed'))
-  }, [slug])
+  }, [slug]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Start quiz ──────────────────────────────────────────────────────────
+  // ─── Resume ───────────────────────────────────────────────────────────────
+
+  async function resumeSession(participantId: string, attendeeId: string) {
+    try {
+      const res = await fetch(`/api/async/${slug}/state`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participantId, attendeeId }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) { setPhase('entry'); return }
+
+      const { status, deadlineAt: dl, nextQuestion, result: r } = json.data
+      attendeeIdRef.current = attendeeId
+      participantIdRef.current = participantId
+
+      if (status === 'finished') {
+        setResult(r)
+        setPhase('done')
+      } else if (status === 'time_up') {
+        setResult(r)
+        setPhase('timeup')
+      } else if (status === 'closed') {
+        clearSession(slug)
+        setPhase('closed')
+      } else if (status === 'in_progress' && nextQuestion) {
+        setCurrentQ(nextQuestion)
+        if (dl) setDeadlineAt(dl)
+        setPhase('question')
+      } else {
+        setPhase('entry')
+      }
+    } catch {
+      setPhase('entry')
+    }
+  }
+
+  // ─── Start ────────────────────────────────────────────────────────────────
 
   const handleStart = useCallback(async () => {
     if (!name.trim()) { setNameError('Please enter your name.'); return }
     setNameError('')
     setStarting(true)
 
-    const existingPid = typeof window !== 'undefined' ? localStorage.getItem(storedPidKey) : null
-
     try {
       const res = await fetch(`/api/async/${slug}/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), existingParticipantId: existingPid }),
+        body: JSON.stringify({ name: name.trim() }),
       })
       const json = await res.json()
 
-      if (res.status === 409) {
-        // Already completed — check if retries are allowed
-        if (!quizInfo?.allowRetries) {
-          setPhase('closed')
-          return
-        }
+      if (res.status === 409 && !quizInfo?.allowRetries) {
+        setPhase('closed')
+        return
       }
       if (!res.ok || !json.success) {
-        setNameError(json.message || json.error || 'Could not start. Please try again.')
+        setNameError(json.message ?? json.error ?? 'Could not start. Please try again.')
         setStarting(false)
         return
       }
 
-      const { attendeeId, participantId, question } = json.data
+      const { attendeeId, participantId, question, deadlineAt: dl } = json.data
       attendeeIdRef.current = attendeeId
       participantIdRef.current = participantId
-      if (typeof window !== 'undefined') localStorage.setItem(storedPidKey, participantId)
+      saveSession(slug, participantId, attendeeId)
 
+      if (dl) setDeadlineAt(dl)
       setCurrentQ(question)
-      setSelectedIndices([])
-      setAnswerError('')
-      setFeedback(null)
-      questionStartRef.current = Date.now()
       setPhase('question')
     } catch {
       setNameError('Network error. Please try again.')
       setStarting(false)
     }
-  }, [name, slug, storedPidKey, quizInfo?.allowRetries])
+  }, [name, slug, quizInfo?.allowRetries])
 
-  // ─── Select option ───────────────────────────────────────────────────────
+  // ─── Submit answer ────────────────────────────────────────────────────────
 
-  function handleSelect(idx: string) {
-    if (feedback) return
+  async function submitAnswer(answer: AnswerValue) {
+    if (submittingRef.current) return
+    submittingRef.current = true
+
     const q = currentQ
-    if (!q) return
-    if (q.type === 'multiselect') {
-      setSelectedIndices(prev =>
-        prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]
-      )
-    } else {
-      // mcq / truefalse: select + immediately submit
-      setSelectedIndices([idx])
-      submitAnswer(idx)
-    }
-  }
-
-  // ─── Submit answer ───────────────────────────────────────────────────────
-
-  async function submitAnswer(answer: string | string[]) {
-    const q = currentQ
-    if (!q || submitting || feedback) return
-    setSubmitting(true)
-    setAnswerError('')
-
-    const timeMs = Date.now() - questionStartRef.current
+    if (!q) { submittingRef.current = false; return }
 
     try {
       const res = await fetch(`/api/async/${slug}/answer`, {
@@ -188,142 +210,192 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
           attendeeId: attendeeIdRef.current,
           questionIndex: q.index,
           answer,
-          timeMs,
+          timeMs: 0,
         }),
       })
       const json = await res.json()
-      if (!res.ok || !json.success) {
-        setAnswerError(json.message || json.error || 'Could not submit your answer. Please try again.')
-        setSubmitting(false)
+
+      if (res.status === 410 || json.code === 'time_up') {
+        await finishQuiz()
+        setPhase('timeup')
+        submittingRef.current = false
         return
       }
-      if (json.data.isCorrect) setTotalScore(s => s + json.data.points)
-      if (json.data.isCorrect) setCorrectCount(c => c + 1)
-      setFeedback(json.data)
-      setPhase('feedback')
+
+      if (!res.ok || !json.success) {
+        const msg = json.message ?? json.error ?? 'Could not submit. Please try again.'
+        setErrorMsg(msg)
+        pendingAnswerRef.current = answer
+        submittingRef.current = false
+        return
+      }
+
+      const fb: AnswerFeedback = json.data
+      if (fb.isCorrect === true) {
+        setTotalScore(s => s + fb.points)
+        setCorrectCount(c => c + 1)
+      }
+      setFeedback(fb)
+      pendingAnswerRef.current = null
+
+      // participation types → brief recording state, then auto-advance
+      if (fb.isCorrect === null) {
+        setPhase('recording')
+        autoAdvanceTimerRef.current = setTimeout(() => advance(fb), 1400)
+      } else {
+        setPhase('feedback')
+      }
     } catch {
-      setAnswerError('Network error. Please check your connection and try again.')
-      setSubmitting(false)
+      setErrorMsg('Network error. Please check your connection and try again.')
+      pendingAnswerRef.current = answer
     } finally {
-      setSubmitting(false)
+      submittingRef.current = false
     }
   }
 
-  function handleMultiselectSubmit() {
-    if (selectedIndices.length === 0) return
-    submitAnswer(selectedIndices)
-  }
+  // ─── Advance to next question or finish ───────────────────────────────────
 
-  // ─── Next question / finish ──────────────────────────────────────────────
-
-  async function handleNext() {
-    if (!feedback) return
-    if (feedback.nextQuestion) {
-      setCurrentQ(feedback.nextQuestion)
-      setSelectedIndices([])
-      setAnswerError('')
+  function advance(fb: AnswerFeedback) {
+    if (autoAdvanceTimerRef.current) {
+      clearTimeout(autoAdvanceTimerRef.current)
+      autoAdvanceTimerRef.current = null
+    }
+    if (fb.nextQuestion) {
+      setCurrentQ(fb.nextQuestion)
       setFeedback(null)
-      questionStartRef.current = Date.now()
       setPhase('question')
     } else {
-      // Last question answered — call finish
-      try {
-        const res = await fetch(`/api/async/${slug}/finish`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ participantId: participantIdRef.current, attendeeId: attendeeIdRef.current }),
-        })
-        const json = await res.json()
-        setResult(json.success ? json.data : { finalScore: totalScore, rank: 1, total: 1, correctCount, answeredCount: currentQ ? currentQ.index + 1 : correctCount, questionCount: quizInfo?.questionCount ?? correctCount })
-      } catch {
-        setResult({ finalScore: totalScore, rank: 1, total: 1, correctCount, answeredCount: currentQ ? currentQ.index + 1 : correctCount, questionCount: quizInfo?.questionCount ?? correctCount })
-      }
-      setPhase('done')
+      finishQuiz()
     }
   }
 
-  // ─── Render: loading ─────────────────────────────────────────────────────
+  // ─── Finish ───────────────────────────────────────────────────────────────
+
+  async function finishQuiz() {
+    if (finishing) return
+    setFinishing(true)
+    try {
+      const res = await fetch(`/api/async/${slug}/finish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participantId: participantIdRef.current, attendeeId: attendeeIdRef.current }),
+      })
+      const json = await res.json()
+      if (json.success && json.data) {
+        setResult(json.data)
+      }
+      clearSession(slug)
+      setPhase('done')
+    } catch {
+      clearSession(slug)
+      setPhase('done')
+    } finally {
+      setFinishing(false)
+    }
+  }
+
+  // ─── Time expired ─────────────────────────────────────────────────────────
+
+  const handleExpire = useCallback(() => {
+    if (phase === 'done' || phase === 'timeup') return
+    finishQuiz().then(() => setPhase('timeup'))
+  }, [phase]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Retry after error ────────────────────────────────────────────────────
+
+  function handleRetry() {
+    setErrorMsg(null)
+    const pending = pendingAnswerRef.current
+    if (pending !== null) {
+      submitAnswer(pending)
+    }
+  }
+
+  // ─── Phase: loading ───────────────────────────────────────────────────────
 
   if (phase === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#0F1B3D' }}>
-        <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#F5E642', borderTopColor: 'transparent' }} />
+        <div className="w-8 h-8 rounded-full border-2 animate-spin"
+          style={{ borderColor: '#F5E642', borderTopColor: 'transparent' }} />
       </div>
     )
   }
 
-  // ─── Render: closed / not found ──────────────────────────────────────────
+  // ─── Phase: closed ────────────────────────────────────────────────────────
 
   if (phase === 'closed') {
-    const alreadyDone = typeof window !== 'undefined' && !!localStorage.getItem(storedPidKey) && !quizInfo?.allowRetries
     return (
       <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#0F1B3D' }}>
-        <div className="text-center max-w-sm">
-          <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-4" style={{ background: 'rgba(245,230,66,0.1)', border: '1.5px solid rgba(245,230,66,0.3)' }}>
-            <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8"><circle cx="12" cy="12" r="9" stroke="#F5E642" strokeWidth="1.5"/><path d="M12 8v4M12 16h.01" stroke="#F5E642" strokeWidth="1.5" strokeLinecap="round"/></svg>
+        <div className="text-center max-w-xs">
+          <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-4"
+            style={{ background: 'rgba(245,230,66,0.1)', border: '1.5px solid rgba(245,230,66,0.3)' }}>
+            <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8">
+              <circle cx="12" cy="12" r="9" stroke="#F5E642" strokeWidth="1.5"/>
+              <path d="M12 8v4M12 16h.01" stroke="#F5E642" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
           </div>
           <h1 className="text-2xl font-black mb-2" style={{ color: '#fff', fontFamily: 'var(--font-heading)' }}>
-            {alreadyDone ? "You've completed this quiz" : 'Quiz unavailable'}
+            Quiz unavailable
           </h1>
           <p className="text-sm" style={{ color: '#94A3B8' }}>
-            {alreadyDone
-              ? 'Retakes are not enabled for this quiz.'
-              : 'This quiz link is no longer active or does not exist.'}
+            This quiz link is no longer active or does not exist.
           </p>
         </div>
       </div>
     )
   }
 
-  // ─── Render: entry screen ────────────────────────────────────────────────
+  // ─── Phase: entry ─────────────────────────────────────────────────────────
 
   if (phase === 'entry') {
+    const info = quizInfo
+    const closeDateStr = formatCloseDate(info?.closesAt ?? null)
+    const hasTimeLimit = !!info?.timeLimitMinutes
+
     return (
       <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#0F1B3D' }}>
         <div className="w-full max-w-sm">
-          {/* Logo mark */}
-          <div className="text-center mb-8">
+          <div className="text-center mb-7">
             <div className="inline-flex items-center gap-2 mb-4">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#F5E642' }}>
-                <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#0F1B3D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+                    stroke="#0F1B3D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </div>
               <span className="text-sm font-bold" style={{ color: '#F5E642' }}>Quizotic</span>
             </div>
             <h1 className="text-2xl font-black leading-snug mb-1" style={{ color: '#fff', fontFamily: 'var(--font-heading)' }}>
-              {quizInfo?.title ?? 'Quiz'}
+              {info?.title ?? 'Quiz'}
             </h1>
-            {quizInfo?.subject && (
-              <p className="text-sm" style={{ color: '#94A3B8' }}>{quizInfo.subject}</p>
+            {info?.subject && (
+              <p className="text-sm" style={{ color: '#94A3B8' }}>{info.subject}</p>
             )}
-            <p className="text-sm mt-1" style={{ color: '#64748B' }}>
-              {quizInfo?.questionCount ?? 0} question{quizInfo?.questionCount !== 1 ? 's' : ''}
-            </p>
           </div>
 
-          <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <div className="grid grid-cols-2 gap-2 mb-5">
-              <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Mode</p>
-                <p className="text-sm font-bold" style={{ color: '#fff' }}>Self-paced</p>
-              </div>
-              <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Time</p>
-                <p className="text-sm font-bold" style={{ color: '#fff' }}>{formatMinutes(quizInfo?.estimatedSeconds ?? 60)}</p>
-              </div>
-              <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Host</p>
-                <p className="text-sm font-bold" style={{ color: '#fff' }}>Not needed</p>
-              </div>
-              <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Retakes</p>
-                <p className="text-sm font-bold" style={{ color: '#fff' }}>{quizInfo?.allowRetries ? 'Allowed' : 'One try'}</p>
-              </div>
+          <div className="rounded-2xl p-5 mb-4" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <InfoTile label="Questions" value={String(info?.questionCount ?? 0)} />
+              <InfoTile label="Mode" value="Self-paced" />
+              {hasTimeLimit
+                ? <InfoTile label="Time limit" value={`${info!.timeLimitMinutes} min`} accent />
+                : <InfoTile label="Time" value="Untimed" />}
+              <InfoTile label="Retakes" value={info?.allowRetries ? 'Allowed' : 'One try'} />
             </div>
-            {formatCloseDate(quizInfo?.closesAt ?? null) && (
+
+            {closeDateStr && (
               <p className="text-xs mb-4 rounded-lg px-3 py-2" style={{ background: 'rgba(245,230,66,0.1)', color: '#F5E642' }}>
-                Available until {formatCloseDate(quizInfo?.closesAt ?? null)}
+                Available until {closeDateStr}
               </p>
             )}
+
+            {hasTimeLimit && (
+              <p className="text-xs mb-4 rounded-lg px-3 py-2" style={{ background: 'rgba(239,68,68,0.1)', color: '#FCA5A5' }}>
+                Timer starts when you press Start and cannot be paused.
+              </p>
+            )}
+
             <label className="block text-sm font-semibold mb-2" style={{ color: '#CBD5E1' }}>
               Your name
             </label>
@@ -355,205 +427,256 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
     )
   }
 
-  // ─── Render: question + feedback ─────────────────────────────────────────
+  // ─── Phase: question / feedback / recording ───────────────────────────────
 
-  if ((phase === 'question' || phase === 'feedback') && currentQ) {
+  if ((phase === 'question' || phase === 'feedback' || phase === 'recording') && currentQ) {
     const q = currentQ
     const isFeedback = phase === 'feedback'
+    const isRecording = phase === 'recording'
+    const isDisabled = isFeedback || isRecording
+    const progressPct = ((q.index + 1) / q.total) * 100
+
+    const fb = feedback
 
     return (
-      <div className="min-h-screen p-4 flex flex-col max-w-lg mx-auto" style={{ background: 'var(--color-paper, #F7F3E9)' }}>
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted, #9CA3AF)' }}>
-            {quizInfo?.title ?? 'Quiz'}
+      <div className="min-h-screen flex flex-col" style={{ background: '#0F1B3D' }}>
+        {/* Sticky header */}
+        <div className="sticky top-0 z-10 px-4 pt-3 pb-2 flex items-center gap-3"
+          style={{ background: '#0F1B3D', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{ width: `${progressPct}%`, background: '#F5E642' }}
+            />
+          </div>
+          <span className="text-xs font-bold tabular-nums" style={{ color: '#94A3B8' }}>
+            {q.index + 1}/{q.total}
           </span>
-          <span className="text-sm font-semibold" style={{ color: '#0F1B3D' }}>
-            {q.index + 1} / {q.total}
-          </span>
-        </div>
-
-        {/* Progress bar */}
-        <div className="h-1.5 rounded-full mb-4 overflow-hidden" style={{ background: 'rgba(15,27,61,0.1)' }}>
-          <div
-            className="h-full rounded-full transition-all duration-300"
-            style={{ width: `${((q.index + 1) / q.total) * 100}%`, background: '#0F1B3D' }}
-          />
-        </div>
-
-        {/* Score chip */}
-        <div className="flex justify-end mb-3">
-          <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: '#0F1B3D', color: '#F5E642' }}>
+          <span className="text-xs font-bold px-2.5 py-1 rounded-full tabular-nums"
+            style={{ background: 'rgba(245,230,66,0.15)', color: '#F5E642' }}>
             {totalScore} pts
           </span>
-        </div>
-
-        {/* Question card */}
-        <div className="rounded-2xl p-5 mb-4 shadow-sm" style={{ background: '#fff', border: '1px solid #E2E8F0', borderTop: '4px solid #0F1B3D' }}>
-          <p className="font-bold text-xl leading-snug" style={{ color: '#0F1B3D' }}>{q.text}</p>
-          {q.imageUrl && (
-            <img src={q.imageUrl} alt="" className="mt-3 rounded-xl max-h-48 w-full object-contain" loading="lazy" />
+          {deadlineAt && (
+            <CountdownPill deadlineAt={deadlineAt} onExpire={handleExpire} />
           )}
         </div>
 
-        {/* Options */}
-        {q.options && q.options.length > 0 && (
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            {q.options.map((opt, idx) => {
-              const idxStr = String(idx)
-              const color = OPTION_COLORS[idx % OPTION_COLORS.length]
-              const letter = OPTION_LETTERS[idx % OPTION_LETTERS.length]
-              const isSelected = selectedIndices.includes(idxStr) || (q.type !== 'multiselect' && feedback && selectedIndices[0] === idxStr)
-              const isCorrectOpt = isFeedback && (
-                feedback?.correctAnswer === idxStr ||
-                feedback?.correctAnswers?.includes(idxStr)
-              )
-              const isWrongSelected = isFeedback && isSelected && !isCorrectOpt
-              const optText = getOptText(opt)
-              const optImage = getOptImage(opt)
-
-              let bg = color
-              let opacity = 1
-              if (isFeedback) {
-                if (isCorrectOpt) bg = '#16A34A'
-                else if (isWrongSelected) bg = '#DC2626'
-                else { opacity = 0.35 }
-              }
-
-              return (
-                <button
-                  key={idx}
-                  onClick={() => handleSelect(idxStr)}
-                  disabled={isFeedback || submitting}
-                  className="rounded-2xl p-4 text-white text-left transition-all disabled:cursor-default"
-                  style={{
-                    background: bg,
-                    opacity,
-                    outline: q.type === 'multiselect' && selectedIndices.includes(idxStr) ? '3px solid #fff' : 'none',
-                    outlineOffset: '-3px',
-                  }}
-                >
-                  {optImage && (
-                    <img src={optImage} alt="" className="w-full h-14 object-cover rounded-xl mb-2" loading="lazy" />
-                  )}
-                  <span className="w-9 h-9 rounded-full bg-white/25 flex items-center justify-center font-black text-base mb-1.5">
-                    {letter}
-                  </span>
-                  <span className="text-base font-semibold leading-snug">{optText}</span>
-                </button>
-              )
-            })}
-          </div>
-        )}
-
-        {answerError && (
-          <div className="rounded-xl px-4 py-3 mb-4 text-sm font-semibold" style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }}>
-            {answerError}
-          </div>
-        )}
-
-        {/* Multiselect submit button */}
-        {!isFeedback && q.type === 'multiselect' && (
-          <button
-            onClick={handleMultiselectSubmit}
-            disabled={selectedIndices.length === 0 || submitting}
-            className="w-full py-3.5 rounded-xl font-bold text-base mb-4 disabled:opacity-50 transition-opacity"
-            style={{ background: '#0F1B3D', color: '#fff' }}
-          >
-            {submitting ? 'Submitting…' : `Submit (${selectedIndices.length} selected)`}
-          </button>
-        )}
-
-        {/* Feedback panel */}
-        {isFeedback && feedback && (
-          <div className="space-y-3">
-            <div
-              className="rounded-xl p-4 text-center font-bold text-base"
-              style={{
-                background: feedback.isCorrect ? '#F0FDF4' : '#FEF2F2',
-                color: feedback.isCorrect ? '#16A34A' : '#DC2626',
-              }}
-            >
-              {feedback.isCorrect
-                ? `Correct! +${feedback.points} pts`
-                : 'Not quite — see the correct answer above.'}
-            </div>
-            {feedback.explanation && (
-              <div className="rounded-xl p-4 text-sm" style={{ background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #DBEAFE' }}>
-                <span className="font-bold uppercase tracking-wide text-xs">Why? </span>
-                {feedback.explanation}
-              </div>
+        <div className="flex-1 px-4 pb-8 pt-4 max-w-lg mx-auto w-full space-y-4">
+          {/* Question card */}
+          <div className="rounded-2xl p-5 shadow-sm"
+            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <p className="font-bold text-lg leading-snug" style={{ color: '#fff' }}>{q.text}</p>
+            {q.imageUrl && (
+              <img src={q.imageUrl} alt="" className="mt-3 rounded-xl max-h-48 w-full object-contain" loading="lazy" />
             )}
-            <button
-              onClick={handleNext}
-              className="w-full py-4 rounded-full font-black text-base transition-all hover:opacity-90"
-              style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
-            >
-              {feedback.nextQuestion ? 'Next' : 'See Results'}
-            </button>
           </div>
+
+          {/* Input / feedback */}
+          {isRecording ? (
+            <div className="rounded-xl px-4 py-5 text-center animate-pulse"
+              style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)' }}>
+              <p className="font-bold" style={{ color: '#A5B4FC' }}>Recorded ✓</p>
+            </div>
+          ) : isFeedback && fb ? (
+            <FeedbackPanel
+              feedback={fb}
+              totalScore={totalScore}
+              onNext={() => advance(fb)}
+            />
+          ) : (
+            <QuestionInput
+              question={q}
+              disabled={isDisabled || submittingRef.current}
+              onSubmit={submitAnswer}
+            />
+          )}
+        </div>
+
+        {errorMsg && (
+          <ErrorOverlay message={errorMsg} onRetry={handleRetry} />
         )}
       </div>
     )
   }
 
-  // ─── Render: results ─────────────────────────────────────────────────────
+  // ─── Phase: timeup ────────────────────────────────────────────────────────
 
-  if (phase === 'done' && result) {
-    const totalQuestions = result.questionCount || quizInfo?.questionCount || 0
-    const pct = totalQuestions > 0
-      ? Math.round((result.correctCount / totalQuestions) * 100)
-      : 0
-
+  if (phase === 'timeup') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 max-w-sm mx-auto text-center gap-5">
-        <div
-          className="w-28 h-28 rounded-full flex items-center justify-center text-5xl"
-          style={{ background: '#0F1B3D' }}
-        >
-          <span style={{ color: pct >= 80 ? '#F5E642' : '#fff' }}>
-            {pct >= 80 ? '★' : pct >= 50 ? '✓' : '→'}
-          </span>
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center gap-5"
+        style={{ background: '#0F1B3D' }}>
+        <div className="w-20 h-20 rounded-full flex items-center justify-center text-4xl"
+          style={{ background: 'rgba(239,68,68,0.15)', border: '1.5px solid rgba(239,68,68,0.4)' }}>
+          ⏱
         </div>
-
         <div>
-          <p className="font-black text-4xl" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>
-            {result.finalScore} pts
-          </p>
-          <p className="text-sm mt-1" style={{ color: '#64748B' }}>
-            {result.correctCount} / {totalQuestions} correct · {pct}% accuracy
-          </p>
+          <h1 className="text-2xl font-black mb-1" style={{ color: '#fff', fontFamily: 'var(--font-heading)' }}>
+            Time&apos;s up!
+          </h1>
+          <p className="text-sm" style={{ color: '#94A3B8' }}>Your time limit expired.</p>
+          {finishing && <p className="text-xs mt-2" style={{ color: '#64748B' }}>Saving your results…</p>}
         </div>
+        {result && <ScoreReveal result={result} quizInfo={quizInfo} allowRetry={false} onRetry={() => {}} />}
+        <QuizoticFooter />
+      </div>
+    )
+  }
 
-        <div className="rounded-2xl p-5 w-full text-left shadow-sm" style={{ background: '#fff', border: '1px solid #E2E8F0' }}>
-          <p className="text-xs font-bold uppercase tracking-widest mb-0.5" style={{ color: '#0F1B3D' }}>Quiz</p>
-          <p className="font-bold text-lg" style={{ color: '#0F1B3D' }}>{quizInfo?.title ?? 'Quiz'}</p>
-          <div className="grid grid-cols-2 gap-2 mt-4">
-            <div className="rounded-xl px-3 py-2" style={{ background: '#F8FAFC' }}>
-              <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Answered</p>
-              <p className="text-sm font-black" style={{ color: '#0F1B3D' }}>{result.answeredCount}</p>
-            </div>
-            <div className="rounded-xl px-3 py-2" style={{ background: '#F8FAFC' }}>
-              <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Retakes</p>
-              <p className="text-sm font-black" style={{ color: '#0F1B3D' }}>{quizInfo?.allowRetries ? 'Allowed' : 'Closed'}</p>
-            </div>
-          </div>
-          {result.total > 1 && (
-            <p className="text-sm mt-2" style={{ color: '#64748B' }}>
-              Rank <span className="font-bold" style={{ color: '#0F1B3D' }}>#{result.rank}</span> of {result.total} player{result.total !== 1 ? 's' : ''}
-            </p>
-          )}
-        </div>
+  // ─── Phase: done ──────────────────────────────────────────────────────────
 
-        <p className="text-xs" style={{ color: '#94A3B8' }}>
-          Powered by{' '}
-          <a href="https://www.quizotic.live" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#94A3B8' }}>
-            Quizotic
-          </a>
-        </p>
+  if (phase === 'done') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center gap-5"
+        style={{ background: '#0F1B3D' }}>
+        {result
+          ? <ScoreReveal
+              result={result}
+              quizInfo={quizInfo}
+              allowRetry={!!quizInfo?.allowRetries}
+              onRetry={() => {
+                clearSession(slug)
+                setResult(null)
+                setTotalScore(0)
+                setCorrectCount(0)
+                setFeedback(null)
+                setCurrentQ(null)
+                setDeadlineAt(null)
+                setPhase('entry')
+              }}
+            />
+          : (
+            <div className="space-y-3 text-center">
+              <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center text-3xl"
+                style={{ background: 'rgba(245,230,66,0.1)' }}>✓</div>
+              <p className="font-black text-xl" style={{ color: '#fff' }}>Quiz complete!</p>
+            </div>
+          )
+        }
+        <QuizoticFooter />
       </div>
     )
   }
 
   return null
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function InfoTile({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="rounded-xl px-3 py-2"
+      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>{label}</p>
+      <p className="text-sm font-bold" style={{ color: accent ? '#FACC15' : '#fff' }}>{value}</p>
+    </div>
+  )
+}
+
+function FeedbackPanel({
+  feedback,
+  totalScore,
+  onNext,
+}: {
+  feedback: Pick<AnswerFeedback, 'isCorrect' | 'points' | 'explanation' | 'nextQuestion'>
+  totalScore: number
+  onNext: () => void
+}) {
+  const correct = feedback.isCorrect === true
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-xl p-4 text-center font-bold text-base"
+        style={{
+          background: correct ? 'rgba(22,163,74,0.15)' : 'rgba(220,38,38,0.15)',
+          color: correct ? '#4ADE80' : '#F87171',
+          border: `1px solid ${correct ? 'rgba(22,163,74,0.3)' : 'rgba(220,38,38,0.3)'}`,
+        }}>
+        {correct ? `Correct! +${feedback.points} pts · Total: ${totalScore} pts` : 'Not quite — see the correct answer.'}
+      </div>
+
+      {feedback.explanation && (
+        <div className="rounded-xl p-4 text-sm"
+          style={{ background: 'rgba(59,130,246,0.1)', color: '#93C5FD', border: '1px solid rgba(59,130,246,0.2)' }}>
+          <span className="font-bold uppercase tracking-wide text-xs">Why? </span>
+          {feedback.explanation}
+        </div>
+      )}
+
+      <button
+        onClick={onNext}
+        className="w-full py-4 rounded-xl font-black text-base transition-all hover:opacity-90"
+        style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
+      >
+        {feedback.nextQuestion ? 'Next Question →' : 'See Results'}
+      </button>
+    </div>
+  )
+}
+
+function ScoreReveal({
+  result,
+  quizInfo,
+  allowRetry,
+  onRetry,
+}: {
+  result: Result
+  quizInfo: QuizInfo | null
+  allowRetry: boolean
+  onRetry: () => void
+}) {
+  const totalQ = result.questionCount || quizInfo?.questionCount || 0
+  const pct = totalQ > 0 ? Math.round((result.correctCount / totalQ) * 100) : 0
+  const emoji = pct >= 80 ? '🏆' : pct >= 50 ? '✓' : '→'
+
+  return (
+    <div className="w-full max-w-xs space-y-4">
+      <div className="text-5xl text-center">{emoji}</div>
+      <div>
+        <p className="font-black text-4xl" style={{ color: '#F5E642', fontFamily: 'var(--font-heading)' }}>
+          {result.finalScore} pts
+        </p>
+        <p className="text-sm mt-1" style={{ color: '#94A3B8' }}>
+          {result.correctCount}/{totalQ} correct · {pct}% accuracy
+        </p>
+        {result.total > 1 && (
+          <p className="text-sm mt-1" style={{ color: '#64748B' }}>
+            Rank <span className="font-bold" style={{ color: '#fff' }}>#{result.rank}</span> of {result.total}
+          </p>
+        )}
+      </div>
+
+      {quizInfo && (
+        <div className="rounded-2xl p-4 text-left"
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <p className="font-bold" style={{ color: '#fff' }}>{quizInfo.title}</p>
+          {quizInfo.subject && <p className="text-xs mt-0.5" style={{ color: '#94A3B8' }}>{quizInfo.subject}</p>}
+          <p className="text-xs mt-2" style={{ color: '#64748B' }}>
+            {result.answeredCount} answered
+          </p>
+        </div>
+      )}
+
+      {allowRetry && (
+        <button
+          onClick={onRetry}
+          className="w-full py-3 rounded-xl font-bold text-sm transition-all hover:opacity-90"
+          style={{ background: '#F5E642', color: '#0D0D0D' }}
+        >
+          Take Again
+        </button>
+      )}
+    </div>
+  )
+}
+
+function QuizoticFooter() {
+  return (
+    <p className="text-xs" style={{ color: '#475569' }}>
+      Powered by{' '}
+      <a href="https://www.quizotic.live" target="_blank" rel="noopener noreferrer"
+        className="underline" style={{ color: '#475569' }}>
+        Quizotic
+      </a>
+    </p>
+  )
 }
