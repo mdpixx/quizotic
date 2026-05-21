@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Space_Grotesk, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { Background } from "@/components/Background";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -7,20 +6,6 @@ import { AuthProvider } from "@/components/AuthProvider";
 import { PostHogProvider } from "@/components/PostHogProvider";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { FloatingFeedbackButton } from "@/components/FloatingFeedbackButton";
-
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
-
-const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: {
@@ -103,7 +88,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${spaceGrotesk.variable} ${dmSans.variable} h-full antialiased`}
+      className="h-full antialiased"
     >
       <head>
         {GA4_ID ? (
