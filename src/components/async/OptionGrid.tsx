@@ -36,7 +36,7 @@ export function OptionGrid({ question, disabled, onSubmit }: AsyncInputProps) {
             <span className="shrink-0 w-9 h-9 lg:w-12 lg:h-12 rounded-full bg-black/25 flex items-center justify-center text-base lg:text-xl font-bold text-white">
               {color.letter}
             </span>
-            <span className="text-white font-black text-base lg:text-2xl leading-tight mt-0.5">{optText(opt)}</span>
+            <span className="flex-1 min-w-0 break-words text-white font-black text-base lg:text-2xl leading-tight mt-0.5">{optText(opt)}</span>
           </button>
         )
       })}

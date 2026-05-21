@@ -117,6 +117,15 @@ export function validateQuizQuestions(questions: Question[]): QuizValidationIssu
         severity: 'error',
       })
     }
+
+    if ((type === 'mcq' || type === 'multiselect' || type === 'poll' || type === 'case') && q.options?.some(opt => getOptionText(opt).length > 150)) {
+      issues.push({
+        questionIndex,
+        field: 'options',
+        message: 'Answer options should be 150 characters or fewer.',
+        severity: 'warning',
+      })
+    }
   })
 
   return issues

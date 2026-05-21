@@ -50,7 +50,7 @@ export function MultiSelectGrid({ question, disabled, onSubmit }: AsyncInputProp
               ].join(' ')}>
                 {isChosen ? '✓' : color.letter}
               </span>
-              <span className="text-white font-black text-base lg:text-2xl leading-tight mt-0.5">{optText(opt)}</span>
+              <span className="flex-1 min-w-0 break-words text-white font-black text-base lg:text-2xl leading-tight mt-0.5">{optText(opt)}</span>
             </button>
           )
         })}
