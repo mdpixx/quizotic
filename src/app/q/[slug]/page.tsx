@@ -31,11 +31,11 @@ interface AnswerFeedback {
 
 interface Result {
   finalScore: number
-  rank: number
-  total: number
   correctCount: number
   answeredCount: number
   questionCount: number
+  scoredQuestionCount?: number
+  participationAnsweredCount?: number
 }
 
 type Phase = 'loading' | 'entry' | 'question' | 'feedback' | 'recording' | 'done' | 'timeup' | 'closed'
@@ -85,7 +85,6 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
   const [currentQ, setCurrentQ] = useState<QuizQuestion | null>(null)
   const [feedback, setFeedback] = useState<AnswerFeedback | null>(null)
   const [totalScore, setTotalScore] = useState(0)
-  const [correctCount, setCorrectCount] = useState(0)
   const [deadlineAt, setDeadlineAt] = useState<number | null>(null)
   const [result, setResult] = useState<Result | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -233,7 +232,6 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
       const fb: AnswerFeedback = json.data
       if (fb.isCorrect === true) {
         setTotalScore(s => s + fb.points)
-        setCorrectCount(c => c + 1)
       }
       setFeedback(fb)
       pendingAnswerRef.current = null
@@ -461,21 +459,30 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
           )}
         </div>
 
-        <div className="flex-1 px-4 pb-8 pt-4 max-w-lg mx-auto w-full space-y-4">
-          {/* Question card */}
-          <div className="rounded-2xl p-5 shadow-sm"
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <p className="font-bold text-lg leading-snug" style={{ color: '#fff' }}>{q.text}</p>
+        <div className="flex-1 px-4 sm:px-6 lg:px-10 pb-8 pt-5 max-w-7xl mx-auto w-full">
+          {/* Question stage */}
+          <div className="grid lg:grid-cols-[minmax(0,0.95fr)_minmax(420px,1.2fr)] gap-5 lg:gap-8 items-stretch min-h-[calc(100vh-112px)]">
+          <div className="rounded-3xl p-6 sm:p-8 lg:p-10 shadow-sm flex flex-col justify-center"
+            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}>
+            <p className="text-xs font-black uppercase tracking-[0.22em] mb-4" style={{ color: '#F5E642' }}>
+              Question {q.index + 1} of {q.total}
+            </p>
+            <p className="font-black leading-tight" style={{
+              color: '#fff',
+              fontFamily: 'var(--font-heading)',
+              fontSize: q.text.length > 180 ? 'clamp(1.45rem, 2.4vw, 2.4rem)' : 'clamp(1.8rem, 3.2vw, 3.7rem)',
+            }}>{q.text}</p>
             {q.imageUrl && (
-              <img src={q.imageUrl} alt="" className="mt-3 rounded-xl max-h-48 w-full object-contain" loading="lazy" />
+              <img src={q.imageUrl} alt="" className="mt-6 rounded-2xl max-h-[42vh] w-full object-contain" loading="lazy" />
             )}
           </div>
 
           {/* Input / feedback */}
+          <div className="flex flex-col justify-center min-h-[360px]">
           {isRecording ? (
-            <div className="rounded-xl px-4 py-5 text-center animate-pulse"
+            <div className="rounded-2xl px-4 py-8 text-center animate-pulse"
               style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)' }}>
-              <p className="font-bold" style={{ color: '#A5B4FC' }}>Recorded ✓</p>
+              <p className="font-black text-2xl" style={{ color: '#A5B4FC' }}>Recorded ✓</p>
             </div>
           ) : isFeedback && fb ? (
             <FeedbackPanel
@@ -490,6 +497,8 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
               onSubmit={submitAnswer}
             />
           )}
+          </div>
+          </div>
         </div>
 
         {errorMsg && (
@@ -537,7 +546,6 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
                 clearSession(slug)
                 setResult(null)
                 setTotalScore(0)
-                setCorrectCount(0)
                 setFeedback(null)
                 setCurrentQ(null)
                 setDeadlineAt(null)
@@ -625,24 +633,26 @@ function ScoreReveal({
   onRetry: () => void
 }) {
   const totalQ = result.questionCount || quizInfo?.questionCount || 0
-  const pct = totalQ > 0 ? Math.round((result.correctCount / totalQ) * 100) : 0
+  const scoredTotal = result.scoredQuestionCount ?? totalQ
+  const pct = scoredTotal > 0 ? Math.round((result.correctCount / scoredTotal) * 100) : 0
   const emoji = pct >= 80 ? '🏆' : pct >= 50 ? '✓' : '→'
 
   return (
-    <div className="w-full max-w-xs space-y-4">
+    <div className="w-full max-w-md space-y-5">
       <div className="text-5xl text-center">{emoji}</div>
       <div>
         <p className="font-black text-4xl" style={{ color: '#F5E642', fontFamily: 'var(--font-heading)' }}>
           {result.finalScore} pts
         </p>
         <p className="text-sm mt-1" style={{ color: '#94A3B8' }}>
-          {result.correctCount}/{totalQ} correct · {pct}% accuracy
+          {result.correctCount}/{scoredTotal} scored correct · {pct}% accuracy
         </p>
-        {result.total > 1 && (
-          <p className="text-sm mt-1" style={{ color: '#64748B' }}>
-            Rank <span className="font-bold" style={{ color: '#fff' }}>#{result.rank}</span> of {result.total}
-          </p>
-        )}
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        <ResultTile label="Answered" value={`${result.answeredCount}/${totalQ}`} />
+        <ResultTile label="Accuracy" value={`${pct}%`} />
+        <ResultTile label="Mode" value="Self-paced" />
       </div>
 
       {quizInfo && (
@@ -665,6 +675,16 @@ function ScoreReveal({
           Take Again
         </button>
       )}
+    </div>
+  )
+}
+
+function ResultTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl px-3 py-3 text-center"
+      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+      <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>{label}</p>
+      <p className="text-sm font-black mt-1" style={{ color: '#fff' }}>{value}</p>
     </div>
   )
 }

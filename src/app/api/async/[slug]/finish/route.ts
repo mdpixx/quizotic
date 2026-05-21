@@ -9,7 +9,7 @@ type Params = { params: Promise<{ slug: string }> }
 
 // POST /api/async/[slug]/finish
 // Body: { participantId, attendeeId }
-// Finalizes the Attendee row and returns score + rank.
+// Finalizes the Attendee row and returns a personal learning summary.
 export async function POST(req: NextRequest, { params }: Params) {
   const rl = await rateLimitRequest(req, { bucket: 'async-finish', ipLimit: 30, windowMs: 10 * 60 * 1000 })
   if (!rl.ok) return rateLimitResponse(rl)
@@ -69,16 +69,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       })
     }
 
-    // Compute rank among all finished attendees
-    const allFinished = await prisma.attendee.findMany({
-      where: { sessionId: session.id, leftAt: { not: null } },
-      select: { finalScore: true },
-      orderBy: { finalScore: 'desc' },
-    })
-    const total = allFinished.length
-    const rank = allFinished.findIndex(a => a.finalScore <= finalScore) + 1
-
-    return NextResponse.json({ success: true, data: { finalScore, rank, total, correctCount, answeredCount, questionCount, scoredQuestionCount, participationAnsweredCount } })
+    return NextResponse.json({ success: true, data: { finalScore, correctCount, answeredCount, questionCount, scoredQuestionCount, participationAnsweredCount } })
   } catch (err) {
     console.error('[async/finish:POST]', err instanceof Error ? err.message : err)
     return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 })

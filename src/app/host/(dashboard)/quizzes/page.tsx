@@ -14,6 +14,8 @@ interface QuizRecord {
   language: string | null
   createdAt: string
   updatedAt: string
+  coverImageUrl: string | null
+  questionCount: number
   asyncShareSlug: string | null
   asyncAllowRetries: boolean
   asyncClosesAt: string | null
@@ -38,15 +40,15 @@ interface ShareState {
   timeLimitMinutes: number | null
 }
 
-// Gradient palette for quiz thumbnail cards — deterministic by id hash
-// so the same quiz always gets the same gradient. Inspired by mockup 06.
+// Soft cover palette for quiz thumbnail cards — deterministic by id hash so
+// a quiz keeps visual continuity without turning the library into color blocks.
 const CARD_GRADIENTS = [
-  'linear-gradient(135deg, #0F1B3D 0%, #1B2A5E 100%)',
-  'linear-gradient(135deg, #E07A5F 0%, #C2410C 100%)',
-  'linear-gradient(135deg, #16A34A 0%, #047857 100%)',
-  'linear-gradient(135deg, #7C3AED 0%, #4C1D95 100%)',
-  'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
-  'linear-gradient(135deg, #0891B2 0%, #155E75 100%)',
+  'linear-gradient(135deg, #F8FAFC 0%, #E0F2FE 100%)',
+  'linear-gradient(135deg, #FFF7ED 0%, #FED7AA 100%)',
+  'linear-gradient(135deg, #F0FDF4 0%, #BBF7D0 100%)',
+  'linear-gradient(135deg, #F5F3FF 0%, #DDD6FE 100%)',
+  'linear-gradient(135deg, #EFF6FF 0%, #BFDBFE 100%)',
+  'linear-gradient(135deg, #ECFEFF 0%, #A5F3FC 100%)',
 ]
 function gradientFor(id: string): string {
   let hash = 0
@@ -54,9 +56,6 @@ function gradientFor(id: string): string {
   return CARD_GRADIENTS[hash % CARD_GRADIENTS.length]
 }
 
-// Deterministic "constellation" motif seeded from the quiz id so each cover
-// gets unique star positions that don't shift between renders. Matches the
-// day-to-night brand theme. Purely decorative — sits behind the title.
 function QuizCoverMotif({ id }: { id: string }) {
   let baseSeed = 0
   for (let i = 0; i < id.length; i++) baseSeed = (baseSeed * 131 + id.charCodeAt(i)) >>> 0
@@ -69,14 +68,11 @@ function QuizCoverMotif({ id }: { id: string }) {
     value ^= value >>> 16
     return (value >>> 0) / 0xffffffff
   }
-  const stars = Array.from({ length: 14 }, (_, i) => ({
+  const marks = Array.from({ length: 10 }, (_, i) => ({
     cx: 4 + seededUnit(i * 4 + 1) * 92,
     cy: 4 + seededUnit(i * 4 + 2) * 92,
-    r: 0.3 + seededUnit(i * 4 + 3) * 1.2,
     o: 0.25 + seededUnit(i * 4 + 4) * 0.6,
   }))
-  const orbX = 18 + seededUnit(81) * 16
-  const orbY = 18 + seededUnit(82) * 16
   return (
     <svg
       viewBox="0 0 100 100"
@@ -84,22 +80,14 @@ function QuizCoverMotif({ id }: { id: string }) {
       className="absolute inset-0 w-full h-full pointer-events-none"
       aria-hidden
     >
-      <defs>
-        <radialGradient id={`orb-${id}`} cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#FFF3C4" stopOpacity="0.35" />
-          <stop offset="60%" stopColor="#F5E642" stopOpacity="0.08" />
-          <stop offset="100%" stopColor="#F5E642" stopOpacity="0" />
-        </radialGradient>
-        <linearGradient id={`shade-${id}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#000" stopOpacity="0" />
-          <stop offset="100%" stopColor="#000" stopOpacity="0.28" />
-        </linearGradient>
-      </defs>
-      <circle cx={orbX} cy={orbY} r="28" fill={`url(#orb-${id})`} />
-      {stars.map((s, i) => (
-        <circle key={i} cx={s.cx} cy={s.cy} r={s.r} fill="#FFF" opacity={s.o} />
+      <rect x="18" y="16" width="64" height="68" rx="8" fill="#fff" opacity="0.82" />
+      <path d="M31 35h38M31 47h28M31 59h34" stroke="#0F1B3D" strokeOpacity="0.24" strokeWidth="4" strokeLinecap="round" />
+      <path d="M25 24h50" stroke="#0F1B3D" strokeOpacity="0.16" strokeWidth="3" strokeLinecap="round" />
+      <circle cx="69" cy="70" r="8" fill="#F5E642" stroke="#0F1B3D" strokeOpacity="0.55" strokeWidth="2" />
+      <path d="M65.5 70l2.2 2.2 4.8-5" stroke="#0F1B3D" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      {marks.map((s, i) => (
+        <text key={i} x={s.cx} y={s.cy} fill="#0F1B3D" opacity={s.o} fontSize="8" fontWeight="900">?</text>
       ))}
-      <rect x="0" y="0" width="100" height="100" fill={`url(#shade-${id})`} />
     </svg>
   )
 }
@@ -136,7 +124,7 @@ export default function QuizzesPage() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [activeSubject, setActiveSubject] = useState<string>('All')
-  const [view, setView] = useState<'grid' | 'list'>('grid')
+  const [view, setView] = useState<'grid' | 'list'>('list')
   const [shareModal, setShareModal] = useState<ShareState | null>(null)
 
   const fetchQuizzes = useCallback(async () => {
@@ -205,7 +193,10 @@ export default function QuizzesPage() {
       const res = await fetch(`/api/quizzes/${id}/publish`, { method: 'POST' })
       const json = await res.json()
       if (!res.ok || !json.success) {
-        setError(json.error || 'Could not create share link.')
+        const issueMessage = Array.isArray(json.issues)
+          ? json.issues.map((issue: { questionIndex: number; message: string }) => `Q${issue.questionIndex + 1}: ${issue.message}`).join(' ')
+          : ''
+        setError(issueMessage || json.error || 'Could not create share link.')
         setShareModal(null)
         return
       }
@@ -433,7 +424,7 @@ export default function QuizzesPage() {
                 </div>
               </div>
 
-              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                 <AnimatePresence>
                   {recent.map((quiz, i) => (
                     <motion.div
@@ -443,16 +434,20 @@ export default function QuizzesPage() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.95 }}
                       transition={{ delay: i * 0.04 }}
-                      className="rounded-[16px] overflow-hidden flex flex-col"
+                      className="rounded-[12px] overflow-hidden flex flex-col"
                       style={{ background: '#fff', border: '1px solid var(--color-line)' }}
                     >
-                      {/* Gradient cover with constellation motif */}
-                      <div className="relative aspect-[16/10] overflow-hidden" style={{ background: gradientFor(quiz.id) }}>
-                        <QuizCoverMotif id={quiz.id} />
-                        <div className="relative z-10 h-full p-4 flex flex-col justify-between">
+                      <div className="relative aspect-square overflow-hidden" style={{ background: gradientFor(quiz.id) }}>
+                        {quiz.coverImageUrl ? (
+                          <img src={quiz.coverImageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                        ) : (
+                          <QuizCoverMotif id={quiz.id} />
+                        )}
+                        <div className="absolute inset-x-0 bottom-0 h-20" style={{ background: 'linear-gradient(to top, rgba(15,27,61,0.82), rgba(15,27,61,0))' }} />
+                        <div className="relative z-10 h-full p-3 flex flex-col justify-between">
                           <div className="flex items-start justify-between">
-                            <span className="chip" style={{ background: 'rgba(255,255,255,0.22)', color: '#fff', backdropFilter: 'blur(6px)' }}>
-                              Quiz
+                            <span className="chip" style={{ background: 'rgba(255,255,255,0.86)', color: '#0F1B3D', backdropFilter: 'blur(6px)' }}>
+                              {quiz.questionCount} Qs
                             </span>
                             <button
                               onClick={() => setConfirmDelete(quiz.id)}
@@ -463,14 +458,14 @@ export default function QuizzesPage() {
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
                             </button>
                           </div>
-                          <h3 className="text-[18px] font-black leading-snug line-clamp-2" style={{ fontFamily: 'var(--font-heading)', color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,.35)' }}>
+                          <h3 className="text-[15px] font-black leading-snug line-clamp-2" style={{ fontFamily: 'var(--font-heading)', color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,.35)' }}>
                             {quiz.title}
                           </h3>
                         </div>
                       </div>
 
                       {/* Card body */}
-                      <div className="p-4 flex-1 flex flex-col">
+                      <div className="p-3 flex-1 flex flex-col">
                         <div className="flex items-center gap-1.5 flex-wrap mb-2">
                           {quiz.subject && (
                             <span className="chip" style={{ background: '#EFF6FF', color: '#1D4ED8' }}>{quiz.subject}</span>
@@ -479,11 +474,11 @@ export default function QuizzesPage() {
                             <span className="chip" style={{ background: 'var(--color-paper-2)', color: 'var(--color-text-muted)' }}>{quiz.language.toUpperCase()}</span>
                           )}
                         </div>
-                        <p className="text-[12px] mb-3" style={{ color: 'var(--color-text-muted)' }}>
+                        <p className="text-[11px] mb-2" style={{ color: 'var(--color-text-muted)' }}>
                           Updated {timeAgo(quiz.updatedAt)}
                         </p>
                         {quiz.asyncShareSlug && (
-                          <div className="mb-3 rounded-lg px-2.5 py-2" style={{ background: quiz.asyncNeedsRepublish ? '#FFFBEB' : '#F0FDF4', border: `1px solid ${quiz.asyncNeedsRepublish ? '#FDE68A' : '#BBF7D0'}` }}>
+                          <div className="mb-2 rounded-lg px-2.5 py-2" style={{ background: quiz.asyncNeedsRepublish ? '#FFFBEB' : '#F0FDF4', border: `1px solid ${quiz.asyncNeedsRepublish ? '#FDE68A' : '#BBF7D0'}` }}>
                             <div className="flex items-center justify-between">
                               <p className="text-[11px] font-bold" style={{ color: quiz.asyncNeedsRepublish ? '#92400E' : '#15803D' }}>
                                 {quiz.asyncNeedsRepublish ? 'Republish changes' : 'Self-paced live'}
@@ -555,11 +550,18 @@ export default function QuizzesPage() {
                     className={`grid grid-cols-[40px_1fr_140px_auto] gap-4 items-center p-3 ${i < arr.length - 1 ? 'border-b' : ''}`}
                     style={{ borderColor: 'var(--color-line)' }}
                   >
-                    <div className="w-10 h-10 rounded-[8px]" style={{ background: gradientFor(quiz.id) }} />
+                    <div className="w-10 h-10 rounded-[8px] overflow-hidden relative" style={{ background: gradientFor(quiz.id) }}>
+                      {quiz.coverImageUrl ? (
+                        <img src={quiz.coverImageUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
+                      ) : (
+                        <QuizCoverMotif id={`thumb-${quiz.id}`} />
+                      )}
+                    </div>
                     <div className="min-w-0">
                       <div className="text-[14px] font-semibold truncate" style={{ color: '#0F1B3D' }}>{quiz.title}</div>
                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         {quiz.subject && <span className="chip" style={{ background: '#EFF6FF', color: '#1D4ED8' }}>{quiz.subject}</span>}
+                        <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{quiz.questionCount} questions</span>
                         <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>Updated {timeAgo(quiz.updatedAt)}</span>
                         {quiz.asyncShareSlug && (
                           <>

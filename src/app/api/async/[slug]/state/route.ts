@@ -54,22 +54,13 @@ export async function POST(req: NextRequest, { params }: Params) {
         where: { sessionId: session.id, participantId },
         select: { points: true, isCorrect: true },
       })
-      const allFinished = await prisma.attendee.findMany({
-        where: { sessionId: session.id, leftAt: { not: null } },
-        select: { finalScore: true },
-        orderBy: { finalScore: 'desc' },
-      })
       const finalScore = attendee.finalScore ?? 0
-      const rankTotal = allFinished.length
-      const rank = allFinished.findIndex(a => (a.finalScore ?? 0) <= finalScore) + 1
       return NextResponse.json({
         success: true,
         data: {
           status: 'finished',
           result: {
             finalScore,
-            rank,
-            total: rankTotal,
             correctCount: answers.filter(a => a.isCorrect === true).length,
             answeredCount: answers.length,
             questionCount,
@@ -98,8 +89,6 @@ export async function POST(req: NextRequest, { params }: Params) {
           status: 'time_up',
           result: {
             finalScore,
-            rank: null,
-            total: null,
             correctCount: answers.filter(a => a.isCorrect === true).length,
             answeredCount: answers.length,
             questionCount,

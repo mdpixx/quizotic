@@ -2,13 +2,15 @@ export const dynamic = 'force-dynamic'
 
 import { type NextRequest, NextResponse } from 'next/server'
 import { randomBytes } from 'node:crypto'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth-helpers'
 import { getUserPlan } from '@/lib/billing'
 import { PLAN_LIMITS } from '@/lib/limits'
+import { hasQuizValidationErrors, validateQuizQuestions } from '@/lib/quiz-validation'
+import type { Question } from '@/lib/quiz-types'
 
 type Params = { params: Promise<{ id: string }> }
-type SnapshotQuestion = { type?: string }
 
 function generateSlug(): string {
   const chars = 'abcdefghijkmnpqrstuvwxyz23456789'
@@ -34,8 +36,12 @@ async function findUniqueCode(): Promise<string> {
   return String(100000 + Math.floor(Math.random() * 900000))
 }
 
-function getSnapshotQuestions(questions: unknown): SnapshotQuestion[] {
-  return Array.isArray(questions) ? (questions as SnapshotQuestion[]) : []
+function getSnapshotQuestions(questions: unknown): Question[] {
+  return Array.isArray(questions) ? (questions as Question[]) : []
+}
+
+function asJson(value: unknown): Prisma.InputJsonValue {
+  return value as Prisma.InputJsonValue
 }
 
 function needsRepublish(quizUpdatedAt: Date, versionCreatedAt: Date | null | undefined): boolean {
@@ -65,6 +71,14 @@ export async function POST(req: NextRequest, { params }: Params) {
         error: 'This quiz has no questions. Add at least one question to publish it as a self-paced quiz.',
       }, { status: 400 })
     }
+    const validationIssues = validateQuizQuestions(snapshot)
+    if (hasQuizValidationErrors(validationIssues)) {
+      return NextResponse.json({
+        success: false,
+        error: 'Some questions need attention before publishing.',
+        issues: validationIssues,
+      }, { status: 400 })
+    }
 
     // Idempotent: return existing open async session if one exists
     const existing = await prisma.gameSession.findFirst({
@@ -76,6 +90,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         closesAt: true,
         createdAt: true,
         participantCount: true,
+        timeLimitMinutes: true,
         quizVersionId: true,
         quizVersion: { select: { questionCount: true, createdAt: true } },
       },
@@ -90,7 +105,7 @@ export async function POST(req: NextRequest, { params }: Params) {
             subject: quiz.subject ?? null,
             language: quiz.language ?? null,
             theme: quiz.theme ?? null,
-            snapshot,
+            snapshot: asJson(snapshot),
             questionCount: snapshot.length,
           },
         })
@@ -110,6 +125,7 @@ export async function POST(req: NextRequest, { params }: Params) {
             publishedAt: version.createdAt,
             needsRepublish: false,
             republished: true,
+            timeLimitMinutes: existing.timeLimitMinutes ?? null,
           },
         })
       }
@@ -125,6 +141,7 @@ export async function POST(req: NextRequest, { params }: Params) {
           publishedAt: existing.quizVersion?.createdAt ?? existing.createdAt,
           needsRepublish: false,
           republished: false,
+          timeLimitMinutes: existing.timeLimitMinutes ?? null,
         },
       })
     }
@@ -149,7 +166,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         subject: quiz.subject ?? null,
         language: quiz.language ?? null,
         theme: quiz.theme ?? null,
-            snapshot,
+            snapshot: asJson(snapshot),
             questionCount: snapshot.length,
       },
     })
@@ -216,7 +233,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     return NextResponse.json({
       success: true,
-      data: { sessionId: updated.id, shareSlug: updated.shareSlug, allowRetries: updated.allowRetries, closesAt: updated.closesAt },
+      data: { sessionId: updated.id, shareSlug: updated.shareSlug, allowRetries: updated.allowRetries, closesAt: updated.closesAt, timeLimitMinutes: updated.timeLimitMinutes },
     })
   } catch {
     return NextResponse.json({ success: false, error: 'Failed to update' }, { status: 500 })
