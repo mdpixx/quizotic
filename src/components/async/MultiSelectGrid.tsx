@@ -28,7 +28,7 @@ export function MultiSelectGrid({ question, disabled, onSubmit }: AsyncInputProp
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4">
         {opts.map((opt, i) => {
           const color = ANSWER_COLORS[i % ANSWER_COLORS.length]
           const isChosen = chosen.has(i)
@@ -38,19 +38,19 @@ export function MultiSelectGrid({ question, disabled, onSubmit }: AsyncInputProp
               onClick={() => toggle(i)}
               disabled={disabled || submitted}
               className={[
-                'relative flex items-start gap-2 p-3 rounded-xl text-left min-h-[72px]',
+                'relative flex items-start gap-3 p-4 lg:p-6 rounded-2xl text-left min-h-[92px] lg:min-h-[140px]',
                 'transition-all duration-150 disabled:cursor-default',
                 isChosen ? 'ring-4 ring-white/50 brightness-110' : 'opacity-80 hover:opacity-100',
               ].join(' ')}
               style={{ backgroundColor: color.hex }}
             >
               <span className={[
-                'shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold text-white transition-colors',
+                'shrink-0 w-9 h-9 lg:w-12 lg:h-12 rounded-full flex items-center justify-center text-base lg:text-xl font-bold text-white transition-colors',
                 isChosen ? 'bg-white/40' : 'bg-black/25',
               ].join(' ')}>
                 {isChosen ? '✓' : color.letter}
               </span>
-              <span className="text-white font-semibold text-sm leading-snug mt-0.5">{optText(opt)}</span>
+              <span className="text-white font-black text-base lg:text-2xl leading-tight mt-0.5">{optText(opt)}</span>
             </button>
           )
         })}
@@ -58,7 +58,7 @@ export function MultiSelectGrid({ question, disabled, onSubmit }: AsyncInputProp
       <button
         onClick={handleSubmit}
         disabled={disabled || submitted || chosen.size === 0}
-        className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-default text-white font-bold text-sm transition-colors"
+        className="w-full py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-default text-white font-black text-base transition-colors"
       >
         {submitted ? 'Submitted' : `Submit (${chosen.size} selected)`}
       </button>

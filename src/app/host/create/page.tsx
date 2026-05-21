@@ -11,6 +11,7 @@ import { getOptionText, getOptionImage, isScoredType, isSequenceRanking } from '
 import { ImageUpload } from '@/components/ImageUpload'
 import { QuizThemePicker } from '@/components/host/QuizThemePicker'
 import { getQuizTheme, type QuizThemeId } from '@/lib/quiz-themes'
+import { formatQuizValidationIssues, hasQuizValidationErrors, validateQuizQuestions } from '@/lib/quiz-validation'
 import QRCode from 'react-qr-code'
 import {
   DndContext,
@@ -41,6 +42,7 @@ const QUESTION_COUNT_OPTIONS: Record<string, number[]> = {
 
 interface TypeMix {
   mcq: number
+  multiselect: number
   truefalse: number
   poll: number
   openended: number
@@ -53,6 +55,7 @@ interface TypeMix {
 
 const TYPE_MIX_LABELS: { key: keyof TypeMix; label: string; color: string; bg: string }[] = [
   { key: 'mcq', label: 'MCQ', color: '#2563EB', bg: '#EFF6FF' },
+  { key: 'multiselect', label: 'Multi-select', color: '#7C3AED', bg: '#F5F3FF' },
   { key: 'truefalse', label: 'True / False', color: '#16A34A', bg: '#F0FDF4' },
   { key: 'poll', label: 'Poll', color: '#0F1B3D', bg: '#F3F4F6' },
   { key: 'openended', label: 'Open-ended', color: '#D97706', bg: '#FFFBEB' },
@@ -70,6 +73,17 @@ const TYPE_PILLS: { value: QuestionType; label: string; color: string; bg: strin
       <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
         <rect x="3" y="3" width="14" height="14" rx="3" fill="#2563EB" fillOpacity="0.15" stroke="#2563EB" strokeWidth="1.5"/>
         <path d="M7 10l2.5 2.5L13 7.5" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+  },
+  {
+    value: 'multiselect', label: 'Multi-select', color: '#7C3AED', bg: '#F5F3FF', tooltip: 'Choose one or more correct answers.',
+    svg: (
+      <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
+        <rect x="3" y="4" width="4" height="4" rx="1" fill="#7C3AED" fillOpacity="0.2" stroke="#7C3AED" strokeWidth="1.4"/>
+        <rect x="3" y="12" width="4" height="4" rx="1" fill="#7C3AED" fillOpacity="0.2" stroke="#7C3AED" strokeWidth="1.4"/>
+        <path d="M9 6h7M9 14h7" stroke="#7C3AED" strokeWidth="1.7" strokeLinecap="round"/>
+        <path d="M4 6l1 1 1.5-2" stroke="#7C3AED" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
   },
@@ -176,7 +190,7 @@ function makeQuestion(): Question {
     type: 'mcq',
     text: '',
     options: ['', '', '', ''],
-    correctAnswer: '0',
+    correctAnswer: undefined,
     timerSeconds: 20,
     points: 1000,
   }
@@ -185,6 +199,7 @@ function makeQuestion(): Question {
 function optionsForType(type: QuestionType): string[] | undefined {
   if (type === 'truefalse') return ['True', 'False']
   if (type === 'mcq') return ['', '', '', '']
+  if (type === 'multiselect') return ['', '', '', '']
   if (type === 'rating') return ['1', '2', '3', '4', '5']
   if (type === 'case') return ['', '', '', '']
   if (type === 'poll') return ['', '', '', '']
@@ -193,9 +208,14 @@ function optionsForType(type: QuestionType): string[] | undefined {
 }
 
 function hasCorrectAnswer(type: QuestionType, question?: Question): boolean {
-  if (type === 'mcq' || type === 'truefalse') return true
+  if (type === 'mcq' || type === 'truefalse') return !!question?.correctAnswer
+  if (type === 'multiselect') return (question?.correctAnswers?.length ?? 0) > 0
   if (type === 'ranking' && question?.correctOrder && question.correctOrder.length > 0) return true
   return false
+}
+
+function needsCorrectAnswer(type: QuestionType): boolean {
+  return type === 'mcq' || type === 'truefalse' || type === 'multiselect'
 }
 
 // Picks a responsive Tailwind text size based on question length so long
@@ -333,7 +353,7 @@ function QuestionPreview({
   }
 
   return (
-    <div className="w-full max-w-[1400px] rounded-2xl overflow-hidden" style={{ boxShadow: '0 12px 40px rgba(0,0,0,0.10)' }}>
+    <div className="w-full max-w-[1180px] rounded-2xl overflow-hidden" style={{ boxShadow: '0 12px 40px rgba(0,0,0,0.10)' }}>
       {/* Header — inline-editable question text */}
       <div className="px-6 md:px-10 py-6 md:py-8 text-center" style={{ background: '#FAFAF8', borderBottom: '1px solid #EDE8E0' }}>
         <p className="text-xs md:text-sm font-bold uppercase tracking-widest mb-3" style={{ color: '#94A3B8' }}>
@@ -368,11 +388,24 @@ function QuestionPreview({
 
       {/* Options — inline-editable with bar visualization */}
       <div className="bg-white p-5 md:p-6">
-        {(question.type === 'mcq' || question.type === 'truefalse' || question.type === 'poll' || question.type === 'case') && opts.length > 0 && (
-          <div className="grid grid-cols-2 gap-2 md:gap-3">
+        {(question.type === 'mcq' || question.type === 'multiselect' || question.type === 'truefalse' || question.type === 'poll' || question.type === 'case') && opts.length > 0 && (
+          <div>
+            {needsCorrectAnswer(question.type) && (
+              <div className="mb-3 flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}>
+                <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-black" style={{ background: '#F59E0B', color: '#fff' }}>!</span>
+                <p className="text-xs font-bold">
+                  {question.type === 'multiselect'
+                    ? 'Mark every correct option using the check buttons.'
+                    : 'Mark the one correct answer using the check button.'}
+                </p>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-2 md:gap-3">
             {opts.map((opt, i) => {
               const c = ANSWER_COLORS[i] ?? ANSWER_COLORS[0]
-              const isCorrect = question.correctAnswer === String(i) && hasCorrectAnswer(question.type)
+              const isCorrect = question.type === 'multiselect'
+                ? (question.correctAnswers ?? []).includes(String(i))
+                : question.correctAnswer === String(i) && hasCorrectAnswer(question.type, question)
               return (
                 <div
                   key={i}
@@ -388,13 +421,18 @@ function QuestionPreview({
                     <button
                       type="button"
                       onClick={() => {
-                        if (hasCorrectAnswer(question.type)) {
+                        if (question.type === 'multiselect') {
+                          const current = new Set(question.correctAnswers ?? [])
+                          if (current.has(String(i))) current.delete(String(i))
+                          else current.add(String(i))
+                          onChange({ ...question, correctAnswer: undefined, correctAnswers: Array.from(current).sort() })
+                        } else if (needsCorrectAnswer(question.type)) {
                           onChange({ ...question, correctAnswer: String(i) })
                         }
                       }}
                       className="w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center text-sm font-black text-white flex-shrink-0 transition-all hover:scale-110 click-bounce-sm"
                       style={{ background: 'rgba(255,255,255,0.25)', border: isCorrect ? '2px solid #FDE047' : '2px solid transparent' }}
-                      title={hasCorrectAnswer(question.type) ? 'Click to mark correct' : undefined}
+                      title={needsCorrectAnswer(question.type) ? 'Click to mark correct' : undefined}
                     >
                       {isCorrect ? <span className="text-base">&#10003;</span> : c.letter}
                     </button>
@@ -411,6 +449,7 @@ function QuestionPreview({
                 </div>
               )
             })}
+            </div>
           </div>
         )}
 
@@ -591,8 +630,13 @@ function QuestionEditor({
 
   function handleTypeChange(type: QuestionType) {
     const options = optionsForType(type)
-    const correctAnswer = hasCorrectAnswer(type) ? '0' : undefined
-    onChange({ ...question, type, options, correctAnswer })
+    onChange({
+      ...question,
+      type,
+      options,
+      correctAnswer: undefined,
+      correctAnswers: type === 'multiselect' ? [] : undefined,
+    })
   }
 
   function handleOptionChange(i: number, value: string) {
@@ -624,7 +668,18 @@ function QuestionEditor({
 
   function handleRemoveOption(i: number) {
     const options = question.options?.filter((_, idx) => idx !== i) ?? []
-    onChange({ ...question, options })
+    const correctAnswers = question.correctAnswers
+      ?.filter(answer => answer !== String(i))
+      .map(answer => {
+        const n = Number(answer)
+        return Number.isInteger(n) && n > i ? String(n - 1) : answer
+      })
+    const correctAnswer = question.correctAnswer === String(i)
+      ? undefined
+      : Number.isInteger(Number(question.correctAnswer)) && Number(question.correctAnswer) > i
+        ? String(Number(question.correctAnswer) - 1)
+        : question.correctAnswer
+    onChange({ ...question, options, correctAnswer, correctAnswers })
   }
 
   return (
@@ -697,13 +752,13 @@ function QuestionEditor({
       {/* Quality checklist — at-a-glance readiness. Read-only, derived from
           question fields. Helps creators see what's missing before going live. */}
       {(() => {
-        const hasAnswer = hasCorrectAnswer(question.type) ? (question.correctAnswer !== undefined && question.correctAnswer !== '') : true
+        const hasAnswer = needsCorrectAnswer(question.type) ? hasCorrectAnswer(question.type, question) : true
         const hasExplanation = !!(question.explanation && question.explanation.trim().length > 0)
         const hasBloom = !!(question.bloomsLevel && question.bloomsLevel.length > 0)
         const hasReasonableTimer = question.timerSeconds >= 10 && question.timerSeconds <= 60
         const hasImage = !!question.imageUrl
         const checklist = [
-          { ok: hasAnswer, label: hasCorrectAnswer(question.type) ? 'Has a correct answer' : 'No correct answer needed (interactive)' },
+          { ok: hasAnswer, label: needsCorrectAnswer(question.type) ? (question.type === 'multiselect' ? 'Has correct options selected' : 'Has a correct answer') : 'No correct answer needed (interactive)' },
           { ok: hasExplanation, label: question.type === 'case' ? 'Debrief written' : 'Explanation written' },
           { ok: hasBloom, label: 'Learning goal set' },
           { ok: hasReasonableTimer, label: `Timer is set (${question.timerSeconds}s)` },
@@ -927,6 +982,7 @@ function CreateQuizPageInner() {
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false)
   const [mobileSlidesOpen, setMobileSlidesOpen] = useState(false)
   const [mobileAddOpen, setMobileAddOpen] = useState(false)
+  const [inspectorOpen, setInspectorOpen] = useState(true)
 
   // Navigate to live session when savedQuiz is set after "Start Live"
   useEffect(() => {
@@ -958,11 +1014,11 @@ function CreateQuizPageInner() {
   // Shared AI settings
   const [aiCount, setAiCount] = useState(5)
   const [aiDifficulty, setAiDifficulty] = useState('medium')
-  const [typeMix, setTypeMix] = useState<TypeMix>({ mcq: 5, truefalse: 0, poll: 0, openended: 0, wordcloud: 0, qa: 0, rating: 0, ranking: 0, case: 0 })
+  const [typeMix, setTypeMix] = useState<TypeMix>({ mcq: 5, multiselect: 0, truefalse: 0, poll: 0, openended: 0, wordcloud: 0, qa: 0, rating: 0, ranking: 0, case: 0 })
   const [quizLanguage, setQuizLanguage] = useState('English')
 
   useEffect(() => {
-    setTypeMix({ mcq: aiCount, truefalse: 0, poll: 0, openended: 0, wordcloud: 0, qa: 0, rating: 0, ranking: 0, case: 0 })
+    setTypeMix({ mcq: aiCount, multiselect: 0, truefalse: 0, poll: 0, openended: 0, wordcloud: 0, qa: 0, rating: 0, ranking: 0, case: 0 })
   }, [aiCount])
 
   // AI generation state
@@ -1071,7 +1127,7 @@ function CreateQuizPageInner() {
   function handleIncrement(key: keyof TypeMix) {
     if (typeMixSum >= aiCount) {
       // At cap — steal 1 from another type (MCQ first, then others in order)
-      const stealOrder: (keyof TypeMix)[] = ['mcq', 'truefalse', 'poll', 'openended', 'wordcloud', 'qa', 'rating', 'ranking', 'case']
+      const stealOrder: (keyof TypeMix)[] = ['mcq', 'multiselect', 'truefalse', 'poll', 'openended', 'wordcloud', 'qa', 'rating', 'ranking', 'case']
       const donor = stealOrder.find(k => k !== key && typeMix[k] > 0)
       if (!donor) return
       setTypeMix(prev => ({ ...prev, [donor]: prev[donor] - 1, [key]: prev[key] + 1 }))
@@ -1167,9 +1223,14 @@ function CreateQuizPageInner() {
 
   function addQuestion(type: QuestionType = 'mcq') {
     const opts = optionsForType(type)
-    const correctAnswer = hasCorrectAnswer(type) ? '0' : undefined
     const base = makeQuestion()
-    const newQ: Question = { ...base, type, options: opts, correctAnswer }
+    const newQ: Question = {
+      ...base,
+      type,
+      options: opts,
+      correctAnswer: undefined,
+      correctAnswers: type === 'multiselect' ? [] : undefined,
+    }
     setQuestions(prev => [...prev, newQ])
     setActiveIndex(questions.length)
   }
@@ -1478,12 +1539,16 @@ function CreateQuizPageInner() {
   async function handleSave(): Promise<Quiz | null> {
     if (!title.trim()) { showSaveError('Quiz title is required'); return null }
     if (questions.length === 0) { showSaveError('Add at least one question'); return null }
-    const emptyQ = questions.find(q => !q.text.trim())
-    if (emptyQ) { showSaveError('All questions must have text'); return null }
-    const emptyOpt = questions.find(q =>
-      ['mcq', 'poll', 'case'].includes(q.type) && q.options?.some((o: string | { text: string }) => !(typeof o === 'string' ? o : o.text).trim())
-    )
-    if (emptyOpt) { showSaveError('All answer options must have text'); return null }
+    const validationIssues = validateQuizQuestions(questions)
+    if (hasQuizValidationErrors(validationIssues)) {
+      const first = validationIssues[0]
+      if (first) {
+        setActiveIndex(first.questionIndex)
+        setTab('manual')
+      }
+      showSaveError(formatQuizValidationIssues(validationIssues))
+      return null
+    }
     setSaveError('')
     setSaving(true)
 
@@ -1532,7 +1597,9 @@ function CreateQuizPageInner() {
         dbSaveFailed = true
         try {
           const payload = await res.json()
-          dbSaveError = payload?.error ?? `Server returned ${res.status}`
+          dbSaveError = Array.isArray(payload?.issues)
+            ? formatQuizValidationIssues(payload.issues)
+            : payload?.error ?? `Server returned ${res.status}`
         } catch {
           dbSaveError = `Server returned ${res.status}`
         }
@@ -1573,7 +1640,8 @@ function CreateQuizPageInner() {
       const res = await fetch(`/api/quizzes/${quiz.id}/publish`, { method: 'POST' })
       const json = await res.json()
       if (!res.ok || !json.success) {
-        setSelfPacedShare(prev => ({ ...prev, loading: false, error: json.error || 'Could not create self-paced link.' }))
+        const issueMessage = Array.isArray(json.issues) ? formatQuizValidationIssues(json.issues) : ''
+        setSelfPacedShare(prev => ({ ...prev, loading: false, error: issueMessage || json.error || 'Could not create self-paced link.' }))
         return
       }
       const url = `${window.location.origin}/q/${json.data.shareSlug}`
@@ -1695,6 +1763,15 @@ function CreateQuizPageInner() {
             <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><path d="M2 10s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5Z" stroke="currentColor" strokeWidth="1.5"/><circle cx="10" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.5"/></svg>
             Preview
           </button>
+          <button
+            onClick={() => setInspectorOpen(open => !open)}
+            title="Toggle question inspector"
+            className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-bold transition-all hover:bg-gray-50 click-bounce"
+            style={{ borderColor: '#E2E8F0', color: inspectorOpen ? '#0F1B3D' : '#64748B' }}
+          >
+            <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><path d="M4 5h12M4 10h8M4 15h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            Inspector
+          </button>
           <button onClick={handleShareSelfPaced} title="Share self-paced quiz"
             className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-bold transition-all hover:bg-gray-50 click-bounce"
             style={{ borderColor: '#E2E8F0', color: '#0F1B3D' }}>
@@ -1815,7 +1892,7 @@ function CreateQuizPageInner() {
       <div className="flex-1 flex overflow-hidden">
 
         {/* ── LEFT PANEL: Question List ── */}
-        <div ref={questionListRef} className="hidden md:flex md:w-72 lg:w-80 flex-shrink-0 bg-white border-r overflow-y-auto flex-col" style={{ borderColor: '#E2E8F0' }}>
+        <div ref={questionListRef} className="hidden md:flex md:w-60 lg:w-64 flex-shrink-0 bg-white border-r overflow-y-auto flex-col" style={{ borderColor: '#E2E8F0' }}>
           <div className="px-4 py-3">
             <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Questions ({questions.length})</p>
           </div>
@@ -1949,7 +2026,7 @@ function CreateQuizPageInner() {
             while tall content (AI forms, CSV steps) flows from the top and
             scrolls naturally. Fixes "content cut at top" bug (Tier 4.4). */}
         <div className="flex-1 overflow-y-auto" style={{ background: 'var(--color-paper)' }}>
-        <div className="min-h-full flex items-start md:items-center justify-center px-4 md:px-8 lg:px-12 pt-8 pb-10">
+        <div className="min-h-full flex items-start md:items-center justify-center px-4 md:px-6 lg:px-8 pt-8 pb-10">
 
           {/* Manual tab → show preview */}
           {tab === 'manual' && activeQuestion && (
@@ -2340,7 +2417,7 @@ function CreateQuizPageInner() {
 
         {/* ── RIGHT PANEL: Question Editor ── */}
         {(tab === 'manual' || generatedOnTab) && activeQuestion && (
-          <div className="hidden md:flex md:w-80 flex-shrink-0 bg-white border-l overflow-y-auto flex-col p-4" style={{ borderColor: '#E2E8F0' }}>
+          <div className={`${inspectorOpen ? 'hidden md:flex md:w-72' : 'hidden'} flex-shrink-0 bg-white border-l overflow-y-auto flex-col p-4`} style={{ borderColor: '#E2E8F0' }}>
             {generatedOnTab && (
               <div className="mb-3 flex items-center gap-2">
                 <label className="flex items-center gap-1.5 cursor-pointer">

@@ -179,6 +179,7 @@ const SYSTEM_PROMPT = `You are a quiz generator. Return only valid JSON — no m
 
 interface TypeMix {
   mcq?: number
+  multiselect?: number
   truefalse?: number
   poll?: number
   openended?: number
@@ -191,6 +192,7 @@ interface TypeMix {
 
 function buildUserPrompt(text: string, questionCount: number, difficulty: string, typeMix?: TypeMix): string {
   const mcq = typeMix?.mcq ?? questionCount
+  const multi = typeMix?.multiselect ?? 0
   const tf = typeMix?.truefalse ?? 0
   const poll = typeMix?.poll ?? 0
   const open = typeMix?.openended ?? 0
@@ -206,6 +208,10 @@ function buildUserPrompt(text: string, questionCount: number, difficulty: string
   if (mcq > 0) {
     typeInstructions += `\n- ${mcq} MCQ questions: type "mcq", exactly 4 options, "correctAnswer" is a string index ("0","1","2","3"). IMPORTANT: Vary the correct answer position randomly across questions — do NOT always put the correct answer in the same position.`
     examples.push(`{"type":"mcq","text":"Who discovered gravity?","options":["Newton","Einstein","Galileo","Kepler"],"correctAnswer":"0","timerSeconds":20,"points":1000}`)
+  }
+  if (multi > 0) {
+    typeInstructions += `\n- ${multi} Multi-select questions: type "multiselect", exactly 4 options, "correctAnswers" is an array of one or more string indices. Use this only when multiple options can be correct.`
+    examples.push(`{"type":"multiselect","text":"Which of these are prime numbers?","options":["2","3","4","9"],"correctAnswers":["0","1"],"timerSeconds":30,"points":1000}`)
   }
   if (tf > 0) {
     typeInstructions += `\n- ${tf} True/False questions: type "truefalse", options must be exactly ["True","False"], "correctAnswer" is "0" (True) or "1" (False)`
@@ -298,6 +304,12 @@ function validateQuestions(data: unknown): boolean {
       return Array.isArray(item.options) && item.options.length >= 2 &&
         (item.options as unknown[]).every((o: unknown) => typeof o === 'string' && (o as string).trim().length > 0) &&
         typeof item.correctAnswer === 'string'
+    }
+    if (type === 'multiselect') {
+      return Array.isArray(item.options) && item.options.length >= 2 &&
+        (item.options as unknown[]).every((o: unknown) => typeof o === 'string' && (o as string).trim().length > 0) &&
+        Array.isArray(item.correctAnswers) && item.correctAnswers.length > 0 &&
+        (item.correctAnswers as unknown[]).every((a: unknown) => typeof a === 'string')
     }
     if (type === 'truefalse') {
       return Array.isArray(item.options) && item.options.length === 2 &&

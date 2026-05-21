@@ -5,6 +5,18 @@ import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth-helpers'
 import { getUserPlan } from '@/lib/billing'
 import { PLAN_LIMITS } from '@/lib/limits'
+import { hasQuizValidationErrors, validateQuizQuestions } from '@/lib/quiz-validation'
+import type { Question } from '@/lib/quiz-types'
+
+function getQuizQuestions(raw: unknown): Question[] {
+  return Array.isArray(raw) ? raw as Question[] : []
+}
+
+function coverImageFor(raw: unknown): string | null {
+  const questions = getQuizQuestions(raw)
+  const withImage = questions.find(q => typeof q.imageUrl === 'string' && q.imageUrl.trim())
+  return withImage?.imageUrl ?? null
+}
 
 // GET /api/quizzes — list quizzes for current user
 export async function GET() {
@@ -23,6 +35,7 @@ export async function GET() {
         subject: true,
         language: true,
         theme: true,
+        questions: true,
         createdAt: true,
         updatedAt: true,
         sessions: {
@@ -49,6 +62,8 @@ export async function GET() {
         subject: q.subject,
         language: q.language,
         theme: q.theme,
+        coverImageUrl: coverImageFor(q.questions),
+        questionCount: getQuizQuestions(q.questions).length,
         createdAt: q.createdAt,
         updatedAt: q.updatedAt,
         asyncShareSlug: asyncSession?.shareSlug ?? null,
@@ -91,6 +106,14 @@ export async function POST(req: NextRequest) {
     }
     if (!Array.isArray(questions)) {
       return NextResponse.json({ success: false, error: 'questions must be an array' }, { status: 400 })
+    }
+    const validationIssues = validateQuizQuestions(questions as Question[])
+    if (hasQuizValidationErrors(validationIssues)) {
+      return NextResponse.json({
+        success: false,
+        error: 'Some questions need attention before saving.',
+        issues: validationIssues,
+      }, { status: 400 })
     }
 
     // Normalise optional fields — empty strings would trip Postgres length/

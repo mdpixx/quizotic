@@ -16,7 +16,7 @@ export function OptionGrid({ question, disabled, onSubmit }: AsyncInputProps) {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4">
       {opts.map((opt, i) => {
         const color = ANSWER_COLORS[i % ANSWER_COLORS.length]
         const isSelected = selected === i
@@ -26,17 +26,17 @@ export function OptionGrid({ question, disabled, onSubmit }: AsyncInputProps) {
             onClick={() => handleClick(i)}
             disabled={disabled}
             className={[
-              'relative flex items-start gap-2 p-3 rounded-xl text-left min-h-[72px]',
+              'relative flex items-start gap-3 p-4 lg:p-6 rounded-2xl text-left min-h-[92px] lg:min-h-[150px]',
               'transition-all duration-150 active:scale-[0.97] disabled:cursor-default',
               isSelected ? 'ring-4 ring-white/50 scale-[0.97]' : 'hover:brightness-110',
               disabled && !isSelected ? 'opacity-50' : '',
             ].join(' ')}
             style={{ backgroundColor: color.hex }}
           >
-            <span className="shrink-0 w-7 h-7 rounded-full bg-black/25 flex items-center justify-center text-sm font-bold text-white">
+            <span className="shrink-0 w-9 h-9 lg:w-12 lg:h-12 rounded-full bg-black/25 flex items-center justify-center text-base lg:text-xl font-bold text-white">
               {color.letter}
             </span>
-            <span className="text-white font-semibold text-sm leading-snug mt-0.5">{optText(opt)}</span>
+            <span className="text-white font-black text-base lg:text-2xl leading-tight mt-0.5">{optText(opt)}</span>
           </button>
         )
       })}
