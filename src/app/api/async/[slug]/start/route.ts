@@ -64,8 +64,12 @@ export async function POST(req: NextRequest, { params }: Params) {
       }
     }
 
+    const deadlineAt = session.timeLimitMinutes
+      ? new Date(Date.now() + session.timeLimitMinutes * 60 * 1000)
+      : null
+
     const attendee = await prisma.attendee.create({
-      data: { sessionId: session.id, nickname: name, realName: name },
+      data: { sessionId: session.id, nickname: name, realName: name, deadlineAt },
     })
 
     const participantId = randomUUID()
@@ -78,6 +82,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         attendeeId: attendee.id,
         participantId,
         total: questions.length,
+        deadlineAt,
         question: firstQ ? { ...firstQ, index: 0, total: questions.length } : null,
       },
     })

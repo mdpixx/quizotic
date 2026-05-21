@@ -23,6 +23,11 @@ export interface Participant {
 export type PublicQuestion = Omit<Question, 'correctAnswer' | 'correctAnswers' | 'correctOrder'>
 
 export const ASYNC_GRADEABLE_TYPES = new Set(['mcq', 'truefalse', 'multiselect'])
+export const ASYNC_PARTICIPATION_TYPES = new Set(['poll', 'openended', 'wordcloud', 'qa', 'rating', 'ranking', 'case', 'drawing'])
+
+export function isAsyncScoredType(type: string): boolean {
+  return ASYNC_GRADEABLE_TYPES.has(type)
+}
 
 export function stripAnswers(q: Question): PublicQuestion {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -39,6 +44,74 @@ export function toPublicQuestion(q: Question): PublicQuestion {
     ? safe.options
     : q.type === 'truefalse' ? ['True', 'False'] : safe.options
   return { ...safe, options }
+}
+
+// Returns the effective options array for a question, with type-appropriate defaults.
+function getOpts(q: Question): unknown[] {
+  if (q.options && (q.options as unknown[]).length > 0) return q.options as unknown[]
+  if (q.type === 'truefalse') return ['True', 'False']
+  if (q.type === 'rating') return ['1', '2', '3', '4', '5']
+  return []
+}
+
+export function validateAnswer(
+  question: Question,
+  raw: unknown,
+): { ok: true; value: unknown } | { ok: false; error: string; code: string } {
+  const type = question.type
+  const opts = getOpts(question)
+
+  if (type === 'mcq' || type === 'truefalse' || type === 'poll' || type === 'case') {
+    const n = typeof raw === 'number' ? raw : typeof raw === 'string' ? parseInt(raw, 10) : NaN
+    if (!Number.isInteger(n) || n < 0 || n >= opts.length)
+      return { ok: false, error: 'Answer must be a valid option index', code: 'invalid_answer' }
+    return { ok: true, value: n }
+  }
+
+  if (type === 'multiselect') {
+    if (!Array.isArray(raw) || raw.length === 0)
+      return { ok: false, error: 'Answer must be a non-empty array of option indices', code: 'invalid_answer' }
+    const indices = [...new Set((raw as unknown[]).map(x => (typeof x === 'number' ? x : parseInt(String(x), 10))))]
+    if (indices.some(n => !Number.isInteger(n) || n < 0 || n >= opts.length))
+      return { ok: false, error: 'Answer contains invalid option index', code: 'invalid_answer' }
+    return { ok: true, value: indices.map(String) }
+  }
+
+  if (type === 'openended' || type === 'wordcloud' || type === 'qa') {
+    if (typeof raw !== 'string' || raw.trim() === '')
+      return { ok: false, error: 'Answer must be a non-empty string', code: 'invalid_answer' }
+    return { ok: true, value: raw.trim().slice(0, 2000) }
+  }
+
+  if (type === 'rating') {
+    const n = typeof raw === 'number' ? raw : typeof raw === 'string' ? parseInt(raw, 10) : NaN
+    if (!Number.isInteger(n) || n < 0 || n >= opts.length)
+      return { ok: false, error: 'Answer must be a valid rating index', code: 'invalid_answer' }
+    return { ok: true, value: String(n) }
+  }
+
+  if (type === 'ranking') {
+    const len = opts.length
+    if (!Array.isArray(raw) || (raw as unknown[]).length !== len)
+      return { ok: false, error: 'Ranking answer must have the same length as options', code: 'invalid_answer' }
+    const nums = (raw as unknown[]).map(x => (typeof x === 'number' ? x : parseInt(String(x), 10)))
+    if (nums.some(n => !Number.isInteger(n) || n < 0 || n >= len))
+      return { ok: false, error: 'Ranking contains invalid index', code: 'invalid_answer' }
+    const sorted = [...nums].sort((a, b) => a - b)
+    if (sorted.some((n, i) => n !== i))
+      return { ok: false, error: 'Ranking must be a permutation of all option indices', code: 'invalid_answer' }
+    return { ok: true, value: nums }
+  }
+
+  if (type === 'drawing') {
+    if (typeof raw !== 'string' || !raw.startsWith('data:image/'))
+      return { ok: false, error: 'Drawing answer must be an image data URL', code: 'invalid_answer' }
+    if (raw.length > 200000)
+      return { ok: false, error: 'Drawing answer is too large', code: 'answer_too_large' }
+    return { ok: true, value: raw }
+  }
+
+  return { ok: false, error: `Unsupported question type: ${type}`, code: 'invalid_answer' }
 }
 
 export function checkAnswer(question: Question, answer: unknown): boolean {

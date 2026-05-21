@@ -35,6 +35,7 @@ interface ShareState {
   publishing: boolean
   copied: boolean
   messageCopied: boolean
+  timeLimitMinutes: number | null
 }
 
 // Gradient palette for quiz thumbnail cards — deterministic by id hash
@@ -199,7 +200,7 @@ export default function QuizzesPage() {
   }
 
   async function handleShare(id: string) {
-    setShareModal({ quizId: id, slug: null, questionCount: 0, responseCount: 0, allowRetries: false, closesAt: null, publishedAt: null, needsRepublish: false, publishing: true, copied: false, messageCopied: false })
+    setShareModal({ quizId: id, slug: null, questionCount: 0, responseCount: 0, allowRetries: false, closesAt: null, publishedAt: null, needsRepublish: false, publishing: true, copied: false, messageCopied: false, timeLimitMinutes: null })
     try {
       const res = await fetch(`/api/quizzes/${id}/publish`, { method: 'POST' })
       const json = await res.json()
@@ -208,8 +209,8 @@ export default function QuizzesPage() {
         setShareModal(null)
         return
       }
-      const { shareSlug, questionCount, responseCount, allowRetries, closesAt, publishedAt, needsRepublish } = json.data
-      setShareModal({ quizId: id, slug: shareSlug, questionCount, responseCount: responseCount ?? 0, allowRetries, closesAt: closesAt ?? null, publishedAt: publishedAt ?? null, needsRepublish: !!needsRepublish, publishing: false, copied: false, messageCopied: false })
+      const { shareSlug, questionCount, responseCount, allowRetries, closesAt, publishedAt, needsRepublish, timeLimitMinutes } = json.data
+      setShareModal({ quizId: id, slug: shareSlug, questionCount, responseCount: responseCount ?? 0, allowRetries, closesAt: closesAt ?? null, publishedAt: publishedAt ?? null, needsRepublish: !!needsRepublish, publishing: false, copied: false, messageCopied: false, timeLimitMinutes: timeLimitMinutes ?? null })
       setQuizzes(prev => prev.map(q => q.id === id ? {
         ...q,
         asyncShareSlug: shareSlug,
@@ -248,6 +249,17 @@ export default function QuizzesPage() {
     if (!res.ok) return
     setShareModal(prev => prev ? { ...prev, closesAt } : prev)
     setQuizzes(prev => prev.map(q => q.id === shareModal.quizId ? { ...q, asyncClosesAt: closesAt } : q))
+  }
+
+  async function handleSetTimeLimit(minutes: number | null) {
+    if (!shareModal) return
+    const res = await fetch(`/api/quizzes/${shareModal.quizId}/publish`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ timeLimitMinutes: minutes }),
+    })
+    if (!res.ok) return
+    setShareModal(prev => prev ? { ...prev, timeLimitMinutes: minutes } : prev)
   }
 
   async function handleUnpublish() {
@@ -472,9 +484,14 @@ export default function QuizzesPage() {
                         </p>
                         {quiz.asyncShareSlug && (
                           <div className="mb-3 rounded-lg px-2.5 py-2" style={{ background: quiz.asyncNeedsRepublish ? '#FFFBEB' : '#F0FDF4', border: `1px solid ${quiz.asyncNeedsRepublish ? '#FDE68A' : '#BBF7D0'}` }}>
-                            <p className="text-[11px] font-bold" style={{ color: quiz.asyncNeedsRepublish ? '#92400E' : '#15803D' }}>
-                              {quiz.asyncNeedsRepublish ? 'Republish changes' : 'Self-paced live'}
-                            </p>
+                            <div className="flex items-center justify-between">
+                              <p className="text-[11px] font-bold" style={{ color: quiz.asyncNeedsRepublish ? '#92400E' : '#15803D' }}>
+                                {quiz.asyncNeedsRepublish ? 'Republish changes' : 'Self-paced live'}
+                              </p>
+                              <Link href={`/host/quizzes/${quiz.id}/report`} className="text-[10px] font-bold underline" style={{ color: '#64748B' }}>
+                                Results
+                              </Link>
+                            </div>
                             <p className="text-[10px]" style={{ color: '#64748B' }}>
                               {quiz.asyncResponseCount} response{quiz.asyncResponseCount === 1 ? '' : 's'} · {quiz.asyncQuestionCount} question{quiz.asyncQuestionCount === 1 ? '' : 's'}
                             </p>
@@ -545,9 +562,14 @@ export default function QuizzesPage() {
                         {quiz.subject && <span className="chip" style={{ background: '#EFF6FF', color: '#1D4ED8' }}>{quiz.subject}</span>}
                         <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>Updated {timeAgo(quiz.updatedAt)}</span>
                         {quiz.asyncShareSlug && (
-                          <span className="chip" style={{ background: quiz.asyncNeedsRepublish ? '#FFFBEB' : '#F0FDF4', color: quiz.asyncNeedsRepublish ? '#92400E' : '#15803D' }}>
-                            {quiz.asyncNeedsRepublish ? 'Republish changes' : `${quiz.asyncResponseCount} self-paced`}
-                          </span>
+                          <>
+                            <span className="chip" style={{ background: quiz.asyncNeedsRepublish ? '#FFFBEB' : '#F0FDF4', color: quiz.asyncNeedsRepublish ? '#92400E' : '#15803D' }}>
+                              {quiz.asyncNeedsRepublish ? 'Republish changes' : `${quiz.asyncResponseCount} self-paced`}
+                            </span>
+                            <Link href={`/host/quizzes/${quiz.id}/report`} className="chip" style={{ background: '#F0F9FF', color: '#0369A1', textDecoration: 'none' }}>
+                              Results
+                            </Link>
+                          </>
                         )}
                       </div>
                     </div>
@@ -705,7 +727,7 @@ export default function QuizzesPage() {
                   </div>
 
                   {/* Allow retries toggle */}
-                  <div className="flex items-center justify-between mb-5 py-3 border-t border-b" style={{ borderColor: '#E2E8F0' }}>
+                  <div className="flex items-center justify-between mb-4 py-3 border-t" style={{ borderColor: '#E2E8F0' }}>
                     <div>
                       <p className="text-sm font-semibold" style={{ color: '#0F1B3D' }}>Allow retakes</p>
                       <p className="text-xs" style={{ color: '#94A3B8' }}>Let players take the quiz more than once</p>
@@ -721,6 +743,38 @@ export default function QuizzesPage() {
                         style={{ left: shareModal.allowRetries ? '22px' : '4px' }}
                       />
                     </button>
+                  </div>
+
+                  {/* Time limit selector */}
+                  <div className="mb-5 pb-4 border-b" style={{ borderColor: '#E2E8F0' }}>
+                    <p className="text-xs font-bold mb-2" style={{ color: '#0F1B3D' }}>Time limit per attempt</p>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {[
+                        { label: 'None', value: null as number | null },
+                        { label: '10 min', value: 10 },
+                        { label: '20 min', value: 20 },
+                        { label: '30 min', value: 30 },
+                        { label: '45 min', value: 45 },
+                        { label: '60 min', value: 60 },
+                        { label: '90 min', value: 90 },
+                      ].map(opt => {
+                        const active = shareModal.timeLimitMinutes === opt.value
+                        return (
+                          <button
+                            key={opt.label}
+                            onClick={() => handleSetTimeLimit(opt.value)}
+                            className="py-1.5 rounded-lg text-xs font-bold border transition-colors"
+                            style={{
+                              background: active ? '#0F1B3D' : '#fff',
+                              color: active ? '#F5E642' : '#0F1B3D',
+                              borderColor: active ? '#0F1B3D' : '#E2E8F0',
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
 
                   <div className="flex gap-3">

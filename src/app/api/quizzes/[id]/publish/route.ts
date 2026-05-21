@@ -6,10 +6,9 @@ import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth-helpers'
 import { getUserPlan } from '@/lib/billing'
 import { PLAN_LIMITS } from '@/lib/limits'
-import { ASYNC_GRADEABLE_TYPES } from '@/lib/scoring'
 
 type Params = { params: Promise<{ id: string }> }
-type GradeableQuestion = { type: string }
+type SnapshotQuestion = { type?: string }
 
 function generateSlug(): string {
   const chars = 'abcdefghijkmnpqrstuvwxyz23456789'
@@ -35,9 +34,8 @@ async function findUniqueCode(): Promise<string> {
   return String(100000 + Math.floor(Math.random() * 900000))
 }
 
-function getGradeableQuestions(questions: unknown): GradeableQuestion[] {
-  const allQuestions = Array.isArray(questions) ? (questions as GradeableQuestion[]) : []
-  return allQuestions.filter(q => ASYNC_GRADEABLE_TYPES.has(q.type))
+function getSnapshotQuestions(questions: unknown): SnapshotQuestion[] {
+  return Array.isArray(questions) ? (questions as SnapshotQuestion[]) : []
 }
 
 function needsRepublish(quizUpdatedAt: Date, versionCreatedAt: Date | null | undefined): boolean {
@@ -45,21 +43,26 @@ function needsRepublish(quizUpdatedAt: Date, versionCreatedAt: Date | null | und
 }
 
 // POST /api/quizzes/[id]/publish — publish quiz as async self-serve link
-export async function POST(_req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, { params }: Params) {
   try {
     const user = await getCurrentUser()
     if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
 
     const { id } = await params
+    const body = await req.json().catch(() => ({})) as Record<string, unknown>
+    const rawTlm = body.timeLimitMinutes
+    const timeLimitMinutes = (typeof rawTlm === 'number' && Number.isInteger(rawTlm) && rawTlm > 0)
+      ? rawTlm
+      : null
 
     const quiz = await prisma.quiz.findFirst({ where: { id, userId: user.id } })
     if (!quiz) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
 
-    const gradeable = getGradeableQuestions(quiz.questions)
-    if (gradeable.length === 0) {
+    const snapshot = getSnapshotQuestions(quiz.questions)
+    if (snapshot.length === 0) {
       return NextResponse.json({
         success: false,
-        error: 'This quiz has no auto-gradeable questions (MCQ, True/False, or Multi-select). Add at least one to publish it as a self-paced quiz.',
+        error: 'This quiz has no questions. Add at least one question to publish it as a self-paced quiz.',
       }, { status: 400 })
     }
 
@@ -87,8 +90,8 @@ export async function POST(_req: NextRequest, { params }: Params) {
             subject: quiz.subject ?? null,
             language: quiz.language ?? null,
             theme: quiz.theme ?? null,
-            snapshot: gradeable,
-            questionCount: gradeable.length,
+            snapshot,
+            questionCount: snapshot.length,
           },
         })
         await prisma.gameSession.update({
@@ -146,8 +149,8 @@ export async function POST(_req: NextRequest, { params }: Params) {
         subject: quiz.subject ?? null,
         language: quiz.language ?? null,
         theme: quiz.theme ?? null,
-        snapshot: gradeable,
-        questionCount: gradeable.length,
+            snapshot,
+            questionCount: snapshot.length,
       },
     })
 
@@ -164,6 +167,7 @@ export async function POST(_req: NextRequest, { params }: Params) {
         userId: user.id,
         shareSlug: slug,
         allowRetries: false,
+        timeLimitMinutes,
       },
     })
 
@@ -172,9 +176,10 @@ export async function POST(_req: NextRequest, { params }: Params) {
       data: {
         sessionId: session.id,
         shareSlug: slug,
-        questionCount: gradeable.length,
+        questionCount: snapshot.length,
         allowRetries: false,
         closesAt: null,
+        timeLimitMinutes,
         responseCount: 0,
         publishedAt: version.createdAt,
         needsRepublish: false,
@@ -199,9 +204,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const session = await prisma.gameSession.findFirst({ where: { quizId: id, userId: user.id, mode: 'async', status: 'open' } })
     if (!session) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
 
-    const update: { allowRetries?: boolean; closesAt?: Date | null } = {}
+    const update: { allowRetries?: boolean; closesAt?: Date | null; timeLimitMinutes?: number | null } = {}
     if (typeof body.allowRetries === 'boolean') update.allowRetries = body.allowRetries
     if ('closesAt' in body) update.closesAt = body.closesAt ? new Date(body.closesAt as string) : null
+    if ('timeLimitMinutes' in body) {
+      const tlm = body.timeLimitMinutes
+      update.timeLimitMinutes = (typeof tlm === 'number' && Number.isInteger(tlm) && tlm > 0) ? tlm : null
+    }
 
     const updated = await prisma.gameSession.update({ where: { id: session.id }, data: update })
 

@@ -24,6 +24,7 @@ vi.mock('@/lib/rate-limit', () => ({
 }))
 
 import { POST as publishPost, DELETE as publishDelete } from '../app/api/quizzes/[id]/publish/route'
+import { POST as answerPost } from '../app/api/async/[slug]/answer/route'
 import { POST as finishPost } from '../app/api/async/[slug]/finish/route'
 
 function req(url: string, body?: unknown) {
@@ -55,7 +56,7 @@ beforeEach(() => {
     ],
   })
   prismaMock.gameSession.count.mockResolvedValue(0)
-  prismaMock.quizVersion.create.mockResolvedValue({ id: 'version-new', questionCount: 1, createdAt: new Date('2026-05-20T10:00:01Z') })
+  prismaMock.quizVersion.create.mockResolvedValue({ id: 'version-new', questionCount: 2, createdAt: new Date('2026-05-20T10:00:01Z') })
   prismaMock.gameSession.create.mockResolvedValue({
     id: 'session-1',
     shareSlug: 'abc123xy',
@@ -67,7 +68,7 @@ beforeEach(() => {
 })
 
 describe('async publish API', () => {
-  it('creates an async session with an auto-gradeable snapshot', async () => {
+  it('creates an async session with the full mixed-question snapshot', async () => {
     prismaMock.gameSession.findFirst.mockResolvedValue(null)
     prismaMock.gameSession.findUnique.mockResolvedValue(null)
 
@@ -76,11 +77,14 @@ describe('async publish API', () => {
 
     expect(res.status).toBe(200)
     expect(json.success).toBe(true)
-    expect(json.data.questionCount).toBe(1)
+    expect(json.data.questionCount).toBe(2)
     expect(prismaMock.quizVersion.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
-        snapshot: [expect.objectContaining({ id: 'q1' })],
-        questionCount: 1,
+        snapshot: [
+          expect.objectContaining({ id: 'q1' }),
+          expect.objectContaining({ id: 'p1' }),
+        ],
+        questionCount: 2,
       }),
     }))
     expect(prismaMock.gameSession.create).toHaveBeenCalledOnce()
@@ -125,16 +129,70 @@ describe('async publish API', () => {
   })
 })
 
+describe('async answer API', () => {
+  beforeEach(() => {
+    prismaMock.gameSession.findUnique.mockResolvedValue({
+      id: 'session-1',
+      mode: 'async',
+      status: 'open',
+      closesAt: null,
+      quizVersion: {
+        snapshot: [
+          { id: 'p1', type: 'poll', text: 'Favorite planet?', options: ['Earth', 'Saturn'], timerSeconds: 20, points: 1000 },
+          { id: 'q1', type: 'mcq', text: 'Closest planet?', options: ['Mercury', 'Mars'], correctAnswer: '0', timerSeconds: 20, points: 1000 },
+        ],
+      },
+    })
+    prismaMock.attendee.findFirst.mockResolvedValue({ id: 'att-1', leftAt: null })
+    prismaMock.answer.findFirst.mockResolvedValue(null)
+    prismaMock.answer.findMany.mockResolvedValue([])
+    prismaMock.answer.create.mockResolvedValue({})
+  })
+
+  it('records non-scored self-paced answers as participation without points', async () => {
+    const res = await answerPost(req('http://localhost/api/async/abc/answer', {
+      participantId: 'pid-1',
+      attendeeId: 'att-1',
+      questionIndex: 0,
+      answer: '1',
+      timeMs: 5000,
+    }), params({ slug: 'abc' }))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.success).toBe(true)
+    expect(json.data.isCorrect).toBeNull()
+    expect(json.data.points).toBe(0)
+    expect(json.data.nextQuestion.index).toBe(1)
+    expect(prismaMock.answer.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        isCorrect: null,
+        basePoints: 0,
+        streakBonus: 0,
+        points: 0,
+      }),
+    })
+  })
+})
+
 describe('async finish API', () => {
   beforeEach(() => {
     prismaMock.gameSession.findUnique.mockResolvedValue({
       id: 'session-1',
       mode: 'async',
-      quizVersion: { questionCount: 2 },
+      quizVersion: {
+        questionCount: 3,
+        snapshot: [
+          { id: 'q1', type: 'mcq' },
+          { id: 'p1', type: 'poll' },
+          { id: 'q2', type: 'truefalse' },
+        ],
+      },
     })
     prismaMock.answer.findMany.mockResolvedValue([
-      { points: 1000, isCorrect: true },
-      { points: 0, isCorrect: false },
+      { points: 1000, isCorrect: true, questionIndex: 0 },
+      { points: 0, isCorrect: null, questionIndex: 1 },
+      { points: 0, isCorrect: false, questionIndex: 2 },
     ])
     prismaMock.attendee.findMany.mockResolvedValue([{ finalScore: 1000 }, { finalScore: 500 }])
   })
@@ -149,7 +207,9 @@ describe('async finish API', () => {
     expect(res.status).toBe(200)
     expect(json.data.finalScore).toBe(1000)
     expect(json.data.correctCount).toBe(1)
-    expect(json.data.questionCount).toBe(2)
+    expect(json.data.questionCount).toBe(3)
+    expect(json.data.scoredQuestionCount).toBe(2)
+    expect(json.data.participationAnsweredCount).toBe(1)
     expect(prismaMock.gameSession.update).toHaveBeenCalledOnce()
   })
 

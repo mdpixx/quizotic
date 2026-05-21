@@ -22,6 +22,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
         status: true,
         allowRetries: true,
         closesAt: true,
+        timeLimitMinutes: true,
         quizVersion: { select: { title: true, questionCount: true, subject: true, snapshot: true } },
       },
     })
@@ -47,6 +48,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
         questionCount: session.quizVersion?.questionCount ?? 0,
         allowRetries: session.allowRetries,
         closesAt: session.closesAt,
+        timeLimitMinutes: session.timeLimitMinutes ?? null,
         estimatedSeconds,
         maxBaseScore,
       },
