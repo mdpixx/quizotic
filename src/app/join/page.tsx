@@ -12,8 +12,8 @@ import { LeaderboardView } from '@/components/LeaderboardView'
 import { ResultBeat, type PersonalResult } from '@/components/ResultBeat'
 import { startClockSync, getServerNow, resyncClock } from '@/lib/clock-sync'
 import { useI18n } from '@/lib/use-i18n'
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
-import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { DndContext, closestCenter, MouseSensor, TouchSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { isContentSlideType, isInteractiveSlideType } from '@/lib/presentation-types'
 import { isScoredType, getEffectiveOptions } from '@/lib/quiz-types'
@@ -328,31 +328,32 @@ function Grid2x2Input({ xMin, xMax, yMin, yMax, onSubmit }: {
 }
 
 // ─── Sortable Ranking Item ───────────────────────────────────────────────────
-// Drag is handle-only: touchAction: 'none' is scoped to the grip so the rest
-// of the card taps and scrolls normally (fixes participant-reported sideways
-// slide when interacting near ranking items).
+// Whole-bar drag: listeners are on the bar div so the participant can grab
+// anywhere. TouchSensor delay:200ms lets quick swipes still scroll the page
+// (fixes the earlier sideways-slide regression on touch devices).
 function SortableRankingItem({ id, index, label, color }: { id: string; index: number; label: string; color: string }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  const base = CSS.Transform.toString(transform)
   const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
+    transform: isDragging && base ? `${base} scale(1.03)` : base,
     transition,
     background: color,
-    opacity: isDragging ? 0.85 : 1,
+    opacity: isDragging ? 0.95 : 1,
     touchAction: 'manipulation',
+    zIndex: isDragging ? 50 : undefined,
+    boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.35)' : undefined,
+    cursor: isDragging ? 'grabbing' : 'grab',
   }
   return (
-    <div ref={setNodeRef} style={style} {...attributes}
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}
       className="w-full py-4 rounded-2xl text-left px-5 text-base font-bold text-white flex items-center gap-3 select-none">
       <span className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-sm font-black"
         style={{ background: 'rgba(255,255,255,0.2)' }}>{index + 1}</span>
       <span className="flex-1">{label}</span>
       <span
-        {...listeners}
-        aria-label="Drag to reorder"
-        role="button"
-        tabIndex={0}
+        aria-hidden="true"
         className="opacity-80 text-xl leading-none px-2 py-1 -mr-2 rounded-md"
-        style={{ touchAction: 'none', cursor: 'grab', background: 'rgba(255,255,255,0.1)' }}
+        style={{ background: 'rgba(255,255,255,0.1)' }}
       >⋮⋮</span>
     </div>
   )
@@ -492,7 +493,11 @@ function JoinPageInner() {
   const quickFireTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [presenterAggregate, setPresenterAggregate] = useState<PresenterAggregateData>({ total: 0 })
   const [rankingOrder, setRankingOrder] = useState<number[]>([])
-  const rankingSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+  const rankingSensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [showEmailInput, setShowEmailInput] = useState(false)

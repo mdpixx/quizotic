@@ -4,7 +4,9 @@ import { useState } from 'react'
 import {
   DndContext,
   closestCenter,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -14,6 +16,7 @@ import {
   useSortable,
   verticalListSortingStrategy,
   arrayMove,
+  sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { ANSWER_COLORS } from '@/lib/answer-colors'
@@ -21,20 +24,25 @@ import type { AsyncInputProps } from './types'
 import { optText } from './types'
 
 function SortableItem({ id, index, label, colorHex }: {
-  id: string; index: number; label: string; colorHex: string
+  id: number; index: number; label: string; colorHex: string
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  const base = CSS.Transform.toString(transform)
   return (
     <div
       ref={setNodeRef}
       style={{
-        transform: CSS.Transform.toString(transform),
+        transform: isDragging && base ? `${base} scale(1.03)` : base,
         transition,
         background: colorHex,
-        opacity: isDragging ? 0.85 : 1,
+        opacity: isDragging ? 0.95 : 1,
         touchAction: 'manipulation',
+        zIndex: isDragging ? 50 : undefined,
+        boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.35)' : undefined,
+        cursor: isDragging ? 'grabbing' : 'grab',
       }}
       {...attributes}
+      {...listeners}
       className="w-full py-4 rounded-2xl px-4 text-white flex items-center gap-3 select-none"
     >
       <span className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-sm font-black shrink-0"
@@ -43,12 +51,9 @@ function SortableItem({ id, index, label, colorHex }: {
       </span>
       <span className="flex-1 text-sm font-bold leading-snug">{label}</span>
       <span
-        {...listeners}
-        role="button"
-        aria-label="Drag to reorder"
-        tabIndex={0}
+        aria-hidden="true"
         className="opacity-80 text-xl leading-none px-2 py-1 -mr-1 rounded-md"
-        style={{ touchAction: 'none', cursor: 'grab', background: 'rgba(255,255,255,0.1)' }}
+        style={{ background: 'rgba(255,255,255,0.1)' }}
       >
         ⋮⋮
       </span>
@@ -61,7 +66,11 @@ export function RankingInput({ question, disabled, onSubmit }: AsyncInputProps) 
   const [order, setOrder] = useState<number[]>(() => opts.map((_, i) => i))
   const [submitted, setSubmitted] = useState(false)
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
 
   function handleDragEnd(e: DragEndEvent) {
     const { active, over } = e
@@ -94,7 +103,7 @@ export function RankingInput({ question, disabled, onSubmit }: AsyncInputProps) 
               return (
                 <SortableItem
                   key={optIdx}
-                  id={String(optIdx)}
+                  id={optIdx}
                   index={pos}
                   label={optText(opts[optIdx])}
                   colorHex={color.hex}
