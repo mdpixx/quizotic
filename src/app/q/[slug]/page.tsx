@@ -437,10 +437,10 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
     const fb = feedback
 
     return (
-      <div className="min-h-screen flex flex-col" style={{ background: '#0F1B3D' }}>
+      <div className="min-h-svh flex flex-col" style={{ background: '#0F1B3D' }}>
         {/* Sticky header */}
-        <div className="sticky top-0 z-10 px-4 pt-3 pb-2 flex items-center gap-3"
-          style={{ background: '#0F1B3D', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="sticky top-0 z-10 px-4 pb-2 flex items-center gap-3"
+          style={{ background: '#0F1B3D', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
           <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
             <div
               className="h-full rounded-full transition-all duration-500"
