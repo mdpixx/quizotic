@@ -36,7 +36,7 @@ export function HostNav() {
         {/* Logo → dashboard */}
         <Link href="/host" className="flex items-center gap-2 group">
           <div
-            className="w-7 h-7 rounded-md flex items-center justify-center font-black text-xs"
+            className="w-9 h-9 md:w-7 md:h-7 rounded-lg md:rounded-md flex items-center justify-center font-black text-base md:text-xs"
             style={{ background: '#F5E642', color: '#0D0D0D' }}
           >
             Q
