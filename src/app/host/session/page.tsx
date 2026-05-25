@@ -1019,7 +1019,7 @@ export default function SessionPage() {
 
   return (
     <div
-      className="min-h-screen"
+      className="min-h-svh"
       style={{ background: quizTheme.background, color: quizTheme.textColor }}
       data-theme={quizTheme.id}
     >
@@ -1223,7 +1223,7 @@ export default function SessionPage() {
 
       {/* LOBBY */}
       {phase === 'lobby' && (
-        <div className="relative min-h-screen overflow-hidden" style={{ background: 'linear-gradient(135deg, #46107a 0%, #7e1f9b 35%, #c32aa3 65%, #ff5a5f 100%)' }}>
+        <div className="relative min-h-svh overflow-hidden" style={{ background: 'linear-gradient(135deg, #46107a 0%, #7e1f9b 35%, #c32aa3 65%, #ff5a5f 100%)' }}>
           {/* Animated floating blobs */}
           <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
             <div className="lobby-blob" style={{ top: '-10%', left: '-10%', width: 420, height: 420, background: 'radial-gradient(circle, rgba(255,220,80,0.55), transparent 70%)', animationDelay: '0s' }} />
@@ -1401,7 +1401,7 @@ export default function SessionPage() {
           initial={reduceStageMotion ? false : { opacity: 0, y: 18, scale: 0.99 }}
           animate={reduceStageMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.32, ease: [0.22, 0.61, 0.36, 1] }}
-          className="min-h-screen h-screen max-h-screen overflow-hidden px-4 pt-3 pb-3 lg:px-8 lg:pt-4 lg:pb-4 flex flex-col gap-3 host-question-stage"
+          className="min-h-svh md:h-screen md:max-h-screen md:overflow-hidden overflow-y-auto px-4 pt-3 pb-3 lg:px-8 lg:pt-4 lg:pb-4 flex flex-col gap-3 host-question-stage"
           style={{
             background: 'linear-gradient(135deg, #071126 0%, #0F1B3D 55%, #102A43 100%)',
             color: '#FFFFFF',
@@ -1941,6 +1941,7 @@ export default function SessionPage() {
                 boxShadow: '0 18px 60px rgba(0,0,0,0.34)',
                 backdropFilter: 'blur(14px)',
                 WebkitBackdropFilter: 'blur(14px)',
+                paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))',
               }}
             >
               <div className="flex items-center gap-3 min-w-0">
@@ -2064,7 +2065,7 @@ export default function SessionPage() {
           initial={reduceStageMotion ? false : { opacity: 0, y: 20, scale: 0.99 }}
           animate={reduceStageMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.36, ease: [0.22, 0.61, 0.36, 1] }}
-          className="min-h-screen px-4 py-6 lg:px-8 space-y-6"
+          className="min-h-svh px-4 py-6 lg:px-8 space-y-6"
           style={{
             background:
               'radial-gradient(circle at 20% 10%, rgba(245,230,66,0.18), transparent 26%), radial-gradient(circle at 80% 18%, rgba(34,197,94,0.16), transparent 28%), linear-gradient(135deg, #F8FAFC 0%, #EEF2FF 100%)',
@@ -2447,7 +2448,7 @@ export default function SessionPage() {
           having to find a button buried in the bottom action bar (which is
           a high-touch zone and would risk accidental taps). */}
       {(phase === 'question' || phase === 'standings') && (
-        <div className="fixed top-3 right-3 z-40">
+        <div className="fixed right-3 z-40" style={{ top: 'max(0.75rem, env(safe-area-inset-top, 0px))' }}>
           <button
             type="button"
             aria-label="More options"

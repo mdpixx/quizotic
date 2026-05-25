@@ -1180,7 +1180,7 @@ export default function PresentSessionPage() {
 
   if (phase === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F8F9FA' }}>
+      <div className="min-h-svh flex items-center justify-center" style={{ background: '#F8F9FA' }}>
         <div className="flex flex-col items-center gap-4">
           <div className="w-10 h-10 rounded-full border-3 border-t-transparent animate-spin"
             style={{ borderColor: '#0F1B3D', borderTopColor: 'transparent' }} />
@@ -1194,7 +1194,7 @@ export default function PresentSessionPage() {
 
   if (phase === 'error') {
     return (
-      <div className="min-h-screen flex items-center justify-center px-6" style={{ background: '#F8F9FA' }}>
+      <div className="min-h-svh flex items-center justify-center px-6" style={{ background: '#F8F9FA' }}>
         <div className="max-w-sm w-full rounded-2xl p-8 text-center" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
           <div className="w-14 h-14 rounded-full mx-auto mb-5 flex items-center justify-center text-2xl"
             style={{ background: '#F8F9FA' }}>
@@ -1229,7 +1229,7 @@ export default function PresentSessionPage() {
     ).length
 
     return (
-      <div className="min-h-screen flex items-center justify-center px-6" style={{ background: '#F8F9FA' }}>
+      <div className="min-h-svh flex items-center justify-center px-6" style={{ background: '#F8F9FA' }}>
         <div className="max-w-md w-full">
           {/* Presentation card */}
           <div className="rounded-2xl p-8 text-center" style={{
@@ -1346,7 +1346,7 @@ export default function PresentSessionPage() {
 
   return (
     <div
-      className="h-screen flex flex-col overflow-hidden"
+      className="min-h-svh md:h-screen flex flex-col md:overflow-hidden overflow-y-auto"
       style={{
         background: getQuizTheme(presentation?.theme).background,
         color: getQuizTheme(presentation?.theme).textColor,
@@ -1538,8 +1538,8 @@ export default function PresentSessionPage() {
       </div>
 
       {/* ── Presenter controls (below slide — NOT projected) ─────────────────── */}
-      <div className="border-t flex items-center justify-between px-6 py-4 flex-shrink-0"
-        style={{ borderColor: '#E5E7EB', background: '#F8F9FA' }}>
+      <div className="border-t flex flex-wrap items-center justify-between gap-y-2 px-4 py-3 md:px-6 md:py-4 flex-shrink-0"
+        style={{ borderColor: '#E5E7EB', background: '#F8F9FA', paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}>
 
         {/* Left: sound toggle + mirror toggle + Q shortcut hint */}
         <div className="flex items-center gap-2">
