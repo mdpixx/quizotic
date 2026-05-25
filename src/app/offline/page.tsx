@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 
 export default function OfflinePage() {
   return (
-    <main className="min-h-[60vh] flex flex-col items-center justify-center px-6 text-center">
+    <main className="min-h-svh flex flex-col items-center justify-center px-6 text-center">
       <h1 className="text-3xl font-bold mb-3">You&apos;re offline</h1>
       <p className="max-w-md text-base opacity-80">
         Quizotic needs a connection for live quizzes and presentations.
