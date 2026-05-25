@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
+import { DataCardList } from '@/components/ui/DataCardList'
 
 interface Participant {
   name: string
@@ -181,65 +182,77 @@ export default function ParticipantsPage() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ background: '#F8FAFC' }}>
-                  {['Participant', 'Sessions Attended', 'Avg Score', 'Score Trend', 'Last Seen'].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wide"
-                      style={{ color: '#94A3B8' }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((p, i) => (
-                  <tr key={i} className="border-t hover:bg-gray-50/40 transition-colors"
-                    style={{ borderColor: '#F1F5F9' }}>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0"
-                          style={{ background: '#F3F4F6', color: '#0F1B3D' }}
-                        >
-                          {p.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-sm" style={{ color: '#0F1B3D' }}>{p.name}</p>
-                          {p.archetype && (
-                            <p className="text-[10px]" style={{ color: '#9CA3AF' }}>{p.archetype}</p>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold" style={{ color: '#7C3AED' }}>{p.sessions}</span>
-                        <div className="flex gap-0.5">
-                          {Array.from({ length: Math.min(p.sessions, 5) }).map((_, j) => (
-                            <div key={j} className="w-2 h-2 rounded-full" style={{ background: '#7C3AED' }} />
-                          ))}
-                          {p.sessions > 5 && <span className="text-[10px]" style={{ color: '#94A3B8' }}>+{p.sessions - 5}</span>}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <ScoreBadge score={p.avgScore} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <Sparkline scores={p.scores} />
-                    </td>
-                    <td className="px-4 py-3 text-xs" style={{ color: '#64748B' }}>
-                      {new Date(p.lastSeen).toLocaleDateString('en-IN', {
-                        day: 'numeric', month: 'short', year: 'numeric',
-                      })}
-                    </td>
+          <>
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ background: '#F8FAFC' }}>
+                    {['Participant', 'Sessions Attended', 'Avg Score', 'Score Trend', 'Last Seen'].map(h => (
+                      <th key={h} className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filtered.map((p, i) => (
+                    <tr key={i} className="border-t hover:bg-gray-50/40 transition-colors" style={{ borderColor: '#F1F5F9' }}>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0" style={{ background: '#F3F4F6', color: '#0F1B3D' }}>
+                            {p.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-sm" style={{ color: '#0F1B3D' }}>{p.name}</p>
+                            {p.archetype && <p className="text-[10px]" style={{ color: '#9CA3AF' }}>{p.archetype}</p>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold" style={{ color: '#7C3AED' }}>{p.sessions}</span>
+                          <div className="flex gap-0.5">
+                            {Array.from({ length: Math.min(p.sessions, 5) }).map((_, j) => (
+                              <div key={j} className="w-2 h-2 rounded-full" style={{ background: '#7C3AED' }} />
+                            ))}
+                            {p.sessions > 5 && <span className="text-[10px]" style={{ color: '#94A3B8' }}>+{p.sessions - 5}</span>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3"><ScoreBadge score={p.avgScore} /></td>
+                      <td className="px-4 py-3"><Sparkline scores={p.scores} /></td>
+                      <td className="px-4 py-3 text-xs" style={{ color: '#64748B' }}>
+                        {new Date(p.lastSeen).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {/* Mobile cards */}
+            <div className="md:hidden">
+              <DataCardList
+                emptyState="No participants found."
+                items={filtered.map((p, i) => ({
+                  id: String(i),
+                  fields: [
+                    {
+                      label: 'Participant',
+                      value: <span>{p.name}{p.archetype ? ` · ${p.archetype}` : ''}</span>,
+                      wide: true,
+                    },
+                    { label: 'Sessions', value: <span style={{ color: '#7C3AED' }}>{p.sessions}</span> },
+                    { label: 'Avg Score', value: <ScoreBadge score={p.avgScore} /> },
+                    {
+                      label: 'Last Seen',
+                      value: new Date(p.lastSeen).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+                    },
+                  ],
+                }))}
+              />
+            </div>
+          </>
         )}
       </motion.div>
 

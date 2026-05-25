@@ -27,7 +27,7 @@ export function HostNav() {
   }, [menuOpen])
 
   return (
-    <nav className="sticky top-0 z-50 border-b" style={{
+    <nav className="sticky top-0 z-50 border-b safe-top" style={{
       background: 'rgba(15,27,61,0.95)',
       backdropFilter: 'blur(16px) saturate(1.4)',
       borderColor: 'rgba(255,255,255,0.08)',
@@ -113,6 +113,11 @@ export function HostNav() {
                       className="block px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-50"
                       style={{ color: '#374151' }}>
                       Plan
+                    </Link>
+                    <Link href="/join" onClick={() => setMenuOpen(false)}
+                      className="block px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-50"
+                      style={{ color: '#374151' }}>
+                      Join Quiz
                     </Link>
                   </div>
 
