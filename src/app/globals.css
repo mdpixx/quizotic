@@ -654,38 +654,3 @@ button.chip:active:not(:disabled) {
     scroll-behavior: auto !important;
   }
 }
-
-/* ── Mobile foundations ───────────────────────────────────────────────────── */
-
-/* Safe-area utilities for iOS notch / home-indicator clearance.
-   Apply .safe-bottom to any fixed bottom toolbar so it clears the home bar.
-   Apply .safe-top to any fixed header that sits under the status bar. */
-.safe-top    { padding-top:    env(safe-area-inset-top,    0px); }
-.safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
-.safe-left   { padding-left:   env(safe-area-inset-left,   0px); }
-.safe-right  { padding-right:  env(safe-area-inset-right,  0px); }
-.safe-x {
-  padding-left:  env(safe-area-inset-left,  0px);
-  padding-right: env(safe-area-inset-right, 0px);
-}
-.safe-inset {
-  padding-top:    env(safe-area-inset-top,    0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  padding-left:   env(safe-area-inset-left,   0px);
-  padding-right:  env(safe-area-inset-right,  0px);
-}
-
-/* Minimum tap target — opt-in via className="touch-target" on individual elements.
-   Applies a min 44×44 touch area without forcing visible size changes. */
-.touch-target {
-  min-height: 44px;
-  min-width: 44px;
-}
-
-@media (max-width: 639px) {
-  /* Prevent iOS from zooming on form focus — requires font-size ≥ 16px.
-     Using max() so larger existing sizes aren't shrunk. */
-  input, textarea, select {
-    font-size: max(16px, 1em) !important;
-  }
-}

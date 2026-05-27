@@ -1650,7 +1650,7 @@ function JoinPageInner() {
     const sharedScreenEligible = ['mcq', 'multiselect', 'truefalse', 'image_choice', 'poll'].includes(question.type)
     const sharedScreenSimple = displayMode === 'shared-screen' && sharedScreenEligible
     return (
-      <div className="min-h-svh p-4 flex flex-col max-w-xl mx-auto overflow-x-hidden" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top, 0px))' }}>
+      <div className="min-h-screen p-4 flex flex-col max-w-xl mx-auto overflow-x-hidden">
         <StatusBanner connectionState={connectionState} answerToast={answerToast} />
         {getReadyVisible && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ background: 'rgba(15,27,61,0.92)' }}>
@@ -1927,7 +1927,7 @@ function JoinPageInner() {
 
         {/* Confidence overlay */}
         {pendingAnswer !== null && confidence === null && (
-          <div className="fixed inset-0 bg-black/40 flex items-end justify-center z-50" style={{ padding: '1.5rem', paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 0px))' }}>
+          <div className="fixed inset-0 bg-black/40 flex items-end justify-center p-6 z-50">
             <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl text-center">
               <p className="font-black text-2xl mb-2" style={{ color: '#0F1B3D' }}>{t('join.confident')}</p>
               <p className="text-gray-500 text-lg mb-6">{t('join.confidenceSubtitle')}</p>

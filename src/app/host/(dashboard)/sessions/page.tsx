@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { DataCardList } from '@/components/ui/DataCardList'
 
 interface SessionRecord {
   id: string
@@ -183,108 +182,75 @@ export default function SessionsPage() {
             </p>
           </div>
         ) : (
-          <>
-            {/* Desktop table */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr style={{ background: '#F8FAFC' }}>
-                    {['Session', 'Code', 'Date', 'Participants', 'Avg Score', 'Duration', 'Status'].map(h => (
-                      <th key={h} className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((s) => {
-                    const avgS = getAvgScore(s.results)
-                    const statusStyles: Record<string, { bg: string; fg: string }> = {
-                      ended: { bg: '#F0FDF4', fg: '#16A34A' },
-                      active: { bg: '#DBEAFE', fg: '#2563EB' },
-                      lobby: { bg: '#FEF3C7', fg: '#D97706' },
-                      abandoned: { bg: '#FEE2E2', fg: '#DC2626' },
-                    }
-                    const statusStyle = statusStyles[s.status] ?? { bg: '#F1F5F9', fg: '#64748B' }
-                    return (
-                      <tr key={s.id} className="border-t hover:bg-gray-50/40 transition-colors" style={{ borderColor: '#F1F5F9' }}>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">{s.type === 'quiz' ? '🧠' : '📽'}</span>
-                            <div>
-                              <p className="font-semibold text-sm truncate max-w-[200px]" style={{ color: '#0F1B3D' }}>{getTitle(s)}</p>
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                                style={{ background: s.type === 'quiz' ? '#F3F4F6' : '#FFF5F5', color: s.type === 'quiz' ? '#0F1B3D' : '#EF4444' }}>
-                                {s.type}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs font-mono font-bold px-2 py-1 rounded-lg" style={{ background: '#F1F5F9', color: '#0F1B3D' }}>{s.code}</span>
-                        </td>
-                        <td className="px-4 py-3 text-xs" style={{ color: '#64748B' }}>{fmtDate(s.createdAt)}</td>
-                        <td className="px-4 py-3 text-sm font-bold" style={{ color: '#7C3AED' }}>{s.participantCount ?? 0}</td>
-                        <td className="px-4 py-3">
-                          {avgS != null ? (
-                            <span className="text-xs font-bold px-2 py-1 rounded-lg"
-                              style={{ background: avgS >= 70 ? '#DCFCE7' : avgS >= 50 ? '#FEF3C7' : '#FEE2E2', color: avgS >= 70 ? '#16A34A' : avgS >= 50 ? '#D97706' : '#DC2626' }}>
-                              {avgS}%
-                            </span>
-                          ) : <span className="text-xs" style={{ color: '#CBD5E1' }}>—</span>}
-                        </td>
-                        <td className="px-4 py-3 text-xs" style={{ color: '#64748B' }}>{fmtDuration(s.results?.duration)}</td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs font-bold px-2 py-1 rounded-full capitalize" style={{ background: statusStyle.bg, color: statusStyle.fg }}>
-                            {s.status}
-                          </span>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-            {/* Mobile cards */}
-            <div className="md:hidden">
-              <DataCardList
-                emptyState="No sessions found."
-                items={filtered.map(s => {
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ background: '#F8FAFC' }}>
+                  {['Session', 'Code', 'Date', 'Participants', 'Avg Score', 'Duration', 'Status'].map(h => (
+                    <th key={h} className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((s, i) => {
                   const avgS = getAvgScore(s.results)
-                  const statusStyles: Record<string, { bg: string; fg: string }> = {
-                    ended: { bg: '#F0FDF4', fg: '#16A34A' },
-                    active: { bg: '#DBEAFE', fg: '#2563EB' },
-                    lobby: { bg: '#FEF3C7', fg: '#D97706' },
-                    abandoned: { bg: '#FEE2E2', fg: '#DC2626' },
-                  }
-                  const statusStyle = statusStyles[s.status] ?? { bg: '#F1F5F9', fg: '#64748B' }
-                  return {
-                    id: s.id,
-                    fields: [
-                      {
-                        label: 'Session',
-                        value: <span>{s.type === 'quiz' ? '🧠' : '📽'} {getTitle(s)}</span>,
-                        wide: true,
-                      },
-                      { label: 'Code', value: <span className="font-mono font-bold">{s.code}</span> },
-                      { label: 'Date', value: fmtDate(s.createdAt) },
-                      { label: 'Players', value: <span style={{ color: '#7C3AED' }}>{s.participantCount ?? 0}</span> },
-                      {
-                        label: 'Avg Score',
-                        value: avgS != null
-                          ? <span className="text-xs font-bold px-2 py-0.5 rounded-lg" style={{ background: avgS >= 70 ? '#DCFCE7' : avgS >= 50 ? '#FEF3C7' : '#FEE2E2', color: avgS >= 70 ? '#16A34A' : avgS >= 50 ? '#D97706' : '#DC2626' }}>{avgS}%</span>
-                          : '—',
-                      },
-                      {
-                        label: 'Status',
-                        value: <span className="text-xs font-bold px-2 py-0.5 rounded-full capitalize" style={{ background: statusStyle.bg, color: statusStyle.fg }}>{s.status}</span>,
-                      },
-                    ],
-                  }
+                  return (
+                    <tr key={s.id} className="border-t hover:bg-gray-50/40 transition-colors" style={{ borderColor: '#F1F5F9' }}>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">{s.type === 'quiz' ? '🧠' : '📽'}</span>
+                          <div>
+                            <p className="font-semibold text-sm truncate max-w-[200px]" style={{ color: '#0F1B3D' }}>
+                              {getTitle(s)}
+                            </p>
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                              style={{ background: s.type === 'quiz' ? '#F3F4F6' : '#FFF5F5', color: s.type === 'quiz' ? '#0F1B3D' : '#EF4444' }}>
+                              {s.type}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs font-mono font-bold px-2 py-1 rounded-lg" style={{ background: '#F1F5F9', color: '#0F1B3D' }}>
+                          {s.code}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs" style={{ color: '#64748B' }}>{fmtDate(s.createdAt)}</td>
+                      <td className="px-4 py-3 text-sm font-bold" style={{ color: '#7C3AED' }}>{s.participantCount ?? 0}</td>
+                      <td className="px-4 py-3">
+                        {avgS != null ? (
+                          <span className="text-xs font-bold px-2 py-1 rounded-lg"
+                            style={{ background: avgS >= 70 ? '#DCFCE7' : avgS >= 50 ? '#FEF3C7' : '#FEE2E2', color: avgS >= 70 ? '#16A34A' : avgS >= 50 ? '#D97706' : '#DC2626' }}>
+                            {avgS}%
+                          </span>
+                        ) : <span className="text-xs" style={{ color: '#CBD5E1' }}>—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-xs" style={{ color: '#64748B' }}>{fmtDuration(s.results?.duration)}</td>
+                      <td className="px-4 py-3">
+                        {(() => {
+                          const statusStyles: Record<string, { bg: string; fg: string }> = {
+                            ended: { bg: '#F0FDF4', fg: '#16A34A' },
+                            active: { bg: '#DBEAFE', fg: '#2563EB' },
+                            lobby: { bg: '#FEF3C7', fg: '#D97706' },
+                            abandoned: { bg: '#FEE2E2', fg: '#DC2626' },
+                          }
+                          const style = statusStyles[s.status] ?? { bg: '#F1F5F9', fg: '#64748B' }
+                          return (
+                            <span className="text-xs font-bold px-2 py-1 rounded-full capitalize"
+                              style={{ background: style.bg, color: style.fg }}>
+                              {s.status}
+                            </span>
+                          )
+                        })()}
+                      </td>
+                    </tr>
+                  )
                 })}
-              />
-            </div>
-          </>
+              </tbody>
+            </table>
+          </div>
         )}
       </motion.div>
     </div>

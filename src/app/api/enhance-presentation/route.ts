@@ -58,7 +58,13 @@ function getR2Client(): S3Client {
   })
 }
 
-const MAX_IMAGE_BYTES = 1_500_000 // 1.5MB per image — skip huge ones
+// 5MB per image — accommodates PDF renders from pdftoppm (a 110-150 DPI A4 PNG
+// is commonly 1-3 MB; the previous 1.5 MB cap silently dropped most scanned-PDF
+// slides, leaving AI Enhance with no visual signal). Base64 inflates ~33%, so
+// 5MB binary → ~6.7MB data URL. With MAX_MULTIMODAL_IMAGES=12 the worst-case
+// request body is ~80MB — well inside Gemini 2.5 Pro's 20MB-per-image inline
+// limit and OpenRouter's request ceiling.
+const MAX_IMAGE_BYTES = 5_000_000
 
 async function fetchSlideImageAsDataUrl(url: string | undefined): Promise<string | undefined> {
   const key = extractR2Key(url)
@@ -535,7 +541,30 @@ export async function POST(req: NextRequest) {
     // Only runs for slides that opt in via `imageUrl`; capped by MAX_MULTIMODAL_IMAGES.
     const hydrated = await hydrateSlideImages(contentSlides)
     const attachedCount = hydrated.filter(s => s.imageDataUrl).length
-    console.log(`[enhance] deck=${contentSlides.length} slides, target=${targetCount}, images=${attachedCount}`)
+
+    // Structured telemetry — one JSON line per call so Railway logs are
+    // grep-friendly. Critical for diagnosing PDF-import failures where
+    // imagesSkippedOversize > 0 + emptyTextSlides high → AI starves on input.
+    const imageEligible = Math.min(
+      contentSlides.filter(s => s.imageUrl).length,
+      MAX_MULTIMODAL_IMAGES,
+    )
+    const imagesSkippedOversize = Math.max(0, imageEligible - attachedCount)
+    const emptyTextSlides = contentSlides.filter(s => s.textContent.trim().length < 10).length
+    const isSourceStarved = emptyTextSlides === contentSlides.length && attachedCount === 0
+    console.log('[enhance-telemetry]', JSON.stringify({
+      phase: 'pre-llm',
+      userId: user.id,
+      totalSlides: slides.length,
+      contentSlides: contentSlides.length,
+      emptyTextSlides,
+      imageEligible,
+      imagesAttached: attachedCount,
+      imagesSkippedOversize,
+      level,
+      targetCount,
+      isSourceStarved,
+    }))
 
     // Pass 2: Generate suggestions with full context. Use multimodal when we
     // have images to show, otherwise fall back to the plain-text prompt.
@@ -586,7 +615,13 @@ export async function POST(req: NextRequest) {
     let suggestions = validateSuggestions(parsed)
 
     if (suggestions.length === 0) {
-      return NextResponse.json({ success: false, error: 'AI could not generate valid suggestions. Please try again.' }, { status: 500 })
+      return NextResponse.json({
+        success: false,
+        code: isSourceStarved ? 'source_too_thin' : 'no_valid_suggestions',
+        error: isSourceStarved
+          ? "Your imported slides don't have enough readable content for the AI. For scanned PDFs, try a higher-quality file or add captions/notes to each slide first."
+          : 'AI could not generate valid suggestions. Please try again.',
+      }, { status: 500 })
     }
 
     // Shuffle multiple_choice options so the correct answer is not always at index 0.
@@ -697,7 +732,13 @@ export async function POST(req: NextRequest) {
     }
 
     if (suggestions.length === 0) {
-      return NextResponse.json({ success: false, error: 'AI could not generate clean suggestions. Please try again.' }, { status: 500 })
+      return NextResponse.json({
+        success: false,
+        code: isSourceStarved ? 'source_too_thin' : 'no_clean_suggestions',
+        error: isSourceStarved
+          ? "Your imported slides don't have enough readable content for the AI. For scanned PDFs, try a higher-quality file or add captions/notes to each slide first."
+          : 'AI could not generate clean suggestions. Please try again.',
+      }, { status: 500 })
     }
 
     await logAiUsage(user.id, 'ai_enhance', {
@@ -705,6 +746,15 @@ export async function POST(req: NextRequest) {
       slideCount: suggestions.length,
       level,
     })
+
+    console.log('[enhance-telemetry]', JSON.stringify({
+      phase: 'post-llm',
+      userId: user.id,
+      suggestionsReturned: suggestions.length,
+      targetCount,
+      hitTarget: suggestions.length >= targetCount,
+      level,
+    }))
 
     const post = await checkAiQuota(user.id, 'ai_enhance', 0)
     return NextResponse.json({
