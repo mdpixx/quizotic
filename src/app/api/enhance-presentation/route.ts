@@ -388,7 +388,11 @@ function getTargetCount(totalContent: number, level: string): number {
 // ─── Mangled-word detection (defends against AI typo-ing source words) ─────
 
 // Common English suffix / pattern heuristic — fast pre-filter for real words.
-const DICTIONARY_PATTERN = /^(?:[a-z]+(?:tion|ment|ness|ity|ance|ence|ship|able|ible|ous|ive|ary|ory|ize|ise|ise|ing|ed|er|est|ly|ful|less|al|ic|ism|ist|age|ate|ure|hood|dom)|[a-z]{1,5})$/i
+// Suffixes use `s?` to absorb plurals so "insights", "delegations", "tasks" all
+// pass without being flagged as "mangled" against shorter near-miss source tokens.
+// `ies?` and `ied` handle -y → -ies / -ied. Standalone `es?` catches generic
+// plurals on 6+ char stems (the candidate-word filter already requires len ≥ 6).
+const DICTIONARY_PATTERN = /^(?:[a-z]+(?:tions?|ments?|ness(?:es)?|ities|ity|ances?|ences?|ships?|ables?|ibles?|ous|ives?|aries|ary|ories|ory|izes?|ises?|ings?|ed|ers?|est|ly|ful|less|als?|ics?|isms?|ists?|ages?|ates?|ures?|hood|dom|ies|ied|es|s)|[a-z]{1,5})$/i
 
 function levenshtein(a: string, b: string): number {
   if (a === b) return 0
@@ -413,8 +417,15 @@ function extractCandidateWords(obj: Record<string, unknown>): string[] {
   const words: string[] = []
   const push = (v: unknown) => {
     if (typeof v === 'string') {
-      for (const w of v.split(/[^A-Za-z'-]+/)) {
-        if (w.length >= 6) words.push(w)
+      // Split on anything that isn't a letter or internal hyphen (keep hyphens
+      // for compounds like "real-time", but strip apostrophes — leading/
+      // trailing quotes in AI output were causing tokens like "'delegation'"
+      // to fail both the source-text check and the dictionary regex, even
+      // though the underlying word is fine).
+      for (const w of v.split(/[^A-Za-z-]+/)) {
+        // Trim leading/trailing hyphens that aren't part of a real compound.
+        const trimmed = w.replace(/^-+|-+$/g, '')
+        if (trimmed.length >= 6) words.push(trimmed)
       }
     } else if (Array.isArray(v)) {
       for (const item of v) push(item)

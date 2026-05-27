@@ -197,6 +197,33 @@ def extract_text(pptx_path):
 
 
 if __name__ == '__main__':
+    # ── Probe mode: fast page-count + encryption check for PDFs ────────────
+    #
+    # Called from /api/parse-pptx BEFORE the heavy pdftoppm render so we can
+    # reject oversized or encrypted PDFs in <1s instead of after a 5-minute
+    # render only to throw "Too many slides". Output is a single JSON line on
+    # stdout: {"pages": N, "encrypted": bool}. On failure we still exit 0
+    # with {"pages": -1, "error": ...} so the caller's main flow runs and
+    # produces a properly contextualised error.
+    if len(sys.argv) >= 2 and sys.argv[1] == '--probe':
+        if len(sys.argv) != 3:
+            print(json.dumps({'error': 'Usage: parse_pptx.py --probe <pdf>'}), file=sys.stderr)
+            sys.exit(1)
+        probe_path = sys.argv[2]
+        if not Path(probe_path).exists():
+            print(json.dumps({'pages': -1, 'encrypted': False, 'error': f'File not found: {probe_path}'}))
+            sys.exit(0)
+        try:
+            from pypdf import PdfReader
+            reader = PdfReader(probe_path)
+            print(json.dumps({
+                'pages': len(reader.pages),
+                'encrypted': bool(reader.is_encrypted),
+            }))
+        except Exception as e:
+            print(json.dumps({'pages': -1, 'encrypted': False, 'error': str(e)}))
+        sys.exit(0)
+
     if len(sys.argv) != 3:
         print(json.dumps({'error': 'Usage: parse_pptx.py <filepath> <output_dir>'}), file=sys.stderr)
         sys.exit(1)
