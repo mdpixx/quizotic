@@ -209,11 +209,9 @@ body {
 }
 
 .host-options-stage {
-  /* Rows at least tall enough for their text (min-content → never trim the
-     answer, incl. during reveal when votes + check icon narrow the column)
-     and grow to fill spare height. If four answers exceed the viewport the
-     stage scrolls rather than clipping. */
-  grid-template-rows: repeat(2, minmax(min-content, 1fr));
+  /* Equal-height rows so all four tiles are identical size regardless of
+     how much text is inside each one. Long text line-clamps within the tile. */
+  grid-template-rows: repeat(2, 1fr);
 }
 
 .host-options-stage > div {
@@ -226,10 +224,15 @@ body {
   margin-top: auto;
 }
 
-/* Answer option text scales to its card and is never clipped mid-line. */
+/* Answer option text: fixed viewport-relative size (not text-length-dependent),
+   line-clamped so long answers truncate inside the fixed equal-height tile. */
 .host-opt-text {
-  font-size: clamp(0.95rem, 0.6rem + 1.4vw, 1.875rem);
-  line-height: 1.15;
+  font-size: clamp(1.05rem, 0.7rem + 1.3vw, 1.75rem);
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .host-ranking-stage {

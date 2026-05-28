@@ -1562,22 +1562,7 @@ export default function SessionPage() {
               className="font-bold leading-snug break-words"
               style={{
                 color: '#0F1B3D',
-                // Capped font sizes so a long question + image + 4 options
-                // still fit on a 1080p projector without scrolling. Prior
-                // upper bound was 3.25rem which alone ate ~80px.
-                fontSize: (() => {
-                  const len = currentQuestion.text.length
-                  if (currentQuestion.type === 'wordcloud') {
-                    if (len > 150) return '1.45rem'
-                    if (len > 90) return '1.8rem'
-                    return '2.15rem'
-                  }
-                  if (len > 240) return '1.55rem'
-                  if (len > 180) return '1.85rem'
-                  if (len > 120) return '2.15rem'
-                  if (len > 70) return '2.55rem'
-                  return '3rem'
-                })(),
+                fontSize: 'clamp(1.6rem, 3vw, 2.8rem)',
                 lineHeight: 1.1,
                 fontFamily: 'var(--font-heading)',
               }}
