@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { motion } from 'framer-motion'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
-import { DataCardList } from '@/components/ui/DataCardList'
 import { QuizVsSlidesModal } from '@/components/host/QuizVsSlidesModal'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -435,69 +434,50 @@ export default function HostDashboard() {
               </Link>
             </div>
             {loading ? <Spinner /> : data?.recentSessions.length === 0 ? <Empty icon="⚡" text="No sessions yet. Host a quiz to see history here." /> : (
-              <>
-                {/* Desktop table */}
-                <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr style={{ background: '#F8FAFC' }}>
-                        {['SESSION NAME', 'DATE', 'PARTICIPANTS', 'AVG SCORE', 'COMPLETION', 'STATUS'].map(h => (
-                          <th key={h} className="text-left px-4 py-2.5 text-[10px] font-bold tracking-wide" style={{ color: '#94A3B8' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data?.recentSessions.map((sess) => (
-                        <tr key={sess.id} className="border-t hover:bg-slate-50 transition-colors" style={{ borderColor: '#F1F5F9' }}>
-                          <td className="px-4 py-3">
-                            <p className="font-bold text-sm truncate max-w-[180px]" style={{ color: '#0F1B3D' }}>{sess.title}</p>
-                            <span className="text-[10px] font-bold capitalize" style={{ color: sess.type === 'quiz' ? '#0F1B3D' : '#D97706' }}>{sess.type}</span>
-                          </td>
-                          <td className="px-4 py-3 text-xs" style={{ color: '#64748B' }}>{fmtDate(sess.date)}</td>
-                          <td className="px-4 py-3 text-sm font-bold" style={{ color: '#7C3AED' }}>{sess.participants}</td>
-                          <td className="px-4 py-3">
-                            {sess.avgScore != null
-                              ? <span className="text-xs font-bold px-2 py-0.5 rounded-lg" style={{ background: scoreBg(sess.avgScore), color: scoreColor(sess.avgScore) }}>{sess.avgScore}%</span>
-                              : <span className="text-xs" style={{ color: '#CBD5E1' }}>N/A</span>}
-                          </td>
-                          <td className="px-4 py-3">
-                            {sess.completionPct != null ? (
-                              <div className="flex items-center gap-2">
-                                <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ background: '#F1F5F9' }}>
-                                  <div className="h-full rounded-full" style={{ width: `${sess.completionPct}%`, background: sess.completionPct >= 80 ? '#16A34A' : '#D97706' }} />
-                                </div>
-                                <span className="text-xs font-bold" style={{ color: sess.completionPct >= 80 ? '#16A34A' : '#D97706' }}>{sess.completionPct}%</span>
-                              </div>
-                            ) : <span className="text-xs" style={{ color: '#CBD5E1' }}>—</span>}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="text-xs font-bold px-2 py-0.5 rounded-full capitalize"
-                              style={{ background: sess.status === 'ended' ? '#F0FDF4' : '#FEF3C7', color: sess.status === 'ended' ? '#16A34A' : '#D97706' }}>
-                              {sess.status === 'ended' ? 'Completed' : sess.status}
-                            </span>
-                          </td>
-                        </tr>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ background: '#F8FAFC' }}>
+                      {['SESSION NAME', 'DATE', 'PARTICIPANTS', 'AVG SCORE', 'COMPLETION', 'STATUS'].map(h => (
+                        <th key={h} className="text-left px-4 py-2.5 text-[10px] font-bold tracking-wide" style={{ color: '#94A3B8' }}>{h}</th>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-                {/* Mobile cards */}
-                <div className="md:hidden">
-                  <DataCardList
-                    emptyState="No sessions yet."
-                    items={(data?.recentSessions ?? []).map(sess => ({
-                      id: sess.id,
-                      fields: [
-                        { label: 'Session', value: <span>{sess.title} <span className="text-[10px] font-bold capitalize" style={{ color: sess.type === 'quiz' ? '#0F1B3D' : '#D97706' }}>· {sess.type}</span></span>, wide: true },
-                        { label: 'Date', value: fmtDate(sess.date) },
-                        { label: 'Players', value: <span style={{ color: '#7C3AED' }}>{sess.participants}</span> },
-                        { label: 'Avg Score', value: sess.avgScore != null ? <span className="font-bold" style={{ color: scoreColor(sess.avgScore) }}>{sess.avgScore}%</span> : '—' },
-                        { label: 'Status', value: <span className="text-xs font-bold px-2 py-0.5 rounded-full capitalize" style={{ background: sess.status === 'ended' ? '#F0FDF4' : '#FEF3C7', color: sess.status === 'ended' ? '#16A34A' : '#D97706' }}>{sess.status === 'ended' ? 'Completed' : sess.status}</span> },
-                      ],
-                    }))}
-                  />
-                </div>
-              </>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data?.recentSessions.map((sess) => (
+                      <tr key={sess.id} className="border-t hover:bg-slate-50 transition-colors" style={{ borderColor: '#F1F5F9' }}>
+                        <td className="px-4 py-3">
+                          <p className="font-bold text-sm truncate max-w-[180px]" style={{ color: '#0F1B3D' }}>{sess.title}</p>
+                          <span className="text-[10px] font-bold capitalize" style={{ color: sess.type === 'quiz' ? '#0F1B3D' : '#D97706' }}>{sess.type}</span>
+                        </td>
+                        <td className="px-4 py-3 text-xs" style={{ color: '#64748B' }}>{fmtDate(sess.date)}</td>
+                        <td className="px-4 py-3 text-sm font-bold" style={{ color: '#7C3AED' }}>{sess.participants}</td>
+                        <td className="px-4 py-3">
+                          {sess.avgScore != null
+                            ? <span className="text-xs font-bold px-2 py-0.5 rounded-lg" style={{ background: scoreBg(sess.avgScore), color: scoreColor(sess.avgScore) }}>{sess.avgScore}%</span>
+                            : <span className="text-xs" style={{ color: '#CBD5E1' }}>N/A</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          {sess.completionPct != null ? (
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ background: '#F1F5F9' }}>
+                                <div className="h-full rounded-full" style={{ width: `${sess.completionPct}%`, background: sess.completionPct >= 80 ? '#16A34A' : '#D97706' }} />
+                              </div>
+                              <span className="text-xs font-bold" style={{ color: sess.completionPct >= 80 ? '#16A34A' : '#D97706' }}>{sess.completionPct}%</span>
+                            </div>
+                          ) : <span className="text-xs" style={{ color: '#CBD5E1' }}>—</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full capitalize"
+                            style={{ background: sess.status === 'ended' ? '#F0FDF4' : '#FEF3C7', color: sess.status === 'ended' ? '#16A34A' : '#D97706' }}>
+                            {sess.status === 'ended' ? 'Completed' : sess.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </Card>
         </motion.div>
@@ -993,71 +973,50 @@ export default function HostDashboard() {
                   Full roster →
                 </Link>
               </div>
-              <>
-                {/* Desktop table */}
-                <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full text-[13px]">
-                    <thead>
-                      <tr>
-                        <th className="text-left px-5 py-3 text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: 'var(--color-text-muted)' }}>Participant</th>
-                        <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: 'var(--color-text-muted)' }}>Archetype</th>
-                        <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: 'var(--color-text-muted)' }}>Sessions</th>
-                        <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: 'var(--color-text-muted)' }}>Avg score</th>
-                        <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: 'var(--color-text-muted)' }}>Trend</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data?.topParticipants.map((p, i) => {
-                        const arch = p.archetype ? archetypeFromLabel(p.archetype) : deriveArchetype(p)
-                        return (
-                          <tr key={`${p.name}-${i}`} className="border-t" style={{ borderColor: '#F1F5F9' }}>
-                            <td className="px-5 py-3">
-                              <div className="flex items-center gap-3">
-                                <AvatarCircle name={p.name} index={i} />
-                                <span className="font-semibold" style={{ color: '#0F1B3D' }}>{p.name}</span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="chip" style={{ background: arch.bg, color: arch.color }}>{arch.label}</span>
-                            </td>
-                            <td className="px-4 py-3 font-semibold" style={{ color: 'var(--color-ink)' }}>{p.sessions}</td>
-                            <td className="px-4 py-3">
-                              <span className="font-bold" style={{ color: cohortScoreColor(p.avgScore) }}>
-                                {p.avgScore.toLocaleString('en-IN')}
-                                <span className="text-[10px] font-semibold ml-1" style={{ color: 'var(--color-text-muted)' }}>pts</span>
-                              </span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                <Sparkline scores={p.scores} />
-                                <ScoreChange change={p.scoreChange} />
-                              </div>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                {/* Mobile cards */}
-                <div className="md:hidden">
-                  <DataCardList
-                    emptyState="No participants yet."
-                    items={(data?.topParticipants ?? []).map((p, i) => {
+              <div className="overflow-x-auto">
+                <table className="w-full text-[13px]">
+                  <thead>
+                    <tr>
+                      <th className="text-left px-5 py-3 text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: 'var(--color-text-muted)' }}>Participant</th>
+                      <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: 'var(--color-text-muted)' }}>Archetype</th>
+                      <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: 'var(--color-text-muted)' }}>Sessions</th>
+                      <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: 'var(--color-text-muted)' }}>Avg score</th>
+                      <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: 'var(--color-text-muted)' }}>Trend</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data?.topParticipants.map((p, i) => {
                       const arch = p.archetype ? archetypeFromLabel(p.archetype) : deriveArchetype(p)
-                      return {
-                        id: `${p.name}-${i}`,
-                        fields: [
-                          { label: 'Participant', value: p.name, wide: true },
-                          { label: 'Archetype', value: <span className="chip" style={{ background: arch.bg, color: arch.color }}>{arch.label}</span> },
-                          { label: 'Sessions', value: p.sessions },
-                          { label: 'Avg Score', value: <span className="font-bold" style={{ color: cohortScoreColor(p.avgScore) }}>{p.avgScore.toLocaleString('en-IN')} pts</span> },
-                        ],
-                      }
+                      return (
+                        <tr key={`${p.name}-${i}`} className="border-t" style={{ borderColor: '#F1F5F9' }}>
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-3">
+                              <AvatarCircle name={p.name} index={i} />
+                              <span className="font-semibold" style={{ color: '#0F1B3D' }}>{p.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="chip" style={{ background: arch.bg, color: arch.color }}>{arch.label}</span>
+                          </td>
+                          <td className="px-4 py-3 font-semibold" style={{ color: 'var(--color-ink)' }}>{p.sessions}</td>
+                          <td className="px-4 py-3">
+                            <span className="font-bold" style={{ color: cohortScoreColor(p.avgScore) }}>
+                              {p.avgScore.toLocaleString('en-IN')}
+                              <span className="text-[10px] font-semibold ml-1" style={{ color: 'var(--color-text-muted)' }}>pts</span>
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <Sparkline scores={p.scores} />
+                              <ScoreChange change={p.scoreChange} />
+                            </div>
+                          </td>
+                        </tr>
+                      )
                     })}
-                  />
-                </div>
-              </>
+                  </tbody>
+                </table>
+              </div>
             </Card>
           </motion.div>
         )

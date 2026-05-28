@@ -134,6 +134,26 @@ function buildHostStagePreviewQuiz(): Quiz {
     updatedAt: new Date().toISOString(),
     questions: [
       {
+        // Layout stress fixture — long question + four long answers + an image.
+        // Exercises the worst case for host-stage fit-to-viewport so projector
+        // clipping regressions are caught in `?preview=host-stage`.
+        id: 'q-stress',
+        type: 'mcq',
+        text: 'In a photosynthesis reaction, which of the following correctly describes the complete pathway by which light energy is converted into the chemical energy stored in glucose molecules within the chloroplast?',
+        options: [
+          'Light is absorbed by chlorophyll, water is split to release oxygen, and ATP and NADPH power the Calvin cycle to fix carbon dioxide into glucose',
+          'Carbon dioxide is directly converted into oxygen by mitochondria during cellular respiration without any involvement of sunlight at all',
+          'Glucose is broken down into water and carbon dioxide, releasing the stored light energy back into the surrounding environment as heat',
+          'Oxygen molecules from the atmosphere are absorbed by the roots and transported upward to the leaves where they become sugar',
+        ],
+        correctAnswer: '0',
+        timerSeconds: 30,
+        points: 1000,
+        explanation: 'The light-dependent reactions produce ATP and NADPH, which the Calvin cycle uses to fix CO2 into glucose.',
+        bloomsLevel: 'understand',
+        imageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='960' height='540'><rect width='960' height='540' fill='%231368CE'/><text x='480' y='285' font-size='64' fill='white' text-anchor='middle' font-family='sans-serif'>Diagram</text></svg>",
+      },
+      {
         id: 'q1',
         type: 'mcq',
         text: 'Which planet is closest to the Sun?',
@@ -723,6 +743,11 @@ export default function SessionPage() {
       socket.off('question_reveal')
       stopClockSync()
       socket.disconnect()
+      // Reset the init guard so the effect re-creates the socket if it runs
+      // again (React 18/19 StrictMode double-invokes effects in dev, and a
+      // quiz-ref change would otherwise tear the socket down without rebuilding
+      // it). In production the effect runs once, so this only fires on unmount.
+      socketInitialized.current = false
     }
   }, [quiz])
 
@@ -1401,7 +1426,7 @@ export default function SessionPage() {
           initial={reduceStageMotion ? false : { opacity: 0, y: 18, scale: 0.99 }}
           animate={reduceStageMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.32, ease: [0.22, 0.61, 0.36, 1] }}
-          className="min-h-svh md:h-screen md:max-h-screen md:overflow-hidden overflow-y-auto px-4 pt-3 pb-3 lg:px-8 lg:pt-4 lg:pb-4 flex flex-col gap-3 host-question-stage"
+          className="min-h-svh md:h-screen md:max-h-screen md:overflow-y-auto overflow-y-auto px-4 pt-3 pb-3 lg:px-8 lg:pt-4 lg:pb-4 flex flex-col gap-3 host-question-stage"
           style={{
             background: 'linear-gradient(135deg, #071126 0%, #0F1B3D 55%, #102A43 100%)',
             color: '#FFFFFF',
@@ -1530,7 +1555,7 @@ export default function SessionPage() {
 
           {/* Question card — text auto-scales so long questions stay in view */}
           <div
-            className={`max-w-7xl mx-auto w-full rounded-[28px] shadow-2xl border ${currentQuestion.type === 'wordcloud' ? 'p-4 md:p-5 host-question-card-compact' : 'p-5 md:p-7'} ${currentQuestion.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
+            className={`host-question-card max-w-7xl mx-auto w-full rounded-[28px] shadow-2xl border ${currentQuestion.type === 'wordcloud' ? 'p-4 md:p-5 host-question-card-compact' : 'p-5 md:p-7'} ${currentQuestion.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
             style={{
               background: 'rgba(255,255,255,0.96)',
               boxShadow: '0 24px 80px rgba(0,0,0,0.35)',
@@ -1563,7 +1588,7 @@ export default function SessionPage() {
               {currentQuestion.text}
             </p>
             {currentQuestion.imageUrl && (
-              <img src={currentQuestion.imageUrl} alt={`Image for question ${questionIndex + 1}`} className="mt-3 rounded-xl w-full object-contain" style={{ maxHeight: 'min(22vh, 240px)' }} loading="lazy" />
+              <img src={currentQuestion.imageUrl} alt={`Image for question ${questionIndex + 1}`} className="mt-3 rounded-xl w-full object-contain" style={{ maxHeight: 'min(18vh, 200px)' }} loading="eager" />
             )}
           </div>
 
@@ -1812,11 +1837,11 @@ export default function SessionPage() {
                   {optImage && (
                     <img src={optImage} alt="" className="w-full object-cover" style={{ height: 'min(14vh, 128px)' }} loading="lazy" />
                   )}
-                  <div className="min-h-[112px] p-4 md:p-5 flex items-center gap-4">
-                    <span className={`w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-xl md:text-2xl font-black text-white flex-shrink-0 ${OPTION_COLORS[i]}`} style={{ boxShadow: '0 4px 0 rgba(0,0,0,0.16)' }}>
+                  <div className="flex-1 min-h-0 p-3 md:p-5 flex items-center gap-4">
+                    <span className={`w-11 h-11 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-xl md:text-2xl font-black text-white flex-shrink-0 ${OPTION_COLORS[i]}`} style={{ boxShadow: '0 4px 0 rgba(0,0,0,0.16)' }}>
                       {OPTION_LABELS[i]}
                     </span>
-                    <span className="text-xl md:text-3xl flex-1 min-w-0 break-words text-gray-900 font-black leading-tight">{optText}</span>
+                    <span className="host-opt-text flex-1 min-w-0 break-words text-gray-900 font-black">{optText}</span>
                     {correctRevealed && <span className="text-xl font-black tabular-nums text-gray-500">{votes}</span>}
                     {highlightCorrect && <span className="text-green-600 text-2xl font-black">✓</span>}
                   </div>
@@ -2082,7 +2107,7 @@ export default function SessionPage() {
           </div>
 
           {intermediateLeaderboard.length > 0 && (
-            <div className="rounded-[28px]" style={{ background: '#fff', border: '1px solid #E5E7EB', padding: '22px 18px', minHeight: 500, boxShadow: '0 24px 80px rgba(15,27,61,0.12)' }}>
+            <div className="rounded-[28px]" style={{ background: '#fff', border: '1px solid #E5E7EB', padding: '22px 18px', minHeight: 'min(500px, 58vh)', boxShadow: '0 24px 80px rgba(15,27,61,0.12)' }}>
               <LeaderboardView
                 variant="fullscreen"
                 topN={10}
@@ -2214,7 +2239,7 @@ export default function SessionPage() {
             transition={{ duration: 0.4, ease: [0.22, 0.61, 0.36, 1] }}
             className="relative overflow-hidden flex flex-col items-center justify-center px-4 md:px-8 py-4 md:py-6"
             style={{
-              height: 'calc(100vh - 56px)',
+              height: 'calc(100dvh - 56px)',
               background:
                 'radial-gradient(circle at 50% 8%, rgba(245,230,66,0.24), transparent 24%), radial-gradient(circle at 8% 72%, rgba(34,211,238,0.18), transparent 24%), linear-gradient(145deg, #071126 0%, #0F1B3D 58%, #111827 100%)',
               boxShadow: '0 30px 90px rgba(15,27,61,0.28)',

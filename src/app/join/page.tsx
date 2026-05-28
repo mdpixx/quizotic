@@ -1442,7 +1442,7 @@ function JoinPageInner() {
       { top: '60%', left: '55%', s: 1.5, o: 0.3,  amber: false },
     ]
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
+      <div className="min-h-svh flex items-center justify-center p-4 relative overflow-hidden"
         style={{ background: '#0F1B3D' }}>
 
         {/* Background glow + stars */}
@@ -1595,7 +1595,7 @@ function JoinPageInner() {
   // ─── Lobby Phase ───────────────────────────────────────────────────────────
   if (phase === 'lobby') {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-svh flex items-center justify-center p-4">
         <div className="w-full max-w-sm text-center">
           <div className={`transition-all duration-500 mb-4 ${avatarRevealed ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`}>
             {archetype && (
@@ -1738,7 +1738,7 @@ function JoinPageInner() {
             {question.text}
           </p>
           {question.imageUrl && (
-            <img src={question.imageUrl} alt="" className="mt-3 rounded-xl max-h-48 w-full object-contain" loading="lazy" />
+            <img src={question.imageUrl} alt="" className="mt-3 rounded-xl max-h-48 w-full object-contain" loading="eager" />
           )}
         </div>
         )}
@@ -1959,7 +1959,7 @@ function JoinPageInner() {
     // poll, rating, ranking, wordcloud, qa, openended, drawing, and case.
     const isNonScored = !(question && isScoredType(question.type as QuestionType))
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 max-w-md mx-auto text-center gap-5 relative overflow-hidden">
+      <div className="min-h-svh flex flex-col items-center justify-center p-4 max-w-md mx-auto text-center gap-5 relative overflow-hidden">
         <StatusBanner connectionState={connectionState} answerToast={answerToast} />
         {/* Screen-reader live announcement for result */}
         <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
@@ -2056,7 +2056,7 @@ function JoinPageInner() {
   // ─── Standings Phase (between questions, competitive only) ─────────────────
   if (phase === 'standings') {
     return (
-      <div className="min-h-screen px-2 py-4 sm:px-4 sm:py-6 max-w-xl mx-auto flex flex-col gap-4 overflow-x-hidden">
+      <div className="min-h-svh px-2 py-4 sm:px-4 sm:py-6 max-w-xl mx-auto flex flex-col gap-4 overflow-x-hidden">
         <div className="text-center">
           <p className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: '#9CA3AF' }}>Standings</p>
           <h2 className="text-2xl font-black mt-0.5" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
@@ -2149,7 +2149,7 @@ function JoinPageInner() {
   // ─── Ended Phase ───────────────────────────────────────────────────────────
   if (phase === 'ended') {
     return (
-      <div className="min-h-screen px-3 sm:px-4 pt-8 sm:pt-6 pb-4 max-w-md mx-auto relative overflow-x-hidden" style={{ paddingTop: 'max(2rem, env(safe-area-inset-top, 0px))' }}>
+      <div className="min-h-svh px-3 sm:px-4 pt-8 sm:pt-6 pb-4 max-w-md mx-auto relative overflow-x-hidden" style={{ paddingTop: 'max(2rem, env(safe-area-inset-top, 0px))' }}>
         <h2 className="text-3xl sm:text-4xl font-black mb-5 text-center" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Quiz Over!</h2>
 
         {/* Team leaderboard */}
@@ -2205,7 +2205,7 @@ function JoinPageInner() {
   if (phase === 'selfpaced' && spQuestions.length > 0) {
     const q = spQuestions[spIndex]
     return (
-      <div className="min-h-screen p-4 flex flex-col max-w-lg mx-auto overflow-x-hidden">
+      <div className="min-h-svh p-4 flex flex-col max-w-lg mx-auto overflow-x-hidden">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -2299,7 +2299,7 @@ function JoinPageInner() {
       .reduce((s, q) => s + q.points, 0)
     const pct = maxPossible > 0 ? Math.round((spScore / maxPossible) * 100) : 0
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 max-w-md mx-auto text-center gap-5">
+      <div className="min-h-svh flex flex-col items-center justify-center p-4 max-w-md mx-auto text-center gap-5">
         <div className="w-28 h-28 rounded-full flex items-center justify-center text-5xl"
           style={{ background: '#0F1B3D' }}>
           <span style={{ color: '#fff' }}>{pct >= 80 ? '★' : pct >= 50 ? '✓' : '→'}</span>
@@ -2326,7 +2326,7 @@ function JoinPageInner() {
   // boring so participants don't stay glued to their phones.
   if (phase === 'presenter-waiting') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 gap-8"
+      <div className="min-h-svh flex flex-col items-center justify-center p-6 gap-8"
         style={{ background: '#0F1B3D' }}>
         <div className="text-center space-y-4 max-w-md">
           <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-2"
@@ -2351,7 +2351,7 @@ function JoinPageInner() {
   // ─── Presenter Lobby ───────────────────────────────────────────────────────
   if (phase === 'presenter-lobby') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 gap-6"
+      <div className="min-h-svh flex flex-col items-center justify-center p-6 gap-6"
         style={{ background: '#0F1B3D' }}>
         <div className="text-center space-y-3">
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
@@ -2384,7 +2384,7 @@ function JoinPageInner() {
     const videoUrl = typeof slide.url === 'string' ? slide.url : ''
 
     return (
-      <div className="min-h-screen flex flex-col" style={{ background: '#0F1B3D' }}>
+      <div className="min-h-svh flex flex-col" style={{ background: '#0F1B3D' }}>
         <div className="px-4 pt-4 pb-2 flex items-center justify-between text-xs" style={{ color: '#94A3B8' }}>
           <span className="font-semibold truncate">{presenterTitle}</span>
           <span>{presenterSlideIndex + 1} / {presenterTotalSlides}</span>
@@ -2453,7 +2453,7 @@ function JoinPageInner() {
     const OPTION_COLORS_P = ['#2D3A8C','#FF8A47','#5BC0EB','#E07A5F','#0F1B3D']
 
     return (
-      <div className="min-h-screen flex flex-col p-4 gap-4" style={{ background: bgDark }}>
+      <div className="min-h-svh flex flex-col p-4 gap-4" style={{ background: bgDark }}>
         {/* Header — compact slide counter only; deck title omitted to save mobile space */}
         <div className="text-[11px] font-semibold opacity-50 tracking-[0.15em] uppercase" style={{ color: textLight }}>
           Slide {presenterSlideIndex + 1} / {presenterTotalSlides}
@@ -2670,7 +2670,7 @@ function JoinPageInner() {
   // ─── Presenter Voted (waiting for next slide or results) ────────────────────
   if (phase === 'presenter-voted') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-6 p-6"
+      <div className="min-h-svh flex flex-col items-center justify-center gap-6 p-6"
         style={{ background: '#0F1B3D' }}>
         <div className="w-20 h-20 rounded-full flex items-center justify-center"
           style={{ background: '#F5E642', border: '2px solid #0D0D0D' }}>
@@ -2934,7 +2934,7 @@ function JoinPageInner() {
     }
 
     return (
-      <div className="min-h-screen flex flex-col p-4 gap-4" style={{ background: bgDark }}>
+      <div className="min-h-svh flex flex-col p-4 gap-4" style={{ background: bgDark }}>
         {/* Header — compact slide counter only; deck title omitted to save mobile space */}
         <div className="text-[11px] font-semibold opacity-50 tracking-[0.15em] uppercase" style={{ color: textLight }}>
           Slide {presenterSlideIndex + 1} / {presenterTotalSlides}
@@ -2970,7 +2970,7 @@ function JoinPageInner() {
 // ─── Outer Wrapper (Suspense required for useSearchParams in Next.js 16) ──────
 export default function JoinPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen" style={{ background: '#0F1B3D' }} />}>
+    <Suspense fallback={<div className="min-h-svh" style={{ background: '#0F1B3D' }} />}>
       <JoinPageInner />
       <BrandWatermark placement="participant" />
     </Suspense>

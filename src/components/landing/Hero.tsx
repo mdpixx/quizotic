@@ -226,7 +226,7 @@ function BrowserQuiz() {
 
 export function Hero() {
   return (
-    <section style={{ background: '#0F1B3D', paddingTop: 'calc(64px + env(safe-area-inset-top, 0px))', overflow: 'hidden' }}>
+    <section style={{ background: '#0F1B3D', paddingTop: 64, overflow: 'hidden' }}>
       <div style={{ position: 'absolute', top: 0, right: 0, width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,230,66,0.06) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '80px 24px 80px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 64, alignItems: 'center' }} className="hero-inner">
