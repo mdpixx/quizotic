@@ -134,6 +134,24 @@ function buildHostStagePreviewQuiz(): Quiz {
     updatedAt: new Date().toISOString(),
     questions: [
       {
+        // Layout stress fixture — long question + four long answers. Catches
+        // projector/option clipping regressions in ?preview=host-stage.
+        id: 'q-stress',
+        type: 'mcq',
+        text: 'Which regulatory body oversees the Indian securities and stock market and protects investor interests across exchanges?',
+        options: [
+          'Securities and Exchange Board of India (SEBI), the statutory regulator for securities',
+          'Reserve Bank of India (RBI)',
+          'Ministry of Finance, Government of India',
+          'Planning Commission of India and NITI Aayog jointly oversee market regulation',
+        ],
+        correctAnswer: '0',
+        timerSeconds: 30,
+        points: 1000,
+        explanation: 'SEBI is the statutory regulator of the Indian securities market.',
+        bloomsLevel: 'remember',
+      },
+      {
         id: 'q1',
         type: 'mcq',
         text: 'Which planet is closest to the Sun?',
@@ -723,6 +741,10 @@ export default function SessionPage() {
       socket.off('question_reveal')
       stopClockSync()
       socket.disconnect()
+      // Reset the init guard so the effect re-creates the socket if it runs
+      // again (React StrictMode double-invokes effects in dev). In production
+      // the effect runs once, so this only fires on unmount.
+      socketInitialized.current = false
     }
   }, [quiz])
 
@@ -1401,7 +1423,7 @@ export default function SessionPage() {
           initial={reduceStageMotion ? false : { opacity: 0, y: 18, scale: 0.99 }}
           animate={reduceStageMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.32, ease: [0.22, 0.61, 0.36, 1] }}
-          className="min-h-svh md:h-screen md:max-h-screen md:overflow-hidden overflow-y-auto px-4 pt-3 pb-3 lg:px-8 lg:pt-4 lg:pb-4 flex flex-col gap-3 host-question-stage"
+          className="min-h-svh md:h-screen md:max-h-screen md:overflow-y-auto overflow-y-auto px-4 pt-3 pb-3 lg:px-8 lg:pt-4 lg:pb-4 flex flex-col gap-3 host-question-stage"
           style={{
             background: 'linear-gradient(135deg, #071126 0%, #0F1B3D 55%, #102A43 100%)',
             color: '#FFFFFF',
@@ -1530,7 +1552,7 @@ export default function SessionPage() {
 
           {/* Question card — text auto-scales so long questions stay in view */}
           <div
-            className={`max-w-7xl mx-auto w-full rounded-[28px] shadow-2xl border ${currentQuestion.type === 'wordcloud' ? 'p-4 md:p-5 host-question-card-compact' : 'p-5 md:p-7'} ${currentQuestion.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
+            className={`host-question-card max-w-7xl mx-auto w-full rounded-[28px] shadow-2xl border ${currentQuestion.type === 'wordcloud' ? 'p-4 md:p-5 host-question-card-compact' : 'p-5 md:p-7'} ${currentQuestion.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
             style={{
               background: 'rgba(255,255,255,0.96)',
               boxShadow: '0 24px 80px rgba(0,0,0,0.35)',
@@ -1563,7 +1585,7 @@ export default function SessionPage() {
               {currentQuestion.text}
             </p>
             {currentQuestion.imageUrl && (
-              <img src={currentQuestion.imageUrl} alt={`Image for question ${questionIndex + 1}`} className="mt-3 rounded-xl w-full object-contain" style={{ maxHeight: 'min(22vh, 240px)' }} loading="lazy" />
+              <img src={currentQuestion.imageUrl} alt={`Image for question ${questionIndex + 1}`} className="mt-3 rounded-xl w-full object-contain" style={{ maxHeight: 'min(18vh, 200px)' }} loading="eager" />
             )}
           </div>
 
@@ -1812,11 +1834,11 @@ export default function SessionPage() {
                   {optImage && (
                     <img src={optImage} alt="" className="w-full object-cover" style={{ height: 'min(14vh, 128px)' }} loading="lazy" />
                   )}
-                  <div className="min-h-[112px] p-4 md:p-5 flex items-center gap-4">
-                    <span className={`w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-xl md:text-2xl font-black text-white flex-shrink-0 ${OPTION_COLORS[i]}`} style={{ boxShadow: '0 4px 0 rgba(0,0,0,0.16)' }}>
+                  <div className="flex-1 min-h-0 p-3 md:p-5 flex items-center gap-4">
+                    <span className={`w-11 h-11 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-xl md:text-2xl font-black text-white flex-shrink-0 ${OPTION_COLORS[i]}`} style={{ boxShadow: '0 4px 0 rgba(0,0,0,0.16)' }}>
                       {OPTION_LABELS[i]}
                     </span>
-                    <span className="text-xl md:text-3xl flex-1 min-w-0 break-words text-gray-900 font-black leading-tight">{optText}</span>
+                    <span className="host-opt-text flex-1 min-w-0 break-words text-gray-900 font-black">{optText}</span>
                     {correctRevealed && <span className="text-xl font-black tabular-nums text-gray-500">{votes}</span>}
                     {highlightCorrect && <span className="text-green-600 text-2xl font-black">✓</span>}
                   </div>
@@ -2082,7 +2104,7 @@ export default function SessionPage() {
           </div>
 
           {intermediateLeaderboard.length > 0 && (
-            <div className="rounded-[28px]" style={{ background: '#fff', border: '1px solid #E5E7EB', padding: '22px 18px', minHeight: 500, boxShadow: '0 24px 80px rgba(15,27,61,0.12)' }}>
+            <div className="rounded-[28px]" style={{ background: '#fff', border: '1px solid #E5E7EB', padding: '22px 18px', minHeight: 'min(500px, 58vh)', boxShadow: '0 24px 80px rgba(15,27,61,0.12)' }}>
               <LeaderboardView
                 variant="fullscreen"
                 topN={10}
@@ -2214,7 +2236,7 @@ export default function SessionPage() {
             transition={{ duration: 0.4, ease: [0.22, 0.61, 0.36, 1] }}
             className="relative overflow-hidden flex flex-col items-center justify-center px-4 md:px-8 py-4 md:py-6"
             style={{
-              height: 'calc(100vh - 56px)',
+              height: 'calc(100dvh - 56px)',
               background:
                 'radial-gradient(circle at 50% 8%, rgba(245,230,66,0.24), transparent 24%), radial-gradient(circle at 8% 72%, rgba(34,211,238,0.18), transparent 24%), linear-gradient(145deg, #071126 0%, #0F1B3D 58%, #111827 100%)',
               boxShadow: '0 30px 90px rgba(15,27,61,0.28)',
