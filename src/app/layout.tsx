@@ -1,5 +1,22 @@
 import type { Metadata, Viewport } from "next";
+import { Space_Grotesk, DM_Sans } from "next/font/google";
 import "./globals.css";
+
+// Self-hosted via next/font (served from our own origin → CSP `font-src 'self'`
+// covers it, no Google CDN dependency). display:'swap' avoids invisible text on
+// slow classroom networks. CSS vars are consumed by globals.css.
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-space-grotesk-loaded",
+  display: "swap",
+});
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-dm-sans-loaded",
+  display: "swap",
+});
 import { Background } from "@/components/Background";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/components/AuthProvider";
@@ -88,7 +105,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className="h-full antialiased"
+      className={`${spaceGrotesk.variable} ${dmSans.variable} h-full antialiased`}
     >
       <head>
         {GA4_ID ? (

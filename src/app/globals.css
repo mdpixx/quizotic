@@ -59,9 +59,10 @@ html, body {
   /* Game / participant page dark bg */
   --color-dark-bg:      #0F1B3D;
 
-  /* Fonts: keep builds network-independent; browsers use local fonts when present. */
-  --font-space-grotesk: 'Space Grotesk', 'Aptos Display', 'Segoe UI', system-ui, sans-serif;
-  --font-dm-sans: 'DM Sans', Inter, 'Segoe UI', system-ui, sans-serif;
+  /* Fonts: self-hosted via next/font (--font-*-loaded set on <html>); falls back
+     to local/system fonts if the web font hasn't loaded yet. */
+  --font-space-grotesk: var(--font-space-grotesk-loaded, 'Space Grotesk'), 'Aptos Display', 'Segoe UI', system-ui, sans-serif;
+  --font-dm-sans: var(--font-dm-sans-loaded, 'DM Sans'), Inter, 'Segoe UI', system-ui, sans-serif;
   --font-heading: var(--font-space-grotesk);
   --font-body: var(--font-dm-sans);
 }
@@ -189,8 +190,19 @@ body {
 /* Host projector stage: keep the controls fixed, let the live content claim
    the middle of the screen, and avoid the empty dark floor seen on 16:9
    projector captures. */
-.host-question-stage > .max-w-7xl:not(.host-answer-stage) {
+.host-question-stage > .max-w-7xl:not(.host-answer-stage):not(.host-question-card) {
   flex-shrink: 0;
+}
+
+/* The question card must never starve the answer options. Cap it to a share
+   of the stage and let a very long question scroll WITHIN the card instead of
+   pushing the options off-screen (the projector-clipping bug: options were
+   crushed to ~10px tall while their text needed ~150px and got clipped). */
+.host-question-stage > .host-question-card {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 46%;
+  overflow-y: auto;
 }
 
 .host-question-stage .host-answer-stage {
@@ -198,7 +210,11 @@ body {
 }
 
 .host-options-stage {
-  grid-template-rows: repeat(2, minmax(0, 1fr));
+  /* Rows are at least tall enough for their text (min-content → never trim the
+     answer, even during reveal when votes + check icon narrow the text column)
+     and grow to fill spare height (1fr). If the four answers genuinely exceed
+     the viewport the stage scrolls (overflow-y-auto) rather than clipping. */
+  grid-template-rows: repeat(2, minmax(min-content, 1fr));
 }
 
 .host-options-stage > div {
@@ -209,6 +225,14 @@ body {
 
 .host-options-stage > div > div:last-child {
   margin-top: auto;
+}
+
+/* Answer option text scales to its (possibly short) card and clamps to a
+   line count instead of being clipped mid-line by the card's overflow:hidden.
+   This is the CSS-native replacement for the old (unused) JS auto-shrink. */
+.host-opt-text {
+  font-size: clamp(0.95rem, 0.6rem + 1.4vw, 1.875rem);
+  line-height: 1.15;
 }
 
 .host-ranking-stage {
@@ -252,11 +276,19 @@ body {
 
 @media (max-height: 760px) {
   .host-question-stage {
-    gap: 0.55rem;
+    gap: 0.5rem;
   }
 
+  /* Short viewports (720p laptops / windowed projectors): guarantee the answer
+     options a readable floor and cap the question card harder. If the question
+     card + options together still exceed the viewport, the stage scrolls
+     (overflow-y-auto) instead of crushing the options into clipped slivers. */
   .host-question-stage .host-answer-stage {
-    min-height: 0;
+    min-height: 248px;
+  }
+
+  .host-question-stage > .host-question-card {
+    max-height: 38%;
   }
 }
 

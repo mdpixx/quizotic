@@ -47,14 +47,11 @@ def render_slides_as_images(pptx_path, output_dir):
 
 def render_pdf_as_images(pdf_path, output_dir):
     """Convert PDF -> PNG images via pdftoppm. Returns list of image paths in order."""
-    # 110 DPI is the sweet spot for slide previews: A4 page renders to ~1100x1556
-    # px (sharp on common 1280x800 / 1440x900 displays), PNG payload stays under
-    # ~1.5 MB for most pages, and pdftoppm wall time drops ~45% versus 150 DPI.
-    # Payload size matters because /api/enhance-presentation caps multimodal
-    # images at 5 MB — at 150 DPI scanned PDF pages routinely exceeded that and
-    # were silently skipped, leaving AI Enhance with no visual signal.
+    # 150 DPI is plenty for presentation/browser display — 200 DPI doubles
+    # file size and pdftoppm wall time with no perceptible quality gain on
+    # typical 16:9 slide layouts. Import feels noticeably snappier.
     pdf_result = subprocess.run([
-        'pdftoppm', '-png', '-r', '110', pdf_path,
+        'pdftoppm', '-png', '-r', '150', pdf_path,
         os.path.join(output_dir, 'slide')
     ], capture_output=True, text=True, timeout=180)
 
@@ -197,33 +194,6 @@ def extract_text(pptx_path):
 
 
 if __name__ == '__main__':
-    # ── Probe mode: fast page-count + encryption check for PDFs ────────────
-    #
-    # Called from /api/parse-pptx BEFORE the heavy pdftoppm render so we can
-    # reject oversized or encrypted PDFs in <1s instead of after a 5-minute
-    # render only to throw "Too many slides". Output is a single JSON line on
-    # stdout: {"pages": N, "encrypted": bool}. On failure we still exit 0
-    # with {"pages": -1, "error": ...} so the caller's main flow runs and
-    # produces a properly contextualised error.
-    if len(sys.argv) >= 2 and sys.argv[1] == '--probe':
-        if len(sys.argv) != 3:
-            print(json.dumps({'error': 'Usage: parse_pptx.py --probe <pdf>'}), file=sys.stderr)
-            sys.exit(1)
-        probe_path = sys.argv[2]
-        if not Path(probe_path).exists():
-            print(json.dumps({'pages': -1, 'encrypted': False, 'error': f'File not found: {probe_path}'}))
-            sys.exit(0)
-        try:
-            from pypdf import PdfReader
-            reader = PdfReader(probe_path)
-            print(json.dumps({
-                'pages': len(reader.pages),
-                'encrypted': bool(reader.is_encrypted),
-            }))
-        except Exception as e:
-            print(json.dumps({'pages': -1, 'encrypted': False, 'error': str(e)}))
-        sys.exit(0)
-
     if len(sys.argv) != 3:
         print(json.dumps({'error': 'Usage: parse_pptx.py <filepath> <output_dir>'}), file=sys.stderr)
         sys.exit(1)
