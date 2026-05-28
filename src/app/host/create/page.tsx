@@ -290,6 +290,25 @@ function getTypePill(type: QuestionType) {
   return TYPE_PILLS.find(t => t.value === type) ?? TYPE_PILLS[0]
 }
 
+const QUESTION_CHAR_LIMIT = 160
+const OPTION_CHAR_LIMIT = 100
+
+function CharCount({ value, limit }: { value: string; limit: number }) {
+  const remaining = limit - value.length
+  const isOver = remaining < 0
+  return (
+    <span
+      className="absolute top-1.5 right-2 text-xs font-black tabular-nums pointer-events-none select-none z-10 leading-none px-1.5 py-0.5 rounded"
+      style={{
+        color: isOver ? '#fff' : '#15803d',
+        backgroundColor: isOver ? '#DC2626' : 'rgba(255,255,255,0.85)',
+      }}
+    >
+      {remaining}
+    </span>
+  )
+}
+
 // ─── Sortable Ranking Option (for drag-to-sort in builder) ────────────────────
 
 interface SortableRankingItemProps {
@@ -426,7 +445,7 @@ function QuestionPreview({
   return (
     <div className="w-full max-w-[1280px] rounded-2xl overflow-hidden h-full max-h-full flex flex-col" style={{ boxShadow: '0 12px 40px rgba(0,0,0,0.10)' }}>
       {/* Header — inline-editable question text */}
-      <div className="flex-shrink-0 px-6 md:px-10 py-4 md:py-5 text-center" style={{ background: '#FAFAF8', borderBottom: '1px solid #EDE8E0' }}>
+      <div className="relative flex-shrink-0 px-6 md:px-10 py-4 md:py-5 text-center" style={{ background: '#FAFAF8', borderBottom: '1px solid #EDE8E0' }}>
         <p className="text-xs md:text-sm font-bold uppercase tracking-widest mb-3" style={{ color: '#94A3B8' }}>
           Question {index + 1} of {total}
         </p>
@@ -436,9 +455,10 @@ function QuestionPreview({
           placeholder="Type your question here..."
           rows={1}
           maxLength={300}
-          className={`w-full font-extrabold leading-snug text-center bg-transparent outline-none resize-none border-0 focus:ring-2 focus:ring-blue-200 rounded-lg transition-all ${questionTextSizeClass(question.text)}`}
+          className="w-full font-extrabold leading-snug text-center bg-transparent outline-none resize-none border-0 focus:ring-2 focus:ring-blue-200 rounded-lg transition-all text-2xl md:text-3xl"
           style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}
         />
+        <CharCount value={question.text} limit={QUESTION_CHAR_LIMIT} />
       </div>
 
       {/* Image area */}
@@ -451,7 +471,7 @@ function QuestionPreview({
       {/* Options — inline-editable with bar visualization */}
       <div className="bg-white p-4 md:p-5 flex-1 min-h-0 overflow-y-auto flex flex-col">
         {(question.type === 'mcq' || question.type === 'multiselect' || question.type === 'truefalse' || question.type === 'poll' || question.type === 'case') && opts.length > 0 && (
-          <div className="mt-auto w-full">
+          <div className="w-full">
             {needsCorrectAnswer(question.type) && (
               <div className="mb-3 flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}>
                 <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-black" style={{ background: '#F59E0B', color: '#fff' }}>!</span>
@@ -462,16 +482,17 @@ function QuestionPreview({
                 </p>
               </div>
             )}
-            <div className="grid grid-cols-2 gap-2 md:gap-3">
+            <div className="grid grid-cols-2 grid-rows-2 gap-2 md:gap-3">
             {opts.map((opt, i) => {
               const c = ANSWER_COLORS[i] ?? ANSWER_COLORS[0]
+              const optText = getOptionText(opt)
               const isCorrect = question.type === 'multiselect'
                 ? (question.correctAnswers ?? []).includes(String(i))
                 : question.correctAnswer === String(i) && hasCorrectAnswer(question.type, question)
               return (
                 <div
                   key={i}
-                  className="relative overflow-hidden rounded-xl transition-all"
+                  className="relative overflow-hidden rounded-xl transition-all h-[90px] md:h-[108px]"
                   style={{
                     background: c.hex,
                     boxShadow: isCorrect
@@ -479,7 +500,8 @@ function QuestionPreview({
                       : `0 2px 0 ${c.hexDark}`,
                   }}
                 >
-                  <div className="relative flex items-center gap-3 px-3 py-2.5 md:px-4 md:py-3">
+                  <CharCount value={optText} limit={OPTION_CHAR_LIMIT} />
+                  <div className="flex items-center gap-3 px-3 py-2.5 md:px-4 md:py-3 h-full">
                     <button
                       type="button"
                       onClick={() => {
@@ -498,15 +520,15 @@ function QuestionPreview({
                     >
                       {isCorrect ? <span className="text-base">&#10003;</span> : c.letter}
                     </button>
-                    <AutoGrowTextarea
-                      value={getOptionText(opt)}
+                    <textarea
+                      value={optText}
                       onChange={e => handleOptionChange(i, e.target.value.replace(/\n/g, ''))}
                       onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
                       placeholder={`Option ${c.letter}`}
                       disabled={question.type === 'truefalse'}
-                      rows={1}
-                      maxLength={150}
-                      className="flex-1 min-h-[44px] py-1 text-lg md:text-2xl font-black bg-transparent outline-none border-0 text-white placeholder:text-white/60 disabled:opacity-70 resize-none overflow-hidden"
+                      rows={2}
+                      maxLength={200}
+                      className="flex-1 text-base md:text-lg font-black bg-transparent outline-none border-0 text-white placeholder:text-white/60 disabled:opacity-70 resize-none overflow-y-auto py-1 leading-snug"
                       style={{ textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}
                     />
                   </div>
