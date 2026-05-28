@@ -369,6 +369,20 @@ function AutosaveBadge({ state }: { state: { status: 'idle' | 'saving' | 'saved'
   )
 }
 
+// Auto-growing textarea: resizes to fit its content whenever the value changes
+// (not just on user input), so pre-filled / AI-generated long answers are never
+// clipped in the preview.
+function AutoGrowTextarea({ value, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { value: string }) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [value])
+  return <textarea ref={ref} value={value} {...props} />
+}
+
 // ─── Visual Preview Card (Center Panel) ────────────────────────────────────────
 
 function QuestionPreview({
@@ -416,11 +430,11 @@ function QuestionPreview({
         <p className="text-xs md:text-sm font-bold uppercase tracking-widest mb-3" style={{ color: '#94A3B8' }}>
           Question {index + 1} of {total}
         </p>
-        <textarea
+        <AutoGrowTextarea
           value={question.text}
           onChange={e => onChange({ ...question, text: e.target.value })}
           placeholder="Type your question here..."
-          rows={question.text.length > 140 ? 4 : question.text.length > 60 ? 3 : 2}
+          rows={1}
           maxLength={300}
           className={`w-full font-extrabold leading-snug text-center bg-transparent outline-none resize-none border-0 focus:ring-2 focus:ring-blue-200 rounded-lg transition-all ${questionTextSizeClass(question.text)}`}
           style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}
@@ -435,9 +449,9 @@ function QuestionPreview({
       )}
 
       {/* Options — inline-editable with bar visualization */}
-      <div className="bg-white p-4 md:p-5 flex-1 min-h-0 overflow-y-auto">
+      <div className="bg-white p-4 md:p-5 flex-1 min-h-0 overflow-y-auto flex flex-col">
         {(question.type === 'mcq' || question.type === 'multiselect' || question.type === 'truefalse' || question.type === 'poll' || question.type === 'case') && opts.length > 0 && (
-          <div>
+          <div className="mt-auto w-full">
             {needsCorrectAnswer(question.type) && (
               <div className="mb-3 flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}>
                 <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-black" style={{ background: '#F59E0B', color: '#fff' }}>!</span>
@@ -484,16 +498,15 @@ function QuestionPreview({
                     >
                       {isCorrect ? <span className="text-base">&#10003;</span> : c.letter}
                     </button>
-                    <textarea
+                    <AutoGrowTextarea
                       value={getOptionText(opt)}
                       onChange={e => handleOptionChange(i, e.target.value.replace(/\n/g, ''))}
-                      onInput={e => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px' }}
                       onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
                       placeholder={`Option ${c.letter}`}
                       disabled={question.type === 'truefalse'}
                       rows={1}
                       maxLength={150}
-                      className="flex-1 min-h-[44px] text-lg md:text-2xl font-black bg-transparent outline-none border-0 text-white placeholder:text-white/60 disabled:opacity-70 resize-none overflow-hidden"
+                      className="flex-1 min-h-[44px] py-1 text-lg md:text-2xl font-black bg-transparent outline-none border-0 text-white placeholder:text-white/60 disabled:opacity-70 resize-none overflow-hidden"
                       style={{ textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}
                     />
                   </div>
