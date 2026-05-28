@@ -82,6 +82,45 @@ async function countSlidesQuick(buffer: Buffer): Promise<number> {
   }
 }
 
+// ─── Fast PDF probe — sub-second page-count + encryption check ──────────────
+//
+// PPTX gets a zip-based slide count above (O(50ms)). PDFs need pypdf — still
+// well under a second. Running this BEFORE the full pdftoppm render means a
+// 100-page PDF gets rejected with "Too many pages" instantly instead of after
+// 4-5 minutes of rendering, and encrypted PDFs surface a clear error code
+// instead of "Failed to process PPTX file. The file may be corrupted...".
+
+interface PdfProbe {
+  pages: number
+  encrypted: boolean
+  error?: string
+}
+
+async function probePdf(buffer: Buffer): Promise<PdfProbe | null> {
+  const uuid = crypto.randomUUID()
+  const tmpDir = path.join(tmpdir(), `pdf-probe-${uuid}`)
+  const tmpPath = path.join(tmpDir, 'probe.pdf')
+
+  try {
+    const { mkdir } = await import('fs/promises')
+    await mkdir(tmpDir, { recursive: true })
+    await writeFile(tmpPath, buffer)
+
+    const { stdout } = await execFileAsync('python3', [
+      path.join(process.cwd(), 'scripts/parse_pptx.py'), '--probe', tmpPath,
+    ], { timeout: 10_000 })
+
+    const parsed = JSON.parse(stdout.trim()) as PdfProbe
+    if (typeof parsed.pages !== 'number') return null
+    return parsed
+  } catch (err) {
+    console.warn('[parse-pptx] probe failed (will fall through to main render):', err)
+    return null
+  } finally {
+    await rm(tmpDir, { recursive: true, force: true }).catch(() => {})
+  }
+}
+
 // ─── Python subprocess ──────────────────────────────────────────────────────
 
 interface ProcessedPptx {
@@ -156,15 +195,16 @@ export async function POST(req: NextRequest) {
   try {
     const buffer = Buffer.from(await file.arrayBuffer())
 
-    // Fast pre-check for PPTX only — reject oversized decks before running
-    // LibreOffice so users don't wait minutes only to learn the file is too big.
-    // PDF page count is determined by the Python script after rendering.
+    // Fast pre-check — reject oversized / encrypted decks before running the
+    // heavy render pipeline so users don't wait minutes only to learn the
+    // file is unusable.
     if (!isPdf) {
       const quickCount = await countSlidesQuick(buffer)
       if (quickCount > MAX_SLIDES) {
         return NextResponse.json(
           {
             success: false,
+            code: 'too_many_pages',
             error: `Too many slides (${quickCount}). Maximum is ${MAX_SLIDES}. Please split your presentation into smaller decks and try again.`,
           },
           { status: 400 }
@@ -172,10 +212,37 @@ export async function POST(req: NextRequest) {
       }
       if (quickCount === 0) {
         return NextResponse.json(
-          { success: false, error: 'No slides found in the presentation.' },
+          { success: false, code: 'no_slides', error: 'No slides found in the presentation.' },
           { status: 400 }
         )
       }
+    } else {
+      // PDF probe: page count + encryption. Sub-second via pypdf.
+      const probe = await probePdf(buffer)
+      if (probe && probe.pages > 0) {
+        if (probe.encrypted) {
+          return NextResponse.json(
+            {
+              success: false,
+              code: 'encrypted',
+              error: 'This PDF is password-protected. Remove the password and try again.',
+            },
+            { status: 400 }
+          )
+        }
+        if (probe.pages > MAX_SLIDES) {
+          return NextResponse.json(
+            {
+              success: false,
+              code: 'too_many_pages',
+              error: `Too many pages (${probe.pages}). Maximum is ${MAX_SLIDES}. Please split your PDF and try again.`,
+            },
+            { status: 400 }
+          )
+        }
+      }
+      // If probe failed (pages: -1) or returned null, fall through — the main
+      // pipeline produces a more specific error from pdftoppm's stderr.
     }
 
     const result = await processPptx(buffer, name)

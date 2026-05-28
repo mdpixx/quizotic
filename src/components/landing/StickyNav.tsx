@@ -28,6 +28,7 @@ export function StickyNav() {
         background: '#0F1B3D',
         boxShadow: scrolled ? '0 2px 24px rgba(0,0,0,0.3)' : 'none',
         transition: 'box-shadow 0.3s',
+        paddingTop: 'env(safe-area-inset-top, 0px)',
       }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', height: 64 }}>
           {/* Logo */}
@@ -77,7 +78,7 @@ export function StickyNav() {
 
       {/* Mobile menu */}
       <div style={{
-        position: 'fixed', top: 64, left: 0, right: 0, zIndex: 99,
+        position: 'fixed', top: 'calc(64px + env(safe-area-inset-top, 0px))', left: 0, right: 0, zIndex: 99,
         background: '#0F1B3D', borderTop: '1px solid rgba(255,255,255,0.1)',
         padding: menuOpen ? '16px 24px 24px' : '0 24px',
         display: 'flex', flexDirection: 'column', gap: 4,

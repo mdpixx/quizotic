@@ -21,17 +21,6 @@ const nextConfig: NextConfig = {
     ];
   },
   async headers() {
-    // Dev needs 'unsafe-eval' (React/Turbopack dev runtime) and ws: (Socket.IO
-    // over http localhost) or the client never hydrates and the live socket
-    // never connects — which makes the host/participant screens untestable in
-    // a browser. Production stays locked down.
-    const isDev = process.env.NODE_ENV !== 'production'
-    const scriptSrc = isDev
-      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://eu-assets.i.posthog.com"
-      : "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://eu-assets.i.posthog.com"
-    const connectSrc = isDev
-      ? "connect-src 'self' ws: wss: https://api.razorpay.com https://lux-gateway.razorpay.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io"
-      : "connect-src 'self' wss: https://api.razorpay.com https://lux-gateway.razorpay.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io"
     return [
       {
         source: '/(.*)',
@@ -44,11 +33,11 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              scriptSrc,
+              "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://eu-assets.i.posthog.com",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https:",
               "font-src 'self' https://fonts.gstatic.com",
-              connectSrc,
+              "connect-src 'self' wss: https://api.razorpay.com https://lux-gateway.razorpay.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
               "frame-src https://api.razorpay.com https://checkout.razorpay.com",
               "frame-ancestors 'none'",
               "worker-src 'self'",

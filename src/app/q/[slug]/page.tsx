@@ -313,7 +313,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
 
   if (phase === 'loading') {
     return (
-      <div className="min-h-svh flex items-center justify-center" style={{ background: '#0F1B3D' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0F1B3D' }}>
         <div className="w-8 h-8 rounded-full border-2 animate-spin"
           style={{ borderColor: '#F5E642', borderTopColor: 'transparent' }} />
       </div>
@@ -324,7 +324,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
 
   if (phase === 'closed') {
     return (
-      <div className="min-h-svh flex items-center justify-center p-6" style={{ background: '#0F1B3D' }}>
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#0F1B3D' }}>
         <div className="text-center max-w-xs">
           <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-4"
             style={{ background: 'rgba(245,230,66,0.1)', border: '1.5px solid rgba(245,230,66,0.3)' }}>
@@ -352,7 +352,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
     const hasTimeLimit = !!info?.timeLimitMinutes
 
     return (
-      <div className="min-h-svh flex items-center justify-center p-4" style={{ background: '#0F1B3D' }}>
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#0F1B3D' }}>
         <div className="w-full max-w-sm">
           <div className="text-center mb-7">
             <div className="inline-flex items-center gap-2 mb-4">
@@ -512,7 +512,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
 
   if (phase === 'timeup') {
     return (
-      <div className="min-h-svh flex flex-col items-center justify-center p-6 text-center gap-5"
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center gap-5"
         style={{ background: '#0F1B3D' }}>
         <div className="w-20 h-20 rounded-full flex items-center justify-center text-4xl"
           style={{ background: 'rgba(239,68,68,0.15)', border: '1.5px solid rgba(239,68,68,0.4)' }}>
@@ -535,7 +535,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
 
   if (phase === 'done') {
     return (
-      <div className="min-h-svh flex flex-col items-center justify-center p-6 text-center gap-5"
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center gap-5"
         style={{ background: '#0F1B3D' }}>
         {result
           ? <ScoreReveal
