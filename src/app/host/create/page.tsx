@@ -449,16 +449,18 @@ function QuestionPreview({
         <p className="text-xs md:text-sm font-bold uppercase tracking-widest mb-3" style={{ color: '#94A3B8' }}>
           Question {index + 1} of {total}
         </p>
-        <AutoGrowTextarea
-          value={question.text}
-          onChange={e => onChange({ ...question, text: e.target.value })}
-          placeholder="Type your question here..."
-          rows={1}
-          maxLength={300}
-          className="w-full font-extrabold leading-snug text-center bg-transparent outline-none resize-none border-0 focus:ring-2 focus:ring-blue-200 rounded-lg transition-all text-2xl md:text-3xl"
-          style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}
-        />
         <CharCount value={question.text} limit={QUESTION_CHAR_LIMIT} />
+        <div className="max-h-[180px] overflow-y-auto rounded-lg">
+          <AutoGrowTextarea
+            value={question.text}
+            onChange={e => onChange({ ...question, text: e.target.value })}
+            placeholder="Type your question here..."
+            rows={1}
+            maxLength={300}
+            className="w-full font-extrabold leading-snug text-center bg-transparent outline-none resize-none border-0 focus:ring-2 focus:ring-blue-200 rounded-lg transition-all text-2xl md:text-3xl"
+            style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}
+          />
+        </div>
       </div>
 
       {/* Image area */}
@@ -492,7 +494,7 @@ function QuestionPreview({
               return (
                 <div
                   key={i}
-                  className="relative overflow-hidden rounded-xl transition-all h-[90px] md:h-[108px]"
+                  className="relative overflow-hidden rounded-xl transition-all h-[140px] md:h-[160px]"
                   style={{
                     background: c.hex,
                     boxShadow: isCorrect
@@ -528,7 +530,7 @@ function QuestionPreview({
                       disabled={question.type === 'truefalse'}
                       rows={2}
                       maxLength={200}
-                      className="flex-1 text-base md:text-lg font-black bg-transparent outline-none border-0 text-white placeholder:text-white/60 disabled:opacity-70 resize-none overflow-y-auto py-1 leading-snug"
+                      className="flex-1 text-base md:text-lg font-black bg-transparent outline-none border-0 text-white placeholder:text-white/60 disabled:opacity-70 resize-none overflow-hidden py-1 leading-snug"
                       style={{ textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}
                     />
                   </div>
