@@ -450,17 +450,15 @@ function QuestionPreview({
           Question {index + 1} of {total}
         </p>
         <CharCount value={question.text} limit={QUESTION_CHAR_LIMIT} />
-        <div className="max-h-[180px] overflow-y-auto rounded-lg">
-          <AutoGrowTextarea
-            value={question.text}
-            onChange={e => onChange({ ...question, text: e.target.value })}
-            placeholder="Type your question here..."
-            rows={1}
-            maxLength={300}
-            className="w-full font-extrabold leading-snug text-center bg-transparent outline-none resize-none border-0 focus:ring-2 focus:ring-blue-200 rounded-lg transition-all text-2xl md:text-3xl"
-            style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}
-          />
-        </div>
+        <AutoGrowTextarea
+          value={question.text}
+          onChange={e => onChange({ ...question, text: e.target.value })}
+          placeholder="Type your question here..."
+          rows={1}
+          maxLength={180}
+          className="w-full font-extrabold leading-snug text-center bg-transparent outline-none resize-none border-0 focus:ring-2 focus:ring-blue-200 rounded-lg transition-all text-2xl md:text-3xl"
+          style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}
+        />
       </div>
 
       {/* Image area */}
@@ -494,7 +492,7 @@ function QuestionPreview({
               return (
                 <div
                   key={i}
-                  className="relative overflow-hidden rounded-xl transition-all h-[140px] md:h-[160px]"
+                  className="relative overflow-hidden rounded-xl transition-all h-[128px] md:h-[144px]"
                   style={{
                     background: c.hex,
                     boxShadow: isCorrect
@@ -503,7 +501,7 @@ function QuestionPreview({
                   }}
                 >
                   <CharCount value={optText} limit={OPTION_CHAR_LIMIT} />
-                  <div className="flex items-center gap-3 px-3 py-2.5 md:px-4 md:py-3 h-full">
+                  <div className="flex items-center gap-3 px-3 py-2 md:px-4 md:py-2.5 h-full">
                     <button
                       type="button"
                       onClick={() => {
@@ -522,15 +520,15 @@ function QuestionPreview({
                     >
                       {isCorrect ? <span className="text-base">&#10003;</span> : c.letter}
                     </button>
-                    <textarea
+                    <AutoGrowTextarea
                       value={optText}
                       onChange={e => handleOptionChange(i, e.target.value.replace(/\n/g, ''))}
                       onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
                       placeholder={`Option ${c.letter}`}
                       disabled={question.type === 'truefalse'}
-                      rows={2}
-                      maxLength={200}
-                      className="flex-1 text-base md:text-lg font-black bg-transparent outline-none border-0 text-white placeholder:text-white/60 disabled:opacity-70 resize-none overflow-hidden py-1 leading-snug"
+                      rows={1}
+                      maxLength={120}
+                      className="flex-1 text-base md:text-lg font-black bg-transparent outline-none border-0 text-white placeholder:text-white/60 disabled:opacity-70 resize-none leading-snug"
                       style={{ textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}
                     />
                   </div>
