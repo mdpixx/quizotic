@@ -6,7 +6,6 @@ import { useSession } from 'next-auth/react'
 import { motion } from 'framer-motion'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
 import { DataCardList } from '@/components/ui/DataCardList'
-import { QuizVsSlidesModal } from '@/components/host/QuizVsSlidesModal'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell, RadarChart, PolarGrid, PolarAngleAxis, Radar,
@@ -124,7 +123,6 @@ export default function HostDashboard() {
   const [loading, setLoading] = useState(true)
   const [range, setRange] = useState(90)
   const [bloomsView, setBloomsView] = useState<'bar' | 'radar'>('bar')
-  const [compareOpen, setCompareOpen] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -185,60 +183,30 @@ export default function HostDashboard() {
             Welcome to Quizotic!
           </h1>
           <p className="text-base md:text-lg max-w-lg mx-auto" style={{ color: '#64748B' }}>
-            Let&apos;s get you started with your first live session. Pick one to begin.
+            Let&apos;s get your first live session ready.
           </p>
-          <button
-            type="button"
-            onClick={() => setCompareOpen(true)}
-            className="mt-3 text-sm underline decoration-dotted hover:decoration-solid font-semibold"
-            style={{ color: '#0F1B3D' }}
-          >
-            Quiz or Slides &mdash; what&apos;s the difference?
-          </button>
         </motion.div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-8 mb-10">
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <Link href="/host/studio" className="block rounded-2xl border p-6 transition-all hover:scale-[1.01] hover:shadow-lg h-full" style={{ background: '#fff', borderColor: '#E2E8F0' }}>
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-4" style={{ background: '#F3F4F6' }}>🧭</div>
-              <h2 className="text-xl font-black mb-1" style={{ color: '#0F1B3D' }}>Create Studio</h2>
-              <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#92400E' }}>Quiz · polls · slides · practice</p>
-              <p className="text-sm leading-relaxed mb-4" style={{ color: '#64748B' }}>
-                Start from your intent, then choose AI generation, document upload, PPTX import, templates, or a blank canvas.
+        {/* One front door: the studio is where quiz / polls / slides / practice fork. */}
+        <div className="mt-8 mb-10">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mx-auto max-w-xl">
+            <Link href="/host/studio" className="block rounded-2xl border p-7 text-center transition-all hover:scale-[1.01] hover:shadow-lg" style={{ background: '#fff', borderColor: '#E2E8F0' }}>
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mb-4 mx-auto" style={{ background: '#F3F4F6' }}>🧭</div>
+              <h2 className="text-2xl font-black mb-1" style={{ color: '#0F1B3D' }}>Create a Session</h2>
+              <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#92400E' }}>Scored quiz · live polls · slides · practice</p>
+              <p className="text-sm leading-relaxed mb-5 max-w-md mx-auto" style={{ color: '#64748B' }}>
+                Tell us what you want to run. Quizotic opens the right builder, source, and starting format — AI generation, document upload, PPTX import, templates, or a blank canvas.
               </p>
               <span className="btn-primary">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
-                Choose Session
+                Choose what to run
               </span>
             </Link>
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-            <Link href="/host/present/create" className="block rounded-2xl border p-6 transition-all hover:scale-[1.01] hover:shadow-lg h-full" style={{ background: '#fff', borderColor: '#E2E8F0' }}>
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-4" style={{ background: '#E0F2FE' }}>📽</div>
-              <h2 className="text-xl font-black mb-1" style={{ color: '#0F1B3D' }}>Create Slides</h2>
-              <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#0369A1' }}>Interactive · polls · no scoring</p>
-              <p className="text-sm leading-relaxed mb-4" style={{ color: '#64748B' }}>
-                An interactive deck. Mix content slides with polls, word clouds, ratings, and reactions. <strong>You can also import a PowerPoint file.</strong>
-              </p>
-              <span className="btn-primary-teal">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
-                Create Slides
-              </span>
-            </Link>
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-            <Link href="/host/templates" className="block rounded-2xl border p-6 transition-all hover:scale-[1.01] hover:shadow-lg h-full" style={{ background: '#fff', borderColor: '#E2E8F0' }}>
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-4" style={{ background: '#FEF3C7' }}>📚</div>
-              <h2 className="text-xl font-black mb-2" style={{ color: '#0F1B3D' }}>Browse Templates</h2>
-              <p className="text-sm leading-relaxed mb-4" style={{ color: '#64748B' }}>
-                Start from a pre-built quiz by subject and audience. One click loads it into the editor — edit to fit your content.
-              </p>
-              <span className="inline-block text-sm font-bold px-5 py-2.5 rounded-xl text-white" style={{ background: 'linear-gradient(135deg, #EA580C, #DC2626)' }}>
-                Browse Templates
-              </span>
-            </Link>
+            <div className="mt-4 text-center">
+              <Link href="/host/templates" className="text-sm font-semibold hover:underline" style={{ color: '#64748B', textDecoration: 'none' }}>
+                or browse ready-made templates &rarr;
+              </Link>
+            </div>
           </motion.div>
         </div>
 
@@ -265,8 +233,6 @@ export default function HostDashboard() {
         <p className="text-center text-xs mt-6" style={{ color: '#9CA3AF' }}>
           Your analytics dashboard will appear here once you run your first session.
         </p>
-
-        <QuizVsSlidesModal open={compareOpen} onClose={() => setCompareOpen(false)} />
       </div>
     )
   }
@@ -1089,38 +1055,19 @@ export default function HostDashboard() {
         <div>
           <p className="text-base font-black" style={{ color: '#0F1B3D' }}>Ready to run your next session?</p>
           <p className="text-sm mt-0.5" style={{ color: '#374151' }}>
-            <strong style={{ color: '#92400E' }}>Quiz</strong> for a scored test &middot;{' '}
-            <strong style={{ color: '#0369A1' }}>Slides</strong> for an interactive presentation.{' '}
-            <button
-              type="button"
-              onClick={() => setCompareOpen(true)}
-              className="underline decoration-dotted hover:decoration-solid font-semibold"
-              style={{ color: '#0F1B3D' }}
-            >
-              What&apos;s the difference?
-            </button>
+            Start from your intent — scored quiz, live polls, slides, or self-paced practice.
           </p>
         </div>
         <div className="flex gap-3 flex-shrink-0 flex-wrap justify-center">
           <Link href="/host/studio" className="btn-primary" style={{ textDecoration: 'none' }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
-            Create Studio
-          </Link>
-          <Link href="/host/create?start=aitopic" className="btn-secondary" style={{ textDecoration: 'none' }}>
-            Quiz
-          </Link>
-          <Link href="/host/present/create" className="btn-primary-teal" style={{ textDecoration: 'none' }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
-            Slides
+            Create
           </Link>
           <Link href="/host/templates" className="btn-ghost" style={{ textDecoration: 'none', color: 'var(--color-text-secondary)' }}>
             Browse templates
           </Link>
         </div>
       </motion.div>
-
-      {/* Quiz vs Slides comparison modal */}
-      <QuizVsSlidesModal open={compareOpen} onClose={() => setCompareOpen(false)} />
     </div>
     </div>
   )
