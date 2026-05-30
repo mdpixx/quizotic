@@ -4,13 +4,23 @@ import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import type { Question } from '@/lib/quiz-types'
+import { getEffectiveOptions, getOptionText, getOptionImage, isScoredType } from '@/lib/quiz-types'
+import { SLIDE_TYPE_META } from '@/lib/presentation-types'
+
+type WowDelta = { thisWeek: number; lastWeek: number; pct: number | null }
 
 interface Stats {
   users: { total: number; thisMonth: number; thisWeek: number; today: number; onboarded: number; referrals: number }
   quizzes: { total: number; thisMonth: number }
+  presentations: { total: number; thisMonth: number }
   sessions: { total: number; thisMonth: number }
   subscriptions: { active: number; byPlan: Array<{ plan: string; count: number }> }
   aiUsage: { total: number; thisMonth: number }
+  trends: { days: string[]; users: number[]; quizzes: number[]; sessions: number[] }
+  deltas: { users: WowDelta; quizzes: WowDelta; sessions: WowDelta }
+  funnel: Array<{ stage: string; count: number }>
+  attention: { signedUpNeverCreated: number; stuckSessions: number; openModeration: number; pendingDeletions: number }
   breakdowns: {
     discovery: Array<{ channel: string; count: number }>
     roles: Array<{ role: string; count: number }>
@@ -25,6 +35,16 @@ interface Stats {
     status: string; participantCount: number; createdAt: string; endedAt: string | null
   }>
   topUsers: Array<{ email: string | null; name: string | null; quizCount: number }>
+}
+
+type AdminTab = 'overview' | 'content' | 'users' | 'tools'
+
+interface OpenRouterCredits {
+  remaining: number
+  totalCredits: number
+  totalUsage: number
+  low: boolean
+  cachedAt: string
 }
 
 function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
@@ -68,12 +88,468 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+// ─── Overview: sparklines, trend cards, balance, funnel, attention ──────────
+
+function Sparkline({ data, color = '#6366f1' }: { data: number[]; color?: string }) {
+  if (!data || data.length === 0) return null
+  const max = Math.max(1, ...data)
+  const w = 84, h = 28
+  const step = data.length > 1 ? w / (data.length - 1) : w
+  const pts = data.map((v, i) => `${(i * step).toFixed(1)},${(h - (v / max) * h).toFixed(1)}`).join(' ')
+  return (
+    <svg width={w} height={h} className="shrink-0" aria-hidden>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.75" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function deltaLabel(d: WowDelta): { text: string; cls: string } {
+  if (d.pct === null) return { text: 'new this week', cls: 'text-indigo-500' }
+  const sign = d.pct >= 0 ? '+' : ''
+  return {
+    text: `${sign}${d.pct}% WoW · ${d.thisWeek} this wk`,
+    cls: d.pct > 0 ? 'text-emerald-600 dark:text-emerald-400' : d.pct < 0 ? 'text-red-500' : 'text-gray-400',
+  }
+}
+
+function TrendStatCard({ label, value, delta, series, color }: {
+  label: string; value: string | number; delta: WowDelta; series: number[]; color?: string
+}) {
+  const dl = deltaLabel(delta)
+  return (
+    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-5 shadow-sm border border-gray-200/50 dark:border-gray-700/50">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">{label}</p>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white mt-1">{value}</p>
+          <p className={`text-xs mt-1 font-medium ${dl.cls}`}>{dl.text}</p>
+        </div>
+        <Sparkline data={series} color={color} />
+      </div>
+    </div>
+  )
+}
+
+function OpenRouterCard({ credits, error }: { credits: OpenRouterCredits | null; error: string | null }) {
+  const low = credits?.low ?? false
+  return (
+    <div className={`rounded-2xl p-5 shadow-sm border backdrop-blur-sm ${low ? 'border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-800' : 'border-gray-200/50 dark:border-gray-700/50 bg-white/80 dark:bg-gray-800/80'}`}>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">OpenRouter balance</p>
+        <a href="https://openrouter.ai/credits" target="_blank" rel="noreferrer" className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">manage →</a>
+      </div>
+      {error ? (
+        <p className="text-sm text-red-500 mt-2">{error}</p>
+      ) : !credits ? (
+        <p className="text-sm text-gray-400 mt-2">Loading…</p>
+      ) : (
+        <>
+          <p className={`text-3xl font-bold mt-1 ${low ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
+            ${credits.remaining.toFixed(2)}
+          </p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+            {low ? '⚠ Low — top up to keep AI generation working' : `$${credits.totalUsage.toFixed(2)} used of $${credits.totalCredits.toFixed(2)}`}
+          </p>
+        </>
+      )}
+    </div>
+  )
+}
+
+function ActivationFunnel({ funnel }: { funnel: Stats['funnel'] }) {
+  const top = funnel[0]?.count || 1
+  return (
+    <TableSection title="Activation funnel">
+      <div className="p-5 space-y-3">
+        {funnel.map((s, i) => {
+          const pctOfTop = Math.round((s.count / top) * 100)
+          const prev = i > 0 ? funnel[i - 1].count : s.count
+          const drop = prev > 0 ? Math.round(((prev - s.count) / prev) * 100) : 0
+          return (
+            <div key={s.stage}>
+              <div className="flex justify-between items-baseline text-sm mb-1">
+                <span className="font-medium text-gray-700 dark:text-gray-300">{i + 1}. {s.stage}</span>
+                <span className="tabular-nums text-gray-900 dark:text-white font-semibold">
+                  {s.count} <span className="text-gray-400 font-normal">({pctOfTop}%)</span>
+                  {i > 0 && drop > 0 && <span className="text-red-500 ml-2 text-xs font-medium">−{drop}% drop</span>}
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
+                <div className="h-2 rounded-full bg-indigo-500" style={{ width: `${pctOfTop}%` }} />
+              </div>
+            </div>
+          )
+        })}
+        <p className="text-xs text-gray-400 dark:text-gray-500 pt-1">Lifetime distinct users at each stage. The biggest drop is where to focus onboarding.</p>
+      </div>
+    </TableSection>
+  )
+}
+
+function NeedsAttention({ attention, orLow, onGoto }: {
+  attention: Stats['attention']; orLow: boolean; onGoto: (tab: AdminTab) => void
+}) {
+  const items: Array<{ text: string; tone: 'red' | 'yellow'; tab?: AdminTab }> = []
+  if (orLow) items.push({ text: 'OpenRouter balance is low — top up to keep AI generation working', tone: 'red' })
+  if (attention.signedUpNeverCreated > 0) items.push({ text: `${attention.signedUpNeverCreated} users signed up but never created anything — onboarding drop-off`, tone: 'yellow', tab: 'users' })
+  if (attention.stuckSessions > 0) items.push({ text: `${attention.stuckSessions} session(s) stuck "active" for >24h`, tone: 'yellow' })
+  if (attention.openModeration > 0) items.push({ text: `${attention.openModeration} open moderation report(s) to review`, tone: 'red', tab: 'tools' })
+  if (attention.pendingDeletions > 0) items.push({ text: `${attention.pendingDeletions} pending data-deletion request(s)`, tone: 'red', tab: 'tools' })
+
+  if (items.length === 0) {
+    return (
+      <div className="rounded-2xl p-5 shadow-sm border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-800">
+        <h3 className="font-semibold text-gray-900 dark:text-white mb-1">Needs attention</h3>
+        <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">✓ All clear — nothing needs attention.</p>
+      </div>
+    )
+  }
+  return (
+    <div className="rounded-2xl p-5 shadow-sm border border-gray-200/50 dark:border-gray-700/50 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
+      <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Needs attention</h3>
+      <ul className="space-y-2">
+        {items.map((it, i) => (
+          <li key={i} className="flex items-start gap-2 text-sm">
+            <span className={it.tone === 'red' ? 'text-red-500' : 'text-amber-500'}>●</span>
+            <span className="flex-1 text-gray-700 dark:text-gray-300">{it.text}</span>
+            {it.tab && (
+              <button onClick={() => onGoto(it.tab!)} className="text-indigo-600 dark:text-indigo-400 hover:underline text-xs shrink-0">View →</button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+// ─── Content: browse all users' quizzes/decks + read-only viewer ────────────
+
+interface ContentRow {
+  id: string; type: 'quiz' | 'presentation'; title: string
+  subject: string | null; language: string | null
+  itemCount: number; sessions: number
+  owner: { id: string; name: string | null; email: string } | null
+  createdAt: string; updatedAt: string
+}
+
+interface ViewerData {
+  type: 'quiz' | 'presentation'
+  item: {
+    id: string; title: string; subject?: string | null; language?: string | null; theme?: string | null
+    questions?: Question[]; slides?: Array<Record<string, unknown>>
+    owner: { id: string; name: string | null; email: string } | null
+    sessions: number; createdAt: string; updatedAt: string
+  }
+}
+
+function correctOptionSet(q: Question): Set<number> {
+  const set = new Set<number>()
+  if (q.correctAnswer !== undefined && q.correctAnswer !== '') set.add(Number(q.correctAnswer))
+  if (Array.isArray(q.correctAnswers)) q.correctAnswers.forEach(a => set.add(Number(a)))
+  return set
+}
+
+function AdminQuizView({ questions }: { questions: Question[] }) {
+  if (!questions.length) return <p className="text-gray-400 text-sm">This quiz has no questions.</p>
+  return (
+    <div className="space-y-4">
+      {questions.map((q, i) => {
+        const opts = getEffectiveOptions(q)
+        const correct = correctOptionSet(q)
+        return (
+          <div key={q.id ?? i} className="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <span className="text-xs font-bold text-gray-400">Q{i + 1}</span>
+              <Badge text={q.type} color="blue" />
+              {isScoredType(q.type) ? <Badge text={`${q.points} pts`} color="green" /> : <Badge text="not scored" color="gray" />}
+              <Badge text={`${q.timerSeconds}s`} color="gray" />
+              {q.bloomsLevel && <Badge text={q.bloomsLevel} color="purple" />}
+            </div>
+            <p className="font-medium text-gray-900 dark:text-white">{q.text || <span className="text-gray-400 italic">(empty question)</span>}</p>
+            {q.scenarioText && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{q.scenarioText}</p>}
+            {q.imageUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={q.imageUrl} alt="" className="mt-2 max-h-40 rounded-lg object-contain" />
+            )}
+            {opts && opts.length > 0 && (
+              <ul className="mt-3 space-y-1.5">
+                {opts.map((opt, oi) => {
+                  const isCorrect = correct.has(oi)
+                  const img = getOptionImage(opt)
+                  return (
+                    <li key={oi} className={`flex items-center gap-2 text-sm rounded-lg px-3 py-1.5 ${isCorrect ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 font-medium' : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>
+                      {isCorrect && <span className="text-emerald-500">✓</span>}
+                      <span className="flex-1">{getOptionText(opt) || <span className="text-gray-400 italic">(blank)</span>}</span>
+                      {img && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={img} alt="" className="h-8 w-8 rounded object-cover" />
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+            {q.explanation && <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 italic">💡 {q.explanation}</p>}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function slideHeadline(s: Record<string, unknown>): string {
+  for (const k of ['question', 'title', 'caption', 'text', 'body', 'prompt']) {
+    const v = s[k]
+    if (typeof v === 'string' && v.trim()) return v
+  }
+  return ''
+}
+
+function AdminPresentationView({ slides }: { slides: Array<Record<string, unknown>> }) {
+  if (!slides.length) return <p className="text-gray-400 text-sm">This deck has no slides.</p>
+  return (
+    <div className="space-y-4">
+      {slides.map((s, i) => {
+        const type = String(s.type ?? 'slide')
+        const meta = SLIDE_TYPE_META[type as keyof typeof SLIDE_TYPE_META]
+        const headline = slideHeadline(s)
+        const list = (Array.isArray(s.options) ? s.options : Array.isArray(s.items) ? s.items : Array.isArray(s.bullets) ? s.bullets : []) as unknown[]
+        return (
+          <div key={i} className="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs font-bold text-gray-400">{i + 1}</span>
+              <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: meta?.bg ?? '#F3F4F6', color: meta?.color ?? '#374151' }}>{meta?.label ?? type}</span>
+            </div>
+            <p className="font-medium text-gray-900 dark:text-white">{headline || <span className="text-gray-400 italic">(no text)</span>}</p>
+            {list.length > 0 && (
+              <ul className="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-300 list-disc pl-5">
+                {list.map((it, k) => <li key={k}>{typeof it === 'string' ? it : JSON.stringify(it)}</li>)}
+              </ul>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function ContentViewerModal({ id, type, onClose }: { id: string; type: 'quiz' | 'presentation'; onClose: () => void }) {
+  const [data, setData] = useState<ViewerData | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let ignore = false
+    fetch(`/api/admin/content/${id}?type=${type}`)
+      .then(r => { if (!r.ok) throw new Error('Failed to load content'); return r.json() })
+      .then(d => { if (!ignore) setData(d) })
+      .catch(e => { if (!ignore) setError(e.message) })
+    return () => { ignore = true }
+  }, [id, type])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const item = data?.item
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end" style={{ background: 'rgba(15,23,42,0.5)' }} onClick={onClose}>
+      <div className="w-full max-w-2xl h-full overflow-y-auto bg-white dark:bg-gray-900 shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="sticky top-0 z-10 flex items-start justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-indigo-500">{type === 'quiz' ? 'Quiz' : 'Presentation'} · read-only</p>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">{item?.title ?? 'Loading…'}</h2>
+            {item?.owner && <p className="text-xs text-gray-400 mt-0.5">by {item.owner.email} · {item.sessions} session(s)</p>}
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-2xl leading-none px-2" aria-label="Close">×</button>
+        </div>
+        <div className="p-6">
+          {error ? <p className="text-red-500 text-sm">{error}</p>
+            : !item ? <p className="text-gray-400 text-sm">Loading…</p>
+            : type === 'quiz' ? <AdminQuizView questions={(item.questions ?? []) as Question[]} />
+            : <AdminPresentationView slides={(item.slides ?? []) as Array<Record<string, unknown>>} />}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ContentBrowser() {
+  const [type, setType] = useState<'quiz' | 'presentation'>('quiz')
+  const [search, setSearch] = useState('')
+  const [sort, setSort] = useState<'updated' | 'created' | 'sessions'>('updated')
+  const [page, setPage] = useState(1)
+  const [rows, setRows] = useState<ContentRow[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [viewId, setViewId] = useState<string | null>(null)
+
+  useEffect(() => {
+    let ignore = false
+    const q = new URLSearchParams({ type, sort, page: String(page) })
+    if (search.trim()) q.set('search', search.trim())
+    fetch(`/api/admin/content?${q.toString()}`)
+      .then(r => r.json())
+      .then(d => { if (!ignore) { setRows(d.items ?? []); setTotal(d.total ?? 0) } })
+      .catch(() => { if (!ignore) setRows([]) })
+      .finally(() => { if (!ignore) setLoading(false) })
+    return () => { ignore = true }
+  }, [type, sort, page, search])
+
+  const pages = Math.max(1, Math.ceil(total / 20))
+
+  return (
+    <TableSection title={`All ${type === 'quiz' ? 'quizzes' : 'presentations'} (${total})`}>
+      <div className="p-4 flex flex-wrap gap-2 items-center border-b border-gray-200/50 dark:border-gray-700/50">
+        <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+          {(['quiz', 'presentation'] as const).map(t => (
+            <button key={t} onClick={() => { setType(t); setPage(1) }}
+              className={`px-3 py-1.5 text-sm font-medium ${type === t ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300'}`}>
+              {t === 'quiz' ? 'Quizzes' : 'Slides'}
+            </button>
+          ))}
+        </div>
+        <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Search title or owner…"
+          className="flex-1 min-w-[180px] px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
+        <select value={sort} onChange={e => { setSort(e.target.value as typeof sort); setPage(1) }}
+          className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+          <option value="updated">Recently updated</option>
+          <option value="created">Newest</option>
+          <option value="sessions">Most sessions</option>
+        </select>
+      </div>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+            <th className="px-4 py-3">Title</th>
+            <th className="px-4 py-3">Owner</th>
+            <th className="px-4 py-3">{type === 'quiz' ? 'Subject' : 'Theme'}</th>
+            <th className="px-4 py-3">{type === 'quiz' ? 'Qs' : 'Slides'}</th>
+            <th className="px-4 py-3">Sessions</th>
+            <th className="px-4 py-3">Updated</th>
+            <th className="px-4 py-3"></th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+          {rows.map(r => (
+            <tr key={r.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30">
+              <td className="px-4 py-3 font-medium text-gray-900 dark:text-white max-w-[220px] truncate">{r.title || 'Untitled'}</td>
+              <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{r.owner?.email ?? '—'}</td>
+              <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{r.type === 'quiz' ? (r.subject ?? '—') : '—'}</td>
+              <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{r.itemCount}</td>
+              <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{r.sessions}</td>
+              <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatDate(r.updatedAt)}</td>
+              <td className="px-4 py-3"><button onClick={() => setViewId(r.id)} className="text-indigo-600 dark:text-indigo-400 hover:underline">View</button></td>
+            </tr>
+          ))}
+          {!loading && rows.length === 0 && (
+            <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400">No {type === 'quiz' ? 'quizzes' : 'presentations'} found</td></tr>
+          )}
+          {loading && (
+            <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400">Loading…</td></tr>
+          )}
+        </tbody>
+      </table>
+      {pages > 1 && (
+        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200/50 dark:border-gray-700/50 text-sm">
+          <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="text-indigo-600 disabled:text-gray-300 dark:disabled:text-gray-600">← Prev</button>
+          <span className="text-gray-500">Page {page} of {pages}</span>
+          <button disabled={page >= pages} onClick={() => setPage(p => p + 1)} className="text-indigo-600 disabled:text-gray-300 dark:disabled:text-gray-600">Next →</button>
+        </div>
+      )}
+      {viewId && <ContentViewerModal key={viewId} id={viewId} type={type} onClose={() => setViewId(null)} />}
+    </TableSection>
+  )
+}
+
+// ─── Users tab ──────────────────────────────────────────────────────────────
+
+interface UserRow {
+  id: string; name: string | null; email: string; role: string | null
+  organization: string | null; country: string | null; onboarded: boolean
+  plan: string; quizzes: number; presentations: number; sessions: number
+  lastActiveAt: string | null; createdAt: string
+}
+
+function UsersTab() {
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [rows, setRows] = useState<UserRow[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let ignore = false
+    const q = new URLSearchParams({ page: String(page) })
+    if (search.trim()) q.set('search', search.trim())
+    fetch(`/api/admin/users?${q.toString()}`)
+      .then(r => r.json())
+      .then(d => { if (!ignore) { setRows(d.items ?? []); setTotal(d.total ?? 0) } })
+      .catch(() => { if (!ignore) setRows([]) })
+      .finally(() => { if (!ignore) setLoading(false) })
+    return () => { ignore = true }
+  }, [search, page])
+
+  const pages = Math.max(1, Math.ceil(total / 25))
+
+  return (
+    <TableSection title={`Users (${total})`}>
+      <div className="p-4 border-b border-gray-200/50 dark:border-gray-700/50">
+        <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Search name, email, or organization…"
+          className="w-full px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
+      </div>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+            <th className="px-4 py-3">User</th>
+            <th className="px-4 py-3">Plan</th>
+            <th className="px-4 py-3">Quizzes</th>
+            <th className="px-4 py-3">Decks</th>
+            <th className="px-4 py-3">Sessions</th>
+            <th className="px-4 py-3">Last active</th>
+            <th className="px-4 py-3">Joined</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+          {rows.map(u => (
+            <tr key={u.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30">
+              <td className="px-4 py-3">
+                <div className="font-medium text-gray-900 dark:text-white">{u.name ?? 'Anonymous'}{u.country ? ` ${flagFor(u.country)}` : ''}</div>
+                <div className="text-xs text-gray-400">{u.email}</div>
+              </td>
+              <td className="px-4 py-3"><Badge text={u.plan} color={u.plan === 'free' ? 'gray' : 'green'} /></td>
+              <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{u.quizzes}</td>
+              <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{u.presentations}</td>
+              <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{u.sessions}</td>
+              <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatRelative(u.lastActiveAt)}</td>
+              <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatDate(u.createdAt)}</td>
+            </tr>
+          ))}
+          {!loading && rows.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400">No users found</td></tr>}
+          {loading && <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400">Loading…</td></tr>}
+        </tbody>
+      </table>
+      {pages > 1 && (
+        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200/50 dark:border-gray-700/50 text-sm">
+          <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="text-indigo-600 disabled:text-gray-300 dark:disabled:text-gray-600">← Prev</button>
+          <span className="text-gray-500">Page {page} of {pages}</span>
+          <button disabled={page >= pages} onClick={() => setPage(p => p + 1)} className="text-indigo-600 disabled:text-gray-300 dark:disabled:text-gray-600">Next →</button>
+        </div>
+      )}
+    </TableSection>
+  )
+}
+
 export default function AdminDashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [stats, setStats] = useState<Stats | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState<AdminTab>('overview')
+  const [orCredits, setOrCredits] = useState<OpenRouterCredits | null>(null)
+  const [orError, setOrError] = useState<string | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -91,6 +567,12 @@ export default function AdminDashboard() {
       .then(setStats)
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
+
+    // OpenRouter balance — independent, non-blocking; failure shows in its card only.
+    fetch('/api/admin/openrouter-credits')
+      .then(r => r.json())
+      .then(d => { if (d?.error) setOrError(d.error); else setOrCredits(d) })
+      .catch(() => setOrError('Failed to load balance'))
   }, [status, router])
 
   if (status === 'loading' || loading) {
@@ -126,143 +608,139 @@ export default function AdminDashboard() {
           <Link href="/host" className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Back to Host</Link>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-          <StatCard label="Total Users" value={stats.users.total} sub={`${stats.users.thisMonth} this month`} />
-          <StatCard label="This Week" value={stats.users.thisWeek} sub={`${stats.users.today} today`} />
-          <StatCard label="Onboarded" value={stats.users.onboarded} sub={`${stats.users.total > 0 ? Math.round((stats.users.onboarded / stats.users.total) * 100) : 0}% rate`} />
-          <StatCard label="Active Subs" value={stats.subscriptions.active} sub={stats.subscriptions.byPlan.map(p => `${p.plan}: ${p.count}`).join(', ') || 'none'} />
-          <StatCard label="Quizzes" value={stats.quizzes.total} sub={`${stats.quizzes.thisMonth} this month`} />
-          <StatCard label="Sessions" value={stats.sessions.total} sub={`${stats.sessions.thisMonth} this month`} />
+        {/* Tab bar */}
+        <div className="flex gap-1 mb-8 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+          {([['overview', 'Overview'], ['content', 'Content'], ['users', 'Users'], ['tools', 'Tools']] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap ${tab === key ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
-        {/* Secondary KPIs */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-          <StatCard label="AI Generations" value={stats.aiUsage.total} sub={`${stats.aiUsage.thisMonth} this month`} />
-          <StatCard label="Referrals" value={stats.users.referrals} sub="users via referral" />
-          <StatCard
-            label="Top Discovery"
-            value={stats.breakdowns.discovery.sort((a, b) => b.count - a.count)[0]?.channel ?? 'N/A'}
-            sub={stats.breakdowns.discovery.map(d => `${d.channel}: ${d.count}`).join(', ') || 'no data'}
-          />
-          <StatCard
-            label="Top Role"
-            value={stats.breakdowns.roles.sort((a, b) => b.count - a.count)[0]?.role ?? 'N/A'}
-            sub={stats.breakdowns.roles.map(r => `${r.role}: ${r.count}`).join(', ') || 'no data'}
-          />
-        </div>
+        {tab === 'overview' && (
+          <div className="space-y-8">
+            {/* Trend KPIs */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <TrendStatCard label="Total Users" value={stats.users.total} delta={stats.deltas.users} series={stats.trends.users} color="#6366f1" />
+              <TrendStatCard label="Quizzes" value={stats.quizzes.total} delta={stats.deltas.quizzes} series={stats.trends.quizzes} color="#2563eb" />
+              <TrendStatCard label="Sessions" value={stats.sessions.total} delta={stats.deltas.sessions} series={stats.trends.sessions} color="#16a34a" />
+              <OpenRouterCard credits={orCredits} error={orError} />
+            </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Recent Users */}
-          <TableSection title="Recent Users">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  <th className="px-4 py-3">User</th>
-                  <th className="px-4 py-3">Role</th>
-                  <th className="px-4 py-3">Source</th>
-                  <th className="px-4 py-3">Joined</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
-                {stats.recentUsers.map(u => (
-                  <tr key={u.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900 dark:text-white">{u.name ?? 'Anonymous'}</div>
-                      <div className="text-xs text-gray-400">{u.email}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {u.role ? <Badge text={u.role} color="blue" /> : <span className="text-gray-400">-</span>}
-                    </td>
-                    <td className="px-4 py-3">
-                      {u.discoveryChannel ? <Badge text={u.discoveryChannel} color="purple" /> : <span className="text-gray-400">-</span>}
-                      {u.referredByCode && <Badge text={`ref: ${u.referredByCode}`} color="green" />}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatDate(u.createdAt)}</td>
+            {/* Secondary KPIs */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <StatCard label="Onboarded" value={stats.users.onboarded} sub={`${stats.users.total > 0 ? Math.round((stats.users.onboarded / stats.users.total) * 100) : 0}% rate`} />
+              <StatCard label="Active Subs" value={stats.subscriptions.active} sub={stats.subscriptions.byPlan.map(p => `${p.plan}: ${p.count}`).join(', ') || 'none'} />
+              <StatCard label="AI Generations" value={stats.aiUsage.total} sub={`${stats.aiUsage.thisMonth} this month`} />
+              <StatCard label="Presentations" value={stats.presentations.total} sub={`${stats.presentations.thisMonth} this month`} />
+            </div>
+
+            {/* Funnel + attention */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <ActivationFunnel funnel={stats.funnel} />
+              <NeedsAttention attention={stats.attention} orLow={orCredits?.low ?? false} onGoto={setTab} />
+            </div>
+
+            {/* Recent Sessions */}
+            <TableSection title="Recent Sessions">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-4 py-3">Code</th>
+                    <th className="px-4 py-3">Type</th>
+                    <th className="px-4 py-3">Host</th>
+                    <th className="px-4 py-3">Participants</th>
+                    <th className="px-4 py-3">Date</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </TableSection>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                  {stats.recentSessions.map(s => (
+                    <tr key={s.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30">
+                      <td className="px-4 py-3 font-mono font-medium text-gray-900 dark:text-white">{s.code}</td>
+                      <td className="px-4 py-3">
+                        <Badge text={s.type} color={s.type === 'quiz' ? 'blue' : 'yellow'} />
+                      </td>
+                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{s.hostName ?? '-'}</td>
+                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{s.participantCount}</td>
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatDate(s.createdAt)}</td>
+                    </tr>
+                  ))}
+                  {stats.recentSessions.length === 0 && (
+                    <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400">No sessions yet</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </TableSection>
+          </div>
+        )}
 
-          {/* Recent Sessions */}
-          <TableSection title="Recent Sessions">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  <th className="px-4 py-3">Code</th>
-                  <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3">Host</th>
-                  <th className="px-4 py-3">Participants</th>
-                  <th className="px-4 py-3">Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
-                {stats.recentSessions.map(s => (
-                  <tr key={s.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30">
-                    <td className="px-4 py-3 font-mono font-medium text-gray-900 dark:text-white">{s.code}</td>
-                    <td className="px-4 py-3">
-                      <Badge text={s.type} color={s.type === 'quiz' ? 'blue' : 'yellow'} />
-                    </td>
-                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{s.hostName ?? '-'}</td>
-                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{s.participantCount}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatDate(s.createdAt)}</td>
+        {tab === 'content' && <ContentBrowser />}
+
+        {tab === 'users' && (
+          <div className="space-y-6">
+            <UsersTab />
+
+            {/* Discovery + role breakdowns */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <StatCard
+                label="Top Discovery"
+                value={stats.breakdowns.discovery.slice().sort((a, b) => b.count - a.count)[0]?.channel ?? 'N/A'}
+                sub={stats.breakdowns.discovery.map(d => `${d.channel}: ${d.count}`).join(', ') || 'no data'}
+              />
+              <StatCard
+                label="Top Role"
+                value={stats.breakdowns.roles.slice().sort((a, b) => b.count - a.count)[0]?.role ?? 'N/A'}
+                sub={stats.breakdowns.roles.map(r => `${r.role}: ${r.count}`).join(', ') || 'no data'}
+              />
+            </div>
+
+            {/* Top creators */}
+            <TableSection title="Top creators by quiz count">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-4 py-3">#</th>
+                    <th className="px-4 py-3">User</th>
+                    <th className="px-4 py-3">Quizzes Created</th>
                   </tr>
-                ))}
-                {stats.recentSessions.length === 0 && (
-                  <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400">No sessions yet</td></tr>
-                )}
-              </tbody>
-            </table>
-          </TableSection>
-        </div>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                  {stats.topUsers.map((u, i) => (
+                    <tr key={u.email ?? i} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30">
+                      <td className="px-4 py-3 text-gray-400">{i + 1}</td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-gray-900 dark:text-white">{u.name ?? 'Anonymous'}</div>
+                        <div className="text-xs text-gray-400">{u.email}</div>
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-gray-900 dark:text-white">{u.quizCount}</td>
+                    </tr>
+                  ))}
+                  {stats.topUsers.length === 0 && (
+                    <tr><td colSpan={3} className="px-4 py-6 text-center text-gray-400">No quizzes created yet</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </TableSection>
+          </div>
+        )}
 
-        {/* Credits — manual AI credit grants for support / comp flows */}
-        <CreditsPanel />
-
-        {/* Coupons — promotional codes (credits / pro_days / future percent_off) */}
-        <CouponsPanel />
-
-        {/* Moderation — user-submitted reports queue */}
-        <ModerationPanel />
-
-        {/* Data deletion requests — GDPR / DPDP right-to-erasure */}
-        <DeletionsPanel />
-
-        {/* Feature flags — staged rollouts and kill switches */}
-        <FeatureFlagsPanel />
-
-        {/* Top Users by Quiz Count */}
-        <TableSection title="Top Users by Quiz Count">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                <th className="px-4 py-3">#</th>
-                <th className="px-4 py-3">User</th>
-                <th className="px-4 py-3">Quizzes Created</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
-              {stats.topUsers.map((u, i) => (
-                <tr key={u.email ?? i} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30">
-                  <td className="px-4 py-3 text-gray-400">{i + 1}</td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-gray-900 dark:text-white">{u.name ?? 'Anonymous'}</div>
-                    <div className="text-xs text-gray-400">{u.email}</div>
-                  </td>
-                  <td className="px-4 py-3 font-semibold text-gray-900 dark:text-white">{u.quizCount}</td>
-                </tr>
-              ))}
-              {stats.topUsers.length === 0 && (
-                <tr><td colSpan={3} className="px-4 py-6 text-center text-gray-400">No quizzes created yet</td></tr>
-              )}
-            </tbody>
-          </table>
-        </TableSection>
+        {tab === 'tools' && (
+          <div className="space-y-6">
+            <CreditsPanel />
+            <CouponsPanel />
+            <ModerationPanel />
+            <DeletionsPanel />
+            <FeatureFlagsPanel />
+          </div>
+        )}
 
         {/* Footer */}
         <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-8">
-          Data pulled live from database. For user behavior analytics (clicks, funnels, recordings), check PostHog.
+          Data pulled live from the database. For behavioral analytics (clicks, funnels, recordings), check PostHog.
         </p>
       </div>
     </div>
