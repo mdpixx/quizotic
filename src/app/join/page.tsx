@@ -471,6 +471,25 @@ function JoinPageInner() {
   // Active for every phase except the pre-join name form and the post-quiz
   // "ended" / "selfpaced-done" terminal screens.
   useWakeLock(phase !== 'form' && phase !== 'ended' && phase !== 'selfpaced-done')
+
+  useEffect(() => {
+    const html = document.documentElement
+    const shouldHideFeedback = phase === 'question'
+      || phase === 'answered'
+      || phase === 'standings'
+      || phase === 'ended'
+      || phase === 'selfpaced'
+      || phase === 'presenter-voting'
+      || phase === 'presenter-voted'
+      || phase === 'presenter-results'
+
+    if (shouldHideFeedback) html.setAttribute('data-feedback-hidden', 'join-session')
+    else if (html.getAttribute('data-feedback-hidden') === 'join-session') html.removeAttribute('data-feedback-hidden')
+
+    return () => {
+      if (html.getAttribute('data-feedback-hidden') === 'join-session') html.removeAttribute('data-feedback-hidden')
+    }
+  }, [phase])
   const [code, setCode] = useState(searchParams.get('code') ?? '')
   const nameInputRef = useRef<HTMLInputElement>(null)
 
@@ -1650,7 +1669,7 @@ function JoinPageInner() {
     const sharedScreenEligible = ['mcq', 'multiselect', 'truefalse', 'image_choice', 'poll'].includes(question.type)
     const sharedScreenSimple = displayMode === 'shared-screen' && sharedScreenEligible
     return (
-      <div className="min-h-svh p-4 flex flex-col max-w-xl mx-auto overflow-x-hidden" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top, 0px))' }}>
+      <div className="min-h-svh p-4 flex flex-col max-w-xl mx-auto overflow-x-hidden" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top, 0px))', paddingBottom: 'max(6rem, env(safe-area-inset-bottom, 0px))' }}>
         <StatusBanner connectionState={connectionState} answerToast={answerToast} />
         {getReadyVisible && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ background: 'rgba(15,27,61,0.92)' }}>
@@ -1858,7 +1877,7 @@ function JoinPageInner() {
         ) : (() => {
           const effectiveOpts = getEffectiveOptions(question as unknown as QuizQuestion)
           return (
-          <div className={`gap-2 ${
+          <div className={`gap-2 pb-4 ${
             question.type === 'rating' && effectiveOpts?.length === 5
               ? 'grid grid-cols-5'
               : effectiveOpts?.length === 2
@@ -1886,7 +1905,7 @@ function JoinPageInner() {
                   aria-label={`Option ${OPTION_LABELS[idx]}: ${optText}`}
                   aria-pressed={isSelected}
                   className={`${OPTION_GRADIENTS[idx]} rounded-lg p-3 text-white text-left transition-all focus-visible:outline focus-visible:outline-4 focus-visible:outline-white
-                    ${isTwoOption ? 'flex items-center gap-4 py-4' : 'min-h-[120px]'}
+                    ${isTwoOption ? 'flex items-center gap-4 py-4' : 'min-h-[112px] h-auto'}
                     ${isSelected ? 'ring-4 ring-white scale-[0.97]' : ''}
                     ${isDisabled && !isSelected ? 'opacity-50 pointer-events-none' : ''}
                   `}
@@ -1904,7 +1923,7 @@ function JoinPageInner() {
                     {question.type === 'rating' ? optText : OPTION_LABELS[idx]}
                   </span>
                   {question.type !== 'rating' && !sharedScreenSimple && (
-                    <span className="min-w-0 break-words text-lg font-semibold leading-snug">{optText}</span>
+                    <span className="min-w-0 break-words text-base sm:text-lg font-semibold leading-snug" style={{ overflowWrap: 'anywhere' }}>{optText}</span>
                   )}
                 </button>
               )

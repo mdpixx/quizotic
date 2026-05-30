@@ -577,7 +577,10 @@ button.chip:active:not(:disabled) {
   padding: 4px 0;
   font-size: 12px;
   color: var(--color-text-secondary);
+  background: transparent;
+  border: 0;
 }
+.q-check-row:hover { color: var(--color-ink); }
 .q-check-ring {
   width: 16px;
   height: 16px;

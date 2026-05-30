@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
 
 interface SessionRecord {
   id: string
@@ -161,6 +162,27 @@ export default function ReportsPage() {
         <div className="mb-5 px-4 py-2.5 rounded-[12px] flex items-center gap-3 text-[13px]" style={{ background: '#FEF3C7', border: '1px solid #FDE68A', color: '#92400E' }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 flex-shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
           <span>CSV export is a <strong>Pro</strong> feature — free accounts see session summaries here; Pro accounts can download full data. Email info@quizotic.live to upgrade.</span>
+        </div>
+
+        <div className="mb-5 grid gap-3 md:grid-cols-4">
+          {[
+            { label: 'What went well', desc: `${totalParticipants} participant${totalParticipants === 1 ? '' : 's'} reached across completed sessions.`, tone: '#16A34A' },
+            { label: 'Who needs help', desc: avgAcrossAll != null && avgAcrossAll < 60 ? 'Average score is below 60%; export marks and follow up.' : 'Use CSV to spot repeat learners and low confidence answers.', tone: '#DC2626' },
+            { label: 'What to teach next', desc: 'Open a weak topic in Studio and generate a short retrieval quiz.', tone: '#7C3AED', href: '/host/studio' },
+            { label: 'Export marks', desc: 'Download CSV for a session, then push to Sheets/Classroom when integrations land.', tone: '#D97706' },
+          ].map(item => {
+            const body = (
+              <div className="dash-card p-4 h-full">
+                <p className="text-[11px] font-black uppercase tracking-[0.12em]" style={{ color: item.tone }}>{item.label}</p>
+                <p className="mt-2 text-xs leading-relaxed" style={{ color: '#64748B' }}>{item.desc}</p>
+              </div>
+            )
+            return item.href ? (
+              <Link key={item.label} href={item.href} className="transition-all hover:-translate-y-0.5 hover:shadow-md" style={{ textDecoration: 'none' }}>{body}</Link>
+            ) : (
+              <div key={item.label}>{body}</div>
+            )
+          })}
         </div>
 
         {/* Filter bar */}

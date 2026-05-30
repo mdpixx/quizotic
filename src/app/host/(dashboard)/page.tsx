@@ -199,16 +199,16 @@ export default function HostDashboard() {
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-8 mb-10">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <Link href="/host/create" className="block rounded-2xl border p-6 transition-all hover:scale-[1.01] hover:shadow-lg h-full" style={{ background: '#fff', borderColor: '#E2E8F0' }}>
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-4" style={{ background: '#F3F4F6' }}>🧠</div>
-              <h2 className="text-xl font-black mb-1" style={{ color: '#0F1B3D' }}>Create a Quiz</h2>
-              <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#92400E' }}>Scored · timed · leaderboard</p>
+            <Link href="/host/studio" className="block rounded-2xl border p-6 transition-all hover:scale-[1.01] hover:shadow-lg h-full" style={{ background: '#fff', borderColor: '#E2E8F0' }}>
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-4" style={{ background: '#F3F4F6' }}>🧭</div>
+              <h2 className="text-xl font-black mb-1" style={{ color: '#0F1B3D' }}>Create Studio</h2>
+              <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#92400E' }}>Quiz · polls · slides · practice</p>
               <p className="text-sm leading-relaxed mb-4" style={{ color: '#64748B' }}>
-                A structured test. Participants answer timed questions, earn points, and compete on a live leaderboard. Bloom&apos;s tagging included.
+                Start from your intent, then choose AI generation, document upload, PPTX import, templates, or a blank canvas.
               </p>
               <span className="btn-primary">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
-                Create Quiz
+                Choose Session
               </span>
             </Link>
           </motion.div>
@@ -313,9 +313,9 @@ export default function HostDashboard() {
             />
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="absolute top-[13px] left-3" style={{ color: 'var(--color-text-muted)' }}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           </div>
-          <Link href="/host/create" className="btn-primary" style={{ textDecoration: 'none' }}>
+          <Link href="/host/studio" className="btn-primary" style={{ textDecoration: 'none' }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
-            Create quiz
+            Create
           </Link>
         </div>
       </div>
@@ -418,6 +418,25 @@ export default function HostDashboard() {
       <div className="mb-5">
         <ShareQuizotic context="dashboard" size="sm" />
       </div>
+
+      <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
+        className="mb-5 grid gap-3 md:grid-cols-[1.2fr_1fr_1fr]">
+        <Link href="/host/studio" className="dash-card p-4 transition-all hover:-translate-y-0.5 hover:shadow-md" style={{ textDecoration: 'none' }}>
+          <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: '#7C3AED' }}>Next best action</p>
+          <h2 className="mt-1 text-lg font-black" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Start from intent</h2>
+          <p className="mt-1 text-xs leading-relaxed" style={{ color: '#64748B' }}>Choose test, opinions, slides, or self-paced practice before picking a builder.</p>
+        </Link>
+        <Link href="/host/create?intent=practice&start=aidoc" className="dash-card p-4 transition-all hover:-translate-y-0.5 hover:shadow-md" style={{ textDecoration: 'none' }}>
+          <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: '#16A34A' }}>Practice loop</p>
+          <h2 className="mt-1 text-lg font-black" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Generate revision quiz</h2>
+          <p className="mt-1 text-xs leading-relaxed" style={{ color: '#64748B' }}>Turn notes or a weak topic into a self-paced quiz for follow-up work.</p>
+        </Link>
+        <Link href="/host/reports" className="dash-card p-4 transition-all hover:-translate-y-0.5 hover:shadow-md" style={{ textDecoration: 'none' }}>
+          <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: '#D97706' }}>Review</p>
+          <h2 className="mt-1 text-lg font-black" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Find what to reteach</h2>
+          <p className="mt-1 text-xs leading-relaxed" style={{ color: '#64748B' }}>Use reports for exports, weak questions, and learner follow-up decisions.</p>
+        </Link>
+      </motion.div>
 
       {/* ── Row 2: Session History (full width — Top Participants moved to bottom) ── */}
       <div className="mb-5">
@@ -1083,13 +1102,16 @@ export default function HostDashboard() {
           </p>
         </div>
         <div className="flex gap-3 flex-shrink-0 flex-wrap justify-center">
-          <Link href="/host/create" className="btn-primary" style={{ textDecoration: 'none' }}>
+          <Link href="/host/studio" className="btn-primary" style={{ textDecoration: 'none' }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
-            Create Quiz
+            Create Studio
+          </Link>
+          <Link href="/host/create?start=aitopic" className="btn-secondary" style={{ textDecoration: 'none' }}>
+            Quiz
           </Link>
           <Link href="/host/present/create" className="btn-primary-teal" style={{ textDecoration: 'none' }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
-            Create Slides
+            Slides
           </Link>
           <Link href="/host/templates" className="btn-ghost" style={{ textDecoration: 'none', color: 'var(--color-text-secondary)' }}>
             Browse templates
