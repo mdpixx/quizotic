@@ -221,6 +221,24 @@ const TYPE_PILLS: { value: QuestionType; label: string; color: string; bg: strin
   },
 ]
 
+const TAB_VALUES: Tab[] = ['manual', 'aitopic', 'aiurl', 'aidoc', 'library', 'csv']
+
+const QUESTION_TYPE_GROUPS: { label: string; types: QuestionType[] }[] = [
+  { label: 'Scored', types: ['mcq', 'multiselect', 'truefalse'] },
+  { label: 'Feedback', types: ['poll', 'rating', 'ranking'] },
+  { label: 'Text', types: ['openended', 'wordcloud', 'qa'] },
+  { label: 'Creative', types: ['case'] },
+]
+
+const CREATION_SHORTCUTS: { label: string; tab?: Tab; href?: string; note: string }[] = [
+  { label: 'Topic', tab: 'aitopic', note: 'AI quiz' },
+  { label: 'PDF/DOCX', tab: 'aidoc', note: 'AI source' },
+  { label: 'URL', tab: 'aiurl', note: 'AI source' },
+  { label: 'CSV', tab: 'csv', note: 'Import' },
+  { label: 'Template', href: '/host/templates', note: 'Ready-made' },
+  { label: 'Blank', tab: 'manual', note: 'Manual' },
+]
+
 const TOPIC_SUGGESTIONS = [
   'Indian History', 'Science & Space', 'Sports', 'General Knowledge',
   'Current Affairs', 'Technology', 'Geography', 'Bollywood',
@@ -288,6 +306,10 @@ function questionTextSizeClass(text: string): string {
 
 function getTypePill(type: QuestionType) {
   return TYPE_PILLS.find(t => t.value === type) ?? TYPE_PILLS[0]
+}
+
+function isKnownQuestionType(value: string | null): value is QuestionType {
+  return !!value && TYPE_PILLS.some(t => t.value === value)
 }
 
 const QUESTION_CHAR_LIMIT = 160
@@ -469,7 +491,7 @@ function QuestionPreview({
       )}
 
       {/* Options — inline-editable with bar visualization */}
-      <div className="bg-white p-4 md:p-5 flex-1 min-h-0 overflow-y-auto flex flex-col">
+      <div id="q-answer-controls" className="bg-white p-4 md:p-5 flex-1 min-h-0 overflow-y-auto flex flex-col">
         {(question.type === 'mcq' || question.type === 'multiselect' || question.type === 'truefalse' || question.type === 'poll' || question.type === 'case') && opts.length > 0 && (
           <div className="w-full">
             {needsCorrectAnswer(question.type) && (
@@ -782,27 +804,35 @@ function QuestionEditor({
           <svg viewBox="0 0 16 16" fill="none" className="w-3 h-3"><path d="M2 8h9M8 5l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           Change Type
         </label>
-        <div className="flex flex-wrap gap-1">
-          {TYPE_PILLS.map(t => {
-            const active = question.type === t.value
-            return (
-              <button
-                key={t.value}
-                type="button"
-                onClick={() => handleTypeChange(t.value)}
-                title={t.tooltip}
-                className="flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-bold transition-all"
-                style={
-                  active
-                    ? { border: `1.5px solid ${t.color}`, background: t.bg, color: t.color }
-                    : { border: '1.5px solid transparent', background: '#fff', color: '#94A3B8' }
-                }
-              >
-                <span className="[&>svg]:w-3.5 [&>svg]:h-3.5">{t.svg}</span>
-                {t.label}
-              </button>
-            )
-          })}
+        <div className="space-y-2">
+          {QUESTION_TYPE_GROUPS.map(group => (
+            <div key={group.label}>
+              <p className="mb-1 text-[8px] font-black uppercase tracking-[0.14em]" style={{ color: '#CBD5E1' }}>{group.label}</p>
+              <div className="flex flex-wrap gap-1">
+                {group.types.map(type => {
+                  const t = getTypePill(type)
+                  const active = question.type === t.value
+                  return (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => handleTypeChange(t.value)}
+                      title={t.tooltip}
+                      className="flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-bold transition-all"
+                      style={
+                        active
+                          ? { border: `1.5px solid ${t.color}`, background: t.bg, color: t.color }
+                          : { border: '1.5px solid transparent', background: '#fff', color: '#94A3B8' }
+                      }
+                    >
+                      <span className="[&>svg]:w-3.5 [&>svg]:h-3.5">{t.svg}</span>
+                      {t.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -843,11 +873,17 @@ function QuestionEditor({
         const hasBloom = !!(question.bloomsLevel && question.bloomsLevel.length > 0)
         const hasReasonableTimer = question.timerSeconds >= 10 && question.timerSeconds <= 60
         const hasImage = !!question.imageUrl
+        const jumpTo = (targetId: string) => {
+          const target = document.getElementById(targetId)
+          const details = target?.closest('details')
+          if (details instanceof HTMLDetailsElement) details.open = true
+          target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
         const checklist = [
-          { ok: hasAnswer, label: needsCorrectAnswer(question.type) ? (question.type === 'multiselect' ? 'Has correct options selected' : 'Has a correct answer') : 'No correct answer needed (interactive)' },
-          { ok: hasExplanation, label: question.type === 'case' ? 'Debrief written' : 'Explanation written' },
-          { ok: hasBloom, label: 'Learning goal set' },
-          { ok: hasReasonableTimer, label: `Timer is set (${question.timerSeconds}s)` },
+          { ok: hasAnswer, label: needsCorrectAnswer(question.type) ? (question.type === 'multiselect' ? 'Has correct options selected' : 'Has a correct answer') : 'No correct answer needed (interactive)', target: 'q-answer-controls' },
+          { ok: hasExplanation, label: question.type === 'case' ? 'Debrief written' : 'Explanation written', target: 'q-explanation-section' },
+          { ok: hasBloom, label: 'Learning goal set', target: 'q-learning-goal-section' },
+          { ok: hasReasonableTimer, label: `Timer is set (${question.timerSeconds}s)`, target: 'q-timing-section' },
         ]
         const okCount = checklist.filter(c => c.ok).length
         return (
@@ -859,7 +895,7 @@ function QuestionEditor({
               </span>
             </div>
             {checklist.map((c, i) => (
-              <div key={i} className={`q-check-row ${c.ok ? 'ok' : 'open'}`}>
+              <button key={i} type="button" onClick={() => jumpTo(c.target)} className={`q-check-row w-full text-left ${c.ok ? 'ok' : 'open'}`} title={c.ok ? 'View this setting' : 'Fix this setting'}>
                 <span className="q-check-ring">
                   {c.ok ? (
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="w-2.5 h-2.5"><path d="M20 6 9 17l-5-5"/></svg>
@@ -868,7 +904,7 @@ function QuestionEditor({
                   )}
                 </span>
                 <span>{c.label}</span>
-              </div>
+              </button>
             ))}
             <div className={`q-check-row ${hasImage ? 'ok' : 'open'}`} style={{ opacity: 0.7 }}>
               <span className="q-check-ring">
@@ -909,7 +945,7 @@ function QuestionEditor({
       </details>
 
       {/* Timing & scoring */}
-      <details className="insp-section" open>
+      <details id="q-timing-section" className="insp-section" open>
         <summary>
           <span>Timing &amp; scoring</span>
           <svg className="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
@@ -971,7 +1007,7 @@ function QuestionEditor({
       </details>
 
       {/* Learning goal (Bloom) — promoted to first-class with rationale */}
-      <details className="insp-section">
+      <details id="q-learning-goal-section" className="insp-section">
         <summary>
           <span className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--color-accent-violet)' }} />
@@ -1012,7 +1048,7 @@ function QuestionEditor({
       </details>
 
       {/* Explanation */}
-      <details className="insp-section">
+      <details id="q-explanation-section" className="insp-section">
         <summary>
           <span>{question.type === 'case' ? 'Debrief' : 'Explanation'}</span>
           <svg className="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
@@ -1037,13 +1073,22 @@ function CreateQuizPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const editId = searchParams.get('edit')
+  const requestedStart = searchParams.get('start')
+  const requestedType = searchParams.get('type')
+  const requestedIntent = searchParams.get('intent')
+  const initialTab = TAB_VALUES.includes(requestedStart as Tab) ? requestedStart as Tab : 'manual'
+  const initialQuestionType = isKnownQuestionType(requestedType) ? requestedType : null
 
-  const [tab, setTab] = useState<Tab>('manual')
+  const [tab, setTab] = useState<Tab>(initialTab)
   const [title, setTitle] = useState('')
   const [subject, setSubject] = useState('')
   const [theme, setThemeState] = useState<string | undefined>(undefined)
   const [themePickerOpen, setThemePickerOpen] = useState(false)
-  const [questions, setQuestions] = useState<Question[]>([makeQuestion()])
+  const [questions, setQuestions] = useState<Question[]>(() => {
+    const first = makeQuestion()
+    if (!initialQuestionType) return [first]
+    return [{ ...first, type: initialQuestionType, options: optionsForType(initialQuestionType) }]
+  })
   const historyValue = useMemo(
     () => ({ title, subject, questions, theme }),
     [title, subject, questions, theme],
@@ -1991,6 +2036,46 @@ function CreateQuizPageInner() {
         </div>
       </header>
 
+      <section className="hidden md:flex items-center gap-3 px-4 py-2 border-b" style={{ background: '#F8FAFC', borderColor: '#E2E8F0' }}>
+        <Link href="/host/studio" className="text-[11px] font-black uppercase tracking-[0.12em] hover:underline" style={{ color: '#64748B' }}>
+          Studio
+        </Link>
+        <span className="h-4 w-px" style={{ background: '#CBD5E1' }} />
+        {requestedIntent && (
+          <span className="rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em]" style={{ background: '#EEF2FF', color: '#4F46E5' }}>
+            {requestedIntent.replace('-', ' ')}
+          </span>
+        )}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {CREATION_SHORTCUTS.map(shortcut => {
+            const active = shortcut.tab ? tab === shortcut.tab : false
+            if (shortcut.href) {
+              return (
+                <Link key={shortcut.label} href={shortcut.href} className="px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors" style={{ color: '#475569', background: '#fff', border: '1px solid #E2E8F0', textDecoration: 'none' }}>
+                  {shortcut.label}
+                </Link>
+              )
+            }
+            return (
+              <button
+                key={shortcut.label}
+                type="button"
+                onClick={() => shortcut.tab && setTab(shortcut.tab)}
+                title={shortcut.note}
+                className="px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors"
+                style={{
+                  color: active ? '#F5E642' : '#475569',
+                  background: active ? '#0F1B3D' : '#fff',
+                  border: active ? '1px solid #0F1B3D' : '1px solid #E2E8F0',
+                }}
+              >
+                {shortcut.label}
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
       {/* ── Three-Panel Layout ── */}
       <div className="flex-1 flex overflow-hidden">
 
@@ -2059,21 +2144,31 @@ function CreateQuizPageInner() {
               </svg>
               <p className="text-[9px] font-black uppercase tracking-wider" style={{ color: '#0F1B3D' }}>New Question</p>
             </div>
-            <div className="grid grid-cols-3 gap-1 mb-1.5">
-              {TYPE_PILLS.map(t => (
-                <button
-                  key={t.value}
-                  onClick={() => addQuestion(t.value)}
-                  title={`Add new ${t.label} question`}
-                  className="flex flex-col items-center gap-0.5 p-1.5 rounded-lg transition-all hover:scale-105 hover:shadow-md group relative click-bounce-sm"
-                  style={{ border: `1.5px solid ${t.color}30`, background: t.bg }}
-                >
-                  <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full flex items-center justify-center text-white font-black text-[8px] opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: t.color }}>+</span>
-                  <span style={{ color: t.color }}>{t.svg}</span>
-                  <span className="text-[7px] font-bold text-center leading-tight" style={{ color: t.color }}>
-                    {t.label}
-                  </span>
-                </button>
+            <div className="space-y-1.5 mb-1.5">
+              {QUESTION_TYPE_GROUPS.map(group => (
+                <div key={group.label}>
+                  <p className="mb-1 text-[8px] font-black uppercase tracking-[0.14em]" style={{ color: '#94A3B8' }}>{group.label}</p>
+                  <div className="grid grid-cols-3 gap-1">
+                    {group.types.map(type => {
+                      const t = getTypePill(type)
+                      return (
+                        <button
+                          key={t.value}
+                          onClick={() => addQuestion(t.value)}
+                          title={`Add new ${t.label} question`}
+                          className="flex flex-col items-center gap-0.5 p-1.5 rounded-lg transition-all hover:scale-105 hover:shadow-md group relative click-bounce-sm"
+                          style={{ border: `1.5px solid ${t.color}30`, background: t.bg }}
+                        >
+                          <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full flex items-center justify-center text-white font-black text-[8px] opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: t.color }}>+</span>
+                          <span style={{ color: t.color }}>{t.svg}</span>
+                          <span className="text-[7px] font-bold text-center leading-tight" style={{ color: t.color }}>
+                            {t.label}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
               ))}
             </div>
             {generatedOnTab && deselectedCount > 0 && (
@@ -2773,26 +2868,34 @@ function CreateQuizPageInner() {
                 </svg>
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-3">
-              <div className="grid grid-cols-2 gap-2">
-                {TYPE_PILLS.map(t => (
-                  <button
-                    key={t.value}
-                    onClick={() => {
-                      addQuestion(t.value)
-                      setMobileAddOpen(false)
-                      setMobileEditorOpen(true)
-                    }}
-                    className="flex items-start gap-2.5 p-3 rounded-xl text-left transition-all active:scale-[0.98]"
-                    style={{ border: `1.5px solid ${t.color}30`, background: t.bg }}>
-                    <span className="flex-shrink-0 mt-0.5" style={{ color: t.color }}>{t.svg}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold leading-tight" style={{ color: t.color }}>{t.label}</p>
-                      <p className="text-[10px] mt-0.5 leading-snug" style={{ color: '#64748B' }}>{t.tooltip}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-3">
+              {QUESTION_TYPE_GROUPS.map(group => (
+                <div key={group.label}>
+                  <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: '#94A3B8' }}>{group.label}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {group.types.map(type => {
+                      const t = getTypePill(type)
+                      return (
+                        <button
+                          key={t.value}
+                          onClick={() => {
+                            addQuestion(t.value)
+                            setMobileAddOpen(false)
+                            setMobileEditorOpen(true)
+                          }}
+                          className="flex items-start gap-2.5 p-3 rounded-xl text-left transition-all active:scale-[0.98]"
+                          style={{ border: `1.5px solid ${t.color}30`, background: t.bg }}>
+                          <span className="flex-shrink-0 mt-0.5" style={{ color: t.color }}>{t.svg}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold leading-tight" style={{ color: t.color }}>{t.label}</p>
+                            <p className="text-[10px] mt-0.5 leading-snug" style={{ color: '#64748B' }}>{t.tooltip}</p>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
