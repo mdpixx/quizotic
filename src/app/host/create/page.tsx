@@ -312,6 +312,70 @@ function isKnownQuestionType(value: string | null): value is QuestionType {
   return !!value && TYPE_PILLS.some(t => t.value === value)
 }
 
+// ── Intent → builder configuration ────────────────────────────────────────────
+// The studio (/host/studio) routes hosts here with ?intent=. Intent is a
+// creation-time signal that reshapes the builder's defaults so the journey
+// actually delivers on what the host picked — not a persisted quiz field.
+type IntentId = 'test' | 'collect' | 'practice' | 'migrate'
+
+interface IntentConfig {
+  preset: AudiencePresetId          // cascades into timer/points/difficulty/retries/self-paced
+  defaultTab: Tab                   // opening tab when no explicit ?start=
+  defaultType: QuestionType         // first question seeded when no explicit ?type=
+  aiTypeMix: Partial<TypeMix>       // weights for the AI-generation question mix
+  aiDifficulty: 'easy' | 'medium' | 'hard'
+  framing: string                   // contextual one-liner shown in the builder header
+}
+
+const INTENT_CONFIG: Record<IntentId, IntentConfig> = {
+  test: {
+    preset: 'classroom', defaultTab: 'aitopic', defaultType: 'mcq',
+    aiTypeMix: { mcq: 4, truefalse: 1 }, aiDifficulty: 'medium',
+    framing: 'Scored quiz · points & leaderboard on',
+  },
+  collect: {
+    preset: 'event', defaultTab: 'manual', defaultType: 'poll',
+    aiTypeMix: { poll: 3, wordcloud: 1, rating: 1 }, aiDifficulty: 'easy',
+    framing: 'Collecting responses · no scoring',
+  },
+  practice: {
+    preset: 'corporate', defaultTab: 'aidoc', defaultType: 'mcq',
+    aiTypeMix: { mcq: 4, truefalse: 1 }, aiDifficulty: 'medium',
+    framing: 'Self-paced practice · shareable, retries on',
+  },
+  migrate: {
+    preset: 'classroom', defaultTab: 'csv', defaultType: 'mcq',
+    aiTypeMix: { mcq: 5 }, aiDifficulty: 'medium',
+    framing: 'Imported content · edit and go live',
+  },
+}
+
+function isKnownIntent(value: string | null): value is IntentId {
+  return value === 'test' || value === 'collect' || value === 'practice' || value === 'migrate'
+}
+
+const EMPTY_TYPE_MIX: TypeMix = {
+  mcq: 0, multiselect: 0, truefalse: 0, poll: 0, openended: 0,
+  wordcloud: 0, qa: 0, rating: 0, ranking: 0, case: 0,
+}
+
+// Distributes `count` questions across weighted types, remainder to the
+// heaviest type. Used to seed the AI mix from an intent (e.g. collect → polls).
+function distributeTypeMix(weights: Partial<TypeMix>, count: number): TypeMix {
+  const keys = (Object.keys(weights) as (keyof TypeMix)[]).filter(k => (weights[k] ?? 0) > 0)
+  if (keys.length === 0 || count <= 0) return { ...EMPTY_TYPE_MIX, mcq: Math.max(0, count) }
+  const totalWeight = keys.reduce((sum, k) => sum + (weights[k] ?? 0), 0)
+  const next: TypeMix = { ...EMPTY_TYPE_MIX }
+  let assigned = 0
+  keys.forEach(k => {
+    const share = Math.floor((count * (weights[k] ?? 0)) / totalWeight)
+    next[k] = share
+    assigned += share
+  })
+  next[keys[0]] += count - assigned
+  return next
+}
+
 const QUESTION_CHAR_LIMIT = 160
 const OPTION_CHAR_LIMIT = 100
 
@@ -1076,8 +1140,14 @@ function CreateQuizPageInner() {
   const requestedStart = searchParams.get('start')
   const requestedType = searchParams.get('type')
   const requestedIntent = searchParams.get('intent')
-  const initialTab = TAB_VALUES.includes(requestedStart as Tab) ? requestedStart as Tab : 'manual'
-  const initialQuestionType = isKnownQuestionType(requestedType) ? requestedType : null
+  const intentCfg = isKnownIntent(requestedIntent) ? INTENT_CONFIG[requestedIntent] : null
+  // Precedence: an explicit ?start= / ?type= param wins, then the intent default, then global.
+  const initialTab: Tab = TAB_VALUES.includes(requestedStart as Tab)
+    ? (requestedStart as Tab)
+    : (intentCfg?.defaultTab ?? 'manual')
+  const initialQuestionType = isKnownQuestionType(requestedType)
+    ? requestedType
+    : (intentCfg?.defaultType ?? null)
 
   const [tab, setTab] = useState<Tab>(initialTab)
   const [title, setTitle] = useState('')
@@ -1128,7 +1198,7 @@ function CreateQuizPageInner() {
   const [mobileSlidesOpen, setMobileSlidesOpen] = useState(false)
   const [mobileAddOpen, setMobileAddOpen] = useState(false)
   const [inspectorOpen, setInspectorOpen] = useState(true)
-  const [audiencePreset, setAudiencePreset] = useState<AudiencePresetId>('classroom')
+  const [audiencePreset, setAudiencePreset] = useState<AudiencePresetId>(intentCfg?.preset ?? 'classroom')
   const activePreset = AUDIENCE_PRESETS.find(p => p.id === audiencePreset) ?? AUDIENCE_PRESETS[0]
 
   // Navigate to live session when savedQuiz is set after "Start Live"
@@ -1160,13 +1230,23 @@ function CreateQuizPageInner() {
 
   // Shared AI settings
   const [aiCount, setAiCount] = useState(5)
-  const [aiDifficulty, setAiDifficulty] = useState('medium')
-  const [typeMix, setTypeMix] = useState<TypeMix>({ mcq: 5, multiselect: 0, truefalse: 0, poll: 0, openended: 0, wordcloud: 0, qa: 0, rating: 0, ranking: 0, case: 0 })
+  const [aiDifficulty, setAiDifficulty] = useState<string>(intentCfg?.aiDifficulty ?? 'medium')
+  const [typeMix, setTypeMix] = useState<TypeMix>(() =>
+    intentCfg ? distributeTypeMix(intentCfg.aiTypeMix, 5) : { ...EMPTY_TYPE_MIX, mcq: 5 }
+  )
   const [quizLanguage, setQuizLanguage] = useState('English')
 
+  // Until the host hand-edits the mix, it follows the active intent's default
+  // (e.g. collect → polls). After they touch it, we keep their proportions and
+  // only refit the total to the new question count — never clobber back to MCQ.
+  const typeMixTouchedRef = useRef(false)
   useEffect(() => {
-    setTypeMix({ mcq: aiCount, multiselect: 0, truefalse: 0, poll: 0, openended: 0, wordcloud: 0, qa: 0, rating: 0, ranking: 0, case: 0 })
-  }, [aiCount])
+    setTypeMix(prev =>
+      typeMixTouchedRef.current
+        ? distributeTypeMix(prev, aiCount)
+        : distributeTypeMix(intentCfg?.aiTypeMix ?? { mcq: 1 }, aiCount)
+    )
+  }, [aiCount, intentCfg])
 
   // AI generation state
   const [aiGenerating, setAiGenerating] = useState(false)
@@ -1267,6 +1347,7 @@ function CreateQuizPageInner() {
   const countOptions = QUESTION_COUNT_OPTIONS[plan] ?? QUESTION_COUNT_OPTIONS.free
 
   function handleTypeMixChange(key: keyof TypeMix, val: number) {
+    typeMixTouchedRef.current = true
     setTypeMix(prev => ({ ...prev, [key]: val }))
   }
 
@@ -1276,6 +1357,7 @@ function CreateQuizPageInner() {
   }
 
   function handleIncrement(key: keyof TypeMix) {
+    typeMixTouchedRef.current = true
     if (typeMixSum >= aiCount) {
       // At cap — steal 1 from another type (MCQ first, then others in order)
       const stealOrder: (keyof TypeMix)[] = ['mcq', 'multiselect', 'truefalse', 'poll', 'openended', 'wordcloud', 'qa', 'rating', 'ranking', 'case']
@@ -1289,12 +1371,14 @@ function CreateQuizPageInner() {
 
   function handleDecrement(key: keyof TypeMix) {
     if (typeMix[key] <= 0) return
+    typeMixTouchedRef.current = true
     setTypeMix(prev => ({ ...prev, [key]: prev[key] - 1 }))
   }
 
   function handleAutoFill() {
     const remaining = aiCount - typeMixSum
     if (remaining <= 0) return
+    typeMixTouchedRef.current = true
     const activeKeys = (Object.keys(typeMix) as (keyof TypeMix)[]).filter(k => typeMix[k] > 0)
     if (activeKeys.length === 0) {
       setTypeMix(prev => ({ ...prev, mcq: prev.mcq + remaining }))
@@ -2041,10 +2125,15 @@ function CreateQuizPageInner() {
           Studio
         </Link>
         <span className="h-4 w-px" style={{ background: '#CBD5E1' }} />
-        {requestedIntent && (
-          <span className="rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em]" style={{ background: '#EEF2FF', color: '#4F46E5' }}>
-            {requestedIntent.replace('-', ' ')}
-          </span>
+        {intentCfg && (
+          <div className="flex items-center gap-2">
+            <span className="rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em]" style={{ background: '#EEF2FF', color: '#4F46E5' }}>
+              {requestedIntent}
+            </span>
+            <span className="text-[11px] font-semibold" style={{ color: '#64748B' }}>
+              {intentCfg.framing}
+            </span>
+          </div>
         )}
         <div className="flex flex-wrap items-center gap-1.5">
           {CREATION_SHORTCUTS.map(shortcut => {

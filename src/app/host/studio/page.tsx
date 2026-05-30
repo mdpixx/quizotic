@@ -1,59 +1,48 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
+import { QuizVsSlidesModal } from '@/components/host/QuizVsSlidesModal'
 
+// Each intent has ONE primary action. The source choice (AI topic, document,
+// blank, CSV, PPTX) lives in the builder's own tab bar — so the studio stays a
+// single clean fork rather than a wall of 12 links.
 const intents = [
   {
     title: 'Test knowledge',
     eyebrow: 'Scored quiz',
     desc: 'Timed questions, points, confidence, leaderboard, and a Bloom-tagged report.',
     href: '/host/create?intent=test&start=aitopic',
+    cta: 'Build a quiz',
     tone: '#0F1B3D',
     bg: '#FFFDE6',
-    actions: [
-      { label: 'Generate from topic', href: '/host/create?intent=test&start=aitopic' },
-      { label: 'PDF or DOCX', href: '/host/create?intent=test&start=aidoc' },
-      { label: 'Start blank', href: '/host/create?intent=test&start=manual' },
-    ],
   },
   {
     title: 'Collect opinions',
     eyebrow: 'Polls + responses',
     desc: 'Word clouds, open text, ratings, Q&A, and quick pulse checks without scoring pressure.',
     href: '/host/create?intent=collect&start=manual&type=poll',
+    cta: 'Collect responses',
     tone: '#0891B2',
     bg: '#ECFEFF',
-    actions: [
-      { label: 'Poll question', href: '/host/create?intent=collect&start=manual&type=poll' },
-      { label: 'Word cloud', href: '/host/create?intent=collect&start=manual&type=wordcloud' },
-      { label: 'Q&A', href: '/host/create?intent=collect&start=manual&type=qa' },
-    ],
   },
   {
     title: 'Teach with slides',
     eyebrow: 'Interactive deck',
     desc: 'Import a PPTX, add interaction slides, and run a presenter-controlled session.',
     href: '/host/present/create',
+    cta: 'Open slide builder',
     tone: '#2563EB',
     bg: '#EFF6FF',
-    actions: [
-      { label: 'Import PPTX', href: '/host/present/create?import=pptx' },
-      { label: 'Build deck', href: '/host/present/create' },
-      { label: 'Use templates', href: '/host/templates' },
-    ],
   },
   {
     title: 'Practice/self-paced',
     eyebrow: 'Shareable practice',
     desc: 'Create a quiz once, then share it for homework, coaching practice, or async review.',
     href: '/host/create?intent=practice&start=aidoc',
+    cta: 'Create practice set',
     tone: '#16A34A',
     bg: '#F0FDF4',
-    actions: [
-      { label: 'From document', href: '/host/create?intent=practice&start=aidoc' },
-      { label: 'From URL', href: '/host/create?intent=practice&start=aiurl' },
-      { label: 'Browse templates', href: '/host/templates' },
-    ],
   },
 ]
 
@@ -64,6 +53,8 @@ const migrationCards = [
 ]
 
 export default function StudioPage() {
+  const [compareOpen, setCompareOpen] = useState(false)
+
   return (
     <div className="min-h-full paper-grain" style={{ background: 'var(--color-paper)' }}>
       <main className="mx-auto max-w-6xl px-5 py-8 md:px-8 md:py-10">
@@ -77,8 +68,16 @@ export default function StudioPage() {
               What are you trying to run?
             </h1>
             <p className="mt-3 max-w-2xl text-sm md:text-base" style={{ color: 'var(--color-text-muted)' }}>
-              Pick the session intent first. Quizotic will open the right builder, source, and starting format for the job.
+              Pick the session intent first. Quizotic opens the right builder, source, and starting format for the job.
             </p>
+            <button
+              type="button"
+              onClick={() => setCompareOpen(true)}
+              className="mt-3 text-sm underline decoration-dotted hover:decoration-solid font-semibold"
+              style={{ color: '#0F1B3D' }}
+            >
+              Quiz or Slides &mdash; what&apos;s the difference?
+            </button>
           </div>
           <Link href="/host/templates" className="btn-ghost self-start md:self-auto" style={{ textDecoration: 'none', color: 'var(--color-ink)' }}>
             Browse templates
@@ -87,7 +86,12 @@ export default function StudioPage() {
 
         <section className="grid gap-4 md:grid-cols-2">
           {intents.map(intent => (
-            <article key={intent.title} className="rounded-2xl border bg-white p-5 shadow-sm" style={{ borderColor: '#E7E2D4' }}>
+            <Link
+              key={intent.title}
+              href={intent.href}
+              className="group flex flex-col rounded-2xl border bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+              style={{ borderColor: '#E7E2D4', textDecoration: 'none' }}
+            >
               <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
                   <span className="inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em]" style={{ background: intent.bg, color: intent.tone }}>
@@ -102,22 +106,13 @@ export default function StudioPage() {
                   </svg>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {intent.actions.map((action, index) => (
-                  <Link
-                    key={action.label}
-                    href={action.href}
-                    className={index === 0 ? 'btn-primary' : 'btn-ghost'}
-                    style={{
-                      textDecoration: 'none',
-                      ...(index !== 0 ? { color: 'var(--color-text-secondary)', background: '#fff' } : {}),
-                    }}
-                  >
-                    {action.label}
-                  </Link>
-                ))}
-              </div>
-            </article>
+              <span className="btn-primary mt-auto self-start" style={{ textDecoration: 'none' }}>
+                {intent.cta}
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14M13 6l6 6-6 6" />
+                </svg>
+              </span>
+            </Link>
           ))}
         </section>
 
@@ -142,6 +137,8 @@ export default function StudioPage() {
           </div>
         </section>
       </main>
+
+      <QuizVsSlidesModal open={compareOpen} onClose={() => setCompareOpen(false)} />
     </div>
   )
 }
