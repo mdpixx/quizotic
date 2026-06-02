@@ -1,17 +1,8 @@
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
-
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '')
-  .split(',')
-  .map(e => e.trim().toLowerCase())
-  .filter(Boolean)
-
-function isAdmin(email: string | null | undefined): boolean {
-  return !!email && ADMIN_EMAILS.includes(email.toLowerCase())
-}
+import { requireAdmin } from '@/lib/admin-auth'
 
 // IST date key (YYYY-MM-DD, Asia/Kolkata). DB stores UTC; bucketing by UTC
 // lands India activity after 6:30 PM IST on the wrong day. Mirrors the helper
@@ -51,10 +42,8 @@ function wowDelta(series: number[]): { thisWeek: number; lastWeek: number; pct: 
 }
 
 export async function GET() {
-  const admin = await getCurrentUser()
-  if (!admin || !isAdmin(admin.email)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const { response } = await requireAdmin()
+  if (response) return response
 
   const now = new Date()
 

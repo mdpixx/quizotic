@@ -1,18 +1,9 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { writeAuditLog } from '@/lib/admin-audit'
-
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '')
-  .split(',')
-  .map(e => e.trim().toLowerCase())
-  .filter(Boolean)
-
-function isAdmin(email: string | null | undefined): boolean {
-  return !!email && ADMIN_EMAILS.includes(email.toLowerCase())
-}
+import { requireAdmin } from '@/lib/admin-auth'
 
 const ownerSelect = { select: { id: true, name: true, email: true } }
 
@@ -20,10 +11,8 @@ const ownerSelect = { select: { id: true, name: true, email: true } }
 // Admin-only read of ANY user's quiz/presentation (no owner filter). Every
 // read is recorded in AdminAuditLog for accountability.
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const admin = await getCurrentUser()
-  if (!admin || !isAdmin(admin.email)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const { admin, response } = await requireAdmin()
+  if (response) return response
 
   const { id } = await params
   const type = new URL(req.url).searchParams.get('type') === 'presentation' ? 'presentation' : 'quiz'
@@ -37,7 +26,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     await writeAuditLog({
       req,
-      actor: { id: admin.id, email: admin.email! },
+      actor: { id: admin.id, email: admin.email ?? '' },
       action: 'admin_view_content',
       targetType: 'presentation',
       targetId: id,
@@ -68,7 +57,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   await writeAuditLog({
     req,
-    actor: { id: admin.id, email: admin.email! },
+    actor: { id: admin.id, email: admin.email ?? '' },
     action: 'admin_view_content',
     targetType: 'quiz',
     targetId: id,

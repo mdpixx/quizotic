@@ -104,6 +104,19 @@ function statusStyle(tone: 'ready' | 'draft' | 'attention') {
   if (tone === 'attention') return { background: '#FFFBEB', color: '#92400E', border: '1px solid #FDE68A' }
   return { background: '#F8FAFC', color: '#64748B', border: '1px solid #E2E8F0' }
 }
+
+function readinessSignals(quiz: QuizRecord): Array<{ label: string; tone: 'ready' | 'draft' | 'attention' }> {
+  const signals: Array<{ label: string; tone: 'ready' | 'draft' | 'attention' }> = []
+  if (quiz.questionCount === 0) {
+    signals.push({ label: 'Needs questions', tone: 'attention' })
+  } else {
+    signals.push({ label: 'Ready live', tone: 'ready' })
+  }
+  if (quiz.asyncNeedsRepublish) signals.push({ label: 'Stale link', tone: 'attention' })
+  if (quiz.asyncResponseCount > 0) signals.push({ label: 'Report ready', tone: 'ready' })
+  return signals
+}
+
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
   const m = Math.floor(diff / 60000)
@@ -462,6 +475,7 @@ export default function QuizzesPage() {
                 <AnimatePresence>
                   {recent.map((quiz, i) => {
                     const status = modeStatus(quiz)
+                    const signals = readinessSignals(quiz)
                     return (
                     <motion.div
                       key={quiz.id}
@@ -507,6 +521,9 @@ export default function QuizzesPage() {
                             <span className="chip" style={{ background: '#EFF6FF', color: '#1D4ED8' }}>{quiz.subject}</span>
                           )}
                           <span className="chip" style={statusStyle(status.tone)}>{status.label}</span>
+                          {signals.slice(0, 2).map(signal => (
+                            <span key={signal.label} className="chip" style={statusStyle(signal.tone)}>{signal.label}</span>
+                          ))}
                           {quiz.language && quiz.language !== 'en' && (
                             <span className="chip" style={{ background: 'var(--color-paper-2)', color: 'var(--color-text-muted)' }}>{quiz.language.toUpperCase()}</span>
                           )}
@@ -584,6 +601,7 @@ export default function QuizzesPage() {
               <div className="rounded-[16px] overflow-hidden" style={{ background: '#fff', border: '1px solid var(--color-line)' }}>
                 {(view === 'list' ? filtered : rest).map((quiz, i, arr) => {
                   const status = modeStatus(quiz)
+                  const signals = readinessSignals(quiz)
                   return (
                   <div
                     key={quiz.id}
@@ -602,6 +620,9 @@ export default function QuizzesPage() {
                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         {quiz.subject && <span className="chip" style={{ background: '#EFF6FF', color: '#1D4ED8' }}>{quiz.subject}</span>}
                         <span className="chip" style={statusStyle(status.tone)}>{status.label}</span>
+                        {signals.map(signal => (
+                          <span key={signal.label} className="chip" style={statusStyle(signal.tone)}>{signal.label}</span>
+                        ))}
                         <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{quiz.questionCount} questions</span>
                         <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>Updated {timeAgo(quiz.updatedAt)}</span>
                         {quiz.asyncShareSlug && (

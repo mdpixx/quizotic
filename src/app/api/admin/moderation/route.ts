@@ -2,25 +2,14 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { getCurrentUser } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { writeAuditLog } from '@/lib/admin-audit'
-
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '')
-  .split(',')
-  .map(e => e.trim().toLowerCase())
-  .filter(Boolean)
-
-function isAdmin(email: string | null | undefined): boolean {
-  return !!email && ADMIN_EMAILS.includes(email.toLowerCase())
-}
+import { requireAdmin } from '@/lib/admin-auth'
 
 // GET — list moderation flags, default to open + reviewing.
 export async function GET(req: NextRequest) {
-  const admin = await getCurrentUser()
-  if (!admin || !isAdmin(admin.email)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const { response } = await requireAdmin()
+  if (response) return response
 
   const url = new URL(req.url)
   const statusParam = url.searchParams.get('status')
@@ -45,10 +34,8 @@ const PatchSchema = z.object({
 })
 
 export async function PATCH(req: NextRequest) {
-  const admin = await getCurrentUser()
-  if (!admin || !isAdmin(admin.email)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const { admin, response } = await requireAdmin()
+  if (response) return response
 
   let parsed: z.infer<typeof PatchSchema>
   try {

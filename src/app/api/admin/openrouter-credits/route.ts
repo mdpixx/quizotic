@@ -1,16 +1,11 @@
 export const dynamic = 'force-dynamic'
 
+// ai-usage-coverage: skip
+// Admin-only account balance read. This calls OpenRouter's credits endpoint,
+// not a token-generating model, so it intentionally bypasses user quota usage.
+
 import { NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth-helpers'
-
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '')
-  .split(',')
-  .map(e => e.trim().toLowerCase())
-  .filter(Boolean)
-
-function isAdmin(email: string | null | undefined): boolean {
-  return !!email && ADMIN_EMAILS.includes(email.toLowerCase())
-}
+import { requireAdmin } from '@/lib/admin-auth'
 
 const LOW_BALANCE_THRESHOLD = 5 // remaining credits below this → "low" warning
 const CACHE_TTL_MS = 10 * 60 * 1000 // OpenRouter balance moves slowly + the endpoint is rate-limited
@@ -30,10 +25,8 @@ let cache: { value: CreditsResult; ts: number } | null = null
 // Uses the same OPENROUTER_API_KEY the AI generation routes use; the key is
 // account-scoped so /credits returns the account's purchased-vs-used totals.
 export async function GET() {
-  const admin = await getCurrentUser()
-  if (!admin || !isAdmin(admin.email)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const { response } = await requireAdmin()
+  if (response) return response
 
   if (cache && Date.now() - cache.ts < CACHE_TTL_MS) {
     return NextResponse.json({ ...cache.value, cached: true })
