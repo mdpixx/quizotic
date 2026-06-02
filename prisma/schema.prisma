@@ -112,6 +112,19 @@ model Subscription {
   payments Payment[]
 }
 
+// ─── Pending Pro Grant ──────────────────────────────────────────
+// Admin-issued Pro grant for an email that has no account yet. Applied
+// automatically in NextAuth events.createUser when the person signs up.
+model PendingProGrant {
+  id        String    @id @default(cuid())
+  email     String    @unique // stored lowercased
+  months    Int       @default(1)
+  appliedAt DateTime? // set when the grant is applied to a created user
+  createdAt DateTime  @default(now())
+
+  @@index([appliedAt])
+}
+
 // ─── Payment (audit trail) ──────────────────────────────────────
 model Payment {
   id                String   @id @default(cuid())

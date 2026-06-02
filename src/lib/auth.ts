@@ -8,6 +8,37 @@ import { prisma } from '@/lib/prisma'
 import { createUniqueReferralCode } from '@/lib/referral'
 import { extractGeo } from '@/lib/geo'
 
+// Apply a PendingProGrant (an admin-issued Pro grant for an email that had no
+// account at grant time). Upserts a Pro subscription — same shape as
+// /api/admin/grant-pro — then marks the grant applied so it fires once.
+async function applyPendingProGrant(userId: string, email: string): Promise<void> {
+  const normalizedEmail = email.toLowerCase()
+  const pending = await prisma.pendingProGrant.findUnique({ where: { email: normalizedEmail } })
+  if (!pending || pending.appliedAt) return
+
+  const now = new Date()
+  const expiresAt = new Date(now)
+  expiresAt.setMonth(expiresAt.getMonth() + pending.months)
+
+  const subData = {
+    plan: 'pro_monthly',
+    status: 'active',
+    provider: 'manual',
+    currentPeriodStart: now,
+    currentPeriodEnd: expiresAt,
+  }
+  await prisma.subscription.upsert({
+    where: { userId },
+    create: { userId, ...subData },
+    update: subData,
+  })
+  await prisma.pendingProGrant.update({
+    where: { email: normalizedEmail },
+    data: { appliedAt: now },
+  })
+  console.log(`[auth] applied pending pro grant: ${normalizedEmail} (${pending.months}mo)`)
+}
+
 // ── Gmail API email sender (HTTPS, not SMTP) ───────────────────────────────────
 
 async function getGmailAccessToken(): Promise<string> {
@@ -326,6 +357,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (geo.locale) updates.locale = geo.locale
 
       await prisma.user.update({ where: { id: user.id }, data: updates })
+
+      // Apply any pending Pro grant issued before this person had an account.
+      // Best-effort: a failure here must never block signup.
+      if (user.email) {
+        try {
+          await applyPendingProGrant(user.id, user.email)
+        } catch (err) {
+          console.error('[auth] pending pro grant failed:', err instanceof Error ? err.message : err)
+        }
+      }
 
       if (user.email) {
         sendWelcomeEmail(user.email, user.name ?? null)
