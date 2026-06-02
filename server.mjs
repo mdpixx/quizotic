@@ -112,9 +112,14 @@ async function persistGameSession(data, attempt = 1) {
   try {
     if (sessionId) {
       // Row was pre-created at first-join; update with final results.
+      // participantCount = total who actually joined (Attendee rows), not just
+      // those still connected at end. GREATEST keeps the live count as a floor
+      // in case attendee inserts were skipped (DB best-effort on join).
       await dbPool.query(
         `UPDATE "GameSession"
-         SET status = $1, "participantCount" = $2, results = $3::jsonb, "endedAt" = now()
+         SET status = $1,
+             "participantCount" = GREATEST($2, (SELECT COUNT(*)::int FROM "Attendee" WHERE "sessionId" = $4)),
+             results = $3::jsonb, "endedAt" = now()
          WHERE id = $4`,
         [status, participantCount, JSON.stringify(results), sessionId]
       )
