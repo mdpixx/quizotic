@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -38,6 +38,16 @@ interface Stats {
 }
 
 type AdminTab = 'overview' | 'content' | 'users' | 'tools'
+type ToolTab = 'credits' | 'pro' | 'coupons' | 'moderation' | 'deletions' | 'flags'
+
+const TOOL_TABS: Array<{ key: ToolTab; label: string; hint: string }> = [
+  { key: 'credits', label: 'Credits', hint: 'AI credit adjustments' },
+  { key: 'pro', label: 'Pro Grants', hint: 'Grant or revoke Pro' },
+  { key: 'coupons', label: 'Coupons', hint: 'Promo codes' },
+  { key: 'moderation', label: 'Moderation', hint: 'User reports' },
+  { key: 'deletions', label: 'Deletions', hint: 'Data requests' },
+  { key: 'flags', label: 'Feature Flags', hint: 'Rollouts' },
+]
 
 interface OpenRouterCredits {
   remaining: number
@@ -542,12 +552,13 @@ function UsersTab() {
 }
 
 export default function AdminDashboard() {
-  const { data: session, status } = useSession()
+  const { status } = useSession()
   const router = useRouter()
   const [stats, setStats] = useState<Stats | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<AdminTab>('overview')
+  const [toolTab, setToolTab] = useState<ToolTab>('credits')
   const [orCredits, setOrCredits] = useState<OpenRouterCredits | null>(null)
   const [orError, setOrError] = useState<string | null>(null)
 
@@ -729,13 +740,7 @@ export default function AdminDashboard() {
         )}
 
         {tab === 'tools' && (
-          <div className="space-y-6">
-            <CreditsPanel />
-            <CouponsPanel />
-            <ModerationPanel />
-            <DeletionsPanel />
-            <FeatureFlagsPanel />
-          </div>
+          <ToolsPanel active={toolTab} onChange={setToolTab} />
         )}
 
         {/* Footer */}
@@ -744,6 +749,151 @@ export default function AdminDashboard() {
         </p>
       </div>
     </div>
+  )
+}
+
+function ToolsPanel({ active, onChange }: { active: ToolTab; onChange: (tab: ToolTab) => void }) {
+  return (
+    <div className="space-y-5">
+      <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/70 bg-white/80 dark:bg-gray-800/80 p-3 shadow-sm">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2">
+          {TOOL_TABS.map(t => {
+            const isActive = active === t.key
+            return (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => onChange(t.key)}
+                className={`text-left rounded-xl px-3 py-2.5 border transition-colors ${
+                  isActive
+                    ? 'border-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 dark:border-indigo-700'
+                    : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                }`}
+              >
+                <span className={`block text-sm font-bold ${isActive ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-800 dark:text-gray-100'}`}>{t.label}</span>
+                <span className="block text-[11px] text-gray-400 mt-0.5">{t.hint}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {active === 'credits' && <CreditsPanel />}
+      {active === 'pro' && <ProGrantsPanel />}
+      {active === 'coupons' && <CouponsPanel />}
+      {active === 'moderation' && <ModerationPanel />}
+      {active === 'deletions' && <DeletionsPanel />}
+      {active === 'flags' && <FeatureFlagsPanel />}
+    </div>
+  )
+}
+
+function ProGrantsPanel() {
+  const [email, setEmail] = useState('')
+  const [months, setMonths] = useState(12)
+  const [reason, setReason] = useState('manual Pro grant')
+  const [busy, setBusy] = useState<'grant' | 'revoke' | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  async function submit(action: 'grant' | 'revoke') {
+    if (!email.trim()) {
+      setError('Email is required.')
+      return
+    }
+    setBusy(action)
+    setError(null)
+    setMessage(null)
+    try {
+      const res = await fetch('/api/admin/grant-pro', {
+        method: action === 'grant' ? 'POST' : 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim(),
+          months,
+          reason: reason.trim() || (action === 'grant' ? 'manual Pro grant' : 'manual Pro revoke'),
+        }),
+      })
+      const body = await res.json()
+      if (!res.ok) {
+        setError(body.error ?? `${action === 'grant' ? 'Grant' : 'Revoke'} failed`)
+        return
+      }
+      if (body.plan === 'pro_pending') {
+        setMessage(`Pending Pro grant saved for ${body.email}. It will apply when the user signs up.`)
+      } else {
+        setMessage(action === 'grant'
+          ? `Pro granted to ${body.email} until ${body.expiresAt ? new Date(body.expiresAt).toLocaleDateString('en-IN') : 'the selected period'}.`
+          : `Pro revoked for ${body.email}.`)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Request failed')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return (
+    <TableSection title="Pro Grants — manual subscription access">
+      <div className="p-5 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_140px] gap-3">
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">User email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="teacher@example.com"
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-200"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">Months</label>
+            <input
+              type="number"
+              min={1}
+              max={36}
+              value={months}
+              onChange={e => setMonths(Math.max(1, Math.min(36, Number(e.target.value) || 1)))}
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-200"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1 block">Audit reason</label>
+          <textarea
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            rows={3}
+            maxLength={500}
+            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-200"
+          />
+        </div>
+
+        {error && <div className="rounded-lg p-3 text-sm bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400">{error}</div>}
+        {message && <div className="rounded-lg p-3 text-sm bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">{message}</div>}
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={busy !== null}
+            onClick={() => void submit('grant')}
+            className="px-4 py-2 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
+          >
+            {busy === 'grant' ? 'Granting...' : 'Grant Pro'}
+          </button>
+          <button
+            type="button"
+            disabled={busy !== null}
+            onClick={() => void submit('revoke')}
+            className="px-4 py-2 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm font-semibold hover:bg-red-100 disabled:opacity-50 transition-colors"
+          >
+            {busy === 'revoke' ? 'Revoking...' : 'Revoke Pro'}
+          </button>
+        </div>
+      </div>
+    </TableSection>
   )
 }
 
@@ -1132,7 +1282,7 @@ function CouponsPanel() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/coupons")
       const body = await res.json()
@@ -1142,9 +1292,12 @@ function CouponsPanel() {
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Load failed")
     }
-  }
+  }, [])
 
-  useEffect(() => { void refresh() }, [])
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void refresh() }, 0)
+    return () => window.clearTimeout(timer)
+  }, [refresh])
 
   async function toggleActive(c: Coupon) {
     const res = await fetch(`/api/admin/coupons/${c.id}`, {
@@ -1382,7 +1535,7 @@ function ModerationPanel() {
   const [statusFilter, setStatusFilter] = useState<'open' | 'reviewing' | 'resolved' | 'dismissed' | 'all'>('open')
   const [reviewingId, setReviewingId] = useState<string | null>(null)
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     try {
       const url = statusFilter === 'all' ? '/api/admin/moderation' : `/api/admin/moderation?status=${statusFilter}`
       const res = await fetch(url)
@@ -1393,9 +1546,12 @@ function ModerationPanel() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Load failed')
     }
-  }
+  }, [statusFilter])
 
-  useEffect(() => { void refresh() }, [statusFilter])
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void refresh() }, 0)
+    return () => window.clearTimeout(timer)
+  }, [refresh])
 
   return (
     <TableSection title="Moderation — user reports">
@@ -1583,21 +1739,26 @@ function DeletionsPanel() {
   const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<'pending' | 'approved' | 'completed' | 'rejected' | 'cancelled' | 'all'>('pending')
   const [actingId, setActingId] = useState<string | null>(null)
+  const [loadedAt, setLoadedAt] = useState<number | null>(null)
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     try {
       const url = statusFilter === 'all' ? '/api/admin/deletions' : `/api/admin/deletions?status=${statusFilter}`
       const res = await fetch(url)
       const body = await res.json()
       if (!res.ok) { setError(body.error ?? 'Load failed'); return }
       setRequests(body.requests as DeletionRequest[])
+      setLoadedAt(Date.now())
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Load failed')
     }
-  }
+  }, [statusFilter])
 
-  useEffect(() => { void refresh() }, [statusFilter])
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void refresh() }, 0)
+    return () => window.clearTimeout(timer)
+  }, [refresh])
 
   return (
     <TableSection title="Data deletion requests — GDPR / DPDP">
@@ -1635,7 +1796,7 @@ function DeletionsPanel() {
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
                 {requests.map(r => {
-                  const graceExpired = new Date(r.graceExpiresAt).getTime() < Date.now()
+                  const graceExpired = loadedAt !== null && new Date(r.graceExpiresAt).getTime() < loadedAt
                   return (
                     <tr key={r.id}>
                       <td className="px-3 py-2 text-xs">
@@ -1774,7 +1935,7 @@ function FeatureFlagsPanel() {
   const [showCreate, setShowCreate] = useState(false)
   const [editingKey, setEditingKey] = useState<string | null>(null)
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/flags')
       const body = await res.json()
@@ -1784,9 +1945,12 @@ function FeatureFlagsPanel() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Load failed')
     }
-  }
+  }, [])
 
-  useEffect(() => { void refresh() }, [])
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void refresh() }, 0)
+    return () => window.clearTimeout(timer)
+  }, [refresh])
 
   async function quickToggle(flag: FeatureFlag) {
     const res = await fetch(`/api/admin/flags/${encodeURIComponent(flag.key)}`, {

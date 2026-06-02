@@ -1,27 +1,16 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { getAiUsageSummary } from '@/lib/ai-quota'
-
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '')
-  .split(',')
-  .map(e => e.trim().toLowerCase())
-  .filter(Boolean)
-
-function isAdmin(email: string | null | undefined): boolean {
-  return !!email && ADMIN_EMAILS.includes(email.toLowerCase())
-}
+import { requireAdmin } from '@/lib/admin-auth'
 
 // GET /api/admin/credits/list?email=user@example.com
 // Returns the target user + monthly usage + bonus-credit summary + recent
 // grants. Drives the Credits panel in the admin UI.
 export async function GET(req: NextRequest) {
-  const admin = await getCurrentUser()
-  if (!admin || !isAdmin(admin.email)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const { response } = await requireAdmin()
+  if (response) return response
 
   const url = new URL(req.url)
   const email = url.searchParams.get('email')?.trim().toLowerCase()

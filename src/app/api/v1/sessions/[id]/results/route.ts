@@ -4,6 +4,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { authenticateApiKey } from '@/lib/api-key-auth'
 import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
+import { buildTeacherReportInsights } from '@/lib/report-insights'
+import type { QuestionStat } from '@/lib/quiz-types'
+import { unauthorizedApiKey } from '@/lib/public-api'
 
 /**
  * GET /api/v1/sessions/:id/results
@@ -14,7 +17,7 @@ import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await authenticateApiKey(req)
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized. Pass your API key as: Authorization: Bearer <key>' }, { status: 401 })
+    return unauthorizedApiKey()
   }
 
   const rl = await rateLimitRequest(req, {
@@ -50,6 +53,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   })
 
   const results = session.results as Record<string, unknown> | null
+  const questionStats = (results?.questionStats ?? []) as QuestionStat[]
+  const finishedCount = attendees.filter(a => !!a.leftAt).length
+  const insights = buildTeacherReportInsights({
+    questionStats,
+    totalParticipants: attendees.length || session.participantCount || 0,
+    finishedCount,
+  })
 
   return NextResponse.json({
     data: {
@@ -58,10 +68,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       participantCount: session.participantCount,
       createdAt: session.createdAt,
       leaderboard: (results?.leaderboard ?? []) as unknown[],
-      questionStats: (results?.questionStats ?? []) as unknown[],
+      questionStats,
       sessionMode: (results?.sessionMode as string) ?? 'competitive',
       duration: (results?.duration as number) ?? null,
       attendees,
+      insights,
     },
   })
 }

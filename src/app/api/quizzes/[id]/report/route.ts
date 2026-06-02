@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth-helpers'
 import { getUserPlan } from '@/lib/billing'
 import { RESULTS_RENDERER, getEffectiveOptions, getOptionText, type Question, type QuestionStat } from '@/lib/quiz-types'
 import type { Prisma } from '@prisma/client'
+import { buildTeacherReportInsights } from '@/lib/report-insights'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -276,6 +277,11 @@ export async function GET(req: NextRequest, { params }: Params) {
         summary: { totalResponses, finishedCount: finished.length, avgScore, avgAccuracy },
         leaderboard,
         questionStats,
+        insights: buildTeacherReportInsights({
+          questionStats,
+          totalParticipants: totalResponses,
+          finishedCount: finished.length,
+        }),
       },
     })
   } catch (err) {

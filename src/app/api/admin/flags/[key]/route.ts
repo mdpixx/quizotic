@@ -2,19 +2,10 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { getCurrentUser } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { writeAuditLog } from '@/lib/admin-audit'
 import { invalidateFlagCache } from '@/lib/feature-flags'
-
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '')
-  .split(',')
-  .map(e => e.trim().toLowerCase())
-  .filter(Boolean)
-
-function isAdmin(email: string | null | undefined): boolean {
-  return !!email && ADMIN_EMAILS.includes(email.toLowerCase())
-}
+import { requireAdmin } from '@/lib/admin-auth'
 
 // PATCH — update enabled / rolloutPercent / description.
 const PatchSchema = z.object({
@@ -25,10 +16,8 @@ const PatchSchema = z.object({
 })
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ key: string }> }) {
-  const admin = await getCurrentUser()
-  if (!admin || !isAdmin(admin.email)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const { admin, response } = await requireAdmin()
+  if (response) return response
   const { key } = await ctx.params
 
   let parsed: z.infer<typeof PatchSchema>
@@ -67,10 +56,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ key: stri
 
 // DELETE — remove a flag entirely. Cascades to assignments.
 export async function DELETE(req: NextRequest, ctx: { params: Promise<{ key: string }> }) {
-  const admin = await getCurrentUser()
-  if (!admin || !isAdmin(admin.email)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const { admin, response } = await requireAdmin()
+  if (response) return response
   const { key } = await ctx.params
 
   const flag = await prisma.featureFlag.findUnique({ where: { key } })
