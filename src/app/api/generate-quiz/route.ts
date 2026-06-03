@@ -55,6 +55,12 @@ function inferUpstreamStatus(err: unknown): number | null {
 // ("Generation failed — please try again") is misleading because retrying
 // against a 429 just reproduces the failure.
 function describeAiFailure(status: number | null): { message: string; httpStatus: number } {
+  if (status === 404) {
+    return {
+      message: 'AI model is temporarily unavailable. Please try again in a minute.',
+      httpStatus: 502,
+    }
+  }
   if (status === 429) {
     return {
       message: 'AI service is busy right now (rate-limited). Please wait a minute and try again, or try a shorter document.',
@@ -173,7 +179,7 @@ const client = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY ?? '',
 })
 
-const MODEL = process.env.QUIZ_AI_MODEL ?? 'google/gemini-2.0-flash-001'
+const MODEL = process.env.QUIZ_AI_MODEL ?? 'google/gemini-2.5-flash-lite'
 
 const SYSTEM_PROMPT = `You are a quiz generator. Return only valid JSON — no markdown, no explanation, no code fences.`
 
@@ -509,7 +515,7 @@ export async function POST(req: NextRequest) {
     // a 504/429 retry hits the same upstream rate-window and just fails
     // again. The fallback model on the third attempt is a different size
     // tier so a model-specific 429 doesn't doom us.
-    const FALLBACK_MODEL = process.env.QUIZ_AI_FALLBACK_MODEL ?? 'google/gemini-flash-1.5'
+    const FALLBACK_MODEL = process.env.QUIZ_AI_FALLBACK_MODEL ?? 'google/gemini-2.5-flash'
     const attempts: Array<{ delayMs: number; model?: string }> = [
       { delayMs: 0 },
       { delayMs: 1_500 },
@@ -534,7 +540,10 @@ export async function POST(req: NextRequest) {
     if (questions === null) {
       const description = describeAiFailure(lastStatus)
       console.error(`[generate-quiz] all ${attempts.length} attempts failed; surfacing ${description.httpStatus} to client`, { lastStatus, lastErr: lastErr instanceof Error ? lastErr.message : lastErr })
-      return NextResponse.json({ error: description.message, code: lastStatus === 429 ? 'rate_limited' : lastStatus === 504 ? 'upstream_timeout' : 'ai_error' }, { status: description.httpStatus })
+      return NextResponse.json({
+        error: description.message,
+        code: lastStatus === 404 ? 'ai_model_unavailable' : lastStatus === 429 ? 'rate_limited' : lastStatus === 504 ? 'upstream_timeout' : 'ai_error',
+      }, { status: description.httpStatus })
     }
 
     if (!validateQuestions(questions)) {

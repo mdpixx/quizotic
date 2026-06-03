@@ -70,7 +70,7 @@ Append to the file after the existing PORT/NODE_ENV block:
 ```env
 # AI Generation (OpenRouter — reuse from secrets vault)
 OPENROUTER_API_KEY=
-QUIZ_AI_MODEL=google/gemini-2.0-flash-001
+QUIZ_AI_MODEL=google/gemini-2.5-flash-lite
 ```
 
 - [ ] **Step 4: Add the vars to the actual `.env` symlink**
@@ -79,7 +79,7 @@ The `.env` file is a symlink to `../../secrets/env/quizotic.env`. Open that file
 
 ```env
 OPENROUTER_API_KEY=<your key from secrets vault — same as Social Media project>
-QUIZ_AI_MODEL=google/gemini-2.0-flash-001
+QUIZ_AI_MODEL=google/gemini-2.5-flash-lite
 ```
 
 - [ ] **Step 5: Verify build compiles**
@@ -1465,7 +1465,7 @@ const client = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY,
 })
 
-const MODEL = process.env.QUIZ_AI_MODEL ?? 'google/gemini-2.0-flash-001'
+const MODEL = process.env.QUIZ_AI_MODEL ?? 'google/gemini-2.5-flash-lite'
 
 const SYSTEM_PROMPT = `You are a quiz generator. Return only valid JSON — no markdown, no explanation, no code fences.`
 
@@ -1678,7 +1678,7 @@ const client = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY,
 })
 
-const MODEL = process.env.QUIZ_AI_MODEL ?? 'google/gemini-2.0-flash-001'
+const MODEL = process.env.QUIZ_AI_MODEL ?? 'google/gemini-2.5-flash-lite'
 
 export async function POST(req: NextRequest) {
   try {

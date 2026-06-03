@@ -468,7 +468,7 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret
 
 # AI Generation (OpenRouter)
 OPENROUTER_API_KEY=
-QUIZ_AI_MODEL=google/gemini-2.0-flash-001
+QUIZ_AI_MODEL=google/gemini-2.5-flash-lite
 ```
 
 Also add the actual vars to the live `.env` file (symlinked to secrets vault). Add:

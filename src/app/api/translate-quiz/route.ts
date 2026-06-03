@@ -12,7 +12,7 @@ const client = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY ?? '',
 })
 
-const MODEL = process.env.QUIZ_AI_MODEL ?? 'google/gemini-2.0-flash-001'
+const MODEL = process.env.QUIZ_AI_MODEL ?? 'google/gemini-2.5-flash-lite'
 
 export async function POST(req: NextRequest) {
   if (!process.env.OPENROUTER_API_KEY) {

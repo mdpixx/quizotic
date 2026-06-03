@@ -27,11 +27,11 @@ const nextConfig: NextConfig = {
     // a browser. Production stays locked down.
     const isDev = process.env.NODE_ENV !== 'production'
     const scriptSrc = isDev
-      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://eu-assets.i.posthog.com"
-      : "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://eu-assets.i.posthog.com"
+      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://eu-assets.i.posthog.com https://www.googletagmanager.com"
+      : "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://eu-assets.i.posthog.com https://www.googletagmanager.com"
     const connectSrc = isDev
-      ? "connect-src 'self' ws: wss: https://api.razorpay.com https://lux-gateway.razorpay.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io"
-      : "connect-src 'self' wss: https://api.razorpay.com https://lux-gateway.razorpay.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io"
+      ? "connect-src 'self' ws: wss: https://api.razorpay.com https://lux-gateway.razorpay.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io https://www.google-analytics.com"
+      : "connect-src 'self' wss: https://api.razorpay.com https://lux-gateway.razorpay.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io https://www.google-analytics.com"
     return [
       {
         source: '/(.*)',

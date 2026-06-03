@@ -99,7 +99,7 @@ async function extractViaVisionLLM(pages, deadline) {
     baseURL: 'https://openrouter.ai/api/v1',
     apiKey: process.env.OPENROUTER_API_KEY,
   })
-  const model = process.env.QUIZ_VISION_MODEL ?? process.env.QUIZ_AI_MODEL ?? 'google/gemini-2.0-flash-001'
+  const model = process.env.QUIZ_VISION_MODEL ?? process.env.QUIZ_AI_MODEL ?? 'google/gemini-2.5-flash'
 
   const prompt = [
     'These are screenshots of consecutive pages from a single PDF document.',

@@ -13,7 +13,7 @@ import { hasQuizValidationErrors, validateQuizQuestions } from '@/lib/quiz-valid
 type GenerateMode = 'topic' | 'text' | 'url'
 type TypeMix = Record<string, number>
 
-const MODEL = process.env.QUIZ_AI_MODEL ?? 'google/gemini-2.0-flash-001'
+const MODEL = process.env.QUIZ_AI_MODEL ?? 'google/gemini-2.5-flash-lite'
 const MIN_TEXT_CHARS = 80
 const MAX_TEXT_CHARS = 12_000
 
@@ -49,6 +49,7 @@ ${input.source}`
 }
 
 function safeErrorMessage(status: number | null): { status: number; code: string; message: string } {
+  if (status === 404) return { status: 502, code: 'ai_model_unavailable', message: 'AI model is temporarily unavailable. Please try again in a minute.' }
   if (status === 429) return { status: 429, code: 'ai_rate_limited', message: 'AI service is busy. Please try again in a minute.' }
   if (status === 504 || status === 408) return { status: 504, code: 'ai_timeout', message: 'The AI took too long. Try fewer questions or shorter source text.' }
   if (status && status >= 500) return { status: 502, code: 'ai_provider_error', message: 'The AI provider had a temporary error.' }
