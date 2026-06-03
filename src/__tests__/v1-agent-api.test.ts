@@ -130,6 +130,21 @@ describe('v1 agent quiz API', () => {
     expect(chatCreateMock).not.toHaveBeenCalled()
   })
 
+  it('maps upstream 404 model failures to model-unavailable copy', async () => {
+    chatCreateMock.mockRejectedValueOnce(Object.assign(new Error('404 No endpoints found for google/gemini-2.0-flash-001.'), { status: 404 }))
+
+    const res = await generateQuiz(jsonReq('http://localhost/api/v1/quizzes/generate', {
+      mode: 'topic',
+      topic: 'photosynthesis',
+      questionCount: 3,
+    }))
+    const json = await res.json()
+
+    expect(res.status).toBe(502)
+    expect(json.error.code).toBe('ai_model_unavailable')
+    expect(json.error.message).toBe('AI model is temporarily unavailable. Please try again in a minute.')
+  })
+
   it('returns one owned quiz by id', async () => {
     prismaMock.quiz.findFirst.mockResolvedValueOnce({
       id: 'quiz-1',

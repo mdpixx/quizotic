@@ -24,7 +24,7 @@ The walking skeleton (Phase 2) proved the real-time quiz engine works. Phase 3 m
 | AI generation mode | Batch (all questions at once, host reviews) | Simpler UX, less back-and-forth |
 | Builder layout | Mode tabs (Manual / AI Topic / AI URL / AI Doc) | Puts AI front and center as the differentiator |
 | Language support | At creation time (host translates before saving) | Host controls quality, no per-participant real-time cost |
-| AI model | `google/gemini-2.0-flash-001` via OpenRouter | Best Indian language support, ~6× cheaper than Claude Haiku |
+| AI model | `google/gemini-2.5-flash-lite` via OpenRouter | Best Indian language support, ~6× cheaper than Claude Haiku |
 | API key | Reuse existing `OPENROUTER_API_KEY` from secrets vault | No new signup needed |
 | Data storage | localStorage (`quizotic_quizzes`) | No DB yet — added in Phase 4 |
 
@@ -150,7 +150,7 @@ The walking skeleton (Phase 2) proved the real-time quiz engine works. Phase 3 m
 
 **Behaviour:**
 - Uses OpenRouter base URL: `https://openrouter.ai/api/v1`
-- Model: `process.env.QUIZ_AI_MODEL` (default: `google/gemini-2.0-flash-001`)
+- Model: `process.env.QUIZ_AI_MODEL` (default: `google/gemini-2.5-flash-lite`)
 - Auth: `OPENROUTER_API_KEY` env var
 - System prompt: "You are a quiz generator. Return only valid JSON — no markdown, no explanation."
 - Prompt instructs model to use only these `timerSeconds` values: 10, 15, 20, 30, or 60
@@ -285,7 +285,7 @@ No Anthropic SDK needed — OpenRouter uses OpenAI-compatible API.
 OPENROUTER_API_KEY=
 
 # Configurable model (default: Gemini Flash 2)
-QUIZ_AI_MODEL=google/gemini-2.0-flash-001
+QUIZ_AI_MODEL=google/gemini-2.5-flash-lite
 ```
 
 ---
