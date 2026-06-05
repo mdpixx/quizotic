@@ -13,6 +13,7 @@ import { ImageUpload } from '@/components/ImageUpload'
 import { QuizThemePicker } from '@/components/host/QuizThemePicker'
 import { getQuizTheme, type QuizThemeId } from '@/lib/quiz-themes'
 import { formatQuizValidationIssues, hasQuizValidationErrors, validateQuizQuestions } from '@/lib/quiz-validation'
+import { resolveHostBackNavigation } from '@/lib/host-navigation'
 import QRCode from 'react-qr-code'
 import {
   DndContext,
@@ -1140,6 +1141,16 @@ function CreateQuizPageInner() {
   const requestedStart = searchParams.get('start')
   const requestedType = searchParams.get('type')
   const requestedIntent = searchParams.get('intent')
+  const closeCreateFlow = useCallback(() => {
+    const nav = resolveHostBackNavigation({
+      returnTo: searchParams.get('returnTo'),
+      referrer: typeof document !== 'undefined' ? document.referrer : null,
+      currentOrigin: typeof window !== 'undefined' ? window.location.origin : null,
+      fallback: editId ? '/host/quizzes' : '/host/studio',
+    })
+    if (nav.kind === 'back') router.back()
+    else router.push(nav.href)
+  }, [editId, router, searchParams])
   const intentCfg = isKnownIntent(requestedIntent) ? INTENT_CONFIG[requestedIntent] : null
   // Precedence: an explicit ?start= / ?type= param wins, then the intent default, then global.
   const initialTab: Tab = TAB_VALUES.includes(requestedStart as Tab)
@@ -1983,16 +1994,16 @@ function CreateQuizPageInner() {
 
       {/* ── Title-first modal ── */}
       {showTitleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }} onClick={() => router.push('/host')}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }} onClick={closeCreateFlow}>
           <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md relative" onClick={e => e.stopPropagation()}>
-            <button onClick={() => router.push('/host')} className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors text-lg" aria-label="Cancel">x</button>
+            <button onClick={closeCreateFlow} className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors text-lg" aria-label="Cancel">x</button>
             <h2 className="text-xl font-black mb-1" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Name your quiz</h2>
             <p className="text-sm mb-6" style={{ color: '#94A3B8' }}>You can edit this any time.</p>
             <form onSubmit={handleModalSubmit} className="space-y-3">
               <input type="text" placeholder="Quiz title *" value={modalTitle} onChange={e => setModalTitle(e.target.value)} autoFocus className="w-full border border-gray-300 rounded-xl px-4 py-3 text-base font-semibold focus:outline-none focus:ring-2 focus:ring-blue-200" />
               <input type="text" placeholder="Subject / tag (optional)" value={modalSubject} onChange={e => setModalSubject(e.target.value)} className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
               <button type="submit" disabled={!modalTitle.trim()} className="w-full py-3 font-bold rounded-xl transition-opacity hover:opacity-90 disabled:opacity-40" style={{ background: '#F5E642', color: '#0D0D0D' }}>Start building</button>
-              <button type="button" onClick={() => router.push('/host')} className="w-full py-2.5 text-sm font-semibold text-gray-500 hover:text-gray-700 transition-colors">Cancel</button>
+              <button type="button" onClick={closeCreateFlow} className="w-full py-2.5 text-sm font-semibold text-gray-500 hover:text-gray-700 transition-colors">Cancel</button>
             </form>
           </div>
         </div>
@@ -2008,7 +2019,7 @@ function CreateQuizPageInner() {
           <div className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black" style={{ background: '#F5E642', color: '#0D0D0D' }}>Q</div>
           <span className="text-sm font-extrabold hidden sm:inline" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Quizotic</span>
         </Link>
-        <button onClick={() => router.push(editId ? '/host/quizzes' : '/host')} className="w-9 h-9 rounded-lg border flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors flex-shrink-0" style={{ borderColor: '#E2E8F0' }}>
+        <button onClick={closeCreateFlow} className="w-9 h-9 rounded-lg border flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors flex-shrink-0" style={{ borderColor: '#E2E8F0' }}>
           <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4"><path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </button>
         <div className="flex-1 min-w-0">
