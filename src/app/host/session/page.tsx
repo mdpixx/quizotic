@@ -25,7 +25,7 @@ import { ShareQuizotic } from '@/components/ShareQuizotic'
 import { JoinPill } from '@/components/host/JoinPill'
 import { EndQuizConfirmModal } from '@/components/host/EndQuizConfirmModal'
 import { getQuizTheme } from '@/lib/quiz-themes'
-import { buildLeaderboardStageRows, getPostQuestionAction } from '@/lib/host-stage'
+import { buildLeaderboardStageRows, getHostQuestionFit, getPostQuestionAction } from '@/lib/host-stage'
 import { startClockSync, getServerNow, resyncClock } from '@/lib/clock-sync'
 
 type Phase = 'loading' | 'error' | 'idle' | 'lobby' | 'question' | 'standings' | 'ended'
@@ -249,6 +249,7 @@ export default function SessionPage() {
   // Shared-screen classroom mode — phones show only colour tap zones, no
   // question text. Falls back to full-device for non-MCQ types automatically.
   const [displayMode, setDisplayMode] = useState<'full-device' | 'shared-screen'>('full-device')
+  const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(false)
   const [teamCount, setTeamCount] = useState(2)
   const [socketConnected, setSocketConnected] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -395,6 +396,17 @@ export default function SessionPage() {
   }, [phase, gameCode])
 
   const currentQuestion = quiz?.questions[questionIndex] ?? null
+  const isAnswerRevealStage = Boolean(
+    currentQuestion && isScoredType(currentQuestion.type) && questionEnded && correctRevealed,
+  )
+  const hostQuestionFit = currentQuestion
+    ? getHostQuestionFit({
+        stage: isAnswerRevealStage ? 'reveal' : 'live',
+        questionText: currentQuestion.text,
+        optionTexts: (getEffectiveOptions(currentQuestion) ?? []).map(getOptionText),
+        hasExplanation: Boolean(explanation),
+      })
+    : null
 
   useEffect(() => {
     // useState lazy initializer already loaded the quiz from localStorage —
@@ -1049,197 +1061,238 @@ export default function SessionPage() {
 
       {/* IDLE */}
       {phase === 'idle' && quiz && (
-        <div className="p-4 max-w-2xl mx-auto py-8 space-y-4">
-          {/* Back button — lets host return to the builder to edit the quiz
-              before actually going live. Clears the active session so the
-              builder doesn't think a session is already running. */}
+        <div className="mx-auto max-w-5xl px-4 py-6 md:py-8">
           <button
             onClick={() => {
               clearActiveSession()
               router.push(quiz?.id ? `/host/create?id=${quiz.id}` : '/host')
             }}
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-gray-700 transition-colors"
+            className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-gray-700 transition-colors"
           >
             <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4">
               <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            Back to editor
+            Back to edit
           </button>
-          <h1 className="text-4xl font-black mb-1" style={{ color: '#0F1B3D' }}>{quiz.title}</h1>
-          <p className="text-gray-500 text-lg">{quiz.questions.length} question{quiz.questions.length !== 1 ? 's' : ''}</p>
 
-          {/* Question preview */}
-          <div className="space-y-2">
-            {quiz.questions.map((q, i) => (
-              <div key={q.id} className="bg-white rounded-xl border border-gray-200 p-3 flex items-center gap-3 shadow-sm">
-                <span className="text-xs font-bold text-gray-400 w-5 flex-shrink-0">{i + 1}</span>
-                <p className="text-sm text-gray-700 truncate">{q.text}</p>
-              </div>
-            ))}
-          </div>
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+            <section className="rounded-3xl border bg-white p-5 shadow-sm md:p-7" style={{ borderColor: '#E2E8F0' }}>
+              <p className="text-[11px] font-black uppercase tracking-[0.16em]" style={{ color: '#16A34A' }}>Ready to host</p>
+              <h1 className="mt-2 text-3xl font-black leading-tight md:text-5xl" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>{quiz.title}</h1>
+              <p className="mt-3 text-sm md:text-base" style={{ color: '#64748B' }}>
+                {quiz.questions.length} question{quiz.questions.length !== 1 ? 's' : ''} ready. Start the lobby, share the join code, and begin when participants arrive.
+              </p>
 
-          {/* Session Mode selector */}
-          <div>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Session Mode</p>
-            <div className="grid grid-cols-2 gap-3">
-              {([
-                { mode: 'competitive' as const, label: 'Competitive', desc: 'Live leaderboard, speed scoring', icon: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z', comingSoon: false },
-                { mode: 'accuracy' as const, label: 'Accuracy', desc: '100 pts per correct, no speed pressure', icon: 'M12 2l1.5 4.5L18 8l-4 3.5L15 16l-3-2-3 2 1-4.5L6 8l4.5-1.5L12 2z', comingSoon: false },
-                { mode: 'reflection' as const, label: 'Reflection', desc: 'Calmer pace, results at end', icon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z', comingSoon: false },
-              ]).map(opt => (
-                <button
-                  key={opt.mode}
-                  onClick={() => !opt.comingSoon && setSessionMode(opt.mode)}
-                  disabled={opt.comingSoon}
-                  className={`rounded-2xl p-4 border-2 text-left transition-all ${
-                    opt.comingSoon
-                      ? 'border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed'
-                      : sessionMode === opt.mode
-                      ? 'border-violet-500 bg-violet-50 shadow-sm'
-                      : 'border-gray-200 bg-white'
-                  }`}
-                >
-                  <svg className="w-6 h-6 mb-2" viewBox="0 0 24 24" fill="none" stroke={!opt.comingSoon && sessionMode === opt.mode ? '#0F1B3D' : '#9CA3AF'} strokeWidth="2">
-                    <path d={opt.icon} strokeLinejoin="round" strokeLinecap="round"/>
-                  </svg>
-                  <p className={`font-bold text-sm ${!opt.comingSoon && sessionMode === opt.mode ? 'text-violet-700' : 'text-gray-900'}`}>{opt.label}</p>
-                  <p className="text-xs text-gray-500 mt-0.5 leading-tight">{opt.desc}</p>
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-gray-400 mt-2">More modes coming — see the roadmap.</p>
-          </div>
-
-          {/* Anonymous mode toggle */}
-          <div className="flex items-center justify-between bg-white rounded-xl border p-4 shadow-sm"
-            style={{ borderColor: '#DBEAFE' }}>
-            <div>
-              <p className="font-bold text-sm" style={{ color: '#1E1B4B' }}>Anonymous Mode</p>
-              <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Hides participant names — shows archetypes only</p>
-            </div>
-            <button
-              onClick={() => setAnonymousMode(m => !m)}
-              aria-pressed={anonymousMode}
-              aria-label="Toggle anonymous mode"
-              className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
-              style={{ background: anonymousMode ? '#0F1B3D' : '#E5E7EB' }}
-            >
-              <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${anonymousMode ? 'translate-x-6' : 'translate-x-0.5'}`} />
-            </button>
-          </div>
-
-          {/* Display mode toggle — shared-screen vs full-device */}
-          <div className="bg-white rounded-xl border p-4 shadow-sm" style={{ borderColor: '#FEF3C7' }}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-bold text-sm" style={{ color: '#1E1B4B' }}>Shared-Screen Mode</p>
-                <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Phones show colour buttons only — host display shows the question. Best for in-room classrooms.</p>
-              </div>
-              <button
-                onClick={() => setDisplayMode(m => m === 'shared-screen' ? 'full-device' : 'shared-screen')}
-                aria-pressed={displayMode === 'shared-screen'}
-                aria-label="Toggle shared-screen mode"
-                className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
-                style={{ background: displayMode === 'shared-screen' ? '#0F1B3D' : '#E5E7EB' }}
-              >
-                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${displayMode === 'shared-screen' ? 'translate-x-6' : 'translate-x-0.5'}`} />
-              </button>
-            </div>
-          </div>
-
-          {/* Team mode toggle */}
-          <div className="bg-white rounded-xl border p-4 shadow-sm" style={{ borderColor: '#DBEAFE' }}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-bold text-sm" style={{ color: '#1E1B4B' }}>Team Mode</p>
-                <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Assign participants to teams automatically</p>
-              </div>
-              <button
-                onClick={() => setTeamMode(m => !m)}
-                aria-pressed={teamMode}
-                aria-label="Toggle team mode"
-                className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
-                style={{ background: teamMode ? '#0F1B3D' : '#E5E7EB' }}
-              >
-                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${teamMode ? 'translate-x-6' : 'translate-x-0.5'}`} />
-              </button>
-            </div>
-            {teamMode && (
-              <div className="mt-3 flex items-center gap-3">
-                <span className="text-sm font-semibold text-gray-600">Teams:</span>
-                {[2, 3, 4, 5, 6].map(n => (
-                  <button
-                    key={n}
-                    onClick={() => setTeamCount(n)}
-                    className={`w-9 h-9 rounded-lg font-bold text-sm transition-all ${
-                      teamCount === n
-                        ? 'text-white shadow-sm'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                    style={teamCount === n ? { background: '#0F1B3D' } : undefined}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Ghost Mode toggle */}
-          {plan === 'pro' && (
-            <div className="bg-white rounded-xl border p-4 shadow-sm" style={{ borderColor: '#E0E7FF' }}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-bold text-sm" style={{ color: '#1E1B4B' }}>Ghost Mode</p>
-                  <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Race against top players from a past session</p>
+              <div className="mt-6 grid gap-2 sm:grid-cols-3">
+                <div className="rounded-2xl border px-4 py-3" style={{ borderColor: '#E2E8F0', background: '#F8FAFC' }}>
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: '#94A3B8' }}>Mode</p>
+                  <p className="mt-1 text-sm font-black capitalize" style={{ color: '#0F1B3D' }}>{sessionMode}</p>
                 </div>
-                <button
-                  onClick={() => setGhostMode(m => !m)}
-                  aria-pressed={ghostMode}
-                  aria-label="Toggle ghost mode"
-                  className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
-                  style={{ background: ghostMode ? '#7C3AED' : '#E5E7EB' }}
-                >
-                  <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${ghostMode ? 'translate-x-6' : 'translate-x-0.5'}`} />
-                </button>
+                <div className="rounded-2xl border px-4 py-3" style={{ borderColor: '#E2E8F0', background: '#F8FAFC' }}>
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: '#94A3B8' }}>Names</p>
+                  <p className="mt-1 text-sm font-black" style={{ color: '#0F1B3D' }}>{anonymousMode ? 'Anonymous' : 'Visible'}</p>
+                </div>
+                <div className="rounded-2xl border px-4 py-3" style={{ borderColor: '#E2E8F0', background: '#F8FAFC' }}>
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: '#94A3B8' }}>Teams</p>
+                  <p className="mt-1 text-sm font-black" style={{ color: '#0F1B3D' }}>{teamMode ? `${teamCount} teams` : 'Off'}</p>
+                </div>
               </div>
-              {ghostMode && (
-                <div className="mt-3">
-                  {ghostCandidates.length === 0 ? (
-                    <p className="text-xs text-gray-400">No past sessions found for this quiz.</p>
-                  ) : (
-                    <select
-                      value={ghostSessionId}
-                      onChange={e => setGhostSessionId(e.target.value)}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
-                    >
-                      <option value="">Select a session to ghost…</option>
-                      {ghostCandidates.map(c => (
-                        <option key={c.id} value={c.id}>
-                          {c.date} · {c.participantCount} players · Top: {c.topName} ({c.topScore} pts)
-                        </option>
-                      ))}
-                    </select>
-                  )}
+
+              <div className="mt-6 space-y-2">
+                {quiz.questions.slice(0, 4).map((q, i) => (
+                  <div key={q.id} className="flex items-center gap-3 rounded-xl border bg-white p-3 shadow-sm" style={{ borderColor: '#E2E8F0' }}>
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-black" style={{ background: '#EEF2FF', color: '#4F46E5' }}>{i + 1}</span>
+                    <p className="min-w-0 truncate text-sm font-semibold" style={{ color: '#334155' }}>{q.text}</p>
+                  </div>
+                ))}
+                {quiz.questions.length > 4 && (
+                  <p className="px-1 text-xs font-semibold" style={{ color: '#94A3B8' }}>+ {quiz.questions.length - 4} more question{quiz.questions.length - 4 === 1 ? '' : 's'}</p>
+                )}
+              </div>
+
+              {sessionError && (
+                <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+                  {sessionError}
                 </div>
               )}
-            </div>
-          )}
 
-          {sessionError && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 text-sm font-medium">
-              {sessionError}
-            </div>
-          )}
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                <button
+                  onClick={createSession}
+                  disabled={!socketConnected || creating}
+                  className="flex-1 rounded-2xl py-4 text-lg font-black transition-all hover:opacity-90 disabled:opacity-50"
+                  style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D', boxShadow: '4px 4px 0 #0D0D0D', fontFamily: 'var(--font-heading)' }}
+                >
+                  {!socketConnected ? 'Connecting...' : creating ? 'Starting lobby...' : 'Start lobby'}
+                </button>
+                <button
+                  onClick={() => {
+                    clearActiveSession()
+                    router.push(quiz?.id ? `/host/create?id=${quiz.id}` : '/host')
+                  }}
+                  className="rounded-2xl border px-5 py-4 text-sm font-black transition-all hover:bg-gray-50"
+                  style={{ borderColor: '#CBD5E1', color: '#334155' }}
+                >
+                  Back to edit
+                </button>
+              </div>
+            </section>
 
-          <button
-            onClick={createSession}
-            disabled={!socketConnected || creating}
-            className="w-full font-black rounded-2xl py-5 text-xl transition-all hover:opacity-90 disabled:opacity-50"
-            style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
-          >
-            {!socketConnected ? 'Connecting...' : creating ? 'Creating Session...' : 'Create Session'}
-          </button>
+            <aside className="space-y-3">
+              <section className="rounded-3xl border bg-white p-4 shadow-sm" style={{ borderColor: '#E2E8F0' }}>
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: '#7C3AED' }}>Quick settings</p>
+                    <p className="text-xs font-semibold" style={{ color: '#94A3B8' }}>Defaults are ready to start.</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <p className="mb-2 text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: '#94A3B8' }}>Mode</p>
+                    <div className="grid gap-2">
+                      {([
+                        { mode: 'competitive' as const, label: 'Competitive', desc: 'Leaderboard + speed' },
+                        { mode: 'accuracy' as const, label: 'Accuracy', desc: 'Correctness only' },
+                        { mode: 'reflection' as const, label: 'Reflection', desc: 'Calmer review' },
+                      ]).map(opt => (
+                        <button
+                          key={opt.mode}
+                          onClick={() => setSessionMode(opt.mode)}
+                          className="flex items-center justify-between rounded-xl border px-3 py-2.5 text-left transition-all"
+                          style={{
+                            borderColor: sessionMode === opt.mode ? '#7C3AED' : '#E2E8F0',
+                            background: sessionMode === opt.mode ? '#F5F3FF' : '#FFFFFF',
+                          }}
+                        >
+                          <span>
+                            <span className="block text-sm font-black" style={{ color: '#0F1B3D' }}>{opt.label}</span>
+                            <span className="block text-xs" style={{ color: '#64748B' }}>{opt.desc}</span>
+                          </span>
+                          {sessionMode === opt.mode && <span className="text-sm font-black" style={{ color: '#7C3AED' }}>✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setAnonymousMode(m => !m)}
+                    aria-pressed={anonymousMode}
+                    className="flex w-full items-center justify-between rounded-xl border px-3 py-3 text-left transition-all"
+                    style={{ borderColor: '#E2E8F0', background: '#FFFFFF' }}
+                  >
+                    <span>
+                      <span className="block text-sm font-black" style={{ color: '#0F1B3D' }}>Names</span>
+                      <span className="block text-xs" style={{ color: '#64748B' }}>{anonymousMode ? 'Anonymous archetypes only' : 'Participant names visible'}</span>
+                    </span>
+                    <span className="rounded-full px-2.5 py-1 text-[11px] font-black" style={{ background: anonymousMode ? '#0F1B3D' : '#ECFDF5', color: anonymousMode ? '#F5E642' : '#047857' }}>
+                      {anonymousMode ? 'Anonymous' : 'Visible'}
+                    </span>
+                  </button>
+
+                  <div className="rounded-xl border p-3" style={{ borderColor: '#E2E8F0', background: '#FFFFFF' }}>
+                    <button
+                      onClick={() => setTeamMode(m => !m)}
+                      aria-pressed={teamMode}
+                      className="flex w-full items-center justify-between text-left"
+                    >
+                      <span>
+                        <span className="block text-sm font-black" style={{ color: '#0F1B3D' }}>Teams</span>
+                        <span className="block text-xs" style={{ color: '#64748B' }}>{teamMode ? `${teamCount} automatic teams` : 'Individual play'}</span>
+                      </span>
+                      <span className="rounded-full px-2.5 py-1 text-[11px] font-black" style={{ background: teamMode ? '#EEF2FF' : '#F8FAFC', color: teamMode ? '#4F46E5' : '#64748B' }}>
+                        {teamMode ? 'On' : 'Off'}
+                      </span>
+                    </button>
+                    {teamMode && (
+                      <div className="mt-3 flex items-center gap-2">
+                        {[2, 3, 4, 5, 6].map(n => (
+                          <button
+                            key={n}
+                            onClick={() => setTeamCount(n)}
+                            className="h-8 w-8 rounded-lg text-xs font-black transition-all"
+                            style={teamCount === n ? { background: '#0F1B3D', color: '#FFFFFF' } : { background: '#F1F5F9', color: '#64748B' }}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border bg-white p-4 shadow-sm" style={{ borderColor: '#E2E8F0' }}>
+                <button
+                  onClick={() => setAdvancedSettingsOpen(open => !open)}
+                  className="flex w-full items-center justify-between text-left"
+                >
+                  <span>
+                    <span className="block text-sm font-black" style={{ color: '#0F1B3D' }}>Advanced settings</span>
+                    <span className="block text-xs" style={{ color: '#94A3B8' }}>Shared-screen and pro race options</span>
+                  </span>
+                  <span className="text-lg font-black" style={{ color: '#64748B' }}>{advancedSettingsOpen ? '−' : '+'}</span>
+                </button>
+
+                {advancedSettingsOpen && (
+                  <div className="mt-4 space-y-3 border-t pt-4" style={{ borderColor: '#E2E8F0' }}>
+                    <button
+                      onClick={() => setDisplayMode(m => m === 'shared-screen' ? 'full-device' : 'shared-screen')}
+                      aria-pressed={displayMode === 'shared-screen'}
+                      className="flex w-full items-center justify-between rounded-xl border px-3 py-3 text-left"
+                      style={{ borderColor: '#FEF3C7', background: '#FFFBEB' }}
+                    >
+                      <span>
+                        <span className="block text-sm font-black" style={{ color: '#0F1B3D' }}>Shared-screen mode</span>
+                        <span className="block text-xs" style={{ color: '#92400E' }}>Phones show colour buttons only</span>
+                      </span>
+                      <span className="rounded-full px-2.5 py-1 text-[11px] font-black" style={{ background: displayMode === 'shared-screen' ? '#0F1B3D' : '#FFFFFF', color: displayMode === 'shared-screen' ? '#F5E642' : '#92400E' }}>
+                        {displayMode === 'shared-screen' ? 'On' : 'Off'}
+                      </span>
+                    </button>
+
+                    {plan === 'pro' && (
+                      <div className="rounded-xl border p-3" style={{ borderColor: '#E0E7FF', background: '#F8FAFC' }}>
+                        <button
+                          onClick={() => setGhostMode(m => !m)}
+                          aria-pressed={ghostMode}
+                          className="flex w-full items-center justify-between text-left"
+                        >
+                          <span>
+                            <span className="block text-sm font-black" style={{ color: '#0F1B3D' }}>Ghost mode</span>
+                            <span className="block text-xs" style={{ color: '#64748B' }}>Race against top players from a past session</span>
+                          </span>
+                          <span className="rounded-full px-2.5 py-1 text-[11px] font-black" style={{ background: ghostMode ? '#7C3AED' : '#FFFFFF', color: ghostMode ? '#FFFFFF' : '#64748B' }}>
+                            {ghostMode ? 'On' : 'Off'}
+                          </span>
+                        </button>
+                        {ghostMode && (
+                          <div className="mt-3">
+                            {ghostCandidates.length === 0 ? (
+                              <p className="text-xs text-gray-400">No past sessions found for this quiz.</p>
+                            ) : (
+                              <select
+                                value={ghostSessionId}
+                                onChange={e => setGhostSessionId(e.target.value)}
+                                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                              >
+                                <option value="">Select a session to ghost…</option>
+                                {ghostCandidates.map(c => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.date} · {c.participantCount} players · Top: {c.topName} ({c.topScore} pts)
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
+            </aside>
+          </div>
         </div>
       )}
 
@@ -1423,7 +1476,7 @@ export default function SessionPage() {
           initial={reduceStageMotion ? false : { opacity: 0, y: 18, scale: 0.99 }}
           animate={reduceStageMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.32, ease: [0.22, 0.61, 0.36, 1] }}
-          className="min-h-svh md:h-screen md:max-h-screen md:overflow-y-auto overflow-y-auto px-4 pt-3 pb-3 lg:px-8 lg:pt-4 lg:pb-4 flex flex-col gap-3 host-question-stage"
+          className={`h-svh max-h-svh overflow-hidden px-4 pt-3 pb-3 lg:px-8 lg:pt-4 lg:pb-4 flex flex-col gap-3 host-question-stage ${isAnswerRevealStage ? 'host-reveal-stage' : ''}`}
           style={{
             background: 'linear-gradient(135deg, #071126 0%, #0F1B3D 55%, #102A43 100%)',
             color: '#FFFFFF',
@@ -1459,42 +1512,68 @@ export default function SessionPage() {
             </div>
           )}
 
-          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
-            <div>
-              <span className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: 'rgba(255,255,255,0.52)' }}>
-                Live Question
-              </span>
-              <div className="mt-1 flex items-center gap-3">
-                <span className="text-3xl md:text-4xl font-black tabular-nums" style={{ fontFamily: 'var(--font-heading)', color: '#F5E642' }}>
+          {isAnswerRevealStage ? (
+            <div className="host-reveal-topbar max-w-7xl mx-auto w-full flex items-center justify-between gap-3 rounded-2xl px-4 py-2">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="text-xs font-black uppercase tracking-[0.22em]" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  Answer Reveal
+                </span>
+                <span className="text-2xl font-black tabular-nums" style={{ color: '#F5E642', fontFamily: 'var(--font-heading)' }}>
                   Q{questionIndex + 1}
                 </span>
-                <span className="text-lg md:text-xl font-bold" style={{ color: 'rgba(255,255,255,0.72)' }}>
+                <span className="text-sm font-bold whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.7)' }}>
                   of {quiz.questions.length}
                 </span>
               </div>
-            </div>
-            <div className="flex flex-wrap items-center justify-start lg:justify-end gap-3">
-              {currentQuestion.timerSeconds > 0 && (
-                questionStartedAt == null || Date.now() < questionStartedAt ? (
-                  <span className="min-w-16 text-center text-sm font-semibold animate-pulse px-4 py-2 rounded-full" style={{ color: '#F5E642', background: 'rgba(255,255,255,0.08)' }}>Loading…</span>
-                ) : (
-                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(15,27,61,0.42)' }}>
-                    <CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} />
-                  </div>
-                )
-              )}
-              <span className="inline-flex h-14 items-center rounded-full px-5 text-xl font-black tabular-nums whitespace-nowrap" style={{ color: '#0F1B3D', background: '#F5E642', boxShadow: '0 6px 0 rgba(0,0,0,0.24)' }}>
-                {answered}/{connectedCount}
-                <span className="ml-2 text-sm uppercase tracking-wider">answered</span>
-              </span>
-              <div className="hidden xl:block">
-                <JoinPill gameCode={gameCode} variant="dock" />
-              </div>
-              <div className="hidden md:block xl:hidden">
-                <JoinPill gameCode={gameCode} variant="compact" />
+              <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+                <span className="host-reveal-chip">
+                  {answered}/{connectedCount} answered
+                </span>
+                {gameCode && (
+                  <span className="host-reveal-chip hidden sm:inline-flex">
+                    Join {gameCode}
+                  </span>
+                )}
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+              <div>
+                <span className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: 'rgba(255,255,255,0.52)' }}>
+                  Live Question
+                </span>
+                <div className="mt-1 flex items-center gap-3">
+                  <span className="text-3xl md:text-4xl font-black tabular-nums" style={{ fontFamily: 'var(--font-heading)', color: '#F5E642' }}>
+                    Q{questionIndex + 1}
+                  </span>
+                  <span className="text-lg md:text-xl font-bold" style={{ color: 'rgba(255,255,255,0.72)' }}>
+                    of {quiz.questions.length}
+                  </span>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center justify-start lg:justify-end gap-3">
+                {currentQuestion.timerSeconds > 0 && (
+                  questionStartedAt == null || Date.now() < questionStartedAt ? (
+                    <span className="min-w-16 text-center text-sm font-semibold animate-pulse px-4 py-2 rounded-full" style={{ color: '#F5E642', background: 'rgba(255,255,255,0.08)' }}>Loading…</span>
+                  ) : (
+                    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(15,27,61,0.42)' }}>
+                      <CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} />
+                    </div>
+                  )
+                )}
+                <span className="inline-flex h-14 items-center rounded-full px-5 text-xl font-black tabular-nums whitespace-nowrap" style={{ color: '#0F1B3D', background: '#F5E642', boxShadow: '0 6px 0 rgba(0,0,0,0.24)' }}>
+                  {answered}/{connectedCount}
+                  <span className="ml-2 text-sm uppercase tracking-wider">answered</span>
+                </span>
+                <div className="hidden xl:block">
+                  <JoinPill gameCode={gameCode} variant="dock" />
+                </div>
+                <div className="hidden md:block xl:hidden">
+                  <JoinPill gameCode={gameCode} variant="compact" />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Progress bar */}
           <div className="max-w-7xl mx-auto h-3 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.14)' }}>
@@ -1507,7 +1586,7 @@ export default function SessionPage() {
             />
           </div>
 
-          {isHostStagePreview && (
+          {isHostStagePreview && !isAnswerRevealStage && (
             <div className="max-w-7xl mx-auto flex flex-wrap items-center gap-2 rounded-2xl p-3" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.16)' }}>
               <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: 'rgba(255,255,255,0.58)' }}>
                 Preview simulator
@@ -1552,7 +1631,7 @@ export default function SessionPage() {
 
           {/* Question card — text auto-scales so long questions stay in view */}
           <div
-            className={`host-question-card max-w-7xl mx-auto w-full rounded-[28px] shadow-2xl border ${currentQuestion.type === 'wordcloud' ? 'p-4 md:p-5 host-question-card-compact' : 'p-5 md:p-7'} ${currentQuestion.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
+            className={`host-question-card ${hostQuestionFit?.questionClass ?? 'host-question-fit-large'} max-w-7xl mx-auto w-full rounded-[28px] shadow-2xl border ${isAnswerRevealStage ? 'p-4 md:p-5' : currentQuestion.type === 'wordcloud' ? 'p-4 md:p-5 host-question-card-compact' : 'p-5 md:p-7'} ${currentQuestion.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
             style={{
               background: 'rgba(255,255,255,0.96)',
               boxShadow: '0 24px 80px rgba(0,0,0,0.35)',
@@ -1562,7 +1641,6 @@ export default function SessionPage() {
               className="font-bold leading-snug break-words"
               style={{
                 color: '#0F1B3D',
-                fontSize: 'clamp(1.6rem, 3vw, 2.8rem)',
                 lineHeight: 1.1,
                 fontFamily: 'var(--font-heading)',
               }}
@@ -1793,7 +1871,7 @@ export default function SessionPage() {
               )
             })()
           ) : (
-          <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 grid grid-cols-2 gap-3 md:gap-5 host-answer-stage host-options-stage">
+          <div className={`max-w-7xl mx-auto w-full flex-1 min-h-0 grid grid-cols-2 gap-3 md:gap-5 host-answer-stage host-options-stage ${hostQuestionFit?.optionClass ?? 'host-option-fit-large'}`}>
             {getEffectiveOptions(currentQuestion)?.map((opt, i) => {
               const votes = optionCounts[i] ?? 0
               const pct = connectedCount > 0 ? (votes / connectedCount) * 100 : 0
@@ -1824,8 +1902,8 @@ export default function SessionPage() {
                       {OPTION_LABELS[i]}
                     </span>
                     <span className="host-opt-text flex-1 min-w-0 break-words text-gray-900 font-black">{optText}</span>
-                    {correctRevealed && <span className="text-xl font-black tabular-nums text-gray-500">{votes}</span>}
-                    {highlightCorrect && <span className="text-green-600 text-2xl font-black">✓</span>}
+                    {correctRevealed && <span className="host-reveal-votes text-xl font-black tabular-nums text-gray-500">{votes}</span>}
+                    {highlightCorrect && <span className="host-reveal-check text-green-600 text-2xl font-black">✓</span>}
                   </div>
                   <div className={`h-3 ${highlightCorrect ? 'bg-[#BBF7D0]' : 'bg-gray-100'}`}>
                     <div
@@ -1841,7 +1919,7 @@ export default function SessionPage() {
 
           {isScoredType(currentQuestion.type) && questionEnded && correctRevealed && (
             <div
-              className="max-w-7xl mx-auto rounded-3xl p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-4"
+              className="host-reveal-footer max-w-7xl mx-auto rounded-3xl p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-4"
               style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.18)' }}
             >
               <div className="flex-1">
@@ -1855,7 +1933,7 @@ export default function SessionPage() {
                 </p>
               </div>
               {explanation && (
-                <p className="md:max-w-2xl text-base md:text-lg leading-snug font-semibold" style={{ color: 'rgba(255,255,255,0.82)' }}>
+                <p className={`md:max-w-2xl leading-snug font-semibold ${hostQuestionFit?.explanationClass ?? 'host-explanation-fit-roomy'}`} style={{ color: 'rgba(255,255,255,0.82)' }}>
                   {explanation}
                 </p>
               )}

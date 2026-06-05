@@ -187,19 +187,19 @@ export default function HostDashboard() {
           </p>
         </motion.div>
 
-        {/* One front door: the studio is where quiz / polls / slides / practice fork. */}
+        {/* One front door: a compact Quiz / Presentation choice. */}
         <div className="mt-8 mb-10">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mx-auto max-w-xl">
             <Link href="/host/studio" className="block rounded-2xl border p-7 text-center transition-all hover:scale-[1.01] hover:shadow-lg" style={{ background: '#fff', borderColor: '#E2E8F0' }}>
               <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mb-4 mx-auto" style={{ background: '#F3F4F6' }}>🧭</div>
-              <h2 className="text-2xl font-black mb-1" style={{ color: '#0F1B3D' }}>Create a Session</h2>
-              <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#92400E' }}>Scored quiz · live polls · slides · practice</p>
+              <h2 className="text-2xl font-black mb-1" style={{ color: '#0F1B3D' }}>Create</h2>
+              <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#92400E' }}>Quiz · Presentation</p>
               <p className="text-sm leading-relaxed mb-5 max-w-md mx-auto" style={{ color: '#64748B' }}>
-                Tell us what you want to run. Quizotic opens the right builder, source, and starting format — AI generation, document upload, PPTX import, templates, or a blank canvas.
+                Choose the product first. Quiz source choices like topic, PDF, URL, CSV, templates, and blank live inside the quiz builder.
               </p>
               <span className="btn-primary">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
-                Choose what to run
+                Choose quiz or presentation
               </span>
             </Link>
             <div className="mt-4 text-center">
@@ -389,10 +389,10 @@ export default function HostDashboard() {
         className="mb-5 grid gap-3 md:grid-cols-[1.2fr_1fr_1fr]">
         <Link href="/host/studio" className="dash-card p-4 transition-all hover:-translate-y-0.5 hover:shadow-md" style={{ textDecoration: 'none' }}>
           <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: '#7C3AED' }}>Next best action</p>
-          <h2 className="mt-1 text-lg font-black" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Start from intent</h2>
-          <p className="mt-1 text-xs leading-relaxed" style={{ color: '#64748B' }}>Choose test, opinions, slides, or self-paced practice before picking a builder.</p>
+          <h2 className="mt-1 text-lg font-black" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Create quiz or presentation</h2>
+          <p className="mt-1 text-xs leading-relaxed" style={{ color: '#64748B' }}>Pick the product first; choose quiz source inside the builder.</p>
         </Link>
-        <Link href="/host/create?intent=practice&start=aidoc" className="dash-card p-4 transition-all hover:-translate-y-0.5 hover:shadow-md" style={{ textDecoration: 'none' }}>
+        <Link href="/host/create?start=aidoc" className="dash-card p-4 transition-all hover:-translate-y-0.5 hover:shadow-md" style={{ textDecoration: 'none' }}>
           <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: '#16A34A' }}>Practice loop</p>
           <h2 className="mt-1 text-lg font-black" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Generate revision quiz</h2>
           <p className="mt-1 text-xs leading-relaxed" style={{ color: '#64748B' }}>Turn notes or a weak topic into a self-paced quiz for follow-up work.</p>

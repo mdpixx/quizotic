@@ -194,18 +194,76 @@ body {
   flex-shrink: 0;
 }
 
-/* The question card must never starve the answer options. Cap it to a share
-   of the stage and let a very long question scroll WITHIN the card instead of
-   pushing the options off-screen. */
+/* The question card must never starve the answer options. It scales down by
+   content pressure instead of creating an inner scroll on the presenter view. */
 .host-question-stage > .host-question-card {
   flex: 0 1 auto;
   min-height: 0;
-  max-height: 46%;
-  overflow-y: auto;
+  max-height: 34%;
+  overflow: hidden;
+}
+
+.host-question-card p {
+  font-size: clamp(1.55rem, 2.8vw, 2.8rem);
+}
+
+.host-question-card.host-question-fit-comfy p {
+  font-size: clamp(1.35rem, 2.25vw, 2.3rem);
+}
+
+.host-question-card.host-question-fit-tight p {
+  font-size: clamp(1.05rem, 1.7vw, 1.85rem);
+  line-height: 1.04 !important;
+}
+
+.host-question-card.host-question-fit-reveal p {
+  font-size: clamp(1.05rem, 1.78vw, 1.7rem);
+  line-height: 1.05 !important;
 }
 
 .host-question-stage .host-answer-stage {
   min-height: 0;
+}
+
+.host-reveal-stage {
+  gap: 0.55rem;
+}
+
+.host-reveal-topbar {
+  flex-shrink: 0;
+  min-height: 44px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+
+.host-reveal-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  border-radius: 999px;
+  padding: 0 0.8rem;
+  color: #0F1B3D;
+  background: #F5E642;
+  font-size: 0.78rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.host-reveal-stage > .max-w-7xl.h-3 {
+  display: none;
+}
+
+.host-question-stage.host-reveal-stage > .host-question-card {
+  flex: 0 0 auto;
+  max-height: none;
+  overflow: visible;
+  border-radius: 1.25rem;
+}
+
+.host-reveal-stage .host-question-card p {
+  font-size: clamp(1.35rem, 2.35vw, 2.25rem);
+  line-height: 1.06 !important;
 }
 
 .host-options-stage {
@@ -224,15 +282,96 @@ body {
   margin-top: auto;
 }
 
-/* Answer option text: fixed viewport-relative size (not text-length-dependent),
-   line-clamped so long answers truncate inside the fixed equal-height tile. */
+/* Answer option text: fixed viewport-relative size with pressure classes.
+   Do not line-clamp on the presenter view; hosts need the full answer visible. */
 .host-opt-text {
   font-size: clamp(1.05rem, 0.7rem + 1.3vw, 1.75rem);
+  line-height: 1.14;
+  overflow-wrap: anywhere;
+}
+
+.host-option-fit-comfy .host-opt-text {
+  font-size: clamp(0.95rem, 0.58rem + 1.05vw, 1.35rem);
+  line-height: 1.1;
+}
+
+.host-option-fit-tight .host-opt-text {
+  font-size: clamp(0.78rem, 0.5rem + 0.82vw, 1.05rem);
+  line-height: 1.06;
+}
+
+.host-option-fit-tight > div > div.flex-1 {
+  padding: 0.65rem 0.75rem;
+  gap: 0.65rem;
+}
+
+.host-option-fit-tight > div > div.flex-1 > span:first-child {
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 0.65rem;
+  font-size: 1.1rem;
+}
+
+.host-reveal-stage .host-options-stage {
+  gap: 0.65rem;
+}
+
+.host-reveal-stage .host-options-stage > div {
+  border-radius: 1rem;
+}
+
+.host-reveal-stage .host-options-stage > div > div.flex-1 {
+  padding: 0.75rem 0.9rem;
+  gap: 0.75rem;
+}
+
+.host-reveal-stage .host-options-stage > div > div.flex-1 > span:first-child {
+  width: 2.65rem;
+  height: 2.65rem;
+  border-radius: 0.75rem;
+  font-size: 1.2rem;
+}
+
+.host-reveal-stage .host-opt-text {
+  font-size: clamp(0.95rem, 1.25vw, 1.45rem);
+  line-height: 1.08;
+}
+
+.host-reveal-votes {
+  font-size: 0.95rem !important;
+}
+
+.host-reveal-check {
+  font-size: 1.35rem !important;
+}
+
+.host-explanation-fit-roomy {
+  font-size: clamp(1rem, 1.2vw, 1.125rem);
+}
+
+.host-explanation-fit-compact {
+  font-size: clamp(0.78rem, 0.9vw, 0.95rem);
   line-height: 1.2;
+}
+
+.host-reveal-footer {
+  flex-shrink: 0;
+  padding: 0.8rem 1.05rem !important;
+  border-radius: 1.1rem !important;
+}
+
+.host-reveal-footer p {
+  margin: 0;
+}
+
+.host-reveal-footer .host-explanation-fit-roomy,
+.host-reveal-footer .host-explanation-fit-compact {
   display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
   overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: clamp(0.74rem, 0.95vw, 0.95rem);
+  line-height: 1.2;
 }
 
 .host-ranking-stage {
@@ -280,15 +419,86 @@ body {
   }
 
   /* Short viewports (720p laptops / windowed projectors): guarantee the answer
-     options a readable floor and cap the question card harder. The stage
-     scrolls if question + options still exceed the viewport, rather than
-     crushing the options into clipped slivers. */
+     options a readable floor and cap the question card harder without scroll. */
   .host-question-stage .host-answer-stage {
     min-height: 248px;
   }
 
   .host-question-stage > .host-question-card {
-    max-height: 38%;
+    max-height: 28%;
+  }
+
+  .host-question-stage.host-reveal-stage > .host-question-card {
+    max-height: none;
+  }
+
+  .host-question-card p {
+    font-size: clamp(1.2rem, 2.25vw, 2rem);
+  }
+
+  .host-question-card.host-question-fit-tight p {
+    font-size: clamp(0.9rem, 1.45vw, 1.45rem);
+  }
+
+  .host-reveal-stage .host-question-card p {
+    font-size: clamp(1.05rem, 1.85vw, 1.55rem);
+  }
+
+  .host-question-card.host-question-fit-reveal p {
+    font-size: clamp(0.95rem, 1.55vw, 1.28rem);
+  }
+
+  .host-options-stage {
+    gap: 0.55rem;
+  }
+
+  .host-options-stage > div > div.flex-1 {
+    padding: 0.65rem 0.75rem;
+    gap: 0.65rem;
+  }
+
+  .host-opt-text {
+    font-size: clamp(0.78rem, 1.12vw, 1rem);
+    line-height: 1.06;
+  }
+
+  .host-option-fit-tight .host-opt-text {
+    font-size: clamp(0.68rem, 0.96vw, 0.86rem);
+  }
+
+  .host-reveal-topbar {
+    min-height: 38px;
+    padding-block: 0.35rem !important;
+  }
+
+  .host-reveal-chip {
+    min-height: 26px;
+    padding-inline: 0.65rem;
+    font-size: 0.7rem;
+  }
+
+  .host-reveal-stage .host-options-stage {
+    gap: 0.5rem;
+  }
+
+  .host-reveal-stage .host-options-stage > div > div.flex-1 {
+    padding: 0.55rem 0.7rem;
+    gap: 0.55rem;
+  }
+
+  .host-reveal-stage .host-options-stage > div > div.flex-1 > span:first-child {
+    width: 2.15rem;
+    height: 2.15rem;
+    border-radius: 0.6rem;
+    font-size: 1rem;
+  }
+
+  .host-reveal-stage .host-opt-text {
+    font-size: clamp(0.68rem, 0.98vw, 0.92rem);
+  }
+
+  .host-reveal-footer {
+    padding: 0.6rem 0.8rem !important;
   }
 }
 

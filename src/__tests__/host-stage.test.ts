@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildLeaderboardStageRows,
   getPostQuestionAction,
+  getHostQuestionFit,
 } from '../lib/host-stage'
 
 describe('buildLeaderboardStageRows', () => {
@@ -115,5 +116,88 @@ describe('getPostQuestionAction', () => {
       correctRevealed: true,
       isLastQuestion: true,
     })).toBe('end')
+  })
+})
+
+describe('getHostQuestionFit', () => {
+  it('keeps short questions in the large presenter treatment', () => {
+    expect(getHostQuestionFit({
+      questionText: 'Which planet is closest to the Sun?',
+      optionTexts: ['Mercury', 'Venus', 'Earth', 'Mars'],
+      hasExplanation: false,
+    })).toEqual({
+      questionClass: 'host-question-fit-large',
+      optionClass: 'host-option-fit-large',
+      explanationClass: 'host-explanation-fit-roomy',
+    })
+  })
+
+  it('tightens the presenter stage for long reveal content', () => {
+    const longQuestion = 'In a photosynthesis reaction, which of the following correctly describes the complete process by which light energy is converted into stored chemical energy in glucose?'
+    const longOptions = [
+      'Light is absorbed by chlorophyll, water is split to release oxygen, and ATP and NADPH power the Calvin cycle to fix carbon dioxide into glucose',
+      'Carbon dioxide is directly converted into oxygen by mitochondria during cellular respiration without any involvement of sunlight at all',
+      'Glucose is broken down into water and carbon dioxide, releasing stored light energy back into the surrounding environment',
+      'Oxygen molecules from the atmosphere are absorbed by roots and transported upward to leaves where they become glucose',
+    ]
+
+    expect(getHostQuestionFit({
+      questionText: longQuestion,
+      optionTexts: longOptions,
+      hasExplanation: true,
+    })).toEqual({
+      questionClass: 'host-question-fit-tight',
+      optionClass: 'host-option-fit-tight',
+      explanationClass: 'host-explanation-fit-compact',
+    })
+  })
+
+  it('uses a reveal-safe question treatment for long revealed questions', () => {
+    expect(getHostQuestionFit({
+      stage: 'reveal',
+      questionText: 'Which regulatory body oversees the Indian securities and stock market and protects investor interests across exchanges?',
+      optionTexts: [
+        'Securities and Exchange Board of India (SEBI), the statutory regulator for securities',
+        'Reserve Bank of India (RBI)',
+        'Ministry of Finance, Government of India',
+        'Planning Commission of India and NITI Aayog jointly oversee market regulation',
+      ],
+      hasExplanation: true,
+    })).toEqual({
+      questionClass: 'host-question-fit-reveal',
+      optionClass: 'host-option-fit-tight',
+      explanationClass: 'host-explanation-fit-compact',
+    })
+  })
+
+  it('keeps short revealed questions in the large presenter treatment', () => {
+    expect(getHostQuestionFit({
+      stage: 'reveal',
+      questionText: 'Which planet is closest to the Sun?',
+      optionTexts: ['Mercury', 'Venus', 'Earth', 'Mars'],
+      hasExplanation: true,
+    })).toEqual({
+      questionClass: 'host-question-fit-large',
+      optionClass: 'host-option-fit-large',
+      explanationClass: 'host-explanation-fit-roomy',
+    })
+  })
+
+  it('tightens long reveal options without shrinking a short revealed question', () => {
+    expect(getHostQuestionFit({
+      stage: 'reveal',
+      questionText: 'Who regulates securities markets in India?',
+      optionTexts: [
+        'Securities and Exchange Board of India, usually abbreviated as SEBI',
+        'Reserve Bank of India with support from the Ministry of Finance',
+        'National Stock Exchange and Bombay Stock Exchange acting together',
+        'NITI Aayog and the Planning Commission acting as market supervisors',
+      ],
+      hasExplanation: true,
+    })).toEqual({
+      questionClass: 'host-question-fit-large',
+      optionClass: 'host-option-fit-tight',
+      explanationClass: 'host-explanation-fit-compact',
+    })
   })
 })
