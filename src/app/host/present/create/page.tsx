@@ -17,6 +17,7 @@ import { SlideBgPicker } from '@/components/SlideBgPicker'
 import { SlideImage } from '@/components/SlideImage'
 import { draftKey, readDraft, writeDraft, clearDraft, formatDraftAge } from '@/lib/draft-storage'
 import { useAutosave } from '@/lib/use-autosave'
+import { resolveHostBackNavigation } from '@/lib/host-navigation'
 
 // ─── Slide type SVG icons ─────────────────────────────────────────────────────
 
@@ -1634,6 +1635,19 @@ function PresentCreatePageInner() {
   if (!presentationIdRef.current) {
     presentationIdRef.current = typeof crypto !== 'undefined' ? crypto.randomUUID() : `tmp-${Date.now()}`
   }
+  const closePresentationCreateFlow = useCallback(() => {
+    const params = typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search)
+      : null
+    const nav = resolveHostBackNavigation({
+      returnTo: params?.get('returnTo') ?? null,
+      referrer: typeof document !== 'undefined' ? document.referrer : null,
+      currentOrigin: typeof window !== 'undefined' ? window.location.origin : null,
+      fallback: editIdRef.current ? '/host/presentations' : '/host/studio',
+    })
+    if (nav.kind === 'back') router.back()
+    else router.push(nav.href)
+  }, [router])
 
   // Load existing presentation when editing — runs ONCE on mount only.
   // Reading searchParams imperatively here avoids subscribing to the param as
@@ -2256,7 +2270,7 @@ function PresentCreatePageInner() {
             <div className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black" style={{ background: '#F5E642', color: '#0D0D0D' }}>Q</div>
             <span className="text-sm font-extrabold hidden sm:inline" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Quizotic</span>
           </Link>
-          <button onClick={() => router.push('/host')}
+          <button onClick={closePresentationCreateFlow}
             className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-semibold transition-colors hover:bg-gray-100"
             style={{ color: '#9CA3AF' }}>
             <svg viewBox="0 0 16 16" fill="none" className="w-5 h-5">

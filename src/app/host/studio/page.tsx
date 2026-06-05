@@ -3,12 +3,12 @@
 import Link from 'next/link'
 
 const sourceShortcuts = [
-  { label: 'Topic', href: '/host/create?start=aitopic', note: 'Generate with AI' },
-  { label: 'PDF/DOCX', href: '/host/create?start=aidoc', note: 'Upload notes' },
-  { label: 'URL', href: '/host/create?start=aiurl', note: 'Read a page' },
-  { label: 'CSV', href: '/host/create?start=csv', note: 'Import bank' },
+  { label: 'Topic', href: '/host/create?start=aitopic&returnTo=%2Fhost%2Fstudio', note: 'Generate with AI' },
+  { label: 'PDF/DOCX', href: '/host/create?start=aidoc&returnTo=%2Fhost%2Fstudio', note: 'Upload notes' },
+  { label: 'URL', href: '/host/create?start=aiurl&returnTo=%2Fhost%2Fstudio', note: 'Read a page' },
+  { label: 'CSV', href: '/host/create?start=csv&returnTo=%2Fhost%2Fstudio', note: 'Import bank' },
   { label: 'Templates', href: '/host/templates', note: 'Ready-made' },
-  { label: 'Blank', href: '/host/create?start=manual', note: 'Manual build' },
+  { label: 'Blank', href: '/host/create?start=manual&returnTo=%2Fhost%2Fstudio', note: 'Manual build' },
 ]
 
 export default function StudioPage() {
@@ -32,7 +32,7 @@ export default function StudioPage() {
 
           <div className="grid gap-4 md:grid-cols-2">
             <Link
-              href="/host/create"
+              href="/host/create?returnTo=%2Fhost%2Fstudio"
               className="group rounded-2xl border p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg"
               style={{ borderColor: '#0F1B3D', background: '#FFFDE6', textDecoration: 'none' }}
             >
@@ -60,7 +60,7 @@ export default function StudioPage() {
             </Link>
 
             <Link
-              href="/host/present/create"
+              href="/host/present/create?returnTo=%2Fhost%2Fstudio"
               className="group rounded-2xl border bg-white p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg"
               style={{ borderColor: '#BFDBFE', textDecoration: 'none' }}
             >
