@@ -934,3 +934,11 @@ button.chip:active:not(:disabled) {
     font-size: max(16px, 1em) !important;
   }
 }
+
+/* Justified body prose — opt-in via className="prose-justify". Left-aligned on
+   narrow mobile (justified text creates ugly "rivers" in narrow columns),
+   justified from tablet up. */
+.prose-justify { text-align: left; }
+@media (min-width: 768px) {
+  .prose-justify { text-align: justify; }
+}

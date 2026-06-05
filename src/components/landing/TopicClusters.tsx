@@ -21,7 +21,7 @@ const CLUSTERS: Cluster[] = [
     ],
   },
   {
-    title: 'For Indian Classrooms',
+    title: 'For Classrooms',
     links: [
       { label: 'NCERT Quiz Generator', href: '/ncert-quiz-generator' },
       { label: 'For Teachers', href: '/for/teachers' },
@@ -37,7 +37,7 @@ const CLUSTERS: Cluster[] = [
       { label: 'Quizotic vs Quizizz', href: '/vs/quizizz' },
       { label: 'Quizotic vs Slido', href: '/vs/slido' },
       { label: 'Kahoot Alternatives', href: '/alternatives/kahoot' },
-      { label: 'Slido Alternatives India 2026', href: '/learn/slido-alternatives-india-2026' },
+      { label: 'Slido Alternatives 2026', href: '/learn/slido-alternatives-india-2026' },
     ],
   },
   {
