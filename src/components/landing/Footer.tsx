@@ -62,11 +62,11 @@ const SOLUTION_LINKS = [
 // reach the long tail.
 const GUIDE_LINKS = [
   { href: '/learn/how-to-run-a-live-quiz-cbse-classroom', label: 'Live quiz in CBSE class' },
-  { href: '/learn/best-quiz-app-jee-neet-coaching-institutes', label: 'Best quiz app for JEE/NEET' },
+  { href: '/learn/best-quiz-app-jee-neet-coaching-institutes', label: 'Best quiz app for coaching' },
   { href: '/learn/how-to-create-quiz-from-pdf', label: 'Make a quiz from a PDF' },
   { href: '/learn/cbse-class-10-free-quiz-questions', label: 'CBSE Class 10 quiz bank' },
   { href: '/learn/how-to-make-interactive-presentation', label: 'Interactive presentation guide' },
-  { href: '/learn/slido-alternatives-india-2026', label: 'Slido alternatives India' },
+  { href: '/learn/slido-alternatives-india-2026', label: 'Slido alternatives' },
   { href: '/learn/compliance-training-quiz-tool-india', label: 'Compliance training quizzes' },
   { href: '/learn/kahoot-pricing-india-vs-alternatives', label: 'Kahoot pricing vs alternatives' },
 ]

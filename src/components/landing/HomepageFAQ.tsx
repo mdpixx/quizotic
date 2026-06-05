@@ -3,11 +3,11 @@ import { JsonLd } from '@/components/seo/JsonLd'
 const FAQS = [
   {
     question: 'What is Quizotic?',
-    answer: 'Quizotic is a free AI quiz generator and live quiz platform built in India. It combines Kahoot-style competitive quizzes with Mentimeter-style interactive presentations — polls, word clouds, Q&A — in one browser-based tool. No app install for participants. INR billing with UPI.',
+    answer: 'Quizotic is a free AI quiz generator and live quiz platform. It combines Kahoot-style competitive quizzes with Mentimeter-style interactive presentations — polls, word clouds, Q&A — in one browser-based tool. No app install for participants.',
   },
   {
     question: 'How is Quizotic different from Kahoot, Quizizz, or Slido?',
-    answer: 'Quizotic supports 11 question types (vs Kahoot\'s 4), includes AI quiz generation on the free plan, adds Bloom\'s Taxonomy tagging and Confidence Grid diagnostics, and prices in INR with UPI. Unlike Slido, it includes a full competitive quiz engine. Unlike Quizizz, it is purpose-built for Indian curriculum (NCERT, CBSE) and priced locally.',
+    answer: 'Quizotic supports 11 question types (vs Kahoot\'s 4), includes AI quiz generation on the free plan, and adds Bloom\'s Taxonomy tagging and Confidence Grid diagnostics. Unlike Slido, it includes a full competitive quiz engine. Unlike Quizizz, it pairs AI generation with per-student Bloom-level reporting so you can see exactly where learners need work.',
   },
   {
     question: 'Can I generate quizzes from a PDF or NCERT chapter?',
@@ -15,11 +15,11 @@ const FAQS = [
   },
   {
     question: 'Does Quizotic work for corporate training?',
-    answer: 'Yes. Corporate trainers use Quizotic for gamified onboarding, compliance quizzes, live workshop polls, and audience Q&A. Team plans include multi-trainer accounts, shared quiz libraries, and bulk-export reports. INR billing with a domestic GST invoice.',
+    answer: 'Yes. Corporate trainers use Quizotic for gamified onboarding, compliance quizzes, live workshop polls, and audience Q&A. Team plans include multi-trainer accounts, shared quiz libraries, and bulk-export reports.',
   },
   {
-    question: 'What does Quizotic cost in India?',
-    answer: 'Free plan: up to 10 participants per live session, unlimited quizzes, all interaction types, 30 AI-generated questions per month — no credit card required. Pro: ₹499/month for up to 200 participants and unlimited AI generation. Team: ₹1,499/month for 5 host seats with shared libraries and dashboards. All plans accept UPI.',
+    question: 'What does Quizotic cost?',
+    answer: 'Quizotic is free to use right now: unlimited quizzes, all interaction types, and AI-generated questions, with no credit card required. Paid Pro and Team plans for larger audiences and team libraries are coming soon.',
   },
   {
     question: 'How does the AI quiz generator work?',
@@ -31,7 +31,7 @@ const FAQS = [
   },
   {
     question: 'Is there a free plan?',
-    answer: 'Yes. The free plan includes unlimited quiz creation, live sessions with up to 10 participants, all 11 question types, AI generation (30 questions/month), Bloom tagging, and session reports. No credit card required. Upgrade to Pro (₹499/month) for larger audiences.',
+    answer: 'Yes. The free plan includes unlimited quiz creation, live sessions, all 11 question types, AI generation, Bloom tagging, and session reports. No credit card required. Paid plans for larger audiences are coming soon.',
   },
 ]
 
@@ -71,7 +71,7 @@ export function HomepageFAQ() {
                 <summary style={{ fontWeight: 700, fontSize: 15, cursor: 'pointer', color: '#0F1B3D', lineHeight: 1.5 }}>
                   {f.question}
                 </summary>
-                <p style={{ fontSize: 14, lineHeight: 1.75, color: '#4B5563', marginTop: 12 }}>
+                <p className="prose-justify" style={{ fontSize: 14, lineHeight: 1.75, color: '#4B5563', marginTop: 12 }}>
                   {f.answer}
                 </p>
               </details>
