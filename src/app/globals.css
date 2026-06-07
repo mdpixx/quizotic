@@ -883,6 +883,108 @@ button.chip:active:not(:disabled) {
   line-height: 1.1;
 }
 
+/* ── Quiz builder mobile cleanup ───────────────────────────────── */
+@media (max-width: 767px) {
+  .quiz-builder-topbar {
+    max-width: 100vw;
+  }
+
+  .quiz-builder-actions {
+    margin-left: auto;
+  }
+
+  .quiz-builder-save-button,
+  .quiz-builder-live-button {
+    min-height: 38px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .quiz-theme-button {
+    min-width: 38px;
+    min-height: 38px;
+    justify-content: center;
+  }
+
+  .quiz-builder-live-button {
+    gap: 7px;
+  }
+
+  .quiz-preview-card {
+    box-shadow: 0 8px 24px rgba(15, 27, 61, 0.12) !important;
+  }
+
+  .quiz-preview-header {
+    max-height: 34dvh;
+    overflow-y: auto;
+  }
+
+  .quiz-question-textarea {
+    line-height: 1.22;
+  }
+
+  .quiz-answer-controls {
+    padding: 12px;
+  }
+
+  .quiz-correct-helper {
+    margin-bottom: 10px;
+    padding: 8px 10px;
+  }
+
+  .quiz-correct-helper p {
+    font-size: 11px;
+    line-height: 1.25;
+  }
+
+  .quiz-option-tile,
+  .quiz-option-inner {
+    min-height: 92px;
+  }
+
+  .quiz-option-inner {
+    padding-right: 38px;
+  }
+
+  .quiz-option-text {
+    font-size: 16px;
+    line-height: 1.2;
+  }
+
+  .quiz-preview-footer {
+    min-height: 50px;
+  }
+
+  .quiz-mobile-toolbar {
+    min-height: 52px;
+  }
+}
+
+@media (max-width: 360px) {
+  .quiz-builder-save-button,
+  .quiz-builder-live-button {
+    padding-left: 8px;
+    padding-right: 8px;
+    font-size: 12px;
+  }
+
+  .quiz-builder-live-full {
+    display: none;
+  }
+
+  .quiz-builder-live-short {
+    display: inline;
+  }
+}
+
+@media (min-width: 361px) {
+  .quiz-builder-live-short {
+    display: none;
+  }
+}
+
 /* WCAG 2.3.3 — honor the user's OS-level motion preference. Kills all
    keyframe animations, transitions, and smooth-scroll for users who opt out.
    Components that need behavioral adjustments (skipping intro phases, etc.)

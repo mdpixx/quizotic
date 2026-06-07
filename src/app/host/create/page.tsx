@@ -541,10 +541,10 @@ function QuestionPreview({
   }
 
   return (
-    <div className="w-full max-w-[1280px] rounded-2xl overflow-hidden h-full max-h-full flex flex-col" style={{ boxShadow: '0 12px 40px rgba(0,0,0,0.10)' }}>
+    <div className="quiz-preview-card w-full max-w-[1280px] rounded-xl md:rounded-2xl overflow-hidden h-full max-h-full flex flex-col" style={{ boxShadow: '0 12px 40px rgba(0,0,0,0.10)' }}>
       {/* Header — inline-editable question text */}
-      <div className="relative flex-shrink-0 px-6 md:px-10 py-4 md:py-5 text-center" style={{ background: '#FAFAF8', borderBottom: '1px solid #EDE8E0' }}>
-        <p className="text-xs md:text-sm font-bold uppercase tracking-widest mb-3" style={{ color: '#94A3B8' }}>
+      <div className="quiz-preview-header relative flex-shrink-0 px-4 md:px-10 py-3 md:py-5 text-center" style={{ background: '#FAFAF8', borderBottom: '1px solid #EDE8E0' }}>
+        <p className="text-[11px] md:text-sm font-bold uppercase tracking-widest mb-2 md:mb-3" style={{ color: '#94A3B8' }}>
           Question {index + 1} of {total}
         </p>
         <CharCount value={question.text} limit={QUESTION_CHAR_LIMIT} />
@@ -554,7 +554,7 @@ function QuestionPreview({
           placeholder="Type your question here..."
           rows={1}
           maxLength={180}
-          className="w-full font-extrabold leading-snug text-center bg-transparent outline-none resize-none border-0 focus:ring-2 focus:ring-blue-200 rounded-lg transition-all text-2xl md:text-3xl"
+          className="quiz-question-textarea w-full font-extrabold leading-snug text-center bg-transparent outline-none resize-none border-0 focus:ring-2 focus:ring-blue-200 rounded-lg transition-all text-lg sm:text-xl md:text-3xl"
           style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}
         />
       </div>
@@ -567,11 +567,11 @@ function QuestionPreview({
       )}
 
       {/* Options — inline-editable with bar visualization */}
-      <div id="q-answer-controls" className="bg-white p-4 md:p-5 flex-1 min-h-0 overflow-y-auto flex flex-col">
+      <div id="q-answer-controls" className="quiz-answer-controls bg-white p-3 md:p-5 flex-1 min-h-0 overflow-y-auto flex flex-col">
         {(question.type === 'mcq' || question.type === 'multiselect' || question.type === 'truefalse' || question.type === 'poll' || question.type === 'case') && opts.length > 0 && (
           <div className="w-full">
             {needsCorrectAnswer(question.type) && (
-              <div className="mb-3 flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}>
+              <div className="quiz-correct-helper mb-3 flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}>
                 <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-black" style={{ background: '#F59E0B', color: '#fff' }}>!</span>
                 <p className="text-xs font-bold">
                   {question.type === 'multiselect'
@@ -580,7 +580,7 @@ function QuestionPreview({
                 </p>
               </div>
             )}
-            <div className="grid grid-cols-2 grid-rows-2 gap-2 md:gap-3">
+            <div className="quiz-option-grid grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3">
             {opts.map((opt, i) => {
               const c = ANSWER_COLORS[i] ?? ANSWER_COLORS[0]
               const optText = getOptionText(opt)
@@ -590,7 +590,7 @@ function QuestionPreview({
               return (
                 <div
                   key={i}
-                  className="relative overflow-hidden rounded-xl transition-all h-[128px] md:h-[144px]"
+                  className="quiz-option-tile relative overflow-hidden rounded-xl transition-all min-h-[96px] sm:min-h-[128px] md:min-h-[144px]"
                   style={{
                     background: c.hex,
                     boxShadow: isCorrect
@@ -599,7 +599,7 @@ function QuestionPreview({
                   }}
                 >
                   <CharCount value={optText} limit={OPTION_CHAR_LIMIT} />
-                  <div className="flex items-center gap-3 px-3 py-2 md:px-4 md:py-2.5 h-full">
+                  <div className="quiz-option-inner flex items-start sm:items-center gap-3 px-3 py-3 md:px-4 md:py-2.5 min-h-[96px] sm:min-h-[128px] md:min-h-[144px]">
                     <button
                       type="button"
                       onClick={() => {
@@ -626,7 +626,7 @@ function QuestionPreview({
                       disabled={question.type === 'truefalse'}
                       rows={1}
                       maxLength={120}
-                      className="flex-1 text-base md:text-lg font-black bg-transparent outline-none border-0 text-white placeholder:text-white/60 disabled:opacity-70 resize-none leading-snug"
+                      className="quiz-option-text min-w-0 flex-1 text-base md:text-lg font-black bg-transparent outline-none border-0 text-white placeholder:text-white/60 disabled:opacity-70 resize-none leading-snug break-words"
                       style={{ textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}
                     />
                   </div>
@@ -782,7 +782,7 @@ function QuestionPreview({
       </div>
 
       {/* Footer */}
-      <div className="flex-shrink-0 bg-white border-t border-gray-100 px-5 py-3 flex items-center justify-between">
+      <div className="quiz-preview-footer flex-shrink-0 bg-white border-t border-gray-100 px-3 md:px-5 py-2.5 md:py-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: '#F1F5F9', color: '#64748B' }}>
           &#9201; {question.timerSeconds}s
         </div>
@@ -2089,6 +2089,27 @@ function CreateQuizPageInner() {
     setTimeout(() => setSelfPacedShare(prev => ({ ...prev, copied: false })), 2000)
   }
 
+  useEffect(() => {
+    const html = document.documentElement
+    const media = window.matchMedia('(max-width: 767px)')
+    const owner = 'host-create-mobile'
+    const update = () => {
+      if (media.matches) {
+        html.setAttribute('data-feedback-hidden', owner)
+      } else if (html.getAttribute('data-feedback-hidden') === owner) {
+        html.removeAttribute('data-feedback-hidden')
+      }
+    }
+    update()
+    media.addEventListener('change', update)
+    return () => {
+      media.removeEventListener('change', update)
+      if (html.getAttribute('data-feedback-hidden') === owner) {
+        html.removeAttribute('data-feedback-hidden')
+      }
+    }
+  }, [])
+
   // ── Sidebar stats ───────────────────────────────────────────────────────────
 
   const totalSeconds = questions.reduce((s, q) => s + q.timerSeconds, 0)
@@ -2115,7 +2136,7 @@ function CreateQuizPageInner() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden" style={{ background: 'var(--color-paper)' }}>
+    <div className="h-[100dvh] md:h-screen flex flex-col overflow-hidden" style={{ background: 'var(--color-paper)' }}>
 
       {/* ── Draft recovery banner ── */}
       {recoveredDraft && (
@@ -2158,7 +2179,7 @@ function CreateQuizPageInner() {
       )}
 
       {/* ── Top Bar ── */}
-      <header className="flex items-center gap-3 px-4 py-2.5 border-b" style={{ background: '#fff', borderColor: '#E2E8F0' }}>
+      <header className="quiz-builder-topbar flex items-center gap-2 sm:gap-3 px-2.5 sm:px-4 py-2.5 border-b min-w-0" style={{ background: '#fff', borderColor: '#E2E8F0' }}>
         <Link
           href="/host"
           aria-label="Quizotic home"
@@ -2170,7 +2191,7 @@ function CreateQuizPageInner() {
         <button onClick={closeCreateFlow} className="w-9 h-9 rounded-lg border flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors flex-shrink-0" style={{ borderColor: '#E2E8F0' }}>
           <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4"><path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </button>
-        <div className="flex-1 min-w-0">
+        <div className="hidden sm:block flex-1 min-w-0">
           <input
             type="text"
             value={title}
@@ -2181,7 +2202,7 @@ function CreateQuizPageInner() {
           />
           <p className="hidden sm:block text-xs text-gray-400">{questions.length} questions &middot; {subject || 'No subject'} &middot; ~{estMinutes} min</p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="quiz-builder-actions flex items-center gap-1.5 sm:gap-2 flex-shrink-0 min-w-0">
           <span className="hidden md:inline-flex">
             <AutosaveBadge state={autosaveState} />
           </span>
@@ -2191,7 +2212,7 @@ function CreateQuizPageInner() {
             disabled={!history.canUndo}
             title="Undo (Ctrl+Z)"
             aria-label="Undo"
-            className="flex items-center justify-center w-9 h-9 rounded-lg border text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+            className="hidden sm:flex items-center justify-center w-9 h-9 rounded-lg border text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
             style={{ borderColor: '#E2E8F0' }}
           >
             <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" aria-hidden="true">
@@ -2205,7 +2226,7 @@ function CreateQuizPageInner() {
             disabled={!history.canRedo}
             title="Redo (Ctrl+Shift+Z)"
             aria-label="Redo"
-            className="flex items-center justify-center w-9 h-9 rounded-lg border text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+            className="hidden sm:flex items-center justify-center w-9 h-9 rounded-lg border text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
             style={{ borderColor: '#E2E8F0' }}
           >
             <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" aria-hidden="true">
@@ -2243,7 +2264,7 @@ function CreateQuizPageInner() {
           <button
             onClick={() => setThemePickerOpen(true)}
             title="Pick a theme"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg text-xs sm:text-sm font-bold border transition-all hover:bg-gray-50 click-bounce"
+            className="quiz-theme-button flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg text-xs sm:text-sm font-bold border transition-all hover:bg-gray-50 click-bounce flex-shrink-0"
             style={{ borderColor: '#E2E8F0', color: '#0F1B3D' }}
           >
             <span
@@ -2256,7 +2277,7 @@ function CreateQuizPageInner() {
             </span>
             <span className="hidden sm:inline">Theme</span>
           </button>
-          <button onClick={handleSave} disabled={saving} className="btn-primary">
+          <button onClick={handleSave} disabled={saving} className="btn-primary quiz-builder-save-button flex-shrink-0">
             {saving ? (
               <span className="flex items-center gap-1.5">
                 <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" opacity="0.3"/><path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
@@ -2269,12 +2290,13 @@ function CreateQuizPageInner() {
               if (savedQuiz) { setActiveSession(savedQuiz); router.push('/host/session') }
               else { pendingLiveRef.current = true; handleSave() }
             }}
-            className="btn-golive"
+            className="btn-golive quiz-builder-live-button flex-shrink-0"
           >
             <span className="play-dot">
               <svg viewBox="0 0 24 24" fill="#0F1B3D" className="w-2.5 h-2.5" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
             </span>
-            Host live
+            <span className="quiz-builder-live-full">Host live</span>
+            <span className="quiz-builder-live-short">Host</span>
           </button>
         </div>
       </header>
@@ -2519,8 +2541,8 @@ function CreateQuizPageInner() {
         {/* ── CENTER PANEL: Preview / AI Settings / CSV / Library ──
             Manual tab uses overflow-hidden so QuestionPreview fills height;
             other tabs scroll naturally. */}
-        <div className={tab === 'manual' ? 'flex-1 overflow-hidden flex items-center justify-center px-4 md:px-6 py-4 md:py-6' : 'flex-1 overflow-y-auto'} style={{ background: 'var(--color-paper)' }}>
-        <div className={tab === 'manual' ? 'h-full w-full max-w-5xl' : 'min-h-full flex items-start md:items-center justify-center px-4 md:px-6 lg:px-8 pt-8 pb-10'}>
+        <div className={tab === 'manual' ? 'flex-1 overflow-hidden flex items-stretch justify-center px-3 md:px-6 py-3 md:py-6' : 'flex-1 overflow-y-auto'} style={{ background: 'var(--color-paper)' }}>
+        <div className={tab === 'manual' ? 'h-full w-full max-w-5xl min-h-0' : 'min-h-full flex items-start md:items-center justify-center px-4 md:px-6 lg:px-8 pt-8 pb-10'}>
 
           {/* Manual tab → show preview */}
           {tab === 'manual' && activeQuestion && (
@@ -2966,46 +2988,46 @@ function CreateQuizPageInner() {
       </div>
 
       {/* ── Mobile Bottom Bar (portrait) ── */}
-      <div className="md:hidden flex-shrink-0 border-t flex items-center gap-2 px-3 py-2.5"
+      <div className="quiz-mobile-toolbar md:hidden safe-bottom flex-shrink-0 border-t flex items-center gap-1.5 px-2 py-2"
         style={{ borderColor: '#E2E8F0', background: '#F8FAFC' }}>
         <div className="flex items-center gap-1 flex-shrink-0">
           <button
             onClick={() => setActiveIndex(i => Math.max(0, i - 1))}
             disabled={safeIndex === 0}
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-lg font-bold disabled:opacity-30 transition-colors"
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-lg font-bold disabled:opacity-30 transition-colors"
             style={{ color: '#0F1B3D', background: '#fff', border: '1.5px solid #E2E8F0' }}>
             &lsaquo;
           </button>
-          <span className="text-sm font-bold px-2 py-2 rounded-xl text-center"
-            style={{ background: '#fff', color: '#0F1B3D', border: '1.5px solid #E2E8F0', minWidth: 56 }}>
+          <span className="text-xs font-bold px-1.5 py-2 rounded-xl text-center"
+            style={{ background: '#fff', color: '#0F1B3D', border: '1.5px solid #E2E8F0', minWidth: 48 }}>
             {safeIndex + 1}/{questions.length}
           </span>
           <button
             onClick={() => setActiveIndex(i => Math.min(i + 1, questions.length - 1))}
             disabled={safeIndex === questions.length - 1}
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-lg font-bold disabled:opacity-30 transition-colors"
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-lg font-bold disabled:opacity-30 transition-colors"
             style={{ color: '#0F1B3D', background: '#fff', border: '1.5px solid #E2E8F0' }}>
             &rsaquo;
           </button>
         </div>
         <button
           onClick={() => setMobileSlidesOpen(true)}
-          className="flex items-center justify-center gap-1 px-3 py-2.5 rounded-xl font-bold text-sm flex-shrink-0"
+          className="flex items-center justify-center gap-1 px-2.5 py-2 rounded-xl font-bold text-xs flex-shrink-0"
           style={{ background: '#fff', color: '#0F1B3D', border: '1.5px solid #E2E8F0' }}>
-          ☰ Slides
+          Slides
         </button>
         <button
           onClick={() => setMobileAddOpen(true)}
-          className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded-xl font-bold text-sm transition-all"
+          className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl font-bold text-xs transition-all min-w-[58px]"
           style={{ background: '#0F1B3D', color: '#fff' }}>
           <span>+</span> Add
         </button>
         {activeQuestion && (tab === 'manual' || generatedOnTab) && (
           <button
             onClick={() => setMobileEditorOpen(true)}
-            className="flex items-center justify-center gap-1 px-3 py-2.5 rounded-xl font-bold text-sm flex-shrink-0"
+            className="flex items-center justify-center gap-1 px-2.5 py-2 rounded-xl font-bold text-xs flex-shrink-0"
             style={{ background: '#F5E642', color: '#0D0D0D', border: '1.5px solid rgba(15,27,61,0.2)' }}>
-            ✏️ Edit
+            Edit
           </button>
         )}
       </div>
