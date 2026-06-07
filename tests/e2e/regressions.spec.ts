@@ -239,6 +239,105 @@ test.describe('Regressions — quiz', () => {
       host.disconnect(); participant.disconnect()
     }
   })
+
+  test('sequence ranking: correct order is scored and reveal is competitive', async () => {
+    // Regression for the ranking-builder bug class: when a ranking question has
+    // a correctOrder it is a scored sequence question, not an engagement poll.
+    // The participant receives shuffled display slots, submits that displayed
+    // order, and the server must translate it back to original-option order.
+    const host = await connect()
+    const participant = await connect()
+    const originalOptions = ['Highest', 'High', 'Medium', 'Low']
+    const correctOrder = ['0', '1', '2', '3']
+    try {
+      const created = await emit<{ success: boolean; gameCode?: string }>(host, 'create_session', {
+        quizData: {
+          title: 'Sequence ranking scored test',
+          questions: [{
+            id: 'sr1',
+            type: 'ranking',
+            text: 'Arrange from highest to lowest',
+            options: originalOptions,
+            correctOrder,
+            timerSeconds: 30,
+            points: 1000,
+          }],
+        },
+      })
+      const gameCode = created.gameCode!
+
+      const joined = await emit<{ participantId?: string }>(participant, 'join_session', { gameCode, displayName: 'Sequencer' })
+      const qShown = waitFor<{ question: { options: string[]; isScored?: boolean; correctOrder?: string[] }; index: number }>(participant, 'question_show')
+      host.emit('start_quiz', { gameCode })
+      const shown = await qShown
+      expect(shown.index).toBe(0)
+      expect(shown.question.isScored).toBe(true)
+      expect(shown.question.correctOrder).toBeUndefined()
+
+      const displayedOptions = shown.question.options
+      const displayedCorrectOrder = correctOrder.map(originalIdx => {
+        const displayIdx = displayedOptions.indexOf(originalOptions[Number(originalIdx)])
+        expect(displayIdx).toBeGreaterThanOrEqual(0)
+        return displayIdx
+      })
+
+      await new Promise(r => setTimeout(r, 4_000))
+
+      const confirmed = waitFor<{
+        isCorrect: boolean
+        points: number
+        isNonScored: boolean
+        correctPositions?: number
+        totalPositions?: number
+      }>(participant, 'answer_confirmed')
+      const answerReceived = waitFor<{ count: number }>(host, 'answer_received')
+      const rankingSubmission = waitFor<{ ranking: string[] | number[] }>(host, 'ranking_submission')
+
+      const ack = await emit<{ accepted: boolean; isNonScored?: boolean }>(participant, 'submit_answer', {
+        gameCode,
+        participantId: joined.participantId,
+        answer: displayedCorrectOrder,
+        timeMs: 1_000,
+        confidence: 'sure',
+        serverSubmittedAt: Date.now() + 0.1,
+      })
+      expect(ack.accepted).toBe(true)
+      expect(ack.isNonScored).toBe(false)
+      expect((await answerReceived).count).toBe(1)
+      expect((await rankingSubmission).ranking.map(String)).toEqual(correctOrder)
+
+      const result = await confirmed
+      expect(result.isNonScored).toBe(false)
+      expect(result.isCorrect).toBe(true)
+      expect(result.points).toBeGreaterThan(0)
+      expect(result.correctPositions).toBe(correctOrder.length)
+      expect(result.totalPositions).toBe(correctOrder.length)
+
+      const ended = waitFor<{ isNonScored: boolean; correctAnswer: unknown; correctOrder?: string[] }>(host, 'question_ended')
+      const leaderboard = waitFor<{ totalPlayers: number; questionIndex: number; standingsRecommended: boolean; top: Array<{ score: number }> }>(host, 'leaderboard_update')
+      const personalResult = waitFor<{ isCorrect: boolean; pointsEarned: number; totalScore: number; correctPositions?: number; totalPositions?: number }>(participant, 'personal_result')
+      const endAck = await emit<{ success: boolean; ended?: boolean; questionIndex?: number }>(host, 'end_question', { gameCode })
+      expect(endAck).toMatchObject({ success: true, ended: true, questionIndex: 0 })
+      const endedPayload = await ended
+      expect(endedPayload.isNonScored).toBe(false)
+      expect(endedPayload.correctOrder).toEqual(correctOrder)
+
+      const board = await leaderboard
+      expect(board.questionIndex).toBe(0)
+      expect(board.totalPlayers).toBe(1)
+      expect(board.standingsRecommended).toBe(true)
+      expect(board.top[0]?.score).toBeGreaterThan(0)
+
+      const personal = await personalResult
+      expect(personal.isCorrect).toBe(true)
+      expect(personal.pointsEarned).toBeGreaterThan(0)
+      expect(personal.totalScore).toBe(personal.pointsEarned)
+      expect(personal.correctPositions).toBe(correctOrder.length)
+      expect(personal.totalPositions).toBe(correctOrder.length)
+    } finally {
+      host.disconnect(); participant.disconnect()
+    }
+  })
 })
 
 test.describe('Regressions — presentation', () => {

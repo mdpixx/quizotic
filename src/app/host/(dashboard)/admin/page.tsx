@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { Question } from '@/lib/quiz-types'
-import { getEffectiveOptions, getOptionText, getOptionImage, isScoredType } from '@/lib/quiz-types'
+import { getEffectiveOptions, getOptionText, getOptionImage, isScoredQuestion } from '@/lib/quiz-types'
 import { SLIDE_TYPE_META } from '@/lib/presentation-types'
 
 type WowDelta = { thisWeek: number; lastWeek: number; pct: number | null }
@@ -259,6 +259,17 @@ function correctOptionSet(q: Question): Set<number> {
   return set
 }
 
+function rankingCorrectOrderLabels(q: Question): string[] {
+  if (q.type !== 'ranking' || !Array.isArray(q.correctOrder) || q.correctOrder.length === 0) return []
+  const opts = getEffectiveOptions(q) ?? []
+  return q.correctOrder
+    .map(raw => {
+      const idx = typeof raw === 'number' ? raw : Number(raw)
+      return Number.isInteger(idx) && idx >= 0 && idx < opts.length ? getOptionText(opts[idx]) : ''
+    })
+    .filter(Boolean)
+}
+
 function AdminQuizView({ questions }: { questions: Question[] }) {
   if (!questions.length) return <p className="text-gray-400 text-sm">This quiz has no questions.</p>
   return (
@@ -266,12 +277,14 @@ function AdminQuizView({ questions }: { questions: Question[] }) {
       {questions.map((q, i) => {
         const opts = getEffectiveOptions(q)
         const correct = correctOptionSet(q)
+        const isScored = isScoredQuestion(q)
+        const sequenceLabels = rankingCorrectOrderLabels(q)
         return (
           <div key={q.id ?? i} className="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <span className="text-xs font-bold text-gray-400">Q{i + 1}</span>
               <Badge text={q.type} color="blue" />
-              {isScoredType(q.type) ? <Badge text={`${q.points} pts`} color="green" /> : <Badge text="not scored" color="gray" />}
+              {isScored ? <Badge text={`${q.points} pts`} color="green" /> : <Badge text="not scored" color="gray" />}
               <Badge text={`${q.timerSeconds}s`} color="gray" />
               {q.bloomsLevel && <Badge text={q.bloomsLevel} color="purple" />}
             </div>
@@ -298,6 +311,19 @@ function AdminQuizView({ questions }: { questions: Question[] }) {
                   )
                 })}
               </ul>
+            )}
+            {sequenceLabels.length > 0 && (
+              <div className="mt-3 rounded-lg border border-emerald-100 bg-emerald-50/70 p-3 dark:border-emerald-900/40 dark:bg-emerald-900/20">
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Correct sequence</p>
+                <ol className="mt-2 space-y-1.5">
+                  {sequenceLabels.map((label, pos) => (
+                    <li key={`${label}-${pos}`} className="flex items-center gap-2 text-sm text-emerald-800 dark:text-emerald-200">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-bold text-white">{pos + 1}</span>
+                      <span>{label}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
             )}
             {q.explanation && <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 italic">💡 {q.explanation}</p>}
           </div>

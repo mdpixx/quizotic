@@ -29,10 +29,14 @@ export function isAsyncScoredType(type: string): boolean {
   return ASYNC_GRADEABLE_TYPES.has(type)
 }
 
-export function isAsyncScoredQuestion(q: Question): boolean {
+export function isScoredQuestion(q: Question): boolean {
   if (ASYNC_GRADEABLE_TYPES.has(q.type)) return true
   if (q.type === 'ranking') return Array.isArray(q.correctOrder) && q.correctOrder.length > 0
   return false
+}
+
+export function isAsyncScoredQuestion(q: Question): boolean {
+  return isScoredQuestion(q)
 }
 
 export interface RankingScore {

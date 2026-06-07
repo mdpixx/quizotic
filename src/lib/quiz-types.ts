@@ -29,6 +29,11 @@ export function isSequenceRanking(q: Question): boolean {
   return q.type === 'ranking' && Array.isArray(q.correctOrder) && q.correctOrder.length > 0
 }
 
+export function isScoredQuestion(q: Pick<Question, 'type' | 'correctOrder'>): boolean {
+  if (isScoredType(q.type)) return true
+  return q.type === 'ranking' && Array.isArray(q.correctOrder) && q.correctOrder.length > 0
+}
+
 // Maps each question type to the visualization used by QuestionResultsView.
 //   bars       → option distribution bar chart (poll, mcq, multiselect, truefalse)
 //   cloud      → word cloud sized by frequency (wordcloud)

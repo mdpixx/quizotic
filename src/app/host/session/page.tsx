@@ -16,7 +16,7 @@ import { playLeaderboardJingle, playTick, playBackgroundMusic, stopBackgroundMus
 import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/quiz-storage'
 import type { Quiz, QuestionStat, SessionMode } from '@/lib/quiz-types'
 import { ReflectionInsights } from '@/components/ReflectionInsights'
-import { getOptionText, getOptionImage, isScoredType, getEffectiveOptions } from '@/lib/quiz-types'
+import { getOptionText, getOptionImage, isScoredQuestion, getEffectiveOptions } from '@/lib/quiz-types'
 import { QuestionResultsView } from '@/components/results/QuestionResultsView'
 import { CircularTimer } from '@/components/CircularTimer'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
@@ -397,7 +397,7 @@ export default function SessionPage() {
 
   const currentQuestion = quiz?.questions[questionIndex] ?? null
   const isAnswerRevealStage = Boolean(
-    currentQuestion && isScoredType(currentQuestion.type) && questionEnded && correctRevealed,
+    currentQuestion && isScoredQuestion(currentQuestion) && questionEnded && correctRevealed,
   )
   const hostQuestionFit = currentQuestion
     ? getHostQuestionFit({
@@ -940,8 +940,8 @@ export default function SessionPage() {
   // scored types the next stop is the standings screen; for everything else
   // we skip straight to the next question (or end the quiz on the last one).
   function advanceFromQuestion() {
-    const currentType = quiz?.questions?.[questionIndex]?.type
-    const scored = currentType ? isScoredType(currentType) : false
+    const current = quiz?.questions?.[questionIndex]
+    const scored = current ? isScoredQuestion(current) : false
     if (sessionMode === 'competitive' && scored) {
       socketRef.current?.emit('show_standings', { gameCode })
       setPhase('standings')
@@ -1681,49 +1681,72 @@ export default function SessionPage() {
                 avg: counts[i] > 0 ? sums[i] / counts[i] : Number.POSITIVE_INFINITY,
                 hasData: counts[i] > 0,
               })).sort((a, b) => a.avg - b.avg)
+              const perfectCount = isSequenceRanking
+                ? rankingSubmissions.filter(arr =>
+                    Array.isArray(arr) &&
+                    arr.length === (currentQuestion.correctOrder ?? []).length &&
+                    arr.every((optIdx, pos) => String(optIdx) === String((currentQuestion.correctOrder ?? [])[pos])),
+                  ).length
+                : 0
 
               return (
-                <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 space-y-3 host-answer-stage host-ranking-stage">
+                <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 host-answer-stage host-ranking-stage">
+                  <div className={`grid gap-3 ${isSequenceRanking ? 'lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]' : ''} max-h-[min(46vh,520px)] overflow-y-auto pr-1`}>
                   {/* Correct order panel (for sequence ranking) */}
                   {isSequenceRanking && (
-                    <div className="space-y-2">
-                      <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Correct order</p>
-                      {(currentQuestion.correctOrder ?? []).map((optIdx, pos) => {
-                        const opt = typeof optIdx === 'number' ? currentQuestion.options?.[optIdx] : currentQuestion.options?.find((o) => getRankingOptionId(o) === optIdx)
-                        return (
-                          <div key={`${optIdx}-${pos}`} className="host-ranking-row flex items-center gap-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-3">
-                            <span className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black bg-green-500 text-white flex-shrink-0">
-                              {pos + 1}
-                            </span>
-                            <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ${typeof optIdx === 'number' && optIdx >= 0 && optIdx < OPTION_COLORS.length ? OPTION_COLORS[optIdx] : 'bg-gray-400'}`}>
-                              {typeof optIdx === 'number' ? (OPTION_LABELS[optIdx] ?? String(optIdx + 1)) : String(optIdx)}
-                            </span>
-                            <span className="flex-1 text-base text-gray-800 font-medium">{opt ? getOptionText(opt) : `Option ${typeof optIdx === 'number' ? optIdx + 1 : optIdx}`}</span>
-                          </div>
-                        )
-                      })}
+                    <div className="rounded-2xl bg-white border border-green-200 p-4 space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs font-bold uppercase tracking-widest text-green-700">Correct sequence</p>
+                        <span className="text-xs font-black rounded-full px-3 py-1 bg-green-100 text-green-800">
+                          {perfectCount} perfect
+                        </span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {(currentQuestion.correctOrder ?? []).map((optIdx, pos) => {
+                          const opt = typeof optIdx === 'number' ? currentQuestion.options?.[optIdx] : currentQuestion.options?.find((o) => getRankingOptionId(o) === optIdx)
+                          return (
+                            <div key={`${optIdx}-${pos}`} className="host-ranking-row flex items-center gap-2.5 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100 rounded-xl px-3 py-2">
+                              <span className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black bg-green-500 text-white flex-shrink-0">
+                                {pos + 1}
+                              </span>
+                              <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${typeof optIdx === 'number' && optIdx >= 0 && optIdx < OPTION_COLORS.length ? OPTION_COLORS[optIdx] : 'bg-gray-400'}`}>
+                                {typeof optIdx === 'number' ? (OPTION_LABELS[optIdx] ?? String(optIdx + 1)) : String(optIdx)}
+                              </span>
+                              <span className="flex-1 min-w-0 text-sm text-gray-800 font-semibold truncate">{opt ? getOptionText(opt) : `Option ${typeof optIdx === 'number' ? optIdx + 1 : optIdx}`}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
                     </div>
                   )}
 
                   {/* Consensus ranking */}
-                  <div className="space-y-2">
-                    <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">
-                      {isSequenceRanking ? 'Consensus ranking' : 'Rankings'} · {rankingSubmissions.length} submission{rankingSubmissions.length !== 1 ? 's' : ''}
-                    </p>
-                    {rows.map((row, pos) => (
-                      <div key={row.i} className="host-ranking-row flex items-center gap-3 bg-white border border-gray-200 rounded-xl p-3">
-                        <span className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black bg-gray-100 text-gray-600 flex-shrink-0">
-                          {pos + 1}
-                        </span>
-                        <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ${OPTION_COLORS[row.i]}`}>
-                          {row.label}
-                        </span>
-                        <span className="flex-1 text-base text-gray-800 font-medium">{row.text}</span>
-                        <span className="text-sm font-bold text-gray-600 tabular-nums">
-                          {row.hasData ? `avg ${row.avg.toFixed(1)}` : '—'}
-                        </span>
-                      </div>
-                    ))}
+                  <div className="rounded-2xl bg-white border border-gray-200 p-4 space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-bold uppercase tracking-widest text-gray-400">
+                        Class consensus
+                      </p>
+                      <span className="text-xs font-black rounded-full px-3 py-1 bg-gray-100 text-gray-600">
+                        {rankingSubmissions.length} submission{rankingSubmissions.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {rows.map((row, pos) => (
+                        <div key={row.i} className="host-ranking-row flex items-center gap-2.5 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2">
+                          <span className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black bg-white text-gray-600 flex-shrink-0 border border-gray-200">
+                            {pos + 1}
+                          </span>
+                          <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${OPTION_COLORS[row.i]}`}>
+                            {row.label}
+                          </span>
+                          <span className="flex-1 min-w-0 text-sm text-gray-800 font-semibold truncate">{row.text}</span>
+                          <span className="text-xs font-bold text-gray-600 tabular-nums">
+                            {row.hasData ? `avg ${row.avg.toFixed(1)}` : '—'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                   </div>
                 </div>
               )
@@ -1878,7 +1901,7 @@ export default function SessionPage() {
               const isCorrect = String(i) === currentQuestion.correctAnswer
               // Green ring only for scored types AND only after host reveals the answer.
               // This prevents leaking the correct answer on projector screens.
-              const highlightCorrect = isScoredType(currentQuestion.type) && isCorrect && correctRevealed
+              const highlightCorrect = isScoredQuestion(currentQuestion) && isCorrect && correctRevealed
               const optText = getOptionText(opt)
               const optImage = getOptionImage(opt)
               return (
@@ -1917,7 +1940,7 @@ export default function SessionPage() {
           </div>
           )}
 
-          {isScoredType(currentQuestion.type) && questionEnded && correctRevealed && (
+          {isScoredQuestion(currentQuestion) && questionEnded && correctRevealed && (
             <div
               className="host-reveal-footer max-w-7xl mx-auto rounded-3xl p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-4"
               style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.18)' }}
@@ -1978,7 +2001,7 @@ export default function SessionPage() {
               real time and stays as the final view once questionEnded — a
               second "Final Results" QuestionResultsView would duplicate it
               with different sizing/font, so exclude that type here. */}
-          {!isScoredType(currentQuestion.type) && currentQuestion.type !== 'wordcloud' && questionEnded && liveStat && (
+          {!isScoredQuestion(currentQuestion) && currentQuestion.type !== 'wordcloud' && questionEnded && liveStat && (
             <div className="bg-white rounded-2xl border border-gray-200 p-5">
               <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
                 Final Results
@@ -2007,7 +2030,7 @@ export default function SessionPage() {
             </div>
           )}
 
-          {sessionMode !== 'competitive' && isScoredType(currentQuestion.type) && questionEnded && !correctRevealed && (
+          {sessionMode !== 'competitive' && isScoredQuestion(currentQuestion) && questionEnded && !correctRevealed && (
             <button
               onClick={() => setCorrectRevealed(true)}
               className="w-full py-4 rounded-2xl font-bold text-lg border-2 transition-all hover:scale-[1.01]"
@@ -2017,7 +2040,7 @@ export default function SessionPage() {
             </button>
           )}
 
-          <div className="mt-auto w-full">
+          <div className="sticky bottom-0 z-30 mt-auto w-full pt-2">
             <div
               className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-3xl px-4 py-3"
               style={{
@@ -2067,7 +2090,7 @@ export default function SessionPage() {
               </button>
               {(() => {
               const isLast = questionIndex + 1 >= quiz.questions.length
-              const scoredQ = isScoredType(currentQuestion.type)
+              const scoredQ = isScoredQuestion(currentQuestion)
               const action = getPostQuestionAction({
                 sessionMode,
                 isScored: scoredQ,
