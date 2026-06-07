@@ -36,7 +36,6 @@ function BrowserQuiz() {
   const [selected, setSelected] = useState<number | null>(null)
   const [timeLeft, setTimeLeft] = useState(10)
   const [phase, setPhase] = useState<'playing' | 'end'>('playing')
-  const [score, setScore] = useState(0)
 
   const scoreRef   = useRef(0)
   const qIndexRef  = useRef(0)
@@ -49,9 +48,7 @@ function BrowserQuiz() {
     setQIndex(0)
     qIndexRef.current = 0
     setSelected(null)
-    setTimeLeft(10)
     scoreRef.current = 0
-    setScore(0)
   }
 
   function advanceQuestion() {
@@ -60,7 +57,6 @@ function BrowserQuiz() {
       qIndexRef.current = next
       setQIndex(next)
       setSelected(null)
-      setTimeLeft(10)
     } else {
       setPhase('end')
       pendingRef.current = setTimeout(resetQuiz, 4500)
@@ -72,11 +68,7 @@ function BrowserQuiz() {
     answeredRef.current = true
     clearInterval(timerRef.current!)
     if (pendingRef.current) clearTimeout(pendingRef.current)
-    if (i === QUESTIONS[qIndexRef.current].correct) {
-      const nextScore = scoreRef.current + 1
-      scoreRef.current = nextScore
-      setScore(nextScore)
-    }
+    if (i === QUESTIONS[qIndexRef.current].correct) scoreRef.current++
     setSelected(i)
     pendingRef.current = setTimeout(advanceQuestion, 1600)
   }
@@ -85,11 +77,12 @@ function BrowserQuiz() {
   // Questions only advance on user click (handleAnswer).
   useEffect(() => {
     answeredRef.current = false
+    setTimeLeft(10)
     timerRef.current = setInterval(() => {
       setTimeLeft(t => (t <= 1 ? 10 : t - 1))
     }, 1000)
     return () => clearInterval(timerRef.current!)
-  }, [qIndex])
+  }, [qIndex]) // eslint-disable-line
 
   // Global cleanup
   useEffect(() => () => {
@@ -98,7 +91,7 @@ function BrowserQuiz() {
   }, [])
 
   const timerPct   = (timeLeft / 10) * 100
-  const allCorrect = score === QUESTIONS.length
+  const allCorrect = scoreRef.current === QUESTIONS.length
   const q          = QUESTIONS[qIndex]
 
   return (
@@ -123,12 +116,12 @@ function BrowserQuiz() {
                 {allCorrect ? '🎉' : '💪'}
               </div>
               <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 26, color: '#0F1B3D', textAlign: 'center', lineHeight: 1.2 }}>
-                {allCorrect ? 'Perfect Score!' : `${score} of 3 correct`}
+                {allCorrect ? 'Perfect Score!' : `${scoreRef.current} of 3 correct`}
               </div>
               <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 14, color: '#555', textAlign: 'center', lineHeight: 1.6, maxWidth: 290 }}>
                 {allCorrect
                   ? 'Outstanding! You got every question right. Your students will love this.'
-                  : score === 2
+                  : scoreRef.current === 2
                     ? 'Great effort! One slip — review it and you\'ll nail it next time.'
                     : 'Keep practising — every attempt builds stronger recall. You\'ve got this! 🚀'}
               </div>
@@ -137,13 +130,13 @@ function BrowserQuiz() {
                 {QUESTIONS.map((_, i) => (
                   <div key={i} style={{
                     width: 36, height: 36, borderRadius: '50%',
-                    background: i < score ? '#16A34A' : '#F3F4F6',
-                    border: `2px solid ${i < score ? '#16A34A' : '#E5E7EB'}`,
+                    background: i < scoreRef.current ? '#16A34A' : '#F3F4F6',
+                    border: `2px solid ${i < scoreRef.current ? '#16A34A' : '#E5E7EB'}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 16, color: i < score ? '#fff' : '#CBD5E1',
-                    animation: i < score ? `bounce-in 0.4s ease-out ${i * 0.15}s both` : 'none',
+                    fontSize: 16, color: i < scoreRef.current ? '#fff' : '#CBD5E1',
+                    animation: i < scoreRef.current ? `bounce-in 0.4s ease-out ${i * 0.15}s both` : 'none',
                   }}>
-                    {i < score ? '✓' : '✗'}
+                    {i < scoreRef.current ? '✓' : '✗'}
                   </div>
                 ))}
               </div>

@@ -4,7 +4,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth-helpers'
 import { getUserPlan } from '@/lib/billing'
-import { RESULTS_RENDERER, getEffectiveOptions, getOptionText, type Question, type QuestionStat } from '@/lib/quiz-types'
+import { RESULTS_RENDERER, getEffectiveOptions, getOptionText, isScoredQuestion, type Question, type QuestionStat } from '@/lib/quiz-types'
 import type { Prisma } from '@prisma/client'
 import { buildTeacherReportInsights } from '@/lib/report-insights'
 
@@ -147,9 +147,10 @@ export async function GET(req: NextRequest, { params }: Params) {
       const opts = getEffectiveOptions(q)
       const optLabels = opts?.map(o => getOptionText(o)) ?? []
       const optCount = optLabels.length
+      const isScored = isScoredQuestion(q)
 
       const correctCount = qAnswers.filter(a => a.isCorrect === true).length
-      const correctPct = totalResponses > 0 && ['mcq', 'truefalse', 'multiselect'].includes(q.type)
+      const correctPct = totalResponses > 0 && isScored
         ? Math.round((correctCount / totalResponses) * 100)
         : null
 
@@ -161,7 +162,7 @@ export async function GET(req: NextRequest, { params }: Params) {
         confidenceGrid: null,
         bloomsLevel: q.bloomsLevel ?? null,
         explanation: q.explanation ?? null,
-        isNonScored: !['mcq', 'truefalse', 'multiselect'].includes(q.type),
+        isNonScored: !isScored,
         totalResponses,
       }
 
@@ -228,7 +229,17 @@ export async function GET(req: NextRequest, { params }: Params) {
           }
         }
         const rankingAverages = positionSums.map(s => respondents > 0 ? parseFloat((s / respondents).toFixed(2)) : 0)
-        return { ...base, rankingItems, rankingAverages, rankingFirstPlaceCounts: firstPlaceCounts } as QuestionStat
+        const correctOrder = Array.isArray(q.correctOrder) && q.correctOrder.length > 0
+          ? q.correctOrder
+          : undefined
+        return {
+          ...base,
+          rankingItems,
+          rankingAverages,
+          rankingFirstPlaceCounts: firstPlaceCounts,
+          correctOrder,
+          fullCorrectCount: correctOrder ? correctCount : undefined,
+        } as QuestionStat
       }
 
       if (renderer === 'grid') {

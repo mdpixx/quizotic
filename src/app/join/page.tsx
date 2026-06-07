@@ -16,7 +16,7 @@ import { DndContext, closestCenter, MouseSensor, TouchSensor, KeyboardSensor, us
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { isContentSlideType, isInteractiveSlideType } from '@/lib/presentation-types'
-import { isScoredType, getEffectiveOptions } from '@/lib/quiz-types'
+import { isScoredQuestion, isScoredType, getEffectiveOptions } from '@/lib/quiz-types'
 import type { Question as QuizQuestion, QuestionType } from '@/lib/quiz-types'
 import { SlideImage } from '@/components/SlideImage'
 import { ANSWER_COLORS, ANSWER_LETTERS } from '@/lib/answer-colors'
@@ -75,6 +75,7 @@ interface Question {
   options?: QuestionOption[]
   timerSeconds: number
   points: number
+  isScored?: boolean
   index: number
   total: number
   scenarioText?: string
@@ -569,6 +570,7 @@ function JoinPageInner() {
 
   // Answered
   const [isCorrect, setIsCorrect] = useState(false)
+  const [answeredIsScored, setAnsweredIsScored] = useState(false)
   const [pointsEarned, setPointsEarned] = useState(0)
   const [totalScore, setTotalScore] = useState(0)
   const [explanation, setExplanation] = useState<string | null>(null)
@@ -858,6 +860,7 @@ function JoinPageInner() {
       setExplanation(null)
       setSelectedAnswer(null)
       setIsCorrect(false)
+      setAnsweredIsScored(false)
       setError('')
       setQuestion({ ...question, index, total })
       setPendingAnswer(null)
@@ -921,7 +924,7 @@ function JoinPageInner() {
       }
     })
 
-    socket.on('answer_confirmed', ({ isCorrect, points, totalScore, streakCount, late, correctPositions, totalPositions }: { isCorrect: boolean; points: number; totalScore: number; streakCount?: number; late?: boolean; correctPositions?: number; totalPositions?: number }) => {
+    socket.on('answer_confirmed', ({ isCorrect, points, totalScore, streakCount, late, correctPositions, totalPositions, isNonScored }: { isCorrect: boolean; points: number; totalScore: number; streakCount?: number; late?: boolean; correctPositions?: number; totalPositions?: number; isNonScored?: boolean }) => {
       if (timerRef.current) clearInterval(timerRef.current)
       // Server has accepted at least one answer — drop outbox entries for the
       // current question so we don't double-submit on later reconnects.
@@ -943,7 +946,8 @@ function JoinPageInner() {
       // For non-scored types (poll/rating/wordcloud/qa/openended/ranking/drawing/case, excluding sequence ranking)
       // there is no right/wrong — always celebrate the submission with a positive
       // sound and skip the red-flash buzz, regardless of what server reports.
-      const scored = question ? (isScoredType(question.type as QuestionType) || isSequenceRanking) : false
+      const scored = isNonScored === false || (question ? (isScoredQuestion(question as unknown as QuizQuestion) || isSequenceRanking) : false)
+      setAnsweredIsScored(scored)
       if (!scored) {
         setStreak(0)
         playCorrect()
@@ -1724,10 +1728,10 @@ function JoinPageInner() {
         <div className={`bg-white rounded-2xl shadow-sm border p-4 sm:p-6 mb-4 ${question.type === 'case' ? 'border-t-4' : 'border-gray-200 border-t-4'}`} style={{ borderTopColor: question.type === 'case' ? '#2D3A8C' : '#F5E642' }}>
           <div className="flex items-center justify-between mb-3">
             <span className="text-base text-gray-400 font-semibold">Q{question.index + 1} / {question.total}</span>
-            {isScoredType(question.type as QuestionType) && (
+            {(question.isScored || isScoredType(question.type as QuestionType)) && (
               <span className="text-base font-bold" style={{ color: '#0F1B3D' }}>{question.points} pts</span>
             )}
-            {!isScoredType(question.type as QuestionType) && question.type !== 'case' && (
+            {!(question.isScored || isScoredType(question.type as QuestionType)) && question.type !== 'case' && (
               <span
                 className="text-xs font-bold px-2.5 py-1 rounded-md"
                 style={{ background: '#F3F4F6', color: '#475569', border: '1px solid #E2E8F0' }}
@@ -1974,9 +1978,7 @@ function JoinPageInner() {
 
   // ─── Answered Phase ────────────────────────────────────────────────────────
   if (phase === 'answered') {
-    // Non-scored = anything that isn't MCQ / True-False / Multiselect. Covers
-    // poll, rating, ranking, wordcloud, qa, openended, drawing, and case.
-    const isNonScored = !(question && isScoredType(question.type as QuestionType))
+    const isNonScored = !answeredIsScored
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 max-w-md mx-auto text-center gap-5 relative overflow-hidden">
         <StatusBanner connectionState={connectionState} answerToast={answerToast} />

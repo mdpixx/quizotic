@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { checkAnswer, calcPoints, applyStreak, validateAnswer, scoreRanking } from '../lib/scoring'
+import { checkAnswer, calcPoints, applyStreak, validateAnswer, scoreRanking, isAsyncScoredQuestion } from '../lib/scoring'
 
 // ─── checkAnswer ─────────────────────────────────────────────────────────────
 
@@ -62,6 +62,29 @@ describe('checkAnswer — non-scored types', () => {
 
   it('returns false for openended', () => {
     expect(checkAnswer({ type: 'openended', timerSeconds: 60, points: 0 }, 'anything')).toBe(false)
+  })
+})
+
+// ─── scored question detection ───────────────────────────────────────────────
+
+describe('isAsyncScoredQuestion', () => {
+  it('treats ranking with a correct order as scored', () => {
+    expect(isAsyncScoredQuestion({
+      type: 'ranking',
+      options: ['A', 'B', 'C'],
+      correctOrder: ['0', '1', '2'],
+      timerSeconds: 30,
+      points: 1000,
+    })).toBe(true)
+  })
+
+  it('keeps ranking without a correct order as participation-only', () => {
+    expect(isAsyncScoredQuestion({
+      type: 'ranking',
+      options: ['A', 'B', 'C'],
+      timerSeconds: 30,
+      points: 1000,
+    })).toBe(false)
   })
 })
 

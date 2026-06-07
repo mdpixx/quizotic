@@ -1966,7 +1966,7 @@ app.prepare().then(async () => {
         return
       }
 
-      const isNonScored = ['poll', 'case', 'wordcloud', 'openended', 'qa', 'rating', 'ranking', 'drawing'].includes(question.type)
+      const isNonScored = !isScoredQuestion(question)
       const rawIsCorrect = isNonScored ? null : checkAnswer(question, answer)
       // Late scored answers are treated as wrong (0 points, isCorrect=false) so
       // the audit trail is honest — the player did submit, but past the buzzer.
@@ -2232,6 +2232,12 @@ function isSequenceRanking(question) {
   return question?.type === 'ranking' && Array.isArray(question?.correctOrder) && question.correctOrder.length > 0
 }
 
+function isScoredQuestion(question) {
+  if (!question?.type) return false
+  if (['mcq', 'multiselect', 'truefalse'].includes(question.type)) return true
+  return isSequenceRanking(question)
+}
+
 function fisherYatesShuffle(array) {
   // Shuffle array in place using Fisher-Yates algorithm. Returns the shuffled array.
   const arr = [...array]
@@ -2253,6 +2259,7 @@ function sanitizeQuestion(q) {
   // extra round-trip.
   const { correctAnswer: _ca, correctAnswers: _cas, correctOrder: _co, ...safe } = q
   void _ca; void _cas; void _co
+  safe.isScored = isScoredQuestion(q)
   // Clamp timerSeconds to [5, 120] so a corrupted DB row can't ship a
   // sub-second timer to clients (host reported red-zone starts in live sessions).
   safe.timerSeconds = clampTimerSeconds(safe.timerSeconds, safe.id ?? '(no-id)')
@@ -2479,10 +2486,8 @@ function stopSessionStateBroadcast(session) {
 // Sum of max points across scoreable questions in a session.
 // Mirrors the non-scored filter used in emitQuestionEnded / buildQuestionStats.
 function computeMaxScore(session) {
-  const alwaysNonScored = new Set(['poll', 'case', 'wordcloud', 'openended', 'qa', 'rating', 'drawing'])
   return session.quizData.questions.reduce((sum, q) => {
-    if (alwaysNonScored.has(q.type)) return sum
-    if (q.type === 'ranking' && !isSequenceRanking(q)) return sum
+    if (!isScoredQuestion(q)) return sum
     return sum + (q.points || 1000)
   }, 0)
 }
@@ -2559,7 +2564,7 @@ function emitQuestionEnded(io, gameCode, session, questionIndex) {
   const q = session.quizData.questions[questionIndex]
   if (!q) return
   const isSequenceRankingQ = isSequenceRanking(q)
-  const isNonScored = !isSequenceRankingQ && ['poll', 'case', 'wordcloud', 'openended', 'qa', 'rating', 'ranking', 'drawing'].includes(q.type)
+  const isNonScored = !isScoredQuestion(q)
   const correctAnswer = isNonScored
     ? null
     : (q.correctAnswers ?? q.correctAnswer ?? null)
@@ -2742,7 +2747,7 @@ function emitLiveResponses(io, gameCode, session, qi) {
 function buildQuestionStats(session) {
   const ps = Array.from(session.participants.values())
   return session.quizData.questions.map((q, i) => {
-    const isNonScored = ['poll', 'case', 'wordcloud', 'openended', 'qa', 'rating', 'ranking', 'drawing'].includes(q.type)
+    const isNonScored = !isScoredQuestion(q)
     const answered = ps.filter(p => p.answers[i] !== undefined)
     const total = answered.length
     if (total === 0) {
@@ -2766,7 +2771,9 @@ function buildQuestionStats(session) {
 
     let correct = 0, sureCorrect = 0, sureWrong = 0, unsureCorrect = 0, unsureWrong = 0
     for (const p of answered) {
-      const ic = checkAnswer(q, p.answers[i].answer)
+      const ic = q.type === 'ranking'
+        ? p.answers[i].isCorrect === true
+        : checkAnswer(q, p.answers[i].answer)
       const sure = p.answers[i].confidence === 'sure'
       if (ic) correct++
       if (sure && ic) sureCorrect++

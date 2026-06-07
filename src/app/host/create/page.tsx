@@ -8,7 +8,7 @@ import { draftKey, readDraft, writeDraft, clearDraft, formatDraftAge } from '@/l
 import { useAutosave } from '@/lib/use-autosave'
 import { useHistory } from '@/lib/use-history'
 import type { Question, QuestionType, BloomsLevel, Quiz, QuestionOption } from '@/lib/quiz-types'
-import { getOptionText, getOptionImage, isScoredType, isSequenceRanking } from '@/lib/quiz-types'
+import { getOptionText, getOptionImage, isScoredQuestion, isSequenceRanking } from '@/lib/quiz-types'
 import { ImageUpload } from '@/components/ImageUpload'
 import { QuizThemePicker } from '@/components/host/QuizThemePicker'
 import { getQuizTheme, type QuizThemeId } from '@/lib/quiz-themes'
@@ -281,6 +281,17 @@ function optionsForType(type: QuestionType): string[] | undefined {
   if (type === 'poll') return ['', '', '', '']
   if (type === 'ranking') return ['', '', '']
   return undefined
+}
+
+function convertQuestionType(question: Question, type: QuestionType): Question {
+  return {
+    ...question,
+    type,
+    options: optionsForType(type),
+    correctAnswer: undefined,
+    correctAnswers: type === 'multiselect' ? [] : undefined,
+    correctOrder: undefined,
+  }
 }
 
 function hasCorrectAnswer(type: QuestionType, question?: Question): boolean {
@@ -636,11 +647,11 @@ function QuestionPreview({
 
         {question.type === 'ranking' && opts.length > 0 && (
           <div className="space-y-4 py-2">
-            {/* Correct Sequence toggle */}
+            {/* Scored sequence toggle */}
             <div className="flex items-center gap-2 p-3 rounded-lg" style={{ background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
               <input
                 type="checkbox"
-                id="correct-seq-toggle"
+                id="scored-seq-toggle"
                 checked={isSequenceRanking(question)}
                 onChange={e => {
                   if (e.target.checked) {
@@ -651,10 +662,15 @@ function QuestionPreview({
                 }}
                 className="w-4 h-4 cursor-pointer"
               />
-              <label htmlFor="correct-seq-toggle" className="flex-1 text-xs font-semibold cursor-pointer" style={{ color: '#15803D' }}>
-                Correct Sequence (scored)
+              <label htmlFor="scored-seq-toggle" className="flex-1 text-xs font-semibold cursor-pointer" style={{ color: '#15803D' }}>
+                Scored sequence
               </label>
             </div>
+            <p className="text-[11px] font-medium" style={{ color: isSequenceRanking(question) ? '#15803D' : '#64748B' }}>
+              {isSequenceRanking(question)
+                ? 'Participants must arrange the items in this exact order to earn points.'
+                : 'Engagement ranking: participants rank preferences, no points are awarded.'}
+            </p>
 
             {/* Items list with add/remove buttons */}
             <div className="space-y-2">
@@ -802,14 +818,7 @@ function QuestionEditor({
 
 
   function handleTypeChange(type: QuestionType) {
-    const options = optionsForType(type)
-    onChange({
-      ...question,
-      type,
-      options,
-      correctAnswer: undefined,
-      correctAnswers: type === 'multiselect' ? [] : undefined,
-    })
+    onChange(convertQuestionType(question, type))
   }
 
   function handleOptionChange(i: number, value: string) {
@@ -863,11 +872,14 @@ function QuestionEditor({
         <button onClick={onDelete} className="text-xs text-gray-500 hover:text-red-500 transition-colors font-semibold px-2 py-1 rounded-md hover:bg-red-50">Remove</button>
       </div>
 
-      {/* Question Type — Change type of this question */}
+      <div className="space-y-3">
+        <p className="text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: 'var(--color-text-muted)' }}>Essential</p>
+
+      {/* Question type */}
       <div className="rounded-xl p-2.5" style={{ background: '#F8F9FA', border: '1px solid #E2E8F0' }}>
         <label className="text-[9px] font-black uppercase tracking-wider mb-2 flex items-center gap-1" style={{ color: '#94A3B8' }}>
           <svg viewBox="0 0 16 16" fill="none" className="w-3 h-3"><path d="M2 8h9M8 5l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          Change Type
+          Question Type
         </label>
         <div className="space-y-2">
           {QUESTION_TYPE_GROUPS.map(group => (
@@ -993,22 +1005,6 @@ function QuestionEditor({
         <p className="text-[10px] font-semibold" style={{ color: '#64748B' }}>Edit the question and answers directly on the preview.</p>
       </div>
 
-      {/* Image */}
-      <details className="insp-section">
-        <summary>
-          <span>Image</span>
-          <svg className="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
-        </summary>
-        <div id="q-image-upload-wrapper">
-          <ImageUpload
-            imageUrl={question.imageUrl}
-            onUpload={url => onChange({ ...question, imageUrl: url })}
-            onRemove={() => onChange({ ...question, imageUrl: undefined })}
-            variant="question"
-          />
-        </div>
-      </details>
-
       {/* Timing & scoring */}
       <details id="q-timing-section" className="insp-section" open>
         <summary>
@@ -1038,9 +1034,9 @@ function QuestionEditor({
           </div>
           <div className="flex-1">
             <label className="text-[10px] font-semibold text-gray-500 mb-1 block">
-              {isScoredType(question.type) ? 'Points' : 'Scoring'}
+              {isScoredQuestion(question) ? 'Points' : 'Scoring'}
             </label>
-            {isScoredType(question.type) ? (
+            {isScoredQuestion(question) ? (
               <div className="flex gap-1 flex-wrap">
                 {POINTS_OPTIONS.map(p => (
                   <button
@@ -1062,12 +1058,32 @@ function QuestionEditor({
               <span
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-bold"
                 style={{ background: '#F3F4F6', color: '#475569', border: '1.5px solid #E2E8F0' }}
-                title="Interactive question types are not scored. Participants earn no points — responses are collected for engagement and insight."
+                title="Engagement question types collect responses but do not award points."
               >
-                Participation only
+                {question.type === 'ranking' ? 'Engagement ranking, no points' : 'Participation only'}
               </span>
             )}
           </div>
+        </div>
+      </details>
+      </div>
+
+      <div className="space-y-3">
+        <p className="text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: 'var(--color-text-muted)' }}>Enrichment</p>
+
+      {/* Image */}
+      <details className="insp-section">
+        <summary>
+          <span>Image</span>
+          <svg className="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+        </summary>
+        <div id="q-image-upload-wrapper">
+          <ImageUpload
+            imageUrl={question.imageUrl}
+            onUpload={url => onChange({ ...question, imageUrl: url })}
+            onRemove={() => onChange({ ...question, imageUrl: undefined })}
+            variant="question"
+          />
         </div>
       </details>
 
@@ -1128,6 +1144,119 @@ function QuestionEditor({
           className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none hover:border-blue-300 hover:bg-white transition-colors cursor-text"
         />
       </details>
+      </div>
+    </div>
+  )
+}
+
+function SortableQuestionThumb({
+  question,
+  index,
+  isActive,
+  isSelected,
+  onSelect,
+  onOpenMenu,
+}: {
+  question: Question
+  index: number
+  isActive: boolean
+  isSelected: boolean
+  onSelect: () => void
+  onOpenMenu: (index: number, x: number, y: number) => void
+}) {
+  const pill = getTypePill(question.type)
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: question.id })
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 20 : undefined,
+    opacity: isDragging ? 0.72 : isSelected ? 1 : 0.5,
+    ...(isActive
+      ? { background: '#EEF2FF', border: '2px solid #6366F1' }
+      : { border: '2px solid transparent' }),
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      id={`qthumb-${index}`}
+      onClick={onSelect}
+      onContextMenu={e => {
+        e.preventDefault()
+        onOpenMenu(index, e.clientX, e.clientY)
+      }}
+      className={`relative group flex items-center gap-2.5 px-3 py-3 rounded-xl cursor-pointer transition-all click-bounce-sm ${isActive ? '' : 'hover:bg-gray-50'} ${isDragging ? 'shadow-xl' : ''}`}
+      style={style}
+    >
+      <button
+        type="button"
+        className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-extrabold flex-shrink-0 cursor-grab active:cursor-grabbing focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
+        style={isActive ? { background: '#6366F1', color: '#fff' } : { background: '#E2E8F0', color: '#64748B' }}
+        aria-label={`Drag question ${index + 1}`}
+        {...attributes}
+        {...listeners}
+        onClick={e => e.stopPropagation()}
+      >
+        {index + 1}
+      </button>
+      <div className="flex-1 min-w-0">
+        <div className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded inline-block mb-1" style={{ background: pill.bg, color: pill.color }}>
+          {pill.label}
+        </div>
+        <p className="text-sm text-gray-600 truncate leading-tight">{question.text.slice(0, 50) || 'Untitled question'}</p>
+      </div>
+      <button
+        onClick={e => {
+          e.stopPropagation()
+          const r = e.currentTarget.getBoundingClientRect()
+          onOpenMenu(index, r.right, r.bottom)
+        }}
+        className="absolute top-1.5 right-1.5 w-6 h-6 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 shadow-sm text-gray-400 hover:text-gray-700 text-sm font-bold"
+        aria-label={`Question ${index + 1} actions`}
+      >
+        &#8230;
+      </button>
+    </div>
+  )
+}
+
+function ActiveQuestionTypeSwitcher({
+  question,
+  onChangeType,
+}: {
+  question: Question
+  onChangeType: (type: QuestionType) => void
+}) {
+  return (
+    <div className="mx-3 mb-3 rounded-xl border p-2.5" style={{ borderColor: '#E2E8F0', background: '#F8FAFC' }}>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-[9px] font-black uppercase tracking-[0.14em]" style={{ color: '#64748B' }}>Active type</p>
+        <span className="text-[9px] font-black uppercase tracking-[0.12em]" style={{ color: getTypePill(question.type).color }}>
+          {getTypePill(question.type).label}
+        </span>
+      </div>
+      <div className="grid grid-cols-4 gap-1">
+        {TYPE_PILLS.map(type => {
+          const active = question.type === type.value
+          return (
+            <button
+              key={type.value}
+              type="button"
+              onClick={() => onChangeType(type.value)}
+              title={`Switch to ${type.label}`}
+              aria-pressed={active}
+              className="flex h-8 items-center justify-center rounded-lg transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
+              style={
+                active
+                  ? { color: type.color, background: type.bg, border: `1.5px solid ${type.color}` }
+                  : { color: '#94A3B8', background: '#FFFFFF', border: '1.5px solid #E2E8F0' }
+              }
+            >
+              <span className="[&>svg]:h-3.5 [&>svg]:w-3.5">{type.svg}</span>
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -1346,8 +1475,10 @@ function CreateQuizPageInner() {
     setShowTitleModal(false)
   }
 
-  // Drag-to-reorder ref
-  const dragIndex = useRef<number | null>(null)
+  const questionRailSensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -1410,7 +1541,7 @@ function CreateQuizPageInner() {
     setQuestions(prev => prev.map(q => ({
       ...q,
       timerSeconds: preset.timerSeconds,
-      points: isScoredType(q.type) ? preset.points : q.points,
+      points: isScoredQuestion(q) ? preset.points : q.points,
     })))
   }
 
@@ -1517,6 +1648,18 @@ function CreateQuizPageInner() {
     ;[reordered[from], reordered[to]] = [reordered[to], reordered[from]]
     setQuestions(reordered)
     setActiveIndex(to)
+  }
+
+  function reorderQuestionById(activeId: string, overId: string) {
+    if (activeId === overId) return
+    setQuestions(prev => {
+      const from = prev.findIndex(q => q.id === activeId)
+      const to = prev.findIndex(q => q.id === overId)
+      if (from < 0 || to < 0 || from === to) return prev
+      const next = arrayMove(prev, from, to)
+      setActiveIndex(to)
+      return next
+    })
   }
 
   function applyGeneratedQuestions(raw: Question[], forTab: Tab): Question[] {
@@ -1955,6 +2098,11 @@ function CreateQuizPageInner() {
   const safeIndex = Math.min(activeIndex, Math.max(0, questions.length - 1))
   const activeQuestion = questions[safeIndex]
 
+  const convertActiveQuestionType = useCallback((type: QuestionType) => {
+    setQuestions(prev => prev.map((item, i) => i === safeIndex ? convertQuestionType(item, type) : item))
+    setTab('manual')
+  }, [safeIndex])
+
   // Scroll question into view in left panel
   const questionListRef = useRef<HTMLDivElement>(null)
   const scrollToQuestion = useCallback((index: number) => {
@@ -2185,55 +2333,39 @@ function CreateQuizPageInner() {
             <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Questions ({questions.length})</p>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-3 space-y-1.5">
-            {questions.map((q, i) => {
-              const pill = getTypePill(q.type)
-              const isActive = i === safeIndex
-              const isSelected = generatedOnTab ? selectedQuestions.has(q.id) : true
-              return (
-                <div
-                  key={q.id}
-                  id={`qthumb-${i}`}
-                  draggable
-                  onDragStart={() => { dragIndex.current = i }}
-                  onDragOver={e => { e.preventDefault() }}
-                  onDrop={() => {
-                    const from = dragIndex.current
-                    if (from === null || from === i) return
-                    const reordered = [...questions]
-                    const [moved] = reordered.splice(from, 1)
-                    reordered.splice(i, 0, moved)
-                    setQuestions(reordered)
-                    dragIndex.current = null
-                  }}
-                  onClick={() => scrollToQuestion(i)}
-                  onContextMenu={e => { e.preventDefault(); setContextMenu({ index: i, x: e.clientX, y: e.clientY }) }}
-                  className={`relative group flex items-center gap-2.5 px-3 py-3 rounded-xl cursor-pointer transition-all click-bounce-sm ${isActive ? '' : 'hover:bg-gray-50'}`}
-                  style={
-                    isActive
-                      ? { background: '#EEF2FF', border: '2px solid #6366F1' }
-                      : { border: '2px solid transparent', opacity: isSelected ? 1 : 0.5 }
-                  }
-                >
-                  <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-extrabold flex-shrink-0"
-                    style={isActive ? { background: '#6366F1', color: '#fff' } : { background: '#E2E8F0', color: '#64748B' }}
-                  >
-                    {i + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded inline-block mb-1" style={{ background: pill.bg, color: pill.color }}>
-                      {pill.label}
-                    </div>
-                    <p className="text-sm text-gray-600 truncate leading-tight">{q.text.slice(0, 50) || 'Untitled question'}</p>
-                  </div>
-                  <button
-                    onClick={e => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setContextMenu({ index: i, x: r.right, y: r.bottom }) }}
-                    className="absolute top-1.5 right-1.5 w-6 h-6 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 shadow-sm text-gray-400 hover:text-gray-700 text-sm font-bold"
-                  >&#8230;</button>
+          {activeQuestion && (
+            <ActiveQuestionTypeSwitcher
+              question={activeQuestion}
+              onChangeType={convertActiveQuestionType}
+            />
+          )}
+
+          <div className="flex-1 overflow-y-auto px-3">
+            <DndContext
+              sensors={questionRailSensors}
+              collisionDetection={closestCenter}
+              onDragEnd={event => {
+                const { active, over } = event
+                if (!over) return
+                reorderQuestionById(String(active.id), String(over.id))
+              }}
+            >
+              <SortableContext items={questions.map(q => q.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-1.5">
+                  {questions.map((q, i) => (
+                    <SortableQuestionThumb
+                      key={q.id}
+                      question={q}
+                      index={i}
+                      isActive={i === safeIndex}
+                      isSelected={generatedOnTab ? selectedQuestions.has(q.id) : true}
+                      onSelect={() => scrollToQuestion(i)}
+                      onOpenMenu={(idx, x, y) => setContextMenu({ index: idx, x, y })}
+                    />
+                  ))}
                 </div>
-              )
-            })}
+              </SortableContext>
+            </DndContext>
           </div>
 
           {/* Bottom: Add Question by Type */}
