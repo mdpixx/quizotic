@@ -18,6 +18,13 @@ const nextConfig: NextConfig = {
         destination: 'https://www.quizotic.live/:path*',
         permanent: true,
       },
+      // /host/create → /host/build (new Slido-style builder is now default)
+      // Preserves edit, type, returnTo params; maps ?start= tabs to /host/build
+      {
+        source: '/host/create',
+        destination: '/host/build',
+        permanent: false,
+      },
     ];
   },
   async headers() {

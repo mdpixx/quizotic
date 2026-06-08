@@ -32,7 +32,7 @@ export default function StudioPage() {
 
           <div className="grid gap-4 md:grid-cols-2">
             <Link
-              href="/host/create?returnTo=%2Fhost%2Fstudio"
+              href="/host/build?returnTo=%2Fhost%2Fstudio"
               className="group rounded-2xl border p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg"
               style={{ borderColor: '#0F1B3D', background: '#FFFDE6', textDecoration: 'none' }}
             >
