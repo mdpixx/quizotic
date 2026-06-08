@@ -61,10 +61,9 @@ html, body {
 
   /* Fonts: self-hosted via next/font (--font-*-loaded set on <html>); falls back
      to local/system fonts if the web font hasn't loaded yet. */
-  --font-space-grotesk: var(--font-space-grotesk-loaded, 'Space Grotesk'), 'Aptos Display', 'Segoe UI', system-ui, sans-serif;
-  --font-dm-sans: var(--font-dm-sans-loaded, 'DM Sans'), Inter, 'Segoe UI', system-ui, sans-serif;
-  --font-heading: var(--font-space-grotesk);
-  --font-body: var(--font-dm-sans);
+  --font-inter: var(--font-inter-loaded, 'Inter'), -apple-system, 'Segoe UI', system-ui, sans-serif;
+  --font-heading: var(--font-inter);
+  --font-body: var(--font-inter);
 }
 
 /* ── Dark mode toggle ──────────────────────────────────────────────── */
