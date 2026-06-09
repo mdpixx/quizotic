@@ -2478,13 +2478,13 @@ function PresentCreatePageInner() {
 
           {/* Quizotic brand pill */}
           <div className="flex-shrink-0 flex items-center justify-center py-3 border-t" style={{ borderColor: '#E2E8F0' }}>
-            <a href="https://quizotic.live" target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black tracking-wide transition-opacity hover:opacity-70"
+            <div
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black tracking-wide select-none"
               style={{ background: '#F5E642', color: '#0F1B3D' }}
             >
               <div className="w-3.5 h-3.5 rounded flex items-center justify-center text-[8px] font-black flex-shrink-0" style={{ background: '#0F1B3D', color: '#F5E642' }}>Q</div>
               QUIZOTIC
-            </a>
+            </div>
           </div>
         </div>
 
