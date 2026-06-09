@@ -3,9 +3,9 @@
 /**
  * QuizBuilder — the new Slido-style quiz builder component.
  *
- * Layout (builder mode):
+ * Layout (always — canvas-first):
  *   ┌──────────────────────────────────────────────────────┐
- *   │  ← back   [title input]   [Save] [Start live]   [⚙] │  ← top bar
+ *   │  ← back   [title input]   [Generate/Import] [Save] [Start live]  │  ← top bar
  *   ├──────────┬───────────────────────────────────────────┤
  *   │ Question │                                           │
  *   │ list     │   QuestionCanvas (full-width, no right    │
@@ -14,20 +14,16 @@
  *   │ [+ Add]  │                                           │
  *   └──────────┴───────────────────────────────────────────┘
  *
- * Layout (launcher mode — new quiz, start !== 'manual'):
- *   ┌──────────────────────────────────────────────────────┐
- *   │  ← back   [title input]   [Save] [Start live]        │  ← top bar
- *   ├──────────┬───────────────────────────────────────────┤
- *   │ START    │  right panel: topic/URL/PDF/CSV/templates  │
- *   │ FROM     │  or blank description                      │
- *   └──────────┴───────────────────────────────────────────┘
+ * The 6-source launcher (Topic/PDF/URL/CSV/Templates/Blank) is now an
+ * on-demand modal opened by the "Generate / Import" toolbar button, or
+ * automatically when ?start=aitopic/aidoc/aiurl/csv/templates is present.
+ * A plain /host/build (or ?start=manual) always lands on the blank canvas.
  *
  * Used by /host/build — the flagged parallel route.
  * The legacy /host/create builder is untouched until flip.
  */
 
 import React, { useState } from 'react'
-import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuizBuilder } from '@/hooks/use-quiz-builder'
 import { isKnownQuestionType } from '@/lib/quiz-builder-logic'
@@ -69,7 +65,7 @@ function AutosaveBadge({ status }: { status: 'idle' | 'saving' | 'saved' | 'erro
 
 // ── AIGeneratePanel ───────────────────────────────────────────────────────────
 // Modal wrapper around AIGenerateForm. Triggered by "Generate with AI" in
-// the QuestionList once the builder is open (not the launcher).
+// the QuestionList once the builder is open.
 
 function AIGeneratePanel({
   onClose,
@@ -108,6 +104,64 @@ function AIGeneratePanel({
   )
 }
 
+// ── SourceModal ───────────────────────────────────────────────────────────────
+// Full-screen modal wrapper around BuilderLauncher. Opened by the
+// "Generate / Import" toolbar button, or automatically via ?start= param.
+
+function SourceModal({
+  plan,
+  initialMode,
+  onApply,
+  onClose,
+}: {
+  plan: 'free' | 'pro'
+  initialMode: LauncherMode
+  onApply: (questions: Partial<Question>[], meta?: { title?: string; subject?: string }) => void
+  onClose: () => void
+}) {
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
+      <div
+        className="fixed z-50 rounded-2xl shadow-2xl border bg-white overflow-hidden flex flex-col"
+        style={{
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 'min(960px, 95vw)',
+          height: 'min(86vh, 680px)',
+          borderColor: '#E5E7EB',
+        }}
+      >
+        {/* Modal header */}
+        <div className="flex-shrink-0 flex items-center justify-between px-5 py-3.5 border-b" style={{ borderColor: '#E5E7EB', background: '#fff' }}>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.16em]" style={{ color: '#7C3AED' }}>Generate or import</p>
+            <h2 className="text-base font-black mt-0.5" style={{ color: '#0F1B3D' }}>Start from a source</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors text-xl leading-none"
+            aria-label="Close"
+          >
+            &times;
+          </button>
+        </div>
+        {/* Launcher body fills remaining height */}
+        <div className="flex-1 flex overflow-hidden">
+          <BuilderLauncher
+            plan={plan}
+            initialMode={initialMode}
+            onApply={onApply}
+            onBlank={onClose}
+          />
+        </div>
+      </div>
+    </>
+  )
+}
+
 // ── resolveMode ───────────────────────────────────────────────────────────────
 
 function resolveMode(start: string | null): LauncherMode {
@@ -116,6 +170,12 @@ function resolveMode(start: string | null): LauncherMode {
   if (start === 'csv') return 'csv'
   if (start === 'templates' || start === 'library') return 'templates'
   return 'aitopic'
+}
+
+// Returns true when a ?start= param should auto-open the source modal.
+// 'manual' and null both mean "blank canvas directly".
+function isSourceStart(start: string | null): boolean {
+  return start === 'aitopic' || start === 'aiurl' || start === 'aidoc' || start === 'csv' || start === 'templates' || start === 'library'
 }
 
 // ── QuizBuilder ───────────────────────────────────────────────────────────────
@@ -132,7 +192,8 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
   const initialMode = resolveMode(start)
 
   const builder = useQuizBuilder({ editId, initialType })
-  const [showLauncher, setShowLauncher] = useState(!editId && start !== 'manual')
+  // Canvas is always shown. Source modal auto-opens for deep-link ?start= values.
+  const [sourceModalOpen, setSourceModalOpen] = useState(() => !editId && isSourceStart(start))
   const [aiPanelOpen, setAiPanelOpen] = useState(false)
   const [titleError, setTitleError] = useState(false)
 
@@ -141,7 +202,7 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
       returnTo: searchParams.get('returnTo'),
       referrer: typeof document !== 'undefined' ? document.referrer : null,
       currentOrigin: typeof window !== 'undefined' ? window.location.origin : null,
-      fallback: editId ? '/host/quizzes' : '/host/studio',
+      fallback: editId ? '/host/quizzes' : '/host',
     })
     if (nav.kind === 'back') router.back()
     else router.push(nav.href)
@@ -154,6 +215,13 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
       return
     }
     await builder.handleSave()
+  }
+
+  function handleSourceApply(questions: Partial<Question>[], meta?: { title?: string; subject?: string }) {
+    builder.applyGeneratedQuestions(questions)
+    if (meta?.title) builder.setTitle(meta.title)
+    if (meta?.subject) builder.setSubject(meta.subject)
+    setSourceModalOpen(false)
   }
 
   return (
@@ -183,6 +251,7 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
           value={builder.title}
           onChange={e => builder.setTitle(e.target.value)}
           placeholder="Quiz title"
+          autoFocus={!editId}
           className="flex-1 min-w-0 bg-transparent text-sm font-bold outline-none border-b-2 transition-colors focus:border-indigo-400 py-1"
           style={{ color: '#0F1B3D', borderBottomColor: titleError ? '#DC2626' : 'transparent', maxWidth: 320 }}
         />
@@ -192,29 +261,41 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
         {/* Autosave badge */}
         <AutosaveBadge status={builder.autosaveStatus} />
 
-        {/* Undo / Redo — only meaningful when builder is open */}
-        {!showLauncher && (
-          <div className="hidden sm:flex items-center gap-1">
-            <button
-              type="button"
-              onClick={builder.undo}
-              disabled={!builder.canUndo}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              title="Undo (Ctrl+Z)"
-            >
-              <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><path d="M4 7h9a4 4 0 010 8H8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M7 4L4 7l3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </button>
-            <button
-              type="button"
-              onClick={builder.redo}
-              disabled={!builder.canRedo}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              title="Redo (Ctrl+Shift+Z)"
-            >
-              <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><path d="M16 7H7a4 4 0 000 8h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M13 4l3 3-3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </button>
-          </div>
-        )}
+        {/* Undo / Redo */}
+        <div className="hidden sm:flex items-center gap-1">
+          <button
+            type="button"
+            onClick={builder.undo}
+            disabled={!builder.canUndo}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            title="Undo (Ctrl+Z)"
+          >
+            <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><path d="M4 7h9a4 4 0 010 8H8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M7 4L4 7l3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+          <button
+            type="button"
+            onClick={builder.redo}
+            disabled={!builder.canRedo}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            title="Redo (Ctrl+Shift+Z)"
+          >
+            <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><path d="M16 7H7a4 4 0 000 8h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M13 4l3 3-3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+        </div>
+
+        {/* Generate / Import button */}
+        <button
+          type="button"
+          onClick={() => setSourceModalOpen(true)}
+          className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all hover:brightness-95"
+          style={{ background: '#F5F3FF', color: '#7C3AED', border: '1px solid #DDD6FE' }}
+          title="Generate questions or import from a source"
+        >
+          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor">
+            <path d="M8 1l1.5 4H14l-3.5 2.5L12 12 8 9.5 4 12l1.5-4.5L2 5h4.5z" fillOpacity="0.9"/>
+          </svg>
+          Generate / Import
+        </button>
 
         {/* Save button */}
         <button
@@ -246,71 +327,65 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
         </div>
       )}
 
-      {/* ── Body: launcher or builder ──────────────────────────────────── */}
+      {/* ── Body: canvas always visible ────────────────────────────────── */}
       <div className="flex-1 flex overflow-hidden">
-        {showLauncher ? (
-          <BuilderLauncher
-            plan={builder.plan}
-            initialMode={initialMode}
-            onApply={(questions, meta) => {
-              builder.applyGeneratedQuestions(questions as Partial<Question>[])
-              if (meta?.title) builder.setTitle(meta.title)
-              if (meta?.subject) builder.setSubject(meta.subject)
-              setShowLauncher(false)
-            }}
-            onBlank={() => setShowLauncher(false)}
+        {/* Left: Question list */}
+        <div
+          className="hidden md:flex flex-col flex-shrink-0"
+          style={{ width: 224, background: '#fff' }}
+        >
+          <QuestionList
+            questions={builder.questions}
+            activeIndex={builder.activeIndex}
+            onSelect={builder.setActiveIndex}
+            onAdd={builder.addQuestion}
+            onDuplicate={builder.duplicateQuestion}
+            onDelete={builder.removeQuestion}
+            onReorder={builder.reorderQuestions}
+            onGenerateAI={() => setAiPanelOpen(true)}
           />
-        ) : (
-          <>
-            {/* Left: Question list */}
-            <div
-              className="hidden md:flex flex-col flex-shrink-0"
-              style={{ width: 224, background: '#fff' }}
-            >
-              <QuestionList
-                questions={builder.questions}
-                activeIndex={builder.activeIndex}
-                onSelect={builder.setActiveIndex}
-                onAdd={builder.addQuestion}
-                onDuplicate={builder.duplicateQuestion}
-                onDelete={builder.removeQuestion}
-                onReorder={builder.reorderQuestions}
-                onGenerateAI={() => setAiPanelOpen(true)}
-              />
-            </div>
+        </div>
 
-            {/* Center: QuestionCanvas */}
-            <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
-              {builder.activeQuestion ? (
-                <QuestionCanvas
-                  question={builder.activeQuestion}
-                  index={builder.activeIndex}
-                  total={builder.questions.length}
-                  plan={builder.plan}
-                  onChange={partial => builder.updateQuestion(builder.activeIndex, partial)}
-                  onTypeChange={type => builder.changeQuestionType(builder.activeIndex, type)}
-                  onDuplicate={() => builder.duplicateQuestion(builder.activeIndex)}
-                  onDelete={() => builder.removeQuestion(builder.activeIndex)}
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full gap-4">
-                  <p className="text-gray-400 text-sm">No questions yet</p>
-                  <button
-                    type="button"
-                    onClick={() => builder.addQuestion('mcq')}
-                    className="px-5 py-2.5 rounded-xl text-sm font-black"
-                    style={{ background: '#0F1B3D', color: '#F5E642' }}
-                  >
-                    + Add your first question
-                  </button>
-                </div>
-              )}
+        {/* Center: QuestionCanvas */}
+        <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
+          {builder.activeQuestion ? (
+            <QuestionCanvas
+              question={builder.activeQuestion}
+              index={builder.activeIndex}
+              total={builder.questions.length}
+              plan={builder.plan}
+              onChange={partial => builder.updateQuestion(builder.activeIndex, partial)}
+              onTypeChange={type => builder.changeQuestionType(builder.activeIndex, type)}
+              onDuplicate={() => builder.duplicateQuestion(builder.activeIndex)}
+              onDelete={() => builder.removeQuestion(builder.activeIndex)}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full gap-4">
+              <p className="text-gray-400 text-sm">No questions yet</p>
+              <button
+                type="button"
+                onClick={() => builder.addQuestion('mcq')}
+                className="px-5 py-2.5 rounded-xl text-sm font-black"
+                style={{ background: '#0F1B3D', color: '#F5E642' }}
+              >
+                + Add your first question
+              </button>
             </div>
-          </>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* AI Generate panel (in-builder modal, not the launcher) */}
+      {/* ── Source modal (Generate / Import) ──────────────────────────── */}
+      {sourceModalOpen && (
+        <SourceModal
+          plan={builder.plan}
+          initialMode={initialMode}
+          onApply={handleSourceApply}
+          onClose={() => setSourceModalOpen(false)}
+        />
+      )}
+
+      {/* ── AI Generate panel (in-builder modal via QuestionList) ──────── */}
       {aiPanelOpen && (
         <AIGeneratePanel
           plan={builder.plan}

@@ -83,7 +83,7 @@ export function QuizVsSlidesModal({ open, onClose }: QuizVsSlidesModalProps) {
             </p>
 
             <Link
-              href="/host/create"
+              href="/host/build"
               onClick={onClose}
               className="btn-primary w-full justify-center"
               style={{ textDecoration: 'none' }}
