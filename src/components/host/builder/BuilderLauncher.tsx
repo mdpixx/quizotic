@@ -18,6 +18,7 @@ import type { Question } from '@/lib/quiz-types'
 import { QUIZ_TEMPLATES, type TemplateAudience } from '@/lib/quiz-templates'
 import { parseCsvToQuestions, SAMPLE_CSV } from '@/lib/csv-import'
 import { AIGenerateForm, type AIGenerateMode } from './AIGenerateForm'
+import { SparkleIcon } from './SparkleIcon'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -47,11 +48,7 @@ interface RailItem {
 }
 
 function IconSparkle() {
-  return (
-    <svg viewBox="0 0 20 20" className="w-4 h-4" fill="currentColor">
-      <path d="M10 2l1.5 4.5H16l-3.5 2.5 1.3 4L10 10.5 6.2 13l1.3-4L4 6.5h4.5z" />
-    </svg>
-  )
+  return <SparkleIcon className="w-4 h-4" />
 }
 function IconDocument() {
   return (

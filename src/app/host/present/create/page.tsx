@@ -2262,23 +2262,17 @@ function PresentCreatePageInner() {
       {/* ── Header ── */}
       <header className="sticky top-0 z-20 border-b" style={{ background: 'rgba(250,251,252,0.96)', backdropFilter: 'blur(8px)', borderColor: '#E2E8F0' }}>
         <div className="flex items-center gap-3 px-3 h-12 md:px-5 md:h-14">
-          <Link
-            href="/host"
-            aria-label="Quizotic home"
-            className="flex items-center gap-1.5 flex-shrink-0 hover:opacity-80 transition-opacity"
+          <button
+            type="button"
+            onClick={closePresentationCreateFlow}
+            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors hover:bg-gray-100"
+            style={{ border: '1.5px solid #E5E7EB', color: '#374151' }}
+            title="Back"
           >
-            <div className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black" style={{ background: '#F5E642', color: '#0D0D0D' }}>Q</div>
-            <span className="text-sm font-extrabold hidden sm:inline" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Quizotic</span>
-          </Link>
-          <button onClick={closePresentationCreateFlow}
-            className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-semibold transition-colors hover:bg-gray-100"
-            style={{ color: '#9CA3AF' }}>
-            <svg viewBox="0 0 16 16" fill="none" className="w-5 h-5">
-              <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4">
+              <path d="M13 16l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            <span className="hidden sm:inline">Back</span>
           </button>
-          <div className="h-5 w-px" style={{ background: '#E2E8F0' }} />
 
           {/* Editable title — visible edit affordance (dashed hover outline,
               solid focus outline, pencil icon) so it doesn't look like a
@@ -2480,6 +2474,17 @@ function PresentCreatePageInner() {
                 >&#8230;</button>
               </div>
             ))}
+          </div>
+
+          {/* Quizotic brand pill */}
+          <div className="flex-shrink-0 flex items-center justify-center py-3 border-t" style={{ borderColor: '#E2E8F0' }}>
+            <a href="https://quizotic.live" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black tracking-wide transition-opacity hover:opacity-70"
+              style={{ background: '#F5E642', color: '#0F1B3D' }}
+            >
+              <div className="w-3.5 h-3.5 rounded flex items-center justify-center text-[8px] font-black flex-shrink-0" style={{ background: '#0F1B3D', color: '#F5E642' }}>Q</div>
+              QUIZOTIC
+            </a>
           </div>
         </div>
 

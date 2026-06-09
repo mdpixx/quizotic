@@ -13,6 +13,7 @@
 
 import { useState } from 'react'
 import type { Question } from '@/lib/quiz-types'
+import { SparkleIcon } from './SparkleIcon'
 
 export type AIGenerateMode = 'aitopic' | 'aiurl' | 'aidoc'
 
@@ -223,9 +224,7 @@ export function AIGenerateForm({ initialMode = 'aitopic', plan, onGenerated }: A
           </>
         ) : (
           <>
-            <svg viewBox="0 0 16 16" className="w-4 h-4" fill="currentColor">
-              <path d="M8 1l1.5 4H14l-3.5 2.5L12 12 8 9.5 4 12l1.5-4.5L2 5h4.5z" />
-            </svg>
+            <SparkleIcon className="w-4 h-4" />
             Generate {count} questions
           </>
         )}
