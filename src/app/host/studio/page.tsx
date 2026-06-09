@@ -3,12 +3,12 @@
 import Link from 'next/link'
 
 const sourceShortcuts = [
-  { label: 'Topic', href: '/host/create?start=aitopic&returnTo=%2Fhost%2Fstudio', note: 'Generate with AI' },
-  { label: 'PDF/DOCX', href: '/host/create?start=aidoc&returnTo=%2Fhost%2Fstudio', note: 'Upload notes' },
-  { label: 'URL', href: '/host/create?start=aiurl&returnTo=%2Fhost%2Fstudio', note: 'Read a page' },
-  { label: 'CSV', href: '/host/create?start=csv&returnTo=%2Fhost%2Fstudio', note: 'Import bank' },
-  { label: 'Templates', href: '/host/templates', note: 'Ready-made' },
-  { label: 'Blank', href: '/host/create?start=manual&returnTo=%2Fhost%2Fstudio', note: 'Manual build' },
+  { label: 'Topic',     href: '/host/build?start=aitopic&returnTo=%2Fhost%2Fstudio',    note: 'Generate with AI' },
+  { label: 'PDF/DOCX',  href: '/host/build?start=aidoc&returnTo=%2Fhost%2Fstudio',      note: 'Upload notes' },
+  { label: 'URL',       href: '/host/build?start=aiurl&returnTo=%2Fhost%2Fstudio',      note: 'Read a page' },
+  { label: 'CSV',       href: '/host/build?start=csv&returnTo=%2Fhost%2Fstudio',        note: 'Import bank' },
+  { label: 'Templates', href: '/host/build?start=templates&returnTo=%2Fhost%2Fstudio',  note: 'Ready-made' },
+  { label: 'Blank',     href: '/host/build?start=manual&returnTo=%2Fhost%2Fstudio',     note: 'Manual build' },
 ]
 
 export default function StudioPage() {
@@ -90,7 +90,7 @@ export default function StudioPage() {
               <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: '#D97706' }}>Quiz sources</p>
               <h2 className="text-xl font-black" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Choose a starting point inside quiz creation</h2>
             </div>
-            <p className="text-xs font-semibold" style={{ color: '#64748B' }}>All routes open the same quiz builder with the right tab selected.</p>
+            <p className="text-xs font-semibold" style={{ color: '#64748B' }}>All routes open the quiz builder with the right panel preselected.</p>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {sourceShortcuts.map(shortcut => (
