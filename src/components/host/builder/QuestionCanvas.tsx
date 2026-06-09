@@ -47,6 +47,7 @@ import {
 } from '@/lib/quiz-builder-logic'
 import { getTypeIcon } from '@/lib/quiz-type-icons'
 import { QuestionSettingsPopover } from './QuestionSettingsPopover'
+import { SparkleIcon } from './SparkleIcon'
 
 // ── AutoGrowTextarea ─────────────────────────────────────────────────────────
 
@@ -69,11 +70,14 @@ function AutoGrowTextarea(
 function CharCount({ value, limit }: { value: string; limit: number }) {
   const remaining = limit - value.length
   const isOver = remaining < 0
-  if (remaining > 20) return null
+  const isWarning = !isOver && remaining <= 20
   return (
     <span
       className="absolute top-1.5 right-2 text-[10px] font-bold tabular-nums pointer-events-none select-none z-10 rounded px-1 py-0.5 leading-none"
-      style={{ color: isOver ? '#fff' : '#15803d', background: isOver ? '#DC2626' : 'rgba(255,255,255,0.9)' }}
+      style={{
+        color: isOver ? '#fff' : isWarning ? '#15803d' : '#94A3B8',
+        background: isOver ? '#DC2626' : isWarning ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.05)',
+      }}
     >
       {remaining}
     </span>
@@ -247,9 +251,7 @@ function SparkleButton({ label, onClick, loading = false }: { label: string; onC
       {loading ? (
         <span className="w-3.5 h-3.5 rounded-full border-2 border-purple-400 border-t-transparent animate-spin" />
       ) : (
-        <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor">
-          <path d="M8 1l1.5 4H14l-3.5 2.5L12 12 8 9.5 4 12l1.5-4.5L2 5h4.5z" fillOpacity="0.9"/>
-        </svg>
+        <SparkleIcon className="w-3.5 h-3.5" />
       )}
       {label}
     </button>
@@ -282,7 +284,6 @@ export function QuestionCanvas({
   const opts = question.options ?? []
   const scored = isScoredQuestion(question)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [aiQuestionLoading, setAiQuestionLoading] = useState(false)
   const [aiOptionsLoading, setAiOptionsLoading] = useState(false)
   const settingsRef = useRef<HTMLDivElement>(null)
 
@@ -331,30 +332,6 @@ export function QuestionCanvas({
     }
   }
 
-  // ── Inline AI: generate / improve the question text ──────────────────────
-
-  async function handleAiQuestion() {
-    if (!question.text.trim() && !window.confirm('Generate a question for this type?')) return
-    setAiQuestionLoading(true)
-    try {
-      const res = await fetch('/api/generate-question', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: question.type,
-          context: question.text.trim() || undefined,
-        }),
-      })
-      if (!res.ok) { alert('AI unavailable. Try again.'); return }
-      const data = await res.json()
-      if (data.text) onChange({ text: data.text })
-    } catch {
-      alert('Network error.')
-    } finally {
-      setAiQuestionLoading(false)
-    }
-  }
-
   // ── Inline AI: generate options ──────────────────────────────────────────
 
   async function handleAiOptions() {
@@ -368,7 +345,7 @@ export function QuestionCanvas({
       })
       if (!res.ok) { alert('AI unavailable. Try again.'); return }
       const data = await res.json()
-      if (data.options) onChange({ options: data.options, correctAnswer: data.correctAnswer })
+      if (data.options) onChange({ options: data.options, correctAnswer: data.correctAnswer, correctAnswers: data.correctAnswers })
     } catch {
       alert('Network error.')
     } finally {
@@ -492,18 +469,10 @@ export function QuestionCanvas({
           onChange={e => onChange({ text: e.target.value })}
           placeholder="What would you like to ask?"
           minRows={1}
-          maxLength={180}
+          maxLength={160}
           className={`w-full font-bold text-center bg-transparent outline-none resize-none border-0 focus:ring-2 focus:ring-blue-100 rounded-lg transition-all leading-snug ${questionTextSizeClass(question.text)}`}
           style={{ color: '#0F1B3D' }}
         />
-        {/* ✨ AI — generate / improve question */}
-        <div className="mt-2 flex justify-center">
-          <SparkleButton
-            label={question.text.trim() ? 'Improve with AI' : 'Write with AI'}
-            onClick={handleAiQuestion}
-            loading={aiQuestionLoading}
-          />
-        </div>
       </div>
 
       {/* ── Image preview (if set) ──────────────────────────────────────── */}
@@ -546,7 +515,7 @@ export function QuestionCanvas({
                     }}
                   >
                     <CharCount value={optText} limit={OPTION_CHAR_LIMIT} />
-                    <div className="flex items-start gap-3 px-3 py-3 w-full">
+                    <div className="flex items-center gap-3 px-3 py-3 w-full">
                       {/* Correct-answer toggle */}
                       <button
                         type="button"
@@ -564,7 +533,7 @@ export function QuestionCanvas({
                         onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
                         placeholder={`Option ${c.letter}`}
                         disabled={question.type === 'truefalse'}
-                        maxLength={120}
+                        maxLength={100}
                         className="flex-1 min-w-0 text-sm font-bold bg-transparent outline-none border-0 text-white placeholder:text-white/60 disabled:opacity-70 resize-none leading-snug"
                         style={{ textShadow: '0 1px 2px rgba(0,0,0,0.15)' }}
                       />

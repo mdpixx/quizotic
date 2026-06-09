@@ -13,6 +13,7 @@ import React from 'react'
 import type { QuestionType } from '@/lib/quiz-types'
 import { TYPE_PILLS, QUESTION_TYPE_GROUPS } from '@/lib/quiz-builder-logic'
 import { getTypeIcon } from '@/lib/quiz-type-icons'
+import { SparkleIcon } from './SparkleIcon'
 
 export interface AddInteractionPickerProps {
   onAdd: (type: QuestionType) => void
@@ -65,9 +66,7 @@ export function AddInteractionPicker({ onAdd, onGenerateAI, onClose }: AddIntera
             }}
           >
             <span className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#7C3AED', color: '#fff' }}>
-              <svg viewBox="0 0 16 16" className="w-4 h-4" fill="currentColor">
-                <path d="M8 1l1.5 4H14l-3.5 2.5L12 12 8 9.5 4 12l1.5-4.5L2 5h4.5z" fillOpacity="0.9"/>
-              </svg>
+              <SparkleIcon className="w-4 h-4" />
             </span>
             <div>
               <p className="text-sm font-black" style={{ color: '#5B21B6' }}>Generate with AI</p>

@@ -7,11 +7,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
-    <div className="flex" style={{ minHeight: '100vh', background: '#F8F9FA' }}>
+    <div className="flex h-screen overflow-hidden" style={{ background: '#F8F9FA' }}>
       <HostSidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
 
       {/* Mobile top bar — hamburger + logo */}
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div className="flex-1 min-w-0 min-h-0 flex flex-col">
         <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b sticky top-0 z-30" style={{ background: 'rgba(15,27,61,0.97)', backdropFilter: 'blur(8px)', borderColor: 'rgba(255,255,255,0.08)' }}>
           <button
             onClick={() => setMobileMenuOpen(true)}

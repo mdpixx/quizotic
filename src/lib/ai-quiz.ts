@@ -97,10 +97,12 @@ Return JSON: ${type === 'case' ? '{"options":["...", "...", "...", "..."],"corre
   return `Generate 4 answer options for this question: "${questionText}"
 
 Return JSON: {"options":["...", "...", "...", "..."], "correctAnswer":"N"}
-- "correctAnswer" is the string index ("0","1","2","3") of the one correct option
+- "correctAnswer" is the string index ("0","1","2","3") of the ONE correct option
+- The other 3 options must be plausible, close-match distractors: common misconceptions, near-correct values, or answers that sound right but are wrong — NOT obviously absurd
+- All 4 options should be similar in length, style, and specificity
 - Vary the correct answer position — do not always use index "0"
 - Each option must be complete and meaningful, never a placeholder
-- If the question has a well-known factual answer, make sure one option IS correct`
+- If the question has a well-known factual answer, make sure exactly one option IS correct`
 }
 
 // ── Type instructions / examples ──────────────────────────────────────────────

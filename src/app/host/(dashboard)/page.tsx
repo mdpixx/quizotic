@@ -299,7 +299,7 @@ export default function HostDashboard() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
             Create quiz
           </Link>
-          <Link href="/host/present/create" className="hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-all hover:brightness-95" style={{ background: '#EFF6FF', color: '#1368CE', border: '1px solid #BFDBFE', textDecoration: 'none' }}>
+          <Link href="/host/present/create" className="btn-primary-teal hidden sm:inline-flex" style={{ textDecoration: 'none' }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
             Presentation
           </Link>

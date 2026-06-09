@@ -32,6 +32,7 @@ import { QuestionList } from './QuestionList'
 import { QuestionCanvas } from './QuestionCanvas'
 import { BuilderLauncher, type LauncherMode } from './BuilderLauncher'
 import { AIGenerateForm } from './AIGenerateForm'
+import { SparkleIcon } from './SparkleIcon'
 import type { Question } from '@/lib/quiz-types'
 
 // ── AutosaveBadge ─────────────────────────────────────────────────────────────
@@ -291,9 +292,7 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
           style={{ background: '#F5F3FF', color: '#7C3AED', border: '1px solid #DDD6FE' }}
           title="Generate questions or import from a source"
         >
-          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor">
-            <path d="M8 1l1.5 4H14l-3.5 2.5L12 12 8 9.5 4 12l1.5-4.5L2 5h4.5z" fillOpacity="0.9"/>
-          </svg>
+          <SparkleIcon className="w-3.5 h-3.5" />
           Generate / Import
         </button>
 
