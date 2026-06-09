@@ -41,7 +41,7 @@ export default function TemplatesPage() {
       questions: template.quiz.questions.map(q => ({ ...q, id: crypto.randomUUID() })),
     }
     saveQuiz(newQuiz)
-    router.push(`/host/create?edit=${newQuiz.id}`)
+    router.push(`/host/build?edit=${newQuiz.id}`)
   }
 
   return (
@@ -61,7 +61,7 @@ export default function TemplatesPage() {
               Template Gallery
             </h1>
           </div>
-          <Link href="/host/create"
+          <Link href="/host/build?start=manual"
             className="text-sm font-bold px-4 py-2 rounded-xl transition-all hover:opacity-90"
             style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}>
             + Blank Quiz
