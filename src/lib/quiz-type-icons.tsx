@@ -141,18 +141,19 @@ const ILLUSTRATIONS: Partial<Record<QuestionType, React.ReactNode>> = {
     </svg>
   ),
 
-  // Two large pill buttons: green "True" and red "False"
+  // Two large pill buttons: green "True" (✓) and red "False" (✗)
+  // viewBox wider (260×100) to match the ~2.3:1 card aspect ratio — no letterboxing.
   truefalse: (
-    <svg viewBox="0 0 200 100" width="100%" height="88" className="block">
+    <svg viewBox="0 0 260 100" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" className="block">
       {/* True button */}
-      <rect x="14" y="22" width="80" height="56" rx="12" fill="#16A34A"/>
-      <path d="M42 51l8 8 14-16" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
-      <rect x="32" y="64" width="46" height="6" rx="3" fill="rgba(255,255,255,0.4)"/>
+      <rect x="12" y="12" width="110" height="76" rx="14" fill="#16A34A"/>
+      {/* Checkmark */}
+      <path d="M44 52l14 14 24-28" stroke="white" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/>
 
       {/* False button */}
-      <rect x="106" y="22" width="80" height="56" rx="12" fill="#DC2626"/>
-      <path d="M130 42l20 20M150 42l-20 20" stroke="white" strokeWidth="3" strokeLinecap="round"/>
-      <rect x="120" y="64" width="46" height="6" rx="3" fill="rgba(255,255,255,0.4)"/>
+      <rect x="138" y="12" width="110" height="76" rx="14" fill="#DC2626"/>
+      {/* X mark */}
+      <path d="M160 32l36 36M196 32l-36 36" stroke="white" strokeWidth="5" strokeLinecap="round"/>
     </svg>
   ),
 
