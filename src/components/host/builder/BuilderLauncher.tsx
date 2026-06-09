@@ -33,6 +33,8 @@ interface BuilderLauncherProps {
   initialMode?: LauncherMode
   onApply: (questions: Partial<Question>[], meta?: LauncherApplyMeta) => void
   onBlank: () => void
+  /** Optional close handler (used when launcher is inside a modal). */
+  onClose?: () => void
 }
 
 // ── Left rail config ──────────────────────────────────────────────────────────
@@ -318,7 +320,7 @@ const PANEL_HEADERS: Record<LauncherMode, { title: string; sub: string }> = {
 
 // ── BuilderLauncher ────────────────────────────────────────────────────────────
 
-export function BuilderLauncher({ plan, initialMode = 'aitopic', onApply, onBlank }: BuilderLauncherProps) {
+export function BuilderLauncher({ plan, initialMode = 'aitopic', onApply, onBlank, onClose }: BuilderLauncherProps) {
   const [mode, setMode] = useState<LauncherMode>(initialMode)
 
   const handleApply = useCallback(
@@ -440,11 +442,11 @@ export function BuilderLauncher({ plan, initialMode = 'aitopic', onApply, onBlan
               </div>
               <button
                 type="button"
-                onClick={onBlank}
+                onClick={onClose ?? onBlank}
                 className="w-full py-2.5 rounded-xl text-sm font-black transition-all hover:opacity-90"
                 style={{ background: '#0F1B3D', color: '#F5E642' }}
               >
-                Open blank builder &rarr;
+                {onClose ? 'Close and build manually →' : 'Open blank builder →'}
               </button>
             </div>
           </div>

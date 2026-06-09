@@ -176,16 +176,25 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
         </Link>
       </div>
 
-      {/* Single create door — studio routes to quiz / polls / slides / practice */}
-      <div className="px-4 pt-4 pb-2">
+      {/* Create buttons — quiz builder and presentation */}
+      <div className="px-4 pt-4 pb-2 flex flex-col gap-2">
         <Link
-          href="/host/studio"
+          href="/host/build"
           onClick={onNavClick}
           className="btn-primary w-full justify-center"
           style={{ padding: '8px 10px', fontSize: '12px', textDecoration: 'none' }}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-3 h-3"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
-          Create
+          Create quiz
+        </Link>
+        <Link
+          href="/host/present/create"
+          onClick={onNavClick}
+          className="w-full flex items-center justify-center gap-1.5 rounded-xl font-black transition-all hover:brightness-95"
+          style={{ padding: '8px 10px', fontSize: '12px', textDecoration: 'none', background: '#EFF6FF', color: '#1368CE', border: '1px solid #BFDBFE' }}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-3 h-3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+          Presentation
         </Link>
       </div>
 

@@ -168,7 +168,7 @@ export default function ReportsPage() {
           {[
             { label: 'What went well', desc: `${totalParticipants} participant${totalParticipants === 1 ? '' : 's'} reached across completed sessions.`, tone: '#16A34A' },
             { label: 'Who needs help', desc: avgAcrossAll != null && avgAcrossAll < 60 ? 'Average score is below 60%; export marks and follow up.' : 'Use CSV to spot repeat learners and low confidence answers.', tone: '#DC2626' },
-            { label: 'What to teach next', desc: 'Open a weak topic in Studio and generate a short retrieval quiz.', tone: '#7C3AED', href: '/host/studio' },
+            { label: 'What to teach next', desc: 'Open a weak topic in the builder and generate a short retrieval quiz.', tone: '#7C3AED', href: '/host/build?start=aitopic' },
             { label: 'Export marks', desc: 'Download CSV for a session, then push to Sheets/Classroom when integrations land.', tone: '#D97706' },
           ].map(item => {
             const body = (

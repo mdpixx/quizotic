@@ -1643,7 +1643,7 @@ function PresentCreatePageInner() {
       returnTo: params?.get('returnTo') ?? null,
       referrer: typeof document !== 'undefined' ? document.referrer : null,
       currentOrigin: typeof window !== 'undefined' ? window.location.origin : null,
-      fallback: editIdRef.current ? '/host/presentations' : '/host/studio',
+      fallback: editIdRef.current ? '/host/presentations' : '/host',
     })
     if (nav.kind === 'back') router.back()
     else router.push(nav.href)
