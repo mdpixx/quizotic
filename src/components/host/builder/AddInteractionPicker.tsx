@@ -3,8 +3,9 @@
 /**
  * AddInteractionPicker — Slido-style type picker shown when the host clicks "+ Add".
  *
- * Question type is chosen here, ONCE — eliminating the three duplicate type pickers
- * that existed in the legacy builder (left-top switcher + left-bottom grid + right panel).
+ * Each question type is shown as a large illustrated card (Slido-inspired):
+ *   - Top: a mini SVG illustration visually previewing what the type looks like
+ *   - Bottom: type name (bold, accent color) + one-line description
  *
  * Has a "✨ Generate with AI" box at the top that routes to the bulk AI flow.
  */
@@ -12,7 +13,7 @@
 import React from 'react'
 import type { QuestionType } from '@/lib/quiz-types'
 import { TYPE_PILLS, QUESTION_TYPE_GROUPS } from '@/lib/quiz-builder-logic'
-import { getTypeIcon } from '@/lib/quiz-type-icons'
+import { getTypeIllustration } from '@/lib/quiz-type-icons'
 import { SparkleIcon } from './SparkleIcon'
 
 export interface AddInteractionPickerProps {
@@ -27,15 +28,15 @@ export function AddInteractionPicker({ onAdd, onGenerateAI, onClose }: AddIntera
       {/* Backdrop */}
       <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px]" onClick={onClose} />
 
-      {/* Panel */}
+      {/* Panel — wider to fit the larger illustrated cards */}
       <div
         className="fixed z-50 rounded-2xl shadow-2xl border bg-white overflow-y-auto"
         style={{
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          width: 'min(480px, 95vw)',
-          maxHeight: '80vh',
+          width: 'min(620px, 95vw)',
+          maxHeight: '82vh',
           borderColor: '#E5E7EB',
         }}
       >
@@ -75,11 +76,11 @@ export function AddInteractionPicker({ onAdd, onGenerateAI, onClose }: AddIntera
             <span className="ml-auto text-purple-400 text-lg">&#8250;</span>
           </button>
 
-          {/* Manual type grid grouped by category */}
+          {/* Illustrated type cards, grouped by category */}
           {QUESTION_TYPE_GROUPS.map(group => (
             <div key={group.label}>
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] mb-2.5" style={{ color: '#9CA3AF' }}>{group.label}</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] mb-3" style={{ color: '#9CA3AF' }}>{group.label}</p>
+              <div className="grid grid-cols-2 gap-3">
                 {group.types.map(type => {
                   const p = TYPE_PILLS.find(t => t.value === type)
                   if (!p) return null
@@ -88,19 +89,21 @@ export function AddInteractionPicker({ onAdd, onGenerateAI, onClose }: AddIntera
                       key={type}
                       type="button"
                       onClick={() => onAdd(type)}
-                      className="flex flex-col items-start gap-2 p-3.5 rounded-xl text-left transition-all hover:scale-[1.02] hover:shadow-md group"
-                      style={{ background: p.bg, border: `1px solid ${p.color}22` }}
-                      title={p.tooltip}
+                      className="flex flex-col rounded-2xl overflow-hidden text-left transition-all hover:-translate-y-0.5 hover:shadow-lg"
+                      style={{ border: `1.5px solid ${p.color}22` }}
                     >
-                      <span className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${p.color}18`, border: `1.5px solid ${p.color}33` }}>
-                        {getTypeIcon(type)}
-                      </span>
-                      <span className="text-[11px] font-black leading-tight" style={{ color: p.color }}>
-                        {p.label}
-                      </span>
-                      <span className="text-[10px] leading-snug opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: p.color }}>
-                        {p.tooltip}
-                      </span>
+                      {/* Illustration */}
+                      <div
+                        className="w-full flex items-center justify-center overflow-hidden"
+                        style={{ background: p.bg, height: 120 }}
+                      >
+                        {getTypeIllustration(type)}
+                      </div>
+                      {/* Label + description */}
+                      <div className="px-3.5 py-3 bg-white border-t" style={{ borderColor: `${p.color}18` }}>
+                        <p className="text-sm font-black leading-tight" style={{ color: p.color }}>{p.label}</p>
+                        <p className="text-[11px] mt-1 leading-snug" style={{ color: '#64748B' }}>{p.tooltip}</p>
+                      </div>
                     </button>
                   )
                 })}
