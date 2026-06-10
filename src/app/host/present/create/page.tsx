@@ -1998,9 +1998,21 @@ function PresentCreatePageInner() {
     return () => window.removeEventListener('beforeunload', handler)
   }, [presentation])
 
+  // The keyboard effect below only re-binds when slides.length changes, so it
+  // must reach savePresentation through a ref to avoid saving a stale snapshot.
+  const savePresentationRef = useRef(savePresentation)
+  useEffect(() => { savePresentationRef.current = savePresentation })
+
   // Keyboard navigation
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Cmd/Ctrl+S works everywhere — including inside inputs — and replaces
+      // the browser's save-page dialog with a manual save.
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault()
+        void savePresentationRef.current(true)
+        return
+      }
       const tag = (e.target as HTMLElement).tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {

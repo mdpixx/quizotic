@@ -59,6 +59,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: true })
   }
   const eventCreatedAt: number = typeof event.created_at === 'number' ? event.created_at : 0
+  // Freshness window: a replayed delivery of an old (signed, valid) webhook
+  // would otherwise pass signature + idempotency checks if its timestamp made
+  // the providerEventId unique. Razorpay retries for up to ~24h, so allow
+  // that, but refuse anything older.
+  const MAX_WEBHOOK_AGE_SECONDS = 24 * 60 * 60
+  if (eventCreatedAt > 0 && Date.now() / 1000 - eventCreatedAt > MAX_WEBHOOK_AGE_SECONDS) {
+    console.warn(`[razorpay-webhook] stale event rejected: ${eventId} created_at=${eventCreatedAt}`)
+    return NextResponse.json({ error: 'Stale event' }, { status: 400 })
+  }
   const providerEventId = `${eventId}_${entityId}_${eventCreatedAt}`
 
   // Audit-log the inbound webhook BEFORE business logic, so a failure

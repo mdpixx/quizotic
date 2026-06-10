@@ -64,6 +64,40 @@ function AutosaveBadge({ status }: { status: 'idle' | 'saving' | 'saved' | 'erro
   )
 }
 
+// ── CloudSaveBadge ────────────────────────────────────────────────────────────
+// Background server autosave indicator. Quiet on purpose: errors here are
+// recoverable (the local draft + manual Save still work), so it never blocks.
+
+function CloudSaveBadge({ status, lastSavedAt }: { status: 'idle' | 'saving' | 'saved' | 'error'; lastSavedAt: number | null }) {
+  if (status === 'idle') return null
+  if (status === 'saving') {
+    return (
+      <span className="hidden lg:flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md" style={{ background: '#EFF6FF', color: '#1D4ED8' }} title="Saving to cloud">
+        <svg className="animate-spin w-3 h-3" viewBox="0 0 16 16" fill="none">
+          <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" opacity="0.3"/>
+          <path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+        Cloud&hellip;
+      </span>
+    )
+  }
+  if (status === 'error') {
+    return (
+      <span className="hidden lg:flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md" style={{ background: '#FEF3C7', color: '#92400E' }} title="Cloud autosave failed — your work is kept locally; use Save to retry">
+        Cloud sync pending
+      </span>
+    )
+  }
+  const time = lastSavedAt
+    ? new Date(lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : null
+  return (
+    <span className="hidden lg:flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md" style={{ background: '#EFF6FF', color: '#1D4ED8' }} title="All changes saved to your account">
+      &#9729; Saved to cloud{time ? ` · ${time}` : ''}
+    </span>
+  )
+}
+
 // ── AIGeneratePanel ───────────────────────────────────────────────────────────
 // Modal wrapper around AIGenerateForm. Triggered by "Generate with AI" in
 // the QuestionList once the builder is open.
@@ -259,8 +293,9 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
 
         <div className="flex-1" />
 
-        {/* Autosave badge */}
+        {/* Autosave badges — local draft + background cloud sync */}
         <AutosaveBadge status={builder.autosaveStatus} />
+        <CloudSaveBadge status={builder.cloudSaveStatus} lastSavedAt={builder.lastCloudSaveAt} />
 
         {/* Undo / Redo */}
         <div className="hidden sm:flex items-center gap-1">
@@ -303,6 +338,7 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
           disabled={builder.saving}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-all disabled:opacity-50 hover:brightness-95"
           style={{ background: '#0F1B3D', color: '#F5E642' }}
+          title="Save (Ctrl+S / Cmd+S)"
         >
           {builder.saving ? 'Saving…' : 'Save'}
         </button>
@@ -340,6 +376,8 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
             onAdd={builder.addQuestion}
             onDuplicate={builder.duplicateQuestion}
             onDelete={builder.removeQuestion}
+            onBulkDelete={builder.removeQuestions}
+            onBulkDuplicate={builder.duplicateQuestions}
             onReorder={builder.reorderQuestions}
             onGenerateAI={() => setAiPanelOpen(true)}
           />

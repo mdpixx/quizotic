@@ -94,10 +94,21 @@ export function startClockSync(socket: Socket): () => void {
 // the participant client when a `question_show` arrives — it tightens the
 // offset right before the timer math runs, catching drift that would
 // otherwise make the question start in the red zone.
-export function resyncClock(): void {
-  if (!activeSocket || !activeSocket.connected) return
+//
+// onSettled fires once the burst has had time to land (or immediately when
+// the call is throttled because a resync ran <2s ago — the offset is already
+// fresh). Callers use it to recompute displayed remaining-time with the
+// tightened offset instead of the possibly-stale one.
+export function resyncClock(onSettled?: () => void): void {
+  if (!activeSocket || !activeSocket.connected) {
+    onSettled?.()
+    return
+  }
   const now = Date.now()
-  if (now - lastResyncAt < 2000) return
+  if (now - lastResyncAt < 2000) {
+    onSettled?.()
+    return
+  }
   lastResyncAt = now
   // Reset best-rtt so a fresh tight ping can replace a stale offset.
   bestRttMs = Infinity
@@ -111,6 +122,8 @@ export function resyncClock(): void {
     firesLeft--
     ping(activeSocket)
   }, 120)
+  // 3 pings x 120ms apart + one typical mobile RTT of headroom.
+  if (onSettled) setTimeout(onSettled, 600)
 }
 
 export function getServerTimeOffsetMs(): number {

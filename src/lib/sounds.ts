@@ -8,6 +8,42 @@ function getCtx(): AudioContext {
   return audioCtx
 }
 
+// ─── Global mute ────────────────────────────────────────────────────────────
+// One switch for everything: synth effects route through a master GainNode,
+// MP3-backed effects flip the elements' muted flag. Persisted so the choice
+// survives reloads (a teacher who muted once stays muted next session).
+const MUTE_KEY = 'quizotic-audio-muted'
+let muted = false
+try {
+  muted = typeof window !== 'undefined' && localStorage.getItem(MUTE_KEY) === '1'
+} catch { /* storage unavailable (private mode) — default unmuted */ }
+
+let masterGain: GainNode | null = null
+function getMaster(ctx: AudioContext): GainNode {
+  if (!masterGain) {
+    masterGain = ctx.createGain()
+    masterGain.gain.value = muted ? 0 : 1
+    masterGain.connect(ctx.destination)
+  }
+  return masterGain
+}
+
+export function isMuted(): boolean {
+  return muted
+}
+
+export function setMuted(m: boolean): void {
+  muted = m
+  try { localStorage.setItem(MUTE_KEY, m ? '1' : '0') } catch { /* ignore */ }
+  if (masterGain) masterGain.gain.value = m ? 0 : 1
+  for (const el of mp3Cache.values()) el.muted = m
+}
+
+export function toggleMuted(): boolean {
+  setMuted(!muted)
+  return muted
+}
+
 // Cached HTMLAudioElement instances for MP3-backed effects. First access
 // triggers preload; subsequent plays reuse the same element (rewound). If the
 // file is missing, playback silently fails and synth sounds carry the moment.
@@ -21,6 +57,7 @@ function getMp3(path: string, volume = 0.9): HTMLAudioElement | null {
     el.volume = volume
     mp3Cache.set(path, el)
   }
+  el.muted = muted
   return el
 }
 function playMp3(path: string, volume = 0.9): Promise<void> {
@@ -84,7 +121,7 @@ export function playTick() {
   const osc = ctx.createOscillator()
   const gain = ctx.createGain()
   osc.connect(gain)
-  gain.connect(ctx.destination)
+  gain.connect(getMaster(ctx))
   osc.frequency.value = 880
   osc.type = 'sine'
   gain.gain.setValueAtTime(0.3, ctx.currentTime)
@@ -98,7 +135,7 @@ export function playCorrect() {
   const osc = ctx.createOscillator()
   const gain = ctx.createGain()
   osc.connect(gain)
-  gain.connect(ctx.destination)
+  gain.connect(getMaster(ctx))
   osc.type = 'sine'
   gain.gain.setValueAtTime(0.25, ctx.currentTime)
   gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4)
@@ -114,7 +151,7 @@ export function playWrong() {
   const osc = ctx.createOscillator()
   const gain = ctx.createGain()
   osc.connect(gain)
-  gain.connect(ctx.destination)
+  gain.connect(getMaster(ctx))
   osc.type = 'sawtooth'
   osc.frequency.value = 200
   gain.gain.setValueAtTime(0.2, ctx.currentTime)
@@ -131,7 +168,7 @@ export function playStreak() {
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
     osc.connect(gain)
-    gain.connect(ctx.destination)
+    gain.connect(getMaster(ctx))
     osc.type = 'sine'
     osc.frequency.value = freq
     const t = ctx.currentTime + i * 0.08
@@ -173,7 +210,7 @@ export function playBassBoom() {
   {
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
-    osc.connect(gain); gain.connect(ctx.destination)
+    osc.connect(gain); gain.connect(getMaster(ctx))
     osc.type = 'sine'
     osc.frequency.setValueAtTime(80, t0)
     osc.frequency.exponentialRampToValueAtTime(55, t0 + 0.22)
@@ -188,7 +225,7 @@ export function playBassBoom() {
   triad.forEach((freq, i) => {
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
-    osc.connect(gain); gain.connect(ctx.destination)
+    osc.connect(gain); gain.connect(getMaster(ctx))
     osc.type = 'triangle'
     osc.frequency.value = freq
     const start = t0 + 0.04 + i * 0.02
@@ -203,7 +240,7 @@ export function playBassBoom() {
   {
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
-    osc.connect(gain); gain.connect(ctx.destination)
+    osc.connect(gain); gain.connect(getMaster(ctx))
     osc.type = 'sine'
     osc.frequency.value = 1046.5
     const start = t0 + 0.18
@@ -232,7 +269,7 @@ export function playLeaderboardJingle() {
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
     osc.connect(gain)
-    gain.connect(ctx.destination)
+    gain.connect(getMaster(ctx))
     osc.type = 'triangle'
     osc.frequency.value = freq
     const t = ctx.currentTime + delay
@@ -258,7 +295,7 @@ export function playCelebration() {
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
     osc.connect(gain)
-    gain.connect(ctx.destination)
+    gain.connect(getMaster(ctx))
     osc.type = 'triangle'
     osc.frequency.value = freq
     const t = ctx.currentTime + delay

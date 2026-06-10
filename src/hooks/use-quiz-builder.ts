@@ -60,6 +60,8 @@ export interface UseQuizBuilderReturn {
   addQuestion: (type: QuestionType) => void
   duplicateQuestion: (index: number) => void
   removeQuestion: (index: number) => void
+  removeQuestions: (indices: number[]) => void
+  duplicateQuestions: (indices: number[]) => void
   reorderQuestions: (fromIndex: number, toIndex: number) => void
   updateQuestion: (index: number, partial: Partial<Question>) => void
   changeQuestionType: (index: number, type: QuestionType) => void
@@ -73,6 +75,8 @@ export interface UseQuizBuilderReturn {
 
   // Persistence
   autosaveStatus: 'idle' | 'saving' | 'saved' | 'error'
+  cloudSaveStatus: 'idle' | 'saving' | 'saved' | 'error'
+  lastCloudSaveAt: number | null
   handleSave: () => Promise<Quiz | null>
   handleStartLive: () => Promise<void>
   saving: boolean
@@ -113,6 +117,8 @@ export function useQuizBuilder({
   const [savedQuiz, setSavedQuiz] = useState<Quiz | null>(null)
   const [recoveredDraft, setRecoveredDraft] = useState<{ savedAt: number; quizId: string } | null>(null)
   const [plan, setPlan] = useState<'free' | 'pro'>('free')
+  const [cloudSaveStatus, setCloudSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [lastCloudSaveAt, setLastCloudSaveAt] = useState<number | null>(null)
 
   const [questions, setQuestions] = useState<Question[]>(() => {
     const first = makeQuestion()
@@ -190,13 +196,15 @@ export function useQuizBuilder({
     historyResetRef.current = history.reset
   }, [history.reset])
 
-  // Keyboard shortcuts: Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z, Ctrl+Y
+  // Keyboard shortcuts: Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z, Ctrl+Y, Ctrl/Cmd+S
+  const handleSaveRef = useRef<(() => Promise<Quiz | null>) | null>(null)
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const mod = e.ctrlKey || e.metaKey
       if (!mod) return
       if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); history.undo() }
       else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') { e.preventDefault(); history.redo() }
+      else if (e.key === 's') { e.preventDefault(); handleSaveRef.current?.() }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
@@ -217,6 +225,58 @@ export function useQuizBuilder({
     },
     { delayMs: 5000 },
   )
+
+  // ── Server autosave (cloud) ────────────────────────────────────────────────
+  // localStorage drafts only survive on this device/browser. A debounced
+  // background POST to the same /api/quizzes upsert gives crash/tab-close
+  // durability without delta complexity. 30s debounce + the no-change guard
+  // stays well inside the 30 saves/min server rate limit.
+  const cloudSaveInFlightRef = useRef(false)
+  useEffect(() => {
+    const t = setTimeout(async () => {
+      if (cloudSaveInFlightRef.current) return
+      if (!title.trim() || questions.length === 0) return
+      // Silent validation — autosave never surfaces errors mid-typing.
+      if (hasQuizValidationErrors(validateQuizQuestions(questions))) return
+      const snapshot = JSON.stringify({ title: title.trim(), subject: subject.trim(), questions })
+      if (snapshot === lastSavedSnapshotRef.current) return
+
+      cloudSaveInFlightRef.current = true
+      setCloudSaveStatus('saving')
+      try {
+        const existing = editId ? loadQuizzes().find(q => q.id === editId) : null
+        const res = await fetch('/api/quizzes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: quizIdRef.current,
+            title: title.trim(),
+            subject: subject.trim() || undefined,
+            language: existing?.language ?? 'English',
+            theme: theme || existing?.theme,
+            questions,
+          }),
+        })
+        if (res.ok) {
+          lastSavedSnapshotRef.current = JSON.stringify({
+            title: title.trim(),
+            subject: subject.trim() || '',
+            questions,
+          })
+          setCloudSaveStatus('saved')
+          setLastCloudSaveAt(Date.now())
+        } else {
+          setCloudSaveStatus('error')
+        }
+      } catch {
+        setCloudSaveStatus('error')
+      } finally {
+        cloudSaveInFlightRef.current = false
+      }
+    }, 30_000)
+    return () => clearTimeout(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, subject, questions, theme])
 
   // Warn on unsaved close
   const lastSavedSnapshotRef = useRef('')
@@ -256,6 +316,30 @@ export function useQuizBuilder({
       if (prev.length <= 1) return prev
       const next = prev.filter((_, i) => i !== index)
       setActiveIndex(Math.min(index, next.length - 1))
+      return next
+    })
+  }, [])
+
+  // Bulk variants for the multi-select toolbar in QuestionList. Always keeps
+  // at least one question, mirroring removeQuestion's guard.
+  const removeQuestions = useCallback((indices: number[]) => {
+    setQuestions(prev => {
+      const drop = new Set(indices)
+      const next = prev.filter((_, i) => !drop.has(i))
+      if (next.length === 0) return prev
+      setActiveIndex(i => Math.min(i, next.length - 1))
+      return next
+    })
+  }, [])
+
+  const duplicateQuestions = useCallback((indices: number[]) => {
+    setQuestions(prev => {
+      const picked = new Set(indices)
+      const next: Question[] = []
+      prev.forEach((q, i) => {
+        next.push(q)
+        if (picked.has(i)) next.push({ ...q, id: crypto.randomUUID() })
+      })
       return next
     })
   }, [])
@@ -383,9 +467,16 @@ export function useQuizBuilder({
 
     setSaving(false)
     setSavedQuiz(finalQuiz)
+    if (!dbSaveFailed) {
+      setCloudSaveStatus('saved')
+      setLastCloudSaveAt(Date.now())
+    }
     return dbSaveFailed ? null : finalQuiz
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, subject, questions, theme, editId])
+
+  // Keep the Cmd/Ctrl+S shortcut pointing at the freshest save closure.
+  useEffect(() => { handleSaveRef.current = handleSave }, [handleSave])
 
   const handleStartLive = useCallback(async () => {
     const quiz = savedQuiz ?? await handleSave()
@@ -412,6 +503,8 @@ export function useQuizBuilder({
     addQuestion,
     duplicateQuestion,
     removeQuestion,
+    removeQuestions,
+    duplicateQuestions,
     reorderQuestions,
     updateQuestion,
     changeQuestionType,
@@ -421,6 +514,8 @@ export function useQuizBuilder({
     undo: history.undo,
     redo: history.redo,
     autosaveStatus,
+    cloudSaveStatus,
+    lastCloudSaveAt,
     handleSave,
     handleStartLive,
     saving,

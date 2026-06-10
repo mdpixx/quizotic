@@ -3,20 +3,11 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth-helpers'
+import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 import { getUserPlan } from '@/lib/billing'
 import { PLAN_LIMITS } from '@/lib/limits'
 import { hasQuizValidationErrors, validateQuizQuestions } from '@/lib/quiz-validation'
 import type { Question } from '@/lib/quiz-types'
-
-function getQuizQuestions(raw: unknown): Question[] {
-  return Array.isArray(raw) ? raw as Question[] : []
-}
-
-function coverImageFor(raw: unknown): string | null {
-  const questions = getQuizQuestions(raw)
-  const withImage = questions.find(q => typeof q.imageUrl === 'string' && q.imageUrl.trim())
-  return withImage?.imageUrl ?? null
-}
 
 // GET /api/quizzes — list quizzes for current user
 export async function GET() {
@@ -35,7 +26,6 @@ export async function GET() {
         subject: true,
         language: true,
         theme: true,
-        questions: true,
         createdAt: true,
         updatedAt: true,
         sessions: {
@@ -54,16 +44,35 @@ export async function GET() {
         },
       },
     })
+
+    // Compute questionCount + coverImageUrl in Postgres instead of selecting
+    // the full questions JSONB for every quiz — for a user with 50 image-heavy
+    // quizzes that column alone was megabytes per dashboard load.
+    const stats = await prisma.$queryRaw<
+      { id: string; questionCount: number; coverImageUrl: string | null }[]
+    >`
+      SELECT id,
+             CASE WHEN jsonb_typeof(questions) = 'array'
+                  THEN jsonb_array_length(questions) ELSE 0 END AS "questionCount",
+             CASE WHEN jsonb_typeof(questions) = 'array' THEN (
+               SELECT q->>'imageUrl' FROM jsonb_array_elements(questions) AS q
+               WHERE coalesce(trim(q->>'imageUrl'), '') <> '' LIMIT 1
+             ) ELSE NULL END AS "coverImageUrl"
+      FROM "Quiz" WHERE "userId" = ${user.id}
+    `
+    const statsById = new Map(stats.map(s => [s.id, s]))
+
     const data = quizzes.map(q => {
       const asyncSession = q.sessions[0]
+      const stat = statsById.get(q.id)
       return {
         id: q.id,
         title: q.title,
         subject: q.subject,
         language: q.language,
         theme: q.theme,
-        coverImageUrl: coverImageFor(q.questions),
-        questionCount: getQuizQuestions(q.questions).length,
+        coverImageUrl: stat?.coverImageUrl ?? null,
+        questionCount: Number(stat?.questionCount ?? 0),
         createdAt: q.createdAt,
         updatedAt: q.updatedAt,
         asyncShareSlug: asyncSession?.shareSlug ?? null,
@@ -93,6 +102,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
     userId = user.id
+
+    // 30 saves/min per user absorbs aggressive manual saving + the builder's
+    // background autosave while stopping write floods (full-payload upserts).
+    const rl = await rateLimitRequest(req, {
+      bucket: 'save-quiz',
+      userId: user.id,
+      userLimit: 30,
+      ipLimit: 60,
+      windowMs: 60_000,
+    })
+    if (!rl.ok) return rateLimitResponse(rl)
 
     const body = await req.json()
     const { id, title, subject, language, theme, questions } = body

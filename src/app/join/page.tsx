@@ -7,7 +7,7 @@ import dynamic from 'next/dynamic'
 import { Avatar } from '@/components/Avatar'
 import { BrandWatermark } from '@/components/BrandWatermark'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
-import { playTick, playCorrect, playWrong, playStreak } from '@/lib/sounds'
+import { playTick, playCorrect, playWrong, playStreak, isMuted, toggleMuted } from '@/lib/sounds'
 import { LeaderboardView } from '@/components/LeaderboardView'
 import { ResultBeat, type PersonalResult } from '@/components/ResultBeat'
 import { startClockSync, getServerNow, resyncClock } from '@/lib/clock-sync'
@@ -88,6 +88,11 @@ interface LeaderboardEntry {
   name: string
   archetype: string
   score: number
+  // Movement data from the server's leaderboard snapshot — drives the
+  // ▲/▼ and "+points" badges in LeaderboardView.
+  previousRank?: number | null
+  rankDelta?: number
+  scoreDelta?: number
 }
 
 // Kahoot-style vibrant answer colors — source: src/lib/answer-colors.ts.
@@ -573,6 +578,10 @@ function JoinPageInner() {
   const [answeredIsScored, setAnsweredIsScored] = useState(false)
   const [pointsEarned, setPointsEarned] = useState(0)
   const [totalScore, setTotalScore] = useState(0)
+  // Mirrors the persisted global mute in lib/sounds — initialised in an
+  // effect because localStorage isn't readable during SSR render.
+  const [soundMuted, setSoundMuted] = useState(false)
+  useEffect(() => { setSoundMuted(isMuted()) }, [])
   const [explanation, setExplanation] = useState<string | null>(null)
 
   // Streak + reactions
@@ -712,6 +721,18 @@ function JoinPageInner() {
   useEffect(() => {
     flushAnswerOutboxRef.current = flushAnswerOutbox
   }, [flushAnswerOutbox])
+
+  // Tab background/foreground recovery: iOS Safari throttles or suspends
+  // intervals in background tabs, and the clock offset can be stale by the
+  // time the tab wakes. Resync immediately on foreground — the running
+  // question interval picks the corrected offset up on its next 100ms tick.
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') resyncClock()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [])
 
   // ─── Deferred Socket.io — connect only when user joins ─────────────────────
   const initSocket = useCallback(() => {
@@ -879,12 +900,6 @@ function JoinPageInner() {
       }
       setPhase('question')
 
-      // Tighten the clock offset before doing any timer math. Without this,
-      // a participant device whose local clock has drifted (15-20s is common
-      // over a 10-minute session) will compute remaining = endAt - Date.now()
-      // against a stale offset and render the timer in the red zone from frame 1.
-      resyncClock()
-
       // Clamp incoming timer to [5,120] as a client-side belt-and-suspenders
       // alongside the server clamp in sanitizeQuestion.
       const safeTimerSeconds = Math.max(5, Math.min(120, Number(question.timerSeconds) || 20))
@@ -898,30 +913,39 @@ function JoinPageInner() {
       setGetReadyVisible(getServerNow() < effectiveStartAt)
       answerTimeRef.current = effectiveStartAt
 
+      // One interval drives both the get-ready window and the live countdown,
+      // re-reading getServerNow() every tick. That way clock-offset corrections
+      // (resync burst landing, tab foregrounding) shift the displayed time and
+      // the start moment automatically — no setTimeout pinned to a stale offset.
+      // 100ms cadence matches the host timer so both screens flip digits within
+      // one tick of each other.
       if (timerRef.current) clearInterval(timerRef.current)
-
-      const startTick = () => {
-        if (timerRef.current) clearInterval(timerRef.current)
-        timerRef.current = setInterval(() => {
-          const left = Math.max(0, Math.ceil((endAt - getServerNow()) / 1000))
-          setTimeLeft(prev => {
-            if (left <= 0) { clearInterval(timerRef.current!); return 0 }
-            if (left <= 6 && left > 0 && left < prev) playTick()
-            return left
-          })
-        }, 250)
-      }
-
-      const delay = effectiveStartAt - getServerNow()
-      if (delay > 0) {
-        setTimeout(() => {
+      let started = getServerNow() >= effectiveStartAt
+      timerRef.current = setInterval(() => {
+        const now = getServerNow()
+        if (now < effectiveStartAt) return
+        if (!started) {
+          started = true
           setGetReadyVisible(false)
           answerTimeRef.current = Date.now()
-          startTick()
-        }, delay)
-      } else {
-        startTick()
-      }
+        }
+        const left = Math.max(0, Math.ceil((endAt - now) / 1000))
+        setTimeLeft(prev => {
+          if (left <= 0) { if (timerRef.current) clearInterval(timerRef.current); return 0 }
+          if (left <= 6 && left > 0 && left < prev) playTick()
+          return left
+        })
+      }, 100)
+
+      // Tighten the clock offset now that the timer is running. Without this,
+      // a participant device whose local clock has drifted (15-20s is common
+      // over a 10-minute session) renders the timer in the red zone from
+      // frame 1. Once the burst settles, snap the displayed values so a
+      // mid-question reconnect doesn't flash a wrong number for a tick.
+      resyncClock(() => {
+        setGetReadyVisible(getServerNow() < effectiveStartAt)
+        setTimeLeft(Math.max(0, Math.ceil((endAt - getServerNow()) / 1000)))
+      })
     })
 
     socket.on('answer_confirmed', ({ isCorrect, points, totalScore, streakCount, late, correctPositions, totalPositions, isNonScored }: { isCorrect: boolean; points: number; totalScore: number; streakCount?: number; late?: boolean; correctPositions?: number; totalPositions?: number; isNonScored?: boolean }) => {
@@ -1029,20 +1053,24 @@ function JoinPageInner() {
     socket.on('quiz_resumed', ({ remainingMs }: { remainingMs?: number }) => {
       setPaused(false)
       if (phaseRef.current !== 'question') return
-      if (remainingMs !== undefined) {
-        const secs = Math.round(remainingMs / 1000)
-        setTimeLeft(secs)
-        timeLeftRef.current = secs
-      }
-      const remaining = remainingMs !== undefined ? Math.round(remainingMs / 1000) : timeLeftRef.current
-      if (remaining > 0) {
+      // Wall-clock anchored, same as question_show. The old decrement-per-
+      // second interval drifted from the host (and the server auto-end) by
+      // up to a second after every pause/resume cycle.
+      const remMs = remainingMs !== undefined ? remainingMs : timeLeftRef.current * 1000
+      const endAt = getServerNow() + remMs
+      const secs = Math.max(0, Math.ceil(remMs / 1000))
+      setTimeLeft(secs)
+      timeLeftRef.current = secs
+      if (timerRef.current) clearInterval(timerRef.current)
+      if (remMs > 0) {
         timerRef.current = setInterval(() => {
+          const left = Math.max(0, Math.ceil((endAt - getServerNow()) / 1000))
           setTimeLeft(prev => {
-            if (prev <= 1) { clearInterval(timerRef.current!); return 0 }
-            if (prev <= 6 && prev > 1) playTick()
-            return prev - 1
+            if (left <= 0) { if (timerRef.current) clearInterval(timerRef.current); return 0 }
+            if (left <= 6 && left > 0 && left < prev) playTick()
+            return left
           })
-        }, 1000)
+        }, 100)
       }
     })
 
@@ -1692,7 +1720,19 @@ function JoinPageInner() {
               <span className="text-white text-xs rounded-full px-2 py-0.5 font-bold" style={{ background: team.color }}>{team.name}</span>
             )}
           </div>
-          <CircularTimer timeLeft={timeLeft} total={question.timerSeconds} />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSoundMuted(toggleMuted())}
+              aria-label={soundMuted ? 'Unmute sounds' : 'Mute sounds'}
+              title={soundMuted ? 'Sounds are muted' : 'Mute sounds'}
+              className="w-9 h-9 rounded-full flex items-center justify-center text-lg transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-[#F5E642]"
+              style={{ border: '1.5px solid #E5E7EB' }}
+            >
+              {soundMuted ? '🔇' : '🔊'}
+            </button>
+            <CircularTimer timeLeft={timeLeft} total={question.timerSeconds} />
+          </div>
         </div>
 
         {/* Progress bar */}
@@ -1761,7 +1801,7 @@ function JoinPageInner() {
             {question.text}
           </p>
           {question.imageUrl && (
-            <img src={question.imageUrl} alt="" className="mt-3 rounded-xl max-h-48 w-full object-contain" loading="lazy" />
+            <img src={question.imageUrl} alt="" className="mt-3 rounded-xl max-h-48 w-full object-contain bg-gray-100" loading="lazy" />
           )}
         </div>
         )}
@@ -1792,7 +1832,7 @@ function JoinPageInner() {
             <button
               onClick={submitTextAnswer}
               disabled={selectedAnswer !== null || !textAnswer.trim()}
-              className="w-full py-4 rounded-2xl font-black text-xl transition-all disabled:opacity-40"
+              className="w-full py-4 rounded-2xl font-black text-xl transition-all disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[#0F1B3D] focus-visible:ring-offset-2 motion-safe:active:scale-[0.98]"
               style={{ background: selectedAnswer !== null ? '#9ca3af' : '#F5E642', color: selectedAnswer !== null ? '#fff' : '#0D0D0D', border: selectedAnswer !== null ? 'none' : '2px solid #0D0D0D' }}
             >
               {selectedAnswer !== null ? 'Submitted ✓' : 'Submit →'}
@@ -1870,7 +1910,7 @@ function JoinPageInner() {
                 <button
                   onClick={() => submitAnswerRaw(order, 'ranked')}
                   disabled={isSubmitted || timeLeft <= 0}
-                  className="w-full py-4 rounded-2xl font-black text-xl transition-all disabled:opacity-40"
+                  className="w-full py-4 rounded-2xl font-black text-xl transition-all disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[#0F1B3D] focus-visible:ring-offset-2 motion-safe:active:scale-[0.98]"
                   style={{ background: isSubmitted ? '#9ca3af' : '#F5E642', color: isSubmitted ? '#fff' : '#0D0D0D', border: isSubmitted ? 'none' : '2px solid #0D0D0D' }}
                 >
                   {isSubmitted ? 'Submitted ✓' : 'Submit order →'}
@@ -1910,7 +1950,7 @@ function JoinPageInner() {
                   aria-pressed={isSelected}
                   className={`${OPTION_GRADIENTS[idx]} rounded-lg p-3 text-white text-left transition-all focus-visible:outline focus-visible:outline-4 focus-visible:outline-white
                     ${isTwoOption ? 'flex items-center gap-4 py-4' : 'min-h-[112px] h-auto'}
-                    ${isSelected ? 'ring-4 ring-white scale-[0.97]' : ''}
+                    ${isSelected ? 'ring-4 ring-white scale-[0.97]' : 'motion-safe:hover:scale-[1.02] motion-safe:hover:brightness-110 motion-safe:active:scale-95'}
                     ${isDisabled && !isSelected ? 'opacity-50 pointer-events-none' : ''}
                   `}
                   style={{ background: OPTION_COLORS[idx] ?? '#0F1B3D' }}
@@ -1941,7 +1981,7 @@ function JoinPageInner() {
           <button
             onClick={submitMultiselect}
             disabled={multiselectChosen.size === 0 || timeLeft <= 0}
-            className="w-full py-4 mt-1 rounded-2xl font-black text-xl transition-all disabled:opacity-40"
+            className="w-full py-4 mt-1 rounded-2xl font-black text-xl transition-all disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[#0F1B3D] focus-visible:ring-offset-2 motion-safe:active:scale-[0.98]"
             style={{ background: multiselectChosen.size > 0 ? '#F5E642' : '#e5e7eb', color: '#0D0D0D', border: multiselectChosen.size > 0 ? '2px solid #0D0D0D' : 'none' }}
           >
             {multiselectChosen.size > 0 ? t('join.submit', { n: multiselectChosen.size }) : t('join.selectAll')}
@@ -2031,9 +2071,18 @@ function JoinPageInner() {
           <p className="font-bold text-2xl animate-pulse" style={{ color: '#0F1B3D' }}>{t('join.pts', { n: pointsEarned })}</p>
         )}
         {(sessionMode === 'competitive' || sessionMode === 'accuracy') && !isNonScored && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 w-full">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 w-full relative">
             <p className="text-gray-500 text-lg">{t('join.yourScore')}</p>
             <p className="text-6xl font-black" style={{ color: '#0F1B3D' }}>{totalScore}</p>
+            {isCorrect && pointsEarned > 0 && (
+              <span
+                aria-hidden
+                className="absolute left-1/2 -translate-x-1/2 -top-2 font-black text-3xl pointer-events-none score-fly-up"
+                style={{ color: '#16A34A' }}
+              >
+                +{pointsEarned}
+              </span>
+            )}
           </div>
         )}
         {/* Result Beat — kinetic personal feedback strip (points, rank delta,
@@ -2068,6 +2117,15 @@ function JoinPageInner() {
             40% { transform: translateX(8px); }
             60% { transform: translateX(-5px); }
             80% { transform: translateX(5px); }
+          }
+          @keyframes scoreFlyUp {
+            0% { transform: translate(-50%, 0); opacity: 0; }
+            15% { opacity: 1; }
+            100% { transform: translate(-50%, -56px); opacity: 0; }
+          }
+          .score-fly-up { animation: scoreFlyUp 1.4s ease-out 0.2s forwards; opacity: 0; }
+          @media (prefers-reduced-motion: reduce) {
+            .score-fly-up { animation: none; opacity: 1; position: static; transform: none; display: block; }
           }
         `}</style>
       </div>
@@ -2108,6 +2166,9 @@ function JoinPageInner() {
               name: entry.name,
               score: entry.score,
               archetype: entry.archetype,
+              previousRank: entry.previousRank,
+              rankDelta: entry.rankDelta,
+              scoreDelta: entry.scoreDelta,
             }))}
           />
         )}

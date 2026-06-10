@@ -43,6 +43,9 @@ function QuestionCard({
   onDuplicate,
   onDelete,
   canDelete,
+  selectMode,
+  selected,
+  onToggleSelected,
 }: {
   question: Question
   index: number
@@ -51,11 +54,14 @@ function QuestionCard({
   onDuplicate: () => void
   onDelete: () => void
   canDelete: boolean
+  selectMode: boolean
+  selected: boolean
+  onToggleSelected: () => void
 }) {
   const pill = getTypePill(question.type)
   const [menuOpen, setMenuOpen] = useState(false)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: question.id })
+    useSortable({ id: question.id, disabled: selectMode })
 
   return (
     <div
@@ -68,17 +74,28 @@ function QuestionCard({
       }}
     >
       <div
-        onClick={onSelect}
+        onClick={selectMode ? onToggleSelected : onSelect}
         className={`relative group flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl cursor-pointer transition-all select-none ${
-          isActive ? '' : 'hover:bg-gray-50'
+          isActive && !selectMode ? '' : 'hover:bg-gray-50'
         } ${isDragging ? 'shadow-xl' : ''}`}
         style={
-          isActive
+          selectMode && selected
             ? { background: '#EEF2FF', border: '1.5px solid #6366F1' }
-            : { border: '1.5px solid transparent' }
+            : isActive && !selectMode
+              ? { background: '#EEF2FF', border: '1.5px solid #6366F1' }
+              : { border: '1.5px solid transparent' }
         }
       >
-        {/* Drag handle + number */}
+        {/* Select-mode checkbox OR drag handle + number */}
+        {selectMode ? (
+          <span
+            aria-hidden
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-[13px] font-extrabold flex-shrink-0"
+            style={selected ? { background: '#6366F1', color: '#fff' } : { background: '#E5E7EB', color: '#9CA3AF' }}
+          >
+            {selected ? '✓' : index + 1}
+          </span>
+        ) : (
         <button
           type="button"
           aria-label={`Drag question ${index + 1}`}
@@ -90,6 +107,7 @@ function QuestionCard({
         >
           {index + 1}
         </button>
+        )}
 
         {/* Type pill + text */}
         <div className="flex-1 min-w-0">
@@ -105,6 +123,7 @@ function QuestionCard({
         </div>
 
         {/* ··· context menu trigger */}
+        {!selectMode && (
         <div className="relative">
           <button
             type="button"
@@ -142,6 +161,7 @@ function QuestionCard({
             </>
           )}
         </div>
+        )}
       </div>
     </div>
   )
@@ -156,6 +176,8 @@ export interface QuestionListProps {
   onAdd: (type: QuestionType) => void
   onDuplicate: (index: number) => void
   onDelete: (index: number) => void
+  onBulkDelete?: (indices: number[]) => void
+  onBulkDuplicate?: (indices: number[]) => void
   onReorder: (fromIndex: number, toIndex: number) => void
   onGenerateAI: () => void
 }
@@ -167,10 +189,38 @@ export function QuestionList({
   onAdd,
   onDuplicate,
   onDelete,
+  onBulkDelete,
+  onBulkDuplicate,
   onReorder,
   onGenerateAI,
 }: QuestionListProps) {
   const [pickerOpen, setPickerOpen] = useState(false)
+  // Multi-select: keyed by question id (stable across drag-reorder).
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+  const bulkEnabled = !!(onBulkDelete && onBulkDuplicate)
+
+  function exitSelectMode() {
+    setSelectMode(false)
+    setSelectedIds(new Set())
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function selectedIndices(): number[] {
+    return questions.reduce<number[]>((acc, q, i) => {
+      if (selectedIds.has(q.id)) acc.push(i)
+      return acc
+    }, [])
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -190,9 +240,45 @@ export function QuestionList({
       {/* Header */}
       <div className="flex-shrink-0 px-3 py-3 flex items-center justify-between border-b" style={{ borderColor: '#F3F4F6' }}>
         <span className="text-xs font-bold text-gray-500">
-          {questions.length} {questions.length === 1 ? 'question' : 'questions'}
+          {selectMode
+            ? `${selectedIds.size} selected`
+            : `${questions.length} ${questions.length === 1 ? 'question' : 'questions'}`}
         </span>
+        {bulkEnabled && questions.length > 1 && (
+          <button
+            type="button"
+            onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+            className="text-[11px] font-bold px-2 py-1 rounded-md transition-colors hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-indigo-400"
+            style={{ color: selectMode ? '#6366F1' : '#6B7280' }}
+          >
+            {selectMode ? 'Cancel' : 'Select'}
+          </button>
+        )}
       </div>
+
+      {/* Bulk action bar */}
+      {selectMode && selectedIds.size > 0 && (
+        <div className="flex-shrink-0 px-3 py-2 flex items-center gap-2 border-b" style={{ borderColor: '#F3F4F6', background: '#F8FAFF' }}>
+          <button
+            type="button"
+            onClick={() => { onBulkDuplicate?.(selectedIndices()); exitSelectMode() }}
+            className="flex-1 text-[11px] font-bold py-1.5 rounded-lg transition-colors hover:brightness-95"
+            style={{ background: '#EEF2FF', color: '#4338CA' }}
+          >
+            Duplicate
+          </button>
+          <button
+            type="button"
+            disabled={selectedIds.size >= questions.length}
+            onClick={() => { onBulkDelete?.(selectedIndices()); exitSelectMode() }}
+            className="flex-1 text-[11px] font-bold py-1.5 rounded-lg transition-colors hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: '#FEE2E2', color: '#B91C1C' }}
+            title={selectedIds.size >= questions.length ? 'Keep at least one question' : undefined}
+          >
+            Delete
+          </button>
+        </div>
+      )}
 
       {/* Scrollable question list */}
       <div className="flex-1 overflow-y-auto py-2 px-2 space-y-1 min-h-0">
@@ -208,6 +294,9 @@ export function QuestionList({
                 onDuplicate={() => onDuplicate(i)}
                 onDelete={() => onDelete(i)}
                 canDelete={questions.length > 1}
+                selectMode={selectMode}
+                selected={selectedIds.has(q.id)}
+                onToggleSelected={() => toggleSelected(q.id)}
               />
             ))}
           </SortableContext>

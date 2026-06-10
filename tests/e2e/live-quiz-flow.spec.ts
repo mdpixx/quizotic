@@ -23,6 +23,7 @@
 
 import { test, expect } from '@playwright/test'
 import { io as ioConnect, Socket } from 'socket.io-client'
+import { hostAuthCookie } from './socket-auth'
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:4000'
 
@@ -41,9 +42,14 @@ const TEST_QUIZ = {
   ],
 }
 
-function connectSocket(): Promise<Socket> {
+function connectSocket(cookie?: string): Promise<Socket> {
   return new Promise((resolve, reject) => {
-    const s = ioConnect(baseURL, { transports: ['websocket'], reconnection: false, forceNew: true })
+    const s = ioConnect(baseURL, {
+      transports: ['websocket'],
+      reconnection: false,
+      forceNew: true,
+      ...(cookie ? { extraHeaders: { Cookie: cookie } } : {}),
+    })
     const t = setTimeout(() => { s.disconnect(); reject(new Error('socket connect timeout')) }, 10_000)
     s.on('connect', () => { clearTimeout(t); resolve(s) })
     s.on('connect_error', err => { clearTimeout(t); reject(new Error(`connect_error: ${err.message}`)) })
@@ -66,7 +72,7 @@ function waitForEvent<T>(socket: Socket, event: string, timeoutMs = 8_000): Prom
 
 test.describe('Live quiz — answer capture critical path', () => {
   test('host counter moves and participant gets feedback after submit', async () => {
-    const host = await connectSocket()
+    const host = await connectSocket(await hostAuthCookie())
     const participant = await connectSocket()
 
     try {
@@ -147,7 +153,7 @@ test.describe('Live quiz — answer capture critical path', () => {
     // Regression test for the OTHER half of the 2026-05-01 fix: the late
     // branch used to early-return before storing the answer or broadcasting
     // to the host. Now it persists with points=0 and emits answer_received.
-    const host = await connectSocket()
+    const host = await connectSocket(await hostAuthCookie())
     const participant = await connectSocket()
     try {
       const created = await emitWithAck<{ success: boolean; gameCode?: string }>(

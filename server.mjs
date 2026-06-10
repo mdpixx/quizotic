@@ -46,6 +46,7 @@ import {
   buildSessionStateSnapshot as _buildSessionStateSnapshot,
   flushPendingPersist as _flushPendingPersist,
 } from './src/lib/session-state.mjs'
+import { allowRate, generateGameCode, sanitizeDisplayText, startRateBucketSweep } from './src/lib/server-guards.mjs'
 
 // ─── Startup env var validation ────────────────────────────────
 if (process.env.NODE_ENV === 'production') {
@@ -55,6 +56,12 @@ if (process.env.NODE_ENV === 'production') {
       console.error(`[FATAL] Missing required env var: ${key}`)
       process.exit(1)
     }
+  }
+  // Without these, the Socket.IO CORS allowlist silently becomes [] and
+  // every cross-origin connection is rejected (or worse, misconfigured).
+  if (!process.env.HOST_DOMAIN && !process.env.JOIN_DOMAIN) {
+    console.error('[FATAL] Set HOST_DOMAIN and/or JOIN_DOMAIN for Socket.IO CORS in production.')
+    process.exit(1)
   }
 }
 
@@ -103,6 +110,30 @@ async function ensureCriticalColumns() {
     } catch (err) {
       console.warn(`[boot:ensure-columns] skipped: ${sql} — ${err.message}`)
     }
+  }
+}
+
+// Session state lives in RAM, so a crash/redeploy strands GameSession rows at
+// status='active' forever — they then render as eternally-running sessions in
+// reports. Close out rows that are clearly dead (no instance can legitimately
+// still be running them) and log the younger ones for visibility. Cheap crash
+// mitigation until session state moves to Redis.
+const ORPHANED_SESSION_CUTOFF_HOURS = 6
+async function reapOrphanedGameSessions() {
+  if (!dbPool) return
+  try {
+    const { rowCount } = await dbPool.query(
+      `UPDATE "GameSession"
+       SET status = 'ended', "endedAt" = now()
+       WHERE status = 'active' AND "createdAt" < now() - interval '${ORPHANED_SESSION_CUTOFF_HOURS} hours'`
+    )
+    if (rowCount > 0) console.warn(`[boot:reap-orphans] closed ${rowCount} stale active GameSession rows (>${ORPHANED_SESSION_CUTOFF_HOURS}h old)`)
+    const { rows } = await dbPool.query(
+      `SELECT count(*)::int AS n FROM "GameSession" WHERE status = 'active'`
+    )
+    if (rows[0]?.n > 0) console.warn(`[boot:reap-orphans] ${rows[0].n} recent active GameSession rows remain (may belong to another instance or a session interrupted by this restart)`)
+  } catch (err) {
+    console.warn('[boot:reap-orphans] skipped:', err.message)
   }
 }
 
@@ -438,7 +469,16 @@ async function getSocketUserId(socket) {
 
 // In-memory session store
 const sessions = new Map()
+startRateBucketSweep()
 const MAX_CONCURRENT_SESSIONS = 500
+
+function socketIp(socket) {
+  // Railway/Cloudflare put the real client IP in x-forwarded-for.
+  const fwd = socket.handshake.headers['x-forwarded-for']
+  if (typeof fwd === 'string' && fwd.length) return fwd.split(',')[0].trim()
+  return socket.handshake.address || 'unknown'
+}
+
 
 // Follow-up quiz store — keyed by unique 8-char code
 // { questions, quizTitle, label, createdAt }
@@ -452,19 +492,64 @@ setInterval(() => {
   }
 }, 3600_000)
 
-function generateGameCode() {
-  return Math.floor(100000 + Math.random() * 900000).toString()
+
+// Ended sessions linger briefly so late acks and refreshes resolve to a clean
+// "ended" response instead of "not found" — but they used to hold the full
+// quiz payload + every participant's answer arrays for 5 minutes. Strip the
+// heavy fields immediately (results are already persisted to the DB by the
+// time this is called) and delete after a short grace.
+const ENDED_SESSION_GRACE_MS = 60_000
+function scheduleEndedSessionCleanup(gameCode, session) {
+  session.quizData = session.quizData
+    ? { id: session.quizData.id || null, title: session.quizData.title || '', questions: [] }
+    : session.quizData
+  if (session.presentationData) {
+    session.presentationData = {
+      id: session.presentationData.id || null,
+      title: session.presentationData.title || '',
+      slides: [],
+    }
+  }
+  setTimeout(() => sessions.delete(gameCode), ENDED_SESSION_GRACE_MS).unref?.()
+}
+
+// When the session cap is hit, ended sessions waiting out their grace period
+// shouldn't block new games. Returns the number evicted.
+function evictEndedSessions() {
+  let evicted = 0
+  for (const [code, s] of sessions.entries()) {
+    if (s.status === 'ended') {
+      if (s.endTimer) { clearTimeout(s.endTimer); s.endTimer = null }
+      sessions.delete(code)
+      evicted++
+    }
+  }
+  return evicted
 }
 
 app.prepare().then(async () => {
   // Repair schema drift BEFORE the server starts handling requests. Safe on
   // every boot — ALTER TABLE IF NOT EXISTS is a no-op when columns are present.
   await ensureCriticalColumns()
+  // Fire-and-forget: closing out orphaned rows must not delay boot.
+  reapOrphanedGameSessions()
 
   const httpServer = createServer((req, res) => {
     // Short-circuit: session lookup API (no auth, reads in-memory sessions Map)
     if (req.method === 'GET' && req.url && req.url.startsWith('/api/session/lookup')) {
       try {
+        // Rate-limit per IP: this endpoint is unauthenticated and confirms
+        // whether a game code exists — the cheapest enumeration vector.
+        const fwd = req.headers['x-forwarded-for']
+        const ip = typeof fwd === 'string' && fwd.length
+          ? fwd.split(',')[0].trim()
+          : (req.socket.remoteAddress || 'unknown')
+        if (!allowRate(`${ip}:lookup`, 60)) {
+          res.statusCode = 429
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ ok: false, error: 'rate_limited' }))
+          return
+        }
         const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`)
         const code = String(url.searchParams.get('code') || '').trim()
         res.setHeader('Content-Type', 'application/json')
@@ -549,6 +634,17 @@ app.prepare().then(async () => {
       const parsed = validateSocketPayload(socket, CreateSessionSchema, rawPayload, callback, 'create_session')
       if (!parsed) return
       const { quizData, sessionMode, anonymousMode, teamMode, teamCount, ghostSessionId, displayMode } = parsed
+      // Hosting requires a signed-in user. The host UI is already behind
+      // NextAuth; this closes the gap for raw socket clients that could
+      // previously create sessions (and claim host controls) anonymously.
+      if (!socket.data.userId) {
+        callback({ success: false, error: 'Sign in to host a session.' })
+        return
+      }
+      if (!allowRate(`${socket.data.userId}:create_session`, 5)) {
+        callback({ success: false, error: 'Too many sessions created. Wait a minute and try again.' })
+        return
+      }
       if (quizData.id) {
         const ownership = await verifyOwnership('Quiz', quizData.id, socket.data.userId)
         if (ownership === 'foreign') {
@@ -557,7 +653,7 @@ app.prepare().then(async () => {
           return
         }
       }
-      if (sessions.size >= MAX_CONCURRENT_SESSIONS) {
+      if (sessions.size >= MAX_CONCURRENT_SESSIONS && evictEndedSessions() === 0) {
         callback({ success: false, error: 'Server capacity reached. Try again in a few minutes.' })
         return
       }
@@ -664,8 +760,10 @@ app.prepare().then(async () => {
         callback({ success: false, error: 'Invalid host resume token.' })
         return
       }
-      // Optional defense: require same userId if both sides have one
-      if (session.userId && socket.data.userId && session.userId !== socket.data.userId) {
+      // Mandatory when the session has an owner: a stolen resume token alone
+      // (e.g. lifted via XSS from sessionStorage) must not be enough to take
+      // over a session — the resuming socket must be the same signed-in user.
+      if (session.userId && session.userId !== socket.data.userId) {
         console.warn(`[host_resume] userId mismatch code=${gameCode}`)
         callback({ success: false, error: 'User mismatch.' })
         return
@@ -847,7 +945,7 @@ app.prepare().then(async () => {
             duration: Math.round((Date.now() - (session.startedAt || Date.now())) / 1000),
           },
         })
-        setTimeout(() => sessions.delete(gameCode), 5 * 60 * 1000)
+        scheduleEndedSessionCleanup(gameCode, session)
         return
       }
 
@@ -901,6 +999,14 @@ app.prepare().then(async () => {
         console.warn(`[submit_drawing:reject] code=${gameCode} sid=${socket.id} pid=${incomingPid || 'none'} reason=${reason}`)
         socket.emit('answer_rejected', { reason, gameCode, ...extra })
         if (ack) ack({ accepted: false, reason, ...extra })
+      }
+
+      // Drawings are the heaviest payload we relay (up to 100KB each). A
+      // legit participant submits one per drawing question; the duplicate
+      // guard below blocks re-submits, and this caps a hostile client
+      // rotating questions/payloads into a relay flood.
+      if (!allowRate(`${socket.id}:submit_drawing`, 6)) {
+        return reject('rate_limited')
       }
 
       if (!session) return reject('no_session')
@@ -1040,7 +1146,7 @@ app.prepare().then(async () => {
       })
 
       // Clean up session after grace period
-      setTimeout(() => sessions.delete(gameCode), 5 * 60 * 1000)
+      scheduleEndedSessionCleanup(gameCode, session)
     })
 
     // ─── PRESENTER MODE EVENTS ─────────────────────────────────────
@@ -1049,6 +1155,15 @@ app.prepare().then(async () => {
       const parsed = validateSocketPayload(socket, CreatePresenterSessionSchema, rawPayload, callback, 'create_presenter_session')
       if (!parsed) return
       const { presentationData } = parsed
+      // Same enforcement as create_session: hosting requires a signed-in user.
+      if (!socket.data.userId) {
+        callback({ success: false, error: 'Sign in to host a session.' })
+        return
+      }
+      if (!allowRate(`${socket.data.userId}:create_session`, 5)) {
+        callback({ success: false, error: 'Too many sessions created. Wait a minute and try again.' })
+        return
+      }
       if (presentationData.id) {
         const ownership = await verifyOwnership('Presentation', presentationData.id, socket.data.userId)
         if (ownership === 'foreign') {
@@ -1057,7 +1172,7 @@ app.prepare().then(async () => {
           return
         }
       }
-      if (sessions.size >= MAX_CONCURRENT_SESSIONS) {
+      if (sessions.size >= MAX_CONCURRENT_SESSIONS && evictEndedSessions() === 0) {
         callback({ success: false, error: 'Server capacity reached. Try again in a few minutes.' })
         return
       }
@@ -1160,6 +1275,12 @@ app.prepare().then(async () => {
       const ack = typeof ackCallback === 'function' ? ackCallback : null
       if (!session || session.type !== 'presenter') {
         if (ack) ack({ accepted: false, reason: 'no_session' })
+        return
+      }
+      // Flood backstop — the votedSlides guard below is the real per-slide
+      // gate; this caps hostile clients hammering the handler across slides.
+      if (!allowRate(`${socket.id}:presenter_response`, 30)) {
+        if (ack) ack({ accepted: false, reason: 'rate_limited' })
         return
       }
 
@@ -1367,6 +1488,10 @@ app.prepare().then(async () => {
       const parsed = validateSocketPayload(socket, JoinSessionSchema, rawPayload, callback, 'join_presenter_session')
       if (!parsed) return
       const { gameCode, displayName, email, participantId: incomingPid } = parsed
+      if (!allowRate(`${socketIp(socket)}:join`, 100) || !allowRate(`${socket.id}:join`, 10)) {
+        callback({ success: false, error: 'Too many join attempts. Wait a minute and try again.' })
+        return
+      }
       const session = sessions.get(gameCode)
       if (!session || session.type !== 'presenter') {
         callback({ success: false, error: 'Presenter session not found.' })
@@ -1423,7 +1548,7 @@ app.prepare().then(async () => {
         return
       }
 
-      const safeName = String(displayName ?? '').slice(0, 30).trim() || 'Anonymous'
+      const safeName = sanitizeDisplayText(displayName) || 'Anonymous'
       const safeEmail = sanitizeEmail(email)
       const archetype = assignArchetype()
       const newPid = incomingPid || randomUUID()
@@ -1564,6 +1689,14 @@ app.prepare().then(async () => {
       const parsed = validateSocketPayload(socket, JoinSessionSchema, normalised, callback, 'join_session')
       if (!parsed) return
       const { gameCode, displayName, email, participantId: incomingPid } = parsed
+      // Per-IP first (catches code-enumeration across many sockets), then
+      // per-socket. Generous enough for classroom NAT where one IP fronts
+      // a whole lab, since legit rejoins carry participantId and succeed
+      // on the first try.
+      if (!allowRate(`${socketIp(socket)}:join`, 100) || !allowRate(`${socket.id}:join`, 10)) {
+        callback({ success: false, error: 'Too many join attempts. Wait a minute and try again.' })
+        return
+      }
       const session = sessions.get(gameCode)
 
       if (!session) {
@@ -1575,8 +1708,8 @@ app.prepare().then(async () => {
         return
       }
 
-      // Truncate display name server-side for safety
-      const safeName = String(displayName ?? '').slice(0, 30).trim() || 'Anonymous'
+      // Truncate + strip HTML/control chars server-side for safety
+      const safeName = sanitizeDisplayText(displayName) || 'Anonymous'
 
       // ─── Reconnect path 1 — participantId match (preferred) ──────────────
       // Survives any disconnect length: localStorage in the participant's
@@ -1785,6 +1918,14 @@ app.prepare().then(async () => {
       const receivedAt = Date.now()
       const session = sessions.get(gameCode)
       const ack = typeof ackCallback === 'function' ? ackCallback : null
+
+      // Flood backstop. The per-question duplicate guard below is the real
+      // gate; this stops a hostile client hammering the validator + DB path.
+      // 60/min comfortably covers quick-fire rounds (1 answer every ~2s).
+      if (!allowRate(`${socket.id}:submit_answer`, 60)) {
+        if (ack) ack({ accepted: false, reason: 'rate_limited' })
+        return
+      }
 
       // Unified rejection — single shape, structured log, client-actionable reason.
       // Client listens for `answer_rejected` and forces re-join on `unknown_participant`.
@@ -2073,6 +2214,9 @@ app.prepare().then(async () => {
     // compute offset + rtt. Server records the last-measured rtt on socket.data
     // for use in server-authoritative scoring (see submit_answer).
     socket.on('ping_time', (rawPayload, callback) => {
+      // Generous limit: legit clients ping 6x burst on connect, 3x on each
+      // question_show, then every 15s. 60/min only stops abuse.
+      if (!allowRate(`${socket.id}:ping_time`, 60)) return
       const parsed = validateSocketPayload(socket, PingTimeSchema, rawPayload, callback, 'ping_time')
       if (!parsed) return
       const { clientTime } = parsed
@@ -2384,18 +2528,30 @@ function applyStreak(participant, isCorrect, isNonScored) {
 }
 
 // Compact leaderboard snapshot for emit between questions (top N only, with rank).
-function buildLeaderboardSnapshot(participants, limit = 5) {
-  return Array.from(participants.values())
-    .sort((a, b) => b.score - a.score)
+function buildLeaderboardSnapshot(participants, limit = 5, opts = {}) {
+  // previousRanks/newRanks are keyed by participant map key (socketId or
+  // ghostId). When provided along with questionIndex, each entry carries
+  // movement data so leaderboard UIs can render ▲/▼ and "+points" badges.
+  const { previousRanks, newRanks, questionIndex } = opts
+  return Array.from(participants.entries())
+    .sort(([, a], [, b]) => b.score - a.score)
     .slice(0, limit)
-    .map((p, i) => ({
-      rank: i + 1,
-      name: p.name,
-      archetype: p.archetype,
-      score: p.score,
-      streakCount: p.streakCount || 0,
-      team: p.team ?? null,
-    }))
+    .map(([key, p], i) => {
+      const fromRank = previousRanks?.get(key)
+      const toRank = newRanks?.get(key) ?? i + 1
+      const ans = typeof questionIndex === 'number' ? p.answers?.[questionIndex] : undefined
+      return {
+        rank: i + 1,
+        name: p.name,
+        archetype: p.archetype,
+        score: p.score,
+        streakCount: p.streakCount || 0,
+        team: p.team ?? null,
+        previousRank: typeof fromRank === 'number' ? fromRank : null,
+        rankDelta: (typeof fromRank === 'number' && typeof toRank === 'number') ? fromRank - toRank : 0,
+        scoreDelta: ans?.points ?? 0,
+      }
+    })
 }
 
 // Per-player rank lookup — returns {rank, total, score} for a given participant.
@@ -2620,7 +2776,7 @@ function emitQuestionEnded(io, gameCode, session, questionIndex) {
   if (session.sessionMode === 'reflection') return
 
   const newRanks = rankByScore(session.participants)
-  const top = buildLeaderboardSnapshot(session.participants, 5)
+  const top = buildLeaderboardSnapshot(session.participants, 5, { previousRanks, newRanks, questionIndex })
   const teamLeaderboard = buildTeamLeaderboard(session)
   const totalPlayers = realParticipantCount(session.participants)
 
@@ -2710,10 +2866,10 @@ function emitQuestionEnded(io, gameCode, session, questionIndex) {
       ...(ans?.correctPositions !== undefined ? { correctPositions: ans.correctPositions } : {}),
       ...(ans?.totalPositions !== undefined ? { totalPositions: ans.totalPositions } : {}),
     }
+    // Single emit per participant: rank rides inside personal_result (the
+    // client reads data.rank). The separate my_rank_update emit doubled the
+    // post-question event count — 200 emits for a 100-player room.
     io.to(socketId).emit('personal_result', personal)
-    // Keep the legacy my_rank_update event for back-compat with any older
-    // client builds still listening to it.
-    if (typeof toRank === 'number') io.to(socketId).emit('my_rank_update', { rank: toRank })
   }
 
   session.previousRanks = newRanks

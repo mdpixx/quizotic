@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth-helpers'
 import { getUserPlan } from '@/lib/billing'
 import { PLAN_LIMITS } from '@/lib/limits'
+import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 
 // GET /api/presentations — list presentations for current user
 export async function GET() {
@@ -31,6 +32,16 @@ export async function POST(req: NextRequest) {
     const user = await getCurrentUser()
     if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     userId = user.id
+
+    // Same budget as /api/quizzes: manual saves + builder autosave, no floods.
+    const rl = await rateLimitRequest(req, {
+      bucket: 'save-presentation',
+      userId: user.id,
+      userLimit: 30,
+      ipLimit: 60,
+      windowMs: 60_000,
+    })
+    if (!rl.ok) return rateLimitResponse(rl)
 
     const body = await req.json()
     const { id, title, theme, slides } = body
