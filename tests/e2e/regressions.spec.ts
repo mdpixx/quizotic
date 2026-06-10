@@ -5,12 +5,18 @@
 
 import { test, expect } from '@playwright/test'
 import { io as ioConnect, Socket } from 'socket.io-client'
+import { hostAuthCookie } from './socket-auth'
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:4000'
 
-function connect(): Promise<Socket> {
+function connect(cookie?: string): Promise<Socket> {
   return new Promise((resolve, reject) => {
-    const s = ioConnect(baseURL, { transports: ['websocket'], reconnection: false, forceNew: true })
+    const s = ioConnect(baseURL, {
+      transports: ['websocket'],
+      reconnection: false,
+      forceNew: true,
+      ...(cookie ? { extraHeaders: { Cookie: cookie } } : {}),
+    })
     const t = setTimeout(() => { s.disconnect(); reject(new Error('socket connect timeout')) }, 10_000)
     s.on('connect', () => { clearTimeout(t); resolve(s) })
     s.on('connect_error', err => { clearTimeout(t); reject(new Error(`connect_error: ${err.message}`)) })
@@ -36,7 +42,7 @@ test.describe('Regressions — quiz', () => {
     // The 2026-05-01 review found sanitizeQuestion stripped only `correctAnswer`,
     // not `correctAnswers` — so multiselect's full answer set was broadcast
     // to every participant. Anyone with dev-tools could win.
-    const host = await connect()
+    const host = await connect(await hostAuthCookie())
     const participant = await connect()
     try {
       const created = await emit<{ success: boolean; gameCode?: string }>(host, 'create_session', {
@@ -76,7 +82,7 @@ test.describe('Regressions — quiz', () => {
     // The 2026-05-01 review found `Number(['0','2'])` returns NaN, so
     // multiselect option distribution showed [0,0,0,0] forever even when
     // every participant answered correctly.
-    const host = await connect()
+    const host = await connect(await hostAuthCookie())
     const p1 = await connect()
     const p2 = await connect()
     try {
@@ -140,7 +146,7 @@ test.describe('Regressions — quiz', () => {
     // The 2026-05-01 review found server emitted `answered:` but host
     // listener destructures `count`, so drawing host counter showed
     // `undefined / N answered`.
-    const host = await connect()
+    const host = await connect(await hostAuthCookie())
     const participant = await connect()
     try {
       const created = await emit<{ success: boolean; gameCode?: string }>(host, 'create_session', {
@@ -180,7 +186,7 @@ test.describe('Regressions — quiz', () => {
     // all answers in, but the host had no safe next-question path until the
     // full timer reached zero. The host should be able to end the current
     // question with an ack, receive the reveal aggregate, then move on.
-    const host = await connect()
+    const host = await connect(await hostAuthCookie())
     const participant = await connect()
     try {
       const created = await emit<{ success: boolean; gameCode?: string }>(host, 'create_session', {
@@ -245,7 +251,7 @@ test.describe('Regressions — quiz', () => {
     // a correctOrder it is a scored sequence question, not an engagement poll.
     // The participant receives shuffled display slots, submits that displayed
     // order, and the server must translate it back to original-option order.
-    const host = await connect()
+    const host = await connect(await hostAuthCookie())
     const participant = await connect()
     const originalOptions = ['Highest', 'High', 'Medium', 'Low']
     const correctOrder = ['0', '1', '2', '3']
@@ -344,7 +350,7 @@ test.describe('Regressions — presentation', () => {
   // Helper: create a presenter session via Socket.IO. Mirrors how the
   // host UI does it for live presentations.
   async function createPresenterSession(slides: unknown[]): Promise<{ host: Socket; gameCode: string }> {
-    const host = await connect()
+    const host = await connect(await hostAuthCookie())
     const created = await emit<{ success: boolean; gameCode?: string; error?: string }>(host, 'create_presenter_session', {
       presentationData: { title: 'E2E Regression', slides },
     })

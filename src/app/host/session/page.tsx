@@ -12,7 +12,7 @@ import { PostSessionHeader } from '@/components/PostSessionHeader'
 import { CelebrationConfetti } from '@/components/CelebrationConfetti'
 import { SessionReport } from '@/components/SessionReport'
 import { LeaderboardView } from '@/components/LeaderboardView'
-import { playLeaderboardJingle, playTick, playBackgroundMusic, stopBackgroundMusic } from '@/lib/sounds'
+import { playLeaderboardJingle, playTick, playBackgroundMusic, stopBackgroundMusic, isMuted, toggleMuted } from '@/lib/sounds'
 import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/quiz-storage'
 import type { Quiz, QuestionStat, SessionMode } from '@/lib/quiz-types'
 import { ReflectionInsights } from '@/components/ReflectionInsights'
@@ -270,6 +270,10 @@ export default function SessionPage() {
   const [optionCounts, setOptionCounts] = useState<number[]>([])
   const [paused, setPaused] = useState(false)
   const [musicOn, setMusicOn] = useState(false)
+  // Mirrors the persisted global mute in lib/sounds — initialised in an
+  // effect because localStorage isn't available during SSR render.
+  const [soundMuted, setSoundMuted] = useState(false)
+  useEffect(() => { setSoundMuted(isMuted()) }, [])
   const [hostTimeLeft, setHostTimeLeft] = useState(0)
   const hostTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [plan, setPlan] = useState<'free' | 'pro'>('free')
@@ -623,6 +627,21 @@ export default function SessionPage() {
       }
     })
 
+    // Keep the host display timer honest across pause/resume. Without these,
+    // the wall-clock-anchored countdown kept running through a pause and the
+    // host screen hit 0 while the server (and participants) still had time.
+    socket.on('quiz_paused', () => {
+      setPaused(true)
+      if (hostTimerRef.current) { clearInterval(hostTimerRef.current); hostTimerRef.current = null }
+    })
+
+    socket.on('quiz_resumed', ({ remainingMs }: { remainingMs?: number }) => {
+      setPaused(false)
+      if (typeof remainingMs !== 'number' || remainingMs <= 0) return
+      setHostTimeLeft(Math.max(0, Math.ceil(remainingMs / 1000)))
+      runHostCountdown(getServerNow() + remainingMs)
+    })
+
     socket.on('ranking_submission', ({ ranking }: { ranking: number[] }) => {
       if (Array.isArray(ranking)) {
         setRankingSubmissions(prev => [...prev, ranking])
@@ -821,20 +840,27 @@ export default function SessionPage() {
   const timerStartRef = useRef<number>(0)
   const timerDurationRef = useRef<number>(0)
 
-  function startHostTimer(seconds: number, serverTimestamp?: number) {
+  // Foreground recovery: when the host machine sleeps or the tab is
+  // backgrounded, intervals throttle and the clock offset can go stale.
+  // Resync on visibility — the running 100ms timer picks up the corrected
+  // offset on its next tick.
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') resyncClock()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [])
+
+  // End-anchored remaining-time math, the same shape and 100ms cadence as
+  // the participant timer in join/page.tsx — the two screens flip digits
+  // within one tick of each other. Reused by quiz_resumed, where the
+  // remaining window must not go through the [5,120] full-question clamp.
+  function runHostCountdown(endAt: number) {
     if (hostTimerRef.current) clearInterval(hostTimerRef.current)
-    // Belt-and-suspenders clamp matching server-side sanitizeQuestion.
-    const safeSeconds = Math.max(5, Math.min(120, Number(seconds) || 20))
-    timerDurationRef.current = safeSeconds
-    // Anchor on the server timestamp (always). getServerNow() vs server start
-    // means we measure elapsed in SERVER time regardless of how the host
-    // laptop's clock has drifted — this was the source of the red-zone bug.
-    timerStartRef.current = serverTimestamp ?? getServerNow()
-    setHostTimeLeft(safeSeconds)
-    let lastTickSecond = safeSeconds + 1
+    let lastTickSecond = Math.ceil((endAt - getServerNow()) / 1000) + 1
     hostTimerRef.current = setInterval(() => {
-      const elapsed = (getServerNow() - timerStartRef.current) / 1000
-      const remaining = Math.max(0, Math.ceil(timerDurationRef.current - elapsed))
+      const remaining = Math.max(0, Math.ceil((endAt - getServerNow()) / 1000))
       setHostTimeLeft(remaining)
       // Tick on host for the final 5 seconds — stays in sync with the
       // participant ticks since both clocks are anchored on serverTimestamp.
@@ -846,7 +872,19 @@ export default function SessionPage() {
         clearInterval(hostTimerRef.current!)
         hostTimerRef.current = null
       }
-    }, 200) // Update 5x/sec for smooth countdown
+    }, 100)
+  }
+
+  function startHostTimer(seconds: number, serverTimestamp?: number) {
+    // Belt-and-suspenders clamp matching server-side sanitizeQuestion.
+    const safeSeconds = Math.max(5, Math.min(120, Number(seconds) || 20))
+    timerDurationRef.current = safeSeconds
+    // Anchor on the server timestamp (always). getServerNow() vs server start
+    // means we measure elapsed in SERVER time regardless of how the host
+    // laptop's clock has drifted — this was the source of the red-zone bug.
+    timerStartRef.current = serverTimestamp ?? getServerNow()
+    setHostTimeLeft(safeSeconds)
+    runHostCountdown(timerStartRef.current + safeSeconds * 1000)
   }
 
   function startQuiz() {
@@ -2063,6 +2101,18 @@ export default function SessionPage() {
                     border: `1.5px solid ${musicOn ? '#FCD34D' : 'rgba(255,255,255,0.16)'}`,
                   }}>
                   {musicOn ? 'Music On' : 'Music Off'}
+                </button>
+                <button
+                  onClick={() => setSoundMuted(toggleMuted())}
+                  title={soundMuted ? 'Sound effects are muted — click to unmute' : 'Mute all sound effects (ticks, chimes, celebrations)'}
+                  aria-label={soundMuted ? 'Unmute sound effects' : 'Mute sound effects'}
+                  className="flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-black transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#F5E642] focus-visible:ring-offset-2"
+                  style={{
+                    background: soundMuted ? 'rgba(255,255,255,0.1)' : '#FEF3C7',
+                    color: soundMuted ? '#FFFFFF' : '#B45309',
+                    border: `1.5px solid ${soundMuted ? 'rgba(255,255,255,0.16)' : '#FCD34D'}`,
+                  }}>
+                  {soundMuted ? '🔇' : '🔊'}
                 </button>
                 <span className="hidden md:inline-flex items-center rounded-full px-3 py-2 text-xs font-black tracking-wide" style={{ color: '#0F1B3D', background: '#F5E642' }}>
                   Quizotic

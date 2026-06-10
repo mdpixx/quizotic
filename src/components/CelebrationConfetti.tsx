@@ -90,17 +90,17 @@ interface CelebrationConfettiProps {
   layer?: 'fixed' | 'absolute'
 }
 
-// Render-lifetime constraint: each particle's <span> is only in the DOM for
-// ~2 × intervalMs (because keys are seeded from `seed` and `seed-1`, so a
-// particle survives the current render and the next). Its CSS animation
-// must therefore complete inside that window or it gets cut off when the
-// parent re-renders. Tuned: animation 5–8s, intervalMs 2400ms → particles
-// live ~4.8s in DOM, which fits the 5–8s envelope mostly (the longest tail
-// gets clipped, which is fine — the opacity envelope has them at ~0 by then).
+// Render-lifetime constraint: each particle's <span> stays in the DOM for
+// ~3 × intervalMs (keys are seeded from `seed`, `seed-1` and `seed-2`, so a
+// particle survives the current render and the next two). Its CSS animation
+// must complete inside that window or it gets cut off when the parent
+// re-renders. Tuned: animation 5–8s, intervalMs 2400ms → particles live
+// ~7.2s in DOM, so only the very longest tails (7.2–8s) get clipped — and
+// the opacity envelope has them near 0 by then. (Two batches used to give
+// only 4.8s, visibly cutting most particles mid-flight.)
 //
-// With batchSize 14 + intervalMs 2400ms + 2 overlapping batches, ~28
-// particles are on screen at any moment.
-export function CelebrationConfetti({ active, batchSize = 14, intervalMs = 2400, layer = 'fixed' }: CelebrationConfettiProps) {
+// With batchSize 12 + 3 overlapping batches, ~36 particles are on screen.
+export function CelebrationConfetti({ active, batchSize = 12, intervalMs = 2400, layer = 'fixed' }: CelebrationConfettiProps) {
   const reduced = usePrefersReducedMotion()
   const [seed, setSeed] = useState(0)
 
@@ -112,9 +112,11 @@ export function CelebrationConfetti({ active, batchSize = 14, intervalMs = 2400,
 
   if (!active || reduced) return null
 
-  // Two overlapping batches so the stream feels continuous.
+  // Three overlapping batches so the stream feels continuous AND each
+  // particle's 5–8s animation finishes before its batch leaves the DOM.
   const batchA = makeBatch(seed * batchSize, batchSize)
   const batchB = makeBatch((seed - 1) * batchSize, batchSize)
+  const batchC = makeBatch((seed - 2) * batchSize, batchSize)
 
   return (
     <div
@@ -127,7 +129,7 @@ export function CelebrationConfetti({ active, batchSize = 14, intervalMs = 2400,
         zIndex: 60,
       }}
     >
-      {[...batchA, ...batchB].map(p => (
+      {[...batchA, ...batchB, ...batchC].map(p => (
         <span
           key={p.id}
           style={{
