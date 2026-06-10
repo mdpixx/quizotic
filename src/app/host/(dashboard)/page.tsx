@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { motion } from 'framer-motion'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
+import { ModeExplainerCard } from '@/components/host/ModeExplainerCard'
 import { DataCardList } from '@/components/ui/DataCardList'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -191,32 +192,8 @@ export default function HostDashboard() {
         <div className="mt-8 mb-10">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mx-auto max-w-2xl">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Link href="/host/build" className="group block rounded-2xl border p-6 text-center transition-all hover:scale-[1.01] hover:shadow-lg" style={{ background: '#FFFDE6', borderColor: '#0F1B3D', textDecoration: 'none' }}>
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden><path d="M9 11l2 2 4-5"/><rect x="4" y="4" width="16" height="16" rx="3"/></svg>
-                </div>
-                <h2 className="text-xl font-black mb-1" style={{ color: '#0F1B3D' }}>Create quiz</h2>
-                <p className="text-xs leading-relaxed mb-4" style={{ color: '#475569' }}>
-                  Scored quiz, poll, or practice set. Generate with AI or build manually.
-                </p>
-                <span className="btn-primary">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
-                  Open quiz builder
-                </span>
-              </Link>
-              <Link href="/host/present/create" className="group block rounded-2xl border p-6 text-center transition-all hover:scale-[1.01] hover:shadow-lg" style={{ background: '#fff', borderColor: '#BFDBFE', textDecoration: 'none' }}>
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: '#EFF6FF', color: '#1368CE', border: '1px solid #BFDBFE' }}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
-                </div>
-                <h2 className="text-xl font-black mb-1" style={{ color: '#0F1B3D' }}>Create presentation</h2>
-                <p className="text-xs leading-relaxed mb-4" style={{ color: '#64748B' }}>
-                  Interactive deck with polls, word clouds, Q&amp;A, and PPTX import.
-                </p>
-                <span className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-black transition-colors group-hover:bg-blue-50" style={{ color: '#1368CE', border: '1px solid #BFDBFE' }}>
-                  Open slide builder
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-                </span>
-              </Link>
+              <ModeExplainerCard mode="quiz" href="/host/build" />
+              <ModeExplainerCard mode="presentation" href="/host/present/create" />
             </div>
             <div className="mt-4 text-center">
               <Link href="/host/templates" className="text-sm font-semibold hover:underline" style={{ color: '#64748B', textDecoration: 'none' }}>
@@ -295,11 +272,11 @@ export default function HostDashboard() {
             />
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="absolute top-[13px] left-3" style={{ color: 'var(--color-text-muted)' }}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           </div>
-          <Link href="/host/build" className="btn-primary" style={{ textDecoration: 'none' }}>
+          <Link href="/host/build" className="btn-primary" style={{ textDecoration: 'none' }} title="Scored competition with a live leaderboard and a winner">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
             Create quiz
           </Link>
-          <Link href="/host/present/create" className="btn-primary-teal hidden sm:inline-flex" style={{ textDecoration: 'none' }}>
+          <Link href="/host/present/create" className="btn-primary-teal hidden sm:inline-flex" style={{ textDecoration: 'none' }} title="Host-led interactive slides — polls, word clouds, Q&A. No scores.">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
             Presentation
           </Link>

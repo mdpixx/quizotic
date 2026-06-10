@@ -501,6 +501,61 @@ body {
   }
 }
 
+/* Projector / large displays (≥1920px): lift the type caps so the stage fills
+   the screen from the back of a classroom instead of floating small in the
+   middle. The vw-based clamps below would otherwise stay pinned to their
+   laptop-tuned maximums. */
+@media (min-width: 1920px) {
+  .host-question-card p {
+    font-size: clamp(2.4rem, 2.6vw, 3.6rem);
+  }
+
+  .host-question-card.host-question-fit-comfy p {
+    font-size: clamp(2rem, 2.1vw, 3rem);
+  }
+
+  .host-question-card.host-question-fit-tight p {
+    font-size: clamp(1.5rem, 1.6vw, 2.4rem);
+  }
+
+  .host-opt-text {
+    font-size: clamp(1.5rem, 1.2vw, 2.2rem);
+  }
+
+  .host-option-fit-comfy .host-opt-text {
+    font-size: clamp(1.3rem, 1vw, 1.8rem);
+  }
+
+  .host-option-fit-tight .host-opt-text {
+    font-size: clamp(1.05rem, 0.85vw, 1.4rem);
+  }
+
+  .host-options-stage > div > div.flex-1 > span:first-child {
+    width: 3.4rem;
+    height: 3.4rem;
+    font-size: 1.6rem;
+  }
+}
+
+/* Landscape phones (short + wide): the participant question screen must fit
+   the timer, question, and four options without scrolling. Compact the chrome
+   and let the options carry the space. */
+@media (max-height: 480px) and (orientation: landscape) {
+  .participant-topbar {
+    margin-bottom: 0.35rem !important;
+  }
+
+  .participant-question-card {
+    padding: 0.6rem 0.9rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .participant-question-card p {
+    font-size: 1rem !important;
+    line-height: 1.2 !important;
+  }
+}
+
 /* ── Heading font utility ──────────────────────────────────────────── */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);

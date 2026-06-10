@@ -30,6 +30,10 @@ const CRITICAL_COLUMNS = [
   { table: 'UsageLog', column: 'model', type: 'TEXT' },
   // Session 5 — GameSession.quizVersionId
   { table: 'GameSession', column: 'quizVersionId', type: 'TEXT' },
+  // Phase 2 — Quiz self-paced preference (builder settings gear)
+  { table: 'Quiz', column: 'selfPaced', type: 'BOOLEAN NOT NULL DEFAULT false' },
+  { table: 'Quiz', column: 'timeLimitMinutes', type: 'INTEGER' },
+  { table: 'Quiz', column: 'allowRetries', type: 'BOOLEAN NOT NULL DEFAULT false' },
 ]
 
 // Tables introduced in Sessions 1, 3, 4, 5, 6, 7-8. Each block is a single
@@ -214,6 +218,17 @@ const CRITICAL_TABLES = [
      CONSTRAINT "FeatureFlagAssignment_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE,
      CONSTRAINT "FeatureFlagAssignment_flagId_userId_key" UNIQUE ("flagId", "userId")
    )`,
+  // Phase 2 — in-app feedback persisted for the admin triage panel
+  `CREATE TABLE IF NOT EXISTS "Feedback" (
+     "id" TEXT NOT NULL,
+     "message" TEXT NOT NULL,
+     "email" TEXT,
+     "url" TEXT,
+     "userAgent" TEXT,
+     "status" TEXT NOT NULL DEFAULT 'new',
+     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     CONSTRAINT "Feedback_pkey" PRIMARY KEY ("id")
+   )`,
 ]
 
 const CRITICAL_INDEXES = [
@@ -252,6 +267,9 @@ const CRITICAL_INDEXES = [
   // Session 7-8
   `CREATE INDEX IF NOT EXISTS "FeatureFlag_enabled_idx" ON "FeatureFlag" ("enabled")`,
   `CREATE INDEX IF NOT EXISTS "FeatureFlagAssignment_userId_idx" ON "FeatureFlagAssignment" ("userId")`,
+  // Phase 2 — feedback triage
+  `CREATE INDEX IF NOT EXISTS "Feedback_createdAt_idx" ON "Feedback" ("createdAt")`,
+  `CREATE INDEX IF NOT EXISTS "Feedback_status_idx" ON "Feedback" ("status")`,
 ]
 
 // Idempotent data backfills. Each one reconciles a typed column with the

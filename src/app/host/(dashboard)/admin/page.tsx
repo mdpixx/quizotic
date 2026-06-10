@@ -38,9 +38,10 @@ interface Stats {
 }
 
 type AdminTab = 'overview' | 'content' | 'users' | 'tools'
-type ToolTab = 'credits' | 'pro' | 'coupons' | 'moderation' | 'deletions' | 'flags'
+type ToolTab = 'feedback' | 'credits' | 'pro' | 'coupons' | 'moderation' | 'deletions' | 'flags'
 
 const TOOL_TABS: Array<{ key: ToolTab; label: string; hint: string }> = [
+  { key: 'feedback', label: 'Feedback', hint: 'What users are saying' },
   { key: 'credits', label: 'Credits', hint: 'AI credit adjustments' },
   { key: 'pro', label: 'Pro Grants', hint: 'Grant or revoke Pro' },
   { key: 'coupons', label: 'Coupons', hint: 'Promo codes' },
@@ -782,7 +783,19 @@ function ToolsPanel({ active, onChange }: { active: ToolTab; onChange: (tab: Too
   return (
     <div className="space-y-5">
       <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/70 bg-white/80 dark:bg-gray-800/80 p-3 shadow-sm">
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2">
+        <div className="flex items-center justify-between px-1 pb-2">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Operations</span>
+          <a
+            href="https://sentry.io"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[11px] font-bold text-gray-400 hover:text-indigo-600 transition-colors"
+            title="Server errors are captured by Sentry (socket layer + API)"
+          >
+            Runtime errors → Sentry ↗
+          </a>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-2">
           {TOOL_TABS.map(t => {
             const isActive = active === t.key
             return (
@@ -804,12 +817,132 @@ function ToolsPanel({ active, onChange }: { active: ToolTab; onChange: (tab: Too
         </div>
       </div>
 
+      {active === 'feedback' && <FeedbackPanel />}
       {active === 'credits' && <CreditsPanel />}
       {active === 'pro' && <ProGrantsPanel />}
       {active === 'coupons' && <CouponsPanel />}
       {active === 'moderation' && <ModerationPanel />}
       {active === 'deletions' && <DeletionsPanel />}
       {active === 'flags' && <FeatureFlagsPanel />}
+    </div>
+  )
+}
+
+// ── Feedback triage panel ─────────────────────────────────────────────────────
+// Surfaces in-app feedback (stored by /api/feedback) so product decisions —
+// what people are asking for, where they're struggling — come from data
+// instead of an inbox. Mark items seen/done as they're handled.
+
+interface FeedbackItem {
+  id: string
+  message: string
+  email: string | null
+  url: string | null
+  status: string
+  createdAt: string
+}
+
+function FeedbackPanel() {
+  const [items, setItems] = useState<FeedbackItem[]>([])
+  const [counts, setCounts] = useState<Record<string, number>>({})
+  const [statusFilter, setStatusFilter] = useState<'open' | 'done'>('open')
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async (filter: 'open' | 'done') => {
+    setLoading(true)
+    try {
+      const qs = filter === 'done' ? '?status=done' : ''
+      const res = await fetch(`/api/admin/feedback${qs}`)
+      if (res.ok) {
+        const json = await res.json()
+        setItems(json.items ?? [])
+        setCounts(json.counts ?? {})
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load(statusFilter) }, [load, statusFilter])
+
+  async function setStatus(id: string, status: 'seen' | 'done') {
+    await fetch('/api/admin/feedback', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status }),
+    })
+    load(statusFilter)
+  }
+
+  return (
+    <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/70 bg-white/80 dark:bg-gray-800/80 p-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">User feedback</h3>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {counts.new ?? 0} new · {counts.seen ?? 0} seen · {counts.done ?? 0} done
+          </p>
+        </div>
+        <div className="flex gap-1.5">
+          {(['open', 'done'] as const).map(f => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setStatusFilter(f)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                statusFilter === f
+                  ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-700'
+                  : 'border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700/50'
+              }`}
+            >
+              {f === 'open' ? 'Open' : 'Done'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-gray-400 py-8 text-center">Loading…</p>
+      ) : items.length === 0 ? (
+        <p className="text-sm text-gray-400 py-8 text-center">
+          {statusFilter === 'open' ? 'No open feedback — inbox zero.' : 'Nothing marked done yet.'}
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {items.map(item => (
+            <div key={item.id} className="rounded-xl border border-gray-200/70 dark:border-gray-700/70 p-3.5">
+              <p className="text-sm text-gray-800 dark:text-gray-100 whitespace-pre-wrap">{item.message}</p>
+              <div className="flex flex-wrap items-center justify-between gap-2 mt-2.5">
+                <p className="text-[11px] text-gray-400">
+                  {item.email ?? 'anonymous'} · {new Date(item.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}
+                  {item.url ? ` · ${item.url.replace(/^https?:\/\/[^/]+/, '')}` : ''}
+                  {item.status !== 'new' ? ` · ${item.status}` : ''}
+                </p>
+                {statusFilter === 'open' && (
+                  <div className="flex gap-1.5">
+                    {item.status === 'new' && (
+                      <button
+                        type="button"
+                        onClick={() => setStatus(item.id, 'seen')}
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-bold border border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700/50"
+                      >
+                        Mark seen
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setStatus(item.id, 'done')}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold border border-green-200 text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/30"
+                    >
+                      Done
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

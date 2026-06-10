@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
+import { track } from '@/lib/analytics'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -214,6 +216,7 @@ export default function QuizzesPage() {
   }
 
   async function handleShare(id: string) {
+    track('selfpaced_share_opened', { quizId: id })
     setShareModal({ quizId: id, slug: null, questionCount: 0, responseCount: 0, allowRetries: false, closesAt: null, publishedAt: null, needsRepublish: false, publishing: true, copied: false, messageCopied: false, timeLimitMinutes: null })
     try {
       const res = await fetch(`/api/quizzes/${id}/publish`, { method: 'POST' })
@@ -546,24 +549,12 @@ export default function QuizzesPage() {
                             </p>
                           </div>
                         )}
-                        <div className="flex gap-2 mt-auto">
-                          <Link href={`/host/create?edit=${quiz.id}`} className="btn-secondary flex-1 justify-center" style={{ textDecoration: 'none', padding: '7px 10px', fontSize: '12px' }}>
-                            Edit
-                          </Link>
-                          <button
-                            onClick={() => handleShare(quiz.id)}
-                            className="btn-secondary flex-1 justify-center"
-                            style={{ padding: '7px 9px', fontSize: '11px' }}
-                            title="Share self-paced quiz"
-                          >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                            {quiz.asyncNeedsRepublish ? 'Republish' : 'Self-paced'}
-                          </button>
+                        <div className="flex gap-2 mt-auto items-center">
                           <button
                             onClick={() => handleStart(quiz.id)}
                             disabled={startingId === quiz.id}
                             className="btn-golive flex-1 justify-center"
-                            style={{ padding: '7px 9px', fontSize: '11px' }}
+                            style={{ padding: '7px 9px', fontSize: '12px' }}
                           >
                             {startingId === quiz.id ? (
                               <span className="flex items-center gap-1.5">
@@ -576,6 +567,35 @@ export default function QuizzesPage() {
                               </>
                             )}
                           </button>
+                          <Link href={`/host/create?edit=${quiz.id}`} className="btn-secondary flex-1 justify-center" style={{ textDecoration: 'none', padding: '7px 10px', fontSize: '12px' }}>
+                            Edit
+                          </Link>
+                          <RowActionsMenu
+                            label={`Actions for ${quiz.title || 'quiz'}`}
+                            actions={[
+                              {
+                                label: quiz.asyncNeedsRepublish ? 'Republish self-paced' : 'Share self-paced',
+                                onClick: () => handleShare(quiz.id),
+                                icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+                              },
+                              ...(quiz.asyncShareSlug ? [{
+                                label: 'View results',
+                                onClick: () => { window.location.href = `/host/quizzes/${quiz.id}/report` },
+                                icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><path d="M3 3v18h18M9 17V9M14 17V5M19 17v-6" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+                              }] : []),
+                              {
+                                label: 'Duplicate',
+                                onClick: () => handleDuplicate(quiz.id),
+                                icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>,
+                              },
+                              {
+                                label: 'Delete',
+                                onClick: () => setConfirmDelete(quiz.id),
+                                danger: true,
+                                icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
+                              },
+                            ]}
+                          />
                         </div>
                       </div>
                     </motion.div>
@@ -601,14 +621,15 @@ export default function QuizzesPage() {
               <div className="rounded-[16px] overflow-hidden" style={{ background: '#fff', border: '1px solid var(--color-line)' }}>
                 {(view === 'list' ? filtered : rest).map((quiz, i, arr) => {
                   const status = modeStatus(quiz)
-                  const signals = readinessSignals(quiz)
+                  // Only surface an attention signal inline; positive states are implied.
+                  const attention = readinessSignals(quiz).find(s => s.tone === 'attention')
                   return (
                   <div
                     key={quiz.id}
-                    className={`grid grid-cols-[40px_1fr] md:grid-cols-[40px_1fr_120px_auto] gap-3 md:gap-4 items-center p-3 ${i < arr.length - 1 ? 'border-b' : ''}`}
+                    className={`grid grid-cols-[44px_1fr_auto] md:grid-cols-[44px_1fr_110px_auto] gap-3 md:gap-4 items-center px-3.5 py-3 transition-colors hover:bg-[var(--color-paper)] ${i < arr.length - 1 ? 'border-b' : ''}`}
                     style={{ borderColor: 'var(--color-line)' }}
                   >
-                    <div className="w-10 h-10 rounded-[8px] overflow-hidden relative" style={{ background: gradientFor(quiz.id) }}>
+                    <div className="w-11 h-11 rounded-[10px] overflow-hidden relative" style={{ background: gradientFor(quiz.id) }}>
                       {quiz.coverImageUrl ? (
                         <img src={quiz.coverImageUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
                       ) : (
@@ -616,73 +637,69 @@ export default function QuizzesPage() {
                       )}
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[14px] font-semibold truncate" style={{ color: '#0F1B3D' }}>{quiz.title}</div>
-                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                        {quiz.subject && <span className="chip" style={{ background: '#EFF6FF', color: '#1D4ED8' }}>{quiz.subject}</span>}
-                        <span className="chip" style={statusStyle(status.tone)}>{status.label}</span>
-                        {signals.map(signal => (
-                          <span key={signal.label} className="chip" style={statusStyle(signal.tone)}>{signal.label}</span>
-                        ))}
-                        <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{quiz.questionCount} questions</span>
-                        <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>Updated {timeAgo(quiz.updatedAt)}</span>
-                        {quiz.asyncShareSlug && (
-                          <>
-                            <span className="chip" style={{ background: quiz.asyncNeedsRepublish ? '#FFFBEB' : '#F0FDF4', color: quiz.asyncNeedsRepublish ? '#92400E' : '#15803D' }}>
-                              {quiz.asyncNeedsRepublish ? 'Republish changes' : `${quiz.asyncResponseCount} self-paced`}
-                            </span>
-                            <Link href={`/host/quizzes/${quiz.id}/report`} className="chip" style={{ background: '#F0F9FF', color: '#0369A1', textDecoration: 'none' }}>
-                              Results
-                            </Link>
-                          </>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-[14px] font-bold truncate" style={{ color: '#0F1B3D' }}>{quiz.title || 'Untitled quiz'}</span>
+                        <span className="chip flex-shrink-0" style={statusStyle(status.tone)}>{status.label}</span>
+                        {attention && <span className="chip flex-shrink-0" style={statusStyle('attention')}>{attention.label}</span>}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-1 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                        {quiz.subject && <><span className="truncate max-w-[120px]">{quiz.subject}</span><span aria-hidden>·</span></>}
+                        <span>{quiz.questionCount} {quiz.questionCount === 1 ? 'question' : 'questions'}</span>
+                        <span aria-hidden>·</span>
+                        <span>Updated {timeAgo(quiz.updatedAt)}</span>
+                        {quiz.asyncShareSlug && quiz.asyncResponseCount > 0 && (
+                          <><span aria-hidden>·</span><span>{quiz.asyncResponseCount} self-paced responses</span></>
                         )}
                       </div>
                     </div>
                     <div className="text-[11px] hidden md:block" style={{ color: 'var(--color-text-muted)' }}>
                       {new Date(quiz.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </div>
-                    <div className="col-span-2 md:col-span-1 flex items-center gap-1.5 justify-end">
-                      <Link href={`/host/create?edit=${quiz.id}`} className="btn-secondary" style={{ textDecoration: 'none', padding: '6px 10px', fontSize: '12px' }}>
-                        Edit
-                      </Link>
-                      <button
-                        onClick={() => handleShare(quiz.id)}
-                        className="btn-secondary"
-                        style={{ padding: '6px 10px', fontSize: '12px' }}
-                        title="Share self-paced quiz"
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        {quiz.asyncNeedsRepublish ? 'Republish' : 'Self-paced'}
-                      </button>
+                    <div className="flex items-center gap-1.5 justify-end">
                       <button
                         onClick={() => handleStart(quiz.id)}
                         disabled={startingId === quiz.id}
                         className="btn-golive"
-                        style={{ padding: '6px 10px', fontSize: '12px' }}
+                        style={{ padding: '6px 12px', fontSize: '12px' }}
                       >
                         {startingId === quiz.id ? (
                           <svg className="animate-spin w-3 h-3" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" opacity="0.3"/><path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
                         ) : (
                           <>
                             <span className="play-dot" style={{ width: '14px', height: '14px' }}><svg viewBox="0 0 24 24" fill="#0F1B3D" className="w-2 h-2"><path d="M8 5v14l11-7z"/></svg></span>
-                            Host live
+                            <span className="hidden sm:inline">Host live</span>
                           </>
                         )}
                       </button>
-                      <button
-                        onClick={() => handleDuplicate(quiz.id)}
-                        className="btn-icon"
-                        title="Duplicate"
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                      </button>
-                      <button
-                        onClick={() => setConfirmDelete(quiz.id)}
-                        className="btn-icon"
-                        title="Delete"
-                        style={{ color: '#B91C1C' }}
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                      </button>
+                      <Link href={`/host/create?edit=${quiz.id}`} className="btn-secondary" style={{ textDecoration: 'none', padding: '6px 12px', fontSize: '12px' }}>
+                        Edit
+                      </Link>
+                      <RowActionsMenu
+                        label={`Actions for ${quiz.title || 'quiz'}`}
+                        actions={[
+                          {
+                            label: quiz.asyncNeedsRepublish ? 'Republish self-paced' : 'Share self-paced',
+                            onClick: () => handleShare(quiz.id),
+                            icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+                          },
+                          ...(quiz.asyncShareSlug ? [{
+                            label: 'View results',
+                            onClick: () => { window.location.href = `/host/quizzes/${quiz.id}/report` },
+                            icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><path d="M3 3v18h18M9 17V9M14 17V5M19 17v-6" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+                          }] : []),
+                          {
+                            label: 'Duplicate',
+                            onClick: () => handleDuplicate(quiz.id),
+                            icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>,
+                          },
+                          {
+                            label: 'Delete',
+                            onClick: () => setConfirmDelete(quiz.id),
+                            danger: true,
+                            icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
+                          },
+                        ]}
+                      />
                     </div>
                   </div>
                   )

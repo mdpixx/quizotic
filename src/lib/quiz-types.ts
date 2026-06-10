@@ -120,6 +120,10 @@ export interface Quiz {
   createdAt: string         // ISO timestamp
   updatedAt: string         // ISO timestamp
   questions: Question[]
+  // Self-paced preference (builder settings gear). Live hosting stays default.
+  selfPaced?: boolean
+  timeLimitMinutes?: number | null
+  allowRetries?: boolean
 }
 
 export type SessionMode = 'competitive' | 'reflection' | 'selfpaced' | 'assessment' | 'accuracy'
