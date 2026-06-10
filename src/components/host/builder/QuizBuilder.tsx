@@ -26,12 +26,14 @@
 import React, { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuizBuilder } from '@/hooks/use-quiz-builder'
+import { track } from '@/lib/analytics'
 import { isKnownQuestionType } from '@/lib/quiz-builder-logic'
 import { resolveHostBackNavigation } from '@/lib/host-navigation'
 import { QuestionList } from './QuestionList'
 import { QuestionCanvas } from './QuestionCanvas'
 import { BuilderLauncher, type LauncherMode } from './BuilderLauncher'
 import { AIGenerateForm } from './AIGenerateForm'
+import { QuizSettingsPopover } from './QuizSettingsPopover'
 import { SparkleIcon } from './SparkleIcon'
 import type { Question } from '@/lib/quiz-types'
 
@@ -231,6 +233,9 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
   const [sourceModalOpen, setSourceModalOpen] = useState(() => !editId && isSourceStart(start))
   const [aiPanelOpen, setAiPanelOpen] = useState(false)
   const [titleError, setTitleError] = useState(false)
+  // When generate/import returns questions and the builder already holds real
+  // content, we ask append-vs-replace instead of silently wiping the host's work.
+  const [pendingApply, setPendingApply] = useState<{ questions: Partial<Question>[]; meta?: { title?: string; subject?: string } } | null>(null)
 
   function handleBack() {
     const nav = resolveHostBackNavigation({
@@ -252,11 +257,32 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
     await builder.handleSave()
   }
 
-  function handleSourceApply(questions: Partial<Question>[], meta?: { title?: string; subject?: string }) {
-    builder.applyGeneratedQuestions(questions)
-    if (meta?.title) builder.setTitle(meta.title)
-    if (meta?.subject) builder.setSubject(meta.subject)
+  // Single entry for both Generate/Import (source modal) and the in-builder AI
+  // panel. If the builder already has real questions, defer to the chooser so
+  // the host decides append vs replace; a pristine canvas just replaces.
+  function requestApply(questions: Partial<Question>[], meta?: { title?: string; subject?: string }) {
     setSourceModalOpen(false)
+    setAiPanelOpen(false)
+    if (builder.hasContent) {
+      setPendingApply({ questions, meta })
+    } else {
+      track('ai_generate_applied', { mode: 'replace', count: questions.length })
+      builder.applyGeneratedQuestions(questions, 'replace')
+      if (meta?.title) builder.setTitle(meta.title)
+      if (meta?.subject) builder.setSubject(meta.subject)
+    }
+  }
+
+  function resolveApply(mode: 'append' | 'replace') {
+    if (!pendingApply) return
+    track('ai_generate_applied', { mode, count: pendingApply.questions.length })
+    builder.applyGeneratedQuestions(pendingApply.questions, mode)
+    // On replace, adopt incoming title/subject; on append, keep the host's.
+    if (mode === 'replace') {
+      if (pendingApply.meta?.title) builder.setTitle(pendingApply.meta.title)
+      if (pendingApply.meta?.subject) builder.setSubject(pendingApply.meta.subject)
+    }
+    setPendingApply(null)
   }
 
   return (
@@ -325,11 +351,21 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
           onClick={() => setSourceModalOpen(true)}
           className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all hover:brightness-95"
           style={{ background: '#F5F3FF', color: '#7C3AED', border: '1px solid #DDD6FE' }}
-          title="Generate questions or import from a source"
+          title="Generate questions with AI or import from PDF, URL, or CSV — add to or replace your quiz"
         >
           <SparkleIcon className="w-3.5 h-3.5" />
           Generate / Import
         </button>
+
+        {/* Quiz settings (self-paced, time limit, retries) */}
+        <QuizSettingsPopover
+          selfPaced={builder.selfPaced}
+          setSelfPaced={builder.setSelfPaced}
+          timeLimitMinutes={builder.timeLimitMinutes}
+          setTimeLimitMinutes={builder.setTimeLimitMinutes}
+          allowRetries={builder.allowRetries}
+          setAllowRetries={builder.setAllowRetries}
+        />
 
         {/* Save button */}
         <button
@@ -417,7 +453,7 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
         <SourceModal
           plan={builder.plan}
           initialMode={initialMode}
-          onApply={handleSourceApply}
+          onApply={requestApply}
           onClose={() => setSourceModalOpen(false)}
         />
       )}
@@ -427,12 +463,76 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
         <AIGeneratePanel
           plan={builder.plan}
           onClose={() => setAiPanelOpen(false)}
-          onGenerated={raw => {
-            builder.applyGeneratedQuestions(raw)
-            setAiPanelOpen(false)
-          }}
+          onGenerated={raw => requestApply(raw)}
+        />
+      )}
+
+      {/* ── Append vs Replace chooser ─────────────────────────────────── */}
+      {pendingApply && (
+        <ApplyModeChooser
+          incomingCount={pendingApply.questions.length}
+          existingCount={builder.questions.length}
+          onAppend={() => resolveApply('append')}
+          onReplace={() => resolveApply('replace')}
+          onCancel={() => setPendingApply(null)}
         />
       )}
     </div>
+  )
+}
+
+// ── ApplyModeChooser ────────────────────────────────────────────────────────
+// Shown when generate/import returns questions and the builder already holds
+// real content. Default action (append) preserves the host's existing work.
+function ApplyModeChooser({
+  incomingCount, existingCount, onAppend, onReplace, onCancel,
+}: {
+  incomingCount: number
+  existingCount: number
+  onAppend: () => void
+  onReplace: () => void
+  onCancel: () => void
+}) {
+  return (
+    <>
+      <div className="fixed inset-0 z-[60] bg-black/30 backdrop-blur-[2px]" onClick={onCancel} />
+      <div
+        className="fixed z-[61] rounded-2xl shadow-2xl border bg-white p-6"
+        style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 'min(440px, 92vw)', borderColor: '#E5E7EB' }}
+        role="dialog" aria-modal="true"
+      >
+        <p className="text-[10px] font-black uppercase tracking-[0.16em] mb-1" style={{ color: '#7C3AED' }}>Generated {incomingCount} question{incomingCount === 1 ? '' : 's'}</p>
+        <h2 className="text-lg font-black mb-1.5" style={{ color: '#0F1B3D' }}>Add to your quiz or replace it?</h2>
+        <p className="text-sm mb-5" style={{ color: '#64748B' }}>
+          You already have {existingCount} question{existingCount === 1 ? '' : 's'}. Add the new ones to keep your work, or replace everything.
+        </p>
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={onAppend}
+            className="w-full py-3 rounded-xl text-sm font-black transition-all hover:brightness-95"
+            style={{ background: '#0F1B3D', color: '#F5E642' }}
+          >
+            Add {incomingCount} to my {existingCount} &rarr; {existingCount + incomingCount} total
+          </button>
+          <button
+            type="button"
+            onClick={onReplace}
+            className="w-full py-2.5 rounded-xl text-sm font-bold border transition-colors hover:bg-red-50"
+            style={{ color: '#B91C1C', borderColor: '#FECACA' }}
+          >
+            Replace all {existingCount} with the new {incomingCount}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="w-full py-2 rounded-xl text-sm font-semibold transition-colors hover:bg-gray-50"
+            style={{ color: '#64748B' }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </>
   )
 }

@@ -17,6 +17,7 @@ import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/qu
 import type { Quiz, QuestionStat, SessionMode } from '@/lib/quiz-types'
 import { ReflectionInsights } from '@/components/ReflectionInsights'
 import { getOptionText, getOptionImage, isScoredQuestion, getEffectiveOptions } from '@/lib/quiz-types'
+import { ANSWER_COLORS, ANSWER_LETTERS } from '@/lib/answer-colors'
 import { QuestionResultsView } from '@/components/results/QuestionResultsView'
 import { CircularTimer } from '@/components/CircularTimer'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
@@ -27,6 +28,7 @@ import { EndQuizConfirmModal } from '@/components/host/EndQuizConfirmModal'
 import { getQuizTheme } from '@/lib/quiz-themes'
 import { buildLeaderboardStageRows, getHostQuestionFit, getPostQuestionAction } from '@/lib/host-stage'
 import { startClockSync, getServerNow, resyncClock } from '@/lib/clock-sync'
+import { track } from '@/lib/analytics'
 
 type Phase = 'loading' | 'error' | 'idle' | 'lobby' | 'question' | 'standings' | 'ended'
 
@@ -54,17 +56,12 @@ interface TopMover {
   delta: number
 }
 
-// Canonical Kahoot palette — kept as Tailwind class list here for the
-// arbitrary-value bg class names we inject. Source of truth: src/lib/answer-colors.ts.
-const OPTION_COLORS = [
-  'bg-[#E21B3C]', // A
-  'bg-[#1368CE]', // B
-  'bg-[#D89E00]', // C
-  'bg-[#26890C]', // D
-  'bg-[#7C3AED]', // E
-]
-
-const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E']
+// Canonical answer-tile palette — single source of truth in answer-colors.ts.
+// These 4–5 colours stay constant across quiz AND presentation sequences so
+// participants can colour-match their phone to the host screen; only the
+// surrounding chrome is themed per sequence (see sequence-theme.ts).
+const OPTION_COLORS = ANSWER_COLORS.map(c => c.tw)
+const OPTION_LABELS = ANSWER_LETTERS
 
 // P3.1 — Share / LMS links for lobby
 function ShareLinks({ gameCode, quizTitle }: { gameCode: string; quizTitle: string }) {
@@ -720,6 +717,11 @@ export default function SessionPage() {
       setTeamLeaderboard(tlb ?? null)
       setQuestionStats(qs ?? [])
       setPhase('ended')
+      track('live_session_completed', {
+        participants: lb.length,
+        questionCount: qs?.length ?? 0,
+        durationSec: sessionStartTimeRef.current ? Math.round((Date.now() - sessionStartTimeRef.current) / 1000) : null,
+      })
       // Game over — invalidate the host resume token for this gameCode.
       if (gameCodeRef.current) clearHostResumeToken(gameCodeRef.current)
       hostResumeTokenRef.current = ''
@@ -894,6 +896,7 @@ export default function SessionPage() {
     }
     setSessionError('')
     sessionStartTimeRef.current = Date.now()
+    track('live_session_started', { questionCount: quiz?.questions.length ?? 0, sessionMode })
     socketRef.current.emit('start_quiz', { gameCode })
     setAnswered(0)
     setOptionCounts([])
@@ -2197,18 +2200,46 @@ export default function SessionPage() {
                   : questionEnded
                     ? nextQuestion
                     : () => { void advanceAfterEndingCurrentQuestion() }
+              // Host override controls (smart default + explicit choice):
+              //  - cadence says "skip standings" → offer a quiet "Show standings"
+              //  - cadence recommends standings → offer a quiet "Skip" straight to next
+              const showStandingsOverride = action === 'next' && questionEnded && scoredQ
+                && (sessionMode === 'competitive' || sessionMode === 'accuracy')
+              const skipStandingsOverride = action === 'standings'
               return (
-                <button
-                  onClick={onClick}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 font-black text-sm rounded-full transition-colors shadow-md animate-pulse"
-                  style={{
-                    background: action === 'reveal' ? '#16A34A' : action === 'standings' && standingsRecommended ? '#F5E642' : '#FBBF24',
-                    color: action === 'reveal' ? '#FFFFFF' : '#0F1B3D',
-                  }}
-                >
-                  {label}
-                  <span aria-hidden>→</span>
-                </button>
+                <>
+                  {showStandingsOverride && (
+                    <button
+                      onClick={advanceFromQuestion}
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full font-bold text-sm border-2 transition-all hover:scale-[1.02]"
+                      style={{ borderColor: '#9CA3AF', color: '#6B7280', background: 'transparent' }}
+                      title="Show the leaderboard before moving on"
+                    >
+                      Show standings
+                    </button>
+                  )}
+                  {skipStandingsOverride && (
+                    <button
+                      onClick={questionEnded ? nextQuestion : () => { void advanceAfterEndingCurrentQuestion() }}
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full font-bold text-sm border-2 transition-all hover:scale-[1.02]"
+                      style={{ borderColor: '#9CA3AF', color: '#6B7280', background: 'transparent' }}
+                      title="Skip the leaderboard and go straight to the next question"
+                    >
+                      Skip
+                    </button>
+                  )}
+                  <button
+                    onClick={onClick}
+                    className="inline-flex items-center gap-2 px-6 py-2.5 font-black text-sm rounded-full transition-colors shadow-md animate-pulse"
+                    style={{
+                      background: action === 'reveal' ? '#16A34A' : action === 'standings' && standingsRecommended ? '#F5E642' : '#FBBF24',
+                      color: action === 'reveal' ? '#FFFFFF' : '#0F1B3D',
+                    }}
+                  >
+                    {label}
+                    <span aria-hidden>→</span>
+                  </button>
+                </>
               )
               })()}
               </div>

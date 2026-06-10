@@ -175,6 +175,11 @@ model Quiz {
   language  String?
   theme     String? // theme id from QUIZ_THEMES catalog; null = default
   questions Json // array of Question objects
+  // Host's self-paced preference set in the builder settings gear. Live hosting
+  // is still the default; these only pre-fill the async/share flow.
+  selfPaced        Boolean @default(false)
+  timeLimitMinutes Int? // null = untimed
+  allowRetries     Boolean @default(false)
   userId    String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -297,6 +302,22 @@ model Answer {
   @@unique([sessionId, participantId, questionIndex])
   @@index([sessionId])
   @@index([attendeeId])
+}
+
+// ─── Feedback (in-app feedback submissions) ──────────────────────
+// Stored alongside the email send so admin can see what users are asking
+// for / struggling with without digging through an inbox.
+model Feedback {
+  id        String   @id @default(cuid())
+  message   String
+  email     String? // user-entered or session email (best-effort)
+  url       String? // page the feedback was sent from
+  userAgent String?
+  status    String   @default("new") // 'new' | 'seen' | 'done'
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([status])
 }
 
 // ─── CreditGrant (admin-issued AI credit adjustments) ────────────

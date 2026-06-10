@@ -11,6 +11,7 @@ import { playTick, playCorrect, playWrong, playStreak, isMuted, toggleMuted } fr
 import { LeaderboardView } from '@/components/LeaderboardView'
 import { ResultBeat, type PersonalResult } from '@/components/ResultBeat'
 import { startClockSync, getServerNow, resyncClock } from '@/lib/clock-sync'
+import { PRESENTATION_SEQUENCE } from '@/lib/sequence-theme'
 import { useI18n } from '@/lib/use-i18n'
 import { DndContext, closestCenter, MouseSensor, TouchSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
@@ -200,14 +201,14 @@ function StarRating({ max, minLabel, maxLabel, textLight, onSubmit, disabled, on
         })}
       </div>
       <div className="text-center">
-        <span className="text-3xl font-black" style={{ color: selected > 0 ? '#FACC15' : 'rgba(255,255,255,0.2)', fontFamily: 'var(--font-heading)' }}>
+        <span className="text-3xl font-black" style={{ color: selected > 0 ? PRESENTATION_SEQUENCE.accentOnDark : 'rgba(255,255,255,0.2)', fontFamily: 'var(--font-heading)' }}>
           {selected > 0 ? `${selected} / ${max}` : 'Tap a star'}
         </span>
       </div>
       <button onClick={() => { if (disabled) { onDisabledClick?.(); return } if (selected > 0) onSubmit(selected) }}
         disabled={selected === 0 || disabled}
         className="w-full py-5 rounded-2xl text-xl font-black transition-all disabled:opacity-30"
-        style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>
+        style={{ background: PRESENTATION_SEQUENCE.accent, color: PRESENTATION_SEQUENCE.accentText, border: '2px solid rgba(255,255,255,0.25)' }}>
         Submit
       </button>
     </div>
@@ -232,12 +233,12 @@ function PinpointInput({ imageUrl, onSubmit }: {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-center gap-2 py-2 px-3 rounded-xl"
-        style={{ background: 'rgba(245,230,66,0.12)', border: '1px solid rgba(245,230,66,0.35)' }}>
-        <svg viewBox="0 0 24 24" className="w-4 h-4" style={{ color: '#F5E642' }}>
+        style={{ background: 'rgba(34,211,238,0.12)', border: '1px solid rgba(34,211,238,0.35)' }}>
+        <svg viewBox="0 0 24 24" className="w-4 h-4" style={{ color: PRESENTATION_SEQUENCE.accentOnDark }}>
           <path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinejoin="round" />
           <circle cx="12" cy="9" r="2.3" stroke="currentColor" strokeWidth="1.8" fill="none" />
         </svg>
-        <p className="text-sm font-bold" style={{ color: '#F5E642' }}>
+        <p className="text-sm font-bold" style={{ color: PRESENTATION_SEQUENCE.accentOnDark }}>
           {pin ? 'Tap again to move your pin' : 'Tap the image to drop your pin'}
         </p>
       </div>
@@ -266,7 +267,7 @@ function PinpointInput({ imageUrl, onSubmit }: {
       <button onClick={() => { if (pin) onSubmit(pin) }}
         disabled={!pin}
         className="w-full py-5 rounded-2xl text-xl font-black transition-all disabled:opacity-30"
-        style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>
+        style={{ background: PRESENTATION_SEQUENCE.accent, color: PRESENTATION_SEQUENCE.accentText, border: '2px solid rgba(255,255,255,0.25)' }}>
         {pin ? 'Submit Pin' : 'Tap the image first'}
       </button>
     </div>
@@ -295,8 +296,8 @@ function Grid2x2Input({ xMin, xMax, yMin, yMax, onSubmit }: {
       <div className="relative">
         {/* Y-axis label */}
         <div className="absolute -left-1 top-0 bottom-0 flex flex-col justify-between items-center py-1 z-10" style={{ width: 20 }}>
-          <span className="text-[10px] font-bold" style={{ color: '#F5E642' }}>{yMax || 'High'}</span>
-          <span className="text-[10px] font-bold" style={{ color: '#F5E642' }}>{yMin || 'Low'}</span>
+          <span className="text-[10px] font-bold" style={{ color: PRESENTATION_SEQUENCE.accentOnDark }}>{yMax || 'High'}</span>
+          <span className="text-[10px] font-bold" style={{ color: PRESENTATION_SEQUENCE.accentOnDark }}>{yMin || 'Low'}</span>
         </div>
         <div className="ml-6">
           {/* Grid area */}
@@ -318,15 +319,15 @@ function Grid2x2Input({ xMin, xMax, yMin, yMax, onSubmit }: {
           </div>
           {/* X-axis labels */}
           <div className="flex justify-between mt-1">
-            <span className="text-[10px] font-bold" style={{ color: '#F5E642' }}>{xMin || 'Low'}</span>
-            <span className="text-[10px] font-bold" style={{ color: '#F5E642' }}>{xMax || 'High'}</span>
+            <span className="text-[10px] font-bold" style={{ color: PRESENTATION_SEQUENCE.accentOnDark }}>{xMin || 'Low'}</span>
+            <span className="text-[10px] font-bold" style={{ color: PRESENTATION_SEQUENCE.accentOnDark }}>{xMax || 'High'}</span>
           </div>
         </div>
       </div>
       <button onClick={() => { if (pin) onSubmit(pin) }}
         disabled={!pin}
         className="w-full py-5 rounded-2xl text-xl font-black transition-all disabled:opacity-30"
-        style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>
+        style={{ background: PRESENTATION_SEQUENCE.accent, color: PRESENTATION_SEQUENCE.accentText, border: '2px solid rgba(255,255,255,0.25)' }}>
         {pin ? 'Submit' : 'Tap the grid first'}
       </button>
     </div>
@@ -1712,7 +1713,7 @@ function JoinPageInner() {
           </div>
         )}
         {/* Top bar */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="participant-topbar flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             {archetype && <Avatar archetype={archetype} size={40} />}
             <span className="text-gray-500 text-base">{archetype}</span>
@@ -1765,7 +1766,7 @@ function JoinPageInner() {
             <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Tap the colour matching your answer</p>
           </div>
         ) : (
-        <div className={`bg-white rounded-2xl shadow-sm border p-4 sm:p-6 mb-4 ${question.type === 'case' ? 'border-t-4' : 'border-gray-200 border-t-4'}`} style={{ borderTopColor: question.type === 'case' ? '#2D3A8C' : '#F5E642' }}>
+        <div className={`participant-question-card bg-white rounded-2xl shadow-sm border p-4 sm:p-6 mb-4 ${question.type === 'case' ? 'border-t-4' : 'border-gray-200 border-t-4'}`} style={{ borderTopColor: question.type === 'case' ? '#2D3A8C' : '#F5E642' }}>
           <div className="flex items-center justify-between mb-3">
             <span className="text-base text-gray-400 font-semibold">Q{question.index + 1} / {question.total}</span>
             {(question.isScored || isScoredType(question.type as QuestionType)) && (
@@ -2147,7 +2148,33 @@ function JoinPageInner() {
           <div className="rounded-2xl p-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #0F1B3D 0%, #1B2A5E 100%)', color: '#fff' }}>
             <div>
               <p className="text-[10px] uppercase tracking-widest opacity-60 font-bold">Your rank</p>
-              <p className="text-4xl font-black tabular-nums" style={{ color: '#F5E642' }}>#{intermediateRank}</p>
+              <div className="flex items-baseline gap-2">
+                {/* Keyed on rank so a change re-mounts and pops — the player
+                    literally sees their number move. */}
+                <p
+                  key={intermediateRank}
+                  className="text-4xl font-black tabular-nums"
+                  style={{ color: '#F5E642', animation: 'correctPop 0.5s ease-out' }}
+                >
+                  #{intermediateRank}
+                </p>
+                {typeof personalResult?.delta === 'number' && personalResult.delta !== 0 && (
+                  <span
+                    className="text-sm font-black px-2 py-0.5 rounded-full"
+                    style={{
+                      color: personalResult.delta > 0 ? '#14532D' : '#7F1D1D',
+                      background: personalResult.delta > 0 ? '#BBF7D0' : '#FECACA',
+                    }}
+                  >
+                    {personalResult.delta > 0 ? `▲${personalResult.delta}` : `▼${Math.abs(personalResult.delta)}`}
+                  </span>
+                )}
+              </div>
+              {typeof personalResult?.prevRank === 'number' && personalResult.prevRank !== intermediateRank && (
+                <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                  was #{personalResult.prevRank}
+                </p>
+              )}
             </div>
             <div className="text-right">
               <p className="text-[10px] uppercase tracking-widest opacity-60 font-bold">Your score</p>
@@ -2155,6 +2182,13 @@ function JoinPageInner() {
             </div>
           </div>
         )}
+        <style>{`
+          @keyframes correctPop {
+            0% { transform: scale(0.6); }
+            60% { transform: scale(1.12); }
+            100% { transform: scale(1); }
+          }
+        `}</style>
 
         {intermediateLeaderboard.length > 0 && (
           <LeaderboardView
@@ -2656,7 +2690,7 @@ function JoinPageInner() {
                 <button
                   onClick={() => submitVote(order)}
                   className="w-full py-5 rounded-2xl text-xl font-black"
-                  style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>
+                  style={{ background: PRESENTATION_SEQUENCE.accent, color: PRESENTATION_SEQUENCE.accentText, border: '2px solid rgba(255,255,255,0.25)' }}>
                   Submit order
                 </button>
               </div>
@@ -2691,7 +2725,7 @@ function JoinPageInner() {
                   }
                 }}
                 className="w-full py-5 rounded-2xl text-xl font-black"
-                style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>
+                style={{ background: PRESENTATION_SEQUENCE.accent, color: PRESENTATION_SEQUENCE.accentText, border: '2px solid rgba(255,255,255,0.25)' }}>
                 Submit
               </button>
             </div>
@@ -2719,7 +2753,7 @@ function JoinPageInner() {
                   submitVote(Number(input?.value ?? 50))
                 }}
                 className="w-full py-5 rounded-2xl text-xl font-black"
-                style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>
+                style={{ background: PRESENTATION_SEQUENCE.accent, color: PRESENTATION_SEQUENCE.accentText, border: '2px solid rgba(255,255,255,0.25)' }}>
                 Submit
               </button>
             </div>

@@ -1,0 +1,31 @@
+'use client'
+
+// Thin wrapper over posthog-js for custom product events. Autocapture answers
+// "where do people click"; these named events answer the product questions —
+// which features get used, where sessions die, what converts.
+//
+// Safe to call anywhere client-side: no-ops when PostHog isn't configured and
+// never throws into the calling flow.
+
+import posthog from 'posthog-js'
+
+const ENABLED = typeof window !== 'undefined' && !!process.env.NEXT_PUBLIC_POSTHOG_KEY
+
+export type ProductEvent =
+  | 'quiz_saved'
+  | 'quiz_created'
+  | 'ai_generate_applied'
+  | 'live_session_started'
+  | 'live_session_completed'
+  | 'selfpaced_share_opened'
+  | 'presentation_session_started'
+  | 'feedback_submitted'
+
+export function track(event: ProductEvent, props?: Record<string, string | number | boolean | null>): void {
+  if (!ENABLED) return
+  try {
+    posthog.capture(event, props)
+  } catch {
+    // Analytics must never break a user flow.
+  }
+}

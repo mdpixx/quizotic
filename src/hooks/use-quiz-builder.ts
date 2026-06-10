@@ -17,6 +17,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { track } from '@/lib/analytics'
 import { arrayMove } from '@dnd-kit/sortable'
 import { useAutosave } from '@/lib/use-autosave'
 import { useHistory } from '@/lib/use-history'
@@ -50,6 +51,14 @@ export interface UseQuizBuilderReturn {
   theme: string | undefined
   setTheme: (v: string | undefined) => void
 
+  // Self-paced settings (gear popover)
+  selfPaced: boolean
+  setSelfPaced: (v: boolean) => void
+  timeLimitMinutes: number | null
+  setTimeLimitMinutes: (v: number | null) => void
+  allowRetries: boolean
+  setAllowRetries: (v: boolean) => void
+
   // Questions
   questions: Question[]
   activeIndex: number
@@ -65,7 +74,10 @@ export interface UseQuizBuilderReturn {
   reorderQuestions: (fromIndex: number, toIndex: number) => void
   updateQuestion: (index: number, partial: Partial<Question>) => void
   changeQuestionType: (index: number, type: QuestionType) => void
-  applyGeneratedQuestions: (raw: Partial<Question>[]) => void
+  applyGeneratedQuestions: (raw: Partial<Question>[], mode?: 'append' | 'replace') => void
+  // True when the builder holds at least one real (non-empty) question worth
+  // preserving — drives the append-vs-replace chooser on AI generate/import.
+  hasContent: boolean
 
   // History
   canUndo: boolean
@@ -111,6 +123,10 @@ export function useQuizBuilder({
   const [title, setTitle] = useState(initialTitle)
   const [subject, setSubject] = useState('')
   const [theme, setTheme] = useState<string | undefined>(undefined)
+  // Self-paced preference (settings gear). Live hosting is the default.
+  const [selfPaced, setSelfPaced] = useState(false)
+  const [timeLimitMinutes, setTimeLimitMinutes] = useState<number | null>(null)
+  const [allowRetries, setAllowRetries] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -139,6 +155,9 @@ export function useQuizBuilder({
         setTitle(quiz.title ?? '')
         setSubject(quiz.subject ?? '')
         setTheme(quiz.theme)
+        setSelfPaced(!!quiz.selfPaced)
+        setTimeLimitMinutes(typeof quiz.timeLimitMinutes === 'number' ? quiz.timeLimitMinutes : null)
+        setAllowRetries(!!quiz.allowRetries)
         if (Array.isArray(quiz.questions) && quiz.questions.length > 0) {
           setQuestions(quiz.questions)
           historyResetRef.current?.(
@@ -238,7 +257,7 @@ export function useQuizBuilder({
       if (!title.trim() || questions.length === 0) return
       // Silent validation — autosave never surfaces errors mid-typing.
       if (hasQuizValidationErrors(validateQuizQuestions(questions))) return
-      const snapshot = JSON.stringify({ title: title.trim(), subject: subject.trim(), questions })
+      const snapshot = JSON.stringify({ title: title.trim(), subject: subject.trim(), questions, selfPaced, timeLimitMinutes, allowRetries })
       if (snapshot === lastSavedSnapshotRef.current) return
 
       cloudSaveInFlightRef.current = true
@@ -255,6 +274,9 @@ export function useQuizBuilder({
             language: existing?.language ?? 'English',
             theme: theme || existing?.theme,
             questions,
+            selfPaced,
+            timeLimitMinutes,
+            allowRetries,
           }),
         })
         if (res.ok) {
@@ -262,6 +284,9 @@ export function useQuizBuilder({
             title: title.trim(),
             subject: subject.trim() || '',
             questions,
+            selfPaced,
+            timeLimitMinutes,
+            allowRetries,
           })
           setCloudSaveStatus('saved')
           setLastCloudSaveAt(Date.now())
@@ -276,18 +301,18 @@ export function useQuizBuilder({
     }, 30_000)
     return () => clearTimeout(t)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, subject, questions, theme])
+  }, [title, subject, questions, theme, selfPaced, timeLimitMinutes, allowRetries])
 
   // Warn on unsaved close
   const lastSavedSnapshotRef = useRef('')
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      const current = JSON.stringify({ title, subject, questions })
+      const current = JSON.stringify({ title: title.trim(), subject: subject.trim() || '', questions, selfPaced, timeLimitMinutes, allowRetries })
       if (current !== lastSavedSnapshotRef.current) e.preventDefault()
     }
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
-  }, [title, subject, questions])
+  }, [title, subject, questions, selfPaced, timeLimitMinutes, allowRetries])
 
   // ── Questions CRUD ─────────────────────────────────────────────────────────
 
@@ -370,10 +395,21 @@ export function useQuizBuilder({
     })
   }, [])
 
-  const applyGeneratedQuestions = useCallback((raw: Partial<Question>[]) => {
+  // mode 'append' adds generated/imported questions after the existing ones
+  // (so a host who built 10 manually and generates 5 ends with 15); 'replace'
+  // swaps the whole set (used when starting from a blank canvas). Callers pass
+  // 'append' whenever the builder already holds real content — see hasContent.
+  const applyGeneratedQuestions = useCallback((raw: Partial<Question>[], mode: 'append' | 'replace' = 'replace') => {
     const hydrated = hydrateGeneratedQuestions(raw)
-    setQuestions(hydrated)
-    setActiveIndex(0)
+    if (mode === 'append') {
+      setQuestions(prev => {
+        setActiveIndex(prev.length) // focus first newly-added question
+        return [...prev, ...hydrated]
+      })
+    } else {
+      setQuestions(hydrated)
+      setActiveIndex(0)
+    }
   }, [])
 
   // ── Save helpers ───────────────────────────────────────────────────────────
@@ -410,6 +446,9 @@ export function useQuizBuilder({
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       questions,
+      selfPaced,
+      timeLimitMinutes,
+      allowRetries,
     }
 
     saveQuiz(quizData)
@@ -428,6 +467,9 @@ export function useQuizBuilder({
           language: quizData.language,
           theme: quizData.theme,
           questions: quizData.questions,
+          selfPaced: quizData.selfPaced,
+          timeLimitMinutes: quizData.timeLimitMinutes,
+          allowRetries: quizData.allowRetries,
         }),
       })
       if (res.ok) {
@@ -463,6 +505,9 @@ export function useQuizBuilder({
       title: quizData.title,
       subject: quizData.subject ?? '',
       questions: quizData.questions,
+      selfPaced,
+      timeLimitMinutes,
+      allowRetries,
     })
 
     setSaving(false)
@@ -470,10 +515,11 @@ export function useQuizBuilder({
     if (!dbSaveFailed) {
       setCloudSaveStatus('saved')
       setLastCloudSaveAt(Date.now())
+      track(existing ? 'quiz_saved' : 'quiz_created', { questionCount: questions.length, selfPaced })
     }
     return dbSaveFailed ? null : finalQuiz
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, subject, questions, theme, editId])
+  }, [title, subject, questions, theme, editId, selfPaced, timeLimitMinutes, allowRetries])
 
   // Keep the Cmd/Ctrl+S shortcut pointing at the freshest save closure.
   useEffect(() => { handleSaveRef.current = handleSave }, [handleSave])
@@ -496,6 +542,12 @@ export function useQuizBuilder({
     setSubject,
     theme,
     setTheme,
+    selfPaced,
+    setSelfPaced,
+    timeLimitMinutes,
+    setTimeLimitMinutes,
+    allowRetries,
+    setAllowRetries,
     questions,
     activeIndex,
     setActiveIndex,
@@ -509,6 +561,10 @@ export function useQuizBuilder({
     updateQuestion,
     changeQuestionType,
     applyGeneratedQuestions,
+    // "Real" = more than one question, or a single question with typed text.
+    // A pristine blank canvas (one empty question) reports false so generate
+    // from scratch replaces instead of leaving an empty card on top.
+    hasContent: questions.length > 1 || questions.some(q => (q.text ?? '').trim().length > 0),
     canUndo: history.canUndo,
     canRedo: history.canRedo,
     undo: history.undo,

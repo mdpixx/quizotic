@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { sendEmail } from '@/lib/email'
 import { auth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 const FeedbackSchema = z.object({
   message: z.string().min(3).max(2000),
@@ -50,6 +51,21 @@ export async function POST(req: NextRequest) {
 
   const submitter = (email && email.length > 0 ? email : sessionEmail) || 'anonymous'
   const replyTo = email && email.length > 0 ? email : (sessionEmail ?? undefined)
+
+  // Persist for the admin triage panel — best-effort so a DB hiccup never
+  // blocks the email path (which remains the primary notification).
+  try {
+    await prisma.feedback.create({
+      data: {
+        message,
+        email: submitter === 'anonymous' ? null : submitter,
+        url: url || null,
+        userAgent: userAgent || null,
+      },
+    })
+  } catch (err) {
+    console.warn('[feedback] db persist failed:', err instanceof Error ? err.message : err)
+  }
 
   const safeMsg = escapeHtml(message).replace(/\n/g, '<br>')
   const safeUrl = url ? escapeHtml(url) : '(not provided)'

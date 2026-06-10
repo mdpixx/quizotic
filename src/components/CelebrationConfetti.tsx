@@ -12,14 +12,18 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 // per-frame state. Renders ~30 particles on screen at steady state; respects
 // prefers-reduced-motion.
 
-// Warm gold + cream palette only — feels premium and matches the Quizotic
-// brand yellow #F5E642 already used for the lobby Create button.
+// Celebration palette — gold-led (premium, brand) with vivid pops of the
+// answer-tile family so the stream reads festive instead of monochrome.
+// Golds dominate (~half the draws) to keep the classy feel.
 const COLORS = [
   '#F5E642',  // brand yellow
   '#FBBF24',  // amber 400
-  '#FCD34D',  // amber 300
   '#FFE08A',  // warm gold
   '#FFF7CC',  // cream
+  '#E21B3C',  // answer red
+  '#1368CE',  // answer blue
+  '#26890C',  // answer green
+  '#7C3AED',  // violet
 ]
 
 interface Particle {

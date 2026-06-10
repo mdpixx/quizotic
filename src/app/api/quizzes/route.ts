@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
     if (!rl.ok) return rateLimitResponse(rl)
 
     const body = await req.json()
-    const { id, title, subject, language, theme, questions } = body
+    const { id, title, subject, language, theme, questions, selfPaced, timeLimitMinutes, allowRetries } = body
     incomingId = typeof id === 'string' ? id : undefined
 
     if (!id || typeof id !== 'string') {
@@ -141,6 +141,12 @@ export async function POST(req: NextRequest) {
     const cleanSubject = typeof subject === 'string' && subject.trim() ? subject.trim() : null
     const cleanLanguage = typeof language === 'string' && language.trim() ? language.trim() : null
     const cleanTheme = typeof theme === 'string' && theme.trim() ? theme.trim() : null
+    // Self-paced preference — coerce/clamp; undefined means "leave unchanged" on update.
+    const cleanSelfPaced = typeof selfPaced === 'boolean' ? selfPaced : undefined
+    const cleanAllowRetries = typeof allowRetries === 'boolean' ? allowRetries : undefined
+    const cleanTimeLimit = timeLimitMinutes === null
+      ? null
+      : (Number.isFinite(timeLimitMinutes) && timeLimitMinutes > 0 ? Math.min(Math.round(timeLimitMinutes), 600) : undefined)
 
     // Ownership-scoped lookup — id alone is attacker-controlled.
     const existing = await prisma.quiz.findFirst({ where: { id, userId: user.id } })
@@ -165,14 +171,24 @@ export async function POST(req: NextRequest) {
       }
 
       const quiz = await prisma.quiz.create({
-        data: { id, title, subject: cleanSubject, language: cleanLanguage, theme: cleanTheme, questions, userId: user.id },
+        data: {
+          id, title, subject: cleanSubject, language: cleanLanguage, theme: cleanTheme, questions, userId: user.id,
+          ...(cleanSelfPaced !== undefined ? { selfPaced: cleanSelfPaced } : {}),
+          ...(cleanTimeLimit !== undefined ? { timeLimitMinutes: cleanTimeLimit } : {}),
+          ...(cleanAllowRetries !== undefined ? { allowRetries: cleanAllowRetries } : {}),
+        },
       })
       return NextResponse.json({ success: true, data: quiz })
     }
 
     const quiz = await prisma.quiz.update({
       where: { id: existing.id },
-      data: { title, subject: cleanSubject, language: cleanLanguage, theme: cleanTheme, questions },
+      data: {
+        title, subject: cleanSubject, language: cleanLanguage, theme: cleanTheme, questions,
+        ...(cleanSelfPaced !== undefined ? { selfPaced: cleanSelfPaced } : {}),
+        ...(cleanTimeLimit !== undefined ? { timeLimitMinutes: cleanTimeLimit } : {}),
+        ...(cleanAllowRetries !== undefined ? { allowRetries: cleanAllowRetries } : {}),
+      },
     })
 
     return NextResponse.json({ success: true, data: quiz })

@@ -11,6 +11,8 @@ import { QuizoticLogo } from '@/components/QuizoticLogo'
 import { SlideImage } from '@/components/SlideImage'
 import { SlideImageFrame } from '@/components/SlideImageFrame'
 import { ANSWER_COLORS } from '@/lib/answer-colors'
+import { PRESENTATION_SEQUENCE } from '@/lib/sequence-theme'
+import { track } from '@/lib/analytics'
 import { PostSessionHeader } from '@/components/PostSessionHeader'
 import { PresentationSummary } from '@/components/PresentationSummary'
 import { useConfetti } from '@/hooks/useConfetti'
@@ -339,7 +341,7 @@ function WheelSpinner({ names, headingStyle, title }: { names: string[]; heading
           )}
           <button onClick={spin} disabled={spinning}
             className="w-full py-4 rounded-xl text-lg font-bold transition-all hover:scale-[1.02] disabled:opacity-50"
-            style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}>
+            style={{ background: PRESENTATION_SEQUENCE.accent, color: PRESENTATION_SEQUENCE.accentText, fontFamily: 'var(--font-heading)' }}>
             {spinning ? 'Spinning...' : winner ? 'Spin Again' : 'Spin!'}
           </button>
         </>
@@ -1089,6 +1091,7 @@ export default function PresentSessionPage() {
   }, [soundOn, fireConfetti])
 
   function createSession() {
+    track('presentation_session_started', { slideCount: presentation?.slides.length ?? 0 })
     if (!presentation) return
     const socket = socketRef.current
     if (!socket?.connected) {
@@ -1183,7 +1186,7 @@ export default function PresentSessionPage() {
       <div className="min-h-svh flex items-center justify-center" style={{ background: '#F8F9FA' }}>
         <div className="flex flex-col items-center gap-4">
           <div className="w-10 h-10 rounded-full border-3 border-t-transparent animate-spin"
-            style={{ borderColor: '#0F1B3D', borderTopColor: 'transparent' }} />
+            style={{ borderColor: PRESENTATION_SEQUENCE.accent, borderTopColor: 'transparent' }} />
           <p className="text-sm font-semibold" style={{ color: '#9CA3AF', fontFamily: 'var(--font-body)' }}>
             Loading presentation…
           </p>
@@ -1208,8 +1211,8 @@ export default function PresentSessionPage() {
           </p>
           <div className="flex flex-col gap-3">
             <button onClick={() => router.push('/host/present/create')}
-              className="w-full px-6 py-3 rounded-xl font-bold text-white text-sm transition-all hover:scale-[1.02]"
-              style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}>
+              className="w-full px-6 py-3 rounded-xl font-bold text-sm transition-all hover:scale-[1.02]"
+              style={{ background: PRESENTATION_SEQUENCE.accent, color: PRESENTATION_SEQUENCE.accentText, fontFamily: 'var(--font-heading)' }}>
               Create Presentation
             </button>
             <button onClick={() => router.push('/host')}
@@ -1280,8 +1283,8 @@ export default function PresentSessionPage() {
               disabled={!socketConnected}
               className="w-full px-8 py-5 rounded-xl text-xl font-bold transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
-                background: '#F5E642',
-                color: '#0D0D0D',
+                background: PRESENTATION_SEQUENCE.accent,
+                color: PRESENTATION_SEQUENCE.accentText,
                 fontFamily: 'var(--font-heading)',
                 boxShadow: socketConnected ? '0 4px 20px rgba(15,27,61,0.25)' : 'none',
               }}>
@@ -1438,7 +1441,7 @@ export default function PresentSessionPage() {
             onClick={() => setShowQR(false)}>
             <div className="flex flex-col items-center gap-6 px-8"
               onClick={e => e.stopPropagation()}>
-              <p className="text-2xl font-bold uppercase tracking-[0.3em]" style={{ color: '#F5E642' }}>
+              <p className="text-2xl font-bold uppercase tracking-[0.3em]" style={{ color: PRESENTATION_SEQUENCE.accentOnDark }}>
                 Scan to join
               </p>
               <div className="rounded-3xl p-6 shadow-2xl" style={{ background: '#fff' }}>
@@ -1454,7 +1457,7 @@ export default function PresentSessionPage() {
                 <p className="text-2xl font-semibold" style={{ color: '#94A3B8' }}>
                   or visit <span className="font-bold" style={{ color: '#fff' }}>quizotic.live/join</span>
                 </p>
-                <p className="text-[88px] font-black tabular-nums leading-none" style={{ color: '#F5E642', letterSpacing: '0.12em', fontFamily: 'var(--font-heading)' }}>
+                <p className="text-[88px] font-black tabular-nums leading-none" style={{ color: PRESENTATION_SEQUENCE.accentOnDark, letterSpacing: '0.12em', fontFamily: 'var(--font-heading)' }}>
                   {gameCode}
                 </p>
               </div>
@@ -1582,7 +1585,7 @@ export default function PresentSessionPage() {
           </span>
           <button onClick={nextSlide} disabled={!showIntro && slideIndex >= totalSlides - 1}
             className="px-7 py-3 rounded-xl text-base font-bold transition-all disabled:opacity-30 hover:scale-[1.02]"
-            style={{ background: '#F5E642', color: '#0D0D0D', border: 'none', fontFamily: 'var(--font-heading)' }}>
+            style={{ background: PRESENTATION_SEQUENCE.accent, color: PRESENTATION_SEQUENCE.accentText, border: 'none', fontFamily: 'var(--font-heading)' }}>
             Next
           </button>
         </div>
@@ -1625,9 +1628,9 @@ export default function PresentSessionPage() {
                   disabled={revealed}
                   className="px-5 py-3 rounded-xl text-base font-bold transition-all"
                   style={{
-                    background: revealed ? '#DCFCE7' : '#F5E642',
-                    color: revealed ? '#16A34A' : '#0D0D0D',
-                    border: revealed ? '1.5px solid #86EFAC' : '1.5px solid #0D0D0D',
+                    background: revealed ? '#DCFCE7' : PRESENTATION_SEQUENCE.accent,
+                    color: revealed ? '#16A34A' : PRESENTATION_SEQUENCE.accentText,
+                    border: revealed ? '1.5px solid #86EFAC' : '1.5px solid transparent',
                     cursor: revealed ? 'default' : 'pointer',
                     opacity: revealed ? 0.8 : 1,
                   }}>

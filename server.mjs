@@ -102,6 +102,9 @@ async function ensureCriticalColumns() {
   const stmts = [
     'ALTER TABLE "Quiz" ADD COLUMN IF NOT EXISTS "theme" TEXT',
     'ALTER TABLE "Presentation" ADD COLUMN IF NOT EXISTS "theme" TEXT',
+    'ALTER TABLE "Quiz" ADD COLUMN IF NOT EXISTS "selfPaced" BOOLEAN NOT NULL DEFAULT false',
+    'ALTER TABLE "Quiz" ADD COLUMN IF NOT EXISTS "timeLimitMinutes" INTEGER',
+    'ALTER TABLE "Quiz" ADD COLUMN IF NOT EXISTS "allowRetries" BOOLEAN NOT NULL DEFAULT false',
   ]
   for (const sql of stmts) {
     try {

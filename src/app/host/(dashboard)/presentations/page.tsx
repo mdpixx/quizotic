@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
+import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
@@ -191,14 +192,17 @@ export default function PresentationsPage() {
                   <Link href={`/host/present/create?id=${pres.id}`} className="btn-secondary" style={{ textDecoration: 'none' }}>
                     Edit
                   </Link>
-                  <button
-                    onClick={() => setConfirmDelete(pres.id)}
-                    className="px-3 py-2 rounded-xl text-xs font-bold transition-all hover:bg-red-50"
-                    title="Delete"
-                    style={{ color: '#EF4444', border: '1.5px solid #FECACA' }}
-                  >
-                    ✕
-                  </button>
+                  <RowActionsMenu
+                    label={`Actions for ${pres.title || 'presentation'}`}
+                    actions={[
+                      {
+                        label: 'Delete',
+                        onClick: () => setConfirmDelete(pres.id),
+                        danger: true,
+                        icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
+                      },
+                    ]}
+                  />
                 </div>
               </motion.div>
             ))}

@@ -143,17 +143,21 @@ const ILLUSTRATIONS: Partial<Record<QuestionType, React.ReactNode>> = {
 
   // Two large pill buttons: green "True" (✓) and red "False" (✗)
   // viewBox wider (260×100) to match the ~2.3:1 card aspect ratio — no letterboxing.
+  // Both marks are geometrically centered in their 110px-wide buttons
+  // (True center x=67, False center x=193) with symmetric arms and round
+  // joins — the old check was left-shifted and its asymmetric join produced
+  // a dark overlap artifact.
   truefalse: (
     <svg viewBox="0 0 260 100" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" className="block">
-      {/* True button */}
+      {/* True button — center (67, 50) */}
       <rect x="12" y="12" width="110" height="76" rx="14" fill="#16A34A"/>
-      {/* Checkmark */}
-      <path d="M44 52l14 14 24-28" stroke="white" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/>
+      {/* Checkmark: short arm (48,50)->(61,64), long arm ->(86,34); midpoint x≈67 */}
+      <path d="M48 50l13 14 25-30" fill="none" stroke="white" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round"/>
 
-      {/* False button */}
+      {/* False button — center (193, 50) */}
       <rect x="138" y="12" width="110" height="76" rx="14" fill="#DC2626"/>
-      {/* X mark */}
-      <path d="M160 32l36 36M196 32l-36 36" stroke="white" strokeWidth="5" strokeLinecap="round"/>
+      {/* X mark: two strokes crossing at (193, 50) */}
+      <path d="M175 32l36 36M211 32l-36 36" fill="none" stroke="white" strokeWidth="6" strokeLinecap="round"/>
     </svg>
   ),
 
