@@ -1394,10 +1394,10 @@ export default function SessionPage() {
                 <div className="rounded-3xl p-7 text-center relative" style={{ background: 'rgba(255,255,255,0.96)', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
                   <p className="text-xs tracking-[0.4em] font-black uppercase mb-2" style={{ color: '#7e1f9b' }}>Game PIN</p>
                   <p
-                    className="font-black leading-none select-all"
+                    className="font-black leading-none select-all whitespace-nowrap"
                     style={{
-                      fontSize: 'clamp(56px, 10vw, 108px)',
-                      letterSpacing: '0.1em',
+                      fontSize: 'clamp(40px, 4.5vw, 64px)',
+                      letterSpacing: '0.04em',
                       backgroundImage: 'linear-gradient(135deg, #46107a 0%, #c32aa3 50%, #ff5a5f 100%)',
                       WebkitBackgroundClip: 'text',
                       backgroundClip: 'text',
