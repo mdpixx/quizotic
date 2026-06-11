@@ -313,8 +313,8 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
           onChange={e => builder.setTitle(e.target.value)}
           placeholder="Quiz title"
           autoFocus={!editId}
-          className="flex-1 min-w-0 bg-transparent text-sm font-bold outline-none border-b-2 transition-colors focus:border-indigo-400 py-1"
-          style={{ color: '#0F1B3D', borderBottomColor: titleError ? '#DC2626' : 'transparent', maxWidth: 320 }}
+          className="flex-1 min-w-0 bg-transparent text-sm font-bold outline-none border-b-2 border-transparent hover:border-gray-300 focus:border-indigo-400 cursor-text transition-colors py-1"
+          style={{ color: '#0F1B3D', ...(titleError ? { borderBottomColor: '#DC2626' } : {}), maxWidth: 320 }}
         />
 
         <div className="flex-1" />

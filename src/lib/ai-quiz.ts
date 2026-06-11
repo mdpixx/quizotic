@@ -18,9 +18,13 @@ export const client = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY ?? '',
 })
 
-export const MODEL = process.env.QUIZ_AI_MODEL ?? 'google/gemini-2.5-flash-lite'
+export const MODEL = process.env.QUIZ_AI_MODEL ?? 'google/gemini-3-flash'
 
-const SYSTEM_PROMPT = `You are a quiz generator. Return only valid JSON — no markdown, no explanation, no code fences.`
+// Inject today's date so the model never gives stale "latest X" answers.
+function getSystemPrompt(): string {
+  const today = new Date().toISOString().slice(0, 10)
+  return `Today's date is ${today}. For questions about 'latest', 'newest', or 'current' facts, use the most up-to-date information you know — do not present outdated facts as current. If unsure whether a fact is still current, prefer a timeless question.\n\nYou are a quiz generator. Return only valid JSON — no markdown, no explanation, no code fences.`
+}
 
 // ── Shared callModel ──────────────────────────────────────────────────────────
 
@@ -28,7 +32,7 @@ export async function callModel(prompt: string, modelOverride?: string): Promise
   const response = await client.chat.completions.create({
     model: modelOverride ?? MODEL,
     messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: getSystemPrompt() },
       { role: 'user', content: prompt },
     ],
   })

@@ -584,6 +584,7 @@ function JoinPageInner() {
   const [soundMuted, setSoundMuted] = useState(false)
   useEffect(() => { setSoundMuted(isMuted()) }, [])
   const [explanation, setExplanation] = useState<string | null>(null)
+  const [correctAnswerIndex, setCorrectAnswerIndex] = useState<string | null>(null)
 
   // Streak + reactions
   const [streak, setStreak] = useState(0)
@@ -880,6 +881,7 @@ function JoinPageInner() {
       shownQuestionsRef.current.push({ index, text: question.text })
       // M3: reset prior-question state before showing the new one
       setExplanation(null)
+      setCorrectAnswerIndex(null)
       setSelectedAnswer(null)
       setIsCorrect(false)
       setAnsweredIsScored(false)
@@ -993,8 +995,9 @@ function JoinPageInner() {
       }
     })
 
-    socket.on('question_ended', ({ explanation: exp }: { correctAnswer: string; explanation: string | null }) => {
+    socket.on('question_ended', ({ explanation: exp, correctAnswer: ca }: { correctAnswer: string; explanation: string | null }) => {
       setExplanation(exp)
+      if (ca !== undefined && ca !== null) setCorrectAnswerIndex(ca)
       // Don't auto-transition. Participants stay on the answered/question
       // screen showing personal feedback until the host explicitly broadcasts
       // 'show_standings' (then phase = 'standings') or 'question_show'
@@ -1383,6 +1386,13 @@ function JoinPageInner() {
     }, question?.index ?? -1)
   }
 
+  // Lets the participant go back and re-pick before the answer is submitted.
+  // Safe because nothing has been sent to the server yet at this point.
+  function clearPendingAnswer() {
+    setSelectedAnswer(null)
+    setPendingAnswer(null)
+  }
+
   function submitWithConfidence(level: 'sure' | 'unsure') {
     if (pendingAnswer === null) return
     setConfidence(level)
@@ -1470,6 +1480,7 @@ function JoinPageInner() {
     setPendingAnswer(null)
     setConfidence(null)
     setExplanation(null)
+    setCorrectAnswerIndex(null)
     setIsCorrect(false)
     setPointsEarned(0)
     setTotalScore(0)
@@ -1518,7 +1529,7 @@ function JoinPageInner() {
           {/* Logo */}
           <div className="text-center mb-8">
             <h1 className="text-5xl font-black tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
-              <span style={{ color: 'white' }}>Quizo</span><span style={{ color: '#F5E642' }}>tic</span>
+              <span style={{ color: 'white' }}>Quizo</span><span style={{ color: '#F5E642' }}>tic</span><span style={{ color: 'rgba(255,255,255,0.45)', fontWeight: 700 }}>.live</span>
             </h1>
             <p className="text-lg mt-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
               {t('join.title')}
@@ -1993,8 +2004,14 @@ function JoinPageInner() {
         {pendingAnswer !== null && confidence === null && (
           <div className="fixed inset-0 bg-black/40 flex items-end justify-center z-50" style={{ padding: '1.5rem', paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 0px))' }}>
             <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl text-center">
-              <p className="font-black text-2xl mb-2" style={{ color: '#0F1B3D' }}>{t('join.confident')}</p>
-              <p className="text-gray-500 text-lg mb-6">{t('join.confidenceSubtitle')}</p>
+              <p className="font-black text-2xl mb-1" style={{ color: '#0F1B3D' }}>{t('join.confident')}</p>
+              {/* Show the chosen option letter so the participant can confirm at a glance */}
+              {question?.options?.[pendingAnswer] !== undefined && (
+                <p className="text-sm font-bold mb-1" style={{ color: '#6B7280' }}>
+                  Option {OPTION_LABELS[pendingAnswer]}: <span style={{ color: '#0F1B3D' }}>{String(getEffectiveOptions(question as unknown as QuizQuestion)?.[pendingAnswer] ? getOptText(getEffectiveOptions(question as unknown as QuizQuestion)![pendingAnswer]) : '')}</span>
+                </p>
+              )}
+              <p className="text-gray-500 text-base mb-6">{t('join.confidenceSubtitle')}</p>
               <div className="flex gap-3">
                 <button
                   onClick={() => submitWithConfidence('sure')}
@@ -2010,6 +2027,15 @@ function JoinPageInner() {
                   {t('join.notSure')}
                 </button>
               </div>
+              {/* Change answer — only available while timer is still running */}
+              {timeLeft > 0 && (
+                <button
+                  onClick={clearPendingAnswer}
+                  className="mt-4 w-full py-3 text-base font-semibold text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  {t('join.changeAnswer')}
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -2086,6 +2112,19 @@ function JoinPageInner() {
             )}
           </div>
         )}
+        {/* Correct answer reveal — shown after host ends the question */}
+        {correctAnswerIndex !== null && question?.options && question.options[Number(correctAnswerIndex)] !== undefined && (
+          <div className={`w-full rounded-2xl p-4 flex items-center gap-3 ${isCorrect ? 'bg-green-50 border border-green-200' : 'bg-green-50 border-2 border-green-300'}`}>
+            <span className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white font-black text-lg flex-shrink-0">✓</span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-green-600 mb-0.5">Correct answer</p>
+              <p className="font-black text-base text-green-800 truncate">
+                {String(question.options[Number(correctAnswerIndex)])}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Result Beat — kinetic personal feedback strip (points, rank delta,
             streak, fastest, top-5 flip). Replaces the old static "Waiting for
             next question…" line. Driven by the server's personal_result event;
