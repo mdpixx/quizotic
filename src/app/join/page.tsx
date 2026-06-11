@@ -2046,8 +2046,21 @@ function JoinPageInner() {
   // ─── Answered Phase ────────────────────────────────────────────────────────
   if (phase === 'answered') {
     const isNonScored = !answeredIsScored
+    const correctOptionIndex = correctAnswerIndex !== null ? Number(correctAnswerIndex) : null
+    const correctOption = correctOptionIndex !== null && Number.isFinite(correctOptionIndex)
+      ? question?.options?.[correctOptionIndex]
+      : undefined
+    const correctOptionLetter = correctOptionIndex !== null && Number.isFinite(correctOptionIndex)
+      ? (ANSWER_LETTERS[correctOptionIndex] ?? String(correctOptionIndex + 1))
+      : null
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 max-w-md mx-auto text-center gap-5 relative overflow-hidden">
+      <div
+        className="min-h-svh w-full max-w-md mx-auto flex flex-col items-center justify-center px-4 py-5 text-center gap-5 relative overflow-x-hidden overflow-y-auto"
+        style={{
+          paddingTop: 'max(1.25rem, env(safe-area-inset-top, 0px))',
+          paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 0px))',
+        }}
+      >
         <StatusBanner connectionState={connectionState} answerToast={answerToast} />
         {/* Screen-reader live announcement for result */}
         <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
@@ -2113,13 +2126,15 @@ function JoinPageInner() {
           </div>
         )}
         {/* Correct answer reveal — shown after host ends the question */}
-        {correctAnswerIndex !== null && question?.options && question.options[Number(correctAnswerIndex)] !== undefined && (
-          <div className={`w-full rounded-2xl p-4 flex items-center gap-3 ${isCorrect ? 'bg-green-50 border border-green-200' : 'bg-green-50 border-2 border-green-300'}`}>
-            <span className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white font-black text-lg flex-shrink-0">✓</span>
-            <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-green-600 mb-0.5">Correct answer</p>
-              <p className="font-black text-base text-green-800 truncate">
-                {String(question.options[Number(correctAnswerIndex)])}
+        {correctOption !== undefined && (
+          <div className={`w-full max-w-full rounded-2xl p-4 flex items-start gap-3 text-left ${isCorrect ? 'bg-green-50 border border-green-200' : 'bg-green-50 border-2 border-green-300'}`}>
+            <span className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white font-black text-base flex-shrink-0" aria-label={correctOptionLetter ? `Correct option ${correctOptionLetter}` : 'Correct option'}>
+              {correctOptionLetter ?? '✓'}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-green-600 mb-1">Correct answer</p>
+              <p className="participant-correct-answer-text font-black text-green-800">
+                {getOptText(correctOption)}
               </p>
             </div>
           </div>

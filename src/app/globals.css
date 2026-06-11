@@ -10,6 +10,14 @@ html, body {
   max-width: 100vw;
 }
 
+.participant-correct-answer-text {
+  font-size: clamp(0.95rem, 0.86rem + 0.45vw, 1.08rem);
+  line-height: 1.22;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 :root {
   /* ── Bold Knowledge — Light theme (default) ────────────────────── */
   --color-bg:           #FFFFFF;   /* clean white */
