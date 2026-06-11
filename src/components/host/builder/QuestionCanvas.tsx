@@ -433,10 +433,10 @@ export function QuestionCanvas({
           <button
             type="button"
             onClick={onDelete}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 active:scale-95 transition-all"
             title="Delete question"
           >
-            <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><path d="M7 8v7m3-7v7m3-7v7M4 5h12M8 5V4h4v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5"><path d="M7 8v7m3-7v7m3-7v7M4 5h12M8 5V4h4v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
           </button>
         )}
 
@@ -470,20 +470,20 @@ export function QuestionCanvas({
           placeholder="What would you like to ask?"
           minRows={1}
           maxLength={160}
-          className={`w-full font-bold text-center bg-transparent outline-none resize-none border-0 focus:ring-2 focus:ring-blue-100 rounded-lg transition-all leading-snug ${questionTextSizeClass(question.text)}`}
+          className={`w-full font-bold text-center bg-transparent outline-none resize-none border border-transparent hover:border-blue-200 hover:bg-blue-50/40 focus:border-transparent focus:ring-2 focus:ring-blue-100 rounded-lg transition-all leading-snug cursor-text ${questionTextSizeClass(question.text)}`}
           style={{ color: '#0F1B3D' }}
         />
       </div>
 
       {/* ── Image preview (if set) ──────────────────────────────────────── */}
       {question.imageUrl && (
-        <div className="flex-shrink-0 flex items-center justify-center bg-gray-50 border-b" style={{ height: 'clamp(80px, 18vh, 200px)', borderColor: '#E5E7EB' }}>
+        <div className="flex-shrink-0 flex items-center justify-center bg-gray-50 border-b" style={{ height: 'clamp(140px, 32vh, 420px)', borderColor: '#E5E7EB' }}>
           <img src={question.imageUrl} alt="" className="max-w-full max-h-full object-contain" />
         </div>
       )}
 
       {/* ── Options / type body ───────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-3">
+      <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-3 justify-center">
 
         {/* MCQ / multi-select / T-F / Poll / Case — coloured option tiles */}
         {(question.type === 'mcq' || question.type === 'multiselect' || question.type === 'truefalse' || question.type === 'poll' || question.type === 'case') && opts.length > 0 && (
@@ -534,7 +534,7 @@ export function QuestionCanvas({
                         placeholder={`Option ${c.letter}`}
                         disabled={question.type === 'truefalse'}
                         maxLength={100}
-                        className="flex-1 min-w-0 text-sm font-bold bg-transparent outline-none border-0 text-white placeholder:text-white/60 disabled:opacity-70 resize-none leading-snug"
+                        className="flex-1 min-w-0 text-sm font-bold bg-transparent outline-none border border-transparent hover:border-white/40 hover:bg-white/10 focus:border-white/40 focus:bg-white/10 text-white placeholder:text-white/60 disabled:opacity-70 resize-none leading-snug rounded transition-all cursor-text"
                         style={{ textShadow: '0 1px 2px rgba(0,0,0,0.15)' }}
                       />
                       {/* Remove option button (not for truefalse, min 2 options) */}

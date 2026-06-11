@@ -1351,9 +1351,11 @@ export default function SessionPage() {
             <div className="lobby-sparkle" style={{ bottom: '30%', right: '22%', animationDelay: '-1.5s' }}>★</div>
           </div>
 
-          <div className="relative z-10 p-4 max-w-3xl mx-auto py-8 space-y-5">
+          <div className="relative z-10 p-4 max-w-7xl mx-auto py-8 space-y-5">
+
+            {/* ── Header row ── */}
             <div className="flex items-center justify-between">
-              <QuizoticLogo variant="onDark" className="text-2xl" />
+              <QuizoticLogo variant="onDark" className="text-2xl" showDomain />
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold px-4 py-1.5 rounded-full bg-white/15 border border-white/25 text-white backdrop-blur">
                   {{ competitive: '⚡ Competitive', accuracy: '✓ Accuracy', reflection: '🌙 Reflection', selfpaced: '🎯 Self-paced', assessment: '📋 Assessment' }[sessionMode] ?? '⚡ Competitive'}
@@ -1364,93 +1366,121 @@ export default function SessionPage() {
               </div>
             </div>
 
-            {/* Game code — HUGE */}
-            <div className="rounded-3xl p-8 sm:p-10 text-center relative" style={{ background: 'rgba(255,255,255,0.96)', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', transform: 'translateY(0)' }}>
-              <p className="text-xs tracking-[0.4em] font-black uppercase mb-3" style={{ color: '#7e1f9b' }}>Game PIN</p>
-              <p
-                className="font-black leading-none select-all"
-                style={{
-                  fontSize: 'clamp(72px, 15vw, 144px)',
-                  letterSpacing: '0.1em',
-                  backgroundImage: 'linear-gradient(135deg, #46107a 0%, #c32aa3 50%, #ff5a5f 100%)',
-                  WebkitBackgroundClip: 'text',
-                  backgroundClip: 'text',
-                  color: 'transparent',
-                  fontFamily: 'var(--font-heading)',
-                }}
-              >
-                {gameCode}
-              </p>
-
-              <div className="flex flex-col sm:flex-row items-center gap-6 mt-8 justify-center">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="p-3 bg-white rounded-2xl border-2" style={{ borderColor: '#c32aa3', boxShadow: '0 8px 0 rgba(70,16,122,0.25)' }}>
-                    <QRCode
-                      value={`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')}/join?code=${gameCode}`}
-                      size={150}
-                      bgColor="#ffffff"
-                      fgColor="#46107a"
-                    />
-                  </div>
-                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#7e1f9b' }}>Scan to join</p>
-                </div>
-                <div className="text-left">
-                  <p className="text-sm font-bold uppercase tracking-wider mb-2" style={{ color: '#7e1f9b' }}>Or visit</p>
-                  <p className="text-2xl font-black" style={{ color: '#46107a', fontFamily: 'var(--font-heading)' }}>quizotic.live/join</p>
-                  <p className="text-sm mt-1" style={{ color: '#64748B' }}>and enter code <span className="font-mono font-black" style={{ color: '#46107a' }}>{gameCode}</span></p>
-                </div>
+            {/* ── Scoring explanation (competitive / accuracy only) ── */}
+            {(sessionMode === 'competitive' || sessionMode === 'accuracy') && (
+              <div className="rounded-2xl px-5 py-4 flex flex-wrap gap-x-6 gap-y-2 items-center" style={{ background: 'rgba(255,255,255,0.10)', border: '1.5px solid rgba(255,255,255,0.18)' }}>
+                <p className="text-xs font-black uppercase tracking-widest text-white/60 w-full sm:w-auto">How scoring works</p>
+                {sessionMode === 'competitive' ? (
+                  <>
+                    <span className="text-sm text-white font-semibold">⚡ Answer faster = more points (50–100% of question value)</span>
+                    <span className="hidden sm:inline text-white/30">·</span>
+                    <span className="text-sm text-white font-semibold">🔥 Streak: +100 for 2 right, +200 for 3, +500 for 4+</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-sm text-white font-semibold">✓ Any correct answer earns full points — no time pressure</span>
+                    <span className="hidden sm:inline text-white/30">·</span>
+                    <span className="text-sm text-white font-semibold">🔥 Streak: +100 for 2 right, +200 for 3, +500 for 4+</span>
+                  </>
+                )}
               </div>
-            </div>
-
-            {/* Share / LMS links */}
-            {gameCode && (
-              <ShareLinks gameCode={gameCode} quizTitle={quiz?.title ?? ''} />
             )}
 
-            {/* Players grid */}
-            <div className="rounded-3xl p-6" style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(10px)', border: '1.5px solid rgba(255,255,255,0.22)' }}>
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-lg font-black text-white uppercase tracking-wide flex items-center gap-2">
-                  {connectedCount === 0 ? (
-                    <>
-                      <span className="inline-block w-2.5 h-2.5 rounded-full animate-pulse" style={{ background: '#F5E642' }} />
-                      Waiting for players…
-                    </>
-                  ) : (
-                    <>
-                      <span>🎉</span> {connectedCount} joined
-                    </>
-                  )}
-                </p>
-              </div>
-              {playerEntries.length === 0 ? (
-                <p className="text-white/70 text-sm">Players will appear here as they join. Share the code above.</p>
-              ) : (
-                <div className="flex flex-wrap gap-4">
-                  {playerEntries.map(([pKey, pInfo]) => (
-                    <div
-                      key={pKey}
-                      className="flex flex-col items-center gap-1 lobby-join-pop"
-                      style={{ opacity: pInfo.connected ? 1 : 0.45, filter: pInfo.connected ? 'none' : 'grayscale(0.6)' }}
-                      title={pInfo.connected ? '' : 'Offline — waiting for reconnect'}
-                    >
-                      <div className="ring-2 rounded-full overflow-hidden" style={{ borderColor: pInfo.team?.color ?? '#F5E642' }}>
-                        <Avatar archetype={pInfo.archetype} size={56} />
-                      </div>
-                      <p className="text-sm text-white font-bold max-w-[80px] truncate text-center">
-                        {pInfo.name}{pInfo.connected ? '' : ' (offline)'}
-                      </p>
-                      {pInfo.team ? (
-                        <p className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ background: pInfo.team.color }}>{pInfo.team.name}</p>
-                      ) : (
-                        <p className="text-xs text-white/60 max-w-[80px] truncate text-center">{pInfo.archetype}</p>
-                      )}
+            {/* ── Two-column: PIN/QR left | Players canvas right ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-5 items-start">
+
+              {/* Left column: Game PIN card + Share links */}
+              <div className="space-y-4">
+                <div className="rounded-3xl p-7 text-center relative" style={{ background: 'rgba(255,255,255,0.96)', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+                  <p className="text-xs tracking-[0.4em] font-black uppercase mb-2" style={{ color: '#7e1f9b' }}>Game PIN</p>
+                  <p
+                    className="font-black leading-none select-all"
+                    style={{
+                      fontSize: 'clamp(56px, 10vw, 108px)',
+                      letterSpacing: '0.1em',
+                      backgroundImage: 'linear-gradient(135deg, #46107a 0%, #c32aa3 50%, #ff5a5f 100%)',
+                      WebkitBackgroundClip: 'text',
+                      backgroundClip: 'text',
+                      color: 'transparent',
+                      fontFamily: 'var(--font-heading)',
+                    }}
+                  >
+                    {gameCode}
+                  </p>
+
+                  <div className="flex flex-col items-center gap-3 mt-6">
+                    <div className="p-3 bg-white rounded-2xl border-2" style={{ borderColor: '#c32aa3', boxShadow: '0 6px 0 rgba(70,16,122,0.25)' }}>
+                      <QRCode
+                        value={`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')}/join?code=${gameCode}`}
+                        size={160}
+                        bgColor="#ffffff"
+                        fgColor="#46107a"
+                      />
                     </div>
-                  ))}
+                    <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#7e1f9b' }}>Scan to join</p>
+                    <div className="text-center">
+                      <p className="text-sm font-bold uppercase tracking-wider mb-1" style={{ color: '#7e1f9b' }}>Or visit</p>
+                      <p className="text-xl font-black" style={{ color: '#46107a', fontFamily: 'var(--font-heading)' }}>quizotic.live/join</p>
+                      <p className="text-sm mt-0.5" style={{ color: '#64748B' }}>enter code <span className="font-mono font-black" style={{ color: '#46107a' }}>{gameCode}</span></p>
+                    </div>
+                  </div>
                 </div>
-              )}
+
+                {/* Share / LMS links */}
+                {gameCode && (
+                  <ShareLinks gameCode={gameCode} quizTitle={quiz?.title ?? ''} />
+                )}
+              </div>
+
+              {/* Right column: Players canvas — always visible without scrolling */}
+              <div className="rounded-3xl p-6 min-h-[320px] flex flex-col" style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(10px)', border: '1.5px solid rgba(255,255,255,0.22)' }}>
+                <div className="flex items-center justify-between mb-5">
+                  <p className="text-lg font-black text-white uppercase tracking-wide flex items-center gap-2">
+                    {connectedCount === 0 ? (
+                      <>
+                        <span className="inline-block w-2.5 h-2.5 rounded-full animate-pulse" style={{ background: '#F5E642' }} />
+                        Waiting for players…
+                      </>
+                    ) : (
+                      <>
+                        <span>🎉</span> {connectedCount} joined
+                      </>
+                    )}
+                  </p>
+                </div>
+                {playerEntries.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center gap-3 py-8">
+                    <p className="text-white/50 text-sm text-center">Players appear here as they join.</p>
+                    <p className="text-white/40 text-xs text-center">Share the Game PIN or QR code on the left.</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-4 content-start">
+                    {playerEntries.map(([pKey, pInfo]) => (
+                      <div
+                        key={pKey}
+                        className="flex flex-col items-center gap-1 lobby-join-pop"
+                        style={{ opacity: pInfo.connected ? 1 : 0.45, filter: pInfo.connected ? 'none' : 'grayscale(0.6)' }}
+                        title={pInfo.connected ? '' : 'Offline — waiting for reconnect'}
+                      >
+                        <div className="ring-2 rounded-full overflow-hidden" style={{ borderColor: pInfo.team?.color ?? '#F5E642' }}>
+                          <Avatar archetype={pInfo.archetype} size={56} />
+                        </div>
+                        <p className="text-sm text-white font-bold max-w-[80px] truncate text-center">
+                          {pInfo.name}{pInfo.connected ? '' : ' (offline)'}
+                        </p>
+                        {pInfo.team ? (
+                          <p className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ background: pInfo.team.color }}>{pInfo.team.name}</p>
+                        ) : (
+                          <p className="text-xs text-white/60 max-w-[80px] truncate text-center">{pInfo.archetype}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
+            {/* ── Error banners ── */}
             {!socketConnected && (
               <div className="bg-red-500/90 text-white rounded-xl p-4 text-sm font-bold border border-red-300">
                 Connection lost. Reconnecting…
@@ -1463,6 +1493,7 @@ export default function SessionPage() {
               </div>
             )}
 
+            {/* ── Start button ── */}
             <button
               onClick={startQuiz}
               disabled={(!isHostStagePreview && connectedCount === 0) || !socketConnected}
