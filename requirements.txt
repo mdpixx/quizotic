@@ -1,3 +1,6 @@
+# Pillow is provided by the Alpine py3-pillow apk package (see Dockerfile) to
+# avoid compiling from source — Alpine's Python 3.14 has no prebuilt Pillow
+# wheel, so pip would build from source and fail on missing native headers.
+# python-pptx pulls Pillow in transitively (>=3.3.2), satisfied by the apk build.
 python-pptx==1.0.2
-Pillow==11.1.0
 pypdf==5.1.0
