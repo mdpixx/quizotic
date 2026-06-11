@@ -10,8 +10,7 @@ WORKDIR /app
 RUN set -eux; \
     for attempt in 1 2 3 4 5; do \
       if apk add --no-cache \
-            python3 py3-pip \
-            zlib-dev \
+            python3 py3-pip py3-pillow \
             libreoffice \
             poppler-utils \
             font-noto \
