@@ -2198,10 +2198,10 @@ app.prepare().then(async () => {
 
       console.log(`[submit_answer:accept] code=${gameCode} q=${qi} sid=${socket.id} pts=${points} correct=${isCorrect}`)
 
-      // "Lower of two" — if every active (non-ghost) participant has now
-      // answered the current question, end it immediately so the standings
-      // screen fires without waiting for the full timer.
-      if (!session.questionEnded && qi === session.currentQuestionIndex) {
+      // Participation-only questions can close as soon as everyone has
+      // responded. Scored questions must wait for the host reveal or timer so
+      // an early/wrong submitter cannot leak the correct answer to classmates.
+      if (isNonScored && !session.questionEnded && qi === session.currentQuestionIndex) {
         const answered = countAnswers(session, qi)
         const total = realParticipantCount(session.participants)
         if (total > 0 && answered >= total) {

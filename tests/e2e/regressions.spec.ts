@@ -38,6 +38,76 @@ function waitFor<T>(s: Socket, ev: string, timeoutMs = 5_000): Promise<T> {
 }
 
 test.describe('Regressions — quiz', () => {
+  test('scored answer confirmation must not reveal the correct answer before host reveal', async () => {
+    // A participant who answers early may be sitting beside classmates who
+    // have not answered yet. `answer_confirmed` can show right/wrong feedback,
+    // but answer data must stay hidden until the host reveal (`end_question`).
+    const host = await connect(await hostAuthCookie())
+    const participant = await connect()
+    try {
+      const created = await emit<{ success: boolean; gameCode?: string }>(host, 'create_session', {
+        quizData: {
+          title: 'No early answer reveal test',
+          questions: [{
+            id: 'mcq-no-leak',
+            type: 'mcq',
+            text: 'Which option is correct?',
+            options: ['Distractor A', 'Correct B', 'Distractor C', 'Distractor D'],
+            correctAnswer: '1',
+            timerSeconds: 20,
+            points: 1000,
+          }],
+        },
+      })
+      const gameCode = created.gameCode!
+
+      const joined = await emit<{ success: boolean; participantId?: string }>(participant, 'join_session', { gameCode, displayName: 'No Leak' })
+      const qShown = waitFor<unknown>(participant, 'question_show')
+      host.emit('start_quiz', { gameCode })
+      await qShown
+      await new Promise(r => setTimeout(r, 4_000))
+
+      let earlyRevealPayload: unknown = null
+      participant.once('question_ended', payload => { earlyRevealPayload = payload })
+
+      const answerReceived = waitFor<{ count: number }>(host, 'answer_received')
+      const confirmed = await emit<{
+        accepted: boolean
+        isCorrect?: boolean
+        correctAnswer?: unknown
+        correctAnswers?: unknown
+        correctOrder?: unknown
+        explanation?: unknown
+      }>(participant, 'submit_answer', {
+        gameCode,
+        participantId: joined.participantId,
+        answer: 0,
+        timeMs: 1_000,
+        confidence: 'sure',
+        serverSubmittedAt: Date.now() + 0.1,
+      })
+
+      expect(confirmed.accepted).toBe(true)
+      expect(confirmed.isCorrect).toBe(false)
+      expect(confirmed).not.toHaveProperty('correctAnswer')
+      expect(confirmed).not.toHaveProperty('correctAnswers')
+      expect(confirmed).not.toHaveProperty('correctOrder')
+      expect(confirmed).not.toHaveProperty('explanation')
+      expect((await answerReceived).count).toBe(1)
+
+      await new Promise(r => setTimeout(r, 300))
+      expect(earlyRevealPayload).toBeNull()
+
+      const reveal = waitFor<{ correctAnswer?: unknown; explanation?: string | null }>(participant, 'question_ended')
+      const endAck = await emit<{ success: boolean; ended?: boolean; questionIndex?: number }>(host, 'end_question', { gameCode })
+      expect(endAck).toMatchObject({ success: true, ended: true, questionIndex: 0 })
+      const revealed = await reveal
+      expect(revealed.correctAnswer).toBe('1')
+    } finally {
+      host.disconnect(); participant.disconnect()
+    }
+  })
+
   test('multiselect: correctAnswers MUST NOT leak in question_show payload (security)', async () => {
     // The 2026-05-01 review found sanitizeQuestion stripped only `correctAnswer`,
     // not `correctAnswers` — so multiselect's full answer set was broadcast
