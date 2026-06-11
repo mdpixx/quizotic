@@ -11,6 +11,7 @@ RUN set -eux; \
     for attempt in 1 2 3 4 5; do \
       if apk add --no-cache \
             python3 py3-pip \
+            zlib-dev \
             libreoffice \
             poppler-utils \
             font-noto \
