@@ -1,8 +1,23 @@
 import Link from 'next/link'
 
+// Feature-recall strip folded in from the old BrandRecall section — the
+// big wordmark there duplicated the nav/footer branding, but the marquee
+// reinforces feature names right after the "what is it" explanation.
+const MARQUEE_ITEMS = [
+  'Live Quizzes',
+  'Interactive Presentations',
+  "Bloom's Taxonomy",
+  'Confidence Grid',
+  'Spaced Retrieval',
+  '19 Slide Types',
+  'Real-time Leaderboard',
+  'Host Dashboard',
+  'No App Required',
+]
+
 export function WhatIsQuizotic() {
   return (
-    <section style={{ background: '#FFFFFF', padding: '64px 24px', borderBottom: '1px solid #E5E7EB' }}>
+    <section style={{ background: '#FFFFFF', padding: '64px 24px 0', borderBottom: '1px solid #E5E7EB' }}>
       <div style={{ maxWidth: 860, margin: '0 auto' }}>
         <h2
           style={{
@@ -62,6 +77,28 @@ export function WhatIsQuizotic() {
           ))}
         </dl>
       </div>
+
+      {/* Marquee strip — full bleed */}
+      <div style={{ background: '#0F1B3D', padding: '14px 0', overflow: 'hidden', whiteSpace: 'nowrap', margin: '48px -24px 0' }}>
+        <div style={{ display: 'inline-flex', animation: 'marquee 25s linear infinite' }}>
+          {[0, 1].map(n => (
+            <span key={n} style={{ display: 'inline-block', paddingRight: 48 }}>
+              {MARQUEE_ITEMS.map(item => (
+                <span key={item} style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 600, fontSize: 15, color: '#F5E642', padding: '0 20px', whiteSpace: 'nowrap' }}>
+                  {item} ·
+                </span>
+              ))}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+      `}</style>
     </section>
   )
 }

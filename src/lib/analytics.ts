@@ -20,6 +20,12 @@ export type ProductEvent =
   | 'selfpaced_share_opened'
   | 'presentation_session_started'
   | 'feedback_submitted'
+  // Activation funnel: onboard_started → onboard_completed → quiz_created → live_session_started
+  | 'onboard_started'
+  | 'onboard_completed'
+  | 'profile_completed'
+  | 'landing_join_code_used'
+  | 'demo_session_started'
 
 export function track(event: ProductEvent, props?: Record<string, string | number | boolean | null>): void {
   if (!ENABLED) return

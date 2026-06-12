@@ -1,42 +1,67 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
+import { track } from '@/lib/analytics'
+
+// Two taps and you're in. Org name, discovery channel, and referral entry
+// moved to a dismissible dashboard card (CompleteProfileCard) so a new user
+// reaches real value first. Link-based referrals still work — the API reads
+// the quizotic_ref cookie on this POST regardless of form fields.
+
+const ICON_STROKE = { fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+
+const ROLE_ICONS: Record<string, React.ReactNode> = {
+  teacher: <svg viewBox="0 0 24 24" width="24" height="24" {...ICON_STROKE}><path d="M22 10L12 5 2 10l10 5 10-5z" /><path d="M6 12.5V17c0 1.66 2.69 3 6 3s6-1.34 6-3v-4.5" /></svg>,
+  trainer: <svg viewBox="0 0 24 24" width="24" height="24" {...ICON_STROKE}><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>,
+  student: <svg viewBox="0 0 24 24" width="24" height="24" {...ICON_STROKE}><path d="M2 4h6a4 4 0 014 4v12a3 3 0 00-3-3H2z" /><path d="M22 4h-6a4 4 0 00-4 4v12a3 3 0 013-3h7z" /></svg>,
+  hr: <svg viewBox="0 0 24 24" width="24" height="24" {...ICON_STROKE}><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20v-1.5a5 5 0 015-5h3a5 5 0 015 5V20" /><path d="M16 5a3.5 3.5 0 010 6.5M21.5 20v-1.5a5 5 0 00-3.5-4.77" /></svg>,
+  manager: <svg viewBox="0 0 24 24" width="24" height="24" {...ICON_STROKE}><rect x="8" y="2" width="8" height="4" rx="1" /><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2" /><path d="M9 12h6M9 16h4" /></svg>,
+  other: <svg viewBox="0 0 24 24" width="24" height="24" {...ICON_STROKE}><path d="M12 3l2 5.5L19.5 11 14 13l-2 5.5L10 13l-5.5-2L10 8.5z" /></svg>,
+}
 
 const ROLES = [
-  { id: 'teacher', label: 'Teacher', icon: '🎓' },
-  { id: 'trainer', label: 'Trainer', icon: '💼' },
-  { id: 'student', label: 'Student', icon: '🎒' },
-  { id: 'hr', label: 'HR / L&D', icon: '👔' },
-  { id: 'manager', label: 'Manager', icon: '📋' },
-  { id: 'other', label: 'Other', icon: '🌟' },
+  { id: 'teacher', label: 'Teacher' },
+  { id: 'trainer', label: 'Trainer' },
+  { id: 'student', label: 'Student' },
+  { id: 'hr', label: 'HR / L&D' },
+  { id: 'manager', label: 'Manager' },
+  { id: 'other', label: 'Other' },
 ]
 
-const ORG_TYPES = [
-  { id: 'school', label: 'School', icon: '🏫' },
-  { id: 'college', label: 'College / University', icon: '🎓' },
-  { id: 'coaching', label: 'Coaching Institute', icon: '📚' },
-  { id: 'corporate', label: 'Corporate', icon: '🏢' },
-  { id: 'government', label: 'Government / PSU', icon: '🏛' },
-  { id: 'other', label: 'Other', icon: '🌐' },
+const FIRST_CREATE = [
+  {
+    id: 'quiz',
+    label: 'A live quiz',
+    desc: 'Scored questions, leaderboard, winner',
+    href: '/host/build',
+    icon: <svg viewBox="0 0 24 24" width="24" height="24" {...ICON_STROKE}><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" /></svg>,
+  },
+  {
+    id: 'presentation',
+    label: 'A presentation',
+    desc: 'Interactive slides — polls, word clouds, Q&A',
+    href: '/host/present/create',
+    icon: <svg viewBox="0 0 24 24" width="24" height="24" {...ICON_STROKE}><rect x="2" y="4" width="20" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></svg>,
+  },
+  {
+    id: 'templates',
+    label: 'Start from a template',
+    desc: 'Ready-made quizzes you can edit',
+    href: '/host/templates',
+    icon: <svg viewBox="0 0 24 24" width="24" height="24" {...ICON_STROKE}><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>,
+  },
 ]
 
-const DISCOVERY_CHANNELS = [
-  { id: 'google', label: 'Google Search', icon: '🔍' },
-  { id: 'social', label: 'Social Media', icon: '📱' },
-  { id: 'friend', label: 'Friend / Colleague', icon: '👥' },
-  { id: 'event', label: 'Event / Conference', icon: '🎤' },
-  { id: 'other', label: 'Other', icon: '💡' },
-]
-
-function Tile({ icon, label, selected, onClick }: {
-  icon: string; label: string; selected: boolean; onClick: () => void
+function Tile({ icon, label, desc, selected, onClick }: {
+  icon: React.ReactNode; label: string; desc?: string; selected: boolean; onClick: () => void
 }) {
   return (
     <button
       onClick={onClick}
+      aria-pressed={selected}
       className="flex flex-col items-center gap-1.5 rounded-xl p-4 transition-all hover:scale-[1.04] active:scale-[0.97]"
       style={{
         background: selected ? '#FFFDE6' : '#fff',
@@ -44,10 +69,15 @@ function Tile({ icon, label, selected, onClick }: {
         minWidth: 100,
       }}
     >
-      <span className="text-2xl">{icon}</span>
+      <span style={{ color: selected ? '#0F1B3D' : '#64748B' }}>{icon}</span>
       <span className="text-sm font-semibold" style={{ color: selected ? '#0F1B3D' : '#4A5568' }}>
         {label}
       </span>
+      {desc && (
+        <span className="text-xs text-center leading-snug" style={{ color: '#94A3B8' }}>
+          {desc}
+        </span>
+      )}
     </button>
   )
 }
@@ -56,35 +86,28 @@ export default function OnboardPage() {
   const { data: session, update } = useSession()
   const router = useRouter()
   const [role, setRole] = useState<string | null>(null)
-  const [orgType, setOrgType] = useState<string | null>(null)
-  const [organization, setOrganization] = useState('')
-  const [discoveryChannel, setDiscoveryChannel] = useState<string | null>(null)
-  const [referralCode, setReferralCode] = useState('')
-  const [showReferral, setShowReferral] = useState(false)
+  const [firstCreate, setFirstCreate] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   const firstName = session?.user?.name?.split(' ')[0] ?? 'there'
+
+  // First authenticated screen after account creation — top of the funnel.
+  useEffect(() => { track('onboard_started') }, [])
 
   async function handleSubmit(skip = false) {
     setSaving(true)
     await fetch('/api/user/onboard', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(
-        skip
-          ? {}
-          : {
-              role,
-              orgType,
-              organization: organization.trim() || null,
-              discoveryChannel,
-              referralCode: referralCode.trim() || null,
-            }
-      ),
+      body: JSON.stringify(skip ? {} : { role }),
     })
+    // Org details are asked later on the dashboard, not here.
+    try { localStorage.setItem('quizotic:profilePending', '1') } catch { /* best-effort */ }
+    track('onboard_completed', { skipped: skip, role: skip ? null : role, firstCreate: skip ? null : firstCreate })
     // Refresh the JWT so middleware knows onboarding is complete
     await update({ onboarded: true })
-    router.push('/host?welcome=1')
+    const destination = skip ? null : FIRST_CREATE.find(o => o.id === firstCreate)?.href
+    router.push(destination ?? '/host')
   }
 
   return (
@@ -116,79 +139,27 @@ export default function OnboardPage() {
           </motion.span>
         </h1>
         <p className="text-base mb-8" style={{ color: '#94A3B8' }}>
-          Tell us a bit about yourself so we can personalize your experience.
+          Two quick taps and you&apos;re in.
         </p>
 
         {/* Role selection */}
-        <div className="mb-6">
+        <div className="mb-8">
           <p className="text-base font-bold mb-3" style={{ color: '#fff' }}>What best describes you?</p>
           <div className="grid grid-cols-3 gap-2">
             {ROLES.map(r => (
-              <Tile key={r.id} icon={r.icon} label={r.label} selected={role === r.id} onClick={() => setRole(r.id)} />
+              <Tile key={r.id} icon={ROLE_ICONS[r.id]} label={r.label} selected={role === r.id} onClick={() => setRole(r.id)} />
             ))}
           </div>
         </div>
 
-        {/* Org type selection */}
-        <div className="mb-6">
-          <p className="text-base font-bold mb-3" style={{ color: '#fff' }}>Where do you work?</p>
-          <div className="grid grid-cols-3 gap-2">
-            {ORG_TYPES.map(o => (
-              <Tile key={o.id} icon={o.icon} label={o.label} selected={orgType === o.id} onClick={() => setOrgType(o.id)} />
-            ))}
-          </div>
-        </div>
-
-        {/* Organization name */}
-        <div className="mb-6">
-          <p className="text-base font-bold mb-2" style={{ color: '#fff' }}>
-            Organization name <span className="font-normal text-sm" style={{ color: '#64748B' }}>(optional)</span>
-          </p>
-          <input
-            type="text"
-            value={organization}
-            onChange={e => setOrganization(e.target.value)}
-            placeholder="e.g. Delhi Public School, Infosys, IIT Delhi"
-            className="w-full px-4 py-3 rounded-xl text-sm border focus:outline-none focus:ring-2 transition-all"
-            style={{ background: '#fff', borderColor: '#E5E7EB', color: '#0F1B3D', '--tw-ring-color': 'rgba(245,230,66,0.4)' } as React.CSSProperties}
-          />
-        </div>
-
-        {/* How did you hear about us */}
-        <div className="mb-6">
-          <p className="text-base font-bold mb-3" style={{ color: '#fff' }}>How did you hear about us?</p>
-          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-            {DISCOVERY_CHANNELS.map(c => (
-              <Tile key={c.id} icon={c.icon} label={c.label} selected={discoveryChannel === c.id} onClick={() => setDiscoveryChannel(c.id)} />
-            ))}
-          </div>
-        </div>
-
-        {/* Referral code */}
+        {/* First-create routing — sends the user straight to value */}
         <div className="mb-8">
-          {!showReferral ? (
-            <button
-              onClick={() => setShowReferral(true)}
-              className="text-sm font-semibold transition-colors"
-              style={{ color: '#F5E642' }}
-            >
-              Have a referral code?
-            </button>
-          ) : (
-            <div>
-              <p className="text-sm font-bold mb-2" style={{ color: '#fff' }}>
-                Referral code <span className="font-normal" style={{ color: '#64748B' }}>(optional)</span>
-              </p>
-              <input
-                type="text"
-                value={referralCode}
-                onChange={e => setReferralCode(e.target.value)}
-                placeholder="e.g. priya-k7x2"
-                className="w-full px-4 py-3 rounded-xl text-sm border focus:outline-none focus:ring-2 transition-all"
-                style={{ background: '#fff', borderColor: '#E5E7EB', color: '#0F1B3D', '--tw-ring-color': 'rgba(245,230,66,0.4)' } as React.CSSProperties}
-              />
-            </div>
-          )}
+          <p className="text-base font-bold mb-3" style={{ color: '#fff' }}>What do you want to create first?</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {FIRST_CREATE.map(o => (
+              <Tile key={o.id} icon={o.icon} label={o.label} desc={o.desc} selected={firstCreate === o.id} onClick={() => setFirstCreate(o.id)} />
+            ))}
+          </div>
         </div>
 
         {/* Actions */}
@@ -199,7 +170,7 @@ export default function OnboardPage() {
             className="flex-1 py-3 rounded-full text-base font-bold transition-all hover:opacity-90 hover:scale-[1.02] disabled:opacity-50"
             style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
           >
-            {saving ? 'Saving...' : 'Continue →'}
+            {saving ? 'Saving...' : firstCreate ? "Let's go →" : 'Continue →'}
           </button>
           <button
             onClick={() => handleSubmit(true)}

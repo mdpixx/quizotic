@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { JoinCodeBox } from './JoinCodeBox'
 
 const QUESTIONS = [
   { q: 'Which planet is closest to the Sun?', options: ['Mercury', 'Venus', 'Mars', 'Jupiter'], correct: 0 },
@@ -235,20 +236,40 @@ export function Hero() {
             Quiz + Presentations Platform
           </div>
           <h1 style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 'clamp(40px, 5vw, 64px)', color: '#fff', letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: 20 }}>
-            Turn every <span style={{ color: '#F5E642' }}>session</span> into a learning moment.
+            Live quizzes your class joins from their <span style={{ color: '#F5E642' }}>phones</span>.
           </h1>
           <p className="prose-justify" style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 18, color: 'rgba(255,255,255,0.7)', lineHeight: 1.7, marginBottom: 36, maxWidth: 480 }}>
-            The only platform built on evidence-based learning science — Bloom&apos;s Taxonomy, Confidence Grid &amp; Spaced Retrieval. Run live quizzes and interactive presentations from one place.
+            Free to start, nothing to install — students join in their phone browser in seconds. And it&apos;s the only platform built on learning science: Bloom&apos;s Taxonomy, Confidence Grid &amp; Spaced Retrieval.
           </p>
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
             <Link href="/auth/signin" className="btn-hero-primary"
               style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 17, color: '#0D0D0D', textDecoration: 'none', padding: '16px 32px', borderRadius: 12, background: '#F5E642', border: '3px solid #0D0D0D', boxShadow: '5px 5px 0 #0D0D0D', display: 'inline-block' }}>
               Start Teaching Free →
             </Link>
-            <a href="#how" className="btn-hero-ghost"
+            <Link href="/demo" className="btn-hero-ghost"
               style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontWeight: 600, fontSize: 16, color: 'rgba(255,255,255,0.85)', textDecoration: 'none', padding: '16px 28px', borderRadius: 12, border: '2px solid rgba(255,255,255,0.3)', display: 'inline-block' }}>
-              See How It Works ↓
-            </a>
+              Try a Live Demo →
+            </Link>
+          </div>
+
+          {/* Trust strip — honest early-stage proof until real usage numbers exist */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 18px', marginTop: 28 }}>
+            {['Built in India', 'INR pricing with UPI', 'Runs on 2 Mbps Wi-Fi', 'Free forever plan'].map(item => (
+              <span key={item} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.55)' }}>
+                <svg viewBox="0 0 20 20" fill="none" width="14" height="14" aria-hidden>
+                  <path d="M4 10.5l4 4 8-9" stroke="#F5E642" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                {item}
+              </span>
+            ))}
+          </div>
+
+          {/* Participant entry — students arriving with a session code */}
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 28, paddingTop: 22, borderTop: '1px solid rgba(255,255,255,0.12)' }}>
+            <span style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.6)' }}>
+              Joining a session?
+            </span>
+            <JoinCodeBox variant="hero" />
           </div>
         </div>
 

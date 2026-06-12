@@ -15,10 +15,16 @@ export function CTASection() {
         <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontWeight: 500, fontSize: 20, color: '#0D0D0D', marginBottom: 40, opacity: 0.8 }}>
           Built on evidence. Designed for engagement. Free to start.
         </p>
-        <Link href="/auth/signin" className="cta-navy-btn"
-          style={{ display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 18, color: '#fff', textDecoration: 'none', padding: '18px 40px', borderRadius: 12, background: '#0F1B3D', border: '3px solid #0D0D0D', boxShadow: '5px 5px 0 #0D0D0D' }}>
-          Start Teaching Free →
-        </Link>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
+          <Link href="/auth/signin" className="cta-navy-btn"
+            style={{ display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 18, color: '#fff', textDecoration: 'none', padding: '18px 40px', borderRadius: 12, background: '#0F1B3D', border: '3px solid #0D0D0D', boxShadow: '5px 5px 0 #0D0D0D' }}>
+            Start Teaching Free →
+          </Link>
+          <Link href="/demo"
+            style={{ display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 16, color: '#0D0D0D', textDecoration: 'underline', textUnderlineOffset: 4 }}>
+            or try a live demo first
+          </Link>
+        </div>
       </div>
 
       <style>{`
