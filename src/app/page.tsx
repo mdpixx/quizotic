@@ -9,7 +9,6 @@ import { HowItWorks } from '@/components/landing/HowItWorks'
 import { LearningScience } from '@/components/landing/LearningScience'
 import { SlideTypeShowcase } from '@/components/landing/SlideTypeShowcase'
 import { ProductShowcase } from '@/components/landing/ProductShowcase'
-import { BrandRecall } from '@/components/landing/BrandRecall'
 import { CTASection } from '@/components/landing/CTASection'
 import { Footer } from '@/components/landing/Footer'
 import { WhatIsQuizotic } from '@/components/landing/WhatIsQuizotic'
@@ -77,10 +76,11 @@ export default async function Home() {
         <LearningScience />
         <SlideTypeShowcase />
         <ProductShowcase />
-        <BrandRecall />
-        <TopicClusters />
         <HomepageFAQ />
         <CTASection />
+        {/* SEO topic-cluster links — kept in the HTML for crawlers, but near
+            the footer so they don't interrupt the conversion narrative. */}
+        <TopicClusters />
       </main>
       <Footer />
     </>

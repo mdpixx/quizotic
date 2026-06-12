@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { JoinCodeBox } from './JoinCodeBox'
 
 export function StickyNav() {
   const [scrolled, setScrolled] = useState(false)
@@ -16,9 +17,9 @@ export function StickyNav() {
   const links = [
     { href: '/features', label: 'Features' },
     { href: '/pricing', label: 'Pricing' },
+    { href: '#how', label: 'How It Works' },
     { href: '#methodology', label: 'Methodology' },
     { href: '#slide-types', label: 'Slide Types' },
-    { href: '#dashboard', label: 'Dashboard' },
   ]
 
   return (
@@ -56,6 +57,7 @@ export function StickyNav() {
               /auth/signin since we have a single auth page; the "Sign up"
               query param can later be used to flag first-time visitors. */}
           <div className="nav-right" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <JoinCodeBox variant="nav" />
             <Link href="/auth/signin" className="nav-signin"
               style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.85)', textDecoration: 'none', padding: '8px 14px', borderRadius: 10 }}>
               Sign in
@@ -82,9 +84,15 @@ export function StickyNav() {
         background: '#0F1B3D', borderTop: '1px solid rgba(255,255,255,0.1)',
         padding: menuOpen ? '16px 24px 24px' : '0 24px',
         display: 'flex', flexDirection: 'column', gap: 4,
-        overflow: 'hidden', maxHeight: menuOpen ? 400 : 0,
+        overflow: 'hidden', maxHeight: menuOpen ? 480 : 0,
         transition: 'max-height 0.3s ease, padding 0.3s ease',
       }}>
+        <div style={{ paddingBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.55)', margin: '0 0 8px' }}>
+            Joining a session?
+          </p>
+          <JoinCodeBox variant="menu" />
+        </div>
         {links.map(l => (
           <a key={l.href} href={l.href} onClick={() => setMenuOpen(false)}
             style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 16, fontWeight: 500, color: 'rgba(255,255,255,0.85)', textDecoration: 'none', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>

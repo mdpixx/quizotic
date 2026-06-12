@@ -2,11 +2,17 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { motion } from 'framer-motion'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
 import { ModeExplainerCard } from '@/components/host/ModeExplainerCard'
+import { CompleteProfileCard } from '@/components/host/CompleteProfileCard'
 import { DataCardList } from '@/components/ui/DataCardList'
+import { QUIZ_TEMPLATES } from '@/lib/quiz-templates'
+import { saveQuiz, setActiveSession } from '@/lib/quiz-storage'
+import type { Quiz } from '@/lib/quiz-types'
+import { track } from '@/lib/analytics'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell, RadarChart, PolarGrid, PolarAngleAxis, Radar,
@@ -118,12 +124,33 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
 
 // ── Main dashboard ────────────────────────────────────────────────────────────
 export default function HostDashboard() {
+  const router = useRouter()
   const { data: session } = useSession()
   const firstName = session?.user?.name?.split(' ')[0] ?? 'back'
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [range, setRange] = useState(90)
   const [bloomsView, setBloomsView] = useState<'bar' | 'radar'>('bar')
+
+  // Instant win for a brand-new user: a ready-made icebreaker quiz goes live
+  // in one click so they experience the host↔phone loop before building
+  // anything. Same client-side path the template gallery uses.
+  function hostDemoSession() {
+    const template = QUIZ_TEMPLATES.find(t => t.id === 'icebreaker-trivia') ?? QUIZ_TEMPLATES[0]
+    if (!template) return
+    const now = new Date().toISOString()
+    const demoQuiz: Quiz = {
+      ...template.quiz,
+      id: crypto.randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+      questions: template.quiz.questions.map(q => ({ ...q, id: crypto.randomUUID() })),
+    }
+    saveQuiz(demoQuiz)
+    setActiveSession(demoQuiz)
+    track('demo_session_started')
+    router.push('/host/session')
+  }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -179,7 +206,13 @@ export default function HostDashboard() {
     return (
       <div className="p-6 md:p-8" style={{ maxWidth: 900, margin: '0 auto' }}>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-8 pb-4">
-          <div className="text-5xl mb-4">🎉</div>
+          <div className="flex justify-center mb-4">
+            <span className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: '#F5E642', border: '2px solid #0D0D0D' }}>
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#0F1B3D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M12 3l2 5.5L19.5 11 14 13l-2 5.5L10 13l-5.5-2L10 8.5z" />
+              </svg>
+            </span>
+          </div>
           <h1 className="text-3xl md:text-4xl font-black mb-2" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
             Welcome to Quizotic!
           </h1>
@@ -189,28 +222,63 @@ export default function HostDashboard() {
         </motion.div>
 
         {/* Two front doors: Quiz and Presentation. */}
-        <div className="mt-8 mb-10">
+        <div className="mt-8 mb-5">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mx-auto max-w-2xl">
             <div className="grid gap-4 sm:grid-cols-2">
               <ModeExplainerCard mode="quiz" href="/host/build" />
               <ModeExplainerCard mode="presentation" href="/host/present/create" />
             </div>
-            <div className="mt-4 text-center">
-              <Link href="/host/templates" className="text-sm font-semibold hover:underline" style={{ color: '#64748B', textDecoration: 'none' }}>
-                or browse ready-made templates &rarr;
-              </Link>
-            </div>
           </motion.div>
         </div>
+
+        {/* Instant win — experience a live session before building anything */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="mx-auto max-w-2xl mb-4">
+          <div className="rounded-2xl p-5 flex items-center justify-between gap-4 flex-wrap"
+            style={{ background: 'linear-gradient(135deg, #0F1B3D 0%, #1F2E6C 100%)' }}>
+            <div style={{ minWidth: 220, flex: 1 }}>
+              <p className="text-[11px] font-black uppercase tracking-[0.14em] mb-1" style={{ color: '#F5E642' }}>Feel it first</p>
+              <h3 className="text-lg font-black leading-tight" style={{ fontFamily: 'var(--font-heading)', color: '#fff' }}>
+                Host a demo session right now
+              </h3>
+              <p className="text-xs mt-1 leading-relaxed" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                A ready-made icebreaker quiz goes live instantly — join from your own phone and see exactly what your audience will see.
+              </p>
+            </div>
+            <button onClick={hostDemoSession}
+              className="flex-shrink-0 inline-flex items-center gap-2 text-sm font-bold px-5 py-3 rounded-xl transition-all hover:opacity-90 hover:scale-[1.02]"
+              style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="#0D0D0D" aria-hidden><path d="M8 5v14l11-7z" /></svg>
+              Go live in 10 seconds
+            </button>
+          </div>
+        </motion.div>
+
+        {/* Templates — promoted from a buried text link to a real card */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }} className="mx-auto max-w-2xl mb-10">
+          <Link href="/host/templates"
+            className="flex items-center gap-3 rounded-2xl border p-4 transition-all hover:shadow-md hover:-translate-y-0.5"
+            style={{ background: '#fff', borderColor: '#E2E8F0', textDecoration: 'none' }}>
+            <span className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#F3F4F6', color: '#0F1B3D' }}>
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+              </svg>
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-black" style={{ color: '#0F1B3D' }}>Browse ready-made templates</span>
+              <span className="block text-xs mt-0.5" style={{ color: '#94A3B8' }}>{QUIZ_TEMPLATES.length} editable quizzes for schools and corporate teams</span>
+            </span>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#94A3B8" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          </Link>
+        </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
           className="rounded-2xl border p-6" style={{ background: '#FAFBFF', borderColor: '#E2E8F0' }}>
           <h3 className="text-base font-black mb-4 text-center" style={{ color: '#0F1B3D' }}>3 Steps to Go Live</h3>
           <div className="grid sm:grid-cols-3 gap-4">
             {[
-              { step: '1', title: 'Create', desc: 'Build a quiz or presentation with your content', icon: '✏️' },
-              { step: '2', title: 'Host Live', desc: 'Start a session and share the join code with your audience', icon: '📡' },
-              { step: '3', title: 'Review', desc: 'See scores, engagement, and insights in your analytics dashboard', icon: '📊' },
+              { step: '1', title: 'Create', desc: 'Build a quiz or presentation with your content' },
+              { step: '2', title: 'Host Live', desc: 'Start a session and share the join code with your audience' },
+              { step: '3', title: 'Review', desc: 'See scores, engagement, and insights in your analytics dashboard' },
             ].map((s) => (
               <div key={s.step} className="flex flex-col items-center text-center p-3">
                 <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-black text-white mb-3" style={{ background: '#0F1B3D' }}>
@@ -376,6 +444,9 @@ export default function HostDashboard() {
           </motion.div>
         ))}
       </div>
+
+      {/* ── Deferred onboarding questions — dismissible, shows once ── */}
+      <CompleteProfileCard />
 
       {/* ── Share banner ── */}
       <div className="mb-5">

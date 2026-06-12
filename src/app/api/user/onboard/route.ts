@@ -35,14 +35,17 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Merge-only update: the slim onboarding screen posts just `role`, and the
+  // dashboard's CompleteProfileCard posts org/discovery fields later. Fields
+  // absent from the body must not be wiped by the second call.
   await prisma.user.update({
     where: { id: user.id },
     data: {
-      role: role || null,
-      orgType: orgType || null,
-      organization: organization || null,
-      discoveryChannel: discoveryChannel || null,
-      referredByCode: validRefCode,
+      ...(role !== undefined && { role: role || null }),
+      ...(orgType !== undefined && { orgType: orgType || null }),
+      ...(organization !== undefined && { organization: organization || null }),
+      ...(discoveryChannel !== undefined && { discoveryChannel: discoveryChannel || null }),
+      ...(validRefCode && { referredByCode: validRefCode }),
       onboarded: true,
     },
   })

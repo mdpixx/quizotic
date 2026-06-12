@@ -1,4 +1,5 @@
 import type { Quiz } from './quiz-types'
+import { track } from './analytics'
 
 const QUIZZES_KEY = 'quizotic_quizzes'
 const SESSION_KEY = 'quizotic_active_session'
@@ -29,6 +30,9 @@ export function saveQuiz(quiz: Quiz): void {
     quizzes[existing] = quiz
   } else {
     quizzes.push(quiz)
+    // Activation funnel: a quiz id seen for the first time is a creation,
+    // whether it came from the builder, AI generation, or a template.
+    track('quiz_created', { questionCount: quiz.questions.length })
   }
   localStorage.setItem(QUIZZES_KEY, JSON.stringify(quizzes))
 }
