@@ -22,6 +22,8 @@ export async function POST(req: NextRequest, { params }: Params) {
     const attendeeId = typeof body.attendeeId === 'string' ? body.attendeeId : null
     const questionIndex = typeof body.questionIndex === 'number' ? body.questionIndex : -1
     const timeMs = typeof body.timeMs === 'number' ? Math.max(0, body.timeMs) : 0
+    const confidence: 'sure' | 'unsure' | null =
+      body.confidence === 'sure' || body.confidence === 'unsure' ? body.confidence : null
 
     if (!participantId || !attendeeId || questionIndex < 0 || body.answer === undefined) {
       return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 })
@@ -35,8 +37,15 @@ export async function POST(req: NextRequest, { params }: Params) {
     if (!session || session.mode !== 'async') {
       return NextResponse.json({ success: false, error: 'Quiz not found' }, { status: 404 })
     }
-    if (session.status !== 'open' || (session.closesAt && new Date() > session.closesAt)) {
+    // 30s grace past closesAt so an answer in flight at the deadline isn't
+    // dropped. The sweep runs on a 60s cadence, so status is still 'open'
+    // during the grace window.
+    const CLOSE_GRACE_MS = 30_000
+    if (session.status !== 'open' || (session.closesAt && Date.now() > session.closesAt.getTime() + CLOSE_GRACE_MS)) {
       return NextResponse.json({ success: false, error: 'Quiz is no longer available', code: 'closed' }, { status: 410 })
+    }
+    if (session.opensAt && new Date() < session.opensAt) {
+      return NextResponse.json({ success: false, error: 'This quiz has not opened yet', code: 'not_open_yet' }, { status: 403 })
     }
 
     const questions = (session.quizVersion?.snapshot as Question[] | null) ?? []
@@ -126,6 +135,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         streakBonus,
         points: totalPoints,
         timeMs,
+        confidence,
       },
     })
 

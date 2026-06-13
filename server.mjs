@@ -105,6 +105,7 @@ async function ensureCriticalColumns() {
     'ALTER TABLE "Quiz" ADD COLUMN IF NOT EXISTS "selfPaced" BOOLEAN NOT NULL DEFAULT false',
     'ALTER TABLE "Quiz" ADD COLUMN IF NOT EXISTS "timeLimitMinutes" INTEGER',
     'ALTER TABLE "Quiz" ADD COLUMN IF NOT EXISTS "allowRetries" BOOLEAN NOT NULL DEFAULT false',
+    'ALTER TABLE "GameSession" ADD COLUMN IF NOT EXISTS "opensAt" TIMESTAMP(3)',
   ]
   for (const sql of stmts) {
     try {
@@ -137,6 +138,194 @@ async function reapOrphanedGameSessions() {
     if (rows[0]?.n > 0) console.warn(`[boot:reap-orphans] ${rows[0].n} recent active GameSession rows remain (may belong to another instance or a session interrupted by this restart)`)
   } catch (err) {
     console.warn('[boot:reap-orphans] skipped:', err.message)
+  }
+}
+
+// ── Scheduled / self-paced (async) quiz sweep ────────────────────────────────
+// Async sessions run with no host present, so nothing in the request path
+// guarantees they ever end. This sweep is the robot invigilator. Every 60s:
+//   1. finalize attendees whose personal deadlineAt passed mid-attempt —
+//      their recorded answers are summed so partial work still counts;
+//   2. end sessions whose closesAt passed (30s grace matches the answer
+//      route's in-flight grace);
+//   3. for ended async sessions missing `results`, finalize any remaining
+//      stragglers, recount participantCount, and write the same results JSON
+//      shape live sessions persist — so the Sessions/Reports pages and the
+//      CSV/XLSX/PDF export endpoints work on scheduled quizzes unchanged.
+// Every step is keyed on current DB state (WHERE guards / results IS NULL),
+// so the sweep is idempotent and safe across restarts.
+const ASYNC_SWEEP_INTERVAL_MS = 60_000
+
+// Sum recorded answer points into Attendee.finalScore for in-progress
+// attendees matching extraWhere. Returns affected sessionIds.
+async function finalizeAsyncStragglers(extraWhere, params) {
+  const { rows } = await dbPool.query(
+    `UPDATE "Attendee" a
+     SET "leftAt" = now(),
+         "finalScore" = COALESCE((
+           SELECT SUM(an.points)::int FROM "Answer" an
+           WHERE an."attendeeId" = a.id AND an."sessionId" = a."sessionId"
+         ), 0)
+     WHERE a."leftAt" IS NULL
+       AND a."sessionId" IN (SELECT id FROM "GameSession" WHERE mode = 'async')
+       AND ${extraWhere}
+     RETURNING a."sessionId"`,
+    params,
+  )
+  return [...new Set(rows.map(r => r.sessionId))]
+}
+
+// participantCount = count of finished attendees. Absolute recount rather
+// than increments: self-healing if the finish route and this sweep race.
+async function recountAsyncParticipants(sessionIds) {
+  if (sessionIds.length === 0) return
+  await dbPool.query(
+    `UPDATE "GameSession" g
+     SET "participantCount" = (
+       SELECT COUNT(*)::int FROM "Attendee" a
+       WHERE a."sessionId" = g.id AND a."leftAt" IS NOT NULL
+     )
+     WHERE g.id = ANY($1)`,
+    [sessionIds],
+  )
+}
+
+// Build the live-mode `results` shape from DB rows for one async session.
+async function buildAsyncResults(sessionId) {
+  const { rows: sessRows } = await dbPool.query(
+    `SELECT g.id, g."opensAt", g."closesAt", g."createdAt", g."endedAt",
+            v.title, v.snapshot
+     FROM "GameSession" g
+     LEFT JOIN "QuizVersion" v ON v.id = g."quizVersionId"
+     WHERE g.id = $1`,
+    [sessionId],
+  )
+  const sess = sessRows[0]
+  if (!sess) return null
+  const questions = Array.isArray(sess.snapshot) ? sess.snapshot : []
+
+  const { rows: attendees } = await dbPool.query(
+    `SELECT id, nickname, "finalScore" FROM "Attendee"
+     WHERE "sessionId" = $1 AND "leftAt" IS NOT NULL
+     ORDER BY "finalScore" DESC`,
+    [sessionId],
+  )
+  const { rows: answers } = await dbPool.query(
+    `SELECT "attendeeId", "questionIndex", "isCorrect", confidence
+     FROM "Answer" WHERE "sessionId" = $1`,
+    [sessionId],
+  )
+
+  const leaderboard = attendees.map(a => ({
+    name: a.nickname, archetype: null, score: a.finalScore ?? 0, team: null, isGhost: false,
+  }))
+
+  const byIndex = new Map()
+  for (const an of answers) {
+    if (!byIndex.has(an.questionIndex)) byIndex.set(an.questionIndex, [])
+    byIndex.get(an.questionIndex).push(an)
+  }
+  const questionStats = questions.map((q, i) => {
+    const qAnswers = byIndex.get(i) ?? []
+    const total = qAnswers.length
+    const isNonScored = !isScoredQuestion(q)
+    if (isNonScored || total === 0) {
+      return {
+        index: i, text: q.text, type: q.type,
+        correctPct: isNonScored ? null : 0, confidenceGrid: null,
+        bloomsLevel: q.bloomsLevel ?? null, explanation: q.explanation ?? null,
+        isNonScored, totalResponses: total, optionDistribution: null,
+      }
+    }
+    let correct = 0, sureCorrect = 0, sureWrong = 0, unsureCorrect = 0, unsureWrong = 0
+    for (const an of qAnswers) {
+      const ic = an.isCorrect === true
+      const sure = an.confidence === 'sure'
+      if (ic) correct++
+      if (an.confidence) {
+        if (sure && ic) sureCorrect++
+        else if (sure && !ic) sureWrong++
+        else if (!sure && ic) unsureCorrect++
+        else unsureWrong++
+      }
+    }
+    const hasConfidence = sureCorrect + sureWrong + unsureCorrect + unsureWrong > 0
+    return {
+      index: i, text: q.text, type: q.type,
+      correctPct: Math.round((correct / total) * 100),
+      confidenceGrid: hasConfidence ? { sureCorrect, sureWrong, unsureCorrect, unsureWrong } : null,
+      bloomsLevel: q.bloomsLevel ?? null, explanation: q.explanation ?? null,
+      isNonScored: false, totalResponses: total, optionDistribution: null,
+    }
+  })
+
+  const maxScore = questions.reduce((sum, q) => (
+    isScoredQuestion(q) ? sum + (q.points || 1000) : sum
+  ), 0)
+  const startMs = (sess.opensAt ?? sess.createdAt)?.getTime?.() ?? Date.now()
+  const endMs = (sess.endedAt ?? sess.closesAt)?.getTime?.() ?? Date.now()
+
+  return {
+    leaderboard,
+    teamLeaderboard: null,
+    questionStats,
+    quizTitle: sess.title || 'Quiz',
+    questionCount: questions.length,
+    maxScore,
+    duration: Math.max(0, Math.round((endMs - startMs) / 1000)),
+  }
+}
+
+async function sweepAsyncSessions() {
+  if (!dbPool) return
+  try {
+    // 1. Per-participant deadlines (open sessions only — ended ones are
+    //    handled in step 3 anyway).
+    const deadlineSessions = await finalizeAsyncStragglers(
+      `a."deadlineAt" IS NOT NULL AND a."deadlineAt" < now()
+       AND a."sessionId" IN (SELECT id FROM "GameSession" WHERE mode = 'async' AND status = 'open')`,
+      [],
+    )
+    await recountAsyncParticipants(deadlineSessions)
+
+    // 2. Close past-due sessions.
+    // Grace matches CLOSE_GRACE_MS in the answer route (30s), so answers in
+    // flight at the deadline land before the session flips to 'ended'.
+    const { rows: closed } = await dbPool.query(
+      `UPDATE "GameSession"
+       SET status = 'ended', "endedAt" = now()
+       WHERE mode = 'async' AND status = 'open'
+         AND "closesAt" IS NOT NULL
+         AND "closesAt" < now() - interval '30 seconds'
+       RETURNING id`,
+    )
+    if (closed.length > 0) {
+      console.log(`[async-sweep] closed ${closed.length} past-due session(s)`)
+    }
+
+    // 3. Ended async sessions missing results (covers sweep-closed, host
+    //    "close now", and unpublish). Finalize stragglers, recount, persist.
+    const { rows: needResults } = await dbPool.query(
+      `SELECT id FROM "GameSession"
+       WHERE mode = 'async' AND status = 'ended' AND results IS NULL
+         AND "endedAt" > now() - interval '7 days'
+       LIMIT 20`,
+    )
+    for (const { id } of needResults) {
+      await finalizeAsyncStragglers(`a."sessionId" = $1`, [id])
+      await recountAsyncParticipants([id])
+      const results = await buildAsyncResults(id)
+      if (results) {
+        // results IS NULL guard keeps this idempotent under concurrency
+        await dbPool.query(
+          `UPDATE "GameSession" SET results = $2::jsonb WHERE id = $1 AND results IS NULL`,
+          [id, JSON.stringify(results)],
+        )
+        console.log(`[async-sweep] finalized results for session ${id} (${results.leaderboard.length} finisher(s))`)
+      }
+    }
+  } catch (err) {
+    console.warn('[async-sweep] pass failed:', err.message)
   }
 }
 
@@ -536,6 +725,10 @@ app.prepare().then(async () => {
   await ensureCriticalColumns()
   // Fire-and-forget: closing out orphaned rows must not delay boot.
   reapOrphanedGameSessions()
+  // Robot invigilator for scheduled/self-paced quizzes: first pass shortly
+  // after boot (catch up on anything due while we were down), then every 60s.
+  setTimeout(sweepAsyncSessions, 5_000).unref?.()
+  setInterval(sweepAsyncSessions, ASYNC_SWEEP_INTERVAL_MS).unref?.()
 
   const httpServer = createServer((req, res) => {
     // Short-circuit: session lookup API (no auth, reads in-memory sessions Map)

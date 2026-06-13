@@ -16,6 +16,7 @@ export interface RowAction {
   onClick: () => void
   icon?: React.ReactNode
   danger?: boolean
+  title?: string
 }
 
 export function RowActionsMenu({ actions, label = 'More actions' }: { actions: RowAction[]; label?: string }) {
@@ -46,6 +47,7 @@ export function RowActionsMenu({ actions, label = 'More actions' }: { actions: R
                 key={i}
                 type="button"
                 role="menuitem"
+                title={a.title}
                 onClick={() => { a.onClick(); setOpen(false) }}
                 className="w-full text-left px-3 py-2 text-[13px] font-medium flex items-center gap-2 transition-colors hover:bg-gray-50"
                 style={{ color: a.danger ? '#B91C1C' : '#374151' }}

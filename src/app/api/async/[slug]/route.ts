@@ -21,6 +21,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
         mode: true,
         status: true,
         allowRetries: true,
+        opensAt: true,
         closesAt: true,
         timeLimitMinutes: true,
         quizVersion: { select: { title: true, questionCount: true, subject: true, snapshot: true } },
@@ -34,6 +35,25 @@ export async function GET(_req: NextRequest, { params }: Params) {
       return NextResponse.json({ success: false, error: 'Quiz is no longer available', code: 'closed' }, { status: 410 })
     }
 
+    // Scheduled and not yet open: metadata only, so the page can render a
+    // countdown. serverNow lets the client compute remaining time without
+    // trusting its own clock.
+    if (session.opensAt && new Date() < session.opensAt) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          state: 'scheduled',
+          title: session.quizVersion?.title ?? 'Quiz',
+          subject: session.quizVersion?.subject ?? null,
+          questionCount: session.quizVersion?.questionCount ?? 0,
+          opensAt: session.opensAt,
+          closesAt: session.closesAt,
+          timeLimitMinutes: session.timeLimitMinutes ?? null,
+          serverNow: new Date().toISOString(),
+        },
+      })
+    }
+
     const questions = Array.isArray(session.quizVersion?.snapshot)
       ? (session.quizVersion?.snapshot as Array<{ timerSeconds?: number; points?: number }>)
       : []
@@ -43,14 +63,17 @@ export async function GET(_req: NextRequest, { params }: Params) {
     return NextResponse.json({
       success: true,
       data: {
+        state: 'open',
         title: session.quizVersion?.title ?? 'Quiz',
         subject: session.quizVersion?.subject ?? null,
         questionCount: session.quizVersion?.questionCount ?? 0,
         allowRetries: session.allowRetries,
+        opensAt: session.opensAt,
         closesAt: session.closesAt,
         timeLimitMinutes: session.timeLimitMinutes ?? null,
         estimatedSeconds,
         maxBaseScore,
+        serverNow: new Date().toISOString(),
       },
     })
   } catch (err) {

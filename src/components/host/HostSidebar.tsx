@@ -23,6 +23,14 @@ const ICON = {
       <path d="M9 11V6a3 3 0 0 1 6 0v5"/>
     </svg>
   ),
+  scheduled: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-[15px] h-[15px]">
+      <path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h6.5"/>
+      <path d="M16 2v4M8 2v4M3 10h18"/>
+      <circle cx="18" cy="18" r="4"/>
+      <path d="M18 16.5V18l1 1"/>
+    </svg>
+  ),
   presentations: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-[15px] h-[15px]">
       <rect x="2" y="3" width="20" height="14" rx="2"/>
@@ -83,6 +91,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/host', icon: ICON.dashboard, exact: true },
   { label: 'My Quizzes', href: '/host/quizzes', icon: ICON.quizzes },
+  { label: 'Scheduled', href: '/host/scheduled', icon: ICON.scheduled },
   { label: 'Presentations', href: '/host/presentations', icon: ICON.presentations },
   { label: 'Sessions', href: '/host/sessions', icon: ICON.sessions },
   { label: 'Participants', href: '/host/participants', icon: ICON.participants },

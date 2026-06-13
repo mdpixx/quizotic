@@ -17,6 +17,7 @@ type AnswerRow = {
   attendeeId: string | null
   answer: Prisma.JsonValue
   submittedAt: Date
+  timeMs: number
 }
 
 type AttendeeRow = {
@@ -86,7 +87,7 @@ export async function GET(req: NextRequest, { params }: Params) {
       }),
       prisma.answer.findMany({
         where: { sessionId: session.id },
-        select: { questionIndex: true, isCorrect: true, points: true, attendeeId: true, answer: true, submittedAt: true },
+        select: { questionIndex: true, isCorrect: true, points: true, attendeeId: true, answer: true, submittedAt: true, timeMs: true },
       }),
     ])
 
@@ -257,18 +258,49 @@ export async function GET(req: NextRequest, { params }: Params) {
     // ── CSV export ───────────────────────────────────────────────────────────────
 
     if (csv) {
-      const rows = [
-        'Name,Score,Correct,Answered,Accuracy,Status,TimeSec',
-        ...leaderboard.map(e =>
-          [e.name, e.score, e.correctCount, e.answeredCount,
-           e.accuracy !== null ? `${e.accuracy}%` : '',
-           e.status,
-           e.timeSec ?? ''].join(',')
-        ),
-      ].join('\n')
-      return new Response(rows, {
+      // Helper: quote a CSV field — wraps in double-quotes if it contains
+      // commas, double-quotes, or newlines; escapes embedded double-quotes by doubling.
+      function csvField(value: string | number | boolean | null | undefined): string {
+        const s = value === null || value === undefined ? '' : String(value)
+        if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+          return `"${s.replace(/"/g, '""')}"`
+        }
+        return s
+      }
+
+      // Build an attendeeId → attendee lookup
+      const attendeeById = new Map((attendees as AttendeeRow[]).map(a => [a.id, a]))
+
+      // Build per-attendee-question rows: one row per (attendee, question) answer
+      const dataRows: string[] = []
+      for (const a of answers) {
+        if (!a.attendeeId) continue
+        const att = attendeeById.get(a.attendeeId)
+        if (!att) continue
+        const q = questions[a.questionIndex]
+        const questionText = q ? q.text.slice(0, 120) : `Question ${a.questionIndex + 1}`
+        const answerText =
+          typeof a.answer === 'object' && a.answer !== null
+            ? JSON.stringify(a.answer)
+            : String(a.answer ?? '')
+        dataRows.push([
+          csvField(att.nickname),
+          csvField(a.questionIndex + 1),
+          csvField(questionText),
+          csvField(answerText),
+          csvField(a.isCorrect === null ? '' : String(a.isCorrect)),
+          csvField(a.points),
+          csvField(a.timeMs),
+          csvField(a.submittedAt.toISOString()),
+        ].join(','))
+      }
+
+      const headerRow = 'Name,QuestionIndex,QuestionText,Answer,IsCorrect,Points,TimeMs,SubmittedAt'
+      const csvBody = [headerRow, ...dataRows].join('\n')
+
+      return new Response(csvBody, {
         headers: {
-          'Content-Type': 'text/csv',
+          'Content-Type': 'text/csv; charset=utf-8',
           'Content-Disposition': `attachment; filename="quiz-report-${id}.csv"`,
         },
       })

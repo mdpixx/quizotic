@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
+import { AssignQuizModal, type QuizPatch } from '@/components/host/AssignQuizModal'
 import { track } from '@/lib/analytics'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -20,26 +21,12 @@ interface QuizRecord {
   questionCount: number
   asyncShareSlug: string | null
   asyncAllowRetries: boolean
+  asyncOpensAt: string | null
   asyncClosesAt: string | null
   asyncPublishedAt: string | null
   asyncQuestionCount: number
   asyncResponseCount: number
   asyncNeedsRepublish: boolean
-}
-
-interface ShareState {
-  quizId: string
-  slug: string | null
-  questionCount: number
-  responseCount: number
-  allowRetries: boolean
-  closesAt: string | null
-  publishedAt: string | null
-  needsRepublish: boolean
-  publishing: boolean
-  copied: boolean
-  messageCopied: boolean
-  timeLimitMinutes: number | null
 }
 
 // Soft cover palette for quiz thumbnail cards — deterministic by id hash so
@@ -132,15 +119,15 @@ function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-function formatDateTime(iso: string | null): string {
-  if (!iso) return 'Not set'
-  return new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+// Short date label for an amber "Scheduled · <date>" chip when opensAt is future.
+function scheduledLabel(quiz: QuizRecord): string | null {
+  if (!quiz.asyncOpensAt) return null
+  const opens = new Date(quiz.asyncOpensAt)
+  if (opens.getTime() <= Date.now()) return null
+  return `Scheduled · ${opens.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
 }
 
-function closeAtFor(days: number | null): string | null {
-  if (days === null) return null
-  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
-}
+const SCHEDULED_CHIP_STYLE = { background: '#FFFBEB', color: '#92400E', border: '1px solid #FDE68A' }
 
 export default function QuizzesPage() {
   const router = useRouter()
@@ -153,7 +140,7 @@ export default function QuizzesPage() {
   const [error, setError] = useState('')
   const [activeSubject, setActiveSubject] = useState<string>('All')
   const [view, setView] = useState<'grid' | 'list'>('list')
-  const [shareModal, setShareModal] = useState<ShareState | null>(null)
+  const [assignQuiz, setAssignQuiz] = useState<{ id: string; title: string } | null>(null)
 
   const fetchQuizzes = useCallback(async () => {
     setLoading(true)
@@ -215,111 +202,15 @@ export default function QuizzesPage() {
     }
   }
 
-  async function handleShare(id: string) {
+  function handleAssign(id: string, title: string) {
     track('selfpaced_share_opened', { quizId: id })
-    setShareModal({ quizId: id, slug: null, questionCount: 0, responseCount: 0, allowRetries: false, closesAt: null, publishedAt: null, needsRepublish: false, publishing: true, copied: false, messageCopied: false, timeLimitMinutes: null })
-    try {
-      const res = await fetch(`/api/quizzes/${id}/publish`, { method: 'POST' })
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        const issueMessage = Array.isArray(json.issues)
-          ? json.issues.map((issue: { questionIndex: number; message: string }) => `Q${issue.questionIndex + 1}: ${issue.message}`).join(' ')
-          : ''
-        setError(issueMessage || json.error || 'Could not create share link.')
-        setShareModal(null)
-        return
-      }
-      const { shareSlug, questionCount, responseCount, allowRetries, closesAt, publishedAt, needsRepublish, timeLimitMinutes } = json.data
-      setShareModal({ quizId: id, slug: shareSlug, questionCount, responseCount: responseCount ?? 0, allowRetries, closesAt: closesAt ?? null, publishedAt: publishedAt ?? null, needsRepublish: !!needsRepublish, publishing: false, copied: false, messageCopied: false, timeLimitMinutes: timeLimitMinutes ?? null })
-      setQuizzes(prev => prev.map(q => q.id === id ? {
-        ...q,
-        asyncShareSlug: shareSlug,
-        asyncQuestionCount: questionCount,
-        asyncResponseCount: responseCount ?? q.asyncResponseCount ?? 0,
-        asyncAllowRetries: allowRetries,
-        asyncClosesAt: closesAt ?? null,
-        asyncPublishedAt: publishedAt ?? new Date().toISOString(),
-        asyncNeedsRepublish: false,
-      } : q))
-    } catch {
-      setError('Could not create share link. Please try again.')
-      setShareModal(null)
-    }
+    setAssignQuiz({ id, title })
   }
 
-  async function handleToggleRetries(allow: boolean) {
-    if (!shareModal) return
-    const res = await fetch(`/api/quizzes/${shareModal.quizId}/publish`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ allowRetries: allow }),
-    })
-    if (!res.ok) return
-    setShareModal(prev => prev ? { ...prev, allowRetries: allow } : prev)
-    setQuizzes(prev => prev.map(q => q.id === shareModal.quizId ? { ...q, asyncAllowRetries: allow } : q))
-  }
-
-  async function handleSetExpiry(closesAt: string | null) {
-    if (!shareModal) return
-    const res = await fetch(`/api/quizzes/${shareModal.quizId}/publish`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ closesAt }),
-    })
-    if (!res.ok) return
-    setShareModal(prev => prev ? { ...prev, closesAt } : prev)
-    setQuizzes(prev => prev.map(q => q.id === shareModal.quizId ? { ...q, asyncClosesAt: closesAt } : q))
-  }
-
-  async function handleSetTimeLimit(minutes: number | null) {
-    if (!shareModal) return
-    const res = await fetch(`/api/quizzes/${shareModal.quizId}/publish`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ timeLimitMinutes: minutes }),
-    })
-    if (!res.ok) return
-    setShareModal(prev => prev ? { ...prev, timeLimitMinutes: minutes } : prev)
-  }
-
-  async function handleUnpublish() {
-    if (!shareModal) return
-    const quizId = shareModal.quizId
-    await fetch(`/api/quizzes/${quizId}/publish`, { method: 'DELETE' })
-    setShareModal(null)
-    setQuizzes(prev => prev.map(q => q.id === quizId ? {
-      ...q,
-      asyncShareSlug: null,
-      asyncQuestionCount: 0,
-      asyncResponseCount: 0,
-      asyncAllowRetries: false,
-      asyncClosesAt: null,
-      asyncPublishedAt: null,
-      asyncNeedsRepublish: false,
-    } : q))
-  }
-
-  function handleCopyLink() {
-    if (!shareModal?.slug) return
-    const url = `${window.location.origin}/q/${shareModal.slug}`
-    navigator.clipboard.writeText(url).catch(() => {})
-    setShareModal(prev => prev ? { ...prev, copied: true } : prev)
-    setTimeout(() => setShareModal(prev => prev ? { ...prev, copied: false } : prev), 2000)
-  }
-
-  function participantMessage(): string {
-    if (!shareModal?.slug || typeof window === 'undefined') return ''
-    const url = `${window.location.origin}/q/${shareModal.slug}`
-    return `Take this self-paced Quizotic quiz anytime:\n${url}\nNo host or live code needed.`
-  }
-
-  function handleCopyMessage() {
-    const msg = participantMessage()
-    if (!msg) return
-    navigator.clipboard.writeText(msg).catch(() => {})
-    setShareModal(prev => prev ? { ...prev, messageCopied: true } : prev)
-    setTimeout(() => setShareModal(prev => prev ? { ...prev, messageCopied: false } : prev), 2000)
-  }
+  // Mirror a publish/schedule change from AssignQuizModal back into the list row.
+  const handleQuizPatched = useCallback((quizId: string, patch: QuizPatch) => {
+    setQuizzes(prev => prev.map(q => q.id === quizId ? { ...q, ...patch } : q))
+  }, [])
 
   // Unique subjects for filter chips
   const subjects = Array.from(new Set(quizzes.map(q => q.subject).filter(Boolean))) as string[]
@@ -524,6 +415,9 @@ export default function QuizzesPage() {
                             <span className="chip" style={{ background: '#EFF6FF', color: '#1D4ED8' }}>{quiz.subject}</span>
                           )}
                           <span className="chip" style={statusStyle(status.tone)}>{status.label}</span>
+                          {scheduledLabel(quiz) && (
+                            <span className="chip" style={SCHEDULED_CHIP_STYLE}>{scheduledLabel(quiz)}</span>
+                          )}
                           {signals.slice(0, 2).map(signal => (
                             <span key={signal.label} className="chip" style={statusStyle(signal.tone)}>{signal.label}</span>
                           ))}
@@ -574,8 +468,9 @@ export default function QuizzesPage() {
                             label={`Actions for ${quiz.title || 'quiz'}`}
                             actions={[
                               {
-                                label: quiz.asyncNeedsRepublish ? 'Republish self-paced' : 'Share self-paced',
-                                onClick: () => handleShare(quiz.id),
+                                label: 'Assign',
+                                title: 'Share now or schedule for a date',
+                                onClick: () => handleAssign(quiz.id, quiz.title),
                                 icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" strokeLinecap="round" strokeLinejoin="round"/></svg>,
                               },
                               ...(quiz.asyncShareSlug ? [{
@@ -640,6 +535,9 @@ export default function QuizzesPage() {
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="text-[14px] font-bold truncate" style={{ color: '#0F1B3D' }}>{quiz.title || 'Untitled quiz'}</span>
                         <span className="chip flex-shrink-0" style={statusStyle(status.tone)}>{status.label}</span>
+                        {scheduledLabel(quiz) && (
+                          <span className="chip flex-shrink-0" style={SCHEDULED_CHIP_STYLE}>{scheduledLabel(quiz)}</span>
+                        )}
                         {attention && <span className="chip flex-shrink-0" style={statusStyle('attention')}>{attention.label}</span>}
                       </div>
                       <div className="flex items-center gap-1.5 mt-1 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
@@ -678,8 +576,9 @@ export default function QuizzesPage() {
                         label={`Actions for ${quiz.title || 'quiz'}`}
                         actions={[
                           {
-                            label: quiz.asyncNeedsRepublish ? 'Republish self-paced' : 'Share self-paced',
-                            onClick: () => handleShare(quiz.id),
+                            label: 'Assign',
+                            title: 'Share now or schedule for a date',
+                            onClick: () => handleAssign(quiz.id, quiz.title),
                             icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" strokeLinecap="round" strokeLinejoin="round"/></svg>,
                           },
                           ...(quiz.asyncShareSlug ? [{
@@ -710,187 +609,16 @@ export default function QuizzesPage() {
         </>
       )}
 
-      {/* Share / self-serve link modal */}
+      {/* Assign modal — share now or schedule */}
       <AnimatePresence>
-        {shareModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ background: 'rgba(0,0,0,0.4)' }}
-            onClick={() => setShareModal(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="rounded-2xl p-6 max-w-sm w-full shadow-xl"
-              style={{ background: '#fff' }}
-              onClick={e => e.stopPropagation()}
-            >
-              {shareModal.publishing ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#0F1B3D', borderTopColor: 'transparent' }} />
-                  <span className="ml-3 text-sm" style={{ color: '#64748B' }}>Creating share link…</span>
-                </div>
-              ) : (
-                <>
-                  <h3 className="text-lg font-black mb-1" style={{ color: '#0F1B3D' }}>Self-paced quiz link</h3>
-                  <p className="text-sm mb-4" style={{ color: '#64748B' }}>
-                    {shareModal.questionCount} question{shareModal.questionCount !== 1 ? 's' : ''} · No host needed · Works anytime.
-                  </p>
-
-                  <div className="grid grid-cols-3 gap-2 mb-4">
-                    <div className="rounded-xl px-3 py-2 min-h-[4rem]" style={{ background: '#F8FAFC' }}>
-                      <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Responses</p>
-                      <p className="text-sm font-black" style={{ color: '#0F1B3D' }}>{shareModal.responseCount}</p>
-                    </div>
-                    <div className="rounded-xl px-3 py-2 min-h-[4rem]" style={{ background: '#F8FAFC' }}>
-                      <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Published</p>
-                      <p className="text-xs font-bold" style={{ color: '#0F1B3D' }}>{shareModal.publishedAt ? timeAgo(shareModal.publishedAt) : 'now'}</p>
-                    </div>
-                    <div className="rounded-xl px-3 py-2 min-h-[4rem]" style={{ background: '#F8FAFC' }}>
-                      <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Closes</p>
-                      <p className="text-xs font-bold" style={{ color: '#0F1B3D' }}>{shareModal.closesAt ? formatDateTime(shareModal.closesAt) : 'Never'}</p>
-                    </div>
-                  </div>
-
-                  {/* Link display + copy */}
-                  <div className="flex items-center gap-2 rounded-xl px-3 py-2 mb-4" style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }}>
-                    <span className="flex-1 text-sm truncate" style={{ color: '#0F1B3D', fontFamily: 'monospace' }}>
-                      {typeof window !== 'undefined' ? `${window.location.origin}/q/${shareModal.slug}` : `/q/${shareModal.slug}`}
-                    </span>
-                    <button
-                      onClick={handleCopyLink}
-                      className="px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 transition-colors"
-                      style={{ background: shareModal.copied ? '#16A34A' : '#0F1B3D', color: '#fff' }}
-                    >
-                      {shareModal.copied ? 'Copied!' : 'Copy'}
-                    </button>
-                  </div>
-
-                  <div className="rounded-xl p-3 mb-4" style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }}>
-                    <p className="text-xs font-bold mb-2" style={{ color: '#0F1B3D' }}>Participant message</p>
-                    <textarea
-                      readOnly
-                      value={participantMessage()}
-                      rows={3}
-                      className="w-full resize-none rounded-lg px-3 py-2 text-xs outline-none"
-                      style={{ background: '#fff', color: '#334155', border: '1px solid #E2E8F0' }}
-                    />
-                    <button
-                      onClick={handleCopyMessage}
-                      className="mt-2 w-full py-2 rounded-lg text-xs font-bold"
-                      style={{ background: shareModal.messageCopied ? '#16A34A' : '#E2E8F0', color: shareModal.messageCopied ? '#fff' : '#0F1B3D' }}
-                    >
-                      {shareModal.messageCopied ? 'Message copied!' : 'Copy participant message'}
-                    </button>
-                  </div>
-
-                  <div className="mb-4">
-                    <p className="text-xs font-bold mb-2" style={{ color: '#0F1B3D' }}>Link expiry</p>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(() => {
-                        const remainingMs = shareModal.closesAt ? new Date(shareModal.closesAt).getTime() - Date.now() : -1
-                        const currentDays = shareModal.closesAt === null ? null : (remainingMs < 14 * 86400000 ? 7 : 30)
-                        return [
-                          { label: 'Never', value: null as number | null },
-                          { label: '7 days', value: 7 },
-                          { label: '30 days', value: 30 },
-                        ].map(opt => {
-                          const active = currentDays === opt.value
-                          return (
-                            <button
-                              key={opt.label}
-                              onClick={() => handleSetExpiry(closeAtFor(opt.value))}
-                              aria-pressed={active}
-                              className="py-2 rounded-lg text-xs font-bold border transition-colors"
-                              style={{
-                                background: active ? '#0F1B3D' : '#fff',
-                                color: active ? '#F5E642' : '#0F1B3D',
-                                borderColor: active ? '#0F1B3D' : '#E2E8F0',
-                              }}
-                            >
-                              {opt.label}
-                            </button>
-                          )
-                        })
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* Allow retries toggle */}
-                  <div className="flex items-center justify-between mb-4 py-3 border-t" style={{ borderColor: '#E2E8F0' }}>
-                    <div>
-                      <p className="text-sm font-semibold" style={{ color: '#0F1B3D' }}>Allow retakes</p>
-                      <p className="text-xs" style={{ color: '#94A3B8' }}>Let players take the quiz more than once</p>
-                    </div>
-                    <button
-                      onClick={() => handleToggleRetries(!shareModal.allowRetries)}
-                      className="w-11 h-6 rounded-full relative transition-colors flex-shrink-0"
-                      style={{ background: shareModal.allowRetries ? '#16A34A' : '#CBD5E1' }}
-                      aria-label="Toggle retakes"
-                    >
-                      <span
-                        className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform"
-                        style={{ left: shareModal.allowRetries ? '22px' : '4px' }}
-                      />
-                    </button>
-                  </div>
-
-                  {/* Time limit selector */}
-                  <div className="mb-5 pb-4 border-b" style={{ borderColor: '#E2E8F0' }}>
-                    <p className="text-xs font-bold mb-2" style={{ color: '#0F1B3D' }}>Time limit per attempt</p>
-                    <div className="grid grid-cols-4 gap-1.5">
-                      {[
-                        { label: 'None', value: null as number | null },
-                        { label: '10 min', value: 10 },
-                        { label: '20 min', value: 20 },
-                        { label: '30 min', value: 30 },
-                        { label: '45 min', value: 45 },
-                        { label: '60 min', value: 60 },
-                        { label: '90 min', value: 90 },
-                      ].map(opt => {
-                        const active = shareModal.timeLimitMinutes === opt.value
-                        return (
-                          <button
-                            key={opt.label}
-                            onClick={() => handleSetTimeLimit(opt.value)}
-                            className="py-1.5 rounded-lg text-xs font-bold border transition-colors"
-                            style={{
-                              background: active ? '#0F1B3D' : '#fff',
-                              color: active ? '#F5E642' : '#0F1B3D',
-                              borderColor: active ? '#0F1B3D' : '#E2E8F0',
-                            }}
-                          >
-                            {opt.label}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <button
-                      onClick={handleUnpublish}
-                      className="flex-1 py-2.5 rounded-xl text-sm font-bold border transition-colors hover:bg-red-50"
-                      style={{ color: '#B91C1C', borderColor: '#FCA5A5' }}
-                    >
-                      Deactivate
-                    </button>
-                    <button
-                      onClick={() => setShareModal(null)}
-                      className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors hover:bg-gray-50"
-                      style={{ color: '#0F1B3D', border: '1px solid #E2E8F0' }}
-                    >
-                      Done
-                    </button>
-                  </div>
-                </>
-              )}
-            </motion.div>
-          </motion.div>
+        {assignQuiz && (
+          <AssignQuizModal
+            quizId={assignQuiz.id}
+            quizTitle={assignQuiz.title}
+            hasExistingShare={!!quizzes.find(q => q.id === assignQuiz.id)?.asyncShareSlug}
+            onClose={() => setAssignQuiz(null)}
+            onChanged={handleQuizPatched}
+          />
         )}
       </AnimatePresence>
 

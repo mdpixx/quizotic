@@ -38,6 +38,16 @@ export async function POST(req: NextRequest, { params }: Params) {
     if (session.status !== 'open') {
       return NextResponse.json({ success: false, error: 'This quiz has ended', code: 'closed' }, { status: 410 })
     }
+    if (session.opensAt && new Date() < session.opensAt) {
+      // Server-authoritative gate — the countdown screen is cosmetic.
+      return NextResponse.json({
+        success: false,
+        error: 'This quiz has not opened yet',
+        code: 'not_open_yet',
+        opensAt: session.opensAt,
+        serverNow: new Date().toISOString(),
+      }, { status: 403 })
+    }
     if (session.closesAt && new Date() > session.closesAt) {
       return NextResponse.json({ success: false, error: 'This quiz has closed', code: 'closed' }, { status: 410 })
     }
