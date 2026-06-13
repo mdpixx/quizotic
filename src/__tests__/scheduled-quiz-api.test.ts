@@ -13,7 +13,7 @@ const mockUser = { id: 'user-1', email: 'host@example.com' }
 const prismaMock = vi.hoisted(() => ({
   quiz: { findFirst: vi.fn(), findMany: vi.fn() },
   quizVersion: { create: vi.fn(), findUnique: vi.fn() },
-  gameSession: { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), count: vi.fn() },
+  gameSession: { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), count: vi.fn() },
   attendee: { count: vi.fn(), create: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
   answer: { count: vi.fn(), findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
 }))
@@ -34,6 +34,7 @@ import { POST as publishPost, PATCH as publishPatch } from '../app/api/quizzes/[
 import { GET as asyncGet } from '../app/api/async/[slug]/route'
 import { POST as startPost } from '../app/api/async/[slug]/start/route'
 import { POST as answerPost } from '../app/api/async/[slug]/answer/route'
+import { DELETE as scheduledDelete } from '../app/api/scheduled/route'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -410,5 +411,44 @@ describe('async answer — confidence persistence', () => {
         data: expect.objectContaining({ confidence: null }),
       }),
     )
+  })
+})
+
+// ─── scheduled DELETE — close by sessionId (orphan-safe) ─────────────────────
+
+describe('scheduled DELETE — close by sessionId', () => {
+  it('ends a host-owned open async session by id and returns success', async () => {
+    prismaMock.gameSession.updateMany.mockResolvedValue({ count: 1 })
+
+    const res = await scheduledDelete(
+      new NextRequest('http://localhost/api/scheduled?sessionId=sess-orphan', { method: 'DELETE' }),
+    )
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.success).toBe(true)
+    // Ownership + state scoped: only this user's open async session is ended.
+    expect(prismaMock.gameSession.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: 'sess-orphan', userId: 'user-1', mode: 'async', status: 'open' }),
+        data: expect.objectContaining({ status: 'ended' }),
+      }),
+    )
+  })
+
+  it('returns 400 when sessionId is missing', async () => {
+    const res = await scheduledDelete(
+      new NextRequest('http://localhost/api/scheduled', { method: 'DELETE' }),
+    )
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 404 when nothing matches (already closed or not owned)', async () => {
+    prismaMock.gameSession.updateMany.mockResolvedValue({ count: 0 })
+
+    const res = await scheduledDelete(
+      new NextRequest('http://localhost/api/scheduled?sessionId=sess-x', { method: 'DELETE' }),
+    )
+    expect(res.status).toBe(404)
   })
 })

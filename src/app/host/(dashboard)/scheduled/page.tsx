@@ -14,7 +14,7 @@ type Phase = 'upcoming' | 'open' | 'ended'
 
 interface ScheduledSession {
   sessionId: string
-  quizId: string
+  quizId: string | null
   title: string
   questionCount: number
   shareSlug: string | null
@@ -163,10 +163,18 @@ export default function ScheduledPage() {
 
   const serverNow = () => Date.now() + offsetRef.current
 
+  // Both close and cancel end the session by its own id via /api/scheduled.
+  // Keying on sessionId (not quizId) means orphaned sessions — whose quiz was
+  // deleted, leaving quizId null — are still closeable here. The 60s sweep then
+  // finalizes in-progress attempts and writes the results JSON.
+  async function endSession(sessionId: string) {
+    await fetch(`/api/scheduled?sessionId=${encodeURIComponent(sessionId)}`, { method: 'DELETE' }).catch(() => {})
+  }
+
   async function handleCancel(session: ScheduledSession) {
     setCancellingId(session.sessionId)
     try {
-      await fetch(`/api/quizzes/${session.quizId}/publish`, { method: 'DELETE' })
+      await endSession(session.sessionId)
       setConfirmCancel(null)
       await fetchSessions()
     } finally {
@@ -177,10 +185,7 @@ export default function ScheduledPage() {
   async function handleCloseNow(session: ScheduledSession) {
     setClosingIds(prev => new Set(prev).add(session.sessionId))
     try {
-      // DELETE ends the session immediately (a PATCH to closesAt=now would be
-      // rejected as "in the past" by the publish validation). The 60s sweep
-      // then finalizes in-progress attempts and writes the results JSON.
-      await fetch(`/api/quizzes/${session.quizId}/publish`, { method: 'DELETE' }).catch(() => {})
+      await endSession(session.sessionId)
       await fetchSessions()
     } finally {
       setClosingIds(prev => {
@@ -323,14 +328,16 @@ export default function ScheduledPage() {
                           >
                             {closing ? 'Closing…' : 'Close now'}
                           </button>
-                          <Link
-                            href={`/host/quizzes/${s.quizId}/report`}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors hover:bg-gray-50"
-                            style={{ color: '#0F1B3D', borderColor: '#E2E8F0', textDecoration: 'none' }}
-                          >
-                            {ICON.report}
-                            View live report
-                          </Link>
+                          {s.quizId && (
+                            <Link
+                              href={`/host/quizzes/${s.quizId}/report`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors hover:bg-gray-50"
+                              style={{ color: '#0F1B3D', borderColor: '#E2E8F0', textDecoration: 'none' }}
+                            >
+                              {ICON.report}
+                              View live report
+                            </Link>
+                          )}
                         </div>
                       </div>
                     )
@@ -361,14 +368,16 @@ export default function ScheduledPage() {
                           {s.endedAt && <> · ended {fmtDate(s.endedAt)}</>}
                         </p>
                       </div>
-                      <Link
-                        href={`/host/quizzes/${s.quizId}/report`}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors hover:bg-gray-50 flex-shrink-0"
-                        style={{ color: '#0F1B3D', borderColor: '#E2E8F0', textDecoration: 'none' }}
-                      >
-                        {ICON.report}
-                        View report
-                      </Link>
+                      {s.quizId && (
+                        <Link
+                          href={`/host/quizzes/${s.quizId}/report`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors hover:bg-gray-50 flex-shrink-0"
+                          style={{ color: '#0F1B3D', borderColor: '#E2E8F0', textDecoration: 'none' }}
+                        >
+                          {ICON.report}
+                          View report
+                        </Link>
+                      )}
                     </div>
                   ))}
                 </div>
