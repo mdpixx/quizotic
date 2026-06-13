@@ -404,10 +404,34 @@ body {
   flex-direction: column;
 }
 
+/* The measure box: fills the remaining stage height and centers the cloud.
+   Content is uniformly transform-scaled to fit, so it never clips. */
 .host-wordcloud-words {
   flex: 1;
   min-height: 0;
+}
+
+/* Full-width wrapper: words flow side by side and only wrap to a new row when
+   the current row is full, so the cloud uses the horizontal space instead of
+   stacking vertically. A single binary-searched font multiplier (--wc-mult)
+   sizes everything to fit the box; the em gaps scale with it. */
+.host-wordcloud-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   align-content: center;
+  justify-content: center;
+  width: 100%;
+  font-size: calc(16px * var(--wc-mult, 1));
+  gap: 0.32em 0.6em;
+}
+
+.host-wordcloud-word {
+  display: inline-block;
+  font-family: var(--font-heading);
+  line-height: 1.04;
+  padding: 0.04em 0.14em;
+  white-space: nowrap;
 }
 
 @media (min-width: 1024px) and (min-height: 760px) {

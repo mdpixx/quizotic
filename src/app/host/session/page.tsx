@@ -25,6 +25,7 @@ import { BrandWatermark } from '@/components/BrandWatermark'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
 import { JoinPill } from '@/components/host/JoinPill'
 import { EndQuizConfirmModal } from '@/components/host/EndQuizConfirmModal'
+import { HostWordCloud } from '@/components/host/HostWordCloud'
 import { getQuizTheme } from '@/lib/quiz-themes'
 import { buildLeaderboardStageRows, getHostQuestionFit, getPostQuestionAction } from '@/lib/host-stage'
 import { startClockSync, getServerNow, resyncClock } from '@/lib/clock-sync'
@@ -1824,66 +1825,7 @@ export default function SessionPage() {
               )
             })()
           ) : currentQuestion.type === 'wordcloud' ? (
-            (() => {
-              // Industry-standard wordcloud: square-root perceptual scaling so
-              // the most-mentioned word reads as visually dominant without a
-              // 10×-mention word being literally 10× larger (which looks
-              // broken). Clean horizontal flow, no rotation, brand-aligned
-              // colors instead of a clown-suit rainbow.
-              const normalize = (w: string) => w.toLowerCase().replace(/[^\p{L}\p{N}\s'-]/gu, '').trim()
-              const freq = new Map<string, { display: string; count: number }>()
-              for (const w of wordcloudWords) {
-                const key = normalize(w)
-                if (!key) continue
-                const existing = freq.get(key)
-                if (existing) existing.count += 1
-                else freq.set(key, { display: w.trim(), count: 1 })
-              }
-              const entries = Array.from(freq.values()).sort((a, b) => b.count - a.count)
-              const maxCount = entries[0]?.count ?? 1
-              // sqrt scaling: count=1 → 35% of range, count=max → 100% of range.
-              // This matches how humans perceive area/scale differences.
-              const MIN_PX = 28
-              const MAX_PX = 118
-              return (
-                <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 bg-white rounded-2xl border border-gray-200 p-5 md:p-7 relative overflow-hidden host-answer-stage host-wordcloud-stage">
-                  <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
-                    Word cloud · {wordcloudWords.length} word{wordcloudWords.length !== 1 ? 's' : ''} from {freq.size} unique
-                  </p>
-                  {entries.length === 0 ? (
-                    <p className="text-gray-400 italic text-center py-12">Waiting for responses…</p>
-                  ) : (
-                    <div className="host-wordcloud-words flex flex-wrap items-center justify-center gap-x-5 gap-y-3 py-6">
-                      {entries.map((entry, i) => {
-                        const ratio = Math.sqrt(entry.count / maxCount)
-                        const fontSize = Math.round(MIN_PX + ratio * (MAX_PX - MIN_PX))
-                        // Top-3 most-mentioned words get deep navy + yellow
-                        // accent underline; the long tail goes to warm grey.
-                        const isTop = i < 3
-                        const color = isTop ? '#0F1B3D' : '#475569'
-                        return (
-                          <span
-                            key={entry.display + i}
-                            className="inline-block font-black"
-                            style={{
-                              fontSize,
-                              color,
-                              fontFamily: 'var(--font-heading)',
-                              lineHeight: 1.05,
-                              padding: '2px 6px',
-                              borderBottom: isTop ? '4px solid #F5E642' : 'none',
-                            }}
-                            title={`${entry.display} — ${entry.count}×`}
-                          >
-                            {entry.display}
-                          </span>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              )
-            })()
+            <HostWordCloud words={wordcloudWords} />
           ) : currentQuestion.type === 'rating' ? (
             (() => {
               const total = ratingValues.length
