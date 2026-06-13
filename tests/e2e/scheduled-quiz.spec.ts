@@ -27,8 +27,22 @@ function readDbUrl(): string {
 const suffix = Date.now()
 const slugA = `e2e-sched-a-${suffix}`
 const slugB = `e2e-sched-b-${suffix}`
-const codeA = String(100000 + (suffix % 900000)).slice(0, 6).padStart(6, '1')
-const codeB = String(200000 + (suffix % 700000)).slice(0, 6).padStart(6, '2')
+// Codes are assigned in beforeAll from values verified free in the DB — a
+// fixed timestamp-derived code can collide with a real session's 6-digit
+// code (GameSession.code is UNIQUE), which made this seed flaky.
+let codeA = ''
+let codeB = ''
+
+// Pick a random 6-digit code not already present in GameSession.
+async function freeCode(client: Client, taken: Set<string>): Promise<string> {
+  for (let i = 0; i < 25; i++) {
+    const code = String(100000 + Math.floor(Math.random() * 900000))
+    if (taken.has(code)) continue
+    const clash = await client.query('SELECT 1 FROM "GameSession" WHERE code = $1 LIMIT 1', [code])
+    if (clash.rowCount === 0) { taken.add(code); return code }
+  }
+  throw new Error('could not find a free game code for the e2e seed')
+}
 
 const ONE_MCQ_SNAPSHOT = JSON.stringify([
   {
@@ -53,6 +67,11 @@ test.beforeAll(async () => {
   await client.connect()
 
   try {
+    // Reserve two codes guaranteed free against existing data.
+    const taken = new Set<string>()
+    codeA = await freeCode(client, taken)
+    codeB = await freeCode(client, taken)
+
     // Use SQL NOW() arithmetic to avoid any client timezone issues.
     // Session A: opens 12 seconds from now (short enough to test auto-unlock).
     // Session B: already ended.

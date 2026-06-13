@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { NextResponse } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth-helpers'
 
@@ -85,6 +85,33 @@ export async function GET() {
     return NextResponse.json({ success: true, data: { sessions: data, serverNow: new Date().toISOString() } })
   } catch (err) {
     console.error('[scheduled:GET]', err instanceof Error ? err.message : err)
+    return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 })
+  }
+}
+
+// DELETE /api/scheduled?sessionId=...  — end an async session by its own id.
+// Keyed on sessionId (not quizId) so orphaned sessions whose quiz was deleted
+// — or any legacy session with a null quizId — are still closeable from the
+// Scheduled dashboard. The 60s sweep then finalizes scores and writes results.
+export async function DELETE(req: NextRequest) {
+  try {
+    const user = await getCurrentUser()
+    if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+
+    const sessionId = req.nextUrl.searchParams.get('sessionId')
+    if (!sessionId) return NextResponse.json({ success: false, error: 'Missing sessionId' }, { status: 400 })
+
+    // Ownership-scoped: only the host's own open async sessions can be ended.
+    const result = await prisma.gameSession.updateMany({
+      where: { id: sessionId, userId: user.id, mode: 'async', status: 'open' },
+      data: { status: 'ended', endedAt: new Date() },
+    })
+    if (result.count === 0) {
+      return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
+    }
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    console.error('[scheduled:DELETE]', err instanceof Error ? err.message : err)
     return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 })
   }
 }
