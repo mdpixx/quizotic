@@ -243,6 +243,7 @@ model GameSession {
   mode             String    @default("live") // 'live' | 'async'
   shareSlug        String?   @unique
   allowRetries     Boolean   @default(false)
+  opensAt          DateTime? // scheduled async quizzes: participants cannot start before this; null = open immediately
   closesAt         DateTime?
   timeLimitMinutes Int?      // optional per-participant quiz window (async only)
 

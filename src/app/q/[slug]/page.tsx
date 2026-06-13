@@ -38,7 +38,21 @@ interface Result {
   participationAnsweredCount?: number
 }
 
-type Phase = 'loading' | 'entry' | 'question' | 'feedback' | 'recording' | 'done' | 'timeup' | 'closed'
+type Phase = 'loading' | 'scheduled' | 'entry' | 'question' | 'feedback' | 'recording' | 'done' | 'timeup' | 'closed'
+
+// Metadata returned by GET when the quiz is scheduled and not yet open.
+// No questions are exposed in this state — countdown only.
+interface ScheduledInfo {
+  title: string
+  subject: string | null
+  questionCount: number
+  opensAt: string // ISO timestamp
+  closesAt: string | null
+  timeLimitMinutes: number | null
+  // Server-clock offset captured at fetch time: serverNow - Date.now().
+  // remaining = opensAt - (Date.now() + offset). Never trust the client clock alone.
+  offset: number
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -74,6 +88,8 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
 
   const [phase, setPhase] = useState<Phase>('loading')
   const [quizInfo, setQuizInfo] = useState<QuizInfo | null>(null)
+  const [scheduledInfo, setScheduledInfo] = useState<ScheduledInfo | null>(null)
+  const [closedTitle, setClosedTitle] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [nameError, setNameError] = useState('')
   const [starting, setStarting] = useState(false)
@@ -93,27 +109,62 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
   const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ─── Load quiz info ────────────────────────────────────────────────────────
+  // Reusable: also called when a scheduled countdown hits zero, or on window
+  // focus, so a phone unlocked after the open time transitions immediately.
 
-  useEffect(() => {
-    fetch(`/api/async/${slug}`)
-      .then(r => r.json())
-      .then(json => {
-        if (!json.success) { setPhase('closed'); return }
-        setQuizInfo(json.data)
+  const loadQuiz = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/async/${slug}`)
+      const json = await res.json()
 
-        if (typeof window !== 'undefined') {
-          const session = loadSession(slug)
-          if (session) {
-            resumeSession(session.participantId, session.attendeeId)
-          } else {
-            setPhase('entry')
-          }
+      if (!json.success) {
+        // 410 closed / 404 — no title is exposed here; keep any we already have.
+        setPhase('closed')
+        return
+      }
+
+      const data = json.data
+
+      if (data.state === 'scheduled') {
+        // Capture the server-clock offset at fetch time so the countdown does
+        // not drift with a wrong client clock.
+        const offset = new Date(data.serverNow).getTime() - Date.now()
+        setScheduledInfo({
+          title: data.title ?? 'Quiz',
+          subject: data.subject ?? null,
+          questionCount: data.questionCount ?? 0,
+          opensAt: data.opensAt,
+          closesAt: data.closesAt ?? null,
+          timeLimitMinutes: data.timeLimitMinutes ?? null,
+          offset,
+        })
+        setClosedTitle(data.title ?? null)
+        setPhase('scheduled')
+        return
+      }
+
+      // state === 'open' — existing entry-form data.
+      setQuizInfo(data)
+      setClosedTitle(data.title ?? null)
+
+      if (typeof window !== 'undefined') {
+        const session = loadSession(slug)
+        if (session) {
+          resumeSession(session.participantId, session.attendeeId)
         } else {
           setPhase('entry')
         }
-      })
-      .catch(() => setPhase('closed'))
+      } else {
+        setPhase('entry')
+      }
+    } catch {
+      setPhase('closed')
+    }
   }, [slug]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    loadQuiz()
+  }, [loadQuiz])
 
   // ─── Resume ───────────────────────────────────────────────────────────────
 
@@ -171,6 +222,24 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
         setPhase('closed')
         return
       }
+      // Defensive: clock skew let the participant reach the entry form before
+      // the quiz actually opened. Fall back to the countdown screen instead of
+      // showing an error, using the server-authoritative opensAt/serverNow.
+      if (res.status === 403 && json.code === 'not_open_yet' && json.opensAt) {
+        const offset = json.serverNow ? new Date(json.serverNow).getTime() - Date.now() : 0
+        setScheduledInfo({
+          title: quizInfo?.title ?? closedTitle ?? 'Quiz',
+          subject: quizInfo?.subject ?? null,
+          questionCount: quizInfo?.questionCount ?? 0,
+          opensAt: json.opensAt,
+          closesAt: quizInfo?.closesAt ?? null,
+          timeLimitMinutes: quizInfo?.timeLimitMinutes ?? null,
+          offset,
+        })
+        setStarting(false)
+        setPhase('scheduled')
+        return
+      }
       if (!res.ok || !json.success) {
         setNameError(json.message ?? json.error ?? 'Could not start. Please try again.')
         setStarting(false)
@@ -189,7 +258,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
       setNameError('Network error. Please try again.')
       setStarting(false)
     }
-  }, [name, slug, quizInfo?.allowRetries])
+  }, [name, slug, quizInfo, closedTitle])
 
   // ─── Submit answer ────────────────────────────────────────────────────────
 
@@ -320,25 +389,55 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
     )
   }
 
+  // ─── Phase: scheduled ─────────────────────────────────────────────────────
+
+  if (phase === 'scheduled' && scheduledInfo) {
+    return (
+      <ScheduledScreen
+        info={scheduledInfo}
+        starting={starting}
+        onOpen={() => { setStarting(true); loadQuiz().finally(() => setStarting(false)) }}
+      />
+    )
+  }
+
   // ─── Phase: closed ────────────────────────────────────────────────────────
 
   if (phase === 'closed') {
+    const title = quizInfo?.title ?? scheduledInfo?.title ?? closedTitle
     return (
       <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#0F1B3D' }}>
-        <div className="text-center max-w-xs">
-          <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-4"
-            style={{ background: 'rgba(245,230,66,0.1)', border: '1.5px solid rgba(245,230,66,0.3)' }}>
-            <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8">
-              <circle cx="12" cy="12" r="9" stroke="#F5E642" strokeWidth="1.5"/>
-              <path d="M12 8v4M12 16h.01" stroke="#F5E642" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#F5E642' }}>
+                <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+                    stroke="#0F1B3D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              <span className="text-sm font-bold" style={{ color: '#F5E642' }}>Quizotic</span>
+            </div>
           </div>
-          <h1 className="text-2xl font-black mb-2" style={{ color: '#fff', fontFamily: 'var(--font-heading)' }}>
-            Quiz unavailable
-          </h1>
-          <p className="text-sm" style={{ color: '#94A3B8' }}>
-            This quiz link is no longer active or does not exist.
-          </p>
+          <div className="rounded-2xl p-6 text-center"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-4"
+              style={{ background: 'rgba(245,230,66,0.1)', border: '1.5px solid rgba(245,230,66,0.3)' }}>
+              <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8">
+                <circle cx="12" cy="12" r="9" stroke="#F5E642" strokeWidth="1.5"/>
+                <path d="M8 12h8" stroke="#F5E642" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </div>
+            {title && (
+              <p className="text-sm font-bold mb-1" style={{ color: '#CBD5E1' }}>{title}</p>
+            )}
+            <h1 className="text-2xl font-black mb-2" style={{ color: '#fff', fontFamily: 'var(--font-heading)' }}>
+              This quiz has ended
+            </h1>
+            <p className="text-sm" style={{ color: '#94A3B8' }}>
+              The quiz is no longer accepting responses. Thanks for stopping by.
+            </p>
+          </div>
         </div>
       </div>
     )
@@ -576,6 +675,149 @@ function InfoTile({ label, value, accent }: { label: string; value: string; acce
       style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
       <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>{label}</p>
       <p className="text-sm font-bold" style={{ color: accent ? '#FACC15' : '#fff' }}>{value}</p>
+    </div>
+  )
+}
+
+function ScheduledScreen({
+  info,
+  starting,
+  onOpen,
+}: {
+  info: ScheduledInfo
+  starting: boolean
+  onOpen: () => void
+}) {
+  // Remaining ms, computed from the server-corrected clock:
+  // remaining = opensAt - (Date.now() + offset). Recomputed every tick.
+  const opensAtMs = new Date(info.opensAt).getTime()
+  const compute = () => Math.max(0, opensAtMs - (Date.now() + info.offset))
+
+  const [remaining, setRemaining] = useState(compute)
+  const firedRef = useRef(false)
+  const onOpenRef = useRef(onOpen)
+  onOpenRef.current = onOpen
+
+  useEffect(() => {
+    firedRef.current = false
+    const tick = () => {
+      const ms = compute()
+      setRemaining(ms)
+      if (ms === 0 && !firedRef.current) {
+        firedRef.current = true
+        onOpenRef.current() // refetch the GET — transition to entry if now open
+      }
+    }
+    tick()
+    const id = setInterval(tick, 500)
+    return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opensAtMs, info.offset])
+
+  // Refetch on focus so a phone unlocked after the open time updates at once.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && compute() === 0) {
+        onOpenRef.current()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opensAtMs, info.offset])
+
+  const opensLabel = new Date(info.opensAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+
+  const totalSec = Math.ceil(remaining / 1000)
+  const days = Math.floor(totalSec / 86400)
+  const hh = Math.floor((totalSec % 86400) / 3600)
+  const mm = Math.floor((totalSec % 3600) / 60)
+  const ss = totalSec % 60
+  const farAway = totalSec > 86400 // more than 24h
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#0F1B3D' }}>
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-7">
+          <div className="inline-flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#F5E642' }}>
+              <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+                  stroke="#0F1B3D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <span className="text-sm font-bold" style={{ color: '#F5E642' }}>Quizotic</span>
+          </div>
+          <h1 className="text-2xl font-black leading-snug mb-1" style={{ color: '#fff', fontFamily: 'var(--font-heading)' }}>
+            {info.title}
+          </h1>
+          {info.subject && (
+            <p className="text-sm" style={{ color: '#94A3B8' }}>{info.subject}</p>
+          )}
+        </div>
+
+        <div className="rounded-2xl p-6 text-center"
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="inline-flex items-center gap-2 mb-5 px-3 py-1.5 rounded-full"
+            style={{ background: 'rgba(245,230,66,0.1)', border: '1px solid rgba(245,230,66,0.25)' }}>
+            <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
+              <circle cx="12" cy="12" r="9" stroke="#F5E642" strokeWidth="1.5"/>
+              <path d="M12 7v5l3 2" stroke="#F5E642" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <span className="text-xs font-bold uppercase tracking-wide" style={{ color: '#F5E642' }}>
+              Opens soon
+            </span>
+          </div>
+
+          {starting ? (
+            <div className="py-6">
+              <div className="h-9 w-44 mx-auto rounded-lg animate-pulse"
+                style={{ background: 'rgba(245,230,66,0.18)' }} />
+              <p className="text-sm mt-4 font-bold" style={{ color: '#F5E642' }}>Starting…</p>
+            </div>
+          ) : farAway ? (
+            <div className="py-3">
+              <p className="font-black tabular-nums" style={{
+                color: '#F5E642', fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.8rem, 8vw, 2.6rem)',
+              }}>
+                {days} {days === 1 ? 'day' : 'days'} {hh} {hh === 1 ? 'hour' : 'hours'}
+              </p>
+              <p className="text-xs mt-2 uppercase tracking-wide font-bold" style={{ color: '#64748B' }}>
+                until it opens
+              </p>
+            </div>
+          ) : (
+            <div className="py-3">
+              <p className="font-black tabular-nums leading-none" style={{
+                color: '#F5E642', fontFamily: 'var(--font-heading)', fontSize: 'clamp(2.6rem, 14vw, 4rem)',
+              }}>
+                {String(hh).padStart(2, '0')}:{String(mm).padStart(2, '0')}:{String(ss).padStart(2, '0')}
+              </p>
+              <p className="text-xs mt-2 uppercase tracking-wide font-bold" style={{ color: '#64748B' }}>
+                until it opens
+              </p>
+            </div>
+          )}
+
+          <div className="mt-6 pt-5 space-y-2" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            <p className="text-sm" style={{ color: '#CBD5E1' }}>
+              Opens {opensLabel}
+            </p>
+            <p className="text-xs" style={{ color: '#94A3B8' }}>
+              {info.questionCount} {info.questionCount === 1 ? 'question' : 'questions'}
+              {info.timeLimitMinutes ? ` · ${info.timeLimitMinutes} min limit` : ''}
+            </p>
+          </div>
+        </div>
+
+        <p className="text-center text-xs mt-5" style={{ color: '#475569' }}>
+          This page updates automatically when the quiz opens.
+        </p>
+      </div>
     </div>
   )
 }

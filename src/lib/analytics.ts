@@ -26,6 +26,7 @@ export type ProductEvent =
   | 'profile_completed'
   | 'landing_join_code_used'
   | 'demo_session_started'
+  | 'quiz_scheduled'
 
 export function track(event: ProductEvent, props?: Record<string, string | number | boolean | null>): void {
   if (!ENABLED) return

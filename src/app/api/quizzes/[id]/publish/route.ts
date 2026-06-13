@@ -48,6 +48,54 @@ function needsRepublish(quizUpdatedAt: Date, versionCreatedAt: Date | null | und
   return !versionCreatedAt || quizUpdatedAt.getTime() > versionCreatedAt.getTime()
 }
 
+// Scheduled quizzes: opensAt gates participant entry, closesAt is when the
+// background sweep ends the session. A scheduled quiz must have both bounds —
+// "runs without a host" requires a defined end.
+const OPENS_AT_PAST_GRACE_MS = 60 * 1000
+
+function parseScheduleFields(
+  body: Record<string, unknown>,
+  existing?: { opensAt: Date | null; closesAt: Date | null },
+): { ok: true; opensAt?: Date | null; closesAt?: Date | null } | { ok: false; error: string } {
+  const out: { opensAt?: Date | null; closesAt?: Date | null } = {}
+
+  if ('opensAt' in body) {
+    if (body.opensAt === null) out.opensAt = null
+    else if (typeof body.opensAt === 'string') {
+      const d = new Date(body.opensAt)
+      if (isNaN(d.getTime())) return { ok: false, error: 'Invalid opensAt date' }
+      out.opensAt = d
+    } else return { ok: false, error: 'Invalid opensAt date' }
+  }
+  if ('closesAt' in body) {
+    if (body.closesAt === null) out.closesAt = null
+    else if (typeof body.closesAt === 'string') {
+      const d = new Date(body.closesAt)
+      if (isNaN(d.getTime())) return { ok: false, error: 'Invalid closesAt date' }
+      out.closesAt = d
+    } else return { ok: false, error: 'Invalid closesAt date' }
+  }
+
+  const effectiveOpens = 'opensAt' in out ? out.opensAt : existing?.opensAt ?? null
+  const effectiveCloses = 'closesAt' in out ? out.closesAt : existing?.closesAt ?? null
+
+  if (effectiveOpens) {
+    if (!effectiveCloses) return { ok: false, error: 'A scheduled quiz needs a close time' }
+    if (effectiveOpens.getTime() >= effectiveCloses.getTime()) {
+      return { ok: false, error: 'Close time must be after the open time' }
+    }
+    // Only reject past opensAt when the caller is actually setting it now
+    if ('opensAt' in out && out.opensAt && out.opensAt.getTime() < Date.now() - OPENS_AT_PAST_GRACE_MS) {
+      return { ok: false, error: 'Open time is in the past' }
+    }
+  }
+  if (effectiveCloses && effectiveCloses.getTime() <= Date.now()) {
+    if ('closesAt' in out) return { ok: false, error: 'Close time is in the past' }
+  }
+
+  return { ok: true, ...out }
+}
+
 // POST /api/quizzes/[id]/publish — publish quiz as async self-serve link
 export async function POST(req: NextRequest, { params }: Params) {
   try {
@@ -60,6 +108,10 @@ export async function POST(req: NextRequest, { params }: Params) {
     const timeLimitMinutes = (typeof rawTlm === 'number' && Number.isInteger(rawTlm) && rawTlm > 0)
       ? rawTlm
       : null
+    const schedule = parseScheduleFields(body)
+    if (!schedule.ok) {
+      return NextResponse.json({ success: false, error: schedule.error }, { status: 400 })
+    }
 
     const quiz = await prisma.quiz.findFirst({ where: { id, userId: user.id } })
     if (!quiz) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
@@ -87,6 +139,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         id: true,
         shareSlug: true,
         allowRetries: true,
+        opensAt: true,
         closesAt: true,
         createdAt: true,
         participantCount: true,
@@ -119,6 +172,7 @@ export async function POST(req: NextRequest, { params }: Params) {
             sessionId: existing.id,
             shareSlug: existing.shareSlug,
             allowRetries: existing.allowRetries,
+            opensAt: existing.opensAt,
             closesAt: existing.closesAt,
             questionCount: version.questionCount,
             responseCount: existing.participantCount ?? 0,
@@ -135,6 +189,7 @@ export async function POST(req: NextRequest, { params }: Params) {
           sessionId: existing.id,
           shareSlug: existing.shareSlug,
           allowRetries: existing.allowRetries,
+          opensAt: existing.opensAt,
           closesAt: existing.closesAt,
           questionCount: existing.quizVersion?.questionCount ?? 0,
           responseCount: existing.participantCount ?? 0,
@@ -185,6 +240,8 @@ export async function POST(req: NextRequest, { params }: Params) {
         shareSlug: slug,
         allowRetries: false,
         timeLimitMinutes,
+        opensAt: schedule.opensAt ?? null,
+        closesAt: schedule.closesAt ?? null,
       },
     })
 
@@ -195,7 +252,8 @@ export async function POST(req: NextRequest, { params }: Params) {
         shareSlug: slug,
         questionCount: snapshot.length,
         allowRetries: false,
-        closesAt: null,
+        opensAt: session.opensAt,
+        closesAt: session.closesAt,
         timeLimitMinutes,
         responseCount: 0,
         publishedAt: version.createdAt,
@@ -221,9 +279,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const session = await prisma.gameSession.findFirst({ where: { quizId: id, userId: user.id, mode: 'async', status: 'open' } })
     if (!session) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
 
-    const update: { allowRetries?: boolean; closesAt?: Date | null; timeLimitMinutes?: number | null } = {}
+    const schedule = parseScheduleFields(body, { opensAt: session.opensAt, closesAt: session.closesAt })
+    if (!schedule.ok) {
+      return NextResponse.json({ success: false, error: schedule.error }, { status: 400 })
+    }
+
+    const update: { allowRetries?: boolean; opensAt?: Date | null; closesAt?: Date | null; timeLimitMinutes?: number | null } = {}
     if (typeof body.allowRetries === 'boolean') update.allowRetries = body.allowRetries
-    if ('closesAt' in body) update.closesAt = body.closesAt ? new Date(body.closesAt as string) : null
+    if ('opensAt' in body) update.opensAt = schedule.opensAt ?? null
+    if ('closesAt' in body) update.closesAt = schedule.closesAt ?? null
     if ('timeLimitMinutes' in body) {
       const tlm = body.timeLimitMinutes
       update.timeLimitMinutes = (typeof tlm === 'number' && Number.isInteger(tlm) && tlm > 0) ? tlm : null
@@ -233,7 +297,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     return NextResponse.json({
       success: true,
-      data: { sessionId: updated.id, shareSlug: updated.shareSlug, allowRetries: updated.allowRetries, closesAt: updated.closesAt, timeLimitMinutes: updated.timeLimitMinutes },
+      data: { sessionId: updated.id, shareSlug: updated.shareSlug, allowRetries: updated.allowRetries, opensAt: updated.opensAt, closesAt: updated.closesAt, timeLimitMinutes: updated.timeLimitMinutes },
     })
   } catch {
     return NextResponse.json({ success: false, error: 'Failed to update' }, { status: 500 })

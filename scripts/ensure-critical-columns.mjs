@@ -34,6 +34,8 @@ const CRITICAL_COLUMNS = [
   { table: 'Quiz', column: 'selfPaced', type: 'BOOLEAN NOT NULL DEFAULT false' },
   { table: 'Quiz', column: 'timeLimitMinutes', type: 'INTEGER' },
   { table: 'Quiz', column: 'allowRetries', type: 'BOOLEAN NOT NULL DEFAULT false' },
+  // Scheduled self-paced quizzes — participants cannot start before opensAt
+  { table: 'GameSession', column: 'opensAt', type: 'TIMESTAMP(3)' },
 ]
 
 // Tables introduced in Sessions 1, 3, 4, 5, 6, 7-8. Each block is a single
