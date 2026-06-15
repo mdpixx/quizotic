@@ -10,6 +10,38 @@ const SITE = 'https://www.quizotic.live'
 // Bump this date when static page copy changes.
 const STATIC_LAST_MODIFIED = '2026-05-15'
 
+// India-education pages that get priority boosts (exact path match).
+const INDIA_EDU_PRIORITY_BOOST: Record<string, number> = {
+  '/ncert-quiz-generator': 1.0,
+  '/for/coaching-institutes': 0.9,
+  '/for/teachers': 0.9,
+  '/learn/best-quiz-app-jee-neet-coaching-institutes': 0.9,
+  '/learn/mentimeter-vs-slido-vs-quizotic': 0.9,
+  '/learn/slido-alternatives-india-2026': 0.9,
+  '/learn/audience-polling-tool-comparison': 0.9,
+  '/vs/slido': 0.9,
+  '/learn/how-to-run-a-live-quiz-cbse-classroom': 0.9,
+  '/learn/cbse-class-10-free-quiz-questions': 0.9,
+}
+
+// Global head-term pages with low domain authority — pull crawl budget back.
+const GLOBAL_HEAD_TERM_DEPRIORITISE: Record<string, number> = {
+  '/quiz-maker': 0.6,
+  '/live-polling': 0.6,
+  '/alternatives/slido': 0.7,
+  '/alternatives/kahoot': 0.6,
+  '/alternatives/mentimeter': 0.6,
+  '/alternatives/quizizz': 0.6,
+  '/alternatives/ahaslides': 0.6,
+  '/alternatives/poll-everywhere': 0.6,
+}
+
+function resolvedPriority(path: string, defaultPriority: number): number {
+  if (INDIA_EDU_PRIORITY_BOOST[path] !== undefined) return INDIA_EDU_PRIORITY_BOOST[path]
+  if (GLOBAL_HEAD_TERM_DEPRIORITISE[path] !== undefined) return GLOBAL_HEAD_TERM_DEPRIORITISE[path]
+  return defaultPriority
+}
+
 type ChangeFreq = 'always' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'never'
 
 interface Entry {
@@ -104,6 +136,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url: `${SITE}${entry.path}`,
     lastModified: entry.lastModified ?? STATIC_LAST_MODIFIED,
     changeFrequency: entry.changeFrequency,
-    priority: entry.priority,
+    priority: resolvedPriority(entry.path, entry.priority),
   }))
 }

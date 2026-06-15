@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=1280"/>
+<title>Scheduled Quizzes — Quizotic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #F5F0E8; min-height: 100vh; }
+
+  /* Sidebar */
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; background: #0F1B3D; flex-shrink: 0; display: flex; flex-direction: column; padding: 20px 0; }
+  .sidebar-logo { display: flex; align-items: center; gap: 8px; padding: 0 20px 24px; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 16px; }
+  .logo-mark { width: 32px; height: 32px; background: #F5E642; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 14px; color: #0F1B3D; }
+  .logo-name { font-weight: 800; font-size: 15px; color: #fff; letter-spacing: -0.3px; }
+  .nav-section { font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.35); letter-spacing: 1px; text-transform: uppercase; padding: 0 20px 8px; margin-top: 4px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px; font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.55); cursor: pointer; transition: all 0.15s; border-left: 2px solid transparent; }
+  .nav-item.active { color: #F5E642; background: rgba(245,230,66,0.08); border-left-color: #F5E642; }
+  .nav-item svg { width: 15px; height: 15px; opacity: 0.7; flex-shrink: 0; }
+  .nav-item.active svg { opacity: 1; }
+  .sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: #F5E642; color: #0F1B3D; font-weight: 900; font-size: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .user-info { flex: 1; min-width: 0; }
+  .user-name { font-size: 12px; font-weight: 700; color: #fff; }
+  .user-role { font-size: 10px; color: rgba(255,255,255,0.45); }
+
+  /* Main content */
+  .main { flex: 1; padding: 32px 36px; }
+  .page-header { margin-bottom: 24px; }
+  .page-title { font-size: 26px; font-weight: 900; color: #0F1B3D; letter-spacing: -0.5px; }
+  .page-subtitle { font-size: 13px; color: #64748B; margin-top: 4px; }
+
+  /* Section */
+  .section { margin-bottom: 28px; }
+  .section-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .section-title { font-size: 15px; font-weight: 900; color: #0F1B3D; }
+  .chip { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .chip-amber { background: #FFFBEB; color: #92400E; border: 1px solid #FDE68A; }
+  .chip-green { background: #ECFDF5; color: #047857; border: 1px solid #BBF7D0; }
+  .chip-gray { background: #F8FAFC; color: #64748B; border: 1px solid #E2E8F0; }
+
+  /* Cards grid */
+  .cards-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .card { background: #fff; border: 1px solid #E2E8F0; border-radius: 16px; padding: 16px; }
+
+  /* Card header */
+  .card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .card-title { font-size: 15px; font-weight: 900; color: #0F1B3D; line-height: 1.35; }
+  .card-q-chip { background: #F8FAFC; color: #64748B; border: 1px solid #E2E8F0; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+
+  /* Countdown box */
+  .countdown-box { background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 12px; padding: 8px 12px; margin-bottom: 12px; }
+  .countdown-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #B45309; }
+  .countdown-value { font-size: 22px; font-weight: 900; color: #92400E; font-variant-numeric: tabular-nums; }
+
+  /* Open now box */
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .stat-box { background: #F8FAFC; border-radius: 12px; padding: 8px 12px; }
+  .stat-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #94A3B8; }
+  .stat-value { font-size: 14px; font-weight: 900; color: #0F1B3D; }
+
+  /* Meta text */
+  .card-meta { font-size: 11px; color: #64748B; margin-bottom: 12px; line-height: 1.6; }
+  .card-meta strong { color: #0F1B3D; font-weight: 700; }
+
+  /* Action buttons */
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; border: none; }
+  .btn-primary-dark { background: #0F1B3D; color: #fff; }
+  .btn-outline { background: #fff; color: #0F1B3D; border: 1px solid #E2E8F0; }
+  .btn-red-outline { background: #fff; color: #B91C1C; border: 1px solid #FCA5A5; }
+
+  /* Closed table */
+  .closed-table { background: #fff; border: 1px solid #E2E8F0; border-radius: 16px; overflow: hidden; }
+  .closed-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #E2E8F0; }
+  .closed-row:last-child { border-bottom: none; }
+  .closed-info { flex: 1; min-width: 0; }
+  .closed-title { font-size: 13px; font-weight: 700; color: #0F1B3D; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .closed-meta { font-size: 10px; color: #64748B; margin-top: 1px; }
+
+  svg { vertical-align: middle; }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">Q</div>
+      <span class="logo-name">Quizotic</span>
+    </div>
+
+    <div class="nav-section">Main</div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 12l4-4 4 4 5-5"/></svg>
+      Reports
+    </div>
+    <div class="nav-section">Content</div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 0 2-2h2a2 2 0 0 0 2 2"/></svg>
+      My Quizzes
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+      Presentations
+    </div>
+    <div class="nav-item active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 14v4M14.5 16.5l-2.5 1.5"/></svg>
+      Scheduled
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 0 0 4.93 19.07M4.93 4.93A10 10 0 0 1 19.07 19.07"/></svg>
+      Settings
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="avatar">MD</div>
+      <div class="user-info">
+        <div class="user-name">Mahesh Dhiman</div>
+        <div class="user-role">L&amp;D Manager</div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="page-header">
+      <h1 class="page-title">Scheduled</h1>
+      <p class="page-subtitle">Self-paced quizzes that open, run, and close on a schedule — no host needed.</p>
+    </div>
+
+    <!-- Upcoming section -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title">Upcoming</span>
+        <span class="chip chip-amber">2</span>
+      </div>
+      <div class="cards-grid">
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">AI Awareness Quiz — Batch 4</span>
+            <span class="card-q-chip">12 Qs</span>
+          </div>
+          <div class="countdown-box">
+            <div class="countdown-label">Opens in</div>
+            <div class="countdown-value">02:34:17</div>
+          </div>
+          <div class="card-meta">
+            Opens 14 Jun 2026, 11:00 am<br/>
+            Closes 21 Jun 2026, 6:00 pm
+          </div>
+          <div class="actions">
+            <button class="btn btn-primary-dark">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy link
+            </button>
+            <button class="btn btn-outline">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 21v.01M17 21h.01M21 17h.01"/></svg>
+              Show QR
+            </button>
+            <button class="btn btn-red-outline">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
+              Cancel
+            </button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Fire Safety &amp; Emergency Procedures</span>
+            <span class="card-q-chip">18 Qs</span>
+          </div>
+          <div class="countdown-box">
+            <div class="countdown-label">Opens in</div>
+            <div class="countdown-value">1d 08:12:45</div>
+          </div>
+          <div class="card-meta">
+            Opens 15 Jun 2026, 9:00 am<br/>
+            Closes 22 Jun 2026, 9:00 am
+          </div>
+          <div class="actions">
+            <button class="btn btn-primary-dark">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy link
+            </button>
+            <button class="btn btn-outline">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 21v.01M17 21h.01M21 17h.01"/></svg>
+              Show QR
+            </button>
+            <button class="btn btn-red-outline">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
+              Cancel
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Open now section -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title">Open now</span>
+        <span class="chip chip-green">1</span>
+      </div>
+      <div class="cards-grid">
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Digital Literacy — Batch 2026</span>
+            <span class="chip chip-green">Live</span>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-box">
+              <div class="stat-label">Joined</div>
+              <div class="stat-value">34</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Finished</div>
+              <div class="stat-value">22</div>
+            </div>
+          </div>
+          <div class="card-meta">
+            Closes 16 Jun 2026, 6:00 pm<br/>
+            <strong>Closes in 1d 09:47:30</strong>
+          </div>
+          <div class="actions">
+            <button class="btn btn-primary-dark">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy link
+            </button>
+            <button class="btn btn-red-outline">Close now</button>
+            <button class="btn btn-outline">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 12l4-4 4 4 5-5"/></svg>
+              View live report
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Recently closed -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title">Recently closed</span>
+        <span class="chip chip-gray">2</span>
+      </div>
+      <div class="closed-table">
+        <div class="closed-row">
+          <div class="closed-info">
+            <div class="closed-title">Cybersecurity Awareness Quiz</div>
+            <div class="closed-meta">48 participants · avg 76% · ended 7 Jun 2026</div>
+          </div>
+          <button class="btn btn-outline">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 12l4-4 4 4 5-5"/></svg>
+            View report
+          </button>
+        </div>
+        <div class="closed-row">
+          <div class="closed-info">
+            <div class="closed-title">Workplace Safety Refresher</div>
+            <div class="closed-meta">62 participants · avg 81% · ended 1 Jun 2026</div>
+          </div>
+          <button class="btn btn-outline">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 12l4-4 4 4 5-5"/></svg>
+            View report
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+</body>
+</html>

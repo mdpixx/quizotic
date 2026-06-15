@@ -178,11 +178,11 @@ export const ALTERNATIVES: Record<string, AlternativeContent> = {
 
   slido: {
     competitor: 'Slido',
-    metaTitle: 'Slido Alternative — Quizotic (Quiz + Polls + Q&A, INR Pricing)',
-    metaDescription: 'Slido alternative with full quiz mechanics. Live Q&A, polls, word clouds, plus competitive quiz mode with leaderboard. INR pricing with UPI. Free tier.',
-    h1: 'Slido Alternatives — Add Quiz Mechanics to Your Q&A and Polls',
-    tagline: 'Slido excels at Q&A. Quizotic gives you Q&A, polls, word clouds, AND a full quiz engine with leaderboard — in one tool.',
-    intro: 'Slido is popular for conference Q&A and quick audience polls. Quizotic covers the same use case and adds everything else — competitive quiz mode, self-paced assessments, AI quiz generation, Bloom tagging, and spaced-retrieval review. If you run trainings, workshops, or classes where Q&A is only one piece of the puzzle, Quizotic handles the whole session.',
+    metaTitle: 'Slido Alternative for India — INR, UPI, GST + Quiz Mechanics',
+    metaDescription: 'Best Slido alternative for Indian trainers and schools: INR billing, UPI, GST invoices, quiz leaderboard, ~80KB page. Free for 50 participants. No Webex needed.',
+    h1: 'Slido alternative for India — INR billing, UPI, quiz mechanics built in',
+    tagline: 'Slido is built for Cisco Webex enterprises. Quizotic is built for India — INR/UPI billing, GST invoices, 4× lighter page, and a full quiz engine alongside Q&A and polls.',
+    intro: 'Slido (acquired by Cisco in 2021) dominates enterprise Q&A in Webex-heavy organisations. But for the majority of Indian trainers, college faculty, coaching institutes, and event organisers who run on Zoom, Teams, or Google Meet — the Webex integration is worthless while you keep paying USD. Quizotic is the India-first alternative: INR billing at ₹499/month, UPI payment, domestic GST invoice via Razorpay, and a participant page at ~80KB (vs Slido\'s ~350KB) that joins in 1–2 seconds on classroom or office Wi-Fi. On top of the Q&A and polls that Slido covers, Quizotic adds a full quiz engine with leaderboard, speed bonus, AI generation from PDFs, Bloom tagging, and NCERT content for Indian schools — all in one tool.',
     rows: [
       { feature: 'Live Q&A with upvotes', quizotic: 'Yes', competitor: 'Yes', winner: 'tie' },
       { feature: 'Live polls', quizotic: 'Yes', competitor: 'Yes', winner: 'tie' },
@@ -211,20 +211,29 @@ export const ALTERNATIVES: Record<string, AlternativeContent> = {
       },
       {
         question: 'Is there a free plan?',
-        answer: 'Yes, with 10 participants per session. Pro extends to 200, Team plans cover larger events.',
+        answer: 'Yes — 50 participants per session, all interaction types unlocked (Q&A, polls, word clouds, quiz). No credit card required. Pro at ₹499/month via UPI removes participant limits.',
       },
       {
-        question: 'Does Quizotic work in Zoom?',
-        answer: 'Yes. Share your screen in Zoom; participants open quizotic.live/join in another tab. No Zoom plugin needed.',
+        question: 'Does Quizotic work in Zoom, Teams, or Google Meet?',
+        answer: 'Yes. Host shares the Quizotic screen; participants open quizotic.live/join in their phone browser. No plugin needed. The ~80KB page loads fast even on mobile data.',
+      },
+      {
+        question: 'Can I get a GST invoice from Quizotic?',
+        answer: 'Yes. All Pro and Team billing goes through Razorpay with a domestic Indian GST invoice. You can use it for input credit — unlike Slido which invoices from Ireland.',
+      },
+      {
+        question: 'How does INR pricing compare to Slido?',
+        answer: 'Slido Engage is $12.50/host/month — approximately ₹1,050 plus 3% FX surcharge plus reverse-charge GST headache. Quizotic Pro is ₹499/month flat via UPI, domestic GST invoice included. For a team of 5 hosts, the annual saving is ~₹33,000.',
       },
     ],
     related: [
-      { title: 'Quizotic vs Slido', href: '/vs/slido', description: 'Side-by-side feature comparison.' },
-      { title: 'Slido alternatives 2026 (deep dive)', href: '/learn/slido-alternatives-india-2026', description: '5 Slido alternatives compared — Mentimeter, AhaSlides, Wooclap, Poll Everywhere, Quizotic.' },
-      { title: 'For Event Hosts', href: '/for/event-hosts', description: 'Conferences, town halls, trivia.' },
-      { title: 'For Corporate Trainers', href: '/for/corporate-trainers', description: 'Workshops, all-hands, training.' },
+      { title: 'Quizotic vs Slido — India Feature Comparison', href: '/vs/slido', description: 'Head-to-head: INR pricing, quiz depth, page weight, Webex.' },
+      { title: '5 Slido Alternatives India 2026', href: '/learn/slido-alternatives-india-2026', description: 'Mentimeter, AhaSlides, Wooclap, Poll Everywhere, Quizotic ranked for Indian buyers.' },
+      { title: 'Mentimeter vs Slido vs Quizotic — India', href: '/learn/mentimeter-vs-slido-vs-quizotic', description: 'Three-way comparison: INR billing, UPI, GST, page weight.' },
+      { title: 'Audience Polling Tools — India Compared', href: '/learn/audience-polling-tool-comparison', description: 'Full side-by-side table for Indian trainers and educators.' },
+      { title: 'For Corporate Trainers', href: '/for/corporate-trainers', description: 'L&D, onboarding, compliance — India.' },
     ],
-    keywords: ['slido alternative', 'slido alternative india', 'slido vs quizotic', 'cisco slido alternative', 'slido alternatives 2026', 'slido competitor india'],
+    keywords: ['slido alternative india', 'slido alternative inr', 'slido alternative upi', 'slido alternative free india', 'slido competitors india', 'slido alternatives 2026 india'],
   },
 
   ahaslides: {

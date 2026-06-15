@@ -357,9 +357,9 @@ export const LEARN_ARTICLES: Record<string, LearnArticle> = {
   'best-quiz-app-jee-neet-coaching-institutes': {
     slug: 'best-quiz-app-jee-neet-coaching-institutes',
     category: 'cbse-ncert',
-    metaTitle: 'Best Quiz Apps for JEE/NEET Coaching Institutes in India (2026)',
+    metaTitle: 'Best Quiz App for JEE/NEET Coaching Institutes — India 2026',
     metaDescription:
-      'Comparison of quiz platforms for Indian JEE/NEET coaching institutes. Batch-wise mocks, leaderboards, mastery tracking, INR billing, GST invoices.',
+      '6 quiz platforms for JEE/NEET coaching institutes compared: batch support, Bloom tagging, INR billing, GST invoices, mock format. Free tiers included.',
     h1: 'Best quiz apps for JEE/NEET coaching institutes in India (2026)',
     tagline:
       'Six platforms compared on batch support, mock-test handling, mastery analytics, INR pricing, and GST invoicing.',
@@ -436,16 +436,24 @@ export const LEARN_ARTICLES: Record<string, LearnArticle> = {
           'Yes. Live mode requires students to be online at the same time as the host. Self-paced mode lets students take the quiz any time within a window — useful for evening homework or weekend revision drills.',
       },
     ],
-    related: COACHING_RELATED,
+    related: [
+      { title: 'For JEE/NEET Coaching Institutes', href: '/for/coaching-institutes', description: 'Batch-wise mocks, leaderboards, Bloom mastery tracking.' },
+      { title: 'NCERT Quiz Generator', href: '/ncert-quiz-generator', description: 'CBSE & NCERT chapter-wise quizzes for Classes 6–12.' },
+      { title: 'AI Quiz Generator', href: '/ai-quiz-generator', description: 'Generate Bloom-tagged MCQs from PYQ PDFs.' },
+      { title: 'Mentimeter vs Slido vs Quizotic — India', href: '/learn/mentimeter-vs-slido-vs-quizotic', description: 'Live polling tools compared for Indian buyers — INR, UPI, GST.' },
+      { title: '5 Slido Alternatives India 2026', href: '/learn/slido-alternatives-india-2026', description: 'Quiz + polling tools for Indian trainers — INR billing.' },
+      { title: 'Live Quiz', href: '/live-quiz', description: 'Speed-bonus quiz with real-time leaderboard.' },
+    ],
     keywords: [
       'best quiz app for jee neet coaching',
-      'jee mock test platform',
+      'jee mock test platform india',
       'neet quiz software india',
-      'coaching institute quiz tool',
+      'coaching institute quiz tool india',
       'live quiz for coaching classes india',
+      'quiz app for coaching institute',
     ],
     publishedAt: '2026-04-29',
-    updatedAt: '2026-04-29',
+    updatedAt: '2026-06-15',
     readingMinutes: 8,
   },
 
@@ -804,9 +812,9 @@ export const LEARN_ARTICLES: Record<string, LearnArticle> = {
   'mentimeter-vs-slido-vs-quizotic': {
     slug: 'mentimeter-vs-slido-vs-quizotic',
     category: 'comparison',
-    metaTitle: 'Mentimeter vs Slido vs Quizotic — Which Live Polling Tool to Pick',
+    metaTitle: 'Mentimeter vs Slido vs Quizotic — India 2026 (INR, UPI, GST)',
     metaDescription:
-      'Mentimeter, Slido, and Quizotic compared on price, feature depth, integration, and India fit. Decision guide for trainers, hosts, and event organizers.',
+      'Mentimeter, Slido, and Quizotic compared for Indian trainers. INR billing, UPI, GST invoices, page weight, quiz depth. Clear winner table for India buyers.',
     h1: 'Mentimeter vs Slido vs Quizotic',
     tagline: 'Live polling tools, side by side. India-fit, integrations, pricing.',
     tldr: [
@@ -839,6 +847,11 @@ export const LEARN_ARTICLES: Record<string, LearnArticle> = {
         body:
           'Mentimeter: USD-budget global team, no quiz needs, brand familiarity matters. Slido: already on Cisco/Webex. Quizotic: Indian L&D team, education sector, anyone wanting both polls and quizzes in one tool, slow Wi-Fi audiences. For a deeper Slido-specific breakdown across 5 alternatives, see the related Slido alternatives 2026 guide and the Quizotic vs Slido head-to-head linked below.',
       },
+      {
+        heading: 'India-specific buying factors (2026)',
+        body:
+          'Three factors dominate purchase decisions for Indian L&D teams, trainers, and educators. **GST invoicing:** only Quizotic issues a domestic Indian GST invoice via Razorpay — Mentimeter and Slido issue international invoices from Sweden and Ireland respectively, which means Indian buyers handle GST under reverse charge with no input credit. For school accounts and corporate L&D departments this is material. **UPI and INR billing:** no credit card required on Quizotic; pay monthly or annual via UPI, NEFT, or Indian Visa/Mastercard without the 3% international card surcharge. On Mentimeter or Slido, Indian cards with international transaction turned off simply bounce. **Bandwidth reality:** IndianOil, NTPC, ONGC, DDA, CBSE schools, and most coaching institutes operate on shared 5–20 Mbps links serving 50–200 simultaneous users. At classroom scale, Mentimeter\'s ~250KB participant page loads in 4–6 seconds; Slido\'s ~350KB loads in 7–10 seconds; Quizotic\'s ~80KB loads in 1–2 seconds. For a 20-minute L&D session the join latency is the difference between the tool working and not. Hindi support is also on Quizotic\'s v2 shipping now, with Tamil, Telugu, and Marathi on the 2026 roadmap — the only tool on this list building for regional Indian languages.',
+      },
     ],
     faqs: [
       {
@@ -856,22 +869,34 @@ export const LEARN_ARTICLES: Record<string, LearnArticle> = {
         answer:
           'On corporate Wi-Fi shared with 100+ devices, a 300KB page can take 10+ seconds to load on a phone. Audience attention is gone by then. ~80KB pages join in 1–2 seconds even on slow Wi-Fi.',
       },
+      {
+        question: 'Which tool gives a GST invoice in India?',
+        answer:
+          'Only Quizotic. Mentimeter invoices from Sweden and Slido from Ireland — both are international invoices. Indian buyers can reclaim GST via reverse charge but the process is cumbersome. Quizotic uses Razorpay for all billing, issuing domestic GSTIN-stamped invoices automatically.',
+      },
+      {
+        question: 'Can I pay in INR via UPI?',
+        answer:
+          'Yes, on Quizotic — UPI, NEFT, and Indian cards are all accepted at ₹499/month Pro or ₹4,499/year. Mentimeter and Slido require international-enabled cards or PayPal.',
+      },
     ],
     related: [
-      { title: 'Quizotic vs Slido', href: '/vs/slido', description: 'Side-by-side feature comparison.' },
-      { title: 'Slido alternative — overview', href: '/alternatives/slido', description: 'Full Slido alternative breakdown.' },
-      { title: 'Slido alternatives 2026', href: '/learn/slido-alternatives-india-2026', description: '5 Slido alternatives compared for Indian buyers.' },
-      { title: 'For Corporate Trainers', href: '/for/corporate-trainers', description: 'L&D, onboarding, compliance.' },
+      { title: 'Quizotic vs Slido — India', href: '/vs/slido', description: 'Head-to-head feature comparison for Indian buyers.' },
+      { title: '5 Slido Alternatives India 2026', href: '/learn/slido-alternatives-india-2026', description: '5 Slido alternatives compared for Indian trainers — INR, UPI, GST.' },
+      { title: 'Audience Polling Tools — India Comparison', href: '/learn/audience-polling-tool-comparison', description: 'Mentimeter, Slido, AhaSlides, Quizotic compared on India fit.' },
+      { title: 'Best Quiz App for JEE/NEET Coaching', href: '/learn/best-quiz-app-jee-neet-coaching-institutes', description: 'Coaching institute quiz tool comparison — India 2026.' },
+      { title: 'For Corporate Trainers', href: '/for/corporate-trainers', description: 'L&D, onboarding, compliance — India.' },
     ],
     keywords: [
-      'mentimeter vs slido',
+      'mentimeter vs slido india',
+      'mentimeter vs slido vs quizotic',
       'mentimeter alternative india',
-      'slido alternative',
-      'live polling tool comparison',
+      'slido alternative india',
+      'live polling tool comparison india',
       'audience response tool india',
     ],
     publishedAt: '2026-04-29',
-    updatedAt: '2026-04-29',
+    updatedAt: '2026-06-15',
     readingMinutes: 5,
   },
 
@@ -1970,9 +1995,9 @@ export const LEARN_ARTICLES: Record<string, LearnArticle> = {
   'slido-alternatives-india-2026': {
     slug: 'slido-alternatives-india-2026',
     category: 'comparison',
-    metaTitle: '5 Slido Alternatives for Indian Trainers, Conferences & Workshops (2026)',
+    metaTitle: '5 Slido Alternatives for India in 2026 — INR, UPI & GST',
     metaDescription:
-      'Looking for a Slido alternative with INR billing, UPI payments, and quiz mechanics built in? Five Slido alternatives compared — Quizotic, Mentimeter, AhaSlides, Wooclap, and Poll Everywhere.',
+      'Best Slido alternatives for Indian trainers: Quizotic (₹499/mo, INR/UPI/GST), Mentimeter, AhaSlides, Wooclap, Poll Everywhere. Quiz + polls in one tool.',
     h1: '5 Slido alternatives for Indian trainers, conferences & workshops (2026)',
     tagline:
       'Slido is great for Webex shops. For everyone else — INR pricing, lighter pages, and quiz depth matter more.',
@@ -2055,20 +2080,22 @@ export const LEARN_ARTICLES: Record<string, LearnArticle> = {
       },
     ],
     related: [
-      { title: 'Quizotic vs Slido', href: '/vs/slido', description: 'Side-by-side feature comparison.' },
-      { title: 'Slido alternative — overview', href: '/alternatives/slido', description: 'Full Slido alternative breakdown.' },
-      { title: 'Live Polling', href: '/live-polling', description: 'Real-time audience polls.' },
-      { title: 'For Corporate Trainers', href: '/for/corporate-trainers', description: 'Workshops, all-hands, training.' },
+      { title: 'Quizotic vs Slido — India Feature Comparison', href: '/vs/slido', description: 'Side-by-side: INR pricing, quiz depth, page weight, Cisco Webex.' },
+      { title: 'Mentimeter vs Slido vs Quizotic — India 2026', href: '/learn/mentimeter-vs-slido-vs-quizotic', description: 'Three-way comparison for Indian trainers: INR, UPI, GST.' },
+      { title: 'Audience Polling Tools — India Comparison', href: '/learn/audience-polling-tool-comparison', description: 'Mentimeter, Slido, AhaSlides, Quizotic side-by-side.' },
+      { title: 'For Corporate Trainers', href: '/for/corporate-trainers', description: 'L&D, onboarding, compliance training — India.' },
+      { title: 'Interactive Presentation', href: '/interactive-presentation', description: 'Polls, word clouds, Q&A in one presentation.' },
     ],
     keywords: [
-      'slido alternative',
       'slido alternative india',
-      'best slido alternative',
-      'slido vs mentimeter',
+      'best slido alternative india 2026',
+      'slido alternative inr billing',
+      'slido vs mentimeter india',
       'slido alternatives 2026',
+      'slido alternative upi',
     ],
     publishedAt: '2026-04-29',
-    updatedAt: '2026-04-29',
+    updatedAt: '2026-06-15',
     readingMinutes: 6,
   },
 
@@ -2144,57 +2171,79 @@ export const LEARN_ARTICLES: Record<string, LearnArticle> = {
   'audience-polling-tool-comparison': {
     slug: 'audience-polling-tool-comparison',
     category: 'comparison',
-    metaTitle: 'Audience Polling Tool Comparison (2026) — Mentimeter, Slido, Quizotic, AhaSlides',
+    metaTitle: 'Best Audience Polling Tools for India 2026 — Compared',
     metaDescription:
-      'Side-by-side comparison of audience polling tools. Pricing, feature depth, India fit, integrations.',
-    h1: 'Audience polling tool comparison (2026)',
-    tagline: 'Mentimeter, Slido, AhaSlides, Quizotic — head-to-head on price, features, India fit.',
+      'Mentimeter, Slido, AhaSlides, Quizotic compared for Indian buyers: INR pricing, UPI, GST invoices, page weight, quiz depth. Free tier details included.',
+    h1: 'Audience polling tool comparison for India (2026)',
+    tagline: 'Mentimeter, Slido, AhaSlides, Quizotic — head-to-head on price, features, and India fit.',
     tldr: [
-      'Mentimeter: best brand, USD pricing.',
-      'Slido: best for Cisco shops.',
-      'AhaSlides: cheapest USD option.',
-      'Quizotic: INR-native, GST invoices, lightest pages.',
+      'Mentimeter: best brand recognition, USD pricing, no INR billing.',
+      'Slido: best only if you are on Cisco Webex — otherwise average.',
+      'AhaSlides: cheapest USD option with solid quiz mode.',
+      'Quizotic: only INR-native tool with UPI, GST invoices, and quiz mechanics built in.',
+      'For Indian trainers paying out of pocket: Quizotic wins on price and GST invoicing.',
+      'For slow school/corporate Wi-Fi: Quizotic (~80KB) loads 4× faster than Slido (~350KB).',
     ],
     intro:
-      'Audience polling tools have converged on features. The differences emerge in pricing model, integration depth, and India fit. Quick comparison.',
+      'Audience polling tools have converged on features. The real differences emerge in pricing model, GST compliance, page weight on slow Wi-Fi, and whether quiz mechanics sit alongside polls. For Indian trainers, educators, and event organisers the decision usually comes down to three questions: Can I pay in INR? Do I get a GST invoice? Does it handle the bandwidth of my school or training room? Here is the full breakdown.',
     sections: [
       {
-        heading: 'Quick reference',
+        heading: 'Quick reference table',
         body:
-          'Pricing entry tier: Mentimeter $11.99/mo, AhaSlides $7.95/mo, Slido $12.50/mo, Quizotic ₹499/mo. Free tiers: all four offer free tiers; Quizotic\'s is most generous (50 participants). Page weight: Quizotic ~80KB, Mentimeter ~250KB, AhaSlides ~300KB, Slido ~350KB. UPI/GST: Quizotic only. Quiz mechanics on top of polls: Quizotic only.',
+          '| Tool | Entry price | INR billing | UPI | GST invoice | Quiz depth | Page weight | | --- | --- | --- | --- | --- | --- | --- | | **Quizotic** | ₹499/mo | Yes | Yes | Yes (Razorpay) | Full Kahoot-style leaderboard | ~80KB | | Mentimeter | $11.99/mo | No | No | International | "Quiz Competition" slide | ~250KB | | AhaSlides | $7.95/mo | No | No | International | Solid quiz mode | ~300KB | | Slido | $12.50/mo | No | No | International | Basic (add-on tier) | ~350KB | Free tiers: Quizotic (50 participants, all features), Mentimeter (limited slides), AhaSlides (25 participants), Slido (Q&A only, 100 participants).',
       },
       {
-        heading: 'When each wins',
+        heading: 'The India-specific factors that change the ranking',
         body:
-          'Mentimeter: USD-budget, brand-first audiences. AhaSlides: cheapest USD option, strongest listicle SEO presence (you\'ve seen them on every "Mentimeter alternative" article). Slido: Cisco/Webex-integrated companies. Quizotic: India-priced, want quiz + polls in one tool, slow Wi-Fi audiences.',
+          'On a global comparison Mentimeter often ranks first on brand and polish. On an India-buyer comparison the ranking flips for three structural reasons. **(1) Billing reality:** International cards issued by Indian banks (SBI, HDFC, ICICI, Axis) often have "international transactions" disabled by default — Mentimeter and Slido simply fail at payment. Quizotic accepts UPI (no card needed), all Indian debit and credit cards, and NEFT. **(2) GST input credit:** Indian companies and institutions need a domestic GSTIN invoice to claim 18% GST input credit. Mentimeter issues from Sweden, Slido from Ireland, AhaSlides from elsewhere — all international invoices. Quizotic bills via Razorpay with a valid Indian GSTIN invoice. For a training department buying 10 seats, that\'s an 18% cost difference. **(3) Wi-Fi reality in Indian institutions:** CBSE schools, ICSE schools, coaching institutes, and PSU training centres typically share 5–20 Mbps across 50–200 users. On that link, Slido\'s ~350KB participant page takes 7–10 seconds to load and Mentimeter\'s ~250KB takes 4–6 seconds. Quizotic\'s ~80KB loads in 1–2 seconds — the entire join flow is done before the slowest tool has started rendering. For a 30-student classroom that matters every session.',
+      },
+      {
+        heading: 'When each tool wins',
+        body:
+          'Mentimeter: USD budget, global organisation standardised on it, no quiz needs. Best use: international corporate workshops, polished template-heavy presentations. AhaSlides: cheapest USD option; strongest "Mentimeter alternative" mindshare online. Best use: trainers who need Slido-level functionality at lowest USD cost and have an international card. Slido: only wins if you are already on Cisco Webex for all-hands events. Outside Webex the value proposition collapses. Quizotic: Indian schools, CBSE/NCERT coaching institutes, PSU training departments, event organisers, any team paying in INR. Best use: India-first L&D, classroom engagement, gamified live quizzes alongside interactive polls.',
+      },
+      {
+        heading: 'Depth on quiz mechanics (the hidden differentiator)',
+        body:
+          'Mentimeter\'s "Quiz Competition" is a single slide type — MCQ with a timer, basic leaderboard, no speed bonus. AhaSlides has a more developed quiz mode with a leaderboard and team option. Slido\'s quiz feature is add-on and basic. Quizotic is the only tool on this list built with a full quiz engine from the ground up: 11 question types (MCQ, assertion-reasoning, matching, fill-in-blank, drag-and-drop, open-text, word cloud, rating, ranking, NPS, image MCQ), speed bonus scoring, team mode, Bloom\'s Taxonomy tagging on every question, and per-student Confidence Grid reports. If your use case combines interactive presentations with a gamified quiz component — a common India L&D pattern — only Quizotic handles both without switching tools. Schools using Quizotic for NCERT revision quizzes and JEE/NEET coaching institutes using it for chapter mocks run the full quiz in the same session where they use word clouds and polls.',
       },
     ],
     faqs: [
       {
-        question: 'Which has the best free tier?',
-        answer: 'Quizotic — 50 participants, no time limits, no feature paywall on basic polls.',
+        question: 'Which audience polling tool has the best free tier for India?',
+        answer: 'Quizotic — 50 participants, no session time limit, all poll types and quiz features unlocked on free. Mentimeter limits free to a handful of slides; Slido free is Q&A-only with no quiz mode; AhaSlides free caps at 25 participants.',
       },
       {
         question: 'Which integrates with Microsoft Teams?',
-        answer: 'Mentimeter and Slido have native MS Teams apps; Quizotic uses share-link in chat.',
+        answer: 'Mentimeter and Slido have native MS Teams apps. Quizotic and AhaSlides use share-link in chat — the host pastes the join URL, attendees click and join in their browser. For most Teams calls this works fine; native integration saves one copy-paste.',
+      },
+      {
+        question: 'Can I get a GST invoice from Mentimeter or Slido?',
+        answer: 'No. Both issue international invoices (Sweden and Ireland respectively). Indian buyers must file GST under reverse charge with no straightforward input credit. Quizotic issues a domestic GST invoice automatically via Razorpay.',
+      },
+      {
+        question: 'What is the best polling tool for a 500-person Indian conference?',
+        answer: 'Quizotic for non-Webex conferences — the ~80KB participant page handles crowded conference Wi-Fi better than any tool on this list, and INR/UPI billing simplifies event-budget accounting. Slido if you\'re running the conference on Webex. Mentimeter if you need polished branded templates and budget isn\'t in INR.',
       },
     ],
     related: [
-      { title: 'Quizotic vs Slido', href: '/vs/slido', description: 'Slido head-to-head feature comparison.' },
-      { title: 'Slido alternatives 2026', href: '/learn/slido-alternatives-india-2026', description: '5 Slido alternatives for Indian buyers.' },
-      { title: 'Mentimeter vs Slido vs Quizotic', href: '/learn/mentimeter-vs-slido-vs-quizotic', description: 'Three-way polling tool comparison.' },
-      { title: 'For Corporate Trainers', href: '/for/corporate-trainers', description: 'L&D and workshop use cases.' },
+      { title: 'Quizotic vs Slido — India Feature Comparison', href: '/vs/slido', description: 'Head-to-head: INR pricing, quiz depth, page weight, Cisco Webex.' },
+      { title: '5 Slido Alternatives India 2026', href: '/learn/slido-alternatives-india-2026', description: 'Best Slido alternatives for Indian trainers — INR, UPI, GST.' },
+      { title: 'Mentimeter vs Slido vs Quizotic — India 2026', href: '/learn/mentimeter-vs-slido-vs-quizotic', description: 'Three-way polling tool comparison for Indian buyers.' },
+      { title: 'Best Quiz App for JEE/NEET Coaching', href: '/learn/best-quiz-app-jee-neet-coaching-institutes', description: 'India coaching institute quiz tool comparison.' },
+      { title: 'For Corporate Trainers', href: '/for/corporate-trainers', description: 'L&D, onboarding, compliance — India.' },
     ],
     keywords: [
-      'audience polling tool comparison',
-      'mentimeter vs slido vs ahaslides',
-      'audience response tool',
-      'live poll comparison',
-      'best polling tool',
+      'audience polling tool comparison india',
+      'mentimeter vs slido vs ahaslides india',
+      'best polling tool india',
+      'audience response tool india',
+      'live poll tool india',
+      'inr polling tool',
     ],
     publishedAt: '2026-04-29',
-    updatedAt: '2026-04-29',
-    readingMinutes: 3,
+    updatedAt: '2026-06-15',
+    readingMinutes: 7,
   },
 
   'how-to-run-virtual-event-polls': {
@@ -2377,6 +2426,340 @@ export const LEARN_ARTICLES: Record<string, LearnArticle> = {
     publishedAt: '2026-04-29',
     updatedAt: '2026-04-29',
     readingMinutes: 4,
+  },
+
+  // ============ NEW INDIA-EDUCATION ARTICLES (Phase 2 SEO build-out) ============
+
+  'cbse-class-10-ncert-quiz-science-maths': {
+    slug: 'cbse-class-10-ncert-quiz-science-maths',
+    category: 'cbse-ncert',
+    metaTitle: 'CBSE Class 10 NCERT Quiz — Free Chapter-Wise Science & Maths',
+    metaDescription:
+      'Free NCERT quiz for CBSE Class 10 Science and Maths. Chapter-wise MCQs, assertion-reasoning, case-based questions. Launch a live quiz in class in 10 minutes.',
+    h1: 'CBSE Class 10 NCERT quiz — chapter-wise Science and Maths',
+    tagline: 'Chapter-wise quizzes for CBSE Class 10. Free, Bloom-tagged, NCERT-aligned. Launch in 10 minutes.',
+    tldr: [
+      'Covers all NCERT Class 10 Science chapters (Physics, Chemistry, Biology) and Maths.',
+      'Question types: MCQ, assertion-reasoning, case-based — matching CBSE board exam pattern.',
+      'Free for up to 50 students per session. No app install for students.',
+      'Launch a live quiz or assign as self-paced homework.',
+      'Bloom tagging shows where each student is weak (Remember vs Apply vs Analyze).',
+    ],
+    intro:
+      'Class 10 board exams are the first high-stakes assessment most Indian students face. CBSE has shifted the paper pattern — assertion-reasoning and case-based questions now carry 20–30% weightage alongside traditional MCQ. Teachers who run regular chapter-wise quizzes in this format see measurably better results than those who only give traditional class tests. Here is the complete guide to running chapter-wise NCERT quizzes for CBSE Class 10 Science and Maths — with specific chapter coverage, question type breakdown, and how to use quiz reports to plan the next class.',
+    sections: [
+      {
+        heading: 'Class 10 Science — chapter-wise quiz coverage',
+        body:
+          'The 16 chapters of NCERT Class 10 Science map cleanly to quiz packs on Quizotic. Chapter 1 (Chemical Reactions and Equations) — balancing equations, types of reactions, oxidation/reduction; mostly Apply-level MCQ. Chapter 2 (Acids, Bases and Salts) — indicators, pH, salts; good for assertion-reasoning on properties. Chapter 6 (Life Processes) — nutrition, respiration, transportation, excretion; diagram-based case questions work well here. Chapter 10 (Light — Reflection and Refraction) — mirror/lens formula, ray diagrams; the highest-weightage Physics chapter in boards. Chapter 15 (Our Environment) — food chains, ecosystem, ozone; mostly Remember-level, quick revision quiz before boards. Chapter 16 (Sustainable Management of Natural Resources) — often skipped in revision, but appears in 3-mark questions regularly. Teachers running weekly 15-minute quizzes on one chapter per session report that students who do this perform 15–20 marks better on average in pre-board mock tests, because gaps are caught early rather than in the last week.',
+      },
+      {
+        heading: 'Class 10 Maths — chapter-wise quiz coverage',
+        body:
+          'Class 10 Maths has 15 chapters across Algebra, Geometry, Trigonometry, Statistics, and Probability. Quiz use differs from Science: Maths quizzes work best as step-check quizzes — not just "is the answer right" but "which step did you get wrong." Quizotic supports open-text questions where students type intermediate steps, flagging conceptual gaps. Chapter 4 (Quadratic Equations) — discriminant, nature of roots, word problems; assertion-reasoning format fits well. Chapter 6 (Triangles) — similarity criteria, Pythagoras theorem; diagram-based MCQ. Chapter 8 (Introduction to Trigonometry) — identities, standard values; the most drilled chapter. Chapter 10 (Circles) — tangent properties; often worth 8–10 marks in board paper. Chapter 13 (Surface Areas and Volumes) — combination of solids; application-heavy, best tested with diagram MCQ. For Maths revision, run a 10-question chapter quiz after teaching, identify the three weakest concepts from the Bloom report, and reteach those in the next session before moving on.',
+      },
+      {
+        heading: 'How to run a chapter quiz in your CBSE classroom',
+        body:
+          'Step 1 — Select class, subject, chapter in Quizotic\'s NCERT Quiz Generator or upload the chapter PDF. Step 2 — Review the generated questions (usually 10–20 in 2 minutes), edit any that need customisation. Step 3 — Click Launch, display the PIN on the projector, students scan or type at quizotic.live/join. No app. Step 4 — 15-minute quiz session. Students answer on their phones; live leaderboard visible on projector. Step 5 — Download the chapter report. See per-student scores by Bloom level — who is stuck at Remember, who has reached Apply. Step 6 — Use the gap data to plan the next class around the weak Bloom levels. The whole cycle adds 20 minutes to your week and removes the guesswork from "what do I revise next."',
+      },
+      {
+        heading: 'CBSE board exam pattern alignment (2025–26)',
+        body:
+          'The CBSE 2025–26 Science and Maths papers follow the competency-based assessment framework. MCQ (1 mark): 20–25% of paper. Assertion-Reasoning (1 mark): 5–8 questions per paper. Case-based questions (4–5 marks): 2 passages per paper, 4 sub-questions each. Short answer (2–3 marks): 10–12 questions. Long answer (5 marks): 3–4 questions. Quizotic\'s NCERT generator creates all four types except long-answer (essay format is not suited to live quiz). The competitive quiz engine handles MCQ and assertion-reasoning in live mode; case-based questions run as a self-paced assessment. Regular use before boards means students have seen the format dozens of times before the actual exam — reducing surprise and improving time management.',
+      },
+    ],
+    howToSteps: [
+      { name: 'Open NCERT Quiz Generator', text: 'Go to quizotic.live/ncert-quiz-generator, select Class 10, choose Science or Maths, pick the chapter.' },
+      { name: 'Review and edit questions', text: 'The AI generates 15–20 questions in 60 seconds. Review, remove any that don\'t fit your lesson, and optionally add your own.' },
+      { name: 'Launch the quiz', text: 'Click "Launch Live." A 6-digit PIN appears on screen. Students join at quizotic.live/join on their phones. No app install needed.' },
+      { name: 'Run the session', text: 'Timer runs, students answer, the leaderboard builds live on the projector. 10–15 minutes for most chapter quizzes.' },
+      { name: 'Download the report', text: 'After the session, download the chapter report. See Bloom-level breakdown per student and per question. Identify the weakest 2–3 concepts.' },
+      { name: 'Plan the next class', text: 'Use the report to decide what to reteach. The students who scored low on Apply-level questions need concept reinforcement; students stuck at Remember need basic recall drills.' },
+    ],
+    faqs: [
+      {
+        question: 'Is the NCERT Quiz Generator free for Class 10?',
+        answer: 'Yes. The free plan generates up to 30 quizzes per month and supports 50 students per live session. For a single-class teacher this covers the full year\'s revision cycle. Pro plan (₹499/month) removes all limits.',
+      },
+      {
+        question: 'Does it cover all 16 NCERT Class 10 Science chapters?',
+        answer: 'Yes — all 16 chapters including the often-skipped Chapter 15 and 16. You can also upload a chapter PDF for hyper-specific questions from your own study material or coaching handouts.',
+      },
+      {
+        question: 'Can students use it for self-study at home?',
+        answer: 'Yes. Assign a self-paced quiz with a link — students open it on their phone and take it any time within your set window. The teacher dashboard shows who completed it and their Bloom-level breakdown.',
+      },
+      {
+        question: 'Does it generate assertion-reasoning questions for Science?',
+        answer: 'Yes. Assertion-Reasoning is a supported question type in the NCERT generator — it generates both assertion and reason statements with four standard answer choices matching the CBSE format.',
+      },
+      {
+        question: 'Can I use it for ICSE or state board Class 10?',
+        answer: 'The NCERT content maps most closely to CBSE. For ICSE, Maharashtra SSC, or Karnataka SSLC, use the PDF-to-Quiz tool — upload your own textbook chapter PDF and the AI generates aligned questions.',
+      },
+    ],
+    related: [
+      { title: 'NCERT Quiz Generator', href: '/ncert-quiz-generator', description: 'Generate chapter-wise quizzes for CBSE Classes 6–12.' },
+      { title: 'For Teachers (CBSE & NCERT)', href: '/for/teachers', description: 'Free quizzes for Indian classrooms.' },
+      { title: 'PDF to Quiz', href: '/pdf-to-quiz', description: 'Upload any textbook chapter PDF and generate a quiz.' },
+      { title: 'Best Quiz App for JEE/NEET Coaching', href: '/learn/best-quiz-app-jee-neet-coaching-institutes', description: 'If your school also runs JEE/NEET coaching batches.' },
+      { title: 'Live Quiz', href: '/live-quiz', description: 'Multiplayer quiz engine with leaderboard and speed bonus.' },
+    ],
+    keywords: [
+      'cbse class 10 ncert quiz',
+      'class 10 free mock test',
+      'ncert quiz class 10 science',
+      'ncert quiz class 10 maths',
+      'class 10 chapter wise quiz',
+      'cbse board exam quiz free',
+      'assertion reasoning quiz class 10',
+    ],
+    publishedAt: '2026-06-15',
+    updatedAt: '2026-06-15',
+    readingMinutes: 9,
+  },
+
+  'neet-ug-quiz-preparation-guide-india': {
+    slug: 'neet-ug-quiz-preparation-guide-india',
+    category: 'cbse-ncert',
+    metaTitle: 'NEET UG Preparation Quiz Guide India 2026 — Free Mock Tests',
+    metaDescription:
+      'How to use live quiz platforms for NEET UG prep in India. Daily drills, Bloom-tagged NCERT MCQs, PYQ quizzes, free tools. Class 11 & 12 Biology, Physics, Chemistry.',
+    h1: 'NEET UG quiz preparation guide for India (2026)',
+    tagline: 'Daily 15-minute quiz drills on NCERT Biology, Physics, Chemistry. Bloom-tagged, free, built for Indian coaching schedules.',
+    tldr: [
+      'NEET UG syllabus = NCERT Classes 11 & 12 Biology, Physics, Chemistry — quizzable chapter-by-chapter.',
+      'Daily 15-minute quiz drills from Day 1 of Class 11 outperform last-year cramming.',
+      'Key: quiz on Bloom Apply and Analyze levels, not just Remember — NEET tests application.',
+      'PYQ analysis by topic shows which chapters appear every year (Biology Cell Division, Physics Current Electricity, Chemistry Equilibrium).',
+      'Free tools for self-study: Quizotic free tier (50 questions/session), NCERT PDF import.',
+    ],
+    intro:
+      'NEET UG 2026 will be taken by over 2.4 million aspirants. The syllabus is fixed — NCERT Classes 11 and 12 Biology, Physics, and Chemistry — but the gap between students who crack it and those who don\'t is rarely about how many hours they study. It is about how they practice. Students who test themselves daily with chapter-wise quizzes retain significantly more than those who only read and highlight. This guide walks through how to build a NEET quiz drill routine using free and paid platforms, which chapters to prioritise, and how to use Bloom-level data from quiz reports to identify and close the specific gaps that cost marks.',
+    sections: [
+      {
+        heading: 'Why quiz-based practice outperforms re-reading for NEET',
+        body:
+          'NEET MCQs test application (Bloom Apply) more than recall (Bloom Remember). A student who can recite the Krebs cycle steps will still miss the question "which enzyme catalyses the conversion of isocitrate to alpha-ketoglutarate?" if they have only memorised the flow and not practised applying it. Self-testing forces retrieval — the act of pulling information out of memory strengthens the memory trace. Spaced retrieval (quizzing the same chapter 3–4 days later) strengthens it further. Students who quiz themselves daily on the previous day\'s chapter and weekly on the previous week\'s topics consistently score 20–30 marks higher on NEET mock tests than passive re-readers with the same study hours.',
+      },
+      {
+        heading: 'NEET priority chapters by subject (PYQ analysis)',
+        body:
+          'Biology (360 marks — the deciding subject): Cell Biology (Mitosis/Meiosis, Cell Cycle) appears in 5–8 questions every year. Genetics (Mendelian laws, molecular basis) — 10–12 questions. Human Physiology (digestion, respiration, circulation, excretion, neural, reproduction) — 35–40 questions across topics. Ecology (ecosystem, biodiversity, environmental issues) — 10–15 questions. Quiz these first. Physics (180 marks): Current Electricity, Electrostatics, Optics — 30+ combined. Mechanics (Motion, Work-Energy) — 20+ questions. Modern Physics (Atoms, Nuclei, Semiconductors) — 12–15. Chemistry (180 marks): Equilibrium (chemical + ionic), p-block elements, biomolecules, polymers — 20+ combined. Organic (reaction mechanisms, named reactions) — 25+ across topics. NCERT Chemistry chapters 12–16 are disproportionately high-yield for mark-per-hour.',
+      },
+      {
+        heading: 'Building a daily NEET quiz drill routine',
+        body:
+          'Week 1 structure (repeat per chapter): Day 1 — read the NCERT chapter. Day 2 morning — 10-question Remember quiz on the chapter (nomenclature, definitions, diagrams). Day 3 — 10-question Apply quiz (reaction mechanisms, numerical, diagram interpretation). Day 5 — 10-question spaced retrieval quiz (mix of Chapter N and Chapter N-2). Week review (Sunday) — 30-question mixed subject quiz covering the week\'s chapters at Analyze level (compare/contrast, multi-step reasoning). On Quizotic, this means opening the NCERT Quiz Generator, selecting subject and chapter, and launching a 10-question self-paced quiz. The Bloom report after each session shows which level you\'re stuck at — if you score 90% on Remember but 50% on Apply, you are reading well but not practising application. Fix that before moving to the next chapter.',
+      },
+      {
+        heading: 'PYQ quizzes — the fastest way to close pattern gaps',
+        body:
+          'Previous Year Questions (PYQs) are the most efficient NEET preparation tool. Each PYQ was written by the exam board to test a specific NCERT concept at a specific Bloom level — it tells you exactly what the exam asks. Upload a PYQ PDF (year-wise, subject-wise) to Quizotic\'s PDF-to-Quiz tool. The AI extracts the questions, maps them to NCERT chapters, and tags them by Bloom level. Run these as timed quizzes (720-minute total NEET → 1 minute per MCQ). Over 5 years of PYQs you can identify your personal weak topics — the chapters where you consistently underperform, which are almost always the ones to revisit. Coaching institutes in Kota, Delhi, Hyderabad, and Chennai that use PYQ quizzes as diagnostic tools pre-chapter (not just post-chapter) report students self-correcting earlier and more efficiently.',
+      },
+      {
+        heading: 'Tools for NEET quiz practice — free and paid',
+        body:
+          'Free options for self-study: Quizotic free tier (50 participants/session, unlimited self-paced quizzes, NCERT Quiz Generator), Embibe free layer (adaptive questions but limited analytics on free), Quizizz free (question bank depth for NEET is good, USD pricing for pro). Coaching institute tools: Quizotic Team plan — batch mocks, Bloom tracking, faculty dashboard; Embibe Pro — purpose-built test-prep analytics; Testbook — UPSC-centric but has NEET content. For a student studying independently at home: Quizotic self-paced quizzes from the NCERT generator cost nothing, cover all chapters, and produce a Bloom report that shows which gaps to close before the next chapter. For a coaching institute running 200-student mock sessions: the Team plan is the most affordable INR-native option with GST invoicing.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'Is there a free NEET quiz platform in India?',
+        answer: 'Yes. Quizotic\'s free tier generates unlimited self-paced quizzes from NCERT chapters and supports up to 50 students per live session. The NCERT Quiz Generator covers all Class 11 and 12 Biology, Physics, and Chemistry chapters aligned to the NEET syllabus.',
+      },
+      {
+        question: 'How many questions should I do per day for NEET?',
+        answer: '30–50 questions per day is the evidence-based sweet spot for spaced retrieval without cognitive overload. 10 questions on the day\'s chapter + 10 on yesterday\'s chapter + 10 on last week\'s chapter = 30 questions, 30–40 minutes, daily.',
+      },
+      {
+        question: 'Which NEET chapters should I quiz first?',
+        answer: 'Biology: Cell Division, Genetics, Human Physiology. Chemistry: Chemical Equilibrium, Organic Reaction Mechanisms, p-block Elements. Physics: Current Electricity, Electrostatics, Optics. These chapters together account for 60–70% of NEET marks in most recent years.',
+      },
+      {
+        question: 'Can I upload NEET PYQ PDFs to quiz myself?',
+        answer: 'Yes — use Quizotic\'s PDF-to-Quiz tool. Upload a PYQ paper PDF, the AI extracts questions and maps them to chapters. Run it as a timed self-paced quiz to simulate exam conditions. Download the report to see which chapters\' questions you\'re missing.',
+      },
+    ],
+    related: [
+      { title: 'NCERT Quiz Generator', href: '/ncert-quiz-generator', description: 'Chapter-wise NCERT quizzes for Classes 11 & 12.' },
+      { title: 'For JEE/NEET Coaching Institutes', href: '/for/coaching-institutes', description: 'Batch-wise mocks, Bloom tracking, faculty dashboard.' },
+      { title: 'Best Quiz App for JEE/NEET Coaching', href: '/learn/best-quiz-app-jee-neet-coaching-institutes', description: '6 coaching-institute platforms compared — India 2026.' },
+      { title: 'PDF to Quiz', href: '/pdf-to-quiz', description: 'Upload NEET PYQ PDFs and generate chapter-mapped quizzes.' },
+      { title: 'CBSE Class 10 NCERT Quiz', href: '/learn/cbse-class-10-ncert-quiz-science-maths', description: 'Foundation prep for students moving to Class 11.' },
+    ],
+    keywords: [
+      'neet ug quiz preparation india',
+      'best neet online coaching app',
+      'neet quiz platform india',
+      'neet preparation quiz free',
+      'neet daily quiz drill',
+      'ncert quiz for neet',
+      'neet mock test free india',
+    ],
+    publishedAt: '2026-06-15',
+    updatedAt: '2026-06-15',
+    readingMinutes: 10,
+  },
+
+  'free-live-quiz-platform-india': {
+    slug: 'free-live-quiz-platform-india',
+    category: 'how-to',
+    metaTitle: 'Best Free Live Quiz Platform for India 2026 — INR, No App',
+    metaDescription:
+      'Best free live quiz platforms for Indian classrooms, coaching institutes, and corporate trainers. INR billing, UPI, no app for students, works on slow Wi-Fi.',
+    h1: 'Best free live quiz platform for India (2026)',
+    tagline: 'No app for students. INR billing. Works on 2 Mbps classroom Wi-Fi. Free up to 50 participants.',
+    tldr: [
+      'A live quiz platform lets a host run a multiplayer quiz game — students answer in real time, leaderboard updates live.',
+      'For India: the key filters are free tier (50+ participants), no student app, INR billing, and low bandwidth use.',
+      'Best free live quiz platform for India: Quizotic (₹0 for 50 participants, ~80KB page, UPI on Pro).',
+      'Kahoot and Quizizz are global but USD-priced; their free tiers are more restricted.',
+      'For CBSE classrooms, NCERT content is available ready-to-use; no quiz building required.',
+    ],
+    intro:
+      'A live quiz platform hosts a real-time multiplayer quiz where the teacher or trainer is the host and participants join on their phones. The host controls pace; participants answer; a leaderboard updates after each question. The engagement spike over a normal class is real — students who would check Instagram during a lecture compete on a live leaderboard. This guide covers the best free options for Indian schools, coaching institutes, and corporate trainers, with honest comparison on what "free" actually means for each.',
+    sections: [
+      {
+        heading: 'What makes a live quiz platform right for India',
+        body:
+          'Four filters separate India-fit platforms from the global field. **(1) Student bandwidth:** Indian classroom and office Wi-Fi is typically 5–20 Mbps shared across 50–200 devices. The participant page size determines how fast students join. Quizotic ~80KB, Kahoot ~200KB, Quizizz ~180KB, Mentimeter ~250KB. On 10 Mbps shared with 40 students, 80KB joins in under 2 seconds; 250KB takes 5–8 seconds — by which time 3 questions have gone by. **(2) No app install for students:** Any platform requiring a Play Store download loses 20–30% of participants in Indian classrooms where many students use older Android phones with low storage. All major platforms (Quizotic, Kahoot, Quizizz) support browser-only joins. **(3) INR billing with UPI:** Paying $12–24/month in USD with an international-enabled card is friction most Indian school teachers and coaches won\'t absorb. Quizotic is the only platform on this list with native UPI billing in INR at ₹499/month. **(4) NCERT/CBSE content:** For Indian teachers, not having to build quizzes from scratch is a decisive advantage. Quizotic\'s NCERT Quiz Generator covers Classes 6–12 across Science, Maths, Social Studies, and English — a quiz is ready in 2 minutes.',
+      },
+      {
+        heading: 'Best free live quiz platforms for India — compared',
+        body:
+          '**Quizotic (recommended for India):** Free tier — 50 participants, unlimited sessions, all question types (MCQ, open text, polls, word cloud), NCERT generator included. Pro: ₹499/month via UPI. Participant page ~80KB. No app install. Bloom-tagged reports. India-built, Hindi support shipping. **Kahoot:** Free tier — up to 40 participants, basic MCQ only (no open text, polls, etc.). Pro: $7.99/month (USD only). Strong global brand, good music and game-show UI. Best for: schools with USD budget or international curriculum. **Quizizz:** Free tier — unlimited participants, strong question-bank depth for CBSE/JEE/NEET content (community-created). Pro: $12/month USD. Self-paced homework mode is strong. Best for: asynchronous homework quizzes, not live competitive engagement. **Mentimeter (not a quiz platform):** Positioned as interactive presentation tool. "Quiz Competition" is one slide type. Not designed for repeated live quiz use; USD pricing, no INR. Best for: corporate interactive presentations, not classroom quizzes. **Google Forms + Sheets:** Technically free and unlimited, but not a live quiz — no real-time leaderboard, no pacing, no engagement mechanic. Useful for assessments, not engagement.',
+      },
+      {
+        heading: 'How to run your first live quiz (step by step)',
+        body:
+          'For a CBSE classroom: Step 1 — go to quizotic.live, create a free account. Step 2 — open NCERT Quiz Generator, select class + subject + chapter. Step 3 — a quiz of 10–15 questions generates in 60 seconds. Review and launch. Step 4 — display the 6-digit PIN on the projector. Students open quizotic.live/join on their phones (no download). Step 5 — 10 minutes of live quiz. Leaderboard visible on screen between questions. Step 6 — share the report link; see per-student Bloom breakdown. For a corporate trainer: same flow, but instead of NCERT generator, build questions manually or import from a compliance document PDF. The host dashboard is identical — questions, timer, leaderboard, report.',
+      },
+      {
+        heading: 'When to use live quiz vs self-paced assessment',
+        body:
+          'Live quiz (everyone plays at the same time): engagement is high, energy is competitive, best for in-class revision, team-building, all-hands events. Works when everyone is in the same room or on the same call. Self-paced quiz (students take it any time in a window): better for homework, pre-class prep, post-class revision drills. Students who missed class can catch up. Lower engagement ceiling but higher completion rate for async settings. For NEET/JEE coaching institutes, daily live quizzes in-class + self-paced weekly review is the high-performance pattern — live for the competitive pressure and the leaderboard, self-paced for thorough chapter mastery tracking.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'Which is the best free live quiz platform for Indian classrooms?',
+        answer: 'Quizotic — free tier covers 50 students per session, no app install, NCERT content ready to use, ~80KB participant page (fastest on classroom Wi-Fi). Kahoot\'s free tier is more restricted (40 participants, basic MCQ only). Quizizz is also good for homework quizzes but less optimised for live competitive play.',
+      },
+      {
+        question: 'Does Quizotic work without internet for students?',
+        answer: 'No — live quiz requires internet. But the participant page is ~80KB on first load, which works on even a 1 Mbps mobile data connection. Students joining on 4G (not classroom Wi-Fi) will have no issues.',
+      },
+      {
+        question: 'Can I use a live quiz platform in Hindi?',
+        answer: 'Quizotic is shipping Hindi UI in v2. Currently all interface elements are in English but question content can be in any language — teachers paste Hindi text directly into question fields.',
+      },
+      {
+        question: 'Is Kahoot available in India with INR pricing?',
+        answer: 'Kahoot charges in USD. Indian teachers pay with an international-enabled card; many school and institute card-holders find this creates friction. Quizotic is the only major live quiz platform with UPI-native INR billing.',
+      },
+    ],
+    related: [
+      { title: 'Live Quiz', href: '/live-quiz', description: 'Quizotic\'s live multiplayer quiz engine — free for 50 participants.' },
+      { title: 'NCERT Quiz Generator', href: '/ncert-quiz-generator', description: 'Ready-to-launch CBSE/NCERT quizzes for Classes 6–12.' },
+      { title: 'For Teachers (CBSE)', href: '/for/teachers', description: 'Free classroom quizzes for Indian teachers.' },
+      { title: 'CBSE Class 10 NCERT Quiz', href: '/learn/cbse-class-10-ncert-quiz-science-maths', description: 'Chapter-wise quizzes for Class 10 Science and Maths.' },
+      { title: 'NEET UG Quiz Preparation Guide', href: '/learn/neet-ug-quiz-preparation-guide-india', description: 'Daily quiz drill routine for NEET aspirants.' },
+    ],
+    keywords: [
+      'free live quiz platform india',
+      'live quiz platform india',
+      'best free quiz platform india',
+      'live quiz for classroom india',
+      'free online quiz platform for teachers india',
+      'live quiz platform inr',
+    ],
+    publishedAt: '2026-06-15',
+    updatedAt: '2026-06-15',
+    readingMinutes: 8,
+  },
+
+  'quiz-in-regional-language-india-hindi-tamil': {
+    slug: 'quiz-in-regional-language-india-hindi-tamil',
+    category: 'hindi-regional',
+    metaTitle: 'Create Quiz in Hindi, Tamil & Regional Languages — India Guide',
+    metaDescription:
+      'How to create and run quizzes in Hindi, Tamil, Telugu, Marathi, and other Indian regional languages. Free tools, Unicode support, CBSE & coaching use cases.',
+    h1: 'How to create a quiz in Hindi, Tamil, and Indian regional languages',
+    tagline: 'Run live quizzes in Hindi, Tamil, Telugu, Marathi, and Kannada. Unicode support, free, no app for students.',
+    tldr: [
+      'All major quiz platforms support Unicode — you can type Hindi, Tamil, Telugu, Marathi directly into question fields.',
+      'Quizotic ships Hindi UI in v2 (2026); Tamil, Telugu, Marathi on 2026 roadmap.',
+      'For Hindi-medium CBSE schools: quiz content in Hindi, interface currently in English.',
+      'PDF-to-Quiz works with regional language PDFs — upload a Hindi-medium NCERT chapter, get Hindi MCQs.',
+      'Tamil Nadu state board, Maharashtra SSC, Karnataka SSLC, UP Board teachers can use regional PDFs.',
+    ],
+    intro:
+      'India has 22 officially recognised languages and over 700 million students educated in their mother tongue or second language. Yet almost every quiz and assessment tool is English-first. For a Class 8 teacher at a Hindi-medium school in Lucknow, a Tamil Nadu state board teacher in Madurai, or a Marathi-medium coaching institute in Pune, running a quiz in the language of instruction isn\'t optional — it\'s the difference between students engaging and students guessing. This guide covers how to create live quizzes in Hindi and other Indian regional languages today, what the current limitations are, and what\'s coming on the 2026 roadmap.',
+    sections: [
+      {
+        heading: 'Unicode support — the foundation of multilingual quizzes',
+        body:
+          'All modern quiz platforms store question text as Unicode strings — which means any language your keyboard can type, the platform can display. Hindi (Devanagari), Tamil, Telugu, Kannada, Marathi, Malayalam, Gujarati, Bengali, Punjabi, Odia, and all other Indian scripts are Unicode-supported. In practice: open a question field on Quizotic, switch your phone or laptop keyboard to Hindi (Google Indic Keyboard, Gboard, or Windows 11 Hindi input), and type directly. The text saves and displays correctly for all participants. The host screen, participant screen, and PDF report all render the regional script without any additional configuration. The current limitation for most platforms is the *interface language* — navigation buttons, error messages, and instructions appear in English. Quizotic is shipping a Hindi-language interface in v2 (mid-2026); Tamil, Telugu, and Marathi interfaces are on the late-2026 roadmap.',
+      },
+      {
+        heading: 'Hindi-medium CBSE and state board classrooms',
+        body:
+          'Hindi-medium CBSE schools in UP, MP, Rajasthan, Bihar, Uttarakhand, and Chhattisgarh educate tens of millions of students in Classes 1–12. NCERT publishes Hindi-medium textbooks for all subjects — these are the actual PDFs used in classrooms. Quizotic\'s PDF-to-Quiz tool accepts Hindi-medium PDFs: upload Chapter 3 of the Class 9 Vigyan (Hindi-medium Science) textbook and it generates Hindi MCQs directly from the chapter text. The AI reads Devanagari and produces questions in Hindi. Teachers can also type questions in Hindi manually — open the quiz builder, switch keyboard to Hindi, type. Students joining on phones with a Hindi keyboard can read the questions without issue; for multiple-choice, they just tap the option, so keyboard switching isn\'t even required to answer. For teachers running quizzes in English but in a Hindi-medium context — the reverse also works. International content in English, answer explanations typed by the teacher in Hindi.',
+      },
+      {
+        heading: 'Tamil and other Dravidian language classrooms',
+        body:
+          'Tamil Nadu state board (Classes 1–12), Kerala\'s Malayalam-medium schools, Karnataka\'s Kannada-medium schools, Andhra/Telangana\'s Telugu-medium schools, and Maharashtra\'s Marathi-medium schools together educate over 200 million students. The approach is the same as Hindi: type in the regional script using the platform\'s question editor. Gboard on Android supports all Indian scripts. For Tamil, the Transliteration method (type in English phonetics, auto-converts to Tamil script) is available in Gboard — teachers who are not touch-typists in Tamil can use this. Tamil Nadu state board PDFs in Tamil are processable by Quizotic\'s PDF-to-Quiz tool — upload Chapter 5 of Class 10 Tamil Nadu Science PDF and it generates Tamil-language MCQs. Student phones with Tamil keyboards selected can read and answer with no friction. Current limitation: answer choice randomisation in Quizotic\'s auto-generator puts regional-language options in a consistent order; teachers should manually review and shuffle if they want variety.',
+      },
+      {
+        heading: 'Practical workflow for regional-language quiz creation',
+        body:
+          'Method 1 — PDF upload (recommended for state board): Download the regional-medium PDF chapter from the official state board website (Tamil Nadu SCERT, UP Board, Maharashtra BALBHARATI, Karnataka KTBS, NCERT Hindi). Upload to Quizotic PDF-to-Quiz. Review the generated questions — the AI catches most concepts but may occasionally mis-parse complex script ligatures in older PDFs. Edit any with issues. Launch in class. Method 2 — Manual typing: Open Quizotic quiz builder, switch your input method to the regional language keyboard, type questions and answer choices directly. Works for original question sets not based on a textbook PDF. Method 3 — English question, regional language explanation: Write the quiz question in English (faster to type), but add an explanation in Hindi or Tamil in the "answer explanation" field. Useful for CBSE English-medium schools in Hindi-speaking regions where students think in Hindi but study in English.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'Can I create a quiz in Tamil on Quizotic?',
+        answer: 'Yes. Type Tamil text directly into the question editor using a Tamil keyboard (Gboard supports Tamil Phonetic and Tamil 99 layouts). The text displays correctly on all student devices. You can also upload a Tamil-medium state board PDF and let the AI generate Tamil questions.',
+      },
+      {
+        question: 'Is the Quizotic interface available in Hindi?',
+        answer: 'Hindi interface (navigation, buttons, error messages) is shipping in Quizotic v2 mid-2026. Currently the interface is English but question content can be fully in Hindi — students only need to read the question and tap an answer, so Hindi-medium classrooms work well today.',
+      },
+      {
+        question: 'Does PDF-to-Quiz work with Hindi-medium NCERT PDFs?',
+        answer: 'Yes. Upload a Hindi-medium NCERT PDF — the AI reads Devanagari script and generates Hindi MCQs from the chapter text. The same applies to Tamil, Telugu, Marathi, and other Unicode-encoded PDFs.',
+      },
+      {
+        question: 'Can I mix Hindi and English in the same quiz?',
+        answer: 'Yes. Each question field is independent — you can have some questions in Hindi and some in English within the same quiz. Useful for CBSE English-medium schools where science/maths terms are taught in English but context is in Hindi.',
+      },
+      {
+        question: 'What about Urdu-medium schools?',
+        answer: 'Urdu is right-to-left script. Current quiz platforms including Quizotic display RTL text in Unicode but the layout alignment may not be perfect — the question will be readable but right-to-left flow in the editor isn\'t fully supported yet. Best workaround: type Urdu in Hindi phonetics or use the transliteration keyboard.',
+      },
+    ],
+    related: [
+      { title: 'Hindi Trainers Live Polling Guide', href: '/learn/live-polling-hindi-trainers', description: 'Live polling for Hindi-speaking corporate trainers.' },
+      { title: 'CBSE Hindi-Medium Quiz Platform', href: '/learn/cbse-hindi-medium-quiz-platform', description: 'Quiz tools for Hindi-medium CBSE schools.' },
+      { title: 'PDF to Quiz', href: '/pdf-to-quiz', description: 'Upload state board PDFs in any language and generate quizzes.' },
+      { title: 'NCERT Quiz Generator', href: '/ncert-quiz-generator', description: 'Chapter-wise NCERT quizzes — works with Hindi-medium content.' },
+      { title: 'For Teachers', href: '/for/teachers', description: 'Free quizzes for Indian classroom teachers.' },
+    ],
+    keywords: [
+      'create quiz in hindi',
+      'create quiz in tamil',
+      'hindi medium quiz platform',
+      'regional language quiz india',
+      'quiz in telugu',
+      'quiz in marathi',
+      'multilingual quiz tool india',
+    ],
+    publishedAt: '2026-06-15',
+    updatedAt: '2026-06-15',
+    readingMinutes: 9,
   },
 
   'jee-foundation-quiz-class-9': {

@@ -12,41 +12,44 @@ interface Cluster {
 
 const CLUSTERS: Cluster[] = [
   {
-    title: 'AI Quiz Tools',
+    title: 'India Education Guides',
     links: [
-      { label: 'AI Quiz Generator', href: '/ai-quiz-generator' },
-      { label: 'Online Quiz Maker', href: '/quiz-maker' },
-      { label: 'PDF to Quiz', href: '/pdf-to-quiz' },
-      { label: 'NCERT Quiz Generator', href: '/ncert-quiz-generator' },
+      { label: 'Best quiz app for JEE/NEET coaching — India', href: '/learn/best-quiz-app-jee-neet-coaching-institutes' },
+      { label: 'Mentimeter vs Slido vs Quizotic — India 2026', href: '/learn/mentimeter-vs-slido-vs-quizotic' },
+      { label: '5 Slido alternatives for India (INR & UPI)', href: '/learn/slido-alternatives-india-2026' },
+      { label: 'Audience polling tools for India — compared', href: '/learn/audience-polling-tool-comparison' },
+      { label: 'Quizotic vs Slido — India feature comparison', href: '/vs/slido' },
+      { label: 'NCERT Quiz Generator — CBSE Classes 6–12', href: '/ncert-quiz-generator' },
     ],
   },
   {
-    title: 'For Classrooms',
+    title: 'For CBSE, NCERT & Coaching Institutes',
     links: [
       { label: 'NCERT Quiz Generator', href: '/ncert-quiz-generator' },
-      { label: 'For Teachers', href: '/for/teachers' },
+      { label: 'For Teachers (CBSE & State Boards)', href: '/for/teachers' },
       { label: 'For Schools', href: '/for/schools' },
-      { label: 'For Coaching Institutes', href: '/for/coaching-institutes' },
-      { label: 'CBSE Quiz Questions', href: '/learn/cbse-class-10-free-quiz-questions' },
+      { label: 'For JEE/NEET Coaching Institutes', href: '/for/coaching-institutes' },
+      { label: 'CBSE Class 10 Quiz Questions', href: '/learn/cbse-class-10-free-quiz-questions' },
     ],
   },
   {
     title: 'Kahoot, Quizizz & Slido Alternatives',
     links: [
+      { label: 'Quizotic vs Slido — India', href: '/vs/slido' },
       { label: 'Quizotic vs Kahoot', href: '/vs/kahoot' },
       { label: 'Quizotic vs Quizizz', href: '/vs/quizizz' },
-      { label: 'Quizotic vs Slido', href: '/vs/slido' },
-      { label: 'Kahoot Alternatives', href: '/alternatives/kahoot' },
-      { label: 'Slido Alternatives 2026', href: '/learn/slido-alternatives-india-2026' },
+      { label: 'Mentimeter vs Slido vs Quizotic', href: '/learn/mentimeter-vs-slido-vs-quizotic' },
+      { label: 'Audience Polling Tool Comparison', href: '/learn/audience-polling-tool-comparison' },
+      { label: 'Slido Alternatives India 2026', href: '/learn/slido-alternatives-india-2026' },
     ],
   },
   {
-    title: 'Live Polling & Presentations',
+    title: 'AI Quiz Tools',
     links: [
-      { label: 'Live Quiz', href: '/live-quiz' },
-      { label: 'Interactive Presentation', href: '/interactive-presentation' },
-      { label: 'Live Polling', href: '/live-polling' },
-      { label: 'Gamified Learning', href: '/gamified-learning' },
+      { label: 'AI Quiz Generator', href: '/ai-quiz-generator' },
+      { label: 'PDF to Quiz', href: '/pdf-to-quiz' },
+      { label: 'NCERT Quiz Generator', href: '/ncert-quiz-generator' },
+      { label: 'Online Quiz Maker', href: '/quiz-maker' },
     ],
   },
   {
@@ -55,13 +58,14 @@ const CLUSTERS: Cluster[] = [
       { label: 'For Corporate Trainers', href: '/for/corporate-trainers' },
       { label: 'Corporate Training Quizzes', href: '/learn/compliance-training-quiz-tool-india' },
       { label: 'Interactive Presentations', href: '/interactive-presentation' },
+      { label: 'Mentimeter vs Slido vs Quizotic', href: '/learn/mentimeter-vs-slido-vs-quizotic' },
       { label: 'Templates Gallery', href: '/templates#audience-corporate-trainers' },
     ],
   },
   {
     title: 'Browse Templates',
     links: [
-      { label: 'School Teacher Templates', href: '/templates#audience-school-teachers' },
+      { label: 'CBSE / NCERT Templates', href: '/templates#audience-school-teachers' },
       { label: 'Coaching Institute Templates', href: '/templates#audience-coaching-institutes' },
       { label: 'Corporate Templates', href: '/templates#audience-corporate-trainers' },
       { label: 'College Templates', href: '/templates#audience-colleges' },
@@ -87,7 +91,7 @@ export function TopicClusters() {
           Explore Quizotic
         </h2>
         <p style={{ textAlign: 'center', color: '#6B7280', fontSize: 15, marginBottom: 40 }}>
-          Guides, comparisons, and ready-made templates for every use case.
+          India-first guides, CBSE/NCERT/JEE/NEET resources, tool comparisons, and ready-made templates.
         </p>
         <div
           style={{
