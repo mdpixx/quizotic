@@ -31,10 +31,14 @@ import { isKnownQuestionType } from '@/lib/quiz-builder-logic'
 import { resolveHostBackNavigation } from '@/lib/host-navigation'
 import { QuestionList } from './QuestionList'
 import { QuestionCanvas } from './QuestionCanvas'
+import { AddInteractionPicker } from './AddInteractionPicker'
+import { MobileQuestionStrip } from './MobileQuestionStrip'
+import { MobileQuestionPager } from './MobileQuestionPager'
 import { BuilderLauncher, type LauncherMode } from './BuilderLauncher'
 import { AIGenerateForm } from './AIGenerateForm'
 import { QuizSettingsPopover } from './QuizSettingsPopover'
 import { SparkleIcon } from './SparkleIcon'
+import { MobileToolbar } from '@/components/ui/MobileToolbar'
 import type { Question } from '@/lib/quiz-types'
 
 // ── AutosaveBadge ─────────────────────────────────────────────────────────────
@@ -233,6 +237,8 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
   const [sourceModalOpen, setSourceModalOpen] = useState(() => !editId && isSourceStart(start))
   const [aiPanelOpen, setAiPanelOpen] = useState(false)
   const [titleError, setTitleError] = useState(false)
+  // Mobile-only: controls the AddInteractionPicker opened from the bottom toolbar / strip
+  const [mobilePickerOpen, setMobilePickerOpen] = useState(false)
   // When generate/import returns questions and the builder already holds real
   // content, we ask append-vs-replace instead of silently wiping the host's work.
   const [pendingApply, setPendingApply] = useState<{ questions: Partial<Question>[]; meta?: { title?: string; subject?: string } } | null>(null)
@@ -398,11 +404,11 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
         </div>
       )}
 
-      {/* ── Body: canvas always visible ────────────────────────────────── */}
-      <div className="flex-1 flex overflow-hidden">
+      {/* ── Body: desktop (md+) — sidebar + single canvas ──────────────── */}
+      <div className="hidden md:flex flex-1 overflow-hidden">
         {/* Left: Question list */}
         <div
-          className="hidden md:flex flex-col flex-shrink-0"
+          className="flex flex-col flex-shrink-0"
           style={{ width: 224, background: '#fff' }}
         >
           <QuestionList
@@ -420,7 +426,7 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
         </div>
 
         {/* Center: QuestionCanvas */}
-        <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
+        <div className="flex-1 flex flex-col overflow-hidden p-6">
           {builder.activeQuestion ? (
             <QuestionCanvas
               question={builder.activeQuestion}
@@ -446,6 +452,76 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
             </div>
           )}
         </div>
+      </div>
+
+      {/* ── Body: mobile (<md) — swipe pager + strip + bottom toolbar ──── */}
+      <div className="md:hidden flex-1 flex flex-col overflow-hidden">
+        {builder.questions.length === 0 ? (
+          /* Empty state */
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
+            <p className="text-gray-400 text-sm">No questions yet</p>
+            <button
+              type="button"
+              onClick={() => builder.addQuestion('mcq')}
+              className="px-5 py-2.5 rounded-xl text-sm font-black"
+              style={{ background: '#0F1B3D', color: '#F5E642' }}
+            >
+              + Add your first question
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Numbered question chips — tap to jump, + to add */}
+            <MobileQuestionStrip
+              count={builder.questions.length}
+              activeIndex={builder.activeIndex}
+              onSelect={builder.setActiveIndex}
+              onAdd={() => setMobilePickerOpen(true)}
+            />
+
+            {/* Swipeable question cards */}
+            <MobileQuestionPager
+              questions={builder.questions}
+              activeIndex={builder.activeIndex}
+              plan={builder.plan}
+              onIndexChange={builder.setActiveIndex}
+              onUpdateQuestion={builder.updateQuestion}
+              onTypeChange={builder.changeQuestionType}
+              onDuplicate={builder.duplicateQuestion}
+              onDelete={builder.removeQuestion}
+            />
+          </>
+        )}
+
+        {/* Fixed bottom toolbar: Add + Start live */}
+        <MobileToolbar>
+          <button
+            type="button"
+            onClick={() => setMobilePickerOpen(true)}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-black transition-all hover:brightness-95"
+            style={{ background: '#F3F4F6', color: '#0F1B3D' }}
+          >
+            <span className="text-base leading-none">+</span> Add question
+          </button>
+          <button
+            type="button"
+            onClick={builder.handleStartLive}
+            disabled={builder.saving || builder.questions.length === 0}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-black transition-all hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: '#16A34A', color: '#fff' }}
+          >
+            &#9654; Start live
+          </button>
+        </MobileToolbar>
+
+        {/* AddInteractionPicker — opened from strip + or bottom toolbar */}
+        {mobilePickerOpen && (
+          <AddInteractionPicker
+            onAdd={type => { builder.addQuestion(type); setMobilePickerOpen(false) }}
+            onGenerateAI={() => { setMobilePickerOpen(false); setAiPanelOpen(true) }}
+            onClose={() => setMobilePickerOpen(false)}
+          />
+        )}
       </div>
 
       {/* ── Source modal (Generate / Import) ──────────────────────────── */}

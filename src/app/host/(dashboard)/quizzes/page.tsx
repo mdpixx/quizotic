@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
+import { QuizListRow } from '@/components/host/QuizListRow'
 import { AssignQuizModal, type QuizPatch } from '@/components/host/AssignQuizModal'
 import { track } from '@/lib/analytics'
 import { useRouter } from 'next/navigation'
@@ -514,95 +515,19 @@ export default function QuizzesPage() {
               </div>
 
               <div className="rounded-[16px] overflow-hidden" style={{ background: '#fff', border: '1px solid var(--color-line)' }}>
-                {(view === 'list' ? filtered : rest).map((quiz, i, arr) => {
-                  const status = modeStatus(quiz)
-                  // Only surface an attention signal inline; positive states are implied.
-                  const attention = readinessSignals(quiz).find(s => s.tone === 'attention')
-                  return (
-                  <div
+                {(view === 'list' ? filtered : rest).map((quiz, i, arr) => (
+                  <QuizListRow
                     key={quiz.id}
-                    className={`grid grid-cols-[44px_1fr_auto] md:grid-cols-[44px_1fr_110px_auto] gap-3 md:gap-4 items-center px-3.5 py-3 transition-colors hover:bg-[var(--color-paper)] ${i < arr.length - 1 ? 'border-b' : ''}`}
-                    style={{ borderColor: 'var(--color-line)' }}
-                  >
-                    <div className="w-11 h-11 rounded-[10px] overflow-hidden relative" style={{ background: gradientFor(quiz.id) }}>
-                      {quiz.coverImageUrl ? (
-                        <img src={quiz.coverImageUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
-                      ) : (
-                        <QuizCoverMotif id={`thumb-${quiz.id}`} />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-[14px] font-bold truncate" style={{ color: '#0F1B3D' }}>{quiz.title || 'Untitled quiz'}</span>
-                        <span className="chip flex-shrink-0" style={statusStyle(status.tone)}>{status.label}</span>
-                        {scheduledLabel(quiz) && (
-                          <span className="chip flex-shrink-0" style={SCHEDULED_CHIP_STYLE}>{scheduledLabel(quiz)}</span>
-                        )}
-                        {attention && <span className="chip flex-shrink-0" style={statusStyle('attention')}>{attention.label}</span>}
-                      </div>
-                      <div className="flex items-center gap-1.5 mt-1 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-                        {quiz.subject && <><span className="truncate max-w-[120px]">{quiz.subject}</span><span aria-hidden>·</span></>}
-                        <span>{quiz.questionCount} {quiz.questionCount === 1 ? 'question' : 'questions'}</span>
-                        <span aria-hidden>·</span>
-                        <span>Updated {timeAgo(quiz.updatedAt)}</span>
-                        {quiz.asyncShareSlug && quiz.asyncResponseCount > 0 && (
-                          <><span aria-hidden>·</span><span>{quiz.asyncResponseCount} self-paced responses</span></>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-[11px] hidden md:block" style={{ color: 'var(--color-text-muted)' }}>
-                      {new Date(quiz.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </div>
-                    <div className="flex items-center gap-1.5 justify-end">
-                      <button
-                        onClick={() => handleStart(quiz.id)}
-                        disabled={startingId === quiz.id}
-                        className="btn-golive"
-                        style={{ padding: '6px 12px', fontSize: '12px' }}
-                      >
-                        {startingId === quiz.id ? (
-                          <svg className="animate-spin w-3 h-3" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" opacity="0.3"/><path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-                        ) : (
-                          <>
-                            <span className="play-dot" style={{ width: '14px', height: '14px' }}><svg viewBox="0 0 24 24" fill="#0F1B3D" className="w-2 h-2"><path d="M8 5v14l11-7z"/></svg></span>
-                            <span className="hidden sm:inline">Host live</span>
-                          </>
-                        )}
-                      </button>
-                      <Link href={`/host/create?edit=${quiz.id}`} className="btn-secondary" style={{ textDecoration: 'none', padding: '6px 12px', fontSize: '12px' }}>
-                        Edit
-                      </Link>
-                      <RowActionsMenu
-                        label={`Actions for ${quiz.title || 'quiz'}`}
-                        actions={[
-                          {
-                            label: 'Assign',
-                            title: 'Share now or schedule for a date',
-                            onClick: () => handleAssign(quiz.id, quiz.title),
-                            icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-                          },
-                          ...(quiz.asyncShareSlug ? [{
-                            label: 'View results',
-                            onClick: () => { window.location.href = `/host/quizzes/${quiz.id}/report` },
-                            icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><path d="M3 3v18h18M9 17V9M14 17V5M19 17v-6" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-                          }] : []),
-                          {
-                            label: 'Duplicate',
-                            onClick: () => handleDuplicate(quiz.id),
-                            icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>,
-                          },
-                          {
-                            label: 'Delete',
-                            onClick: () => setConfirmDelete(quiz.id),
-                            danger: true,
-                            icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
-                          },
-                        ]}
-                      />
-                    </div>
-                  </div>
-                  )
-                })}
+                    quiz={quiz}
+                    isLastRow={i === arr.length - 1}
+                    startingId={startingId}
+                    onStart={handleStart}
+                    onAssign={handleAssign}
+                    onViewResults={id => { window.location.href = `/host/quizzes/${id}/report` }}
+                    onDuplicate={handleDuplicate}
+                    onDelete={id => setConfirmDelete(id)}
+                  />
+                ))}
               </div>
             </section>
           )}
