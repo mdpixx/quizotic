@@ -48,10 +48,21 @@ export function QuestionSettingsPopover({ question, onChange, onClose }: Questio
   const requiredCount = checkItems.filter(c => !c.optional).length
 
   return (
-    <div
-      className="absolute right-0 top-full mt-1 z-50 rounded-2xl shadow-2xl border bg-white overflow-y-auto"
-      style={{ width: 320, maxHeight: '80vh', borderColor: '#E5E7EB' }}
-    >
+    <>
+      {/* Scrim — mobile only, dismisses on tap */}
+      <div className="fixed inset-0 z-40 bg-black/20 md:hidden" onClick={onClose} />
+      {/*
+        Mobile: fixed bottom sheet (escapes overflow-y-auto clip on the card)
+        Desktop: classic absolute dropdown below the gear button
+      */}
+      <div
+        className="fixed left-2 right-2 bottom-20 z-50 rounded-2xl shadow-2xl border bg-white overflow-y-auto md:absolute md:left-auto md:right-0 md:bottom-auto md:top-full md:mt-1 md:w-80"
+        style={{ maxHeight: 'calc(100vh - 140px)', borderColor: '#E5E7EB' }}
+      >
+        {/* Drag handle — mobile only */}
+        <div className="flex justify-center pt-2 pb-1 md:hidden">
+          <div className="w-8 h-1 rounded-full bg-gray-300" />
+        </div>
       {/* Header */}
       <div className="sticky top-0 bg-white z-10 flex items-center justify-between px-4 pt-4 pb-3 border-b" style={{ borderColor: '#F3F4F6' }}>
         <p className="text-xs font-black uppercase tracking-widest" style={{ color: '#0F1B3D' }}>Question Settings</p>
@@ -189,6 +200,7 @@ export function QuestionSettingsPopover({ question, onChange, onClose }: Questio
           />
         </div>
       </div>
-    </div>
+      </div>
+    </>
   )
 }
