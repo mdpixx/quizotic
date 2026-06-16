@@ -145,16 +145,18 @@ function TypeDropdown({ type, onChange }: { type: QuestionType; onChange: (t: Qu
   }, [open])
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative min-w-0">
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors hover:brightness-95"
+        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors hover:brightness-95 min-w-0 max-w-full"
         style={{ background: pill.bg, color: pill.color, border: `1px solid ${pill.color}22` }}
       >
         <span className="flex-shrink-0 w-4 h-4">{getTypeIcon(type)}</span>
-        {pill.label}
-        <span className="text-[10px] opacity-60">&#9660;</span>
+        {/* Compact label on mobile so a long type name can't push the action icons off-screen */}
+        <span className="sm:hidden truncate">{pill.shortLabel ?? pill.label}</span>
+        <span className="hidden sm:inline truncate">{pill.label}</span>
+        <span className="text-[10px] opacity-60 flex-shrink-0">&#9660;</span>
       </button>
       {open && (
         <div
@@ -387,7 +389,10 @@ export function QuestionCanvas({
     <div className="flex flex-col h-full bg-white rounded-2xl overflow-hidden" style={{ boxShadow: '0 4px 32px rgba(15,27,61,0.08)', border: '1px solid #E5E7EB' }}>
 
       {/* ── Canvas header: type + timer + points + gear + actions ─────────── */}
-      <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 border-b" style={{ borderColor: '#F3F4F6', background: '#FAFAFA' }}>
+      <div className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 border-b sm:gap-2 sm:px-4" style={{ borderColor: '#F3F4F6', background: '#FAFAFA' }}>
+        {/* Left cluster: type + timer + points. Shrinks (type label ellipsizes) so the
+            action icons on the right are never pushed off-screen on narrow phones. */}
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
         {/* Type dropdown */}
         <TypeDropdown type={question.type} onChange={onTypeChange} />
 
@@ -411,10 +416,12 @@ export function QuestionCanvas({
           />
         )}
 
-        <div className="flex-1" />
+        </div>
 
+        {/* Action cluster: pinned to the right, never shrinks or clips */}
+        <div className="flex items-center flex-shrink-0">
         {/* Question number */}
-        <span className="text-xs text-gray-400 font-medium tabular-nums hidden sm:block">
+        <span className="text-xs text-gray-400 font-medium tabular-nums hidden sm:block mr-1">
           {index + 1} / {total}
         </span>
 
@@ -433,10 +440,10 @@ export function QuestionCanvas({
           <button
             type="button"
             onClick={onDelete}
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 active:scale-95 transition-all"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 active:scale-95 transition-all"
             title="Delete question"
           >
-            <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5"><path d="M7 8v7m3-7v7m3-7v7M4 5h12M8 5V4h4v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><path d="M7 8v7m3-7v7m3-7v7M4 5h12M8 5V4h4v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
           </button>
         )}
 
@@ -458,6 +465,7 @@ export function QuestionCanvas({
               onClose={() => setSettingsOpen(false)}
             />
           )}
+        </div>
         </div>
       </div>
 

@@ -34,6 +34,8 @@ export type PointsValue = (typeof POINTS_OPTIONS)[number]
 export interface TypePill {
   value: QuestionType
   label: string
+  /** Compact label for narrow screens (mobile header). Falls back to `label`. */
+  shortLabel?: string
   color: string
   bg: string
   tooltip: string
@@ -41,15 +43,15 @@ export interface TypePill {
 
 export const TYPE_PILLS: TypePill[] = [
   { value: 'mcq', label: 'MCQ', color: '#2563EB', bg: '#EFF6FF', tooltip: 'Classic quiz format — 2-4 options, one correct answer.' },
-  { value: 'multiselect', label: 'Multi-select', color: '#7C3AED', bg: '#F5F3FF', tooltip: 'Choose one or more correct answers.' },
-  { value: 'truefalse', label: 'True/False', color: '#16A34A', bg: '#F0FDF4', tooltip: 'Simple binary choice.' },
+  { value: 'multiselect', label: 'Multi-select', shortLabel: 'Multi', color: '#7C3AED', bg: '#F5F3FF', tooltip: 'Choose one or more correct answers.' },
+  { value: 'truefalse', label: 'True/False', shortLabel: 'T/F', color: '#16A34A', bg: '#F0FDF4', tooltip: 'Simple binary choice.' },
   { value: 'poll', label: 'Poll', color: '#0F1B3D', bg: '#F3F4F6', tooltip: 'Gather opinions — no right or wrong answer.' },
-  { value: 'openended', label: 'Open-ended', color: '#D97706', bg: '#FFFBEB', tooltip: 'Free-text responses.' },
-  { value: 'wordcloud', label: 'Word Cloud', color: '#FF8A47', bg: '#FFF7ED', tooltip: 'Participants submit words forming a live cloud.' },
+  { value: 'openended', label: 'Open-ended', shortLabel: 'Open', color: '#D97706', bg: '#FFFBEB', tooltip: 'Free-text responses.' },
+  { value: 'wordcloud', label: 'Word Cloud', shortLabel: 'Cloud', color: '#FF8A47', bg: '#FFF7ED', tooltip: 'Participants submit words forming a live cloud.' },
   { value: 'qa', label: 'Q&A', color: '#0891B2', bg: '#ECFEFF', tooltip: 'Open Q&A — participants ask questions.' },
   { value: 'rating', label: 'Rating', color: '#EA580C', bg: '#FFF7ED', tooltip: 'Star rating (1-5). Collect satisfaction scores.' },
-  { value: 'ranking', label: 'Ranking', color: '#4F46E5', bg: '#EEF2FF', tooltip: 'Drag-to-rank items in order.' },
-  { value: 'case', label: 'Scenario', color: '#DC2626', bg: '#FFF1F2', tooltip: 'Present a real-world scenario with context.' },
+  { value: 'ranking', label: 'Ranking', shortLabel: 'Rank', color: '#4F46E5', bg: '#EEF2FF', tooltip: 'Drag-to-rank items in order.' },
+  { value: 'case', label: 'Scenario', shortLabel: 'Case', color: '#DC2626', bg: '#FFF1F2', tooltip: 'Present a real-world scenario with context.' },
 ]
 
 export const QUESTION_TYPE_GROUPS: { label: string; types: QuestionType[] }[] = [

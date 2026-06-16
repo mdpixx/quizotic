@@ -30,7 +30,8 @@ fi
 # Remove folders that exist on destination but shouldn't (rsync --exclude
 # doesn't delete already-present excluded files, and --delete-excluded is
 # too aggressive because it would also nuke .git).
-rm -rf "$CACHE_DIR/remotion" "$CACHE_DIR/audits" "$CACHE_DIR/scripts/_pull-feedback.mjs"
+rm -rf "$CACHE_DIR/remotion" "$CACHE_DIR/audits" "$CACHE_DIR/scripts/_pull-feedback.mjs" \
+  "$CACHE_DIR/cold-email-pipeline"
 
 # Rsync source files (exclude everything the standalone repo doesn't need)
 echo "→ Syncing files from $SRC_DIR → $CACHE_DIR"
@@ -54,6 +55,10 @@ rsync -a --delete \
   --exclude='.cursor/' \
   --exclude='.vscode/' \
   --exclude='remotion/' \
+  --exclude='cold-email-pipeline/' \
+  --exclude='*.xlsx' \
+  --exclude='quizotic_user*.html' \
+  --exclude='exports/*users*' \
   "$SRC_DIR/" "$CACHE_DIR/"
 
 # Stage and detect changes
