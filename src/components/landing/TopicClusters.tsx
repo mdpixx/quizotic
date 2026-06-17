@@ -25,6 +25,7 @@ const CLUSTERS: Cluster[] = [
   {
     title: 'For CBSE, NCERT & Coaching Institutes',
     links: [
+      { label: 'Who uses Quizotic?', href: '/for' },
       { label: 'NCERT Quiz Generator', href: '/ncert-quiz-generator' },
       { label: 'For Teachers (CBSE & State Boards)', href: '/for/teachers' },
       { label: 'For Schools', href: '/for/schools' },
@@ -35,11 +36,11 @@ const CLUSTERS: Cluster[] = [
   {
     title: 'Kahoot, Quizizz & Slido Alternatives',
     links: [
+      { label: 'All comparisons & alternatives', href: '/vs' },
+      { label: 'Kahoot alternative for India', href: '/alternatives/kahoot' },
       { label: 'Quizotic vs Slido — India', href: '/vs/slido' },
       { label: 'Quizotic vs Kahoot', href: '/vs/kahoot' },
       { label: 'Quizotic vs Quizizz', href: '/vs/quizizz' },
-      { label: 'Mentimeter vs Slido vs Quizotic', href: '/learn/mentimeter-vs-slido-vs-quizotic' },
-      { label: 'Audience Polling Tool Comparison', href: '/learn/audience-polling-tool-comparison' },
       { label: 'Slido Alternatives India 2026', href: '/learn/slido-alternatives-india-2026' },
     ],
   },
