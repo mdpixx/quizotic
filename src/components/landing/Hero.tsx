@@ -254,7 +254,7 @@ export function Hero() {
 
           {/* Trust strip — honest early-stage proof until real usage numbers exist */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 18px', marginTop: 28 }}>
-            {['Built in India', 'INR pricing with UPI', 'Runs on 2 Mbps Wi-Fi', 'Free forever plan'].map(item => (
+            {['Free forever plan', 'No app — join in the browser', 'Works on slow connections', 'UPI & cards accepted'].map(item => (
               <span key={item} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.55)' }}>
                 <svg viewBox="0 0 20 20" fill="none" width="14" height="14" aria-hidden>
                   <path d="M4 10.5l4 4 8-9" stroke="#F5E642" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
