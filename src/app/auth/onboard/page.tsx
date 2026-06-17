@@ -106,8 +106,10 @@ export default function OnboardPage() {
     track('onboard_completed', { skipped: skip, role: skip ? null : role, firstCreate: skip ? null : firstCreate })
     // Refresh the JWT so middleware knows onboarding is complete
     await update({ onboarded: true })
-    const destination = skip ? null : FIRST_CREATE.find(o => o.id === firstCreate)?.href
-    router.push(destination ?? '/host')
+    // Default to the builder when the user didn't pick a destination —
+    // momentum beats landing on a blank dashboard (matches the 6→3 activation drop).
+    const destination = skip ? '/host' : (FIRST_CREATE.find(o => o.id === firstCreate)?.href ?? '/host/build')
+    router.push(destination)
   }
 
   return (

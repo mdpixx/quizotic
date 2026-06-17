@@ -13,9 +13,11 @@ const LAST_EMAIL_KEY = 'quizotic:lastEmail'
 
 interface SignInFormProps {
   intent: Intent
+  /** Where to land after successful sign-in. Defaults to /host. Must be a same-origin path. */
+  callbackUrl?: string
 }
 
-export default function SignInForm({ intent }: SignInFormProps) {
+export default function SignInForm({ intent, callbackUrl = '/host' }: SignInFormProps) {
   const isSignup = intent === 'signup'
 
   const [phase, setPhase] = useState<Phase>('email')
@@ -65,7 +67,7 @@ export default function SignInForm({ intent }: SignInFormProps) {
     setLoading(true)
     setError('')
     try {
-      await signIn('google', { callbackUrl: '/host' })
+      await signIn('google', { callbackUrl })
     } catch {
       setError('Could not connect to Google. Please try again.')
       setLoading(false)
@@ -84,7 +86,7 @@ export default function SignInForm({ intent }: SignInFormProps) {
       const res = await fetch('/api/auth/signin/nodemailer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ email: targetEmail, csrfToken, callbackUrl: '/host' }),
+        body: new URLSearchParams({ email: targetEmail, csrfToken, callbackUrl }),
         redirect: 'manual',
         signal: controller.signal,
       })
@@ -160,7 +162,7 @@ export default function SignInForm({ intent }: SignInFormProps) {
       const params = new URLSearchParams({
         email: email.trim(),
         token: trimmed,
-        callbackUrl: '/host',
+        callbackUrl,
       })
       const res = await fetch(`/api/auth/callback/nodemailer?${params.toString()}`, {
         method: 'GET',
@@ -175,7 +177,7 @@ export default function SignInForm({ intent }: SignInFormProps) {
       // Remember the email so next time it's pre-filled, then hard-navigate
       // so client-side state (NextAuth session, JWT) is re-read fresh.
       rememberEmail(email.trim())
-      window.location.href = '/host'
+      window.location.href = callbackUrl
     } catch {
       setError('Network error. Check your connection and try again.')
       setLoading(false)

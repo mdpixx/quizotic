@@ -5,8 +5,10 @@ import { NavChevron } from '@/components/ui/NavButton'
 
 // Convert a participant into a host at the ideal moment — right after they've
 // finished and enjoyed a quiz. Lands them in the builder (post-signin).
+// intent=signup → correct first-timer framing ("Create your account / Start hosting free")
+// callbackUrl → lands them in the builder, not the generic dashboard
 const CREATE_URL =
-  '/auth/signin?callbackUrl=%2Fhost%2Fbuild&utm_source=participant&utm_medium=quiz-end&utm_campaign=create-cta'
+  '/auth/signin?intent=signup&callbackUrl=%2Fhost%2Fbuild&utm_source=participant&utm_medium=quiz-end&utm_campaign=create-cta'
 
 interface Props {
   /** Where the CTA was shown, for conversion analytics. */
