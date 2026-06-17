@@ -24,6 +24,7 @@ import { QuizoticLogo } from '@/components/QuizoticLogo'
 import { BrandWatermark } from '@/components/BrandWatermark'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
 import { JoinPill } from '@/components/host/JoinPill'
+import { NavChevron } from '@/components/ui/NavButton'
 import { EndQuizConfirmModal } from '@/components/host/EndQuizConfirmModal'
 import { HostWordCloud } from '@/components/host/HostWordCloud'
 import { getQuizTheme } from '@/lib/quiz-themes'
@@ -2210,7 +2211,7 @@ export default function SessionPage() {
                     }}
                   >
                     {label}
-                    <span aria-hidden>→</span>
+                    <NavChevron direction="forward" className="w-4 h-4" />
                   </button>
                 </>
               )
@@ -2349,7 +2350,7 @@ export default function SessionPage() {
                 />
               )}
               {questionIndex + 1 >= quiz.questions.length ? 'End Quiz' : 'Next Question'}
-              <span aria-hidden>→</span>
+              <NavChevron direction="forward" className="w-4 h-4" />
             </button>
           </div>
           </div>

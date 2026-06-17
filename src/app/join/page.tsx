@@ -7,6 +7,8 @@ import dynamic from 'next/dynamic'
 import { Avatar } from '@/components/Avatar'
 import { BrandWatermark } from '@/components/BrandWatermark'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
+import { NavChevron } from '@/components/ui/NavButton'
+import { CreateYourOwnCTA } from '@/components/CreateYourOwnCTA'
 import { playTick, playCorrect, playWrong, playStreak, isMuted, toggleMuted } from '@/lib/sounds'
 import { LeaderboardView } from '@/components/LeaderboardView'
 import { ResultBeat, type PersonalResult } from '@/components/ResultBeat'
@@ -448,7 +450,8 @@ function StatusBanner({ connectionState, answerToast }: { connectionState: 'conn
 }
 
 function JoinPageInner() {
-  const { t, locale, setLocale } = useI18n()
+  // Participant flow is English-only — pin the locale and drop the language toggle.
+  const { t } = useI18n('en')
   const searchParams = useSearchParams()
   const socketRef = useRef<Socket | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -1537,25 +1540,6 @@ function JoinPageInner() {
             <p className="text-xs font-bold uppercase tracking-[0.14em] mt-2" style={{ color: '#F5E642' }}>
               Join a live quiz with code
             </p>
-            {/* Language toggle */}
-            <div className="flex justify-center gap-2 mt-1">
-              <button
-                type="button"
-                onClick={() => setLocale('en')}
-                aria-label="Switch to English"
-                className={`text-xs font-bold px-3 py-1 rounded-full transition-all ${locale === 'en' ? 'bg-white/20 text-white' : 'text-white/40 hover:text-white/60'}`}
-              >
-                EN
-              </button>
-              <button
-                type="button"
-                onClick={() => setLocale('hi')}
-                aria-label="हिंदी में बदलें"
-                className={`text-xs font-bold px-3 py-1 rounded-full transition-all ${locale === 'hi' ? 'bg-white/20 text-white' : 'text-white/40 hover:text-white/60'}`}
-              >
-                हिंदी
-              </button>
-            </div>
           </div>
 
           <form onSubmit={handleJoin} className="space-y-4">
@@ -1646,10 +1630,6 @@ function JoinPageInner() {
           <p className="text-center text-base mt-5" style={{ color: 'rgba(255,255,255,0.28)' }}>
             You&apos;ll get a unique character when you join
           </p>
-
-          <div className="text-center mt-6">
-            <ShareQuizotic context="join" tone="dark" />
-          </div>
         </div>
       </div>
     )
@@ -2357,9 +2337,11 @@ function JoinPageInner() {
           />
         )}
 
+        <CreateYourOwnCTA context="quiz-ended" />
+
         <button
           onClick={handlePlayAgain}
-          className="w-full border border-gray-300 text-gray-600 rounded-xl py-4 text-lg hover:border-gray-400 transition-colors font-semibold mt-6"
+          className="w-full border border-gray-300 text-gray-600 rounded-xl py-4 text-lg hover:border-gray-400 transition-colors font-semibold mt-3"
         >
           Attempt Again
         </button>
@@ -2451,10 +2433,11 @@ function JoinPageInner() {
             )}
             <button
               onClick={handleSpNext}
-              className="w-full py-4 rounded-full font-bold text-lg transition-all hover:opacity-90"
+              className="w-full py-4 rounded-full font-bold text-lg transition-all hover:opacity-90 inline-flex items-center justify-center gap-2"
               style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
             >
               {spIndex + 1 >= spQuestions.length ? 'See Results' : 'Next'}
+              <NavChevron direction="forward" className="w-5 h-5" />
             </button>
           </div>
         )}
@@ -2481,6 +2464,7 @@ function JoinPageInner() {
           <p className="font-bold text-xl" style={{ color: '#0F1B3D' }}>{quizTitle}</p>
           <p className="text-base text-gray-500 mt-1">{spQuestions.length} questions · spaced retrieval practice</p>
         </div>
+        <CreateYourOwnCTA context="selfpaced-done" className="" />
         <button
           onClick={handlePlayAgain}
           className="w-full border border-gray-300 text-gray-600 rounded-xl py-4 text-lg hover:border-gray-400 transition-colors font-semibold"

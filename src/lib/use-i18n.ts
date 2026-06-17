@@ -25,9 +25,12 @@ function detectLocale(): Locale {
  * Usage: const { t, locale, setLocale } = useI18n()
  *        t('join.submitBtn')             → "Join →" / "जॉइन करें →"
  *        t('join.questionOf', { current: 2, total: 10 }) → "Question 2 of 10"
+ *
+ * Pass `forceLocale` to pin the language and ignore browser/stored detection —
+ * used by the participant join flow, which is English-only.
  */
-export function useI18n() {
-  const [locale, setLocaleState] = useState<Locale>(() => detectLocale())
+export function useI18n(forceLocale?: Locale) {
+  const [locale, setLocaleState] = useState<Locale>(() => forceLocale ?? detectLocale())
 
   const setLocale = useCallback((l: Locale) => {
     setLocaleState(l)

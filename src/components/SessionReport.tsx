@@ -44,30 +44,59 @@ function BloomsDistribution({ stats }: { stats: QuestionStat[] }) {
   )
 }
 
+// The four confidence×correctness quadrants. `key` maps to the grid counts;
+// the visual treatment encodes the learning-science meaning of each cell.
+const CONFIDENCE_QUADRANTS = {
+  sureCorrect: { label: 'Mastery', bg: '#F0FDF4', border: '#BBF7D0', color: '#15803D' },
+  sureWrong: { label: 'Misconception', bg: '#FEF2F2', border: '#FECACA', color: '#B91C1C' },
+  unsureCorrect: { label: 'Lucky', bg: '#FEFCE8', border: '#FDE68A', color: '#A16207' },
+  unsureWrong: { label: 'Gap', bg: '#F9FAFB', border: '#E5E7EB', color: '#6B7280' },
+} as const
+
+function QuadCell({ k, count }: { k: keyof typeof CONFIDENCE_QUADRANTS; count: number }) {
+  const q = CONFIDENCE_QUADRANTS[k]
+  const warn = k === 'sureWrong' && count > 0
+  return (
+    <div
+      className="rounded-md px-2 py-1.5 text-center"
+      style={{ background: q.bg, border: `1px solid ${warn ? '#FCA5A5' : q.border}` }}
+    >
+      <div
+        className="text-[9px] font-bold uppercase tracking-wide leading-none mb-1"
+        style={{ color: q.color }}
+      >
+        {q.label}{warn ? ' ⚠' : ''}
+      </div>
+      <div className="text-sm font-black leading-none tabular-nums" style={{ color: q.color }}>
+        {count}
+      </div>
+    </div>
+  )
+}
+
+// 2×2 confidence quadrant: rows = Sure / Not sure, columns = Correct / Wrong.
+// "Misconception" (sure but wrong) is the key teaching signal and is flagged.
 function ConfidenceGridDisplay({ grid }: { grid: NonNullable<QuestionStat['confidenceGrid']> }) {
   const { sureCorrect, sureWrong, unsureCorrect, unsureWrong } = grid
+  const cols = '52px 1fr 1fr'
   return (
-    <table className="text-xs border-collapse mt-2 w-full max-w-[220px]">
-      <thead>
-        <tr>
-          <th className="text-gray-400 font-normal pb-1 text-left" />
-          <th className="text-gray-500 font-semibold pb-1 text-center">Correct</th>
-          <th className="text-gray-500 font-semibold pb-1 text-center">Wrong</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td className="text-gray-500 pr-3 py-1">Sure</td>
-          <td className="bg-green-50 border border-gray-100 text-center rounded-sm py-1 px-2 text-gray-700">{sureCorrect}</td>
-          <td className="bg-amber-50 border border-gray-100 text-center rounded-sm py-1 px-2 text-amber-800 font-semibold">{sureWrong}</td>
-        </tr>
-        <tr>
-          <td className="text-gray-500 pr-3 py-1">Not Sure</td>
-          <td className="bg-green-50 border border-gray-100 text-center rounded-sm py-1 px-2 text-gray-700">{unsureCorrect}</td>
-          <td className="border border-gray-100 text-center rounded-sm py-1 px-2 text-gray-700">{unsureWrong}</td>
-        </tr>
-      </tbody>
-    </table>
+    <div className="mt-2 w-full max-w-[260px]">
+      <div className="grid" style={{ gridTemplateColumns: cols, gap: 4 }}>
+        <div />
+        <div className="text-[10px] font-semibold text-center pb-1" style={{ color: '#9CA3AF' }}>Correct</div>
+        <div className="text-[10px] font-semibold text-center pb-1" style={{ color: '#9CA3AF' }}>Wrong</div>
+      </div>
+      <div className="grid items-stretch" style={{ gridTemplateColumns: cols, gap: 4, marginBottom: 4 }}>
+        <div className="flex items-center text-[10px] font-semibold" style={{ color: '#6B7280' }}>Sure</div>
+        <QuadCell k="sureCorrect" count={sureCorrect} />
+        <QuadCell k="sureWrong" count={sureWrong} />
+      </div>
+      <div className="grid items-stretch" style={{ gridTemplateColumns: cols, gap: 4 }}>
+        <div className="flex items-center text-[10px] font-semibold leading-tight" style={{ color: '#6B7280' }}>Not sure</div>
+        <QuadCell k="unsureCorrect" count={unsureCorrect} />
+        <QuadCell k="unsureWrong" count={unsureWrong} />
+      </div>
+    </div>
   )
 }
 
@@ -335,22 +364,27 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
         : `<span style="font-size:26px;font-weight:900;color:${pctColor};white-space:nowrap">${stat.correctPct}%</span>`
 
       const grid = stat.confidenceGrid
+      const quadCell = (label: string, count: number, bg: string, border: string, color: string, warn = false) => `
+        <td style="background:${bg};border:1px solid ${warn ? '#fca5a5' : border};padding:5px 12px;text-align:center;border-radius:5px;width:96px">
+          <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:${color};margin-bottom:2px">${label}${warn ? ' &#9888;' : ''}</div>
+          <div style="font-size:14px;font-weight:800;color:${color};line-height:1">${count}</div>
+        </td>`
       const gridHtml = grid ? `
-        <table style="border-collapse:collapse;margin-top:10px;font-size:12px;">
+        <table style="border-collapse:separate;border-spacing:4px;margin-top:10px;font-size:12px;">
           <tr>
-            <th style="width:80px"></th>
-            <th style="padding:2px 14px;color:#6b7280;font-weight:600;text-align:center">Correct</th>
-            <th style="padding:2px 14px;color:#6b7280;font-weight:600;text-align:center">Wrong</th>
+            <th style="width:56px"></th>
+            <th style="color:#9ca3af;font-weight:600;font-size:10px;text-align:center">Correct</th>
+            <th style="color:#9ca3af;font-weight:600;font-size:10px;text-align:center">Wrong</th>
           </tr>
           <tr>
-            <td style="color:#6b7280;padding:4px 8px 4px 0;font-size:12px">Sure</td>
-            <td style="background:#f0fdf4;border:1px solid #d1fae5;padding:4px 14px;text-align:center;border-radius:4px">${grid.sureCorrect}</td>
-            <td style="background:${grid.sureWrong > 0 ? '#fef3c7' : '#f9fafb'};border:1px solid ${grid.sureWrong > 0 ? '#fcd34d' : '#e5e7eb'};padding:4px 14px;text-align:center;border-radius:4px;font-weight:${grid.sureWrong > 0 ? '700' : '400'};color:${grid.sureWrong > 0 ? '#92400e' : '#374151'}">${grid.sureWrong}</td>
+            <td style="color:#6b7280;font-size:10px;font-weight:600">Sure</td>
+            ${quadCell('Mastery', grid.sureCorrect, '#f0fdf4', '#bbf7d0', '#15803d')}
+            ${quadCell('Misconception', grid.sureWrong, '#fef2f2', '#fecaca', '#b91c1c', grid.sureWrong > 0)}
           </tr>
           <tr>
-            <td style="color:#6b7280;padding:4px 8px 4px 0;font-size:12px">Not Sure</td>
-            <td style="background:#f0fdf4;border:1px solid #d1fae5;padding:4px 14px;text-align:center;border-radius:4px">${grid.unsureCorrect}</td>
-            <td style="background:#f9fafb;border:1px solid #e5e7eb;padding:4px 14px;text-align:center;border-radius:4px">${grid.unsureWrong}</td>
+            <td style="color:#6b7280;font-size:10px;font-weight:600">Not sure</td>
+            ${quadCell('Lucky', grid.unsureCorrect, '#fefce8', '#fde68a', '#a16207')}
+            ${quadCell('Gap', grid.unsureWrong, '#f9fafb', '#e5e7eb', '#6b7280')}
           </tr>
         </table>` : ''
       const misconceptionNote = grid && grid.sureWrong > 0

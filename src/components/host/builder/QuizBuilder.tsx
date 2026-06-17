@@ -39,6 +39,7 @@ import { AIGenerateForm } from './AIGenerateForm'
 import { QuizSettingsPopover } from './QuizSettingsPopover'
 import { SparkleIcon } from './SparkleIcon'
 import { MobileToolbar } from '@/components/ui/MobileToolbar'
+import { NavButton } from '@/components/ui/NavButton'
 import type { Question } from '@/lib/quiz-types'
 
 // ── AutosaveBadge ─────────────────────────────────────────────────────────────
@@ -300,17 +301,7 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
         style={{ borderColor: '#E5E7EB', height: 56 }}
       >
         {/* Circular back button */}
-        <button
-          type="button"
-          onClick={handleBack}
-          className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors hover:bg-gray-100"
-          style={{ border: '1.5px solid #E5E7EB', color: '#374151' }}
-          title="Back"
-        >
-          <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4">
-            <path d="M13 16l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
+        <NavButton direction="back" variant="circle" onClick={handleBack} className="flex-shrink-0" />
 
         {/* Title input */}
         <input

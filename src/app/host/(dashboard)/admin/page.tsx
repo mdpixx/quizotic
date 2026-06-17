@@ -7,6 +7,7 @@ import Link from 'next/link'
 import type { Question } from '@/lib/quiz-types'
 import { getEffectiveOptions, getOptionText, getOptionImage, isScoredQuestion } from '@/lib/quiz-types'
 import { SLIDE_TYPE_META } from '@/lib/presentation-types'
+import { NavChevron } from '@/components/ui/NavButton'
 
 type WowDelta = { thisWeek: number; lastWeek: number; pct: number | null }
 
@@ -490,9 +491,9 @@ function ContentBrowser() {
       </table>
       {pages > 1 && (
         <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200/50 dark:border-gray-700/50 text-sm">
-          <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="text-indigo-600 disabled:text-gray-300 dark:disabled:text-gray-600">← Prev</button>
+          <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="inline-flex items-center gap-1 text-indigo-600 disabled:text-gray-300 dark:disabled:text-gray-600"><NavChevron direction="back" className="w-3.5 h-3.5" />Prev</button>
           <span className="text-gray-500">Page {page} of {pages}</span>
-          <button disabled={page >= pages} onClick={() => setPage(p => p + 1)} className="text-indigo-600 disabled:text-gray-300 dark:disabled:text-gray-600">Next →</button>
+          <button disabled={page >= pages} onClick={() => setPage(p => p + 1)} className="inline-flex items-center gap-1 text-indigo-600 disabled:text-gray-300 dark:disabled:text-gray-600">Next<NavChevron direction="forward" className="w-3.5 h-3.5" /></button>
         </div>
       )}
       {viewId && <ContentViewerModal key={viewId} id={viewId} type={type} onClose={() => setViewId(null)} />}
@@ -569,9 +570,9 @@ function UsersTab() {
       </table>
       {pages > 1 && (
         <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200/50 dark:border-gray-700/50 text-sm">
-          <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="text-indigo-600 disabled:text-gray-300 dark:disabled:text-gray-600">← Prev</button>
+          <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="inline-flex items-center gap-1 text-indigo-600 disabled:text-gray-300 dark:disabled:text-gray-600"><NavChevron direction="back" className="w-3.5 h-3.5" />Prev</button>
           <span className="text-gray-500">Page {page} of {pages}</span>
-          <button disabled={page >= pages} onClick={() => setPage(p => p + 1)} className="text-indigo-600 disabled:text-gray-300 dark:disabled:text-gray-600">Next →</button>
+          <button disabled={page >= pages} onClick={() => setPage(p => p + 1)} className="inline-flex items-center gap-1 text-indigo-600 disabled:text-gray-300 dark:disabled:text-gray-600">Next<NavChevron direction="forward" className="w-3.5 h-3.5" /></button>
         </div>
       )}
     </TableSection>
