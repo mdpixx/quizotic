@@ -60,6 +60,9 @@ const STATIC_ROUTES: Entry[] = [
   { path: '/about', changeFrequency: 'monthly', priority: 0.6 },
   { path: '/learn', changeFrequency: 'weekly', priority: 0.8 },
   { path: '/templates', changeFrequency: 'weekly', priority: 0.8 },
+  { path: '/vs', changeFrequency: 'monthly', priority: 0.8 },
+  { path: '/for', changeFrequency: 'monthly', priority: 0.8 },
+  { path: '/alternatives', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/privacy', changeFrequency: 'yearly', priority: 0.3 },
   { path: '/terms', changeFrequency: 'yearly', priority: 0.3 },
 ]
