@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'Quizotic — Live Quiz & Presentation Platform',
     short_name: 'Quizotic',
     description:
-      'Create live quizzes and interactive presentations in seconds. AI-powered, real-time, INR billing.',
+      'Create live quizzes and interactive presentations in seconds. AI-powered, real-time, free to start.',
     start_url: '/',
     scope: '/',
     display: 'standalone',
@@ -18,6 +18,6 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: '/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
     categories: ['education', 'productivity'],
-    lang: 'en-IN',
+    lang: 'en-US',
   }
 }

@@ -99,7 +99,7 @@ export default async function Image() {
             { text: '18 Slide Types', color: '#5BC0EB' },
             { text: 'Real-Time', color: '#FF8A47' },
             { text: '50 Free Participants', color: '#16A34A' },
-            { text: 'INR Billing', color: '#EA580C' },
+            { text: 'Free to Start', color: '#EA580C' },
           ].map((pill) => (
             <div
               key={pill.text}

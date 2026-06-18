@@ -21,13 +21,13 @@ const jsonLd = {
   name: BRAND.name,
   url: BRAND.url,
   description:
-    'Free live quiz and interactive presentation platform. Built on learning science — Bloom\'s Taxonomy, Confidence Grid & Spaced Retrieval. INR billing with UPI.',
+    'Free live quiz and interactive presentation platform. Built on learning science — Bloom\'s Taxonomy, Confidence Grid & Spaced Retrieval. Free to start.',
   applicationCategory: 'EducationalApplication',
   operatingSystem: 'Web',
   offers: {
     '@type': 'Offer',
     price: '0',
-    priceCurrency: 'INR',
+    priceCurrency: 'USD',
     description: 'Free tier available',
   },
 }

@@ -6,8 +6,8 @@ export const BRAND = {
   url: 'https://www.quizotic.live',
   logo: 'https://www.quizotic.live/icon.svg',
   description:
-    'India-first live quiz and interactive presentation platform for schools, coaching institutes, colleges, and corporate trainers. Free to start, INR billing, UPI payments.',
-  slogan: 'Live quizzes. Built on learning science. India-first.',
+    'Live quiz and interactive presentation platform for schools, coaching institutes, colleges, and corporate trainers. Free to start, built on learning science.',
+  slogan: 'Live quizzes. Built on learning science.',
   foundingDate: '2024',
   foundingLocation: { '@type': 'Place', addressCountry: 'IN' },
   knowsAbout: [
