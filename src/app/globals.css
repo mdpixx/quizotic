@@ -1123,10 +1123,38 @@ button.chip:active:not(:disabled) {
   }
 }
 
-/* Justified body prose — opt-in via className="prose-justify". Left-aligned on
-   narrow mobile (justified text creates ugly "rivers" in narrow columns),
-   justified from tablet up. */
-.prose-justify { text-align: left; }
+/* Justified body prose — opt-in via className="prose-justify". Justified at all
+   widths; hyphens:auto breaks long words so narrow mobile columns don't form
+   ugly "rivers" of whitespace, and overflow-wrap stops any single long token
+   (URL, code) from pushing past the edge. */
+.prose-justify {
+  text-align: justify;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  overflow-wrap: break-word;
+}
+
+/* TopicClusters link grid — collapsed accordion on mobile (saves ~2 screens of
+   scroll), always-open grid on desktop. Native <details>; links stay in the DOM
+   at every width, so SEO is unaffected. */
+.tc-summary {
+  cursor: pointer;
+  list-style: none;
+  text-align: center;
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+  font-weight: 700;
+  font-size: 15px;
+  color: #2563EB;
+  background: #fff;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+  padding: 14px;
+}
+.tc-summary::-webkit-details-marker { display: none; }
+.tc-summary::after { content: ' ▾'; }
+.tc-details[open] > .tc-summary::after { content: ' ▴'; }
 @media (min-width: 768px) {
-  .prose-justify { text-align: justify; }
+  /* Desktop: no toggle — show the full grid regardless of open state. */
+  .tc-summary { display: none; }
+  .tc-details > .tc-grid { display: grid !important; margin-top: 0 !important; }
 }

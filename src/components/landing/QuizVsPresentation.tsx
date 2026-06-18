@@ -20,14 +20,14 @@ const PILL_COLORS = ['#2D3A8C', '#FF8A47', '#5BC0EB', '#E07A5F']
 
 export function QuizVsPresentation() {
   return (
-    <section id="features" style={{ padding: '120px 24px', background: '#fff' }}>
+    <section id="features" style={{ padding: 'clamp(56px, 11vw, 120px) 24px', background: '#fff' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         {/* Heading */}
         <h2 style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 'clamp(32px, 4vw, 48px)', color: '#0F1B3D', letterSpacing: '-0.03em', textAlign: 'center', marginBottom: 16 }}>
           Two superpowers.{' '}
           <span style={{ background: '#F5E642', padding: '2px 8px', borderRadius: 6 }}>One platform.</span>
         </h2>
-        <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 18, color: '#555', textAlign: 'center', maxWidth: 600, margin: '0 auto 56px', lineHeight: 1.6 }}>
+        <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 18, color: '#555', textAlign: 'center', maxWidth: 600, margin: '0 auto clamp(28px, 7vw, 56px)', lineHeight: 1.6 }}>
           Quizotic gives you live quiz engagement AND interactive presentation power — use them together or independently.
         </p>
 

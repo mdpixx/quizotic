@@ -73,7 +73,7 @@ const GUIDE_LINKS = [
 
 export function Footer() {
   return (
-    <footer style={{ background: '#0F1B3D', borderTop: '2px solid #F5E642', padding: '48px 24px' }}>
+    <footer style={{ background: '#0F1B3D', borderTop: '2px solid #F5E642', padding: 'clamp(36px, 7vw, 48px) 24px' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
         {/* Wordmark */}
         <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 24, color: '#F5E642' }}>

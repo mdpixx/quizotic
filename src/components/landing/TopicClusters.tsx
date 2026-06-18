@@ -77,7 +77,7 @@ const CLUSTERS: Cluster[] = [
 
 export function TopicClusters() {
   return (
-    <section style={{ background: '#F9FAFB', borderTop: '1px solid #E5E7EB', padding: '64px 24px' }}>
+    <section style={{ background: '#F9FAFB', borderTop: '1px solid #E5E7EB', padding: 'clamp(40px, 8vw, 64px) 24px' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         <h2
           style={{
@@ -94,56 +94,64 @@ export function TopicClusters() {
         <p style={{ textAlign: 'center', color: '#6B7280', fontSize: 15, marginBottom: 40 }}>
           India-first guides, CBSE/NCERT/JEE/NEET resources, tool comparisons, and ready-made templates.
         </p>
-        <div
-          style={{
-            display: 'grid',
-            gap: 24,
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-          }}
-        >
-          {CLUSTERS.map(cluster => (
-            <div
-              key={cluster.title}
-              style={{
-                background: '#FFFFFF',
-                border: '1px solid #E5E7EB',
-                borderRadius: 12,
-                padding: '20px 24px',
-              }}
-            >
-              <h3
+        {/* Mobile: collapsed accordion to save scroll. Desktop: always-open grid
+            (summary hidden, grid forced visible via .tc-* rules in globals.css).
+            Native <details> — no JS, and every link stays in the DOM for SEO. */}
+        <details className="tc-details">
+          <summary className="tc-summary">Browse all topics &amp; guides</summary>
+          <div
+            className="tc-grid"
+            style={{
+              display: 'grid',
+              gap: 24,
+              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+              marginTop: 24,
+            }}
+          >
+            {CLUSTERS.map(cluster => (
+              <div
+                key={cluster.title}
                 style={{
-                  fontFamily: 'var(--font-space-grotesk)',
-                  fontSize: 14,
-                  fontWeight: 700,
-                  color: '#0F1B3D',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  marginBottom: 12,
+                  background: '#FFFFFF',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: 12,
+                  padding: '20px 24px',
                 }}
               >
-                {cluster.title}
-              </h3>
-              <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {cluster.links.map(link => (
-                  <li key={link.href}>
-                    <Link
-                      href={link.href}
-                      style={{
-                        fontSize: 14,
-                        color: '#2563EB',
-                        textDecoration: 'none',
-                        lineHeight: 1.4,
-                      }}
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
+                <h3
+                  style={{
+                    fontFamily: 'var(--font-space-grotesk)',
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: '#0F1B3D',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    marginBottom: 12,
+                  }}
+                >
+                  {cluster.title}
+                </h3>
+                <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {cluster.links.map(link => (
+                    <li key={link.href}>
+                      <Link
+                        href={link.href}
+                        style={{
+                          fontSize: 14,
+                          color: '#2563EB',
+                          textDecoration: 'none',
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </details>
       </div>
     </section>
   )

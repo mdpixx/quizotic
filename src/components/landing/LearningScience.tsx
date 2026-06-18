@@ -156,7 +156,7 @@ function UspCard({ children, reverse = false }: { children: React.ReactNode; rev
   }, [])
 
   return (
-    <div ref={ref} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 64, alignItems: 'center', padding: '64px 0', borderBottom: '1px solid rgba(255,255,255,0.08)', opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(24px)', transition: 'opacity 0.6s ease, transform 0.6s ease' }} className={`usp-card${reverse ? ' usp-reverse' : ''}`}>
+    <div ref={ref} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 64, alignItems: 'center', padding: 'clamp(32px, 6vw, 64px) 0', borderBottom: '1px solid rgba(255,255,255,0.08)', opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(24px)', transition: 'opacity 0.6s ease, transform 0.6s ease' }} className={`usp-card${reverse ? ' usp-reverse' : ''}`}>
       {children}
     </div>
   )
@@ -208,7 +208,7 @@ export function LearningScience() {
   }, [])
 
   return (
-    <section id="methodology" style={{ padding: '120px 24px', background: '#0F1B3D' }}>
+    <section id="methodology" style={{ padding: 'clamp(56px, 11vw, 120px) 24px', background: '#0F1B3D' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <h2 style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 'clamp(28px, 3.5vw, 48px)', color: '#fff', letterSpacing: '-0.03em', textAlign: 'center', marginBottom: 16 }}>
           Built on <span style={{ color: '#F5E642' }}>learning science,</span> not guesswork.
@@ -268,7 +268,9 @@ export function LearningScience() {
         .usp-reverse .usp-visual-first { order: -1; }
         @media (max-width: 768px) {
           .usp-card { grid-template-columns: 1fr !important; gap: 32px !important; }
-          .usp-reverse .usp-visual-first { order: unset !important; }
+          /* Stack text first, visual below — consistent with USP 1 & 3.
+             (Visual is first in the DOM for the desktop reverse layout.) */
+          .usp-reverse .usp-visual-first { order: 1 !important; }
         }
       `}</style>
     </section>

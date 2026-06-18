@@ -39,12 +39,12 @@ function SidebarIcon({ d }: { d: string }) {
 
 export function ProductShowcase() {
   return (
-    <section id="dashboard" style={{ padding: '120px 24px', background: '#F8F9FA' }}>
+    <section id="dashboard" style={{ padding: 'clamp(56px, 11vw, 120px) 24px', background: '#F8F9FA' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <h2 style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 'clamp(28px, 3.5vw, 48px)', color: '#0F1B3D', letterSpacing: '-0.03em', textAlign: 'center', marginBottom: 16 }}>
           Your classroom intelligence hub.
         </h2>
-        <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 18, color: '#555', textAlign: 'center', maxWidth: 600, margin: '0 auto 56px', lineHeight: 1.6 }}>
+        <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 18, color: '#555', textAlign: 'center', maxWidth: 600, margin: '0 auto clamp(28px, 7vw, 56px)', lineHeight: 1.6 }}>
           Every session generates actionable data. See where your learners excel, where they struggle, and what to teach next.
         </p>
 

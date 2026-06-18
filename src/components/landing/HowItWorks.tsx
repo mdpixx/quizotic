@@ -18,12 +18,12 @@ export function HowItWorks() {
   ]
 
   return (
-    <section id="how" style={{ padding: '120px 24px', background: '#F0FDF4' }}>
+    <section id="how" style={{ padding: 'clamp(56px, 11vw, 120px) 24px', background: '#F0FDF4' }}>
       <div style={{ maxWidth: 1000, margin: '0 auto' }}>
         <h2 style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 'clamp(28px, 3.5vw, 44px)', color: '#0F1B3D', letterSpacing: '-0.03em', textAlign: 'center', marginBottom: 16 }}>
           Up and running in under a minute
         </h2>
-        <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 18, color: '#555', textAlign: 'center', maxWidth: 560, margin: '0 auto 72px', lineHeight: 1.6 }}>
+        <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 18, color: '#555', textAlign: 'center', maxWidth: 560, margin: '0 auto clamp(36px, 9vw, 72px)', lineHeight: 1.6 }}>
           Three steps. That&apos;s all it takes to transform a boring review session into something learners remember.
         </p>
 

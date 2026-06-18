@@ -17,7 +17,7 @@ const MARQUEE_ITEMS = [
 
 export function WhatIsQuizotic() {
   return (
-    <section style={{ background: '#FFFFFF', padding: '64px 24px 0', borderBottom: '1px solid #E5E7EB' }}>
+    <section style={{ background: '#FFFFFF', padding: 'clamp(40px, 8vw, 64px) 24px 0', borderBottom: '1px solid #E5E7EB' }}>
       <div style={{ maxWidth: 860, margin: '0 auto' }}>
         <h2
           style={{

@@ -49,7 +49,7 @@ export function HomepageFAQ() {
   return (
     <>
       <JsonLd data={faqLd} />
-      <section style={{ background: '#F9FAFB', borderTop: '1px solid #E5E7EB', padding: '64px 24px' }}>
+      <section style={{ background: '#F9FAFB', borderTop: '1px solid #E5E7EB', padding: 'clamp(40px, 8vw, 64px) 24px' }}>
         <div style={{ maxWidth: 860, margin: '0 auto' }}>
           <h2
             style={{
