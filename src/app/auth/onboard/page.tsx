@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { track } from '@/lib/analytics'
+import { QuizoticLogo } from '@/components/QuizoticLogo'
 
 // Two taps and you're in. Org name, discovery channel, and referral entry
 // moved to a dismissible dashboard card (CompleteProfileCard) so a new user
@@ -122,11 +123,7 @@ export default function OnboardPage() {
       >
         {/* Logo */}
         <div className="flex items-center gap-2 mb-8">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm"
-            style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>Q</div>
-          <span className="text-xl font-black tracking-tight" style={{ fontFamily: 'var(--font-heading)', color: '#fff' }}>
-            Quizo<span style={{ color: '#F5E642' }}>tic</span>
-          </span>
+          <QuizoticLogo variant="onDark" className="text-xl" markSize={32} />
         </div>
 
         {/* Greeting */}

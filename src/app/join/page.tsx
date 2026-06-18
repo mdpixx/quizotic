@@ -25,6 +25,7 @@ import { SlideImage } from '@/components/SlideImage'
 import { ANSWER_COLORS, ANSWER_LETTERS } from '@/lib/answer-colors'
 import { useConfetti } from '@/hooks/useConfetti'
 import { useWakeLock } from '@/hooks/useWakeLock'
+import { QuizoticLogo } from '@/components/QuizoticLogo'
 
 function phaseForPresenterSlide(
   slideType: string | undefined,
@@ -1531,9 +1532,11 @@ function JoinPageInner() {
         <div className="w-full max-w-md relative" style={{ zIndex: 10 }}>
           {/* Logo */}
           <div className="text-center mb-8">
-            <h1 className="text-5xl font-black tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
-              <span style={{ color: 'white' }}>Quizo</span><span style={{ color: '#F5E642' }}>tic</span><span style={{ color: 'rgba(255,255,255,0.45)', fontWeight: 700 }}>.live</span>
-            </h1>
+            <QuizoticLogo
+              variant="onDark"
+              className="text-5xl justify-center"
+              markSize={56}
+            />
             <p className="text-lg mt-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
               {t('join.title')}
             </p>

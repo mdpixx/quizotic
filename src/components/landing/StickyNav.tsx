@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { JoinCodeBox } from './JoinCodeBox'
+import { QuizoticLogo } from '@/components/QuizoticLogo'
 
 export function StickyNav() {
   const [scrolled, setScrolled] = useState(false)
@@ -34,12 +35,7 @@ export function StickyNav() {
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', height: 64 }}>
           {/* Logo */}
           <Link href="/" style={{ textDecoration: 'none', flexShrink: 0 }}>
-            <span style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 22, color: '#F5E642', letterSpacing: '-0.5px' }}>
-              Quizotic
-            </span>
-            <span style={{ fontWeight: 500, fontSize: 15, color: 'rgba(245,230,66,0.6)', marginLeft: 3 }}>
-              .live
-            </span>
+            <QuizoticLogo variant="onDark" className="text-xl" markSize={30} />
           </Link>
 
           {/* Nav links desktop */}

@@ -1,3 +1,5 @@
+import { QuizoticLogo } from '@/components/QuizoticLogo'
+
 const KPI_DATA = [
   { icon: '📋', value: '24', label: 'Total Sessions', sub: '↑ 4 this month', up: true },
   { icon: '👥', value: '847', label: 'Total Participants', sub: '↑ 12% vs last month', up: true },
@@ -65,8 +67,7 @@ export function ProductShowcase() {
             <aside className="dash-sidebar" style={{ width: 188, background: '#0F1B3D', flexShrink: 0, display: 'flex', flexDirection: 'column', padding: '16px 0' }}>
               {/* Logo */}
               <div style={{ padding: '0 14px 18px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 28, height: 28, borderRadius: 6, background: 'linear-gradient(135deg, #4338CA, #7C3AED)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 900, fontSize: 14, color: '#fff', flexShrink: 0 }}>Q</div>
-                <span style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 14, color: '#fff' }}>Quizo<span style={{ fontWeight: 900, color: '#F5E642' }}>tic</span></span>
+                <QuizoticLogo variant="onDark" className="text-sm" markSize={28} />
               </div>
 
               {/* MAIN */}

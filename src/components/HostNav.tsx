@@ -35,14 +35,7 @@ export function HostNav() {
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 md:px-12 flex items-center justify-between h-14">
         {/* Logo → dashboard */}
         <Link href="/host" className="flex items-center gap-2 group">
-          <div
-            className="w-9 h-9 md:w-7 md:h-7 rounded-lg md:rounded-md flex items-center justify-center font-black text-base md:text-xs"
-            style={{ background: '#F5E642', color: '#0D0D0D' }}
-          >
-            Q
-          </div>
-          <QuizoticLogo variant="onDark" className="text-lg" />
-          <span className="text-[10px] font-bold tracking-wide ml-0.5 animate-pulse" style={{ color: '#22C55E', verticalAlign: 'super' }}>.live</span>
+          <QuizoticLogo variant="onDark" className="text-lg" markSize={28} />
         </Link>
 
         {/* Center nav links — desktop */}

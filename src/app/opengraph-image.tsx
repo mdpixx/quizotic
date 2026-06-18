@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og'
+import { QuizoticMark } from '@/components/QuizoticLogo'
 
 export const runtime = 'edge'
 export const alt = 'Quizotic — Free Live Quiz & Presentation Platform'
@@ -48,33 +49,10 @@ export default async function Image() {
 
         {/* Logo + brand name */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 32 }}>
-          <div
-            style={{
-              width: 72,
-              height: 72,
-              borderRadius: 16,
-              background: '#F5E642',
-              color: '#0D0D0D',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 40,
-              fontWeight: 900,
-            }}
-          >
-            Q
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline' }}>
-            <span style={{ fontSize: 56, fontWeight: 900, color: '#FFFFFF', letterSpacing: '-1px' }}>
-              Quizo
-            </span>
-            <span style={{ fontSize: 56, fontWeight: 900, color: '#F5E642', letterSpacing: '-1px' }}>
-              tic
-            </span>
-            <span style={{ fontSize: 18, fontWeight: 700, color: '#22C55E', marginLeft: 4, marginTop: -20 }}>
-              .live
-            </span>
-          </div>
+          <QuizoticMark size={72} decorative />
+          <span style={{ fontSize: 56, fontWeight: 900, color: '#FFFFFF', letterSpacing: '-1px' }}>
+            Quizotic
+          </span>
         </div>
 
         {/* Tagline */}

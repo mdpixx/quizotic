@@ -3,6 +3,7 @@
 import { signIn } from 'next-auth/react'
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
+import { QuizoticLogo } from '@/components/QuizoticLogo'
 
 type Phase = 'email' | 'code'
 type Intent = 'signup' | 'signin'
@@ -286,10 +287,7 @@ export default function SignInForm({ intent, callbackUrl = '/host' }: SignInForm
       <div className="max-w-sm w-full">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-6">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center font-black text-sm" style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>Q</div>
-            <span className="text-xl font-black tracking-tight" style={{ fontFamily: 'var(--font-heading)', color: '#fff' }}>
-              Quizo<span style={{ color: '#F5E642' }}>tic</span>
-            </span>
+            <QuizoticLogo variant="onDark" className="text-xl" markSize={36} />
           </div>
           <h1 className="text-3xl font-black mb-2" style={{ fontFamily: 'var(--font-heading)', color: '#fff' }}>
             {isSignup ? 'Create your account' : 'Welcome back'}

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { QuizoticLogo } from '@/components/QuizoticLogo'
 
 export const metadata = { title: 'Page Not Found' }
 
@@ -7,10 +8,7 @@ export default function NotFound() {
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#0F1B3D' }}>
       <div className="max-w-sm w-full text-center">
         <div className="flex items-center justify-center gap-2 mb-8">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center font-black text-sm" style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>Q</div>
-          <span className="text-xl font-black tracking-tight" style={{ fontFamily: 'var(--font-heading)', color: '#fff' }}>
-            Quizo<span style={{ color: '#F5E642' }}>tic</span>
-          </span>
+          <QuizoticLogo variant="onDark" className="text-xl" markSize={36} />
         </div>
 
         <p className="text-7xl font-black mb-4" style={{ fontFamily: 'var(--font-heading)', color: '#F5E642' }}>404</p>

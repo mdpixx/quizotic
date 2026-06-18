@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { QuizoticLogo } from '@/components/QuizoticLogo'
 
 const FOOTER_LINKS = [
   { href: '/features', label: 'Features' },
@@ -76,10 +77,7 @@ export function Footer() {
     <footer style={{ background: '#0F1B3D', borderTop: '2px solid #F5E642', padding: 'clamp(36px, 7vw, 48px) 24px' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
         {/* Wordmark */}
-        <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 24, color: '#F5E642' }}>
-          Quizotic
-          <span style={{ fontWeight: 500, fontSize: 16, color: 'rgba(245,230,66,0.6)', marginLeft: 2 }}>.live</span>
-        </div>
+        <QuizoticLogo variant="onDark" className="text-2xl" markSize={38} />
 
         {/* Links */}
         <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap', justifyContent: 'center' }}>

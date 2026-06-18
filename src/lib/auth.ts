@@ -83,8 +83,8 @@ function buildOtpHtml(code: string): string {
         <!-- Header -->
         <tr><td style="background:#0F1B3D;padding:28px 32px;text-align:center;">
           <table cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr>
-            <td style="background:#F5E642;border:2px solid #0D0D0D;border-radius:8px;width:32px;height:32px;text-align:center;vertical-align:middle;font-weight:800;font-size:14px;color:#0D0D0D;">Q</td>
-            <td style="padding-left:10px;font-weight:800;font-size:20px;color:#ffffff;letter-spacing:-0.5px;">Quizo<span style="color:#F5E642;">tic</span></td>
+            <td><img src="https://www.quizotic.live/icons/icon-192.png" width="32" height="32" alt="Quizotic" style="display:block;border:0;border-radius:8px;"></td>
+            <td style="padding-left:10px;font-weight:800;font-size:20px;color:#ffffff;letter-spacing:-0.5px;">Quizotic</td>
           </tr></table>
         </td></tr>
         <!-- Body -->
@@ -119,8 +119,8 @@ function buildWelcomeHtml(name: string | null): string {
     <table width="680" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 10px 40px rgba(15,27,61,0.10);max-width:680px;width:100%;">
       <tr><td style="background:#0F1B3D;padding:36px 32px 28px;text-align:center;">
         <table cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr>
-          <td style="background:#F5E642;border:2px solid #0D0D0D;border-radius:10px;width:38px;height:38px;text-align:center;vertical-align:middle;font-weight:900;font-size:17px;color:#0D0D0D;">Q</td>
-          <td style="padding-left:12px;font-weight:900;font-size:24px;color:#ffffff;letter-spacing:-0.8px;">Quizo<span style="color:#F5E642;">tic</span></td>
+          <td><img src="https://www.quizotic.live/icons/icon-192.png" width="38" height="38" alt="Quizotic" style="display:block;border:0;border-radius:10px;"></td>
+          <td style="padding-left:12px;font-weight:900;font-size:24px;color:#ffffff;letter-spacing:-0.8px;">Quizotic</td>
         </tr></table>
         <p style="margin:12px 0 0;font-size:12px;color:#CBD5E1;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;">The learning engagement platform</p>
       </td></tr>

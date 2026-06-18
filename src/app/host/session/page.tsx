@@ -1357,7 +1357,7 @@ export default function SessionPage() {
 
             {/* ── Header row ── */}
             <div className="flex items-center justify-between">
-              <QuizoticLogo variant="onDark" className="text-2xl" showDomain />
+              <QuizoticLogo variant="onDark" className="text-2xl" markSize={40} />
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold px-4 py-1.5 rounded-full bg-white/15 border border-white/25 text-white backdrop-blur">
                   {{ competitive: '⚡ Competitive', accuracy: '✓ Accuracy', reflection: '🌙 Reflection', selfpaced: '🎯 Self-paced', assessment: '📋 Assessment' }[sessionMode] ?? '⚡ Competitive'}

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { HostSidebar } from '@/components/host/HostSidebar'
+import { QuizoticLogo } from '@/components/QuizoticLogo'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -22,10 +23,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
             </svg>
           </button>
-          <span className="text-base font-black tracking-tight" style={{ fontFamily: 'var(--font-heading)', color: '#fff' }}>
-            Quizo<span style={{ color: '#F5E642' }}>tic</span>
-            <span className="text-[9px] font-bold tracking-wide ml-0.5 animate-pulse" style={{ color: '#22C55E', verticalAlign: 'super' }}>.live</span>
-          </span>
+          <QuizoticLogo variant="onDark" className="text-base" markSize={28} />
         </div>
 
         <main className="flex-1 min-w-0 overflow-y-auto">

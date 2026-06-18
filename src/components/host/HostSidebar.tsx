@@ -6,6 +6,7 @@ import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Avatar } from '@/components/Avatar'
+import { QuizoticLogo } from '@/components/QuizoticLogo'
 
 // Lucide-style SVG icons — consistent 1.8 stroke, no emoji inside product
 const ICON = {
@@ -164,24 +165,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
       {/* Logo */}
       <div className="px-5 py-5 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
         <Link href="/host" className="flex items-center gap-2.5 group" onClick={onNavClick}>
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm"
-            style={{ background: '#F5E642', color: '#0D0D0D' }}
-          >
-            Q
-          </div>
-          <span
-            className="text-lg font-black tracking-tight"
-            style={{ fontFamily: 'var(--font-heading)', color: '#fff' }}
-          >
-            Quizo<span style={{ color: '#F5E642' }}>tic</span>
-            <span
-              className="text-[9px] font-bold tracking-wide ml-0.5 animate-pulse"
-              style={{ color: '#22C55E', verticalAlign: 'super' }}
-            >
-              .live
-            </span>
-          </span>
+          <QuizoticLogo variant="onDark" className="text-lg" markSize={32} />
         </Link>
       </div>
 
