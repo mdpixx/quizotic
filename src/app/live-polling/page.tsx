@@ -63,7 +63,7 @@ export default function LivePollingPage() {
         { title: 'Live Quiz', href: '/live-quiz', description: 'Competitive quiz mode with leaderboard.' },
         { title: 'Gamified Learning', href: '/gamified-learning', description: 'Add game mechanics to polls and quizzes.' },
         { title: 'All features', href: '/features', description: 'Full feature list and question types.' },
-        { title: 'Pricing', href: '/pricing', description: 'Plans and participant limits in INR.' },
+        { title: 'Pricing', href: '/pricing', description: 'Free to start — simple plans as we grow.' },
       ]}
       ctaLabel="Run your first live poll free →"
     />

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs'
+import { StickyNav } from '@/components/landing/StickyNav'
 
 export const metadata: Metadata = {
   title: 'FAQ — Frequently Asked Questions',
@@ -16,7 +17,7 @@ const FAQS = [
   },
   {
     q: 'How is Quizotic different from Kahoot?',
-    a: 'Kahoot is primarily a quiz game. Quizotic is built on learning science — Bloom\'s Taxonomy, Confidence Grid, and Spaced Retrieval. We have 11 question types versus Kahoot\'s 4, including word clouds, case studies, drawing, and live Q&A. We also offer interactive presentation mode (like Mentimeter). And unlike Kahoot, we are India-first: INR billing, UPI support, and optimised for low-bandwidth classroom connections.',
+    a: 'Kahoot is primarily a quiz game. Quizotic is built on learning science — Bloom\'s Taxonomy, Confidence Grid, and Spaced Retrieval. We have 11 question types versus Kahoot\'s 4, including word clouds, case studies, drawing, and live Q&A. We also offer interactive presentation mode (like Mentimeter). And unlike Kahoot, Quizotic is optimised for low-bandwidth classroom connections, with an ultra-light participant page.',
   },
   {
     q: 'How is Quizotic different from Mentimeter?',
@@ -56,7 +57,7 @@ const FAQS = [
   },
   {
     q: 'Does Quizotic work on slow internet connections?',
-    a: 'Yes. We designed Quizotic specifically for Indian classrooms where 1–2 Mbps connections are common. The participant page is extremely lightweight (under 100KB initial load). The host view is heavier but optimised for standard broadband.',
+    a: 'Yes. We designed Quizotic specifically for classrooms where 1–2 Mbps connections are common. The participant page is extremely lightweight (under 100KB initial load). The host view is heavier but optimised for standard broadband.',
   },
   {
     q: 'Can I export session results?',
@@ -67,12 +68,12 @@ const FAQS = [
     a: 'Yes. You can add images to question text and to individual answer options. Images are hosted on Cloudflare CDN for fast delivery. The free plan includes 20 image uploads per month.',
   },
   {
-    q: 'Is there a Hindi language option?',
-    a: 'The participant interface supports Hindi for question text and answers. The host dashboard is currently English-only. We are working on expanding language support based on user demand.',
+    q: 'Does Quizotic support other languages?',
+    a: 'The participant interface supports multiple languages for question text and answers — you can author questions in any language, including non-Latin scripts. The host dashboard is currently English-only. We are working on expanding language support based on user demand.',
   },
   {
     q: 'How do payments and subscriptions work?',
-    a: 'Quizotic is free right now — there are no paid plans available yet. When we introduce paid plans, they will be in Indian Rupees (INR) via Razorpay, with UPI, net banking, and card support. GST (18%) will apply for Indian customers. We will give existing users ample notice before any changes.',
+    a: 'Quizotic is free right now — there are no paid plans available yet. When we introduce paid plans, they will be priced in USD with card support, and any applicable local taxes will be shown at checkout. We will give existing users ample notice before any changes.',
   },
   {
     q: 'How do I delete my account and data?',
@@ -83,8 +84,8 @@ const FAQS = [
     a: 'For hosts: name, email, and profile picture (via Google OAuth or email sign-in). For participants: only the display name they choose — no account required, no personal data collected. See our Privacy Policy for the full picture.',
   },
   {
-    q: 'Can I use Quizotic for competitive exam coaching (JEE, NEET, UPSC)?',
-    a: 'Absolutely. Quizotic is widely used in coaching institutes for JEE, NEET, UPSC, and other competitive exams. The Assessment session mode, Case Study question type, Bloom\'s level tagging, and Confidence Grid are particularly useful for rigorous exam preparation. AI generation from NCERT-aligned content works well too.',
+    q: 'Can I use Quizotic for competitive and entrance exam coaching?',
+    a: 'Absolutely. Quizotic is widely used in coaching and test-prep institutes for competitive and entrance exams. The Assessment session mode, Case Study question type, Bloom\'s level tagging, and Confidence Grid are particularly useful for rigorous exam preparation. AI generation from your own syllabus or notes works well too.',
   },
   {
     q: 'How do I contact support?',
@@ -112,8 +113,12 @@ export default function FAQPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
       />
+      <StickyNav />
       <div className="min-h-screen" style={{ background: '#FFFFFF' }}>
-        <div className="max-w-3xl mx-auto px-6 py-12">
+        <div
+          className="max-w-3xl mx-auto px-6 pb-12"
+          style={{ paddingTop: 'calc(64px + env(safe-area-inset-top, 0px) + 32px)' }}
+        >
           <div className="mb-6">
             <Breadcrumbs items={[
               { name: 'Home', href: '/' },

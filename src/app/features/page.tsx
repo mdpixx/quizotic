@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs'
+import { StickyNav } from '@/components/landing/StickyNav'
 
 export const metadata: Metadata = {
   title: 'Features — 11 Question Types, AI Quiz Generation & More',
@@ -160,8 +161,12 @@ export default function FeaturesPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListLd) }}
       />
+      <StickyNav />
       <div className="min-h-screen" style={{ background: '#FFFFFF' }}>
-        <div className="max-w-4xl mx-auto px-6 py-12">
+        <div
+          className="max-w-4xl mx-auto px-6 pb-12"
+          style={{ paddingTop: 'calc(64px + env(safe-area-inset-top, 0px) + 32px)' }}
+        >
           <div className="mb-6">
             <Breadcrumbs items={[
               { name: 'Home', href: '/' },
@@ -308,8 +313,8 @@ export default function FeaturesPage() {
                 { label: 'No app install', detail: 'Participants join via a 6-digit code in any browser — phone, tablet, or laptop.' },
                 { label: 'Real-time leaderboard', detail: 'Live score updates after every question. Keeps energy high in competitive mode.' },
                 { label: 'Session reports', detail: 'Downloadable XLSX with per-participant scores, question-level accuracy, and Bloom\'s distribution.' },
-                { label: 'Low-bandwidth friendly', detail: 'Designed for 1–2 Mbps connections. Works in Indian classrooms and training centres.' },
-                { label: 'INR billing (coming soon)', detail: 'All future paid plans in Indian Rupees with UPI and card support via Razorpay.' },
+                { label: 'Low-bandwidth friendly', detail: 'Designed for 1–2 Mbps connections. Works in classrooms and training centres anywhere.' },
+                { label: 'Simple billing (coming soon)', detail: 'All future paid plans priced in USD with card support.' },
                 { label: 'Image support', detail: 'Add images to questions and answer options. Hosted on Cloudflare CDN.' },
               ].map(({ label, detail }) => (
                 <div
