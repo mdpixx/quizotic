@@ -727,7 +727,7 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
     }
 
     case 'wheel': {
-      const names = slide.names ?? []
+      const names = (slide.names ?? []).map(n => n.trim()).filter(Boolean)
       return <WheelSpinner names={names} headingStyle={headingStyle} title={slide.title} />
     }
 
