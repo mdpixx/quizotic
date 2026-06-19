@@ -17,7 +17,7 @@ export interface BuiltEmail {
 }
 
 const BRAND_NAVY = '#0F1B3D'
-const BRAND_YELLOW = '#F5E642'
+const BRAND_YELLOW = '#FBD13B'
 const BRAND_CREAM = '#FAF7F2'
 
 export function buildCreditGrantEmail(args: CreditGrantEmailArgs): BuiltEmail {

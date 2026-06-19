@@ -23,7 +23,7 @@ const useCases = [
     bg: '#FFFDE6',
     icon: (
       <svg viewBox="0 0 32 32" fill="none" className="w-8 h-8">
-        <rect x="6" y="6" width="20" height="20" rx="3" fill="rgba(245,230,66,0.2)" stroke="#0F1B3D" strokeWidth="1.5" />
+        <rect x="6" y="6" width="20" height="20" rx="3" fill="rgba(251,209,59,0.2)" stroke="#0F1B3D" strokeWidth="1.5" />
         <path d="M11 16l3 3 7-7" stroke="#0F1B3D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
@@ -65,7 +65,7 @@ export function UseCases() {
           transition={{ duration: 0.5 }}
           className="text-center mb-14"
         >
-          <p className="text-sm font-bold uppercase tracking-widest mb-3 inline-block px-4 py-1.5 rounded-full" style={{ background: '#0F1B3D', color: '#F5E642' }}>
+          <p className="text-sm font-bold uppercase tracking-widest mb-3 inline-block px-4 py-1.5 rounded-full" style={{ background: '#0F1B3D', color: '#FBD13B' }}>
             Built for Every Audience
           </p>
           <h2 className="text-3xl md:text-4xl font-black mt-4" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>

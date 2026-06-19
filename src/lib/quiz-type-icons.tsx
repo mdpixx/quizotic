@@ -92,25 +92,25 @@ const ILLUSTRATIONS: Partial<Record<QuestionType, React.ReactNode>> = {
   // 4 colored answer tiles (A/B/C/D) — mirrors the actual quiz canvas
   mcq: (
     <svg viewBox="0 0 200 100" width="100%" height="88" className="block">
-      <rect x="10" y="8" width="85" height="37" rx="7" fill="#E53E3E"/>
+      <rect x="10" y="8" width="85" height="37" rx="7" fill="#F23A5C"/>
       <circle cx="24" cy="26.5" r="9" fill="rgba(255,255,255,0.22)"/>
       <text x="24" y="30.5" fill="white" fontSize="10" fontWeight="bold" textAnchor="middle" fontFamily="system-ui,sans-serif">A</text>
       <rect x="38" y="21" width="48" height="5" rx="2.5" fill="rgba(255,255,255,0.45)"/>
       <rect x="38" y="29" width="32" height="4" rx="2" fill="rgba(255,255,255,0.3)"/>
 
-      <rect x="105" y="8" width="85" height="37" rx="7" fill="#2563EB"/>
+      <rect x="105" y="8" width="85" height="37" rx="7" fill="#2D7FF9"/>
       <circle cx="119" cy="26.5" r="9" fill="rgba(255,255,255,0.22)"/>
       <text x="119" y="30.5" fill="white" fontSize="10" fontWeight="bold" textAnchor="middle" fontFamily="system-ui,sans-serif">B</text>
       <rect x="133" y="21" width="48" height="5" rx="2.5" fill="rgba(255,255,255,0.45)"/>
       <rect x="133" y="29" width="36" height="4" rx="2" fill="rgba(255,255,255,0.3)"/>
 
-      <rect x="10" y="53" width="85" height="37" rx="7" fill="#D97706"/>
+      <rect x="10" y="53" width="85" height="37" rx="7" fill="#D9760F"/>
       <circle cx="24" cy="71.5" r="9" fill="rgba(255,255,255,0.22)"/>
       <text x="24" y="75.5" fill="white" fontSize="10" fontWeight="bold" textAnchor="middle" fontFamily="system-ui,sans-serif">C</text>
       <rect x="38" y="66" width="52" height="5" rx="2.5" fill="rgba(255,255,255,0.45)"/>
       <rect x="38" y="74" width="38" height="4" rx="2" fill="rgba(255,255,255,0.3)"/>
 
-      <rect x="105" y="53" width="85" height="37" rx="7" fill="#16A34A"/>
+      <rect x="105" y="53" width="85" height="37" rx="7" fill="#119B57"/>
       <circle cx="119" cy="71.5" r="9" fill="rgba(255,255,255,0.22)"/>
       <text x="119" y="75.5" fill="white" fontSize="10" fontWeight="bold" textAnchor="middle" fontFamily="system-ui,sans-serif">D</text>
       <rect x="133" y="66" width="44" height="5" rx="2.5" fill="rgba(255,255,255,0.45)"/>

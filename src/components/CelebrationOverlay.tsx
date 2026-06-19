@@ -108,9 +108,9 @@ export function CelebrationOverlay({
         <h1
           className="text-center font-black mb-6"
           style={{
-            color: '#F5E642',
+            color: '#FBD13B',
             fontSize: 'clamp(2rem, 5vw, 3.25rem)',
-            textShadow: '0 2px 10px rgba(245,230,66,0.28)',
+            textShadow: '0 2px 10px rgba(251,209,59,0.28)',
             animation: 'titleDrop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both',
           }}
         >
@@ -128,7 +128,7 @@ export function CelebrationOverlay({
               onClick={beginFade}
               className="px-6 py-3 rounded-xl font-bold text-sm transition-transform hover:scale-105 active:scale-95"
               style={{
-                background: '#F5E642',
+                background: '#FBD13B',
                 color: '#0F1B3D',
                 boxShadow: '0 8px 20px rgba(0,0,0,0.3)',
                 animation: 'cardLift 0.4s ease-out both',

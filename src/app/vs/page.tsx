@@ -166,7 +166,7 @@ export default function VsIndexPage() {
               href="/auth/signin"
               className="inline-block font-bold px-8 py-3 rounded-lg text-sm"
               style={{
-                background: '#F5E642',
+                background: '#FBD13B',
                 color: '#0D0D0D',
                 textDecoration: 'none',
                 border: '2px solid #0D0D0D',

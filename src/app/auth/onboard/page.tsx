@@ -167,7 +167,7 @@ export default function OnboardPage() {
             onClick={() => handleSubmit(false)}
             disabled={saving}
             className="flex-1 py-3 rounded-full text-base font-bold transition-all hover:opacity-90 hover:scale-[1.02] disabled:opacity-50"
-            style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
+            style={{ background: '#FBD13B', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
           >
             {saving ? 'Saving...' : firstCreate ? "Let's go →" : 'Continue →'}
           </button>

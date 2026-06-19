@@ -155,7 +155,7 @@ export function ProductShowcase() {
                     </div>
                     {/* Legend */}
                     <div style={{ display: 'flex', gap: 16, marginBottom: 8 }}>
-                      {[['#4338CA','Quiz Avg Score'],['#EA580C','Presentation Engagement'],['#F5E642','Class Target']].map(([c,l]) => (
+                      {[['#4338CA','Quiz Avg Score'],['#EA580C','Presentation Engagement'],['#FBD13B','Class Target']].map(([c,l]) => (
                         <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                           <div style={{ width: 14, height: 2, background: c, borderRadius: 1, ...(l === 'Class Target' ? { borderTop: '2px dashed #CA8A04', background: 'transparent', height: 0 } : {}) }} />
                           <span style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 9, color: '#888' }}>{l}</span>

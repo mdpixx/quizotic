@@ -282,7 +282,7 @@ function RankingResults({ stat, className }: RendererProps) {
             <span
               className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black tabular-nums"
               style={{
-                background: i === 0 ? '#F5E642' : '#F1F5F9',
+                background: i === 0 ? '#FBD13B' : '#F1F5F9',
                 color: i === 0 ? '#0F1B3D' : '#475569',
               }}
             >

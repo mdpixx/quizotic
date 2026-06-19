@@ -515,7 +515,7 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, onClose, 
                               onClick={() => handleSetExpiry(closeAtFor(opt.value))}
                               aria-pressed={active}
                               className="py-2 rounded-lg text-xs font-bold border transition-colors"
-                              style={{ background: active ? '#0F1B3D' : '#fff', color: active ? '#F5E642' : '#0F1B3D', borderColor: active ? '#0F1B3D' : '#E2E8F0' }}
+                              style={{ background: active ? '#0F1B3D' : '#fff', color: active ? '#FBD13B' : '#0F1B3D', borderColor: active ? '#0F1B3D' : '#E2E8F0' }}
                             >
                               {opt.label}
                             </button>
@@ -552,7 +552,7 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, onClose, 
                               key={opt.label}
                               onClick={() => handleSetTimeLimit(opt.value)}
                               className="py-1.5 rounded-lg text-xs font-bold border transition-colors"
-                              style={{ background: active ? '#0F1B3D' : '#fff', color: active ? '#F5E642' : '#0F1B3D', borderColor: active ? '#0F1B3D' : '#E2E8F0' }}
+                              style={{ background: active ? '#0F1B3D' : '#fff', color: active ? '#FBD13B' : '#0F1B3D', borderColor: active ? '#0F1B3D' : '#E2E8F0' }}
                             >
                               {opt.label}
                             </button>
@@ -587,7 +587,7 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, onClose, 
                       onClick={handlePublishNow}
                       disabled={saving}
                       className="w-full py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-60"
-                      style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}
+                      style={{ background: '#FBD13B', color: '#0D0D0D', border: '2px solid #0D0D0D' }}
                     >
                       {saving ? 'Creating…' : 'Create share link'}
                     </button>
@@ -655,7 +655,7 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, onClose, 
                           key={opt.label}
                           onClick={() => setScheduleTimeLimit(opt.value)}
                           className="py-1.5 rounded-lg text-xs font-bold border transition-colors"
-                          style={{ background: active ? '#0F1B3D' : '#fff', color: active ? '#F5E642' : '#0F1B3D', borderColor: active ? '#0F1B3D' : '#E2E8F0' }}
+                          style={{ background: active ? '#0F1B3D' : '#fff', color: active ? '#FBD13B' : '#0F1B3D', borderColor: active ? '#0F1B3D' : '#E2E8F0' }}
                         >
                           {opt.label}
                         </button>
@@ -678,7 +678,7 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, onClose, 
                     onClick={handleSaveSchedule}
                     disabled={saving}
                     className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-60"
-                    style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}
+                    style={{ background: '#FBD13B', color: '#0D0D0D', border: '2px solid #0D0D0D' }}
                   >
                     {saving ? 'Saving…' : hasSession ? 'Update schedule' : 'Schedule quiz'}
                   </button>

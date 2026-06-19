@@ -176,7 +176,7 @@ export function LeaderboardView({
                         {scoreDelta > 0 && (
                           <span
                             className="rounded-full px-2 py-0.5 text-[10px] md:text-xs font-black tabular-nums"
-                            style={{ color: '#0F1B3D', background: 'rgba(245,230,66,0.92)' }}
+                            style={{ color: '#0F1B3D', background: 'rgba(251,209,59,0.92)' }}
                           >
                             +{scoreDelta.toLocaleString()}
                           </span>
@@ -234,7 +234,7 @@ function CompactLeaderboard({ rows, highlightId, heading }: CompactLeaderboardPr
         <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'rgba(255,255,255,0.55)' }}>
           {heading ?? 'Live Standings'}
         </p>
-        <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: 'rgba(245,230,66,0.15)', color: '#F5E642' }}>
+        <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: 'rgba(251,209,59,0.15)', color: '#FBD13B' }}>
           Live
         </span>
       </div>
@@ -257,7 +257,7 @@ function CompactLeaderboard({ rows, highlightId, heading }: CompactLeaderboardPr
                   background: tile ? tile.bg : 'rgba(255,255,255,0.06)',
                   border: `1px solid ${tile ? tile.border : 'rgba(255,255,255,0.08)'}`,
                   padding: '14px 16px',
-                  outline: row.id === highlightId ? '2px solid #F5E642' : 'none',
+                  outline: row.id === highlightId ? '2px solid #FBD13B' : 'none',
                   outlineOffset: -1,
                 }}
               >

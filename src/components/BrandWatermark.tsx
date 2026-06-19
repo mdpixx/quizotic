@@ -39,7 +39,7 @@ export function BrandWatermark({ placement }: Props) {
             justifyContent: 'center',
             padding: '3px 12px',
             borderRadius: 9999,
-            background: '#F5E642',
+            background: '#FBD13B',
             whiteSpace: 'nowrap',
             fontFamily: 'var(--font-heading)',
             fontWeight: 900,

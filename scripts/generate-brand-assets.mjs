@@ -38,7 +38,7 @@ async function maskablePng(size) {
       width: size,
       height: size,
       channels: 4,
-      background: '#F5E642',
+      background: '#FBD13B',
     },
   })
     .composite([{ input: safeMark, gravity: 'center' }])

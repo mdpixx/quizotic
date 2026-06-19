@@ -92,7 +92,7 @@ export function ResultBeat({ result, fallback }: ResultBeatProps) {
         >
           <div>
             <p className="text-[10px] uppercase tracking-[0.2em] font-bold opacity-60">You earned</p>
-            <p className="text-4xl font-black tabular-nums" style={{ color: '#F5E642' }}>
+            <p className="text-4xl font-black tabular-nums" style={{ color: '#FBD13B' }}>
               +<CountUp to={pointsEarned} />
             </p>
           </div>
@@ -142,8 +142,8 @@ export function ResultBeat({ result, fallback }: ResultBeatProps) {
           <span
             className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-black"
             style={{
-              background: streakCount >= 4 ? 'linear-gradient(135deg,#F5E642,#FF8A47)' : '#0F1B3D',
-              color: streakCount >= 4 ? '#0D0D0D' : '#F5E642',
+              background: streakCount >= 4 ? 'linear-gradient(135deg,#FBD13B,#FF8A47)' : '#0F1B3D',
+              color: streakCount >= 4 ? '#0D0D0D' : '#FBD13B',
             }}
           >
             🔥 {streakCount}-in-a-row

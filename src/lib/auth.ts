@@ -91,7 +91,7 @@ function buildOtpHtml(code: string): string {
         <tr><td style="padding:36px 32px 40px;text-align:center;">
           <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#0F1B3D;">Your sign-in code</h1>
           <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#475569;">Enter this code on Quizotic to sign in. No password needed.</p>
-          <div style="display:inline-block;background:#FEFCE8;border:2px solid #F5E642;border-radius:14px;padding:18px 32px;margin-bottom:6px;">
+          <div style="display:inline-block;background:#FEFCE8;border:2px solid #FBD13B;border-radius:14px;padding:18px 32px;margin-bottom:6px;">
             <span style="font-family:'SF Mono','Monaco','Inconsolata','Roboto Mono',monospace;font-size:36px;font-weight:800;letter-spacing:8px;color:#0F1B3D;">${code}</span>
           </div>
           <p style="margin:24px 0 0;font-size:13px;line-height:1.5;color:#94A3B8;">This code expires in 15 minutes. If you didn't request it, you can safely ignore this email.</p>
@@ -124,7 +124,7 @@ function buildWelcomeHtml(name: string | null): string {
         </tr></table>
         <p style="margin:12px 0 0;font-size:12px;color:#CBD5E1;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;">The learning engagement platform</p>
       </td></tr>
-      <tr><td style="background:#F5E642;height:4px;line-height:4px;font-size:0;">&nbsp;</td></tr>
+      <tr><td style="background:#FBD13B;height:4px;line-height:4px;font-size:0;">&nbsp;</td></tr>
       <tr><td style="padding:44px 36px 12px;">
         <div style="display:inline-block;background:#FEF9C3;color:#854D0E;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:5px 11px;border-radius:20px;margin-bottom:18px;">✨ You're in</div>
         <h1 style="margin:0 0 16px;font-size:30px;font-weight:900;color:#0F1B3D;letter-spacing:-0.8px;line-height:1.2;">Welcome aboard, ${firstName}.</h1>
@@ -135,18 +135,18 @@ function buildWelcomeHtml(name: string | null): string {
       <tr><td style="padding:20px 36px 8px;">
         <p style="margin:0 0 16px;font-size:11px;font-weight:800;color:#0F1B3D;letter-spacing:1.8px;text-transform:uppercase;text-align:center;">— Here's what you can do —</p>
         <table width="100%" cellpadding="0" cellspacing="0"><tr>
-          <td width="33%" style="padding:6px;" valign="top"><div style="background:#F8FAFC;border:1px solid #E2E8F0;border-top:3px solid #F5E642;border-radius:12px;padding:18px 12px;text-align:center;height:130px;box-sizing:border-box;"><div style="font-size:28px;line-height:1;margin-bottom:8px;">🎯</div><div style="font-size:13px;font-weight:800;color:#0F1B3D;">Live Quizzes</div><div style="font-size:11px;color:#64748B;margin-top:5px;line-height:1.5;">Check understanding in real time</div></div></td>
-          <td width="33%" style="padding:6px;" valign="top"><div style="background:#F8FAFC;border:1px solid #E2E8F0;border-top:3px solid #F5E642;border-radius:12px;padding:18px 12px;text-align:center;height:130px;box-sizing:border-box;"><div style="font-size:28px;line-height:1;margin-bottom:8px;">📚</div><div style="font-size:13px;font-weight:800;color:#0F1B3D;">Interactive Lessons</div><div style="font-size:11px;color:#64748B;margin-top:5px;line-height:1.5;">19+ slide types that teach</div></div></td>
-          <td width="33%" style="padding:6px;" valign="top"><div style="background:#F8FAFC;border:1px solid #E2E8F0;border-top:3px solid #F5E642;border-radius:12px;padding:18px 12px;text-align:center;height:130px;box-sizing:border-box;"><div style="font-size:28px;line-height:1;margin-bottom:8px;">🧠</div><div style="font-size:13px;font-weight:800;color:#0F1B3D;">AI Question Bank</div><div style="font-size:11px;color:#64748B;margin-top:5px;line-height:1.5;">Generate &amp; align to Bloom's</div></div></td>
+          <td width="33%" style="padding:6px;" valign="top"><div style="background:#F8FAFC;border:1px solid #E2E8F0;border-top:3px solid #FBD13B;border-radius:12px;padding:18px 12px;text-align:center;height:130px;box-sizing:border-box;"><div style="font-size:28px;line-height:1;margin-bottom:8px;">🎯</div><div style="font-size:13px;font-weight:800;color:#0F1B3D;">Live Quizzes</div><div style="font-size:11px;color:#64748B;margin-top:5px;line-height:1.5;">Check understanding in real time</div></div></td>
+          <td width="33%" style="padding:6px;" valign="top"><div style="background:#F8FAFC;border:1px solid #E2E8F0;border-top:3px solid #FBD13B;border-radius:12px;padding:18px 12px;text-align:center;height:130px;box-sizing:border-box;"><div style="font-size:28px;line-height:1;margin-bottom:8px;">📚</div><div style="font-size:13px;font-weight:800;color:#0F1B3D;">Interactive Lessons</div><div style="font-size:11px;color:#64748B;margin-top:5px;line-height:1.5;">19+ slide types that teach</div></div></td>
+          <td width="33%" style="padding:6px;" valign="top"><div style="background:#F8FAFC;border:1px solid #E2E8F0;border-top:3px solid #FBD13B;border-radius:12px;padding:18px 12px;text-align:center;height:130px;box-sizing:border-box;"><div style="font-size:28px;line-height:1;margin-bottom:8px;">🧠</div><div style="font-size:13px;font-weight:800;color:#0F1B3D;">AI Question Bank</div><div style="font-size:11px;color:#64748B;margin-top:5px;line-height:1.5;">Generate &amp; align to Bloom's</div></div></td>
         </tr></table>
       </td></tr>
       <tr><td style="padding:32px 36px 8px;">
         <p style="margin:0 0 6px;font-size:11px;font-weight:800;color:#94A3B8;letter-spacing:1.8px;text-transform:uppercase;">The Quizotic difference</p>
-        <h2 style="margin:0 0 18px;font-size:19px;font-weight:800;color:#0F1B3D;letter-spacing:-0.4px;line-height:1.4;white-space:nowrap;">Engagement is easy. We're built for <span style="background:#F5E642;padding:2px 10px;border-radius:5px;color:#0D0D0D;">retention.</span></h2>
+        <h2 style="margin:0 0 18px;font-size:19px;font-weight:800;color:#0F1B3D;letter-spacing:-0.4px;line-height:1.4;white-space:nowrap;">Engagement is easy. We're built for <span style="background:#FBD13B;padding:2px 10px;border-radius:5px;color:#0D0D0D;">retention.</span></h2>
         <table width="100%" cellpadding="0" cellspacing="0">
-          <tr><td style="padding:10px 0;"><table cellpadding="0" cellspacing="0" width="100%"><tr><td valign="top" width="44" style="padding-right:14px;"><div style="background:#0F1B3D;color:#F5E642;width:36px;height:36px;border-radius:10px;text-align:center;line-height:36px;font-size:16px;font-weight:800;">01</div></td><td valign="top"><div style="font-size:14px;font-weight:800;color:#0F1B3D;">Bloom's Taxonomy, built in</div><div style="font-size:13px;color:#475569;line-height:1.55;margin-top:3px;">Tag each question from Remember to Create. Know exactly which cognitive level your learners are at.</div></td></tr></table></td></tr>
-          <tr><td style="padding:10px 0;"><table cellpadding="0" cellspacing="0" width="100%"><tr><td valign="top" width="44" style="padding-right:14px;"><div style="background:#0F1B3D;color:#F5E642;width:36px;height:36px;border-radius:10px;text-align:center;line-height:36px;font-size:16px;font-weight:800;">02</div></td><td valign="top"><div style="font-size:14px;font-weight:800;color:#0F1B3D;">Confidence Grid</div><div style="font-size:13px;color:#475569;line-height:1.55;margin-top:3px;">Learners mark how sure they are. You instantly spot who knows, who guessed, and who's quietly lost.</div></td></tr></table></td></tr>
-          <tr><td style="padding:10px 0;"><table cellpadding="0" cellspacing="0" width="100%"><tr><td valign="top" width="44" style="padding-right:14px;"><div style="background:#0F1B3D;color:#F5E642;width:36px;height:36px;border-radius:10px;text-align:center;line-height:36px;font-size:16px;font-weight:800;">03</div></td><td valign="top"><div style="font-size:14px;font-weight:800;color:#0F1B3D;">Spaced Retrieval</div><div style="font-size:13px;color:#475569;line-height:1.55;margin-top:3px;">Questions resurface at scientifically-timed intervals — the single most proven way to move learning into long-term memory.</div></td></tr></table></td></tr>
+          <tr><td style="padding:10px 0;"><table cellpadding="0" cellspacing="0" width="100%"><tr><td valign="top" width="44" style="padding-right:14px;"><div style="background:#0F1B3D;color:#FBD13B;width:36px;height:36px;border-radius:10px;text-align:center;line-height:36px;font-size:16px;font-weight:800;">01</div></td><td valign="top"><div style="font-size:14px;font-weight:800;color:#0F1B3D;">Bloom's Taxonomy, built in</div><div style="font-size:13px;color:#475569;line-height:1.55;margin-top:3px;">Tag each question from Remember to Create. Know exactly which cognitive level your learners are at.</div></td></tr></table></td></tr>
+          <tr><td style="padding:10px 0;"><table cellpadding="0" cellspacing="0" width="100%"><tr><td valign="top" width="44" style="padding-right:14px;"><div style="background:#0F1B3D;color:#FBD13B;width:36px;height:36px;border-radius:10px;text-align:center;line-height:36px;font-size:16px;font-weight:800;">02</div></td><td valign="top"><div style="font-size:14px;font-weight:800;color:#0F1B3D;">Confidence Grid</div><div style="font-size:13px;color:#475569;line-height:1.55;margin-top:3px;">Learners mark how sure they are. You instantly spot who knows, who guessed, and who's quietly lost.</div></td></tr></table></td></tr>
+          <tr><td style="padding:10px 0;"><table cellpadding="0" cellspacing="0" width="100%"><tr><td valign="top" width="44" style="padding-right:14px;"><div style="background:#0F1B3D;color:#FBD13B;width:36px;height:36px;border-radius:10px;text-align:center;line-height:36px;font-size:16px;font-weight:800;">03</div></td><td valign="top"><div style="font-size:14px;font-weight:800;color:#0F1B3D;">Spaced Retrieval</div><div style="font-size:13px;color:#475569;line-height:1.55;margin-top:3px;">Questions resurface at scientifically-timed intervals — the single most proven way to move learning into long-term memory.</div></td></tr></table></td></tr>
         </table>
       </td></tr>
       <tr><td style="padding:28px 36px 8px;">
@@ -159,13 +159,13 @@ function buildWelcomeHtml(name: string | null): string {
         </div>
       </td></tr>
       <tr><td style="padding:32px 36px 12px;"><table cellpadding="0" cellspacing="0" width="100%"><tr><td align="center">
-        <a href="https://www.quizotic.live/host" style="display:inline-block;background:#F5E642;color:#0D0D0D;text-decoration:none;padding:17px 44px;border-radius:12px;font-size:16px;font-weight:900;border:2px solid #0D0D0D;letter-spacing:0.2px;">Create your first lesson →</a>
+        <a href="https://www.quizotic.live/host" style="display:inline-block;background:#FBD13B;color:#0D0D0D;text-decoration:none;padding:17px 44px;border-radius:12px;font-size:16px;font-weight:900;border:2px solid #0D0D0D;letter-spacing:0.2px;">Create your first lesson →</a>
       </td></tr></table>
       <p style="margin:18px 0 0;font-size:12px;color:#94A3B8;text-align:center;">⏱ Takes under 2 minutes · AI can draft the questions for you</p>
-      <p style="margin:12px 0 0;font-size:13px;color:#475569;text-align:center;">Prefer a tour first? <a href="https://www.quizotic.live/welcome.html" style="color:#0F1B3D;font-weight:700;text-decoration:none;border-bottom:2px solid #F5E642;padding-bottom:1px;">Read the 2-minute quick-start guide →</a></p>
+      <p style="margin:12px 0 0;font-size:13px;color:#475569;text-align:center;">Prefer a tour first? <a href="https://www.quizotic.live/welcome.html" style="color:#0F1B3D;font-weight:700;text-decoration:none;border-bottom:2px solid #FBD13B;padding-bottom:1px;">Read the 2-minute quick-start guide →</a></p>
       </td></tr>
       <tr><td style="padding:24px 36px 8px;">
-        <div style="background:#F8FAFC;border-left:3px solid #F5E642;border-radius:0 10px 10px 0;padding:14px 18px;">
+        <div style="background:#F8FAFC;border-left:3px solid #FBD13B;border-radius:0 10px 10px 0;padding:14px 18px;">
           <div style="font-size:11px;font-weight:800;color:#94A3B8;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:4px;">💡 First-day tip</div>
           <div style="font-size:13px;color:#475569;line-height:1.55;">Start with a topic you're teaching this week. Paste your notes, let AI draft 5 questions, and you'll have a live session ready in minutes.</div>
         </div>
@@ -179,7 +179,7 @@ function buildWelcomeHtml(name: string | null): string {
       </td></tr>
       <tr><td style="background:#0F1B3D;padding:22px 36px;">
         <p style="margin:0;font-size:12px;color:#94A3B8;text-align:center;line-height:1.6;">
-          <a href="https://www.quizotic.live" style="color:#F5E642;text-decoration:none;font-weight:700;">quizotic.live</a>
+          <a href="https://www.quizotic.live" style="color:#FBD13B;text-decoration:none;font-weight:700;">quizotic.live</a>
           &nbsp;·&nbsp; <a href="https://www.quizotic.live/host" style="color:#CBD5E1;text-decoration:none;">Dashboard</a>
           &nbsp;·&nbsp; <a href="https://www.quizotic.live/pricing" style="color:#CBD5E1;text-decoration:none;">Pricing</a>
         </p>

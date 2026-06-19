@@ -148,7 +148,7 @@ function CountdownNumber({ targetTime }: { targetTime: number }) {
           fontSize: 120,
           lineHeight: 1,
           fontFamily: 'var(--font-heading)',
-          color: '#F5E642',
+          color: '#FBD13B',
           fontWeight: 900,
           animation: changed ? 'countdownPop 0.9s ease-out forwards' : undefined,
         }}
@@ -1517,13 +1517,13 @@ function JoinPageInner() {
           <div style={{
             position: 'absolute', top: '30%', left: '50%', transform: 'translateX(-50%)',
             width: 500, height: 500,
-            background: 'radial-gradient(circle, rgba(245,230,66,0.08) 0%, transparent 68%)',
+            background: 'radial-gradient(circle, rgba(251,209,59,0.08) 0%, transparent 68%)',
           }} />
           {STARS.map((star, i) => (
             <div key={i} style={{
               position: 'absolute', top: star.top, left: star.left,
               width: star.s, height: star.s, borderRadius: '50%',
-              background: star.amber ? '#F5E642' : 'rgba(255,255,255,0.6)',
+              background: star.amber ? '#FBD13B' : 'rgba(255,255,255,0.6)',
               opacity: star.o,
             }} />
           ))}
@@ -1540,7 +1540,7 @@ function JoinPageInner() {
             <p className="text-lg mt-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
               {t('join.title')}
             </p>
-            <p className="text-xs font-bold uppercase tracking-[0.14em] mt-2" style={{ color: '#F5E642' }}>
+            <p className="text-xs font-bold uppercase tracking-[0.14em] mt-2" style={{ color: '#FBD13B' }}>
               Join a live quiz with code
             </p>
           </div>
@@ -1571,7 +1571,7 @@ function JoinPageInner() {
                   ? '1.5px solid rgba(34,197,94,0.9)' // valid → green border
                   : '1.5px solid rgba(255,255,255,0.12)',
                 color: 'white',
-                '--tw-ring-color': 'rgba(245,230,66,0.4)',
+                '--tw-ring-color': 'rgba(251,209,59,0.4)',
               } as React.CSSProperties}
               maxLength={6}
             />
@@ -1589,7 +1589,7 @@ function JoinPageInner() {
                 background: 'rgba(255,255,255,0.07)',
                 border: '1.5px solid rgba(255,255,255,0.12)',
                 color: 'white',
-                '--tw-ring-color': 'rgba(245,230,66,0.4)',
+                '--tw-ring-color': 'rgba(251,209,59,0.4)',
               } as React.CSSProperties}
               maxLength={24}
             />
@@ -1614,7 +1614,7 @@ function JoinPageInner() {
                   background: 'rgba(255,255,255,0.07)',
                   border: '1.5px solid rgba(255,255,255,0.12)',
                   color: 'white',
-                  '--tw-ring-color': 'rgba(245,230,66,0.4)',
+                  '--tw-ring-color': 'rgba(251,209,59,0.4)',
                 } as React.CSSProperties}
                 maxLength={120}
               />
@@ -1624,7 +1624,7 @@ function JoinPageInner() {
               type="submit"
               disabled={phase === 'connecting'}
               className="w-full font-black rounded-full py-5 text-xl transition-all disabled:opacity-50 hover:opacity-90"
-              style={{ background: '#F5E642', color: '#0D0D0D', border: '3px solid #0D0D0D', boxShadow: '4px 4px 0 #0D0D0D', fontFamily: 'var(--font-heading)' }}
+              style={{ background: '#FBD13B', color: '#0D0D0D', border: '3px solid #0D0D0D', boxShadow: '4px 4px 0 #0D0D0D', fontFamily: 'var(--font-heading)' }}
             >
               {phase === 'connecting' ? t('join.joining') : t('join.submitBtn')}
             </button>
@@ -1646,7 +1646,7 @@ function JoinPageInner() {
           <div className={`transition-all duration-500 mb-4 ${avatarRevealed ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`}>
             {archetype && (
               <div className="flex justify-center mb-3">
-                <div className="ring-4 rounded-full" style={{ '--tw-ring-color': 'rgba(245,230,66,0.3)' } as React.CSSProperties}>
+                <div className="ring-4 rounded-full" style={{ '--tw-ring-color': 'rgba(251,209,59,0.3)' } as React.CSSProperties}>
                   <Avatar archetype={archetype} size={120} />
                 </div>
               </div>
@@ -1660,7 +1660,7 @@ function JoinPageInner() {
           )}
           <div className="flex flex-wrap justify-center gap-2 mt-3">
             {sessionMode === 'reflection' && (
-              <span className="text-base rounded-full px-4 py-1.5 font-semibold border" style={{ background: '#FFFDE6', color: '#0F1B3D', borderColor: 'rgba(245,230,66,0.4)' }}>
+              <span className="text-base rounded-full px-4 py-1.5 font-semibold border" style={{ background: '#FFFDE6', color: '#0F1B3D', borderColor: 'rgba(251,209,59,0.4)' }}>
                 Reflection Mode — results at end
               </span>
             )}
@@ -1678,7 +1678,7 @@ function JoinPageInner() {
           <p className="text-gray-500 text-lg mt-6 mb-3">Waiting for host to start</p>
           <div className="flex justify-center gap-2">
             {[0, 150, 300].map(delay => (
-              <div key={delay} className="w-3 h-3 rounded-full animate-bounce" style={{ background: '#F5E642', animationDelay: `${delay}ms` }} />
+              <div key={delay} className="w-3 h-3 rounded-full animate-bounce" style={{ background: '#FBD13B', animationDelay: `${delay}ms` }} />
             ))}
           </div>
           <p className="text-gray-400 text-lg mt-4 font-medium">{quizTitle}</p>
@@ -1721,7 +1721,7 @@ function JoinPageInner() {
               onClick={() => setSoundMuted(toggleMuted())}
               aria-label={soundMuted ? 'Unmute sounds' : 'Mute sounds'}
               title={soundMuted ? 'Sounds are muted' : 'Mute sounds'}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-lg transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-[#F5E642]"
+              className="w-9 h-9 rounded-full flex items-center justify-center text-lg transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-[#FBD13B]"
               style={{ border: '1.5px solid #E5E7EB' }}
             >
               {soundMuted ? '🔇' : '🔊'}
@@ -1741,10 +1741,10 @@ function JoinPageInner() {
         {/* Scenario card — shown for 'case' type questions */}
         {question.type === 'case' && question.scenarioText && (
           <div className="rounded-2xl p-5 mb-3 border" style={{ background: '#0F1B3D', borderColor: '#2D3A8C' }}>
-            <p className="text-base font-bold uppercase tracking-widest mb-2" style={{ color: '#F5E642' }}>Scenario</p>
+            <p className="text-base font-bold uppercase tracking-widest mb-2" style={{ color: '#FBD13B' }}>Scenario</p>
             <p className="text-lg leading-relaxed" style={{ color: '#E0E7FF' }}>{question.scenarioText}</p>
             {question.supportingDetail && (
-              <p className="mt-2 font-bold text-lg" style={{ color: '#F5E642' }}>{question.supportingDetail}</p>
+              <p className="mt-2 font-bold text-lg" style={{ color: '#FBD13B' }}>{question.supportingDetail}</p>
             )}
           </div>
         )}
@@ -1760,7 +1760,7 @@ function JoinPageInner() {
             <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Tap the colour matching your answer</p>
           </div>
         ) : (
-        <div className={`participant-question-card bg-white rounded-2xl shadow-sm border p-4 sm:p-6 mb-4 ${question.type === 'case' ? 'border-t-4' : 'border-gray-200 border-t-4'}`} style={{ borderTopColor: question.type === 'case' ? '#2D3A8C' : '#F5E642' }}>
+        <div className={`participant-question-card bg-white rounded-2xl shadow-sm border p-4 sm:p-6 mb-4 ${question.type === 'case' ? 'border-t-4' : 'border-gray-200 border-t-4'}`} style={{ borderTopColor: question.type === 'case' ? '#2D3A8C' : '#FBD13B' }}>
           <div className="flex items-center justify-between mb-3">
             <span className="text-base text-gray-400 font-semibold">Q{question.index + 1} / {question.total}</span>
             {(question.isScored || isScoredType(question.type as QuestionType)) && (
@@ -1828,7 +1828,7 @@ function JoinPageInner() {
               onClick={submitTextAnswer}
               disabled={selectedAnswer !== null || !textAnswer.trim()}
               className="w-full py-4 rounded-2xl font-black text-xl transition-all disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[#0F1B3D] focus-visible:ring-offset-2 motion-safe:active:scale-[0.98]"
-              style={{ background: selectedAnswer !== null ? '#9ca3af' : '#F5E642', color: selectedAnswer !== null ? '#fff' : '#0D0D0D', border: selectedAnswer !== null ? 'none' : '2px solid #0D0D0D' }}
+              style={{ background: selectedAnswer !== null ? '#9ca3af' : '#FBD13B', color: selectedAnswer !== null ? '#fff' : '#0D0D0D', border: selectedAnswer !== null ? 'none' : '2px solid #0D0D0D' }}
             >
               {selectedAnswer !== null ? 'Submitted ✓' : 'Submit →'}
             </button>
@@ -1906,7 +1906,7 @@ function JoinPageInner() {
                   onClick={() => submitAnswerRaw(order, 'ranked')}
                   disabled={isSubmitted || timeLeft <= 0}
                   className="w-full py-4 rounded-2xl font-black text-xl transition-all disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[#0F1B3D] focus-visible:ring-offset-2 motion-safe:active:scale-[0.98]"
-                  style={{ background: isSubmitted ? '#9ca3af' : '#F5E642', color: isSubmitted ? '#fff' : '#0D0D0D', border: isSubmitted ? 'none' : '2px solid #0D0D0D' }}
+                  style={{ background: isSubmitted ? '#9ca3af' : '#FBD13B', color: isSubmitted ? '#fff' : '#0D0D0D', border: isSubmitted ? 'none' : '2px solid #0D0D0D' }}
                 >
                   {isSubmitted ? 'Submitted ✓' : 'Submit order →'}
                 </button>
@@ -1977,7 +1977,7 @@ function JoinPageInner() {
             onClick={submitMultiselect}
             disabled={multiselectChosen.size === 0 || timeLeft <= 0}
             className="w-full py-4 mt-1 rounded-2xl font-black text-xl transition-all disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[#0F1B3D] focus-visible:ring-offset-2 motion-safe:active:scale-[0.98]"
-            style={{ background: multiselectChosen.size > 0 ? '#F5E642' : '#e5e7eb', color: '#0D0D0D', border: multiselectChosen.size > 0 ? '2px solid #0D0D0D' : 'none' }}
+            style={{ background: multiselectChosen.size > 0 ? '#FBD13B' : '#e5e7eb', color: '#0D0D0D', border: multiselectChosen.size > 0 ? '2px solid #0D0D0D' : 'none' }}
           >
             {multiselectChosen.size > 0 ? t('join.submit', { n: multiselectChosen.size }) : t('join.selectAll')}
           </button>
@@ -2083,10 +2083,10 @@ function JoinPageInner() {
         {/* Streak badge */}
         {isCorrect && streak >= 2 && (
           <div className="flex items-center gap-2 px-4 py-2 rounded-full" style={{
-            background: streak >= 5 ? 'linear-gradient(135deg, #F5E642, #FF8A47)' : '#0F1B3D',
+            background: streak >= 5 ? 'linear-gradient(135deg, #FBD13B, #FF8A47)' : '#0F1B3D',
             animation: 'correctPop 0.4s ease-out',
           }}>
-            <span className="font-black text-xl" style={{ color: streak >= 5 ? '#0D0D0D' : '#F5E642' }}>{t('join.streak', { n: streak })}</span>
+            <span className="font-black text-xl" style={{ color: streak >= 5 ? '#0D0D0D' : '#FBD13B' }}>{t('join.streak', { n: streak })}</span>
           </div>
         )}
 
@@ -2191,7 +2191,7 @@ function JoinPageInner() {
                 <p
                   key={intermediateRank}
                   className="text-4xl font-black tabular-nums"
-                  style={{ color: '#F5E642', animation: 'correctPop 0.5s ease-out' }}
+                  style={{ color: '#FBD13B', animation: 'correctPop 0.5s ease-out' }}
                 >
                   #{intermediateRank}
                 </p>
@@ -2313,7 +2313,7 @@ function JoinPageInner() {
               const isMyTeam = team && t.name === team.name
               return (
                 <div key={t.name} className={`flex items-center gap-3 rounded-xl p-3 ${isMyTeam ? 'ring-2' : ''}`}
-                  style={{ background: '#fff', border: '1px solid #E5E7EB', ...(isMyTeam ? { '--tw-ring-color': '#F5E642' } as React.CSSProperties : {}) }}>
+                  style={{ background: '#fff', border: '1px solid #E5E7EB', ...(isMyTeam ? { '--tw-ring-color': '#FBD13B' } as React.CSSProperties : {}) }}>
                   <span className="text-lg font-black w-6 text-center" style={{ color: t.color }}>
                     {i === 0 ? '🏆' : i + 1}
                   </span>
@@ -2437,7 +2437,7 @@ function JoinPageInner() {
             <button
               onClick={handleSpNext}
               className="w-full py-4 rounded-full font-bold text-lg transition-all hover:opacity-90 inline-flex items-center justify-center gap-2"
-              style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
+              style={{ background: '#FBD13B', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
             >
               {spIndex + 1 >= spQuestions.length ? 'See Results' : 'Next'}
               <NavChevron direction="forward" className="w-5 h-5" />
@@ -2487,8 +2487,8 @@ function JoinPageInner() {
         style={{ background: '#0F1B3D' }}>
         <div className="text-center space-y-4 max-w-md">
           <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-2"
-            style={{ background: 'rgba(245,230,66,0.1)', border: '1.5px solid rgba(245,230,66,0.3)' }}>
-            <svg viewBox="0 0 24 24" fill="none" className="w-10 h-10"><circle cx="12" cy="12" r="9" stroke="#F5E642" strokeWidth="1.5"/><path d="M12 7v5l3 2" stroke="#F5E642" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            style={{ background: 'rgba(251,209,59,0.1)', border: '1.5px solid rgba(251,209,59,0.3)' }}>
+            <svg viewBox="0 0 24 24" fill="none" className="w-10 h-10"><circle cx="12" cy="12" r="9" stroke="#FBD13B" strokeWidth="1.5"/><path d="M12 7v5l3 2" stroke="#FBD13B" strokeWidth="1.5" strokeLinecap="round"/></svg>
           </div>
           <h1 className="text-2xl font-black" style={{ color: '#fff', fontFamily: 'var(--font-heading)' }}>
             Look up at the screen
@@ -2499,7 +2499,7 @@ function JoinPageInner() {
         </div>
         <div className="flex flex-col items-center gap-1">
           <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: '#64748B' }}>You&rsquo;re in</span>
-          <span className="text-sm font-semibold" style={{ color: '#F5E642' }}>{presenterTitle || 'Session'}</span>
+          <span className="text-sm font-semibold" style={{ color: '#FBD13B' }}>{presenterTitle || 'Session'}</span>
         </div>
       </div>
     )
@@ -2512,7 +2512,7 @@ function JoinPageInner() {
         style={{ background: '#0F1B3D' }}>
         <div className="text-center space-y-3">
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-            style={{ background: '#F5E642', border: '2px solid #0D0D0D' }}>
+            style={{ background: '#FBD13B', border: '2px solid #0D0D0D' }}>
             <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8"><rect x="3" y="3" width="18" height="14" rx="2" stroke="#0F1B3D" strokeWidth="2"/><path d="M8 21h8M12 17v4" stroke="#0F1B3D" strokeWidth="2" strokeLinecap="round"/></svg>
           </div>
           <h1 className="text-3xl font-black" style={{ color: '#fff', fontFamily: 'var(--font-heading)' }}>{presenterTitle}</h1>
@@ -2568,7 +2568,7 @@ function JoinPageInner() {
               <ul className="space-y-2">
                 {bullets.map((b, i) => (
                   <li key={i} className="text-base flex gap-2" style={{ color: '#E2E8F0' }}>
-                    <span style={{ color: '#F5E642' }}>•</span>
+                    <span style={{ color: '#FBD13B' }}>•</span>
                     <span>{b}</span>
                   </li>
                 ))}
@@ -2647,13 +2647,13 @@ function JoinPageInner() {
             <>
               {slide.type === 'quick_fire' && quickFireLeft !== null && (
                 <div className="w-full text-center mb-2">
-                  <p className="text-4xl font-black" style={{ color: quickFireLeft <= 2 ? '#EF4444' : '#F5E642' }}>
+                  <p className="text-4xl font-black" style={{ color: quickFireLeft <= 2 ? '#EF4444' : '#FBD13B' }}>
                     {quickFireLeft}
                   </p>
                   <div className="h-2 rounded-full w-full mt-2" style={{ background: 'rgba(255,255,255,0.15)' }}>
                     <div className="h-full rounded-full transition-all" style={{
                       width: `${(quickFireLeft / (((presenterCurrentSlide as Record<string, unknown>)?.durationSeconds as number) || 5)) * 100}%`,
-                      background: quickFireLeft <= 2 ? '#EF4444' : '#F5E642',
+                      background: quickFireLeft <= 2 ? '#EF4444' : '#FBD13B',
                     }} />
                   </div>
                 </div>
@@ -2830,7 +2830,7 @@ function JoinPageInner() {
       <div className="min-h-screen flex flex-col items-center justify-center gap-6 p-6"
         style={{ background: '#0F1B3D' }}>
         <div className="w-20 h-20 rounded-full flex items-center justify-center"
-          style={{ background: '#F5E642', border: '2px solid #0D0D0D' }}>
+          style={{ background: '#FBD13B', border: '2px solid #0D0D0D' }}>
           <span className="text-3xl" style={{ color: '#0D0D0D' }}>✓</span>
         </div>
         <div className="text-center space-y-2">
@@ -2844,7 +2844,7 @@ function JoinPageInner() {
           </p>
         </div>
         <div className="flex gap-2 items-center">
-          <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#F5E642' }} />
+          <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#FBD13B' }} />
           <span className="text-xs font-semibold opacity-60 tracking-wider uppercase" style={{ color: 'white' }}>Slide {presenterSlideIndex + 1} / {presenterTotalSlides}</span>
         </div>
       </div>
@@ -3028,7 +3028,7 @@ function JoinPageInner() {
                 <span key={word} className="px-3 py-1.5 rounded-full font-bold transition-all"
                   style={{
                     background: 'rgba(255,255,255,0.1)',
-                    color: '#F5E642',
+                    color: '#FBD13B',
                     fontSize: `${scale}rem`,
                     border: '1px solid rgba(255,255,255,0.15)',
                   }}>
@@ -3050,7 +3050,7 @@ function JoinPageInner() {
         const display = slideType === 'scale_100' ? Math.round(avg) : avg.toFixed(1)
         return (
           <div className="text-center w-full space-y-2">
-            <p className="text-6xl font-black" style={{ color: '#F5E642', fontFamily: 'var(--font-heading)' }}>{display}</p>
+            <p className="text-6xl font-black" style={{ color: '#FBD13B', fontFamily: 'var(--font-heading)' }}>{display}</p>
             <p className="text-base" style={{ color: 'rgba(255,255,255,0.5)' }}>
               average {slideType === 'rating_scale' ? 'rating' : 'score'} from {agg.total} response{agg.total !== 1 ? 's' : ''}
             </p>
@@ -3067,7 +3067,7 @@ function JoinPageInner() {
             {emojis.map((em: string) => (
               <div key={em} className="flex flex-col items-center gap-1">
                 <span className="text-4xl">{em}</span>
-                <span className="text-xl font-black" style={{ color: '#F5E642' }}>{emojiCounts[em] ?? 0}</span>
+                <span className="text-xl font-black" style={{ color: '#FBD13B' }}>{emojiCounts[em] ?? 0}</span>
               </div>
             ))}
           </div>
@@ -3079,7 +3079,7 @@ function JoinPageInner() {
         const pinCount = agg.pins?.length ?? 0
         return (
           <div className="text-center w-full space-y-2">
-            <p className="text-5xl font-black" style={{ color: '#F5E642', fontFamily: 'var(--font-heading)' }}>{pinCount}</p>
+            <p className="text-5xl font-black" style={{ color: '#FBD13B', fontFamily: 'var(--font-heading)' }}>{pinCount}</p>
             <p className="text-base" style={{ color: 'rgba(255,255,255,0.5)' }}>
               response{pinCount !== 1 ? 's' : ''} placed
             </p>
@@ -3105,9 +3105,9 @@ function JoinPageInner() {
         {/* Results */}
         <div className="flex-1 flex flex-col items-center justify-center gap-4 px-2">
           {/* Vote confirmed badge */}
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full" style={{ background: 'rgba(245,230,66,0.15)' }}>
-            <span className="text-sm font-bold" style={{ color: '#F5E642' }}>Your vote is in</span>
-            <span style={{ color: '#F5E642' }}>✓</span>
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full" style={{ background: 'rgba(251,209,59,0.15)' }}>
+            <span className="text-sm font-bold" style={{ color: '#FBD13B' }}>Your vote is in</span>
+            <span style={{ color: '#FBD13B' }}>✓</span>
           </div>
 
           {/* Total responses */}

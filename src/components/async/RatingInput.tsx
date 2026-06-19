@@ -71,7 +71,7 @@ export function RatingInput({ question, disabled, onSubmit }: AsyncInputProps) {
         onClick={handleSubmit}
         disabled={disabled || submitted || selected === 0}
         className="w-full py-3 rounded-xl font-bold text-sm transition-all disabled:opacity-40 disabled:cursor-default"
-        style={{ background: '#F5E642', color: '#0D0D0D' }}
+        style={{ background: '#FBD13B', color: '#0D0D0D' }}
       >
         {submitted ? 'Submitted ✓' : 'Submit'}
       </button>

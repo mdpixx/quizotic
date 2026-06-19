@@ -170,7 +170,7 @@ export function FloatingFeedbackButton() {
         onClick={isTouch ? undefined : () => setOpen(true)}
         aria-label="Send feedback or report a bug"
         style={buttonStyle}
-        className="fixed bottom-4 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#0D0D0D] bg-[#F5E642] text-[#0D0D0D] shadow-lg transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-4 focus-visible:outline-[#F5E642]"
+        className="fixed bottom-4 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#0D0D0D] bg-[#FBD13B] text-[#0D0D0D] shadow-lg transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-4 focus-visible:outline-[#FBD13B]"
       >
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
@@ -241,7 +241,7 @@ function FeedbackModal({ onClose }: { onClose: () => void }) {
             <button
               type="button"
               onClick={onClose}
-              className="w-full rounded-xl border-2 border-[#0D0D0D] bg-[#F5E642] py-3 font-bold text-[#0D0D0D] transition-transform hover:scale-[1.02]"
+              className="w-full rounded-xl border-2 border-[#0D0D0D] bg-[#FBD13B] py-3 font-bold text-[#0D0D0D] transition-transform hover:scale-[1.02]"
             >
               Close
             </button>
@@ -289,7 +289,7 @@ function FeedbackModal({ onClose }: { onClose: () => void }) {
                 type="button"
                 onClick={submit}
                 disabled={submitting || !message.trim()}
-                className="flex-1 rounded-xl border-2 border-[#0D0D0D] bg-[#F5E642] py-3 font-bold text-[#0D0D0D] transition-transform hover:scale-[1.02] disabled:scale-100 disabled:opacity-60"
+                className="flex-1 rounded-xl border-2 border-[#0D0D0D] bg-[#FBD13B] py-3 font-bold text-[#0D0D0D] transition-transform hover:scale-[1.02] disabled:scale-100 disabled:opacity-60"
               >
                 {submitting ? 'Sending…' : 'Send'}
               </button>

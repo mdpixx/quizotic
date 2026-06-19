@@ -202,7 +202,7 @@ function renderResultsHtml(stat: QuestionStat): string {
     if (ranked.length === 0) return empty('No rankings submitted yet')
     const rows = ranked.map((r, i) => `
       <div style="display:flex;align-items:center;gap:8px;border:1px solid #f1f5f9;border-radius:8px;padding:6px 10px;margin-bottom:4px;background:#fff;font-size:12px;">
-        <span style="display:inline-block;width:22px;height:22px;border-radius:99px;background:${i === 0 ? '#F5E642' : '#F1F5F9'};color:${i === 0 ? '#0F1B3D' : '#475569'};text-align:center;font-weight:900;line-height:22px">${i + 1}</span>
+        <span style="display:inline-block;width:22px;height:22px;border-radius:99px;background:${i === 0 ? '#FBD13B' : '#F1F5F9'};color:${i === 0 ? '#0F1B3D' : '#475569'};text-align:center;font-weight:900;line-height:22px">${i + 1}</span>
         <span style="flex:1;color:#0F1B3D;font-weight:600">${escapeHtml(r.label)}</span>
         <span style="color:#64748b">avg ${(r.avg ?? 0).toFixed(2)}</span>
         ${r.firsts > 0 ? `<span style="background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:6px;font-weight:700">${r.firsts} × #1</span>` : ''}

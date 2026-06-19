@@ -79,7 +79,7 @@ export function ReflectionMoment({ gameCode, participantName, questions }: Refle
               <button
                 onClick={() => setStep('question')}
                 className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
-                style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
+                style={{ background: '#FBD13B', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
               >
                 Start reflection →
               </button>
@@ -164,7 +164,7 @@ export function ReflectionMoment({ gameCode, participantName, questions }: Refle
                   onClick={submit}
                   disabled={submitting}
                   className="flex-1 py-2 rounded-xl text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
-                  style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
+                  style={{ background: '#FBD13B', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
                 >
                   {submitting ? 'Saving…' : 'Submit reflection'}
                 </button>

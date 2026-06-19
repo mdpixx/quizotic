@@ -24,7 +24,7 @@ export function ScrollProgress() {
           className="absolute top-0 left-0 w-full rounded-full transition-all duration-150"
           style={{
             height: `${progress}%`,
-            background: 'linear-gradient(180deg, #0F1B3D, #F5E642)',
+            background: 'linear-gradient(180deg, #0F1B3D, #FBD13B)',
           }}
         />
         {/* Current position dot */}
@@ -32,7 +32,7 @@ export function ScrollProgress() {
           className="absolute left-1/2 -translate-x-1/2 w-3 h-3 rounded-full border-2 border-white shadow-md transition-all duration-150"
           style={{
             top: `calc(${progress}% - 6px)`,
-            background: '#F5E642',
+            background: '#FBD13B',
           }}
         />
       </div>

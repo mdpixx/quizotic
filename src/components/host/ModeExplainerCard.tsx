@@ -13,14 +13,15 @@
 
 import Link from 'next/link'
 import { motion, useReducedMotion } from 'framer-motion'
+import { ANSWER_COLORS } from '@/lib/answer-colors'
 
 interface ModeExplainerCardProps {
   mode: 'quiz' | 'presentation'
   href: string
 }
 
-// Canonical answer-tile colours (kept consistent with the live answer tiles).
-const ANSWER = ['#E21B3C', '#1368CE', '#D89E00', '#26890C']
+// Canonical answer-tile colours (derived from the live answer-tile palette).
+const ANSWER = ANSWER_COLORS.slice(0, 4).map(c => c.hex)
 
 function QuizAnimation({ animate }: { animate: boolean }) {
   // Loop: 4 option chips flash a "correct" highlight, then three leaderboard
@@ -54,7 +55,7 @@ function QuizAnimation({ animate }: { animate: boolean }) {
         <motion.rect
           key={i}
           x={28 + i * 52} width={36} rx={4}
-          fill={i === 0 ? '#F5E642' : '#0F1B3D'}
+          fill={i === 0 ? '#FBD13B' : '#0F1B3D'}
           initial={false}
           animate={animate ? { height: [4, 4, h, h], y: [84, 84, 84 - h, 84 - h] } : { height: h, y: 84 - h }}
           transition={loop}
@@ -96,7 +97,7 @@ export function ModeExplainerCard({ mode, href }: ModeExplainerCardProps) {
   const cfg = isQuiz
     ? {
         bg: '#FFFDE6', border: '#0F1B3D', vizBg: '#FFFFFF', vizBorder: '#0F1B3D22',
-        badge: 'Scored', badgeBg: '#F5E642', badgeText: '#0D0D0D',
+        badge: 'Scored', badgeBg: '#FBD13B', badgeText: '#0D0D0D',
         title: 'Create quiz',
         line: 'Scored competition with a live leaderboard and a winner.',
         sub: 'Generate with AI or build manually · host live or share self-paced.',

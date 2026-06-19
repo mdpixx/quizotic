@@ -194,7 +194,7 @@ export default function HostDashboard() {
     return (
       <div className="p-6 md:p-8 flex items-center justify-center" style={{ maxWidth: 1280, margin: '0 auto', minHeight: 400 }}>
         <div className="text-center">
-          <div className="w-8 h-8 rounded-full animate-spin mx-auto mb-3" style={{ border: '3px solid #E2E8F0', borderTopColor: '#F5E642' }} />
+          <div className="w-8 h-8 rounded-full animate-spin mx-auto mb-3" style={{ border: '3px solid #E2E8F0', borderTopColor: '#FBD13B' }} />
           <p className="text-sm font-medium" style={{ color: '#9CA3AF' }}>Loading dashboard...</p>
         </div>
       </div>
@@ -207,7 +207,7 @@ export default function HostDashboard() {
       <div className="p-6 md:p-8" style={{ maxWidth: 900, margin: '0 auto' }}>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-8 pb-4">
           <div className="flex justify-center mb-4">
-            <span className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: '#F5E642', border: '2px solid #0D0D0D' }}>
+            <span className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: '#FBD13B', border: '2px solid #0D0D0D' }}>
               <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#0F1B3D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M12 3l2 5.5L19.5 11 14 13l-2 5.5L10 13l-5.5-2L10 8.5z" />
               </svg>
@@ -236,7 +236,7 @@ export default function HostDashboard() {
           <div className="rounded-2xl p-5 flex items-center justify-between gap-4 flex-wrap"
             style={{ background: 'linear-gradient(135deg, #0F1B3D 0%, #1F2E6C 100%)' }}>
             <div style={{ minWidth: 220, flex: 1 }}>
-              <p className="text-[11px] font-black uppercase tracking-[0.14em] mb-1" style={{ color: '#F5E642' }}>Feel it first</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.14em] mb-1" style={{ color: '#FBD13B' }}>Feel it first</p>
               <h3 className="text-lg font-black leading-tight" style={{ fontFamily: 'var(--font-heading)', color: '#fff' }}>
                 Host a demo session right now
               </h3>
@@ -246,7 +246,7 @@ export default function HostDashboard() {
             </div>
             <button onClick={hostDemoSession}
               className="flex-shrink-0 inline-flex items-center gap-2 text-sm font-bold px-5 py-3 rounded-xl transition-all hover:opacity-90 hover:scale-[1.02]"
-              style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}>
+              style={{ background: '#FBD13B', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}>
               <svg viewBox="0 0 24 24" width="14" height="14" fill="#0D0D0D" aria-hidden><path d="M8 5v14l11-7z" /></svg>
               Go live in 10 seconds
             </button>
@@ -359,15 +359,15 @@ export default function HostDashboard() {
           {/* subtle glow */}
           <div className="absolute inset-0 pointer-events-none" style={{
             background:
-              'radial-gradient(800px 400px at 85% 0%, rgba(245,230,66,0.14), transparent 60%),' +
+              'radial-gradient(800px 400px at 85% 0%, rgba(251,209,59,0.14), transparent 60%),' +
               'radial-gradient(500px 300px at 0% 100%, rgba(96,117,220,0.22), transparent 55%)',
           }} />
           <div className="relative z-10 grid md:grid-cols-[1fr_auto] gap-5 items-start">
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full"
-                  style={{ background: 'rgba(245,230,66,0.22)', color: '#F5E642' }}>
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#F5E642' }} />
+                  style={{ background: 'rgba(251,209,59,0.22)', color: '#FBD13B' }}>
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#FBD13B' }} />
                   Last session &middot; {lastSessionWhen}
                 </span>
                 <span className="text-[11px] font-bold px-2.5 py-1 rounded-full capitalize"
@@ -411,7 +411,7 @@ export default function HostDashboard() {
                 <p className="text-[10px] font-semibold mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>participants</p>
               </div>
               <div>
-                <p className="text-2xl md:text-3xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#F5E642' }}>
+                <p className="text-2xl md:text-3xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#FBD13B' }}>
                   {lastSession.avgScore != null ? `${lastSession.avgScore}%` : '—'}
                 </p>
                 <p className="text-[10px] font-semibold mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>avg score</p>

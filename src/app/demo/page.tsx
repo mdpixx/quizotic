@@ -269,7 +269,7 @@ function ReactionsDemo() {
           {/* Streak badge */}
           {streak >= 2 && (
             <div className="flex items-center gap-2 px-4 py-2 rounded-full" style={{
-              background: streak >= 5 ? 'linear-gradient(135deg, #F5E642, #FF8A47)' : '#0F1B3D',
+              background: streak >= 5 ? 'linear-gradient(135deg, #FBD13B, #FF8A47)' : '#0F1B3D',
               animation: 'correctPop 0.4s ease-out',
             }}>
               <span className="text-white font-black text-lg">{streak} Streak!</span>
@@ -414,7 +414,7 @@ function WaveDemo() {
         {showWave && (
           <>
             <div className="absolute inset-0 pointer-events-none z-20" style={{
-              background: 'linear-gradient(90deg, transparent, rgba(15,27,61,0.1), rgba(245,230,66,0.15), transparent)',
+              background: 'linear-gradient(90deg, transparent, rgba(15,27,61,0.1), rgba(251,209,59,0.15), transparent)',
               animation: 'waveSweep 2s ease-in-out forwards',
             }} />
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30">

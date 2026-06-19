@@ -84,7 +84,7 @@ export function WhatIsQuizotic() {
           {[0, 1].map(n => (
             <span key={n} style={{ display: 'inline-block', paddingRight: 48 }}>
               {MARQUEE_ITEMS.map(item => (
-                <span key={item} style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 600, fontSize: 15, color: '#F5E642', padding: '0 20px', whiteSpace: 'nowrap' }}>
+                <span key={item} style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 600, fontSize: 15, color: '#FBD13B', padding: '0 20px', whiteSpace: 'nowrap' }}>
                   {item} ·
                 </span>
               ))}

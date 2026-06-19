@@ -183,7 +183,7 @@ function TemplatesPanel({ onApply }: { onApply: BuilderLauncherProps['onApply'] 
                 type="button"
                 onClick={() => handleUse(t.id)}
                 className="mt-auto self-end px-3 py-1.5 rounded-lg text-xs font-black transition-colors hover:opacity-80"
-                style={{ background: '#F5E642', color: '#0F1B3D' }}
+                style={{ background: '#FBD13B', color: '#0F1B3D' }}
               >
                 Use &rarr;
               </button>
@@ -441,7 +441,7 @@ export function BuilderLauncher({ plan, initialMode = 'aitopic', onApply, onBlan
                 type="button"
                 onClick={onClose ?? onBlank}
                 className="w-full py-2.5 rounded-xl text-sm font-black transition-all hover:opacity-90"
-                style={{ background: '#0F1B3D', color: '#F5E642' }}
+                style={{ background: '#0F1B3D', color: '#FBD13B' }}
               >
                 {onClose ? 'Close and build manually →' : 'Open blank builder →'}
               </button>

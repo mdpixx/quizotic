@@ -249,7 +249,7 @@ export default function FeaturesPage() {
               className="rounded-xl p-6"
               style={{ background: '#0F1B3D' }}
             >
-              <h2 className="text-xl font-bold mb-2" style={{ color: '#F5E642' }}>
+              <h2 className="text-xl font-bold mb-2" style={{ color: '#FBD13B' }}>
                 AI Quiz Generation
               </h2>
               <p className="text-sm leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.8)' }}>
@@ -266,7 +266,7 @@ export default function FeaturesPage() {
                   '30 AI-generated questions per month on the free plan',
                 ].map(item => (
                   <li key={item} className="flex items-start gap-2 text-sm" style={{ color: 'rgba(255,255,255,0.75)' }}>
-                    <span style={{ color: '#F5E642', flexShrink: 0 }}>✓</span>
+                    <span style={{ color: '#FBD13B', flexShrink: 0 }}>✓</span>
                     {item}
                   </li>
                 ))}
@@ -330,7 +330,7 @@ export default function FeaturesPage() {
               href="/auth/signin"
               className="inline-block font-bold px-8 py-3 rounded-lg text-sm"
               style={{
-                background: '#F5E642',
+                background: '#FBD13B',
                 color: '#0D0D0D',
                 textDecoration: 'none',
                 border: '2px solid #0D0D0D',

@@ -17,7 +17,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <button
             onClick={() => setMobileMenuOpen(true)}
             className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
-            style={{ border: '1.5px solid rgba(255,255,255,0.15)', color: '#F5E642' }}
+            style={{ border: '1.5px solid rgba(255,255,255,0.15)', color: '#FBD13B' }}
           >
             <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
               <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />

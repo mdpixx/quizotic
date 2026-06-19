@@ -59,7 +59,7 @@ export function StickyNav() {
               Sign in
             </Link>
             <Link href="/auth/signin?intent=signup" className="nav-start"
-              style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontSize: 14, fontWeight: 700, color: '#0D0D0D', textDecoration: 'none', padding: '8px 20px', borderRadius: 10, background: '#F5E642', border: '2px solid #0D0D0D', boxShadow: '3px 3px 0 #0D0D0D' }}>
+              style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontSize: 14, fontWeight: 700, color: '#0D0D0D', textDecoration: 'none', padding: '8px 20px', borderRadius: 10, background: '#FBD13B', border: '2px solid #0D0D0D', boxShadow: '3px 3px 0 #0D0D0D' }}>
               Sign up
             </Link>
           </div>
@@ -100,7 +100,7 @@ export function StickyNav() {
           Sign in
         </Link>
         <Link href="/auth/signin?intent=signup" onClick={() => setMenuOpen(false)}
-          style={{ marginTop: 8, display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontSize: 16, fontWeight: 700, color: '#0D0D0D', textDecoration: 'none', padding: '12px 24px', borderRadius: 10, background: '#F5E642', border: '2px solid #0D0D0D', boxShadow: '3px 3px 0 #0D0D0D', textAlign: 'center' }}>
+          style={{ marginTop: 8, display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontSize: 16, fontWeight: 700, color: '#0D0D0D', textDecoration: 'none', padding: '12px 24px', borderRadius: 10, background: '#FBD13B', border: '2px solid #0D0D0D', boxShadow: '3px 3px 0 #0D0D0D', textAlign: 'center' }}>
           Sign up
         </Link>
       </div>

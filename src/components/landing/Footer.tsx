@@ -74,7 +74,7 @@ const GUIDE_LINKS = [
 
 export function Footer() {
   return (
-    <footer style={{ background: '#0F1B3D', borderTop: '2px solid #F5E642', padding: 'clamp(36px, 7vw, 48px) 24px' }}>
+    <footer style={{ background: '#0F1B3D', borderTop: '2px solid #FBD13B', padding: 'clamp(36px, 7vw, 48px) 24px' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
         {/* Wordmark */}
         <QuizoticLogo variant="onDark" className="text-2xl" markSize={38} />
@@ -84,7 +84,7 @@ export function Footer() {
           {FOOTER_LINKS.map(l => (
             l.href.startsWith('#')
               ? <a key={l.href} href={l.href} style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 14, color: 'rgba(255,255,255,0.65)', textDecoration: 'none', transition: 'color 0.2s' }}
-                  onMouseEnter={e => (e.target as HTMLElement).style.color = '#F5E642'}
+                  onMouseEnter={e => (e.target as HTMLElement).style.color = '#FBD13B'}
                   onMouseLeave={e => (e.target as HTMLElement).style.color = 'rgba(255,255,255,0.65)'}>{l.label}</a>
               : <Link key={l.href} href={l.href} style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 14, color: 'rgba(255,255,255,0.65)', textDecoration: 'none' }}>{l.label}</Link>
           ))}

@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 export function CTASection() {
   return (
-    <section style={{ padding: 'clamp(48px, 9vw, 100px) 24px', background: '#F5E642', position: 'relative', overflow: 'hidden' }}>
+    <section style={{ padding: 'clamp(48px, 9vw, 100px) 24px', background: '#FBD13B', position: 'relative', overflow: 'hidden' }}>
       {/* Decorative "!" watermark */}
       <div style={{ position: 'absolute', right: '5%', top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 200, color: '#0F1B3D', opacity: 0.08, pointerEvents: 'none', lineHeight: 1, userSelect: 'none' }}>
         !

@@ -103,7 +103,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       const hRow = qSheet.addRow(['Q#', 'Question', 'Correct %', "Bloom's Level", 'Explanation'])
       hRow.eachCell(cell => {
         cell.font = { bold: true }
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5E642' } }
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFBD13B' } }
         cell.font = { bold: true, color: { argb: 'FF0D0D0D' } }
       })
       qSheet.columns = [

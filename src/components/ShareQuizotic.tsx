@@ -139,7 +139,7 @@ export function ShareQuizotic({ context, size = 'md', tone = 'light', className 
   return (
     <div
       className={`rounded-xl ${pad} ${className}`}
-      style={{ background: '#FFFBEA', border: '1px solid #F5E642' }}
+      style={{ background: '#FFFBEA', border: '1px solid #FBD13B' }}
     >
       {heading && (
         <h3 className="font-bold mb-1" style={{ color: '#0F1B3D', fontSize: isSm ? 14 : 16 }}>

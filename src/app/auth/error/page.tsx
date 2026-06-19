@@ -31,7 +31,7 @@ function AuthErrorContent() {
         <a
           href="/auth/signin"
           className="inline-block px-6 py-2.5 rounded-full text-sm font-bold transition-all hover:opacity-90"
-          style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
+          style={{ background: '#FBD13B', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
         >
           Try again
         </a>

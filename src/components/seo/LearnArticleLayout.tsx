@@ -147,7 +147,7 @@ export function LearnArticleLayout({ article }: LearnArticleLayoutProps) {
             <ul className="space-y-2">
               {article.tldr.map((item, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm" style={{ color: '#374151' }}>
-                  <span style={{ color: '#F5E642', flexShrink: 0, fontWeight: 700 }}>•</span>
+                  <span style={{ color: '#FBD13B', flexShrink: 0, fontWeight: 700 }}>•</span>
                   <span>{item}</span>
                 </li>
               ))}
@@ -187,7 +187,7 @@ export function LearnArticleLayout({ article }: LearnArticleLayoutProps) {
                     <div className="flex items-start gap-3">
                       <div
                         className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm"
-                        style={{ background: '#F5E642', color: '#0D0D0D' }}
+                        style={{ background: '#FBD13B', color: '#0D0D0D' }}
                       >
                         {i + 1}
                       </div>
@@ -247,7 +247,7 @@ export function LearnArticleLayout({ article }: LearnArticleLayoutProps) {
               href="/auth/signin"
               className="inline-block font-bold px-8 py-3 rounded-lg text-sm"
               style={{
-                background: '#F5E642',
+                background: '#FBD13B',
                 color: '#0D0D0D',
                 textDecoration: 'none',
                 border: '2px solid #0D0D0D',

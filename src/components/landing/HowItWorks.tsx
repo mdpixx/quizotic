@@ -32,7 +32,7 @@ export function HowItWorks() {
           {steps.map((step, i) => (
             <div key={i} style={{ flex: 1, textAlign: 'center', padding: '0 24px', position: 'relative' }} className="step-item">
               {/* Circle */}
-              <div style={{ width: 72, height: 72, background: '#F5E642', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 28, color: '#0F1B3D', margin: '0 auto 20px', border: '3px solid #0D0D0D', boxShadow: '3px 3px 0 #0D0D0D', position: 'relative', zIndex: 1 }}>
+              <div style={{ width: 72, height: 72, background: '#FBD13B', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 28, color: '#0F1B3D', margin: '0 auto 20px', border: '3px solid #0D0D0D', boxShadow: '3px 3px 0 #0D0D0D', position: 'relative', zIndex: 1 }}>
                 {step.num}
               </div>
 

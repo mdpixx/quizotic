@@ -173,7 +173,7 @@ export function HostWordCloud({ words }: HostWordCloudProps) {
                     color,
                     fontWeight: isTop ? 900 : 800,
                     transform: `translateY(${jitter.toFixed(3)}em)`,
-                    borderBottom: i === 0 ? '0.06em solid #F5E642' : undefined,
+                    borderBottom: i === 0 ? '0.06em solid #FBD13B' : undefined,
                   }}
                   title={`${entry.display} — ${entry.count}×`}
                 >
