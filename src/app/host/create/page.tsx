@@ -256,7 +256,7 @@ const GLOBAL_LANGUAGES: { lang: string }[] = [
 // ── Answer card colors — sourced from the canonical Kahoot palette ────────
 // All answer-tile renderers (host builder, live view, participant, presentation)
 // share src/lib/answer-colors.ts so tweaks propagate in one place.
-import { ANSWER_COLORS } from '@/lib/answer-colors'
+import { ANSWER_COLORS, tileStyle } from '@/lib/answer-colors'
 
 // ── Helpers ─────────────────────────────────────────────────────────────────────
 
@@ -592,10 +592,10 @@ function QuestionPreview({
                   key={i}
                   className="quiz-option-tile relative overflow-hidden rounded-xl transition-all min-h-[96px] sm:min-h-[128px] md:min-h-[144px]"
                   style={{
-                    background: c.hex,
+                    background: tileStyle(c).background,
                     boxShadow: isCorrect
-                      ? `0 0 0 3px #FDE047, 0 2px 0 ${c.hexDark}, 0 0 16px rgba(253,224,71,0.5)`
-                      : `0 2px 0 ${c.hexDark}`,
+                      ? `0 0 0 3px #FDE047, 0 8px 24px -6px ${c.glow}, inset 0 1px 0 rgba(255,255,255,.25)`
+                      : `0 8px 24px -6px ${c.glow}, inset 0 1px 0 rgba(255,255,255,.25)`,
                   }}
                 >
                   <CharCount value={optText} limit={OPTION_CHAR_LIMIT} />
@@ -794,7 +794,7 @@ function QuestionPreview({
             {question.bloomsLevel}
           </div>
         )}
-        <div className="px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: '#0F1B3D', color: '#F5E642' }}>
+        <div className="px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: '#0F1B3D', color: '#FBD13B' }}>
           {question.points} pts
         </div>
       </div>
@@ -1023,7 +1023,7 @@ function QuestionEditor({
                   className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-all"
                   style={
                     question.timerSeconds === t
-                      ? { background: '#0F1B3D', color: '#F5E642', border: '1.5px solid #0F1B3D' }
+                      ? { background: '#0F1B3D', color: '#FBD13B', border: '1.5px solid #0F1B3D' }
                       : { background: '#fff', color: '#64748B', border: '1.5px solid #E2E8F0' }
                   }
                 >
@@ -1046,7 +1046,7 @@ function QuestionEditor({
                     className="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-all"
                     style={
                       question.points === p
-                        ? { background: '#0F1B3D', color: '#F5E642', border: '1.5px solid #0F1B3D' }
+                        ? { background: '#0F1B3D', color: '#FBD13B', border: '1.5px solid #0F1B3D' }
                         : { background: '#fff', color: '#64748B', border: '1.5px solid #E2E8F0' }
                     }
                   >
@@ -2171,7 +2171,7 @@ function CreateQuizPageInner() {
             <form onSubmit={handleModalSubmit} className="space-y-3">
               <input type="text" placeholder="Quiz title *" value={modalTitle} onChange={e => setModalTitle(e.target.value)} autoFocus className="w-full border border-gray-300 rounded-xl px-4 py-3 text-base font-semibold focus:outline-none focus:ring-2 focus:ring-blue-200" />
               <input type="text" placeholder="Subject / tag (optional)" value={modalSubject} onChange={e => setModalSubject(e.target.value)} className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
-              <button type="submit" disabled={!modalTitle.trim()} className="w-full py-3 font-bold rounded-xl transition-opacity hover:opacity-90 disabled:opacity-40" style={{ background: '#F5E642', color: '#0D0D0D' }}>Start building</button>
+              <button type="submit" disabled={!modalTitle.trim()} className="w-full py-3 font-bold rounded-xl transition-opacity hover:opacity-90 disabled:opacity-40" style={{ background: '#FBD13B', color: '#0D0D0D' }}>Start building</button>
               <button type="button" onClick={closeCreateFlow} className="w-full py-2.5 text-sm font-semibold text-gray-500 hover:text-gray-700 transition-colors">Cancel</button>
             </form>
           </div>
@@ -2185,7 +2185,7 @@ function CreateQuizPageInner() {
           aria-label="Quizotic home"
           className="flex items-center gap-1.5 flex-shrink-0 hover:opacity-80 transition-opacity"
         >
-          <div className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black" style={{ background: '#F5E642', color: '#0D0D0D' }}>Q</div>
+          <div className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black" style={{ background: '#FBD13B', color: '#0D0D0D' }}>Q</div>
           <span className="text-sm font-extrabold hidden sm:inline" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Quizotic</span>
         </Link>
         <button onClick={closeCreateFlow} className="w-9 h-9 rounded-lg border flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors flex-shrink-0" style={{ borderColor: '#E2E8F0' }}>
@@ -2334,7 +2334,7 @@ function CreateQuizPageInner() {
                 title={shortcut.note}
                 className="px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors"
                 style={{
-                  color: active ? '#F5E642' : '#475569',
+                  color: active ? '#FBD13B' : '#475569',
                   background: active ? '#0F1B3D' : '#fff',
                   border: active ? '1px solid #0F1B3D' : '1px solid #E2E8F0',
                 }}
@@ -2430,7 +2430,7 @@ function CreateQuizPageInner() {
                 onClick={handleSelectiveRegenerate}
                 disabled={aiGenerating}
                 className="w-full flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-bold transition-all hover:opacity-90 disabled:opacity-50"
-                style={{ background: '#F5E642', color: '#0D0D0D', border: '1.5px solid #0D0D0D' }}
+                style={{ background: '#FBD13B', color: '#0D0D0D', border: '1.5px solid #0D0D0D' }}
               >
                 {aiGenerating ? (
                   <span className="flex items-center gap-1">
@@ -2619,7 +2619,7 @@ function CreateQuizPageInner() {
                         htmlFor="aidoc-file-input"
                         className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 active:translate-y-px"
                         style={{
-                          background: '#F5E642',
+                          background: '#FBD13B',
                           color: '#0D0D0D',
                           border: '2px solid #0D0D0D',
                           boxShadow: '3px 3px 0 #0D0D0D',
@@ -2756,7 +2756,7 @@ function CreateQuizPageInner() {
                   disabled={aiGenerating || !typeMixValid || aiLimitReached}
                   title={aiLimitReached ? 'Monthly AI limit reached. Resets on the 1st.' : undefined}
                   className="w-full py-4 font-bold rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2"
-                  style={{ background: '#F5E642', color: '#0D0D0D' }}
+                  style={{ background: '#FBD13B', color: '#0D0D0D' }}
                 >
                   {aiGenerating && <svg className="animate-spin w-4 h-4" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" opacity="0.3"/><path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>}
                   {aiLimitReached
@@ -2769,7 +2769,7 @@ function CreateQuizPageInner() {
               {generatedOnTab && (
                 <div className="text-center">
                   <p className="text-sm text-gray-500 mb-3">Generated {questions.length} questions. Edit them in the question list.</p>
-                  <button onClick={() => setTab('manual')} className="px-6 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90" style={{ background: '#0F1B3D', color: '#F5E642' }}>
+                  <button onClick={() => setTab('manual')} className="px-6 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90" style={{ background: '#0F1B3D', color: '#FBD13B' }}>
                     Edit Questions
                   </button>
                 </div>
@@ -2966,7 +2966,7 @@ function CreateQuizPageInner() {
                       className="px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all whitespace-nowrap"
                       style={{
                         background: active ? '#0F1B3D' : '#F8FAFC',
-                        color: active ? '#F5E642' : '#475569',
+                        color: active ? '#FBD13B' : '#475569',
                         borderColor: active ? '#0F1B3D' : '#E2E8F0',
                       }}
                     >
@@ -3026,7 +3026,7 @@ function CreateQuizPageInner() {
           <button
             onClick={() => setMobileEditorOpen(true)}
             className="flex items-center justify-center gap-1 px-2.5 py-2 rounded-xl font-bold text-xs flex-shrink-0"
-            style={{ background: '#F5E642', color: '#0D0D0D', border: '1.5px solid rgba(15,27,61,0.2)' }}>
+            style={{ background: '#FBD13B', color: '#0D0D0D', border: '1.5px solid rgba(15,27,61,0.2)' }}>
             Edit
           </button>
         )}
@@ -3202,14 +3202,14 @@ function CreateQuizPageInner() {
               <button
                 onClick={() => { setActiveSession(savedQuiz); router.push('/host/session') }}
                 className="py-4 font-bold text-sm rounded-xl hover:opacity-90 transition-opacity"
-                style={{ background: '#0F1B3D', color: '#F5E642', fontFamily: 'var(--font-heading)' }}
+                style={{ background: '#0F1B3D', color: '#FBD13B', fontFamily: 'var(--font-heading)' }}
               >
                 Host live
               </button>
               <button
                 onClick={handleShareSelfPaced}
                 className="py-4 font-bold text-sm rounded-xl hover:opacity-90 transition-opacity"
-                style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
+                style={{ background: '#FBD13B', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
               >
                 Share self-paced
               </button>
@@ -3276,7 +3276,7 @@ function CreateQuizPageInner() {
                     {selfPacedShare.copied ? 'Copied!' : 'Copy'}
                   </button>
                 </div>
-                <button onClick={() => router.push('/host/quizzes')} className="w-full py-3 rounded-xl text-sm font-bold" style={{ background: '#F5E642', color: '#0D0D0D' }}>
+                <button onClick={() => router.push('/host/quizzes')} className="w-full py-3 rounded-xl text-sm font-bold" style={{ background: '#FBD13B', color: '#0D0D0D' }}>
                   Manage link settings
                 </button>
               </>
@@ -3311,7 +3311,7 @@ function CreateQuizPageInner() {
                 <button
                   onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/join`); }}
                   className="px-3 py-2 rounded-lg text-xs font-bold transition-all hover:opacity-90 click-bounce"
-                  style={{ background: '#0F1B3D', color: '#F5E642' }}
+                  style={{ background: '#0F1B3D', color: '#FBD13B' }}
                 >Copy</button>
               </div>
             </div>
@@ -3321,7 +3321,7 @@ function CreateQuizPageInner() {
             <button
               onClick={() => { setShareOpen(false); if (savedQuiz) { setActiveSession(savedQuiz); router.push('/host/session') } else { handleSave() } }}
               className="w-full py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 click-bounce"
-              style={{ background: '#0F1B3D', color: '#F5E642' }}
+              style={{ background: '#0F1B3D', color: '#FBD13B' }}
             >&#9654; Start Live Session</button>
           </div>
         </>

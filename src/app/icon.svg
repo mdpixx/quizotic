@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <title>Quizotic</title>
-  <rect width="64" height="64" rx="15" fill="#F5E642"/>
+  <rect width="64" height="64" rx="15" fill="#FBD13B"/>
   <circle cx="31" cy="29" r="15" fill="none" stroke="#0F1B3D" stroke-width="9"/>
   <path d="M39 38 49 48" fill="none" stroke="#0F1B3D" stroke-width="9" stroke-linecap="round"/>
 </svg>

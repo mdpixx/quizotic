@@ -195,14 +195,14 @@ export default function SignInForm({ intent, callbackUrl = '/host' }: SignInForm
         </Link>
         <div className="max-w-sm w-full">
           <div className="text-center mb-6">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: '#F5E642', border: '2px solid #0D0D0D' }}>
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: '#FBD13B', border: '2px solid #0D0D0D' }}>
               <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M3 8l9 6 9-6" stroke="#0F1B3D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><rect x="2" y="4" width="20" height="16" rx="2" stroke="#0F1B3D" strokeWidth="2"/></svg>
             </div>
             <h1 className="text-2xl font-black mb-2" style={{ fontFamily: 'var(--font-heading)', color: '#fff' }}>
               Enter your sign-in code
             </h1>
             <p className="text-sm" style={{ color: '#94A3B8' }}>
-              We emailed a 6-digit code to <strong style={{ color: '#F5E642' }}>{email}</strong>.
+              We emailed a 6-digit code to <strong style={{ color: '#FBD13B' }}>{email}</strong>.
             </p>
           </div>
 
@@ -224,13 +224,13 @@ export default function SignInForm({ intent, callbackUrl = '/host' }: SignInForm
                 placeholder="123456"
                 required
                 className="w-full px-4 py-3 rounded-xl outline-none transition-all focus:ring-2 text-center"
-                style={{ background: '#F8FAFC', border: '1.5px solid #E2E8F0', color: '#0F1B3D', fontSize: 28, letterSpacing: '0.4em', fontFamily: 'var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)', fontWeight: 700, '--tw-ring-color': 'rgba(245,230,66,0.4)' } as React.CSSProperties}
+                style={{ background: '#F8FAFC', border: '1.5px solid #E2E8F0', color: '#0F1B3D', fontSize: 28, letterSpacing: '0.4em', fontFamily: 'var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)', fontWeight: 700, '--tw-ring-color': 'rgba(251,209,59,0.4)' } as React.CSSProperties}
               />
               <button
                 type="submit"
                 disabled={loading || code.length !== 6}
                 className="w-full mt-3 px-4 py-3 rounded-full text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
-                style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
+                style={{ background: '#FBD13B', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
               >
                 {loading ? 'Verifying...' : 'Sign in'}
               </button>
@@ -333,13 +333,13 @@ export default function SignInForm({ intent, callbackUrl = '/host' }: SignInForm
               required
               suppressHydrationWarning
               className="w-full px-4 py-3 rounded-xl text-base outline-none transition-all focus:ring-2"
-              style={{ background: '#F8FAFC', border: '1.5px solid #E2E8F0', color: '#0F1B3D', '--tw-ring-color': 'rgba(245,230,66,0.4)' } as React.CSSProperties}
+              style={{ background: '#F8FAFC', border: '1.5px solid #E2E8F0', color: '#0F1B3D', '--tw-ring-color': 'rgba(251,209,59,0.4)' } as React.CSSProperties}
             />
             <button
               type="submit"
               disabled={loading || !email.trim()}
               className="w-full mt-3 px-4 py-3 rounded-full text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
-              style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
+              style={{ background: '#FBD13B', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
             >
               {loading ? 'Sending code...' : 'Email me a code'}
             </button>
@@ -356,14 +356,14 @@ export default function SignInForm({ intent, callbackUrl = '/host' }: SignInForm
           {isSignup ? (
             <>
               Already have an account?{' '}
-              <Link href="/auth/signin" className="font-semibold" style={{ color: '#F5E642' }}>
+              <Link href="/auth/signin" className="font-semibold" style={{ color: '#FBD13B' }}>
                 Sign in
               </Link>
             </>
           ) : (
             <>
               New to Quizotic?{' '}
-              <Link href="/auth/signin?intent=signup" className="font-semibold" style={{ color: '#F5E642' }}>
+              <Link href="/auth/signin?intent=signup" className="font-semibold" style={{ color: '#FBD13B' }}>
                 Sign up
               </Link>
             </>

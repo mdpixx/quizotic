@@ -309,7 +309,7 @@ export function QuestionList({
           type="button"
           onClick={() => setPickerOpen(true)}
           className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all hover:brightness-95"
-          style={{ background: '#0F1B3D', color: '#F5E642' }}
+          style={{ background: '#0F1B3D', color: '#FBD13B' }}
         >
           <span className="text-base leading-none">+</span> Add
         </button>

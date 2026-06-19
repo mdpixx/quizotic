@@ -52,7 +52,7 @@ export function MobileQuestionStrip({ count, activeIndex, onSelect, onAdd }: Mob
             className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black transition-colors"
             style={
               isActive
-                ? { background: '#0F1B3D', color: '#F5E642' }
+                ? { background: '#0F1B3D', color: '#FBD13B' }
                 : { background: '#F3F4F6', color: '#6B7280' }
             }
             aria-label={`Question ${i + 1}`}

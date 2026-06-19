@@ -306,7 +306,7 @@ export function Podium({
                     bottom: 0,
                     width: isFinale ? 240 : 170,
                     height: isFinale ? 240 : 170,
-                    background: 'radial-gradient(circle, rgba(245,230,66,0.32) 0%, rgba(245,230,66,0) 72%)',
+                    background: 'radial-gradient(circle, rgba(251,209,59,0.32) 0%, rgba(251,209,59,0) 72%)',
                     animation: winnerPending
                       ? 'spotlightPulse 0.9s ease-in-out infinite'
                       : winnerRevealed
@@ -325,8 +325,8 @@ export function Podium({
                     animation: 'crownBounce 0.6s ease-out forwards',
                     zIndex: 2,
                     color: '#5C2D00',
-                    background: 'linear-gradient(180deg, #FFF3C4, #F5E642)',
-                    boxShadow: '0 8px 24px rgba(245,230,66,0.32)',
+                    background: 'linear-gradient(180deg, #FFF3C4, #FBD13B)',
+                    boxShadow: '0 8px 24px rgba(251,209,59,0.32)',
                   }}
                 >
                   Winner
@@ -367,7 +367,7 @@ export function Podium({
                 )}
                 <div
                   className={`rounded-full overflow-hidden ${isHighlighted ? 'ring-3' : ''}`}
-                  style={isHighlighted ? ({ '--tw-ring-color': '#F5E642' } as React.CSSProperties) : undefined}
+                  style={isHighlighted ? ({ '--tw-ring-color': '#FBD13B' } as React.CSSProperties) : undefined}
                 >
                   <Avatar archetype={entry.archetype ?? entry.name} size={isWinner ? (isFinale ? 104 : 72) : (isFinale ? 72 : 52)} />
                 </div>
@@ -495,7 +495,7 @@ export function Podium({
                     background: 'rgba(255,255,255,0.55)',
                     border: '1px solid rgba(255,255,255,0.7)',
                     animation: !reduced && phase === 'rest' ? `fadeSlideUp 0.45s ease-out ${i * 60}ms both` : undefined,
-                    ...(isHighlighted ? { '--tw-ring-color': '#F5E642' } : {}),
+                    ...(isHighlighted ? { '--tw-ring-color': '#FBD13B' } : {}),
                   } as React.CSSProperties}
                 >
                   <div className="flex-shrink-0"><ParticipationRibbon rank={rank} size={24} /></div>

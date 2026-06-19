@@ -189,7 +189,7 @@ export default function PricingPage() {
             className="rounded-xl p-8 mb-8 text-center"
             style={{ background: '#0F1B3D' }}
           >
-            <h2 className="text-xl font-bold mb-3" style={{ color: '#F5E642' }}>
+            <h2 className="text-xl font-bold mb-3" style={{ color: '#FBD13B' }}>
               Need more? Tell us.
             </h2>
             <p
@@ -204,10 +204,10 @@ export default function PricingPage() {
               href="mailto:info@quizotic.live"
               className="inline-block text-sm font-bold px-6 py-3 rounded-lg"
               style={{
-                background: '#F5E642',
+                background: '#FBD13B',
                 color: '#0D0D0D',
                 textDecoration: 'none',
-                border: '2px solid #F5E642',
+                border: '2px solid #FBD13B',
               }}
             >
               info@quizotic.live
@@ -220,7 +220,7 @@ export default function PricingPage() {
               href="/auth/signin"
               className="inline-block font-bold px-8 py-3 rounded-lg text-sm"
               style={{
-                background: '#F5E642',
+                background: '#FBD13B',
                 color: '#0D0D0D',
                 textDecoration: 'none',
                 border: '2px solid #0D0D0D',

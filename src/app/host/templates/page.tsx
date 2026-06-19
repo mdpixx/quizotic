@@ -63,7 +63,7 @@ export default function TemplatesPage() {
           </div>
           <Link href="/host/build?start=manual"
             className="text-sm font-bold px-4 py-2 rounded-xl transition-all hover:opacity-90"
-            style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}>
+            style={{ background: '#FBD13B', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}>
             + Blank Quiz
           </Link>
         </div>
@@ -168,7 +168,7 @@ export default function TemplatesPage() {
                     onClick={() => applyTemplate(template.id)}
                     disabled={isLoading}
                     className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
-                    style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
+                    style={{ background: '#FBD13B', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
                   >
                     {isLoading ? 'Loading…' : 'Use →'}
                   </button>
@@ -240,7 +240,7 @@ export default function TemplatesPage() {
               <button
                 onClick={() => { setPreviewId(null); applyTemplate(previewTemplate.id) }}
                 className="w-full py-3 rounded-xl text-sm font-bold transition-all hover:opacity-90"
-                style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
+                style={{ background: '#FBD13B', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
               >
                 Use This Template →
               </button>

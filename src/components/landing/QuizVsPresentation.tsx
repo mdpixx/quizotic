@@ -25,7 +25,7 @@ export function QuizVsPresentation() {
         {/* Heading */}
         <h2 style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 'clamp(32px, 4vw, 48px)', color: '#0F1B3D', letterSpacing: '-0.03em', textAlign: 'center', marginBottom: 16 }}>
           Two superpowers.{' '}
-          <span style={{ background: '#F5E642', padding: '2px 8px', borderRadius: 6 }}>One platform.</span>
+          <span style={{ background: '#FBD13B', padding: '2px 8px', borderRadius: 6 }}>One platform.</span>
         </h2>
         <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 18, color: '#555', textAlign: 'center', maxWidth: 600, margin: '0 auto clamp(28px, 7vw, 56px)', lineHeight: 1.6 }}>
           Quizotic gives you live quiz engagement AND interactive presentation power — use them together or independently.
@@ -87,7 +87,7 @@ export function QuizVsPresentation() {
 
             {/* Row 1: Badge */}
             <div style={{ padding: '36px 32px 0' }}>
-              <div style={{ display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 12, color: '#F5E642', letterSpacing: '0.1em', border: '2px solid rgba(245,230,66,0.6)', borderRadius: 20, padding: '5px 14px', textTransform: 'uppercase' }}>
+              <div style={{ display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 12, color: '#FBD13B', letterSpacing: '0.1em', border: '2px solid rgba(251,209,59,0.6)', borderRadius: 20, padding: '5px 14px', textTransform: 'uppercase' }}>
                 Present Mode
               </div>
             </div>
@@ -96,7 +96,7 @@ export function QuizVsPresentation() {
             <ul style={{ listStyle: 'none', padding: '0 32px', margin: 0, display: 'flex', flexDirection: 'column', gap: 12, alignContent: 'start' }}>
               {PRESENT_FEATURES.map(f => (
                 <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 15, color: 'rgba(255,255,255,0.85)', lineHeight: 1.5 }}>
-                  <span style={{ color: '#F5E642', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>
+                  <span style={{ color: '#FBD13B', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>
                   {f}
                 </li>
               ))}
@@ -120,7 +120,7 @@ export function QuizVsPresentation() {
 
                 {/* Slide progress bar */}
                 <div style={{ height: 3, background: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
-                  <div style={{ height: '100%', width: '43%', background: '#F5E642', borderRadius: 2 }} />
+                  <div style={{ height: '100%', width: '43%', background: '#FBD13B', borderRadius: 2 }} />
                 </div>
 
                 {/* Audience reactions */}
@@ -140,7 +140,7 @@ export function QuizVsPresentation() {
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 10 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
                     <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 10, color: 'rgba(255,255,255,0.55)' }}>Embedded Poll · &ldquo;Rate your confidence&rdquo;</div>
-                    <span style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 9, fontWeight: 600, color: '#F5E642', border: '1px solid rgba(245,230,66,0.35)', borderRadius: 8, padding: '1px 6px' }}>28 voted</span>
+                    <span style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 9, fontWeight: 600, color: '#FBD13B', border: '1px solid rgba(251,209,59,0.35)', borderRadius: 8, padding: '1px 6px' }}>28 voted</span>
                   </div>
                   {[[5,'#16A34A',11],[4,'#4ADE80',9],[3,'#CA8A04',5],[2,'#EA580C',2],[1,'#DC2626',1]].map(([star, color, count]) => (
                     <div key={star as number} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>

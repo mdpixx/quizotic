@@ -25,11 +25,11 @@ type Preset = 'winner' | 'mini' | 'milestone' | 'ambient'
 type ConfettiFn = (options?: ConfettiOptions) => Promise<null> | null
 
 const BRAND_COLORS = [
-  '#0F1B3D', '#F5E642', '#FF8A47', '#16A34A',
+  '#0F1B3D', '#FBD13B', '#FF8A47', '#16A34A',
   '#2D3A8C', '#FFFFFF', '#DC2626', '#7C3AED',
   '#22D3EE', '#EC4899', '#FBBF24',
 ]
-const GOLD_COLORS = ['#FFE066', '#F5E642', '#FFFFFF', '#FFC300', '#FBBF24', '#FFD700']
+const GOLD_COLORS = ['#FFE066', '#FBD13B', '#FFFFFF', '#FFC300', '#FBBF24', '#FFD700']
 
 // Cached canvas-confetti module + custom shapes. Built lazily on first call so
 // the participant join page (which doesn't celebrate) never pays the cost.

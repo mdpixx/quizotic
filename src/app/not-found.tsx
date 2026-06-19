@@ -11,7 +11,7 @@ export default function NotFound() {
           <QuizoticLogo variant="onDark" className="text-xl" markSize={36} />
         </div>
 
-        <p className="text-7xl font-black mb-4" style={{ fontFamily: 'var(--font-heading)', color: '#F5E642' }}>404</p>
+        <p className="text-7xl font-black mb-4" style={{ fontFamily: 'var(--font-heading)', color: '#FBD13B' }}>404</p>
         <h1 className="text-2xl font-black mb-2" style={{ fontFamily: 'var(--font-heading)', color: '#fff' }}>
           Page not found
         </h1>
@@ -23,14 +23,14 @@ export default function NotFound() {
           <Link
             href="/"
             className="w-full px-4 py-3 rounded-full text-sm font-bold text-center transition-all hover:opacity-90"
-            style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
+            style={{ background: '#FBD13B', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
           >
             Go to Homepage
           </Link>
           <Link
             href="/join"
             className="w-full px-4 py-3 rounded-full text-sm font-bold text-center transition-all hover:opacity-80"
-            style={{ background: 'transparent', color: '#F5E642', border: '1.5px solid rgba(245,230,66,0.4)' }}
+            style={{ background: 'transparent', color: '#FBD13B', border: '1.5px solid rgba(251,209,59,0.4)' }}
           >
             Join a Quiz
           </Link>

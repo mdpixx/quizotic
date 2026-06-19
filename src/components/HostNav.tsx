@@ -40,13 +40,13 @@ export function HostNav() {
 
         {/* Center nav links — desktop */}
         <div className="hidden md:flex items-center gap-6">
-          <Link href="/host" className="text-sm font-semibold transition-colors hover:text-[#F5E642]" style={{ color: 'rgba(255,255,255,0.7)' }}>
+          <Link href="/host" className="text-sm font-semibold transition-colors hover:text-[#FBD13B]" style={{ color: 'rgba(255,255,255,0.7)' }}>
             Dashboard
           </Link>
-          <Link href="/host/billing" className="text-sm font-semibold transition-colors hover:text-[#F5E642]" style={{ color: 'rgba(255,255,255,0.7)' }}>
+          <Link href="/host/billing" className="text-sm font-semibold transition-colors hover:text-[#FBD13B]" style={{ color: 'rgba(255,255,255,0.7)' }}>
             Plan
           </Link>
-          <Link href="/join" className="text-sm font-semibold transition-colors hover:text-[#F5E642]" style={{ color: 'rgba(255,255,255,0.7)' }}>
+          <Link href="/join" className="text-sm font-semibold transition-colors hover:text-[#FBD13B]" style={{ color: 'rgba(255,255,255,0.7)' }}>
             Join Quiz
           </Link>
         </div>
@@ -73,7 +73,7 @@ export function HostNav() {
               <button
                 onClick={() => setMenuOpen(o => !o)}
                 className="flex items-center gap-1.5 rounded-full p-0.5 transition-all hover:ring-2"
-                style={{ background: 'rgba(255,255,255,0.1)', '--tw-ring-color': 'rgba(245,230,66,0.3)' } as React.CSSProperties}
+                style={{ background: 'rgba(255,255,255,0.1)', '--tw-ring-color': 'rgba(251,209,59,0.3)' } as React.CSSProperties}
               >
                 {user.image ? (
                   <img src={user.image} alt="" className="w-8 h-8 rounded-full" referrerPolicy="no-referrer" />

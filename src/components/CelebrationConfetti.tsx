@@ -16,13 +16,13 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 // answer-tile family so the stream reads festive instead of monochrome.
 // Golds dominate (~half the draws) to keep the classy feel.
 const COLORS = [
-  '#F5E642',  // brand yellow
+  '#FBD13B',  // brand yellow
   '#FBBF24',  // amber 400
   '#FFE08A',  // warm gold
   '#FFF7CC',  // cream
-  '#E21B3C',  // answer red
-  '#1368CE',  // answer blue
-  '#26890C',  // answer green
+  '#F23A5C',  // answer red
+  '#2D7FF9',  // answer blue
+  '#119B57',  // answer green
   '#7C3AED',  // violet
 ]
 

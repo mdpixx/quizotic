@@ -26,7 +26,7 @@ export function Background() {
         <div style={{
           position: 'absolute', bottom: -120, left: -120,
           width: 400, height: 400,
-          background: 'radial-gradient(circle, rgba(245,230,66,0.06) 0%, transparent 65%)',
+          background: 'radial-gradient(circle, rgba(251,209,59,0.06) 0%, transparent 65%)',
           filter: 'blur(50px)',
           animation: 'orb-drift 14s ease-in-out infinite reverse',
         }} />

@@ -24,7 +24,7 @@ export function QuizoticMark({
       aria-label={decorative ? undefined : label}
       style={{ display: 'block', flexShrink: 0 }}
     >
-      <rect width="64" height="64" rx="15" fill="#F5E642" />
+      <rect width="64" height="64" rx="15" fill="#FBD13B" />
       <circle
         cx="31"
         cy="29"

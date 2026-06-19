@@ -388,7 +388,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#0F1B3D' }}>
         <div className="w-8 h-8 rounded-full border-2 animate-spin"
-          style={{ borderColor: '#F5E642', borderTopColor: 'transparent' }} />
+          style={{ borderColor: '#FBD13B', borderTopColor: 'transparent' }} />
       </div>
     )
   }
@@ -418,10 +418,10 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
           <div className="rounded-2xl p-6 text-center"
             style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
             <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-4"
-              style={{ background: 'rgba(245,230,66,0.1)', border: '1.5px solid rgba(245,230,66,0.3)' }}>
+              style={{ background: 'rgba(251,209,59,0.1)', border: '1.5px solid rgba(251,209,59,0.3)' }}>
               <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8">
-                <circle cx="12" cy="12" r="9" stroke="#F5E642" strokeWidth="1.5"/>
-                <path d="M8 12h8" stroke="#F5E642" strokeWidth="1.5" strokeLinecap="round"/>
+                <circle cx="12" cy="12" r="9" stroke="#FBD13B" strokeWidth="1.5"/>
+                <path d="M8 12h8" stroke="#FBD13B" strokeWidth="1.5" strokeLinecap="round"/>
               </svg>
             </div>
             {title && (
@@ -470,7 +470,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
             </div>
 
             {closeDateStr && (
-              <p className="text-xs mb-4 rounded-lg px-3 py-2" style={{ background: 'rgba(245,230,66,0.1)', color: '#F5E642' }}>
+              <p className="text-xs mb-4 rounded-lg px-3 py-2" style={{ background: 'rgba(251,209,59,0.1)', color: '#FBD13B' }}>
                 Available until {closeDateStr}
               </p>
             )}
@@ -502,7 +502,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
                 type="submit"
                 disabled={starting}
                 className="w-full mt-4 py-3.5 rounded-xl font-black text-base transition-opacity disabled:opacity-60"
-                style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
+                style={{ background: '#FBD13B', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
               >
                 {starting ? 'Starting…' : 'Start Quiz'}
               </button>
@@ -532,14 +532,14 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
           <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
             <div
               className="h-full rounded-full transition-all duration-500"
-              style={{ width: `${progressPct}%`, background: '#F5E642' }}
+              style={{ width: `${progressPct}%`, background: '#FBD13B' }}
             />
           </div>
           <span className="text-xs font-bold tabular-nums" style={{ color: '#94A3B8' }}>
             {q.index + 1}/{q.total}
           </span>
           <span className="text-xs font-bold px-2.5 py-1 rounded-full tabular-nums"
-            style={{ background: 'rgba(245,230,66,0.15)', color: '#F5E642' }}>
+            style={{ background: 'rgba(251,209,59,0.15)', color: '#FBD13B' }}>
             {totalScore} pts
           </span>
           {deadlineAt && (
@@ -552,7 +552,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
           <div className="grid lg:grid-cols-[minmax(0,0.95fr)_minmax(420px,1.2fr)] gap-5 lg:gap-8 items-stretch lg:min-h-[calc(100vh-112px)]">
           <div className="rounded-3xl p-6 sm:p-8 lg:p-10 shadow-sm flex flex-col justify-center"
             style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}>
-            <p className="text-xs font-black uppercase tracking-[0.22em] mb-4" style={{ color: '#F5E642' }}>
+            <p className="text-xs font-black uppercase tracking-[0.22em] mb-4" style={{ color: '#FBD13B' }}>
               Question {q.index + 1} of {q.total}
             </p>
             <p className="font-black leading-tight" style={{
@@ -597,7 +597,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
           className="fixed left-0 right-0 flex justify-center"
           style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 6px)', pointerEvents: 'none', zIndex: 5 }}
         >
-          <span className="text-[10px] font-bold tracking-wide" style={{ color: 'rgba(245,230,66,0.35)' }}>
+          <span className="text-[10px] font-bold tracking-wide" style={{ color: 'rgba(251,209,59,0.35)' }}>
             quizotic.live
           </span>
         </div>
@@ -657,7 +657,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
           : (
             <div className="space-y-3 text-center">
               <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center text-3xl"
-                style={{ background: 'rgba(245,230,66,0.1)' }}>✓</div>
+                style={{ background: 'rgba(251,209,59,0.1)' }}>✓</div>
               <p className="font-black text-xl" style={{ color: '#fff' }}>Quiz complete!</p>
             </div>
           )
@@ -687,14 +687,14 @@ function InfoTile({ label, value, accent }: { label: string; value: string; acce
 function BrandWordmark() {
   return (
     <div className="inline-flex items-center gap-2 mb-4">
-      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#F5E642' }}>
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#FBD13B' }}>
         <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
           <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
             stroke="#0F1B3D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </div>
-      <span className="text-sm font-bold" style={{ color: '#F5E642' }}>
-        quizotic<span style={{ color: 'rgba(245,230,66,0.5)' }}>.live</span>
+      <span className="text-sm font-bold" style={{ color: '#FBD13B' }}>
+        quizotic<span style={{ color: 'rgba(251,209,59,0.5)' }}>.live</span>
       </span>
     </div>
   )
@@ -776,12 +776,12 @@ function ScheduledScreen({
         <div className="rounded-2xl p-6 text-center"
           style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
           <div className="inline-flex items-center gap-2 mb-5 px-3 py-1.5 rounded-full"
-            style={{ background: 'rgba(245,230,66,0.1)', border: '1px solid rgba(245,230,66,0.25)' }}>
+            style={{ background: 'rgba(251,209,59,0.1)', border: '1px solid rgba(251,209,59,0.25)' }}>
             <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
-              <circle cx="12" cy="12" r="9" stroke="#F5E642" strokeWidth="1.5"/>
-              <path d="M12 7v5l3 2" stroke="#F5E642" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="12" cy="12" r="9" stroke="#FBD13B" strokeWidth="1.5"/>
+              <path d="M12 7v5l3 2" stroke="#FBD13B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            <span className="text-xs font-bold uppercase tracking-wide" style={{ color: '#F5E642' }}>
+            <span className="text-xs font-bold uppercase tracking-wide" style={{ color: '#FBD13B' }}>
               Opens soon
             </span>
           </div>
@@ -789,13 +789,13 @@ function ScheduledScreen({
           {starting ? (
             <div className="py-6">
               <div className="h-9 w-44 mx-auto rounded-lg animate-pulse"
-                style={{ background: 'rgba(245,230,66,0.18)' }} />
-              <p className="text-sm mt-4 font-bold" style={{ color: '#F5E642' }}>Starting…</p>
+                style={{ background: 'rgba(251,209,59,0.18)' }} />
+              <p className="text-sm mt-4 font-bold" style={{ color: '#FBD13B' }}>Starting…</p>
             </div>
           ) : farAway ? (
             <div className="py-3">
               <p className="font-black tabular-nums" style={{
-                color: '#F5E642', fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.8rem, 8vw, 2.6rem)',
+                color: '#FBD13B', fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.8rem, 8vw, 2.6rem)',
               }}>
                 {days} {days === 1 ? 'day' : 'days'} {hh} {hh === 1 ? 'hour' : 'hours'}
               </p>
@@ -806,7 +806,7 @@ function ScheduledScreen({
           ) : (
             <div className="py-3">
               <p className="font-black tabular-nums leading-none" style={{
-                color: '#F5E642', fontFamily: 'var(--font-heading)', fontSize: 'clamp(2.6rem, 14vw, 4rem)',
+                color: '#FBD13B', fontFamily: 'var(--font-heading)', fontSize: 'clamp(2.6rem, 14vw, 4rem)',
               }}>
                 {String(hh).padStart(2, '0')}:{String(mm).padStart(2, '0')}:{String(ss).padStart(2, '0')}
               </p>
@@ -926,7 +926,7 @@ function FeedbackPanel({
       <button
         onClick={onNext}
         className="w-full py-4 rounded-xl font-black text-base transition-all hover:opacity-90"
-        style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
+        style={{ background: '#FBD13B', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
       >
         {feedback.nextQuestion ? 'Next Question →' : 'See Results'}
       </button>
@@ -954,7 +954,7 @@ function ScoreReveal({
     <div className="w-full max-w-md space-y-5">
       <div className="text-5xl text-center">{emoji}</div>
       <div>
-        <p className="font-black text-4xl" style={{ color: '#F5E642', fontFamily: 'var(--font-heading)' }}>
+        <p className="font-black text-4xl" style={{ color: '#FBD13B', fontFamily: 'var(--font-heading)' }}>
           {result.finalScore} pts
         </p>
         <p className="text-sm mt-1" style={{ color: '#94A3B8' }}>
@@ -983,7 +983,7 @@ function ScoreReveal({
         <button
           onClick={onRetry}
           className="w-full py-3 rounded-xl font-bold text-sm transition-all hover:opacity-90"
-          style={{ background: '#F5E642', color: '#0D0D0D' }}
+          style={{ background: '#FBD13B', color: '#0D0D0D' }}
         >
           Take Again
         </button>

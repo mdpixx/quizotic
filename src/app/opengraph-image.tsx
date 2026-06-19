@@ -32,7 +32,7 @@ export default async function Image() {
             width: 400,
             height: 400,
             borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(245,230,66,0.15) 0%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(251,209,59,0.15) 0%, transparent 70%)',
           }}
         />
         <div
@@ -43,7 +43,7 @@ export default async function Image() {
             width: 500,
             height: 500,
             borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(245,230,66,0.1) 0%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(251,209,59,0.1) 0%, transparent 70%)',
           }}
         />
 
@@ -72,8 +72,8 @@ export default async function Image() {
         {/* Feature pills */}
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center', maxWidth: 900 }}>
           {[
-            { text: '9 Quiz Types', color: '#F5E642' },
-            { text: 'AI-Powered', color: '#F5E642' },
+            { text: '9 Quiz Types', color: '#FBD13B' },
+            { text: 'AI-Powered', color: '#FBD13B' },
             { text: '18 Slide Types', color: '#5BC0EB' },
             { text: 'Real-Time', color: '#FF8A47' },
             { text: '50 Free Participants', color: '#16A34A' },
@@ -104,7 +104,7 @@ export default async function Image() {
             left: 0,
             right: 0,
             height: 48,
-            background: '#F5E642',
+            background: '#FBD13B',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

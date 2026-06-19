@@ -1164,7 +1164,7 @@ export default function SessionPage() {
                   onClick={createSession}
                   disabled={!socketConnected || creating}
                   className="flex-1 rounded-2xl py-4 text-lg font-black transition-all hover:opacity-90 disabled:opacity-50"
-                  style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D', boxShadow: '4px 4px 0 #0D0D0D', fontFamily: 'var(--font-heading)' }}
+                  style={{ background: '#FBD13B', color: '#0D0D0D', border: '2px solid #0D0D0D', boxShadow: '4px 4px 0 #0D0D0D', fontFamily: 'var(--font-heading)' }}
                 >
                   {!socketConnected ? 'Connecting...' : creating ? 'Starting lobby...' : 'Start lobby'}
                 </button>
@@ -1228,7 +1228,7 @@ export default function SessionPage() {
                       <span className="block text-sm font-black" style={{ color: '#0F1B3D' }}>Names</span>
                       <span className="block text-xs" style={{ color: '#64748B' }}>{anonymousMode ? 'Anonymous archetypes only' : 'Participant names visible'}</span>
                     </span>
-                    <span className="rounded-full px-2.5 py-1 text-[11px] font-black" style={{ background: anonymousMode ? '#0F1B3D' : '#ECFDF5', color: anonymousMode ? '#F5E642' : '#047857' }}>
+                    <span className="rounded-full px-2.5 py-1 text-[11px] font-black" style={{ background: anonymousMode ? '#0F1B3D' : '#ECFDF5', color: anonymousMode ? '#FBD13B' : '#047857' }}>
                       {anonymousMode ? 'Anonymous' : 'Visible'}
                     </span>
                   </button>
@@ -1289,7 +1289,7 @@ export default function SessionPage() {
                         <span className="block text-sm font-black" style={{ color: '#0F1B3D' }}>Shared-screen mode</span>
                         <span className="block text-xs" style={{ color: '#92400E' }}>Phones show colour buttons only</span>
                       </span>
-                      <span className="rounded-full px-2.5 py-1 text-[11px] font-black" style={{ background: displayMode === 'shared-screen' ? '#0F1B3D' : '#FFFFFF', color: displayMode === 'shared-screen' ? '#F5E642' : '#92400E' }}>
+                      <span className="rounded-full px-2.5 py-1 text-[11px] font-black" style={{ background: displayMode === 'shared-screen' ? '#0F1B3D' : '#FFFFFF', color: displayMode === 'shared-screen' ? '#FBD13B' : '#92400E' }}>
                         {displayMode === 'shared-screen' ? 'On' : 'Off'}
                       </span>
                     </button>
@@ -1362,7 +1362,7 @@ export default function SessionPage() {
                 <span className="text-sm font-bold px-4 py-1.5 rounded-full bg-white/15 border border-white/25 text-white backdrop-blur">
                   {{ competitive: '⚡ Competitive', accuracy: '✓ Accuracy', reflection: '🌙 Reflection', selfpaced: '🎯 Self-paced', assessment: '📋 Assessment' }[sessionMode] ?? '⚡ Competitive'}
                 </span>
-                <span className="text-sm font-black px-4 py-1.5 rounded-full text-[#46107a]" style={{ background: '#F5E642', boxShadow: '0 4px 0 rgba(0,0,0,0.15)' }}>
+                <span className="text-sm font-black px-4 py-1.5 rounded-full text-[#46107a]" style={{ background: '#FBD13B', boxShadow: '0 4px 0 rgba(0,0,0,0.15)' }}>
                   {connectedCount} {connectedCount === 1 ? 'player' : 'players'}
                 </span>
               </div>
@@ -1440,7 +1440,7 @@ export default function SessionPage() {
                   <p className="text-lg font-black text-white uppercase tracking-wide flex items-center gap-2">
                     {connectedCount === 0 ? (
                       <>
-                        <span className="inline-block w-2.5 h-2.5 rounded-full animate-pulse" style={{ background: '#F5E642' }} />
+                        <span className="inline-block w-2.5 h-2.5 rounded-full animate-pulse" style={{ background: '#FBD13B' }} />
                         Waiting for players…
                       </>
                     ) : (
@@ -1464,7 +1464,7 @@ export default function SessionPage() {
                         style={{ opacity: pInfo.connected ? 1 : 0.45, filter: pInfo.connected ? 'none' : 'grayscale(0.6)' }}
                         title={pInfo.connected ? '' : 'Offline — waiting for reconnect'}
                       >
-                        <div className="ring-2 rounded-full overflow-hidden" style={{ borderColor: pInfo.team?.color ?? '#F5E642' }}>
+                        <div className="ring-2 rounded-full overflow-hidden" style={{ borderColor: pInfo.team?.color ?? '#FBD13B' }}>
                           <Avatar archetype={pInfo.archetype} size={56} />
                         </div>
                         <p className="text-sm text-white font-bold max-w-[80px] truncate text-center">
@@ -1501,7 +1501,7 @@ export default function SessionPage() {
               disabled={(!isHostStagePreview && connectedCount === 0) || !socketConnected}
               className="w-full font-black rounded-2xl py-5 text-xl disabled:opacity-40 disabled:pointer-events-none transition-all hover:scale-[1.01]"
               style={{
-                background: (connectedCount > 0 || isHostStagePreview) && socketConnected ? 'linear-gradient(135deg, #F5E642 0%, #FFB800 100%)' : 'rgba(255,255,255,0.25)',
+                background: (connectedCount > 0 || isHostStagePreview) && socketConnected ? 'linear-gradient(135deg, #FBD13B 0%, #FFB800 100%)' : 'rgba(255,255,255,0.25)',
                 color: (connectedCount > 0 || isHostStagePreview) && socketConnected ? '#46107a' : '#ffffff',
                 boxShadow: (connectedCount > 0 || isHostStagePreview) && socketConnected ? '0 8px 0 rgba(0,0,0,0.2)' : undefined,
                 fontFamily: 'var(--font-heading)',
@@ -1567,7 +1567,7 @@ export default function SessionPage() {
                     fontSize: 200,
                     lineHeight: 1,
                     fontFamily: 'var(--font-heading)',
-                    color: '#F5E642',
+                    color: '#FBD13B',
                     animation: 'countdownPop 0.9s ease-out forwards',
                   }}
                 >
@@ -1592,7 +1592,7 @@ export default function SessionPage() {
                 <span className="text-xs font-black uppercase tracking-[0.22em]" style={{ color: 'rgba(255,255,255,0.5)' }}>
                   Answer Reveal
                 </span>
-                <span className="text-2xl font-black tabular-nums" style={{ color: '#F5E642', fontFamily: 'var(--font-heading)' }}>
+                <span className="text-2xl font-black tabular-nums" style={{ color: '#FBD13B', fontFamily: 'var(--font-heading)' }}>
                   Q{questionIndex + 1}
                 </span>
                 <span className="text-sm font-bold whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.7)' }}>
@@ -1617,7 +1617,7 @@ export default function SessionPage() {
                   Live Question
                 </span>
                 <div className="mt-1 flex items-center gap-3">
-                  <span className="text-3xl md:text-4xl font-black tabular-nums" style={{ fontFamily: 'var(--font-heading)', color: '#F5E642' }}>
+                  <span className="text-3xl md:text-4xl font-black tabular-nums" style={{ fontFamily: 'var(--font-heading)', color: '#FBD13B' }}>
                     Q{questionIndex + 1}
                   </span>
                   <span className="text-lg md:text-xl font-bold" style={{ color: 'rgba(255,255,255,0.72)' }}>
@@ -1628,14 +1628,14 @@ export default function SessionPage() {
               <div className="flex flex-wrap items-center justify-start lg:justify-end gap-3">
                 {currentQuestion.timerSeconds > 0 && (
                   questionStartedAt == null || Date.now() < questionStartedAt ? (
-                    <span className="min-w-16 text-center text-sm font-semibold animate-pulse px-4 py-2 rounded-full" style={{ color: '#F5E642', background: 'rgba(255,255,255,0.08)' }}>Loading…</span>
+                    <span className="min-w-16 text-center text-sm font-semibold animate-pulse px-4 py-2 rounded-full" style={{ color: '#FBD13B', background: 'rgba(255,255,255,0.08)' }}>Loading…</span>
                   ) : (
                     <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(15,27,61,0.42)' }}>
                       <CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} />
                     </div>
                   )
                 )}
-                <span className="inline-flex h-14 items-center rounded-full px-5 text-xl font-black tabular-nums whitespace-nowrap" style={{ color: '#0F1B3D', background: '#F5E642', boxShadow: '0 6px 0 rgba(0,0,0,0.24)' }}>
+                <span className="inline-flex h-14 items-center rounded-full px-5 text-xl font-black tabular-nums whitespace-nowrap" style={{ color: '#0F1B3D', background: '#FBD13B', boxShadow: '0 6px 0 rgba(0,0,0,0.24)' }}>
                   {answered}/{connectedCount}
                   <span className="ml-2 text-sm uppercase tracking-wider">answered</span>
                 </span>
@@ -1655,7 +1655,7 @@ export default function SessionPage() {
               className="h-full rounded-full transition-all duration-300"
               style={{
                 width: connectedCount > 0 ? `${(answered / connectedCount) * 100}%` : '0%',
-                background: 'linear-gradient(90deg, #F5E642 0%, #22C55E 100%)',
+                background: 'linear-gradient(90deg, #FBD13B 0%, #22C55E 100%)',
               }}
             />
           </div>
@@ -1685,7 +1685,7 @@ export default function SessionPage() {
                 type="button"
                 onClick={showHostStagePreviewStandings}
                 className="px-3 py-2 rounded-xl text-xs font-black transition-all hover:scale-[1.02]"
-                style={{ background: '#F5E642', color: '#0F1B3D' }}
+                style={{ background: '#FBD13B', color: '#0F1B3D' }}
               >
                 Show moving standings
               </button>
@@ -1897,7 +1897,7 @@ export default function SessionPage() {
                         className="h-full rounded-full transition-all duration-300"
                         style={{
                           width: `${Math.min(100, (count / connectedCount) * 100)}%`,
-                          background: 'linear-gradient(90deg, #F5E642 0%, #22C55E 100%)',
+                          background: 'linear-gradient(90deg, #FBD13B 0%, #22C55E 100%)',
                         }}
                       />
                     </div>
@@ -2083,7 +2083,7 @@ export default function SessionPage() {
                   onClick={() => setSoundMuted(toggleMuted())}
                   title={soundMuted ? 'Sound effects are muted — click to unmute' : 'Mute all sound effects (ticks, chimes, celebrations)'}
                   aria-label={soundMuted ? 'Unmute sound effects' : 'Mute sound effects'}
-                  className="flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-black transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#F5E642] focus-visible:ring-offset-2"
+                  className="flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-black transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
                   style={{
                     background: soundMuted ? 'rgba(255,255,255,0.1)' : '#FEF3C7',
                     color: soundMuted ? '#FFFFFF' : '#B45309',
@@ -2091,7 +2091,7 @@ export default function SessionPage() {
                   }}>
                   {soundMuted ? '🔇' : '🔊'}
                 </button>
-                <span className="hidden md:inline-flex items-center rounded-full px-3 py-2 text-xs font-black tracking-wide" style={{ color: '#0F1B3D', background: '#F5E642' }}>
+                <span className="hidden md:inline-flex items-center rounded-full px-3 py-2 text-xs font-black tracking-wide" style={{ color: '#0F1B3D', background: '#FBD13B' }}>
                   Quizotic
                 </span>
               </div>
@@ -2206,7 +2206,7 @@ export default function SessionPage() {
                     onClick={onClick}
                     className="inline-flex items-center gap-2 px-6 py-2.5 font-black text-sm rounded-full transition-colors shadow-md animate-pulse"
                     style={{
-                      background: action === 'reveal' ? '#16A34A' : action === 'standings' && standingsRecommended ? '#F5E642' : '#FBBF24',
+                      background: action === 'reveal' ? '#16A34A' : action === 'standings' && standingsRecommended ? '#FBD13B' : '#FBBF24',
                       color: action === 'reveal' ? '#FFFFFF' : '#0F1B3D',
                     }}
                   >
@@ -2231,7 +2231,7 @@ export default function SessionPage() {
           className="min-h-svh px-4 py-6 lg:px-8 space-y-6"
           style={{
             background:
-              'radial-gradient(circle at 20% 10%, rgba(245,230,66,0.18), transparent 26%), radial-gradient(circle at 80% 18%, rgba(34,197,94,0.16), transparent 28%), linear-gradient(135deg, #F8FAFC 0%, #EEF2FF 100%)',
+              'radial-gradient(circle at 20% 10%, rgba(251,209,59,0.18), transparent 26%), radial-gradient(circle at 80% 18%, rgba(34,197,94,0.16), transparent 28%), linear-gradient(135deg, #F8FAFC 0%, #EEF2FF 100%)',
           }}
         >
           <div className="max-w-7xl mx-auto space-y-6">
@@ -2277,7 +2277,7 @@ export default function SessionPage() {
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-xl font-black truncate" style={{ color: '#FFFFFF' }}>{m.name}</p>
-                      <p className="text-sm font-bold" style={{ color: '#F5E642' }}>#{m.fromRank} → #{m.toRank}</p>
+                      <p className="text-sm font-bold" style={{ color: '#FBD13B' }}>#{m.fromRank} → #{m.toRank}</p>
                     </div>
                   </div>
                 ))}
@@ -2379,13 +2379,13 @@ export default function SessionPage() {
             style={{
               height: 'calc(100dvh - 56px)',
               background:
-                'radial-gradient(circle at 50% 8%, rgba(245,230,66,0.24), transparent 24%), radial-gradient(circle at 8% 72%, rgba(34,211,238,0.18), transparent 24%), linear-gradient(145deg, #071126 0%, #0F1B3D 58%, #111827 100%)',
+                'radial-gradient(circle at 50% 8%, rgba(251,209,59,0.24), transparent 24%), radial-gradient(circle at 8% 72%, rgba(34,211,238,0.18), transparent 24%), linear-gradient(145deg, #071126 0%, #0F1B3D 58%, #111827 100%)',
               boxShadow: '0 30px 90px rgba(15,27,61,0.28)',
             }}
           >
             <CelebrationConfetti active layer="absolute" />
             <div className="relative z-10 text-center">
-              <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.24em]" style={{ color: 'rgba(245,230,66,0.72)' }}>
+              <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.24em]" style={{ color: 'rgba(251,209,59,0.72)' }}>
                 Final Standings
               </p>
               <h2 className="mt-1 text-3xl md:text-5xl font-black" style={{ color: '#FFFFFF', fontFamily: 'var(--font-heading)', letterSpacing: 0 }}>
@@ -2476,7 +2476,7 @@ export default function SessionPage() {
                   onClick={generateFollowups}
                   disabled={followupLoading}
                   className="w-full py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
-                  style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
+                  style={{ background: '#FBD13B', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
                 >
                   {followupLoading ? 'Generating…' : 'Create Follow-up Series'}
                 </button>
@@ -2535,7 +2535,7 @@ export default function SessionPage() {
                 }
               }}
               className="w-full font-bold rounded-xl py-3 text-base transition-all hover:scale-[1.02]"
-              style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
+              style={{ background: '#FBD13B', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
             >
               Play Again
             </button>

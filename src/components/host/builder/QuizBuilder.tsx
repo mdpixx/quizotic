@@ -370,7 +370,7 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
           onClick={handleSaveClick}
           disabled={builder.saving}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-all disabled:opacity-50 hover:brightness-95"
-          style={{ background: '#0F1B3D', color: '#F5E642' }}
+          style={{ background: '#0F1B3D', color: '#FBD13B' }}
           title="Save (Ctrl+S / Cmd+S)"
         >
           {builder.saving ? 'Saving…' : 'Save'}
@@ -436,7 +436,7 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
                 type="button"
                 onClick={() => builder.addQuestion('mcq')}
                 className="px-5 py-2.5 rounded-xl text-sm font-black"
-                style={{ background: '#0F1B3D', color: '#F5E642' }}
+                style={{ background: '#0F1B3D', color: '#FBD13B' }}
               >
                 + Add your first question
               </button>
@@ -455,7 +455,7 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
               type="button"
               onClick={() => builder.addQuestion('mcq')}
               className="px-5 py-2.5 rounded-xl text-sm font-black"
-              style={{ background: '#0F1B3D', color: '#F5E642' }}
+              style={{ background: '#0F1B3D', color: '#FBD13B' }}
             >
               + Add your first question
             </button>
@@ -578,7 +578,7 @@ function ApplyModeChooser({
             type="button"
             onClick={onAppend}
             className="w-full py-3 rounded-xl text-sm font-black transition-all hover:brightness-95"
-            style={{ background: '#0F1B3D', color: '#F5E642' }}
+            style={{ background: '#0F1B3D', color: '#FBD13B' }}
           >
             Add {incomingCount} to my {existingCount} &rarr; {existingCount + incomingCount} total
           </button>

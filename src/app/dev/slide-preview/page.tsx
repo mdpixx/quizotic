@@ -314,7 +314,7 @@ function HostView({ s }: { s: SlideSample }) {
             <p className="text-4xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#FACC15' }}>{s.names[2]}</p>
           </div>
           <button className="w-full py-4 rounded-xl text-lg font-bold"
-            style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}>
+            style={{ background: '#FBD13B', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}>
             Spin Again
           </button>
         </div>
@@ -333,7 +333,7 @@ function ParticipantView({ s }: { s: SlideSample }) {
     <div className="h-full flex flex-col p-4 gap-4" style={{ background: '#0F1B3D' }}>
       <div className="flex items-center justify-between">
         <span className="text-xs font-bold opacity-40" style={{ color: textLight }}>Slide 3 / 14</span>
-        <span className="text-xs font-semibold" style={{ color: '#F5E642' }}>AI Training Workshop</span>
+        <span className="text-xs font-semibold" style={{ color: '#FBD13B' }}>AI Training Workshop</span>
       </div>
       <h2 className="text-xl font-black leading-snug" style={{ color: textLight }}>{question}</h2>
 
@@ -354,11 +354,11 @@ function ParticipantView({ s }: { s: SlideSample }) {
           <>
             {s.type === 'quick_fire' && (
               <div className="w-full text-center mb-2">
-                <p className="text-4xl font-black" style={{ color: s.secondsLeft <= 2 ? '#EF4444' : '#F5E642' }}>{s.secondsLeft}</p>
+                <p className="text-4xl font-black" style={{ color: s.secondsLeft <= 2 ? '#EF4444' : '#FBD13B' }}>{s.secondsLeft}</p>
                 <div className="h-2 rounded-full w-full mt-2" style={{ background: 'rgba(255,255,255,0.15)' }}>
                   <div className="h-full rounded-full" style={{
                     width: `${(s.secondsLeft / s.durationSeconds) * 100}%`,
-                    background: s.secondsLeft <= 2 ? '#EF4444' : '#F5E642',
+                    background: s.secondsLeft <= 2 ? '#EF4444' : '#FBD13B',
                   }} />
                 </div>
               </div>
@@ -412,7 +412,7 @@ function ParticipantView({ s }: { s: SlideSample }) {
               <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>One word only</p>
             )}
             <button className="w-full py-4 rounded-2xl text-lg font-black"
-              style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>Submit</button>
+              style={{ background: '#FBD13B', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>Submit</button>
           </div>
         )}
 
@@ -427,7 +427,7 @@ function ParticipantView({ s }: { s: SlideSample }) {
               ))}
             </div>
             <button className="w-full py-4 rounded-2xl text-lg font-black"
-              style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>Submit</button>
+              style={{ background: '#FBD13B', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>Submit</button>
           </div>
         )}
 
@@ -438,7 +438,7 @@ function ParticipantView({ s }: { s: SlideSample }) {
               <span>0 · {s.minLabel}</span><span>{s.maxLabel} · 100</span>
             </div>
             <button className="w-full py-4 rounded-2xl text-lg font-black"
-              style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>Submit</button>
+              style={{ background: '#FBD13B', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>Submit</button>
           </div>
         )}
 
@@ -458,11 +458,11 @@ function ParticipantView({ s }: { s: SlideSample }) {
             <div className="relative rounded-xl overflow-hidden" style={{ aspectRatio: '4/3', background: '#000' }}>
               {s.imageUrl && <img src={s.imageUrl} alt="" className="w-full h-full object-contain" />}
               <div className="absolute w-4 h-4 rounded-full border-2 border-white -translate-x-1/2 -translate-y-1/2"
-                style={{ left: '50%', top: '50%', background: '#F5E642' }} />
+                style={{ left: '50%', top: '50%', background: '#FBD13B' }} />
             </div>
             <p className="text-xs text-center opacity-60" style={{ color: textLight }}>Tap the image to place your pin</p>
             <button className="w-full py-4 rounded-2xl text-lg font-black"
-              style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>Submit</button>
+              style={{ background: '#FBD13B', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>Submit</button>
           </div>
         )}
 
@@ -479,7 +479,7 @@ function ParticipantView({ s }: { s: SlideSample }) {
                   <div className="absolute left-1/2 top-0 bottom-0 w-px" style={{ background: 'rgba(255,255,255,0.15)' }} />
                   <div className="absolute top-1/2 left-0 right-0 h-px" style={{ background: 'rgba(255,255,255,0.15)' }} />
                   <div className="absolute w-4 h-4 rounded-full border-2 border-white -translate-x-1/2 -translate-y-1/2"
-                    style={{ left: '60%', top: '40%', background: '#F5E642' }} />
+                    style={{ left: '60%', top: '40%', background: '#FBD13B' }} />
                 </div>
                 <div className="flex justify-between mt-1">
                   <span className="text-[9px] font-bold opacity-60" style={{ color: textLight }}>{s.xMin}</span>
@@ -489,7 +489,7 @@ function ParticipantView({ s }: { s: SlideSample }) {
               </div>
             </div>
             <button className="w-full py-4 rounded-2xl text-lg font-black"
-              style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>Submit</button>
+              style={{ background: '#FBD13B', color: '#0D0D0D', border: '2px solid #0D0D0D' }}>Submit</button>
           </div>
         )}
 

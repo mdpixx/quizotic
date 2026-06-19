@@ -84,12 +84,12 @@ function MiniLeaderboard() {
     <div className="space-y-1.5 mb-3">
       {names.map((n, i) => (
         <div key={n.name} className="flex items-center gap-2 text-[11px]">
-          <span className="w-5 text-center font-bold" style={{ color: i === 0 ? '#F5E642' : '#94A3B8' }}>
+          <span className="w-5 text-center font-bold" style={{ color: i === 0 ? '#FBD13B' : '#94A3B8' }}>
             {i === 0 ? '1st' : `#${i + 1}`}
           </span>
           <span className="font-semibold w-12" style={{ color: '#0F1B3D' }}>{n.name}</span>
           <div className="flex-1 h-2 rounded-full" style={{ background: '#E2E8F0' }}>
-            <div className="h-full rounded-full transition-all" style={{ width: `${(n.score / 840) * 100}%`, background: i === 0 ? '#F5E642' : '#0F1B3D' }} />
+            <div className="h-full rounded-full transition-all" style={{ width: `${(n.score / 840) * 100}%`, background: i === 0 ? '#FBD13B' : '#0F1B3D' }} />
           </div>
           <span className="font-bold w-8 text-right" style={{ color: '#64748B' }}>{n.score}</span>
         </div>
@@ -112,7 +112,7 @@ function GrowingBars() {
           initial={{ height: 0 }}
           animate={isInView ? { height: `${h}%` } : { height: 0 }}
           transition={{ duration: 0.6, delay: i * 0.08 }}
-          style={{ background: ['#0F1B3D', '#F5E642', '#16A34A', '#2D3A8C', '#FF8A47', '#0F1B3D', '#F5E642'][i] }}
+          style={{ background: ['#0F1B3D', '#FBD13B', '#16A34A', '#2D3A8C', '#FF8A47', '#0F1B3D', '#FBD13B'][i] }}
         />
       ))}
     </div>
@@ -172,7 +172,7 @@ const showcaseFeatures = [
     desc: 'Streaks, leaderboards, 4 session modes — competition drives learning.',
     gridClass: 'md:col-span-5',
     bg: '#FFFDE6',
-    border: 'rgba(245,230,66,0.4)',
+    border: 'rgba(251,209,59,0.4)',
     color: '#0F1B3D',
     Viz: MiniLeaderboard,
   },
@@ -252,7 +252,7 @@ export function BentoFeatures() {
           transition={{ duration: 0.5 }}
           className="text-center mb-10"
         >
-          <p className="text-sm font-bold uppercase tracking-widest mb-3 inline-block px-4 py-1.5 rounded-full" style={{ background: '#0F1B3D', color: '#F5E642' }}>Features</p>
+          <p className="text-sm font-bold uppercase tracking-widest mb-3 inline-block px-4 py-1.5 rounded-full" style={{ background: '#0F1B3D', color: '#FBD13B' }}>Features</p>
           <h2 className="text-3xl md:text-4xl font-black mt-4" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
             Built for Engagement
           </h2>

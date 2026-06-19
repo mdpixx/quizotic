@@ -118,10 +118,10 @@ function NavLink({ item, onClick }: { item: NavItem; onClick?: () => void }) {
         <span
           aria-hidden
           className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm"
-          style={{ background: '#F5E642' }}
+          style={{ background: '#FBD13B' }}
         />
       )}
-      <span style={{ color: active ? '#F5E642' : 'rgba(255,255,255,0.6)', display: 'inline-flex' }}>
+      <span style={{ color: active ? '#FBD13B' : 'rgba(255,255,255,0.6)', display: 'inline-flex' }}>
         {item.icon}
       </span>
       <span>{item.label}</span>
@@ -238,11 +238,11 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
               href="/host/admin"
               onClick={onNavClick}
               className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all mt-1"
-              style={{ color: '#F5E642', background: 'rgba(245,230,66,0.1)' }}
+              style={{ color: '#FBD13B', background: 'rgba(251,209,59,0.1)' }}
             >
-              <span style={{ color: '#F5E642', display: 'inline-flex' }}>{ICON.admin}</span>
+              <span style={{ color: '#FBD13B', display: 'inline-flex' }}>{ICON.admin}</span>
               <span>Admin Panel</span>
-              <span className="ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-full" style={{ background: '#F5E642', color: '#0D0D0D' }}>
+              <span className="ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-full" style={{ background: '#FBD13B', color: '#0D0D0D' }}>
                 ADMIN
               </span>
             </Link>

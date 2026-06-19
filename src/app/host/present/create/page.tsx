@@ -2202,7 +2202,7 @@ function PresentCreatePageInner() {
           <div className="flex flex-col gap-3">
             <button onClick={retry}
               className="w-full px-6 py-3 rounded-xl font-bold text-sm transition-transform hover:scale-[1.02]"
-              style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}>
+              style={{ background: '#FBD13B', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}>
               Try Again
             </button>
             <button onClick={() => router.push('/host')}
@@ -2363,7 +2363,7 @@ function PresentCreatePageInner() {
             </button>
             <button onClick={handleSaveAndPresent} disabled={starting}
               className="text-xs md:text-sm font-bold px-3 py-1.5 md:px-5 md:py-2 rounded-xl transition-all hover:scale-[1.02] click-bounce disabled:opacity-60"
-              style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}>
+              style={{ background: '#FBD13B', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}>
               {starting ? (
                 <span className="flex items-center gap-1.5">
                   <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -2492,9 +2492,9 @@ function PresentCreatePageInner() {
           <div className="flex-shrink-0 flex items-center justify-center py-3 border-t" style={{ borderColor: '#E2E8F0' }}>
             <div
               className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black tracking-wide select-none"
-              style={{ background: '#F5E642', color: '#0F1B3D' }}
+              style={{ background: '#FBD13B', color: '#0F1B3D' }}
             >
-              <div className="w-3.5 h-3.5 rounded flex items-center justify-center text-[8px] font-black flex-shrink-0" style={{ background: '#0F1B3D', color: '#F5E642' }}>Q</div>
+              <div className="w-3.5 h-3.5 rounded flex items-center justify-center text-[8px] font-black flex-shrink-0" style={{ background: '#0F1B3D', color: '#FBD13B' }}>Q</div>
               QUIZOTIC
             </div>
           </div>
@@ -2557,7 +2557,7 @@ function PresentCreatePageInner() {
                   &lsaquo;
                 </button>
                 <span className="text-sm font-bold px-4 py-2 rounded-xl"
-                  style={{ background: '#0F1B3D', color: '#F5E642' }}>
+                  style={{ background: '#0F1B3D', color: '#FBD13B' }}>
                   Slide {activeIndex + 1} of {presentation.slides.length}
                 </span>
                 <button onClick={() => setActiveIndex(i => Math.min(i + 1, presentation.slides.length - 1))}
@@ -2734,7 +2734,7 @@ function PresentCreatePageInner() {
                       className="px-2.5 py-1 rounded-md text-[11px] font-bold transition-all"
                       style={
                         !activeSlide.vizTextColor
-                          ? { background: '#0F1B3D', color: '#F5E642', border: '1.5px solid #0F1B3D' }
+                          ? { background: '#0F1B3D', color: '#FBD13B', border: '1.5px solid #0F1B3D' }
                           : { background: '#fff', color: '#64748B', border: '1.5px solid #CBD5E1' }
                       }
                     >
@@ -2852,7 +2852,7 @@ function PresentCreatePageInner() {
           <button
             onClick={() => setMobileSlideEditorOpen(true)}
             className="flex items-center justify-center gap-1 px-3 py-2.5 rounded-xl font-bold text-sm flex-shrink-0"
-            style={{ background: '#F5E642', color: '#0D0D0D', border: '1.5px solid rgba(15,27,61,0.2)' }}>
+            style={{ background: '#FBD13B', color: '#0D0D0D', border: '1.5px solid rgba(15,27,61,0.2)' }}>
             ✏️ Edit
           </button>
         )}
@@ -3014,7 +3014,7 @@ function PresentCreatePageInner() {
                 <button
                   onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/join`); }}
                   className="px-3 py-2 rounded-lg text-xs font-bold transition-all hover:opacity-90 click-bounce"
-                  style={{ background: '#0F1B3D', color: '#F5E642' }}
+                  style={{ background: '#0F1B3D', color: '#FBD13B' }}
                 >Copy</button>
               </div>
             </div>
@@ -3025,7 +3025,7 @@ function PresentCreatePageInner() {
               onClick={async () => { setShareOpen(false); await handleSaveAndPresent() }}
               disabled={starting}
               className="w-full py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 click-bounce disabled:opacity-60"
-              style={{ background: '#0F1B3D', color: '#F5E642' }}
+              style={{ background: '#0F1B3D', color: '#FBD13B' }}
             >{starting ? 'Saving…' : <>&#9654; Save &amp; Present</>}</button>
           </div>
         </>
@@ -3148,7 +3148,7 @@ function PresentCreatePageInner() {
                   launchSession(patched)
                 }}
                 className="px-4 py-2 rounded-xl text-sm font-bold transition-all hover:scale-[1.02]"
-                style={{ background: '#0F1B3D', color: '#F5E642' }}>
+                style={{ background: '#0F1B3D', color: '#FBD13B' }}>
                 Present anyway
               </button>
             </div>
@@ -3182,7 +3182,7 @@ function PresentCreatePageInner() {
               <a
                 href="/pricing"
                 className="px-4 py-2 rounded-xl text-sm font-bold transition-all hover:scale-[1.02]"
-                style={{ background: '#0F1B3D', color: '#F5E642' }}>
+                style={{ background: '#0F1B3D', color: '#FBD13B' }}>
                 Upgrade to Pro
               </a>
             </div>

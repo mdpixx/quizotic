@@ -16,7 +16,7 @@ export default function BillingSuccessPage() {
         <Link
           href="/host"
           className="inline-block px-6 py-2.5 rounded-xl text-sm font-bold text-white"
-          style={{ background: '#F5E642', color: '#0D0D0D' }}
+          style={{ background: '#FBD13B', color: '#0D0D0D' }}
         >
           Start Creating
         </Link>

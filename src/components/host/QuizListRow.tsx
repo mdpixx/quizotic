@@ -72,7 +72,7 @@ function QuizCoverMotif({ id }: { id: string }) {
       <rect x="28" y="27" width="44" height="7" rx="3.5" fill="#0F1B3D" opacity="0.18" />
       <rect x="28" y="43" width="38" height="6" rx="3" fill="#2563EB" opacity="0.22" />
       <rect x="28" y="57" width="32" height="6" rx="3" fill="#16A34A" opacity="0.22" />
-      <circle cx="70" cy="66" r="9" fill="#F5E642" stroke="#0F1B3D" strokeOpacity="0.48" strokeWidth="2" />
+      <circle cx="70" cy="66" r="9" fill="#FBD13B" stroke="#0F1B3D" strokeOpacity="0.48" strokeWidth="2" />
       <path d="M66.4 66l2.2 2.2 5-5.2" stroke="#0F1B3D" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
       {dots.map((s, i) => (
         <circle key={i} cx={s.cx} cy={s.cy} r="1.2" fill="#0F1B3D" opacity={s.o * 0.35} />

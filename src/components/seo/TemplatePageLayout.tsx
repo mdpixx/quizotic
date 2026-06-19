@@ -174,7 +174,7 @@ export function TemplatePageLayout({ template }: TemplatePageLayoutProps) {
               href={importHref}
               className="inline-block font-bold px-10 py-4 rounded-lg text-base"
               style={{
-                background: '#F5E642',
+                background: '#FBD13B',
                 color: '#0D0D0D',
                 textDecoration: 'none',
                 border: '2px solid #0D0D0D',
@@ -213,7 +213,7 @@ export function TemplatePageLayout({ template }: TemplatePageLayoutProps) {
                   <div className="flex items-start gap-3 mb-3">
                     <div
                       className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center font-bold text-sm"
-                      style={{ background: '#0F1B3D', color: '#F5E642' }}
+                      style={{ background: '#0F1B3D', color: '#FBD13B' }}
                     >
                       {i + 1}
                     </div>

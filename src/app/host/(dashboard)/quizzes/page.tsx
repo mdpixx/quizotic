@@ -74,7 +74,7 @@ function QuizCoverMotif({ id }: { id: string }) {
       <rect x="28" y="27" width="44" height="7" rx="3.5" fill="#0F1B3D" opacity="0.18" />
       <rect x="28" y="43" width="38" height="6" rx="3" fill="#2563EB" opacity="0.22" />
       <rect x="28" y="57" width="32" height="6" rx="3" fill="#16A34A" opacity="0.22" />
-      <circle cx="70" cy="66" r="9" fill="#F5E642" stroke="#0F1B3D" strokeOpacity="0.48" strokeWidth="2" />
+      <circle cx="70" cy="66" r="9" fill="#FBD13B" stroke="#0F1B3D" strokeOpacity="0.48" strokeWidth="2" />
       <path d="M66.4 66l2.2 2.2 5-5.2" stroke="#0F1B3D" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
       {dots.map((s, i) => (
         <circle key={i} cx={s.cx} cy={s.cy} r="1.2" fill="#0F1B3D" opacity={s.o * 0.35} />
@@ -257,7 +257,7 @@ export default function QuizzesPage() {
 
       <div className="mb-5 grid md:grid-cols-2 gap-3">
         <div className="rounded-[14px] bg-white border p-4 flex items-center gap-3" style={{ borderColor: 'var(--color-line)' }}>
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#0F1B3D', color: '#F5E642' }}>
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#0F1B3D', color: '#FBD13B' }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M8 5v14l11-7z"/></svg>
           </div>
           <div className="flex-1 min-w-0">

@@ -23,8 +23,8 @@ html, body {
   --color-bg:           #FFFFFF;   /* clean white */
   --color-primary:      #0F1B3D;   /* deep navy */
   --color-primary-dark: #0A1229;
-  --color-secondary:    #F5E642;   /* bold yellow */
-  --color-secondary-dark: #D4C535;
+  --color-secondary:    #FBD13B;   /* warm sunny gold */
+  --color-secondary-dark: #E0B528;
   --color-dark:         #0F1B3D;   /* deep navy */
   --color-surface:      #FFFFFF;
   --color-surface-tint: #F8F9FA;
@@ -34,8 +34,8 @@ html, body {
   --color-paper:        #FAF8F2;   /* warm off-white for host surfaces */
   --color-paper-2:      #F3EFE3;   /* warm wash for pills / empty states */
   --color-line:         #E7E2D4;   /* warm divider */
-  --color-yellow:       #F5E642;
-  --color-yellow-dark:  #D9CC27;
+  --color-yellow:       #FBD13B;
+  --color-yellow-dark:  #E0B528;
   --color-ink:          #0F1B3D;
   --color-ink-2:        #1B2A5E;
   --color-accent-blue:  #2563EB;   /* insight */
@@ -43,8 +43,9 @@ html, body {
   --color-accent-coral: #E07A5F;   /* attention */
   --color-accent-violet:#7C3AED;   /* AI-only */
 
-  /* Brand gradient */
-  --brand-gradient: linear-gradient(135deg, #0F1B3D, #F5E642);
+  /* Brand gradient — routes navy → indigo → gold to avoid the muddy
+     olive midpoint of a direct navy→yellow interpolation. */
+  --brand-gradient: linear-gradient(135deg, #0F1B3D 0%, #2D2A66 50%, #FBD13B 100%);
 
   /* Semantic colors */
   --color-success:      #16A34A;
@@ -77,14 +78,14 @@ html, body {
 /* ── Dark mode toggle ──────────────────────────────────────────────── */
 [data-theme="dark"] {
   --color-bg:           #0F1B3D;
-  --color-primary:      #F5E642;
-  --color-primary-dark: #D4C535;
+  --color-primary:      #FBD13B;
+  --color-primary-dark: #E0B528;
   --color-secondary:    #0F1B3D;
   --color-dark:         #F8FAFC;
   --color-surface:      #162042;
   --color-surface-tint: #1A2744;
-  --color-border:       rgba(245,230,66,0.15);
-  --brand-gradient:     linear-gradient(135deg, #F5E642, #0F1B3D);
+  --color-border:       rgba(251,209,59,0.15);
+  --brand-gradient:     linear-gradient(135deg, #FBD13B 0%, #2D2A66 50%, #0F1B3D 100%);
   --color-text-primary:   #F8FAFC;
   --color-text-secondary: #94A3B8;
   --color-text-muted:     #64748B;
@@ -153,8 +154,8 @@ html, body {
 }
 
 @keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 4px 20px rgba(245,230,66,0.30); }
-  50%       { box-shadow: 0 6px 32px rgba(245,230,66,0.55); }
+  0%, 100% { box-shadow: 0 4px 20px rgba(251,209,59,0.30); }
+  50%       { box-shadow: 0 6px 32px rgba(251,209,59,0.55); }
 }
 
 @keyframes shimmer {
@@ -251,7 +252,7 @@ body {
   border-radius: 999px;
   padding: 0 0.8rem;
   color: #0F1B3D;
-  background: #F5E642;
+  background: #FBD13B;
   font-size: 0.78rem;
   font-weight: 900;
   white-space: nowrap;

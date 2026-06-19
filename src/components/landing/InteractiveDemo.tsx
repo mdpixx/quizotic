@@ -32,7 +32,7 @@ function CSSConfetti() {
     left: `${Math.random() * 100}%`,
     delay: `${Math.random() * 0.5}s`,
     duration: `${1.5 + Math.random() * 1.5}s`,
-    color: ['#0F1B3D', '#F5E642', '#16A34A', '#2D3A8C', '#FF8A47', '#5BC0EB'][i % 6],
+    color: ['#0F1B3D', '#FBD13B', '#16A34A', '#2D3A8C', '#FF8A47', '#5BC0EB'][i % 6],
     size: 4 + Math.random() * 6,
     rotation: Math.random() * 360,
   }))
@@ -72,7 +72,7 @@ function FloatingPoints({ points, isCorrect }: { points: number; isCorrect: bool
       animate={{ opacity: 0, y: -50, scale: 0.5 }}
       transition={{ duration: 1.2, ease: 'easeOut' }}
       className="absolute top-0 right-4 text-lg font-black z-30"
-      style={{ color: '#F5E642' }}
+      style={{ color: '#FBD13B' }}
     >
       +{points}
     </motion.div>
@@ -150,7 +150,7 @@ export function InteractiveDemo() {
           transition={{ duration: 0.5 }}
           className="text-center mb-12"
         >
-          <p className="text-sm font-bold uppercase tracking-widest mb-3 inline-block px-4 py-1.5 rounded-full" style={{ background: '#F5E642', color: '#0F1B3D' }}>Try It Now</p>
+          <p className="text-sm font-bold uppercase tracking-widest mb-3 inline-block px-4 py-1.5 rounded-full" style={{ background: '#FBD13B', color: '#0F1B3D' }}>Try It Now</p>
           <h2 className="text-3xl md:text-4xl font-black mt-4" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
             See How It Feels
           </h2>
@@ -165,12 +165,12 @@ export function InteractiveDemo() {
 
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-3" style={{ background: '#0F1B3D' }}>
-              <span className="text-xs font-bold" style={{ color: '#F5E642', fontFamily: 'var(--font-heading)' }}>Mini Quiz Demo</span>
+              <span className="text-xs font-bold" style={{ color: '#FBD13B', fontFamily: 'var(--font-heading)' }}>Mini Quiz Demo</span>
               <div className="flex items-center gap-3">
                 <span className="text-xs font-bold text-white">Score: {score}</span>
                 {streak > 0 && (
                   <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }}
-                    className="text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: '#F5E642', color: '#0F1B3D' }}>
+                    className="text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: '#FBD13B', color: '#0F1B3D' }}>
                     {streak}x streak
                   </motion.span>
                 )}
@@ -181,7 +181,7 @@ export function InteractiveDemo() {
             <div className="h-1" style={{ background: '#E2E8F0' }}>
               <motion.div className="h-full"
                 animate={{ width: `${((qIdx + (phase === 'done' ? 1 : 0)) / QUESTIONS.length) * 100}%` }}
-                style={{ background: '#F5E642' }} />
+                style={{ background: '#FBD13B' }} />
             </div>
 
             <div className="p-6 md:p-8 relative">
@@ -203,7 +203,7 @@ export function InteractiveDemo() {
                     <p className="text-base mb-6" style={{ color: '#374151' }}>That&apos;s how it feels for your students.</p>
                     <div className="flex gap-3 justify-center">
                       <button onClick={restart} className="text-sm font-bold px-5 py-2.5 rounded-full transition-all" style={{ color: '#0F1B3D', border: '2px solid #0F1B3D' }}>Try Again</button>
-                      <a href="/host" className="text-sm font-bold px-5 py-2.5 rounded-full transition-all hover:opacity-90" style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D', boxShadow: '3px 3px 0 #0D0D0D' }}>Create Your Own</a>
+                      <a href="/host" className="text-sm font-bold px-5 py-2.5 rounded-full transition-all hover:opacity-90" style={{ background: '#FBD13B', color: '#0D0D0D', border: '2px solid #0D0D0D', boxShadow: '3px 3px 0 #0D0D0D' }}>Create Your Own</a>
                     </div>
                   </motion.div>
                 ) : (
@@ -245,7 +245,7 @@ export function InteractiveDemo() {
                     <AnimatePresence>
                       {showExplanation && (
                         <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                          className="mt-4 rounded-xl px-4 py-3" style={{ background: '#FFFDE6', border: '1.5px solid rgba(245,230,66,0.4)' }}>
+                          className="mt-4 rounded-xl px-4 py-3" style={{ background: '#FFFDE6', border: '1.5px solid rgba(251,209,59,0.4)' }}>
                           <p className="text-xs font-semibold" style={{ color: '#374151' }}>{question.explanation}</p>
                         </motion.div>
                       )}

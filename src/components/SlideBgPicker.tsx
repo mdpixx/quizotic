@@ -179,7 +179,7 @@ export function SlideBgPicker({ slide, onChange }: SlideBgPickerProps) {
           className="px-2.5 py-1 rounded-md text-[11px] font-bold transition-all"
           style={
             isAutoActive
-              ? { background: '#0F1B3D', color: '#F5E642', border: '1.5px solid #0F1B3D' }
+              ? { background: '#0F1B3D', color: '#FBD13B', border: '1.5px solid #0F1B3D' }
               : { background: '#fff', color: '#64748B', border: '1.5px solid #CBD5E1' }
           }
         >
@@ -298,7 +298,7 @@ export function SlideBgPicker({ slide, onChange }: SlideBgPickerProps) {
           className="px-2 h-7 rounded-full text-[10px] font-bold transition-all"
           style={{
             background: wheelExpanded ? '#0F1B3D' : '#fff',
-            color: wheelExpanded ? '#F5E642' : '#64748B',
+            color: wheelExpanded ? '#FBD13B' : '#64748B',
             border: `1.5px solid ${wheelExpanded ? '#0F1B3D' : '#CBD5E1'}`,
           }}
         >

@@ -41,7 +41,7 @@ export function CreateYourOwnCTA({ context = 'quiz-ended', className = 'mt-6' }:
         href={CREATE_URL}
         onClick={handleClick}
         className="inline-flex items-center justify-center gap-2 w-full py-3.5 rounded-full font-black text-base transition-all hover:opacity-90"
-        style={{ background: '#F5E642', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
+        style={{ background: '#FBD13B', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}
       >
         Create your own
         <NavChevron direction="forward" className="w-5 h-5" />

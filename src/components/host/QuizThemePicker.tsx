@@ -100,7 +100,7 @@ export function QuizThemePicker({ open, onClose, value, onChange, previewNode }:
             <button
               onClick={onClose}
               className="px-4 py-2 rounded-xl text-sm font-bold transition-transform hover:scale-[1.02]"
-              style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
+              style={{ background: '#FBD13B', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
             >
               Apply & Close
             </button>

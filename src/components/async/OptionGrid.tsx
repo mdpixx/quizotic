@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ANSWER_COLORS } from '@/lib/answer-colors'
+import { ANSWER_COLORS, tileStyle } from '@/lib/answer-colors'
 import type { AsyncInputProps } from './types'
 import { optText } from './types'
 
@@ -31,7 +31,7 @@ export function OptionGrid({ question, disabled, onSubmit }: AsyncInputProps) {
               isSelected ? 'ring-4 ring-white/50 scale-[0.97]' : 'hover:brightness-110',
               disabled && !isSelected ? 'opacity-50' : '',
             ].join(' ')}
-            style={{ backgroundColor: color.hex }}
+            style={tileStyle(color)}
           >
             <span className="shrink-0 w-9 h-9 lg:w-12 lg:h-12 rounded-full bg-black/25 flex items-center justify-center text-base lg:text-xl font-bold text-white">
               {color.letter}

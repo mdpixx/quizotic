@@ -95,7 +95,7 @@ export function DrawingCanvas({ onSubmit, disabled = false, width = 360, height 
     onSubmit(canvas.toDataURL('image/jpeg', 0.7))
   }
 
-  const COLORS = ['#0F1B3D', '#EF4444', '#3B82F6', '#16A34A', '#F5E642', '#FF8A47', '#7C3AED', '#ffffff']
+  const COLORS = ['#0F1B3D', '#EF4444', '#3B82F6', '#16A34A', '#FBD13B', '#FF8A47', '#7C3AED', '#ffffff']
 
   return (
     <div className="flex flex-col gap-3 items-center w-full">
@@ -157,7 +157,7 @@ export function DrawingCanvas({ onSubmit, disabled = false, width = 360, height 
           onClick={handleSubmit}
           disabled={disabled || !hasStrokes}
           className="flex-1 py-3 rounded-xl font-black text-sm transition-all disabled:opacity-40"
-          style={{ background: hasStrokes && !disabled ? '#F5E642' : '#e5e7eb', color: '#0D0D0D' }}
+          style={{ background: hasStrokes && !disabled ? '#FBD13B' : '#e5e7eb', color: '#0D0D0D' }}
         >
           Submit Drawing
         </button>

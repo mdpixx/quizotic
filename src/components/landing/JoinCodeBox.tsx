@@ -44,7 +44,7 @@ export function JoinCodeBox({ variant }: { variant: 'nav' | 'hero' | 'menu' }) {
           minWidth: 0,
           outline: 'none',
         }}
-        onFocus={e => { e.currentTarget.style.borderColor = 'rgba(245,230,66,0.7)' }}
+        onFocus={e => { e.currentTarget.style.borderColor = 'rgba(251,209,59,0.7)' }}
         onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)' }}
       />
       <button
@@ -56,7 +56,7 @@ export function JoinCodeBox({ variant }: { variant: 'nav' | 'hero' | 'menu' }) {
           fontWeight: 700,
           fontSize: compact ? 13 : 15,
           color: '#0D0D0D',
-          background: '#F5E642',
+          background: '#FBD13B',
           border: '2px solid #0D0D0D',
           borderRadius: 10,
           padding: compact ? '6px 14px' : '10px 20px',

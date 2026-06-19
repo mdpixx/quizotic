@@ -53,7 +53,7 @@ const SLIDE_TYPES = [
         <line x1="6" y1="30" x2="34" y2="30" stroke="#E2E8F0" strokeWidth="2" strokeLinecap="round"/>
         <circle cx="10" cy="30" r="3" fill="#E2E8F0"/>
         <circle cx="20" cy="30" r="3" fill="#E2E8F0"/>
-        <circle cx="30" cy="30" r="4" fill="#F5E642" stroke="#0F1B3D" strokeWidth="2"/>
+        <circle cx="30" cy="30" r="4" fill="#FBD13B" stroke="#0F1B3D" strokeWidth="2"/>
         <text x="8" y="20" fontFamily="Space Grotesk" fontWeight="700" fontSize="10" fill="#0F1B3D">1–10</text>
       </svg>
     ),
@@ -79,7 +79,7 @@ const SLIDE_TYPES = [
         <rect x="4" y="6" width="14" height="12" rx="3" stroke="#0F1B3D" strokeWidth="2"/>
         <rect x="22" y="6" width="14" height="12" rx="3" stroke="#0F1B3D" strokeWidth="2"/>
         <rect x="4" y="22" width="14" height="12" rx="3" stroke="#E2E8F0" strokeWidth="2"/>
-        <rect x="22" y="22" width="14" height="12" rx="3" fill="#F5E642" stroke="#0F1B3D" strokeWidth="2"/>
+        <rect x="22" y="22" width="14" height="12" rx="3" fill="#FBD13B" stroke="#0F1B3D" strokeWidth="2"/>
         <polyline points="7,14 11,10 14,13" stroke="#5BC0EB" strokeWidth="1.5" fill="none"/>
       </svg>
     ),
@@ -91,7 +91,7 @@ const SLIDE_TYPES = [
     icon: (
       <svg viewBox="0 0 40 40" fill="none" width="40" height="40">
         <path d="M6 34 L16 20 L22 26 L34 8" stroke="#2D3A8C" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-        <circle cx="34" cy="8" r="3" fill="#F5E642" stroke="#0F1B3D" strokeWidth="1.5"/>
+        <circle cx="34" cy="8" r="3" fill="#FBD13B" stroke="#0F1B3D" strokeWidth="1.5"/>
         <path d="M6 34 L16 26 L22 30 L34 16" stroke="#FF8A47" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.6"/>
       </svg>
     ),
@@ -102,7 +102,7 @@ const SLIDE_TYPES = [
     back: 'Rapid-fire questions with no pause between them — questions auto-advance after each answer. Perfect for timed vocabulary, mental maths, or factual recall under pressure.',
     icon: (
       <svg viewBox="0 0 40 40" fill="none" width="40" height="40">
-        <path d="M20 4 L22 16 L30 14 L18 36 L16 24 L8 26 Z" fill="#F5E642" stroke="#0D0D0D" strokeWidth="1.5" strokeLinejoin="round"/>
+        <path d="M20 4 L22 16 L30 14 L18 36 L16 24 L8 26 Z" fill="#FBD13B" stroke="#0D0D0D" strokeWidth="1.5" strokeLinejoin="round"/>
       </svg>
     ),
   },
@@ -156,7 +156,7 @@ const SLIDE_TYPES = [
         <rect x="2" y="10" width="16" height="20" rx="4" fill="#2D3A8C"/>
         <rect x="22" y="10" width="16" height="20" rx="4" fill="#E07A5F"/>
         <text x="6" y="24" fontFamily="Space Grotesk" fontWeight="800" fontSize="10" fill="#fff">VS</text>
-        <path d="M18 20 L22 20" stroke="#F5E642" strokeWidth="2" strokeLinecap="round"/>
+        <path d="M18 20 L22 20" stroke="#FBD13B" strokeWidth="2" strokeLinecap="round"/>
       </svg>
     ),
   },
@@ -239,7 +239,7 @@ function FlipCard({ s, index }: { s: typeof SLIDE_TYPES[0]; index: number }) {
           justifyContent: 'flex-start',
           overflow: 'hidden',
         }}>
-          <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 13, color: '#F5E642', marginBottom: 8, flexShrink: 0 }}>{s.title}</div>
+          <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 13, color: '#FBD13B', marginBottom: 8, flexShrink: 0 }}>{s.title}</div>
           <div style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 11, color: 'rgba(255,255,255,0.85)', lineHeight: 1.5, overflow: 'hidden', wordBreak: 'break-word' }}>{s.back}</div>
         </div>
       </div>
@@ -253,7 +253,7 @@ export function SlideTypeShowcase() {
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <h2 style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 'clamp(28px, 3.5vw, 48px)', color: '#0F1B3D', letterSpacing: '-0.03em', textAlign: 'center', marginBottom: 16 }}>
           19 interactive slide types.{' '}
-          <span style={{ background: '#F5E642', padding: '2px 8px', borderRadius: 6 }}>And counting.</span>
+          <span style={{ background: '#FBD13B', padding: '2px 8px', borderRadius: 6 }}>And counting.</span>
         </h2>
         <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 18, color: '#555', textAlign: 'center', maxWidth: 640, margin: '0 auto clamp(28px, 7vw, 56px)', lineHeight: 1.6 }}>
           From quick polls to collaborative word clouds — every slide type is designed to keep learners actively thinking, not passively watching.

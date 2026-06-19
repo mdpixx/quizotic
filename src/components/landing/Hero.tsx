@@ -11,7 +11,7 @@ const QUESTIONS = [
 ]
 
 const OPTION_COLORS = ['#2D3A8C', '#FF8A47', '#5BC0EB', '#E07A5F']
-const CONFETTI_COLORS = ['#F5E642', '#16A34A', '#2D3A8C', '#FF8A47', '#5BC0EB', '#E07A5F', '#DC2626', '#7C3AED']
+const CONFETTI_COLORS = ['#FBD13B', '#16A34A', '#2D3A8C', '#FF8A47', '#5BC0EB', '#E07A5F', '#DC2626', '#7C3AED']
 
 function Confetti() {
   return (
@@ -170,7 +170,7 @@ function BrowserQuiz() {
 
             {/* Timer bar */}
             <div style={{ height: 4, background: '#E5E7EB', borderRadius: 2, marginBottom: 14, overflow: 'hidden' }}>
-              <div style={{ height: '100%', background: '#F5E642', borderRadius: 2, width: `${timerPct}%`, transition: 'width 1s linear' }} />
+              <div style={{ height: '100%', background: '#FBD13B', borderRadius: 2, width: `${timerPct}%`, transition: 'width 1s linear' }} />
             </div>
 
             {/* Answer buttons */}
@@ -209,7 +209,7 @@ function BrowserQuiz() {
             {/* Question progress dots */}
             <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 12 }}>
               {QUESTIONS.map((_, i) => (
-                <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: i === qIndex ? '#F5E642' : '#E5E7EB', border: i === qIndex ? '1.5px solid #0D0D0D' : 'none', transition: 'background 0.2s' }} />
+                <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: i === qIndex ? '#FBD13B' : '#E5E7EB', border: i === qIndex ? '1.5px solid #0D0D0D' : 'none', transition: 'background 0.2s' }} />
               ))}
             </div>
           </>
@@ -228,22 +228,22 @@ function BrowserQuiz() {
 export function Hero() {
   return (
     <section style={{ background: '#0F1B3D', paddingTop: 'calc(64px + env(safe-area-inset-top, 0px))', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: 0, right: 0, width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,230,66,0.06) 0%, transparent 70%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', top: 0, right: 0, width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle, rgba(251,209,59,0.06) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: 'clamp(44px, 8vw, 80px) 24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 64, alignItems: 'center' }} className="hero-inner">
         <div>
-          <div style={{ display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 12, color: '#F5E642', letterSpacing: '0.1em', border: '1px solid rgba(245,230,66,0.4)', borderRadius: 20, padding: '6px 14px', marginBottom: 24, textTransform: 'uppercase' }}>
+          <div style={{ display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 12, color: '#FBD13B', letterSpacing: '0.1em', border: '1px solid rgba(251,209,59,0.4)', borderRadius: 20, padding: '6px 14px', marginBottom: 24, textTransform: 'uppercase' }}>
             Quiz + Presentations Platform
           </div>
           <h1 style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 'clamp(40px, 5vw, 64px)', color: '#fff', letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: 20 }}>
-            Live quizzes your class joins from their <span style={{ color: '#F5E642' }}>phones</span>.
+            Live quizzes your class joins from their <span style={{ color: '#FBD13B' }}>phones</span>.
           </h1>
           <p className="prose-justify" style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 18, color: 'rgba(255,255,255,0.7)', lineHeight: 1.7, marginBottom: 36, maxWidth: 480 }}>
             Free to start, nothing to install — students join in their phone browser in seconds. And it&apos;s the only platform built on learning science: Bloom&apos;s Taxonomy, Confidence Grid &amp; Spaced Retrieval.
           </p>
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
             <Link href="/auth/signin" className="btn-hero-primary"
-              style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 17, color: '#0D0D0D', textDecoration: 'none', padding: '16px 32px', borderRadius: 12, background: '#F5E642', border: '3px solid #0D0D0D', boxShadow: '5px 5px 0 #0D0D0D', display: 'inline-block' }}>
+              style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 17, color: '#0D0D0D', textDecoration: 'none', padding: '16px 32px', borderRadius: 12, background: '#FBD13B', border: '3px solid #0D0D0D', boxShadow: '5px 5px 0 #0D0D0D', display: 'inline-block' }}>
               Start Teaching Free →
             </Link>
             <Link href="/demo" className="btn-hero-ghost"
@@ -257,7 +257,7 @@ export function Hero() {
             {['Free forever plan', 'No app — join in the browser', 'Works on slow connections', 'UPI & cards accepted'].map(item => (
               <span key={item} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.55)' }}>
                 <svg viewBox="0 0 20 20" fill="none" width="14" height="14" aria-hidden>
-                  <path d="M4 10.5l4 4 8-9" stroke="#F5E642" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M4 10.5l4 4 8-9" stroke="#FBD13B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 {item}
               </span>
