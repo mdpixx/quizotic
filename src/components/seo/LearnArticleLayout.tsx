@@ -3,6 +3,7 @@ import { JsonLd } from './JsonLd'
 import { Breadcrumbs, type BreadcrumbItem } from './Breadcrumbs'
 import { RelatedLinks } from './RelatedLinks'
 import { NextSteps } from './NextSteps'
+import { StickyNav } from '@/components/landing/StickyNav'
 import type { LearnArticle } from '@/content/learn'
 import { LEARN_CATEGORIES } from '@/content/learn'
 
@@ -115,8 +116,12 @@ export function LearnArticleLayout({ article }: LearnArticleLayoutProps) {
   return (
     <>
       <JsonLd data={jsonLdBlocks} />
+      <StickyNav />
       <article className="min-h-screen" style={{ background: '#FFFFFF' }}>
-        <div className="max-w-3xl mx-auto px-6 py-12">
+        <div
+          className="max-w-3xl mx-auto px-6 pb-12"
+          style={{ paddingTop: 'calc(64px + env(safe-area-inset-top, 0px) + 32px)' }}
+        >
           <div className="mb-6">
             <Breadcrumbs items={breadcrumbs} />
           </div>

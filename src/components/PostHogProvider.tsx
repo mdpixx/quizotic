@@ -21,6 +21,12 @@ if (typeof window !== 'undefined' && POSTHOG_KEY) {
     capture_pageview: true,
     capture_pageleave: true,
     autocapture: true,
+    // Capture unhandled errors/rejections into PostHog Error Tracking. The
+    // exception-autocapture extension is lazy-loaded and only listens to
+    // existing window error events — it never swallows or alters them, so the
+    // user experience is unchanged. Added because `$exception` was silently at
+    // zero, leaving real breakages (e.g. a dead signup path) invisible.
+    capture_exceptions: true,
     advanced_disable_feature_flags: true,
     prepare_external_dependency_script: preparePostHogDependencyScript,
     loaded: (ph) => {

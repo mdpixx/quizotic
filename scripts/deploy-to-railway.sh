@@ -61,6 +61,28 @@ rsync -a --delete \
   --exclude='exports/*users*' \
   "$SRC_DIR/" "$CACHE_DIR/"
 
+# ── Regression guard: never deploy SEO landing pages without a signup path ──
+# A stale source snapshot once reverted the StickyNav off the SEO layouts,
+# stripping the only signup path (logo / Sign in / Sign up) from every
+# Google/ChatGPT landing page — signups went to zero while traffic looked
+# healthy. Abort loudly rather than silently shipping that regression again.
+SEO_LAYOUTS=(
+  "src/components/seo/SolutionPageLayout.tsx"
+  "src/components/seo/ComparisonPageLayout.tsx"
+  "src/components/seo/UseCasePageLayout.tsx"
+  "src/components/seo/TemplatePageLayout.tsx"
+  "src/components/seo/LearnArticleLayout.tsx"
+)
+for layout in "${SEO_LAYOUTS[@]}"; do
+  if [ -f "$CACHE_DIR/$layout" ] && ! grep -q "<StickyNav />" "$CACHE_DIR/$layout"; then
+    echo "✗ ABORT: $layout has no <StickyNav /> — deploying it would ship an SEO"
+    echo "  landing page with no signup path. The source you are syncing from is"
+    echo "  stale. Reconcile the fix into the source of truth before deploying."
+    exit 1
+  fi
+done
+echo "✓ SEO signup-path guard passed."
+
 # Stage and detect changes
 cd "$CACHE_DIR"
 git add -A

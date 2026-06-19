@@ -3,6 +3,7 @@ import { JsonLd } from './JsonLd'
 import { Breadcrumbs, type BreadcrumbItem } from './Breadcrumbs'
 import { RelatedLinks, type RelatedLink } from './RelatedLinks'
 import { NextSteps } from './NextSteps'
+import { StickyNav } from '@/components/landing/StickyNav'
 
 export interface FaqItem {
   question: string
@@ -129,7 +130,7 @@ export function SolutionPageLayout({
     offers: {
       '@type': 'Offer',
       price: '0',
-      priceCurrency: 'INR',
+      priceCurrency: 'USD',
       availability: 'https://schema.org/InStock',
     },
   }
@@ -137,8 +138,12 @@ export function SolutionPageLayout({
   return (
     <>
       <JsonLd data={[faqLd, softwareLd]} />
+      <StickyNav />
       <div className="min-h-screen" style={{ background: '#FFFFFF' }}>
-        <div className="max-w-4xl mx-auto px-6 py-12">
+        <div
+          className="max-w-4xl mx-auto px-6 pb-12"
+          style={{ paddingTop: 'calc(64px + env(safe-area-inset-top, 0px) + 32px)' }}
+        >
           <div className="mb-6">
             <Breadcrumbs items={breadcrumbs} />
           </div>

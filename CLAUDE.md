@@ -41,16 +41,19 @@ Quizotic/
 ```
 
 ## Deploy to Railway (IMPORTANT)
-Railway watches the **standalone** `mdpixx/quizotic` repo, NOT the `mdpixx/claude-zector` monorepo.
-Pushing to the monorepo alone does NOT trigger a deploy.
+**`mdpixx/quizotic` is the single source of truth.** Railway watches this repo and
+deploys from its `main` branch. Make changes **directly here**, commit, and push to
+`main` — that triggers the deploy. Live at www.quizotic.live.
 
-**To deploy after making changes here:**
-```
-cd projects/Quizotic && npm run deploy
-```
-This runs `scripts/deploy-to-railway.sh` which rsyncs the folder to a local clone
-of `mdpixx/quizotic`, commits with the latest monorepo commit message, and pushes —
-triggering Railway auto-deploy. Live at www.quizotic.live.
+⚠️ **Do NOT edit these files in the `mdpixx/claude-zector` monorepo and rsync them over.**
+The old `npm run deploy` flow (`scripts/deploy-to-railway.sh`) rsynced a monorepo
+snapshot **on top of** this repo with `--delete`, which silently reverted fixes that
+were committed here directly. In June 2026 a stale sync (`@ 8745ae3`) stripped the
+`StickyNav` (logo / Sign in / Sign up) off every SEO landing page, dropping signups to
+zero while traffic looked healthy. The deploy script now hard-aborts if a sync would
+ship an SEO landing page without `<StickyNav />`, and `src/__tests__/seo-signup-path.test.ts`
+fails the build on the same regression. If you must reconcile with the monorepo, port
+changes **into** this repo, never overwrite this repo from a stale snapshot.
 
 ## Custom Server (IMPORTANT)
 Socket.io requires a persistent server — it does NOT work with Next.js serverless/edge functions.

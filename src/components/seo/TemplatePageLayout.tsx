@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { JsonLd } from './JsonLd'
 import { Breadcrumbs, type BreadcrumbItem } from './Breadcrumbs'
 import { RelatedLinks } from './RelatedLinks'
+import { StickyNav } from '@/components/landing/StickyNav'
 import {
   type QuizTemplate,
   TEMPLATE_AUDIENCES,
@@ -101,8 +102,12 @@ export function TemplatePageLayout({ template }: TemplatePageLayoutProps) {
   return (
     <>
       <JsonLd data={[quizLd, creativeWorkLd, learningResourceLd]} />
+      <StickyNav />
       <div className="min-h-screen" style={{ background: '#FFFFFF' }}>
-        <div className="max-w-4xl mx-auto px-6 py-12">
+        <div
+          className="max-w-4xl mx-auto px-6 pb-12"
+          style={{ paddingTop: 'calc(64px + env(safe-area-inset-top, 0px) + 32px)' }}
+        >
           <div className="mb-6">
             <Breadcrumbs items={breadcrumbs} />
           </div>
