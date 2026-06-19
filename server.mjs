@@ -26,6 +26,7 @@ if (process.env.SENTRY_DSN && process.env.NODE_ENV === 'production') {
 import { assignArchetype } from './src/lib/archetypes.mjs'
 import {
   CreateSessionSchema,
+  BrainstormUpvoteSchema,
   CreatePresenterSessionSchema,
   GameCodeOnlySchema,
   HostResumeSchema,
@@ -1543,6 +1544,7 @@ app.prepare().then(async () => {
           emojis: {},
           pins: [],
           rankings: [],
+          ideas: [],
         }
       }
       const agg = session.aggregates[slideIndex]
@@ -1550,6 +1552,7 @@ app.prepare().then(async () => {
       // the new fields. Fill them in so renderers can read unconditionally.
       if (!agg.responses) agg.responses = []
       if (!agg.rankings) agg.rankings = []
+      if (!agg.ideas) agg.ideas = []
       agg.total++
 
       // Accumulate based on response type. Historical bug: ranking went
@@ -1566,6 +1569,13 @@ app.prepare().then(async () => {
         // session can't blow memory.
         const text = String(response).trim().slice(0, 500)
         if (text && agg.responses.length < 200) agg.responses.push(text)
+      } else if (slide?.type === 'brainstorm') {
+        // Idea board — each submission becomes an upvotable card. Store an id
+        // so participants can upvote specific ideas. Cap at 120 ideas/slide.
+        const text = String(response).trim().slice(0, 200)
+        if (text && agg.ideas.length < 120) {
+          agg.ideas.push({ id: `${socket.id}-${slideIndex}-${agg.ideas.length}`, text, votes: 0 })
+        }
       } else if (slide?.type === 'ranking') {
         // Store the full ordering. Each entry is [optionIndex, ...] meaning
         // "first choice, second choice, …". Renderer can compute Borda count
@@ -1606,6 +1616,43 @@ app.prepare().then(async () => {
         // on_click and private: only host sees aggregates until revealed
         io.to(`host:${gameCode}`).emit('presenter_aggregate_updated', agg)
       }
+    })
+
+    // Brainstorm upvote — bump the vote count on a specific idea card. One
+    // upvote per idea per participant; can't upvote your own idea. Re-broadcasts
+    // the aggregate so every card reorders live.
+    socket.on('upvote_brainstorm', (rawPayload, ackCallback) => {
+      const parsed = validateSocketPayload(socket, BrainstormUpvoteSchema, rawPayload, undefined, 'upvote_brainstorm')
+      if (!parsed) return
+      const { gameCode, slideIndex, ideaId, participantId: incomingPid } = parsed
+      const session = sessions.get(gameCode)
+      const ack = typeof ackCallback === 'function' ? ackCallback : null
+      if (!session || session.type !== 'presenter') { if (ack) ack({ accepted: false }); return }
+      if (!allowRate(`${socket.id}:brainstorm_upvote`, 60)) { if (ack) ack({ accepted: false, reason: 'rate_limited' }); return }
+
+      let participant = session.participants.get(socket.id)
+      if (!participant && incomingPid && session.participantsById) {
+        participant = session.participantsById.get(incomingPid) || null
+      }
+      if (!participant) { if (ack) ack({ accepted: false, reason: 'unknown_participant' }); return }
+
+      const agg = session.aggregates[slideIndex]
+      if (!agg || !Array.isArray(agg.ideas)) { if (ack) ack({ accepted: false }); return }
+      const idea = agg.ideas.find(it => it.id === ideaId)
+      if (!idea) { if (ack) ack({ accepted: false }); return }
+      // Can't upvote your own submission (idea id is prefixed with the author's socket id).
+      if (typeof idea.id === 'string' && idea.id.startsWith(`${socket.id}-`)) { if (ack) ack({ accepted: false, reason: 'own_idea' }); return }
+
+      if (!participant.upvotedIdeas) participant.upvotedIdeas = {}
+      const slideVotes = participant.upvotedIdeas[slideIndex] || (participant.upvotedIdeas[slideIndex] = {})
+      if (slideVotes[ideaId]) { if (ack) ack({ accepted: false, reason: 'already_upvoted' }); return }
+      slideVotes[ideaId] = true
+      idea.votes = (idea.votes || 0) + 1
+
+      if (ack) ack({ accepted: true })
+      const responseMode = session.presentationData.slides[slideIndex]?.responseMode || 'instant'
+      const room = responseMode === 'instant' ? `session:${gameCode}` : `host:${gameCode}`
+      io.to(room).emit('presenter_aggregate_updated', agg)
     })
 
     // Host reveals results to participants (on_click mode)

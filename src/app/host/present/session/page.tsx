@@ -32,6 +32,7 @@ interface AggregateData {
   emojis?: Record<string, number>   // emoji pulse
   pins?: { x: number; y: number }[] // pinpoint / grid_2x2
   rankings?: number[][]             // ranking (each entry is [first, second, …] option indices)
+  ideas?: { id: string; text: string; votes: number }[]  // brainstorm (upvotable idea cards)
 }
 
 interface FloatingVoter { id: string; x: number; color: string; emoji: string }
@@ -435,6 +436,49 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
             ) : (
               showResults && (
                 <p className="text-2xl opacity-40">Waiting for responses…</p>
+              )
+            )}
+          </div>
+        </div>
+      )
+    }
+
+    case 'brainstorm': {
+      // Idea board — cards sized + sorted by upvotes (highest first).
+      const ideas = [...(aggregate.ideas ?? [])].sort((a, b) => b.votes - a.votes)
+      const maxVotes = ideas.reduce((m, it) => Math.max(m, it.votes), 0)
+      const palette = ['#7C3AED', '#3B82F6', '#10B981', '#F59E0B', '#EC4899', '#06B6D4']
+      return (
+        <div className="flex flex-col h-full gap-4">
+          <h2 className="leading-snug flex-shrink-0 break-words" style={{ ...headingStyle, fontSize: 'clamp(22px, 3.4cqw, 44px)' }}>
+            {slide.question || <span className="opacity-30">Brainstorm prompt...</span>}
+          </h2>
+          <SlideImageFrame url={slide.contentImageUrl} />
+          <div className="flex-1 flex items-start justify-center overflow-hidden p-2">
+            {showResults && ideas.length > 0 ? (
+              <div className="flex flex-wrap gap-3 content-start justify-center max-h-full overflow-auto">
+                {ideas.map((idea, i) => {
+                  const color = palette[i % palette.length]
+                  const isTop = idea.votes > 0 && idea.votes === maxVotes
+                  return (
+                    <div
+                      key={idea.id}
+                      className="flex items-center gap-3 rounded-2xl px-4 py-3 font-semibold max-w-[45%] break-words transition-all"
+                      style={{
+                        background: `${color}14`, color,
+                        border: `${isTop ? 2 : 1}px solid ${color}${isTop ? '' : '40'}`,
+                        fontSize: 'clamp(13px, 1.4cqw, 20px)',
+                      }}
+                    >
+                      <span className="flex items-center gap-1 font-black tabular-nums flex-shrink-0">▲ {idea.votes}</span>
+                      <span>{idea.text}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              showResults && (
+                <p className="text-2xl opacity-40">Waiting for ideas…</p>
               )
             )}
           </div>

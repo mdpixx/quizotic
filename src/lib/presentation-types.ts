@@ -7,6 +7,7 @@ export type SlideType =
   | 'ranking'
   | 'image_choice'
   | 'scale_100'
+  | 'brainstorm'
   // Spatial / Visual
   | 'pinpoint'
   | 'grid_2x2'
@@ -38,6 +39,7 @@ export const SLIDE_TYPE_META: Record<SlideType, {
   ranking:         { label: 'Ranking',           category: 'interactive', color: '#4F46E5', bg: '#EEF2FF', hasAudienceInput: true },
   image_choice:    { label: 'Image Choice',      category: 'interactive', color: '#0891B2', bg: '#ECFEFF', hasAudienceInput: true },
   scale_100:       { label: '100-Point Scale',   category: 'interactive', color: '#16A34A', bg: '#F0FDF4', hasAudienceInput: true },
+  brainstorm:      { label: 'Brainstorm',         category: 'interactive', color: '#7C3AED', bg: '#F5F3FF', hasAudienceInput: true },
   pinpoint:        { label: 'Pinpoint',          category: 'spatial',     color: '#9333EA', bg: '#FAF5FF', hasAudienceInput: true },
   grid_2x2:        { label: '2×2 Grid',          category: 'spatial',     color: '#0D9488', bg: '#F0FDFA', hasAudienceInput: true },
   wheel:           { label: 'Wheel of Names',    category: 'spatial',     color: '#F59E0B', bg: '#FFFBEB', hasAudienceInput: false },
@@ -82,6 +84,7 @@ const AUTO_SHOW_RESULT_TYPES: readonly SlideType[] = [
   'rating_scale',
   'ranking',
   'scale_100',
+  'brainstorm',
   'emoji_pulse',
   'pinpoint',
   'grid_2x2',
@@ -107,6 +110,7 @@ export function getSlideBg(slide: { type: SlideType; bgColor?: string }): string
     case 'word_cloud':
     case 'rating_scale':
     case 'ranking': return '#FFFFFF'
+    case 'brainstorm': return '#F5F3FF'
     case 'image_choice': return '#E0F2FE'
     case 'scale_100': return '#DCFCE7'
     case 'pinpoint': return '#F3E8FF'
@@ -209,6 +213,13 @@ export interface Scale100Slide extends SlideBase {
   maxLabel: string
 }
 
+export interface BrainstormSlide extends SlideBase {
+  type: 'brainstorm'
+  question: string
+  maxChars: number
+  category?: string   // optional framing hint shown to the audience
+}
+
 export interface PinpointSlide extends SlideBase {
   type: 'pinpoint'
   question: string
@@ -291,7 +302,7 @@ export interface ImageSlide extends SlideBase {
 
 export type Slide =
   | MultipleChoiceSlide | OpenTextSlide | WordCloudSlide | RatingScaleSlide
-  | RankingSlide | ImageChoiceSlide | Scale100Slide | PinpointSlide
+  | RankingSlide | ImageChoiceSlide | Scale100Slide | BrainstormSlide | PinpointSlide
   | Grid2x2Slide | WheelSlide | WordDuelSlide | LiveRaceSlide
   | EmojiPulseSlide | QuickFireSlide | TitleSlide | BulletsSlide
   | QuoteSlide | VideoSlide | ImageSlide
@@ -317,6 +328,7 @@ export function makeSlide(type: SlideType): Slide {
     case 'ranking':         return { id, type, question: '', items: ['', '', ''] }
     case 'image_choice':    return { id, type, question: '', options: ['', '', '', ''], imageUrls: ['', '', '', ''] }
     case 'scale_100':       return { id, type, question: '', minLabel: 'Disagree', maxLabel: 'Agree' }
+    case 'brainstorm':      return { id, type, question: '', maxChars: 120 }
     case 'pinpoint':        return { id, type, question: '' }
     case 'grid_2x2':        return { id, type, question: '', xLabel: 'X Axis', yLabel: 'Y Axis', xMin: 'Low', xMax: 'High', yMin: 'Low', yMax: 'High' }
     case 'wheel':           return { id, type, title: 'Pick a winner', names: ['', '', ''] }

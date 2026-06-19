@@ -93,6 +93,13 @@ export const PresenterResponseSchema = z.object({
   participantId: z.string().uuid().optional(),
 })
 
+export const BrainstormUpvoteSchema = z.object({
+  gameCode: z.string().min(4).max(10),
+  slideIndex: z.number().int().min(0).max(500),
+  ideaId: z.string().min(1).max(120),
+  participantId: z.string().uuid().optional(),
+})
+
 export const CreatePresenterSessionSchema = z.object({
   presentationData: z.object({
     id: z.string().optional(),

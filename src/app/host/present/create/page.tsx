@@ -33,6 +33,12 @@ const SLIDE_ICONS: Record<SlideType, React.ReactNode> = {
       <path d="M4 6h12M4 10h8M4 14h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
     </svg>
   ),
+  brainstorm: (
+    <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
+      <path d="M10 2.5a5 5 0 00-3 9v1.5a1 1 0 001 1h4a1 1 0 001-1V11.5a5 5 0 00-3-9z" fill="currentColor" fillOpacity="0.18" stroke="currentColor" strokeWidth="1.4"/>
+      <path d="M8 17h4M8.5 14.5h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+    </svg>
+  ),
   word_cloud: (
     <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
       <ellipse cx="8" cy="11" rx="5" ry="3.5" fill="currentColor" fillOpacity="0.2" stroke="currentColor" strokeWidth="1.3"/>
@@ -154,6 +160,7 @@ const SLIDE_ICONS: Record<SlideType, React.ReactNode> = {
 const SLIDE_TYPE_DESCRIPTIONS: Record<SlideType, string> = {
   multiple_choice: 'Audience picks one answer from up to 6 options. Show the correct answer live.',
   open_text: 'Audience types free-form responses. Great for collecting ideas or feedback.',
+  brainstorm: 'Audience submits ideas as cards and upvotes the best ones — they reorder live.',
   word_cloud: 'Audience submits words that form a real-time word cloud on screen.',
   rating_scale: 'Audience rates on a scale (1-5, 1-7, or 1-10). Perfect for sentiment checks.',
   ranking: 'Audience ranks items in their preferred order. Compare group priorities.',
@@ -464,6 +471,25 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
               <div key={i} className="rounded-xl px-3 py-2 text-[10px] font-medium max-w-[45%]"
                 style={{ background: `${r.color}12`, color: r.color, border: `1px solid ${r.color}30` }}>
                 {r.text}
+              </div>
+            ))}
+          </div>
+        )
+      }
+
+      case 'brainstorm': {
+        const sampleIdeas = [
+          { text: 'Faster onboarding', votes: 12, color: '#7C3AED' },
+          { text: 'Mentor program', votes: 8, color: '#3B82F6' },
+          { text: 'Better docs', votes: 5, color: '#10B981' },
+        ]
+        return (
+          <div className="w-full flex flex-wrap gap-2 justify-center">
+            {sampleIdeas.map((idea, i) => (
+              <div key={i} className="flex items-center gap-2 rounded-xl px-3 py-2 text-[10px] font-semibold"
+                style={{ background: `${idea.color}12`, color: idea.color, border: `1px solid ${idea.color}30` }}>
+                <span>▲ {idea.votes}</span>
+                <span>{idea.text}</span>
               </div>
             ))}
           </div>
@@ -790,6 +816,26 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
         <div>
           <label className={labelClass} style={labelStyle}>Max characters per response</label>
           <input type="number" className={inputClass} style={inputStyle} value={slide.maxChars} min={50} max={500}
+            onChange={e => update({ maxChars: Number(e.target.value) })} />
+        </div>
+      </div>
+    )
+
+    case 'brainstorm': return (
+      <div className="space-y-4">
+        <div>
+          <label className={labelClass} style={labelStyle}>Prompt</label>
+          <textarea className={inputClass} style={inputStyle} rows={3} value={slide.question}
+            onChange={e => update({ question: e.target.value })} placeholder="What ideas should we explore?" />
+        </div>
+        <div>
+          <label className={labelClass} style={labelStyle}>Category hint (optional)</label>
+          <input className={inputClass} style={inputStyle} value={slide.category ?? ''}
+            onChange={e => update({ category: e.target.value })} placeholder="e.g. Quick wins" />
+        </div>
+        <div>
+          <label className={labelClass} style={labelStyle}>Max characters per idea</label>
+          <input type="number" className={inputClass} style={inputStyle} value={slide.maxChars} min={20} max={200}
             onChange={e => update({ maxChars: Number(e.target.value) })} />
         </div>
       </div>

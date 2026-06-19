@@ -59,6 +59,7 @@ interface PresenterAggregateData {
   emojis?: Record<string, number>
   pins?: { x: number; y: number }[]
   rankings?: number[][]             // ranking — full orderings
+  ideas?: { id: string; text: string; votes: number }[]  // brainstorm — upvotable cards
 }
 
 type QuestionOption = string | { text: string; imageUrl?: string }
@@ -524,6 +525,8 @@ function JoinPageInner() {
   const [quickFireLeft, setQuickFireLeft] = useState<number | null>(null)
   const quickFireTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [presenterAggregate, setPresenterAggregate] = useState<PresenterAggregateData>({ total: 0 })
+  // Brainstorm: ids of ideas this participant has upvoted (disables the button).
+  const [upvotedIdeas, setUpvotedIdeas] = useState<Set<string>>(new Set())
   const [rankingOrder, setRankingOrder] = useState<number[]>([])
   // Matching: participant's chosen right-column value per left item (by index).
   const [matchChoices, setMatchChoices] = useState<string[]>([])
@@ -1099,6 +1102,7 @@ function JoinPageInner() {
       setPresenterVoted(false)
       presenterVotedRef.current = false
       setPresenterAggregate({ total: 0 })
+      setUpvotedIdeas(new Set())
       // Reset ranking order based on new slide's options
       {
         const slideRec = slide as Record<string, unknown> | undefined
@@ -2785,13 +2789,13 @@ function JoinPageInner() {
             )
           })()}
 
-          {(slide.type === 'word_cloud' || slide.type === 'open_text') && (
+          {(slide.type === 'word_cloud' || slide.type === 'open_text' || slide.type === 'brainstorm') && (
             <div className="space-y-4">
               <input
                 type="text"
-                placeholder={slide.type === 'word_cloud' ? `Type ${(slide.maxWords || 1) === 1 ? 'a word' : `up to ${slide.maxWords} words`}...` : 'Type your response...'}
+                placeholder={slide.type === 'word_cloud' ? `Type ${(slide.maxWords || 1) === 1 ? 'a word' : `up to ${slide.maxWords} words`}...` : slide.type === 'brainstorm' ? 'Share an idea...' : 'Type your response...'}
                 id="presenter-text-input"
-                maxLength={slide.type === 'word_cloud' ? 50 : 300}
+                maxLength={slide.type === 'word_cloud' ? 50 : slide.type === 'brainstorm' ? (slide.maxChars || 120) : 300}
                 className="w-full rounded-xl px-5 py-4 text-xl outline-none focus:ring-2 focus:ring-blue-400"
                 style={{ background: 'rgba(255,255,255,0.08)', border: '1.5px solid rgba(255,255,255,0.15)', color: '#fff' }}
               />
@@ -3052,6 +3056,46 @@ function JoinPageInner() {
                   style={{ background: `${color}24`, color, border: `1px solid ${color}55` }}
                 >
                   {text}
+                </div>
+              )
+            })}
+          </div>
+        )
+      }
+
+      // Brainstorm — upvotable idea cards (tap ▲ to boost). Sorted by votes.
+      if (slideType === 'brainstorm') {
+        const ideas = [...(agg.ideas ?? [])].sort((a, b) => b.votes - a.votes)
+        if (ideas.length === 0) {
+          return <p className="text-lg text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>Waiting for ideas...</p>
+        }
+        function upvote(ideaId: string) {
+          if (upvotedIdeas.has(ideaId)) return
+          setUpvotedIdeas(prev => new Set(prev).add(ideaId))
+          socketRef.current?.emit('upvote_brainstorm', {
+            gameCode: gameCodeRef.current,
+            slideIndex: presenterSlideIndex,
+            ideaId,
+          })
+        }
+        return (
+          <div className="flex flex-col gap-2 w-full max-h-full overflow-auto">
+            {ideas.map(idea => {
+              const voted = upvotedIdeas.has(idea.id)
+              return (
+                <div key={idea.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5"
+                  style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                  <button
+                    onClick={() => upvote(idea.id)}
+                    disabled={voted}
+                    aria-label={`Upvote: ${idea.text}`}
+                    className="flex flex-col items-center justify-center rounded-lg px-2.5 py-1.5 font-black tabular-nums transition-all active:scale-90 disabled:opacity-60"
+                    style={{ background: voted ? '#4F46E5' : 'rgba(255,255,255,0.12)', color: '#fff', minWidth: 44 }}
+                  >
+                    <span className="text-xs leading-none">▲</span>
+                    <span className="text-sm leading-tight">{idea.votes}</span>
+                  </button>
+                  <span className="flex-1 text-sm font-medium break-words" style={{ color: 'white' }}>{idea.text}</span>
                 </div>
               )
             })}
