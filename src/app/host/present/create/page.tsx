@@ -432,8 +432,10 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
         const colors = ['#3B82F6', '#F59E0B', '#EF4444', '#10B981', '#8B5CF6']
         return (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-            <div className="relative flex-1 min-h-0 w-full flex items-center justify-center">
-              <div className="relative" style={{ width: '70%', maxWidth: 280, aspectRatio: '1' }}>
+            <div className="relative flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden">
+              {/* Height-driven sizing keeps the wheel a circle that fits inside
+                  the card — width-driven sizing overflowed tall on wide cards. */}
+              <div className="relative" style={{ height: '92%', maxWidth: '100%', aspectRatio: '1' }}>
                 <div className="w-full h-full rounded-full overflow-hidden shadow-lg" style={{
                   background: `conic-gradient(${names.map((_, i) => `${colors[i % 5]} ${(i / names.length) * 100}% ${((i + 1) / names.length) * 100}%`).join(', ')})`,
                 }} />

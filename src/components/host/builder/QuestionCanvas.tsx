@@ -160,8 +160,8 @@ function TypeDropdown({ type, onChange }: { type: QuestionType; onChange: (t: Qu
       </button>
       {open && (
         <div
-          className="absolute top-full left-0 mt-1 z-50 rounded-xl shadow-xl border bg-white overflow-hidden"
-          style={{ width: 260, borderColor: '#E5E7EB' }}
+          className="absolute top-full left-0 mt-1 z-50 rounded-xl shadow-xl border bg-white overflow-y-auto overscroll-contain"
+          style={{ width: 260, maxHeight: 'min(60vh, 360px)', borderColor: '#E5E7EB' }}
         >
           {QUESTION_TYPE_GROUPS.map(group => (
             <div key={group.label}>
