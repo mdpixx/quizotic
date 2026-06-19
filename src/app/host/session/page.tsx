@@ -19,6 +19,7 @@ import { ReflectionInsights } from '@/components/ReflectionInsights'
 import { getOptionText, getOptionImage, isScoredQuestion, getEffectiveOptions } from '@/lib/quiz-types'
 import { ANSWER_COLORS, ANSWER_LETTERS } from '@/lib/answer-colors'
 import { QuestionResultsView } from '@/components/results/QuestionResultsView'
+import { QaModerationPanel, type QaModerationState, type QaStatus } from '@/components/host/QaModerationPanel'
 import { CircularTimer } from '@/components/CircularTimer'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
 import { BrandWatermark } from '@/components/BrandWatermark'
@@ -375,6 +376,9 @@ export default function SessionPage() {
   // new question via question_show. Populated by text_submission events.
   const [wordcloudWords, setWordcloudWords] = useState<string[]>([])
   const [qaEntries, setQaEntries] = useState<Array<{ name: string; archetype: string; text: string; at: number }>>([])
+  // Host-side Q&A moderation: status + curated upvotes keyed by `${at}-${name}`.
+  const [qaModeration, setQaModeration] = useState<Record<string, QaModerationState>>({})
+  const [qaPanelOpen, setQaPanelOpen] = useState(false)
   const [openendedEntries, setOpenendedEntries] = useState<Array<{ name: string; archetype: string; text: string; at: number }>>([])
   const [ratingValues, setRatingValues] = useState<number[]>([])
   // Running aggregate for non-scored questions — fed by `live_responses` while
@@ -581,6 +585,8 @@ export default function SessionPage() {
       setDrawings([]) // reset drawing gallery for each new question
       setWordcloudWords([])
       setQaEntries([])
+      setQaModeration({})
+      setQaPanelOpen(false)
       setOpenendedEntries([])
       setRatingValues([])
       setLiveStat(null)
@@ -1877,8 +1883,10 @@ export default function SessionPage() {
             // mixed rooms, keeps the screen calm. Host reviews individual
             // answers post-session in the SessionReport.
             (() => {
-              const count = currentQuestion.type === 'qa' ? qaEntries.length : openendedEntries.length
+              const isQa = currentQuestion.type === 'qa'
+              const count = isQa ? qaEntries.length : openendedEntries.length
               return (
+                <>
                 <div className="max-w-3xl mx-auto w-full flex-1 min-h-0 bg-white rounded-2xl border border-gray-200 p-8 md:p-10 host-answer-stage host-text-stage flex flex-col items-center justify-center text-center">
                   <p className="text-xs font-black uppercase tracking-[0.22em] text-gray-400 mb-4">
                     Answers Collected
@@ -1902,10 +1910,43 @@ export default function SessionPage() {
                       />
                     </div>
                   )}
-                  <p className="mt-5 text-xs font-medium text-gray-400 max-w-md">
-                    Individual responses stay private here — review them in the post-session report.
-                  </p>
+                  {isQa ? (
+                    <button
+                      onClick={() => setQaPanelOpen(true)}
+                      className="mt-6 px-5 py-2.5 rounded-xl text-sm font-bold transition-all hover:scale-[1.02] active:scale-95"
+                      style={{ background: '#0F1B3D', color: '#fff' }}
+                    >
+                      Moderate questions ({count})
+                    </button>
+                  ) : (
+                    <p className="mt-5 text-xs font-medium text-gray-400 max-w-md">
+                      Individual responses stay private here — review them in the post-session report.
+                    </p>
+                  )}
                 </div>
+                {isQa && qaPanelOpen && (
+                  <QaModerationPanel
+                    entries={qaEntries}
+                    moderation={qaModeration}
+                    onClose={() => setQaPanelOpen(false)}
+                    onUpvote={key => setQaModeration(prev => ({
+                      ...prev,
+                      [key]: { status: prev[key]?.status ?? 'pending', votes: (prev[key]?.votes ?? 0) + 1 },
+                    }))}
+                    onSetStatus={(key, status: QaStatus) => setQaModeration(prev => {
+                      // Only one question can hold the spotlight at a time.
+                      const next = { ...prev }
+                      if (status === 'spotlight') {
+                        for (const k of Object.keys(next)) {
+                          if (next[k].status === 'spotlight') next[k] = { ...next[k], status: 'pending' }
+                        }
+                      }
+                      next[key] = { status, votes: prev[key]?.votes ?? 0 }
+                      return next
+                    })}
+                  />
+                )}
+                </>
               )
             })()
           ) : (
