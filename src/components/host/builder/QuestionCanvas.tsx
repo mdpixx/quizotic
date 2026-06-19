@@ -419,10 +419,10 @@ export function QuestionCanvas({
   )
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-2xl overflow-hidden" style={{ boxShadow: '0 4px 32px rgba(15,27,61,0.08)', border: '1px solid #E5E7EB' }}>
+    <div className="flex flex-col h-full bg-white rounded-2xl" style={{ boxShadow: '0 4px 32px rgba(15,27,61,0.08)', border: '1px solid #E5E7EB' }}>
 
       {/* ── Canvas header: type + timer + points + gear + actions ─────────── */}
-      <div className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 border-b sm:gap-2 sm:px-4" style={{ borderColor: '#F3F4F6', background: '#FAFAFA' }}>
+      <div className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 border-b sm:gap-2 sm:px-4 rounded-t-2xl" style={{ borderColor: '#F3F4F6', background: '#FAFAFA' }}>
         {/* Left cluster: type + timer + points. Shrinks (type label ellipsizes) so the
             action icons on the right are never pushed off-screen on narrow phones. */}
         <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
@@ -797,7 +797,7 @@ export function QuestionCanvas({
 
       {/* ── Footer: branding (free plan) ──────────────────────────────────── */}
       {plan === 'free' && (
-        <div className="flex-shrink-0 border-t px-4 py-2 flex justify-end" style={{ borderColor: '#F3F4F6' }}>
+        <div className="flex-shrink-0 border-t px-4 py-2 flex justify-end rounded-b-2xl" style={{ borderColor: '#F3F4F6' }}>
           <span className="text-[9px] font-bold opacity-30" style={{ color: '#0F1B3D' }}>quizotic.live</span>
         </div>
       )}
