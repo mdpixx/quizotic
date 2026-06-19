@@ -62,7 +62,7 @@ export default function GamifiedLearningPage() {
         { title: 'Interactive Presentation', href: '/interactive-presentation', description: 'Add gamified moments to your slide deck.' },
         { title: 'AI Quiz Generator', href: '/ai-quiz-generator', description: 'Generate Bloom-tagged questions from your content.' },
         { title: 'All features', href: '/features', description: 'Full list of question types, modes, and reports.' },
-        { title: 'Pricing', href: '/pricing', description: 'Free to start — simple plans as we grow.' },
+        { title: 'Pricing', href: '/pricing', description: 'Free tier, Pro, and Team plans in INR.' },
       ]}
       ctaLabel="Try gamified learning free →"
     />

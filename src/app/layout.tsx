@@ -25,14 +25,14 @@ export const metadata: Metadata = {
     template: '%s | Quizotic',
   },
   description:
-    'Create live quizzes and interactive presentations in seconds. AI-powered quiz generation, real-time leaderboards, word clouds, polls. Free to start. No app install needed.',
+    'Create live quizzes and interactive presentations in seconds. AI-powered quiz generation, real-time leaderboards, word clouds, polls. Free to start, INR billing, UPI payments. No app install needed.',
   keywords: [
-    'live quiz', 'quiz platform', 'kahoot alternative',
+    'live quiz', 'quiz platform', 'kahoot alternative', 'kahoot alternative india',
     'mentimeter alternative', 'interactive presentation', 'classroom quiz',
     'AI quiz generator', 'live polling', 'word cloud', 'quiz app',
     'free quiz maker', 'online quiz', 'quiz for teachers', 'quiz for training',
-    'interactive classroom', 'real-time quiz',
-    'quizotic', 'live quiz platform',
+    'interactive classroom', 'real-time quiz', 'UPI quiz platform',
+    'quizotic', 'live quiz platform india',
   ],
   authors: [{ name: 'Quizotic' }],
   creator: 'Quizotic',
@@ -40,12 +40,12 @@ export const metadata: Metadata = {
   alternates: { canonical: '/' },
   openGraph: {
     type: 'website',
-    locale: 'en_US',
+    locale: 'en_IN',
     url: 'https://www.quizotic.live',
     siteName: 'Quizotic',
     title: 'Quizotic — Free Live Quiz & Presentation Platform',
     description:
-      'Create live quizzes and interactive presentations in seconds. AI-powered, real-time, free to start. No app install.',
+      'Create live quizzes and interactive presentations in seconds. AI-powered, real-time, INR billing. No app install.',
   },
   twitter: {
     card: 'summary_large_image',

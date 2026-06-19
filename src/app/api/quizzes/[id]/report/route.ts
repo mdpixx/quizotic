@@ -155,11 +155,34 @@ export async function GET(req: NextRequest, { params }: Params) {
         ? Math.round((correctCount / totalResponses) * 100)
         : null
 
+      // Resolve the human-readable correct answer for the answer key (scored types only).
+      const letter = (idx: number) => String.fromCharCode(65 + idx)
+      const optAt = (idx: number) => optLabels[idx] !== undefined ? optLabels[idx] : String(idx)
+      let correctIndex: number | null = null
+      let correctAnswerText: string | null = null
+      if (isScored) {
+        if (q.type === 'multiselect' && Array.isArray(q.correctAnswers) && q.correctAnswers.length > 0) {
+          const idxs = q.correctAnswers.map(s => parseInt(String(s), 10)).filter(n => Number.isInteger(n))
+          correctAnswerText = idxs.map(n => `${letter(n)}. ${optAt(n)}`).join(', ')
+        } else if (q.type === 'ranking' && Array.isArray(q.correctOrder) && q.correctOrder.length > 0) {
+          const idxs = q.correctOrder.map(s => parseInt(String(s), 10))
+          correctAnswerText = idxs.map(n => optAt(n)).join(' → ')
+        } else if (q.correctAnswer != null && q.correctAnswer !== '') {
+          const n = parseInt(String(q.correctAnswer), 10)
+          if (Number.isInteger(n)) {
+            correctIndex = n
+            correctAnswerText = `${letter(n)}. ${optAt(n)}`
+          }
+        }
+      }
+
       const base: Partial<QuestionStat> = {
         index: i,
         text: q.text,
         type: q.type,
         correctPct,
+        correctIndex,
+        correctAnswerText,
         confidenceGrid: null,
         bloomsLevel: q.bloomsLevel ?? null,
         explanation: q.explanation ?? null,
@@ -270,6 +293,8 @@ export async function GET(req: NextRequest, { params }: Params) {
 
       // Build an attendeeId → attendee lookup
       const attendeeById = new Map((attendees as AttendeeRow[]).map(a => [a.id, a]))
+      // questionIndex → resolved correct answer text (reused from the stats above)
+      const correctByIndex = new Map(questionStats.map(s => [s.index, s.correctAnswerText ?? '']))
 
       // Build per-attendee-question rows: one row per (attendee, question) answer
       const dataRows: string[] = []
@@ -288,6 +313,7 @@ export async function GET(req: NextRequest, { params }: Params) {
           csvField(a.questionIndex + 1),
           csvField(questionText),
           csvField(answerText),
+          csvField(correctByIndex.get(a.questionIndex) ?? ''),
           csvField(a.isCorrect === null ? '' : String(a.isCorrect)),
           csvField(a.points),
           csvField(a.timeMs),
@@ -295,7 +321,7 @@ export async function GET(req: NextRequest, { params }: Params) {
         ].join(','))
       }
 
-      const headerRow = 'Name,QuestionIndex,QuestionText,Answer,IsCorrect,Points,TimeMs,SubmittedAt'
+      const headerRow = 'Name,QuestionIndex,QuestionText,Answer,CorrectAnswer,IsCorrect,Points,TimeMs,SubmittedAt'
       const csvBody = [headerRow, ...dataRows].join('\n')
 
       return new Response(csvBody, {

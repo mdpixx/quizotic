@@ -53,6 +53,18 @@ function fmt(sec: number | null): string {
   return m > 0 ? `${m}m ${s}s` : `${s}s`
 }
 
+// Build a plain-text answer key that pastes cleanly into WhatsApp / email / Sheets.
+function buildAnswerKeyText(title: string, stats: QuestionStat[]): string {
+  const lines: string[] = [`${title} — Answer Key`, '']
+  stats.forEach(s => {
+    lines.push(`${s.index + 1}. ${s.text}`)
+    lines.push(`   ✓ ${s.correctAnswerText ?? '—'}`)
+    if (s.explanation) lines.push(`   ${s.explanation}`)
+    lines.push('')
+  })
+  return lines.join('\n').trim()
+}
+
 function BarChart({ dist, labels, total, correctIdx }: { dist: number[]; labels: string[]; total: number; correctIdx?: number }) {
   const max = Math.max(...dist, 1)
   return (
@@ -148,6 +160,7 @@ function QuestionStatCard({ stat }: { stat: QuestionStat }) {
           dist={stat.optionDistribution}
           labels={stat.options}
           total={stat.totalResponses ?? 0}
+          correctIdx={stat.correctIndex ?? undefined}
         />
       )}
       {renderer === 'cloud' && stat.wordFrequencies && (
@@ -267,6 +280,7 @@ export default function AsyncReportPage() {
   const [error, setError] = useState<string | null>(null)
   const [isPro, setIsPro] = useState(false)
   const [csvLoading, setCsvLoading] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     fetch(`/api/quizzes/${id}/report`)
@@ -302,6 +316,7 @@ export default function AsyncReportPage() {
   )
 
   const { summary, leaderboard, questionStats, title, subject } = data
+  const scoredStats = questionStats.filter(s => s.correctAnswerText != null)
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 px-4 py-6">
@@ -396,6 +411,50 @@ export default function AsyncReportPage() {
             {questionStats.map((stat, i) => (
               <QuestionStatCard key={i} stat={stat} />
             ))}
+          </div>
+        </section>
+      )}
+
+      {/* Answer Key */}
+      {scoredStats.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-slate-950">Answer Key</h2>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(buildAnswerKeyText(title, scoredStats))
+                setCopied(true)
+                setTimeout(() => setCopied(false), 2000)
+              }}
+              className="text-sm font-medium px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"
+            >
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-left text-slate-500">
+                  <th className="py-2 px-3 font-medium w-10">#</th>
+                  <th className="py-2 px-3 font-medium">Question</th>
+                  <th className="py-2 px-3 font-medium text-emerald-700">Correct Answer</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {scoredStats.map((s, i) => (
+                  <tr key={s.index} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
+                    <td className="py-3 px-3 text-slate-500 font-medium align-top">{s.index + 1}</td>
+                    <td className="py-3 px-3 align-top">
+                      <p className="text-slate-900">{s.text}</p>
+                      {s.explanation && (
+                        <p className="text-xs text-slate-500 mt-1">{s.explanation}</p>
+                      )}
+                    </td>
+                    <td className="py-3 px-3 font-semibold text-emerald-700 align-top">{s.correctAnswerText}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
       )}

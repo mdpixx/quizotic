@@ -10,8 +10,8 @@ const FAQS = [
     answer: 'Quizotic supports 11 question types (vs Kahoot\'s 4), includes AI quiz generation on the free plan, and adds Bloom\'s Taxonomy tagging and Confidence Grid diagnostics. Unlike Slido, it includes a full competitive quiz engine. Unlike Quizizz, it pairs AI generation with per-student Bloom-level reporting so you can see exactly where learners need work.',
   },
   {
-    question: 'Can I generate quizzes from a PDF or textbook chapter?',
-    answer: 'Yes. Upload any text-based PDF — textbook chapter, coaching handout, corporate compliance document — and get a Bloom-tagged, ready-to-launch quiz in under 60 seconds. The AI generator also offers class/subject/chapter presets so you don\'t even need to upload a PDF.',
+    question: 'Can I generate quizzes from a PDF or NCERT chapter?',
+    answer: 'Yes. Upload any text-based PDF — NCERT chapter, coaching handout, corporate compliance document — and get a Bloom-tagged, ready-to-launch quiz in under 60 seconds. The NCERT Quiz Generator has class/subject/chapter presets so you don\'t even need to upload a PDF.',
   },
   {
     question: 'Does Quizotic work for corporate training?',
@@ -23,7 +23,7 @@ const FAQS = [
   },
   {
     question: 'How does the AI quiz generator work?',
-    answer: 'Type a topic ("Class 10 Chemistry — Acids, Bases and Salts"), upload a PDF, or paste text. Quizotic reads the source, identifies key concepts, and produces multiple-choice questions tagged to Bloom\'s Taxonomy levels (Remember → Create). You review and edit, then launch live or share self-paced.',
+    answer: 'Type a topic ("NCERT Class 10 Chapter 2 — Acids, Bases and Salts"), upload a PDF, or paste text. Quizotic reads the source, identifies key concepts, and produces multiple-choice questions tagged to Bloom\'s Taxonomy levels (Remember → Create). You review and edit, then launch live or share self-paced.',
   },
   {
     question: 'Does Quizotic integrate with Google Classroom or Moodle?',

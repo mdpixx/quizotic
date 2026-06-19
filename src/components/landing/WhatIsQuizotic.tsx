@@ -61,7 +61,7 @@ export function WhatIsQuizotic() {
           {[
             { label: 'Free plan', value: 'Up to 50 participants' },
             { label: 'Pricing', value: 'Free · Paid coming soon' },
-            { label: 'Curricula', value: 'IB · AP · CBSE · any syllabus' },
+            { label: 'Curricula', value: 'CBSE · ICSE · IB · any syllabus' },
             { label: 'Use cases', value: 'Schools · Coaching · Corporate' },
             { label: 'Question types', value: '11 types incl. AI-generated' },
             { label: 'Access', value: 'Browser · No app install' },

@@ -4,7 +4,7 @@ import { SolutionPageLayout } from '@/components/seo/SolutionPageLayout'
 export const metadata: Metadata = {
   title: 'AI Quiz Generator — From Topic, PDF, or Notes in Seconds',
   description:
-    'Generate a full quiz from any topic, PDF, or study notes. Questions are tagged to Bloom\'s Taxonomy with explanations included. Free to start, built for any classroom.',
+    'Generate a full quiz from any topic, PDF, or study notes. Questions are tagged to Bloom\'s Taxonomy with explanations included. Free tier, INR pricing, built for Indian classrooms.',
   alternates: { canonical: '/ai-quiz-generator' },
   keywords: [
     'ai quiz generator',
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     'quiz generator from pdf',
     'ai question generator',
     'auto quiz generator',
-    'free quiz generator',
+    'quiz generator india',
   ],
 }
 
@@ -42,8 +42,8 @@ export default function AiQuizGeneratorPage() {
           answer: 'Quizotic uses frontier Claude and Gemini models behind the scenes, selected per task for best question quality and factual accuracy.',
         },
         {
-          question: 'Can I generate quizzes from my textbook or coaching PDF?',
-          answer: 'Yes. Textbook chapters, coaching handouts, and reference books are common input sources. See /ncert-quiz-generator for a curriculum-specific flow.',
+          question: 'Can I generate quizzes from my NCERT or coaching PDF?',
+          answer: 'Yes. NCERT chapters, coaching handouts, and reference books are common input sources. See /ncert-quiz-generator for the India-specific flow.',
         },
         {
           question: 'How many questions per quiz?',

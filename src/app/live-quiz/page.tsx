@@ -2,18 +2,18 @@ import type { Metadata } from 'next'
 import { SolutionPageLayout } from '@/components/seo/SolutionPageLayout'
 
 export const metadata: Metadata = {
-  title: 'Live Quiz Platform — Free Kahoot Alternative',
+  title: 'Live Quiz Platform — Free Kahoot Alternative for India',
   description:
-    'Host live quizzes with up to thousands of players. 11 question types, real-time leaderboard, AI question generation. Free to start — no app install.',
+    'Host live quizzes with up to thousands of players. 11 question types, real-time leaderboard, AI question generation, INR billing with UPI. Free to start — no app install.',
   alternates: { canonical: '/live-quiz' },
   keywords: [
     'live quiz',
     'live quiz platform',
     'kahoot alternative',
-    'free kahoot alternative',
+    'kahoot alternative india',
     'online quiz tool',
     'classroom quiz',
-    'real-time quiz',
+    'live quiz india',
   ],
 }
 
@@ -22,15 +22,15 @@ export default function LiveQuizPage() {
     <SolutionPageLayout
       slug="live-quiz"
       h1="Live Quiz Platform"
-      tagline="Host live quizzes your class will actually remember. Free to start, no app install."
-      intro="Quizotic is a live quiz platform built on learning science. Create a quiz in minutes, share a 6-digit game PIN, and watch every participant answer in real time on their phone. Competitive mode brings Kahoot-style energy; reflection mode removes scoring pressure for thoughtful classrooms. Every quiz is grounded in learning science — Bloom's Taxonomy tagging, Confidence Grid after each answer, and spaced-retrieval review queues so missed questions come back later."
+      tagline="Host live quizzes your class will actually remember. Free to start, INR billing, no app install."
+      intro="Quizotic is a live quiz platform built for India. Create a quiz in minutes, share a 6-digit game PIN, and watch every participant answer in real time on their phone. Competitive mode brings Kahoot-style energy; reflection mode removes scoring pressure for thoughtful classrooms. Every quiz is grounded in learning science — Bloom's Taxonomy tagging, Confidence Grid after each answer, and spaced-retrieval review queues so missed questions come back later."
       features={[
         { title: '11 question types', description: 'MCQ, multi-select, T/F, poll, open-ended, word cloud, Q&A, rating, ranking, case study, drawing canvas.' },
         { title: 'Real-time leaderboard', description: 'Live score updates with speed bonus and streak multipliers. Keeps the room energised.' },
         { title: 'AI quiz generation', description: 'Paste notes or upload a PDF; Quizotic generates a full quiz with Bloom tags and explanations in seconds.' },
         { title: 'Ultra-lightweight join', description: 'Participants join from any browser in under 100KB. Works on 1–2 Mbps classroom Wi-Fi.' },
         { title: 'Session reports', description: 'Downloadable XLSX with per-participant scores, question-level accuracy, and Bloom distribution.' },
-        { title: 'Generous free tier', description: 'Start free — no credit card required. The free tier covers up to 50 participants per session.' },
+        { title: 'INR billing with UPI', description: 'Pay in Indian Rupees via UPI, cards, or netbanking. Free tier covers up to 10 participants per session.' },
       ]}
       steps={[
         { title: 'Create a quiz', description: 'Start from scratch, import a PDF, or let Quizotic AI generate from your topic or notes.' },
@@ -40,11 +40,11 @@ export default function LiveQuizPage() {
       faqs={[
         {
           question: 'Is Quizotic free for live quizzes?',
-          answer: 'Yes. The free plan lets you host unlimited live quizzes with up to 50 participants per session. Pro unlocks larger sessions and advanced reports.',
+          answer: 'Yes. The free plan lets you host unlimited live quizzes with up to 10 participants per session. Pro unlocks 200 participants and advanced reports.',
         },
         {
           question: 'How is Quizotic different from Kahoot?',
-          answer: 'Quizotic is built on learning science — Bloom\'s Taxonomy tagging, Confidence Grid, spaced-retrieval review queues, and a lightweight participant experience for low-bandwidth connections.',
+          answer: 'Quizotic is built for Indian classrooms — INR pricing, UPI payments, Bloom\'s Taxonomy tagging, Confidence Grid, spaced-retrieval review queues, and a lightweight participant experience for low-bandwidth connections.',
         },
         {
           question: 'Do participants need to download an app?',
@@ -56,7 +56,7 @@ export default function LiveQuizPage() {
         },
         {
           question: 'Does it work on slow Wi-Fi?',
-          answer: 'Yes. The participant page is under 100KB on first load, and all real-time events stay below 1KB. Designed specifically for 1–2 Mbps classroom connections.',
+          answer: 'Yes. The participant page is under 100KB on first load, and all real-time events stay below 1KB. Designed specifically for 1–2 Mbps classroom connections across India.',
         },
       ]}
       related={[
@@ -64,7 +64,7 @@ export default function LiveQuizPage() {
         { title: 'AI Quiz Generator', href: '/ai-quiz-generator', description: 'Paste a topic or PDF; get a ready-to-launch quiz with Bloom tags.' },
         { title: 'Gamified Learning', href: '/gamified-learning', description: 'Speed bonus, streaks, power-ups — the full gamification layer.' },
         { title: 'All features', href: '/features', description: '11 question types, 4 session modes, reports, and more.' },
-        { title: 'Pricing', href: '/pricing', description: 'Free to start — simple plans as we grow.' },
+        { title: 'Pricing', href: '/pricing', description: 'Free, Pro, and Team plans in INR with UPI.' },
       ]}
       ctaLabel="Launch your first live quiz free →"
     />

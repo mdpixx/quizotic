@@ -162,6 +162,9 @@ export interface QuestionStat {
   explanation: string | null
   isNonScored?: boolean
   totalResponses?: number                 // total participants who submitted (any type)
+  // Answer key (scored questions only; null for poll/openended/etc.)
+  correctIndex?: number | null           // single correct option index — used to highlight the bar chart (mcq/truefalse)
+  correctAnswerText?: string | null      // resolved, human-readable correct answer (e.g. "B. Paris", "A, C", "A → C → B")
   // Bar-chart types (poll, mcq, multiselect, truefalse)
   optionDistribution?: number[] | null
   options?: string[]

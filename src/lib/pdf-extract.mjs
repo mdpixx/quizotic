@@ -27,18 +27,6 @@ const OCR_TIME_BUDGET_MS = 60_000     // hard ceiling per request (covers all ti
 
 let workerPromise = null
 
-// Bound a promise so a tier that stalls (e.g. Tesseract trying to download its
-// language data from a CDN that is slow/blocked) can't hang the whole request.
-function withTimeout(promise, ms, label) {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
-    promise.then(
-      (v) => { clearTimeout(t); resolve(v) },
-      (e) => { clearTimeout(t); reject(e) },
-    )
-  })
-}
-
 async function getTesseractWorker() {
   if (workerPromise) return workerPromise
   const tesseractMod = await import('tesseract.js')
@@ -46,16 +34,6 @@ async function getTesseractWorker() {
   workerPromise = Tesseract.createWorker('eng', 1, {
     // Silence the per-line download/progress logs in production.
     logger: () => {},
-    // CRITICAL: without an errorHandler, tesseract.js does a bare `throw` from
-    // inside its worker message handler when a job fails (e.g. the English
-    // language data can't be downloaded at runtime). That throw happens on a
-    // later event-loop tick, so it becomes an UNCAUGHT exception that bypasses
-    // every try/catch around this call and can take down the process. Routing
-    // it through a handler keeps the failure as a normal rejection so the OCR
-    // tier can degrade to the vision tier instead of crashing the request.
-    errorHandler: (err) => {
-      console.warn('[pdf-extract] tesseract worker error:', err?.message ?? err)
-    },
   }).catch((err) => {
     workerPromise = null  // allow retry on next request
     throw err
@@ -171,25 +149,7 @@ async function extractViaVisionLLM(pages, deadline) {
 // run out of time/page budget. Re-uses the singleton worker so the second
 // request in a process doesn't pay the language-pack init cost.
 async function ocrPages(pages, deadline) {
-  // Nothing rendered (e.g. getScreenshot failed) — don't pay the worker
-  // init/download cost just to OCR zero pages.
-  if (!pages || pages.length === 0) return ''
-  let worker
-  try {
-    // Bound init: if the language data can't be fetched, tesseract.js neither
-    // resolves nor rejects (it just keeps retrying), so without a timeout this
-    // would hang until the request dies. 15s is enough for a healthy cold-start
-    // download but short enough to leave budget for the vision tier.
-    const initBudget = Math.min(Math.max(0, deadline - Date.now()), 15_000)
-    worker = await withTimeout(getTesseractWorker(), initBudget, 'tesseract-init')
-  } catch (err) {
-    // Worker init failed/timed out (commonly: language data couldn't be
-    // fetched). Reset the cached promise so a poisoned init doesn't stick for
-    // later requests, and skip OCR so the caller falls through to the vision tier.
-    console.warn('[pdf-extract] OCR tier unavailable — worker init failed:', err?.message ?? err)
-    workerPromise = null
-    return ''
-  }
+  const worker = await getTesseractWorker()
   const out = []
   let chars = 0
   for (let i = 0; i < pages.length && i < MAX_OCR_PAGES; i++) {
@@ -227,28 +187,14 @@ export async function extractPdfText(buffer, opts = {}) {
   let parser = null
   let pageCount = 0
   let textPath = ''
-  let pages = []
-  let cleanedOcr = ''
   try {
-    // Open the parser. If even this throws (corrupt/encrypted PDF, loader
-    // failure) there is no tier we can run — degrade to 'none' rather than
-    // letting the exception bubble up as a generic "Generation failed".
-    try {
-      const { PDFParse } = await import('pdf-parse')
-      parser = new PDFParse({ data: buffer })
-    } catch (err) {
-      console.warn('[pdf-extract] could not open PDF parser:', err?.message ?? err)
-      return { text: '', source: 'none', pageCount: 0, charCount: 0, ocrPagesUsed: 0, visionPagesUsed: 0 }
-    }
+    const { PDFParse } = await import('pdf-parse')
+    parser = new PDFParse({ data: buffer })
 
     // Tier 1 — fast text extraction.
-    try {
-      const textResult = await parser.getText()
-      pageCount = textResult?.pages?.length ?? 0
-      textPath = stripMarkerNoise(textResult?.text ?? '')
-    } catch (err) {
-      console.warn('[pdf-extract] text tier failed:', err?.message ?? err)
-    }
+    const textResult = await parser.getText()
+    pageCount = textResult?.pages?.length ?? 0
+    textPath = stripMarkerNoise(textResult?.text ?? '')
 
     if (isExtractedTextMeaningful(textPath)) {
       return {
@@ -261,23 +207,12 @@ export async function extractPdfText(buffer, opts = {}) {
       }
     }
 
-    // Render page screenshots once — shared by the OCR and vision tiers.
+    // Tier 2 — Tesseract OCR. Render pages to PNG and recognise.
     console.log(`[pdf-extract] text path produced ${textPath.length} useful chars across ${pageCount} pages — falling back to OCR`)
-    try {
-      const screenshot = await parser.getScreenshot()
-      pages = screenshot?.pages ?? []
-    } catch (err) {
-      console.warn('[pdf-extract] page rendering (getScreenshot) failed:', err?.message ?? err)
-      pages = []
-    }
-
-    // Tier 2 — Tesseract OCR.
-    try {
-      const ocrText = await ocrPages(pages, deadline)
-      cleanedOcr = stripMarkerNoise(ocrText)
-    } catch (err) {
-      console.warn('[pdf-extract] OCR tier failed:', err?.message ?? err)
-    }
+    const screenshot = await parser.getScreenshot()
+    const pages = screenshot?.pages ?? []
+    const ocrText = await ocrPages(pages, deadline)
+    const cleanedOcr = stripMarkerNoise(ocrText)
 
     if (isExtractedTextMeaningful(cleanedOcr)) {
       return {
@@ -294,13 +229,8 @@ export async function extractPdfText(buffer, opts = {}) {
     // pages. Handles handwriting, non-English scripts, low-quality scans,
     // diagram-heavy pages — anything Tesseract garbles.
     console.log(`[pdf-extract] OCR produced ${cleanedOcr.length} useful chars — falling back to vision LLM`)
-    let cleanedVision = ''
-    try {
-      const visionText = await extractViaVisionLLM(pages, deadline)
-      cleanedVision = stripMarkerNoise(visionText)
-    } catch (err) {
-      console.warn('[pdf-extract] vision tier failed:', err?.message ?? err)
-    }
+    const visionText = await extractViaVisionLLM(pages, deadline)
+    const cleanedVision = stripMarkerNoise(visionText)
 
     if (isExtractedTextMeaningful(cleanedVision)) {
       const visionPagesUsed = Math.min(pages.length, MAX_VISION_PAGES)

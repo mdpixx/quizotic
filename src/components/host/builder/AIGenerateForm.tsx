@@ -13,7 +13,6 @@
 
 import { useState } from 'react'
 import type { Question } from '@/lib/quiz-types'
-import { QUIZ_LANGUAGES } from '@/lib/languages'
 import { SparkleIcon } from './SparkleIcon'
 
 export type AIGenerateMode = 'aitopic' | 'aiurl' | 'aidoc'
@@ -28,6 +27,11 @@ const TABS: { id: AIGenerateMode; label: string }[] = [
   { id: 'aitopic', label: 'Topic' },
   { id: 'aiurl', label: 'URL' },
   { id: 'aidoc', label: 'PDF / DOCX' },
+]
+
+const LANGUAGES = [
+  'English', 'Hindi', 'Tamil', 'Telugu', 'Bengali',
+  'Marathi', 'French', 'Spanish', 'Arabic', 'German',
 ]
 
 export function AIGenerateForm({ initialMode = 'aitopic', plan, onGenerated }: AIGenerateFormProps) {
@@ -65,7 +69,7 @@ export function AIGenerateForm({ initialMode = 'aitopic', plan, onGenerated }: A
       } else {
         headers['Content-Type'] = 'application/json'
         body = JSON.stringify({
-          mode: mode === 'aitopic' ? 'topic' : 'url',
+          mode,
           topic: mode === 'aitopic' ? topic : undefined,
           url: mode === 'aiurl' ? url : undefined,
           questionCount: count,
@@ -193,7 +197,7 @@ export function AIGenerateForm({ initialMode = 'aitopic', plan, onGenerated }: A
           className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-200"
           style={{ borderColor: '#E5E7EB' }}
         >
-          {QUIZ_LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
+          {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
         </select>
       </div>
 

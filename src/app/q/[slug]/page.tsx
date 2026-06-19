@@ -5,7 +5,7 @@ import { use } from 'react'
 import { CountdownPill } from '@/components/async/CountdownPill'
 import { ErrorOverlay } from '@/components/async/ErrorOverlay'
 import { QuestionInput } from '@/components/async/QuestionInput'
-import type { AnswerValue, QuizQuestion } from '@/components/async/types'
+import { optText, type AnswerValue, type QuizQuestion } from '@/components/async/types'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -25,6 +25,7 @@ interface AnswerFeedback {
   points: number
   correctAnswer: string | null
   correctAnswers: string[] | null
+  correctOrder: string[] | null
   explanation: string | null
   nextQuestion: QuizQuestion | null
 }
@@ -100,6 +101,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
 
   const [currentQ, setCurrentQ] = useState<QuizQuestion | null>(null)
   const [feedback, setFeedback] = useState<AnswerFeedback | null>(null)
+  const [myAnswer, setMyAnswer] = useState<AnswerValue | null>(null)
   const [totalScore, setTotalScore] = useState(0)
   const [deadlineAt, setDeadlineAt] = useState<number | null>(null)
   const [result, setResult] = useState<Result | null>(null)
@@ -303,6 +305,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
         setTotalScore(s => s + fb.points)
       }
       setFeedback(fb)
+      setMyAnswer(answer)
       pendingAnswerRef.current = null
 
       // participation types → brief recording state, then auto-advance
@@ -330,6 +333,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
     if (fb.nextQuestion) {
       setCurrentQ(fb.nextQuestion)
       setFeedback(null)
+      setMyAnswer(null)
       setPhase('question')
     } else {
       finishQuiz()
@@ -409,15 +413,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
       <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#0F1B3D' }}>
         <div className="w-full max-w-sm">
           <div className="text-center mb-6">
-            <div className="inline-flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#F5E642' }}>
-                <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
-                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
-                    stroke="#0F1B3D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-              <span className="text-sm font-bold" style={{ color: '#F5E642' }}>Quizotic</span>
-            </div>
+            <BrandWordmark />
           </div>
           <div className="rounded-2xl p-6 text-center"
             style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
@@ -454,15 +450,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
       <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#0F1B3D' }}>
         <div className="w-full max-w-sm">
           <div className="text-center mb-7">
-            <div className="inline-flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#F5E642' }}>
-                <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
-                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
-                    stroke="#0F1B3D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-              <span className="text-sm font-bold" style={{ color: '#F5E642' }}>Quizotic</span>
-            </div>
+            <BrandWordmark />
             <h1 className="text-2xl font-black leading-snug mb-1" style={{ color: '#fff', fontFamily: 'var(--font-heading)' }}>
               {info?.title ?? 'Quiz'}
             </h1>
@@ -493,31 +481,32 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
               </p>
             )}
 
-            <label className="block text-sm font-semibold mb-2" style={{ color: '#CBD5E1' }}>
-              Your name
-            </label>
-            <input
-              type="text"
-              autoFocus
-              placeholder="Enter your name to start"
-              value={name}
-              onChange={e => { setName(e.target.value); setNameError('') }}
-              onKeyDown={e => { if (e.key === 'Enter') handleStart() }}
-              maxLength={50}
-              className="w-full px-4 py-3 rounded-xl text-base outline-none focus:ring-2 focus:ring-yellow-400"
-              style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff' }}
-            />
-            {nameError && (
-              <p className="mt-2 text-sm" style={{ color: '#F87171' }}>{nameError}</p>
-            )}
-            <button
-              onClick={handleStart}
-              disabled={starting}
-              className="w-full mt-4 py-3.5 rounded-xl font-black text-base transition-opacity disabled:opacity-60"
-              style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
-            >
-              {starting ? 'Starting…' : 'Start Quiz'}
-            </button>
+            <form onSubmit={e => { e.preventDefault(); handleStart() }}>
+              <label className="block text-sm font-semibold mb-2" style={{ color: '#CBD5E1' }}>
+                Your name
+              </label>
+              <input
+                type="text"
+                autoFocus
+                placeholder="Enter your name to start"
+                value={name}
+                onChange={e => { setName(e.target.value); setNameError('') }}
+                maxLength={50}
+                className="w-full px-4 py-3 rounded-xl text-base outline-none focus:ring-2 focus:ring-yellow-400"
+                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff' }}
+              />
+              {nameError && (
+                <p className="mt-2 text-sm" style={{ color: '#F87171' }}>{nameError}</p>
+              )}
+              <button
+                type="submit"
+                disabled={starting}
+                className="w-full mt-4 py-3.5 rounded-xl font-black text-base transition-opacity disabled:opacity-60"
+                style={{ background: '#F5E642', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}
+              >
+                {starting ? 'Starting…' : 'Start Quiz'}
+              </button>
+            </form>
           </div>
         </div>
       </div>
@@ -585,7 +574,9 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
             </div>
           ) : isFeedback && fb ? (
             <FeedbackPanel
+              question={q}
               feedback={fb}
+              myAnswer={myAnswer}
               totalScore={totalScore}
               onNext={() => advance(fb)}
             />
@@ -598,6 +589,17 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
           )}
           </div>
           </div>
+        </div>
+
+        {/* Subtle brand watermark — non-interactive, sits below the home indicator */}
+        <div
+          aria-hidden
+          className="fixed left-0 right-0 flex justify-center"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 6px)', pointerEvents: 'none', zIndex: 5 }}
+        >
+          <span className="text-[10px] font-bold tracking-wide" style={{ color: 'rgba(245,230,66,0.35)' }}>
+            quizotic.live
+          </span>
         </div>
 
         {errorMsg && (
@@ -646,6 +648,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
                 setResult(null)
                 setTotalScore(0)
                 setFeedback(null)
+                setMyAnswer(null)
                 setCurrentQ(null)
                 setDeadlineAt(null)
                 setPhase('entry')
@@ -675,6 +678,24 @@ function InfoTile({ label, value, accent }: { label: string; value: string; acce
       style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
       <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>{label}</p>
       <p className="text-sm font-bold" style={{ color: accent ? '#FACC15' : '#fff' }}>{value}</p>
+    </div>
+  )
+}
+
+// Brand wordmark shown on the entry, scheduled, and closed screens. Renders the
+// full "quizotic.live" so the domain is visible as subtle promotion.
+function BrandWordmark() {
+  return (
+    <div className="inline-flex items-center gap-2 mb-4">
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#F5E642' }}>
+        <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+            stroke="#0F1B3D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+      <span className="text-sm font-bold" style={{ color: '#F5E642' }}>
+        quizotic<span style={{ color: 'rgba(245,230,66,0.5)' }}>.live</span>
+      </span>
     </div>
   )
 }
@@ -743,15 +764,7 @@ function ScheduledScreen({
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#0F1B3D' }}>
       <div className="w-full max-w-sm">
         <div className="text-center mb-7">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#F5E642' }}>
-              <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
-                  stroke="#0F1B3D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-            <span className="text-sm font-bold" style={{ color: '#F5E642' }}>Quizotic</span>
-          </div>
+          <BrandWordmark />
           <h1 className="text-2xl font-black leading-snug mb-1" style={{ color: '#fff', fontFamily: 'var(--font-heading)' }}>
             {info.title}
           </h1>
@@ -822,16 +835,56 @@ function ScheduledScreen({
   )
 }
 
+// Renders an answer value (an option index, a list of indices, or a ranking
+// order of indices) as readable, lettered option text — e.g. "B. Paris" or
+// "A. Mercury, C. Venus" or, for ranking, "1. X   2. Y". Falls back to the raw
+// value if it can't be mapped to an option.
+function describeAnswer(question: QuizQuestion, value: AnswerValue | string | null): string {
+  if (value === null || value === undefined) return '—'
+  const opts = question.options ?? []
+  const label = (idx: number) => {
+    const o = opts[idx]
+    return o === undefined ? String(idx) : `${String.fromCharCode(65 + idx)}. ${optText(o)}`
+  }
+
+  if (Array.isArray(value)) {
+    const idxs = value.map(v => Number(v)).filter(n => Number.isInteger(n))
+    if (idxs.length === 0) return '—'
+    if (question.type === 'ranking') {
+      return idxs.map((n, pos) => `${pos + 1}. ${opts[n] !== undefined ? optText(opts[n]) : String(n)}`).join('   ')
+    }
+    return idxs.map(label).join(', ')
+  }
+
+  const n = Number(value)
+  if (Number.isInteger(n) && opts[n] !== undefined) return label(n)
+  return String(value)
+}
+
 function FeedbackPanel({
+  question,
   feedback,
+  myAnswer,
   totalScore,
   onNext,
 }: {
-  feedback: Pick<AnswerFeedback, 'isCorrect' | 'points' | 'explanation' | 'nextQuestion'>
+  question: QuizQuestion
+  feedback: AnswerFeedback
+  myAnswer: AnswerValue | null
   totalScore: number
   onNext: () => void
 }) {
   const correct = feedback.isCorrect === true
+
+  // The correct value lives in a different field per question type.
+  const correctValue =
+    question.type === 'multiselect' ? feedback.correctAnswers
+    : question.type === 'ranking' ? feedback.correctOrder
+    : feedback.correctAnswer
+  const correctLabel =
+    question.type === 'ranking' ? 'Correct order'
+    : question.type === 'multiselect' ? 'Correct answers'
+    : 'Correct answer'
 
   return (
     <div className="space-y-3">
@@ -841,8 +894,26 @@ function FeedbackPanel({
           color: correct ? '#4ADE80' : '#F87171',
           border: `1px solid ${correct ? 'rgba(22,163,74,0.3)' : 'rgba(220,38,38,0.3)'}`,
         }}>
-        {correct ? `Correct! +${feedback.points} pts · Total: ${totalScore} pts` : 'Not quite — see the correct answer.'}
+        {correct ? `Correct! +${feedback.points} pts · Total: ${totalScore} pts` : 'Not quite — here is the correct answer.'}
       </div>
+
+      {/* Correct answer — always revealed so self-paced learners get feedback */}
+      {correctValue != null && (
+        <div className="rounded-xl p-4 text-sm"
+          style={{ background: 'rgba(22,163,74,0.12)', border: '1px solid rgba(22,163,74,0.3)' }}>
+          <span className="font-bold uppercase tracking-wide text-xs" style={{ color: '#4ADE80' }}>{correctLabel} </span>
+          <span className="font-semibold" style={{ color: '#fff' }}>{describeAnswer(question, correctValue)}</span>
+        </div>
+      )}
+
+      {/* The participant's own choice, shown only when they got it wrong */}
+      {!correct && myAnswer != null && (
+        <div className="rounded-xl px-4 py-3 text-sm"
+          style={{ background: 'rgba(220,38,38,0.1)', border: '1px solid rgba(220,38,38,0.25)' }}>
+          <span className="font-bold uppercase tracking-wide text-xs" style={{ color: '#F87171' }}>Your answer </span>
+          <span style={{ color: '#FCA5A5' }}>{describeAnswer(question, myAnswer)}</span>
+        </div>
+      )}
 
       {feedback.explanation && (
         <div className="rounded-xl p-4 text-sm"
@@ -937,7 +1008,7 @@ function QuizoticFooter() {
       Powered by{' '}
       <a href="https://www.quizotic.live" target="_blank" rel="noopener noreferrer"
         className="underline" style={{ color: '#475569' }}>
-        Quizotic
+        quizotic.live
       </a>
     </p>
   )

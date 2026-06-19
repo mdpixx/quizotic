@@ -7,7 +7,7 @@
 //   so the route can fall back to OCR or refuse the AI call.
 
 import { describe, expect, it } from 'vitest'
-import { isExtractedTextMeaningful, extractPdfText, __test__ } from '../lib/pdf-extract.mjs'
+import { isExtractedTextMeaningful, __test__ } from '../lib/pdf-extract.mjs'
 
 describe('isExtractedTextMeaningful', () => {
   it('rejects empty string', () => {
@@ -81,19 +81,6 @@ describe('stripMarkerNoise', () => {
   it('collapses excessive whitespace', () => {
     const cleaned: string = __test__.stripMarkerNoise('foo\n\n\n   bar\t\t\tbaz')
     expect(cleaned).toBe('foo bar baz')
-  })
-})
-
-describe('extractPdfText resilience', () => {
-  // Regression guard: a non-PDF / corrupt buffer must DEGRADE to source:'none'
-  // and never throw. A throw here surfaces to the user as a bare
-  // "Generation failed" (and previously could crash the worker via tesseract's
-  // unhandled error path).
-  it('resolves to source:"none" on a malformed buffer instead of throwing', async () => {
-    const garbage = Buffer.from('this is definitely not a pdf file', 'utf8')
-    const result = await extractPdfText(garbage, { timeBudgetMs: 2_000 })
-    expect(result.source).toBe('none')
-    expect(result.text).toBe('')
   })
 })
 

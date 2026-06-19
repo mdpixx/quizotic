@@ -3,12 +3,11 @@ import Link from 'next/link'
 import { PLAN_LIMITS } from '@/lib/limits'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs'
-import { StickyNav } from '@/components/landing/StickyNav'
 
 export const metadata: Metadata = {
   title: 'Pricing — Free While We Grow',
   description:
-    'Quizotic is completely free to use. No payment required. A learning platform that makes interactive quizzes accessible to every classroom and training room.',
+    'Quizotic is completely free to use. No payment required. India-first learning platform making interactive quizzes accessible to every classroom and training room.',
   alternates: { canonical: '/pricing' },
 }
 
@@ -18,11 +17,11 @@ const pricingLd = {
   name: 'Quizotic',
   url: 'https://www.quizotic.live',
   description:
-    'Free live quiz and interactive presentation platform for schools, colleges, and corporate trainers.',
+    'Free live quiz and interactive presentation platform for Indian schools, colleges, and corporate trainers.',
   offers: {
     '@type': 'Offer',
     price: '0',
-    priceCurrency: 'USD',
+    priceCurrency: 'INR',
     availability: 'https://schema.org/InStock',
     description: 'Free to use — no payment required',
   },
@@ -46,12 +45,8 @@ export default function PricingPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingLd) }}
       />
-      <StickyNav />
       <div className="min-h-screen" style={{ background: '#FFFFFF' }}>
-        <div
-          className="max-w-3xl mx-auto px-6 pb-12"
-          style={{ paddingTop: 'calc(64px + env(safe-area-inset-top, 0px) + 32px)' }}
-        >
+        <div className="max-w-3xl mx-auto px-6 py-12">
           <div className="mb-6">
             <Breadcrumbs items={[
               { name: 'Home', href: '/' },

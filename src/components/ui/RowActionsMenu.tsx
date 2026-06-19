@@ -9,7 +9,7 @@
  * listings.
  */
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 
 export interface RowAction {
   label: string
@@ -21,12 +21,30 @@ export interface RowAction {
 
 export function RowActionsMenu({ actions, label = 'More actions' }: { actions: RowAction[]; label?: string }) {
   const [open, setOpen] = useState(false)
+  const [openUp, setOpenUp] = useState(false)
+  const [maxHeight, setMaxHeight] = useState(320)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+
   if (actions.length === 0) return null
+
+  function handleOpen() {
+    if (!open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - rect.bottom - 8
+      const spaceAbove = rect.top - 8
+      const shouldOpenUp = spaceBelow < 200 && spaceAbove > spaceBelow
+      setOpenUp(shouldOpenUp)
+      setMaxHeight(Math.min(320, shouldOpenUp ? spaceAbove : spaceBelow))
+    }
+    setOpen(o => !o)
+  }
+
   return (
     <div className="relative">
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={handleOpen}
         className="btn-icon focus-visible:ring-2 focus-visible:ring-yellow-200"
         aria-label={label}
         aria-haspopup="menu"
@@ -39,8 +57,8 @@ export function RowActionsMenu({ actions, label = 'More actions' }: { actions: R
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
             role="menu"
-            className="absolute right-0 top-full mt-1 z-50 rounded-xl shadow-xl border bg-white py-1 overflow-hidden min-w-[160px]"
-            style={{ borderColor: 'var(--color-line)' }}
+            className={`absolute right-0 z-50 rounded-xl shadow-xl border bg-white py-1 overflow-y-auto min-w-[160px] ${openUp ? 'bottom-full mb-1' : 'top-full mt-1'}`}
+            style={{ borderColor: 'var(--color-line)', maxHeight: `${maxHeight}px` }}
           >
             {actions.map((a, i) => (
               <button
