@@ -18,9 +18,9 @@ export function StickyNav() {
   const links = [
     { href: '/features', label: 'Features' },
     { href: '/pricing', label: 'Pricing' },
-    { href: '#how', label: 'How It Works' },
-    { href: '#methodology', label: 'Methodology' },
-    { href: '#slide-types', label: 'Slide Types' },
+    { href: '/#how', label: 'How It Works' },
+    { href: '/#methodology', label: 'Methodology' },
+    { href: '/#slide-types', label: 'Slide Types' },
   ]
 
   return (

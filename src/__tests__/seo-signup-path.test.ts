@@ -20,8 +20,26 @@ const SEO_LANDING_LAYOUTS = [
   'src/components/seo/LearnArticleLayout.tsx',
 ]
 
+// Hub/index pages render their own markup instead of a shared layout, so they
+// need StickyNav wired up directly. They are indexed and linked from search,
+// so a missing nav here is the same dead-end leak as on the detail pages.
+const SEO_HUB_PAGES = [
+  'src/app/learn/page.tsx',
+  'src/app/for/page.tsx',
+  'src/app/vs/page.tsx',
+  'src/app/templates/page.tsx',
+  'src/app/alternatives/page.tsx',
+]
+
 describe('SEO landing pages keep a signup path', () => {
   it.each(SEO_LANDING_LAYOUTS)('%s imports and renders StickyNav', (file) => {
+    const source = readFileSync(join(ROOT, file), 'utf8')
+
+    expect(source).toContain("import { StickyNav } from '@/components/landing/StickyNav'")
+    expect(source).toContain('<StickyNav />')
+  })
+
+  it.each(SEO_HUB_PAGES)('%s imports and renders StickyNav', (file) => {
     const source = readFileSync(join(ROOT, file), 'utf8')
 
     expect(source).toContain("import { StickyNav } from '@/components/landing/StickyNav'")

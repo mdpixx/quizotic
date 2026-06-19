@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs'
+import { StickyNav } from '@/components/landing/StickyNav'
 import { LEARN_ARTICLES, LEARN_CATEGORIES, type LearnArticle, type LearnCategory } from '@/content/learn'
 
 export const metadata: Metadata = {
@@ -73,8 +74,12 @@ export default function LearnIndexPage() {
   return (
     <>
       <JsonLd data={collectionLd} />
+      <StickyNav />
       <div className="min-h-screen" style={{ background: '#FFFFFF' }}>
-        <div className="max-w-5xl mx-auto px-6 py-12">
+        <div
+          className="max-w-5xl mx-auto px-6 pb-12"
+          style={{ paddingTop: 'calc(64px + env(safe-area-inset-top, 0px) + 32px)' }}
+        >
           <div className="mb-6">
             <Breadcrumbs items={[
               { name: 'Home', href: '/' },

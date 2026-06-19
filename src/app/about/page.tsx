@@ -1,18 +1,24 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs'
+import { StickyNav } from '@/components/landing/StickyNav'
 
 export const metadata: Metadata = {
   title: 'About Quizotic',
   description:
-    'Quizotic is an India-first live quiz and interactive presentation platform built on learning science. Free to use, no app install required. Made for teachers, trainers, and educators.',
+    'Quizotic is a live quiz and interactive presentation platform built on learning science. Free to use, no app install required. Made for teachers, trainers, and educators.',
   alternates: { canonical: '/about' },
 }
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen" style={{ background: '#FFFFFF' }}>
-      <div className="max-w-3xl mx-auto px-6 py-12">
+    <>
+      <StickyNav />
+      <div className="min-h-screen" style={{ background: '#FFFFFF' }}>
+        <div
+          className="max-w-3xl mx-auto px-6 pb-12"
+          style={{ paddingTop: 'calc(64px + env(safe-area-inset-top, 0px) + 32px)' }}
+        >
         <div className="mb-6">
           <Breadcrumbs items={[
             { name: 'Home', href: '/' },
@@ -27,7 +33,7 @@ export default function AboutPage() {
           About Quizotic
         </h1>
         <p className="text-sm mb-10" style={{ color: '#6B7280' }}>
-          India-first · Learning science · No app install
+          Learning science · Low bandwidth · No app install
         </p>
 
         <div className="space-y-10 text-base leading-relaxed" style={{ color: '#374151' }}>
@@ -35,9 +41,9 @@ export default function AboutPage() {
           <section>
             <h2 className="text-xl font-bold mb-3" style={{ color: '#0F1B3D' }}>The problem we&apos;re solving</h2>
             <p className="mb-3">
-              The global tools that dominate live quizzing — Kahoot, Mentimeter, Quizizz — were built
-              for Western markets. They bill in USD. They don&apos;t support UPI. Their free tiers are
-              increasingly restrictive. And none of them are built around how learning actually works.
+              The tools that dominate live quizzing — Kahoot, Mentimeter, Quizizz — optimise for
+              entertainment, not learning. Their free tiers are increasingly restrictive, they get
+              heavier every year, and none of them are built around how learning actually works.
             </p>
             <p>
               Most &quot;engagement tools&quot; optimise for entertainment. Quizotic optimises for retention.
@@ -90,7 +96,7 @@ export default function AboutPage() {
             <h2 className="text-xl font-bold mb-3" style={{ color: '#0F1B3D' }}>Who we&apos;re built for</h2>
             <ul className="list-disc pl-6 space-y-2">
               <li><strong>School teachers</strong> — classes of 10 to 50, any subject, any grade</li>
-              <li><strong>Coaching institutes</strong> — JEE, NEET, UPSC, competitive exam prep</li>
+              <li><strong>Coaching &amp; test-prep institutes</strong> — competitive and entrance exam prep</li>
               <li><strong>College faculty</strong> — lectures, seminars, end-of-term reviews</li>
               <li><strong>Corporate trainers</strong> — onboarding, compliance, skill assessments</li>
               <li><strong>HR teams</strong> — town halls, icebreakers, pulse surveys</li>
@@ -98,12 +104,12 @@ export default function AboutPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3" style={{ color: '#0F1B3D' }}>India-first by design</h2>
+            <h2 className="text-xl font-bold mb-3" style={{ color: '#0F1B3D' }}>Built for every classroom</h2>
             <ul className="list-disc pl-6 space-y-2">
-              <li>Pricing in Indian Rupees (INR) — UPI and card support via Razorpay (coming soon)</li>
-              <li>Designed for 1–2 Mbps connections — works in real Indian classrooms</li>
+              <li>Free to start — paid plans (coming soon) priced in USD</li>
+              <li>Designed for 1–2 Mbps connections — works in real, low-bandwidth classrooms</li>
               <li>No app install — participants join via any browser on their phone</li>
-              <li>Hindi language support in the participant interface</li>
+              <li>Multi-language support in the participant interface</li>
             </ul>
           </section>
 
@@ -112,7 +118,7 @@ export default function AboutPage() {
             <p className="mb-3">
               Quizotic is built by a small, independent team. We&apos;re not a startup with VC
               funding or a growth target. We&apos;re educators and builders who got frustrated
-              with the tools available in India and decided to make something better.
+              with the tools available today and decided to make something better.
             </p>
             <p className="mb-3">
               The platform is free right now — not as a lead magnet, but as a genuine commitment
@@ -152,7 +158,8 @@ export default function AboutPage() {
             Start for free →
           </Link>
         </div>
+        </div>
       </div>
-    </div>
+    </>
   )
 }
