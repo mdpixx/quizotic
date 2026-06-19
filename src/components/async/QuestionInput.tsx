@@ -6,6 +6,7 @@ import { MultiSelectGrid } from './MultiSelectGrid'
 import { TextInput } from './TextInput'
 import { RatingInput } from './RatingInput'
 import { CaseCard } from './CaseCard'
+import { MatchingInput } from './MatchingInput'
 import type { AsyncInputProps } from './types'
 
 const RankingInput = dynamic(() => import('./RankingInput').then(m => m.RankingInput), {
@@ -26,6 +27,8 @@ const INPUT_RENDERER: Record<string, (props: AsyncInputProps) => React.JSX.Eleme
   openended: p => <TextInput {...p} />,
   wordcloud: p => <TextInput {...p} />,
   qa: p => <TextInput {...p} />,
+  fillblank: p => <TextInput {...p} />,
+  matching: p => <MatchingInput {...p} />,
   rating: p => <RatingInput {...p} />,
   ranking: p => <RankingInput {...p} />,
   drawing: p => <DrawingInput {...p} />,

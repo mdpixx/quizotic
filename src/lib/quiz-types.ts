@@ -2,6 +2,8 @@ export type QuestionType =
   | 'mcq'
   | 'multiselect'
   | 'truefalse'
+  | 'fillblank'
+  | 'matching'
   | 'poll'
   | 'openended'
   | 'wordcloud'
@@ -13,7 +15,7 @@ export type QuestionType =
 
 // Question types that award points. Everything else is participation-only.
 // Keep in sync with the `nonScored` set in server.mjs (emitQuestionEnded / buildQuestionStats / computeMaxScore).
-export const SCORED_TYPES: readonly QuestionType[] = ['mcq', 'multiselect', 'truefalse'] as const
+export const SCORED_TYPES: readonly QuestionType[] = ['mcq', 'multiselect', 'truefalse', 'fillblank', 'matching'] as const
 
 // Non-scored types that still need a host-visible reveal screen + dashboard card.
 // Keep order-stable for switch dispatch in QuestionResultsView.
@@ -42,12 +44,16 @@ export function isScoredQuestion(q: Pick<Question, 'type' | 'correctOrder'>): bo
 //   ordered    → sorted list with avg rank pill (ranking)
 //   grid       → drawing thumbnail grid (drawing)
 //   inner      → case study; renderer recurses into inner question type
-export type ResultsRenderer = 'bars' | 'cloud' | 'list' | 'histogram' | 'ordered' | 'grid' | 'inner'
+//   answerkey  → fill-in-the-blank: typed-answer list + accepted-answer key
+//   pairs      → matching: left→right answer key with per-question correct %
+export type ResultsRenderer = 'bars' | 'cloud' | 'list' | 'histogram' | 'ordered' | 'grid' | 'inner' | 'answerkey' | 'pairs'
 
 export const RESULTS_RENDERER: Record<QuestionType, ResultsRenderer> = {
   mcq: 'bars',
   multiselect: 'bars',
   truefalse: 'bars',
+  fillblank: 'answerkey',
+  matching: 'pairs',
   poll: 'bars',
   wordcloud: 'cloud',
   openended: 'list',
@@ -86,6 +92,21 @@ export interface OptionItem {
 
 export type QuestionOption = string | OptionItem
 
+// One left↔right pair for a matching question. The stored order is the
+// answer key (left[i] matches right[i]); the right column is shuffled before
+// it reaches participants (see sanitizeQuestion in server.mjs).
+export interface MatchPair {
+  left: string
+  right: string
+}
+
+// Canonical normalizer for free-text answer comparison (fill-in-the-blank and
+// the right column of a matching question). Lower-cases, trims, and collapses
+// internal whitespace so "  New  Delhi " matches "new delhi".
+export function normalizeText(s: unknown): string {
+  return String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
 export function getOptionText(opt: QuestionOption): string {
   return typeof opt === 'string' ? opt : opt.text
 }
@@ -103,6 +124,8 @@ export interface Question {
   correctAnswer?: string    // string index "0"/"1"/"2"/"3"; undefined for poll/openended/etc (legacy single-correct)
   correctAnswers?: string[] // multiselect: array of option-index strings (e.g. ["0","2"])
   correctOrder?: string[]   // ranking: array of option ids in the correct sequence (when set, ranking is scored)
+  blankAnswers?: string[]   // fillblank: accepted answers (case-insensitive); stripped before broadcast
+  matchPairs?: MatchPair[]  // matching: left↔right answer key; transformed/shuffled before broadcast
   timerSeconds: 10 | 15 | 20 | 30 | 60
   points: 500 | 1000 | 2000
   explanation?: string      // shown to host + participant after answer reveal; for 'case' type = debrief text
@@ -184,4 +207,6 @@ export interface QuestionStat {
   fullCorrectCount?: number               // sequence ranking: count of participants who got all positions right
   // Drawing
   drawingThumbnails?: DrawingThumbnail[]
+  // Matching (answer key for the results "pairs" renderer)
+  matchPairs?: MatchPair[]
 }

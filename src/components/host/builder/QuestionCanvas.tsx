@@ -370,6 +370,39 @@ export function QuestionCanvas({
     onChange({ options: next, correctOrder: isSequenceRanking(question) ? newCorrectOrder : undefined })
   }
 
+  // ── Fill-in-the-blank handlers ───────────────────────────────────────────
+
+  const blankAnswers = question.blankAnswers ?? ['']
+  function handleBlankChange(i: number, value: string) {
+    const next = [...blankAnswers]
+    next[i] = value
+    onChange({ blankAnswers: next })
+  }
+  function handleBlankAdd() {
+    if (blankAnswers.length >= 6) return
+    onChange({ blankAnswers: [...blankAnswers, ''] })
+  }
+  function handleBlankRemove(i: number) {
+    if (blankAnswers.length <= 1) return
+    onChange({ blankAnswers: blankAnswers.filter((_, idx) => idx !== i) })
+  }
+
+  // ── Matching handlers ────────────────────────────────────────────────────
+
+  const matchPairs = question.matchPairs ?? [{ left: '', right: '' }, { left: '', right: '' }]
+  function handlePairChange(i: number, side: 'left' | 'right', value: string) {
+    const next = matchPairs.map((p, idx) => (idx === i ? { ...p, [side]: value } : p))
+    onChange({ matchPairs: next })
+  }
+  function handlePairAdd() {
+    if (matchPairs.length >= 8) return
+    onChange({ matchPairs: [...matchPairs, { left: '', right: '' }] })
+  }
+  function handlePairRemove(i: number) {
+    if (matchPairs.length <= 2) return
+    onChange({ matchPairs: matchPairs.filter((_, idx) => idx !== i) })
+  }
+
   // ── Render ───────────────────────────────────────────────────────────────
 
   const showOptionsAI = (
@@ -651,6 +684,92 @@ export function QuestionCanvas({
               </div>
             ))}
             <p className="text-xs text-gray-300 text-center pt-1">Participant questions appear here</p>
+          </div>
+        )}
+
+        {/* Fill-in-the-blank — accepted answers */}
+        {question.type === 'fillblank' && (
+          <div className="space-y-3">
+            <p className="text-xs font-semibold" style={{ color: '#0D9488' }}>
+              Accepted answers <span className="font-normal text-gray-400">— matching is case-insensitive. Add spelling variants to accept them all.</span>
+            </p>
+            {blankAnswers.map((ans, i) => (
+              <div key={i} className="flex items-center gap-2.5 rounded-lg px-3 py-2" style={{ background: '#F0FDFA', border: '1px solid #99F6E4' }}>
+                <span className="text-sm flex-shrink-0" style={{ color: '#0D9488' }}>✓</span>
+                <input
+                  type="text"
+                  value={ans}
+                  onChange={e => handleBlankChange(i, e.target.value)}
+                  placeholder={i === 0 ? 'Correct answer' : 'Also accept…'}
+                  maxLength={120}
+                  className="flex-1 text-sm font-medium bg-transparent outline-none border-0"
+                  style={{ color: '#134E4A' }}
+                />
+                {blankAnswers.length > 1 && (
+                  <button type="button" onClick={() => handleBlankRemove(i)} className="w-6 h-6 flex items-center justify-center rounded text-gray-300 hover:text-red-500 transition-colors text-lg leading-none">
+                    &times;
+                  </button>
+                )}
+              </div>
+            ))}
+            {blankAnswers.length < 6 && (
+              <button
+                type="button"
+                onClick={handleBlankAdd}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors"
+                style={{ background: '#F3F4F6', color: '#374151', border: '1px dashed #D1D5DB' }}
+              >
+                <span className="text-sm leading-none">+</span> Add accepted answer
+              </button>
+            )}
+            <p className="text-[11px] text-gray-400">Tip: write <code className="px-1 rounded bg-gray-100">_____</code> in your question where the blank goes.</p>
+          </div>
+        )}
+
+        {/* Matching — left ↔ right pairs */}
+        {question.type === 'matching' && (
+          <div className="space-y-3">
+            <p className="text-xs font-semibold" style={{ color: '#DB2777' }}>
+              Matching pairs <span className="font-normal text-gray-400">— the right column is shuffled for participants.</span>
+            </p>
+            {matchPairs.map((pair, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={pair.left}
+                  onChange={e => handlePairChange(i, 'left', e.target.value)}
+                  placeholder={`Item ${i + 1}`}
+                  maxLength={100}
+                  className="flex-1 min-w-0 text-sm font-medium rounded-lg px-3 py-2 outline-none"
+                  style={{ background: '#FDF2F8', border: '1px solid #FBCFE8', color: '#831843' }}
+                />
+                <span className="flex-shrink-0 text-gray-300 font-bold">↔</span>
+                <input
+                  type="text"
+                  value={pair.right}
+                  onChange={e => handlePairChange(i, 'right', e.target.value)}
+                  placeholder={`Match ${i + 1}`}
+                  maxLength={100}
+                  className="flex-1 min-w-0 text-sm font-medium rounded-lg px-3 py-2 outline-none"
+                  style={{ background: '#FDF2F8', border: '1px solid #FBCFE8', color: '#831843' }}
+                />
+                {matchPairs.length > 2 && (
+                  <button type="button" onClick={() => handlePairRemove(i)} className="w-6 h-6 flex-shrink-0 flex items-center justify-center rounded text-gray-300 hover:text-red-500 transition-colors text-lg leading-none">
+                    &times;
+                  </button>
+                )}
+              </div>
+            ))}
+            {matchPairs.length < 8 && (
+              <button
+                type="button"
+                onClick={handlePairAdd}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors"
+                style={{ background: '#F3F4F6', color: '#374151', border: '1px dashed #D1D5DB' }}
+              >
+                <span className="text-sm leading-none">+</span> Add pair
+              </button>
+            )}
           </div>
         )}
 

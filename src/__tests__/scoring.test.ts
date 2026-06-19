@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { checkAnswer, calcPoints, applyStreak, validateAnswer, scoreRanking, isAsyncScoredQuestion } from '../lib/scoring'
+import { checkAnswer, calcPoints, applyStreak, validateAnswer, scoreRanking, isAsyncScoredQuestion, toPublicQuestion } from '../lib/scoring'
 
 // ─── checkAnswer ─────────────────────────────────────────────────────────────
 
@@ -28,6 +28,98 @@ describe('checkAnswer — truefalse', () => {
 
   it('rejects "1" (False)', () => {
     expect(checkAnswer(q, '1')).toBe(false)
+  })
+})
+
+describe('checkAnswer — fillblank', () => {
+  const q = { type: 'fillblank', blankAnswers: ['New Delhi', 'Delhi'], timerSeconds: 20, points: 1000 }
+
+  it('accepts an exact answer', () => {
+    expect(checkAnswer(q, 'New Delhi')).toBe(true)
+  })
+
+  it('is case-insensitive and whitespace-tolerant', () => {
+    expect(checkAnswer(q, '  new   delhi ')).toBe(true)
+  })
+
+  it('accepts any listed variant', () => {
+    expect(checkAnswer(q, 'delhi')).toBe(true)
+  })
+
+  it('rejects a wrong answer', () => {
+    expect(checkAnswer(q, 'Mumbai')).toBe(false)
+  })
+
+  it('rejects an empty answer', () => {
+    expect(checkAnswer(q, '   ')).toBe(false)
+  })
+
+  it('rejects when no accepted answers configured', () => {
+    expect(checkAnswer({ type: 'fillblank', blankAnswers: [], timerSeconds: 20, points: 1000 }, 'x')).toBe(false)
+  })
+})
+
+describe('checkAnswer — matching', () => {
+  const q = {
+    type: 'matching',
+    matchPairs: [{ left: 'Dog', right: 'Bark' }, { left: 'Cat', right: 'Meow' }, { left: 'Cow', right: 'Moo' }],
+    timerSeconds: 30, points: 1000,
+  }
+
+  it('returns true when every left maps to its correct right value', () => {
+    expect(checkAnswer(q, ['Bark', 'Meow', 'Moo'])).toBe(true)
+  })
+
+  it('is case/space-insensitive on the right values', () => {
+    expect(checkAnswer(q, ['  bark ', 'MEOW', 'moo'])).toBe(true)
+  })
+
+  it('returns false when any pair is wrong', () => {
+    expect(checkAnswer(q, ['Moo', 'Meow', 'Bark'])).toBe(false)
+  })
+
+  it('returns false on length mismatch', () => {
+    expect(checkAnswer(q, ['Bark', 'Meow'])).toBe(false)
+  })
+})
+
+describe('validateAnswer — fillblank & matching', () => {
+  it('accepts a non-empty fillblank string and trims it', () => {
+    const r = validateAnswer({ type: 'fillblank', blankAnswers: ['x'], timerSeconds: 20, points: 1000 }, '  hi ')
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.value).toBe('hi')
+  })
+
+  it('rejects an empty fillblank string', () => {
+    expect(validateAnswer({ type: 'fillblank', blankAnswers: ['x'], timerSeconds: 20, points: 1000 }, '   ').ok).toBe(false)
+  })
+
+  it('accepts a matching array of the right length', () => {
+    const q = { type: 'matching', matchPairs: [{ left: 'a', right: 'b' }, { left: 'c', right: 'd' }], timerSeconds: 20, points: 1000 }
+    expect(validateAnswer(q, ['b', 'd']).ok).toBe(true)
+  })
+
+  it('rejects a matching array of the wrong length', () => {
+    const q = { type: 'matching', matchPairs: [{ left: 'a', right: 'b' }, { left: 'c', right: 'd' }], timerSeconds: 20, points: 1000 }
+    expect(validateAnswer(q, ['b']).ok).toBe(false)
+  })
+})
+
+describe('toPublicQuestion — answer-key leak protection', () => {
+  it('strips blankAnswers from fillblank', () => {
+    const pub = toPublicQuestion({ type: 'fillblank', blankAnswers: ['secret'], timerSeconds: 20, points: 1000 })
+    expect('blankAnswers' in pub).toBe(false)
+  })
+
+  it('replaces matchPairs with shuffled, decoupled columns', () => {
+    const pub = toPublicQuestion({
+      type: 'matching',
+      matchPairs: [{ left: 'Dog', right: 'Bark' }, { left: 'Cat', right: 'Meow' }],
+      timerSeconds: 20, points: 1000,
+    })
+    expect('matchPairs' in pub).toBe(false)
+    expect(pub.matchLefts).toEqual(['Dog', 'Cat'])
+    expect([...(pub.matchRights ?? [])].sort()).toEqual(['Bark', 'Meow'])
   })
 })
 

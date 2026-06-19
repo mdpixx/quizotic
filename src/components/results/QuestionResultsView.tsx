@@ -27,9 +27,25 @@ export function QuestionResultsView({ questionType, stat, mode = 'final', classN
   if (renderer === 'histogram') return <RatingHistogram stat={stat} mode={mode} className={className} />
   if (renderer === 'ordered') return <RankingResults stat={stat} mode={mode} className={className} />
   if (renderer === 'grid') return <DrawingGrid stat={stat} mode={mode} className={className} />
+  if (renderer === 'answerkey') return <FillBlankResults stat={stat} mode={mode} className={className} />
+  if (renderer === 'pairs') return <MatchingResults stat={stat} mode={mode} className={className} />
   // 'inner' (case) — case wraps another type; until we have inner-type
   // metadata in the stat, fall back to bars.
   return <PollBars stat={stat} mode={mode} className={className} />
+}
+
+// ─── Correct-% headline pill (scored types) ──────────────────────────────────
+
+function CorrectPctPill({ pct, total }: { pct: number | null | undefined; total?: number }) {
+  if (pct === null || pct === undefined) return null
+  return (
+    <div className="flex items-baseline gap-2">
+      <span className="text-3xl font-black tabular-nums" style={{ color: pct >= 50 ? '#059669' : '#DC2626' }}>{pct}%</span>
+      <span className="text-xs" style={{ color: '#64748B' }}>
+        answered correctly{typeof total === 'number' ? ` · ${total} ${total === 1 ? 'response' : 'responses'}` : ''}
+      </span>
+    </div>
+  )
 }
 
 // ─── Empty state ─────────────────────────────────────────────────────────────
@@ -301,6 +317,69 @@ function RankingResults({ stat, className }: RendererProps) {
           </li>
         ))}
       </ol>
+    </div>
+  )
+}
+
+// ─── Fill-in-the-blank (typed answers + accepted-answer key) ─────────────────
+
+function FillBlankResults({ stat, className }: RendererProps) {
+  const responses = (stat.textResponses ?? []) as Array<{ answer: string; name?: string; archetype?: string; isCorrect?: boolean }>
+  const acceptedKey = stat.correctAnswerText
+
+  return (
+    <div className={`space-y-3 ${className ?? ''}`}>
+      <CorrectPctPill pct={stat.correctPct} total={stat.totalResponses} />
+      {acceptedKey && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2">
+          <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: '#059669' }}>Accepted answers</p>
+          <p className="text-sm font-semibold" style={{ color: '#047857' }}>{acceptedKey}</p>
+        </div>
+      )}
+      {responses.length === 0 ? (
+        <EmptyState label="No responses yet" />
+      ) : (
+        <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+          {responses.map((r, i) => (
+            <div
+              key={`${i}-${r.name ?? ''}`}
+              className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm"
+              style={{
+                borderColor: r.isCorrect ? '#A7F3D0' : '#FECACA',
+                background: r.isCorrect ? '#F0FDF4' : '#FEF2F2',
+              }}
+            >
+              <span className="flex-shrink-0" style={{ color: r.isCorrect ? '#059669' : '#DC2626' }}>{r.isCorrect ? '✓' : '✗'}</span>
+              <span className="flex-1 truncate" style={{ color: '#0F1B3D' }}>{r.answer}</span>
+              {r.name && <span className="text-[11px] flex-shrink-0" style={{ color: '#94A3B8' }}>{r.name}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Matching (left↔right answer key + correct %) ────────────────────────────
+
+function MatchingResults({ stat, className }: RendererProps) {
+  const pairs = stat.matchPairs ?? []
+  return (
+    <div className={`space-y-3 ${className ?? ''}`}>
+      <CorrectPctPill pct={stat.correctPct} total={stat.totalResponses} />
+      {pairs.length === 0 ? (
+        <EmptyState label="No pairs configured" />
+      ) : (
+        <ol className="space-y-2">
+          {pairs.map((p, i) => (
+            <li key={i} className="flex items-center gap-2 text-sm">
+              <span className="flex-1 truncate rounded-lg px-3 py-2 font-semibold" style={{ background: '#FDF2F8', color: '#831843' }}>{p.left}</span>
+              <span className="flex-shrink-0 text-gray-300 font-bold">↔</span>
+              <span className="flex-1 truncate rounded-lg px-3 py-2 font-semibold" style={{ background: '#F0FDFA', color: '#134E4A' }}>{p.right}</span>
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   )
 }

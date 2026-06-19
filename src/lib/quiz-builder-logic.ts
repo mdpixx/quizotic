@@ -45,6 +45,8 @@ export const TYPE_PILLS: TypePill[] = [
   { value: 'mcq', label: 'MCQ', color: '#2563EB', bg: '#EFF6FF', tooltip: 'Classic quiz format — 2-4 options, one correct answer.' },
   { value: 'multiselect', label: 'Multi-select', shortLabel: 'Multi', color: '#7C3AED', bg: '#F5F3FF', tooltip: 'Choose one or more correct answers.' },
   { value: 'truefalse', label: 'True/False', shortLabel: 'T/F', color: '#16A34A', bg: '#F0FDF4', tooltip: 'Simple binary choice.' },
+  { value: 'fillblank', label: 'Fill in the Blank', shortLabel: 'Blank', color: '#0D9488', bg: '#F0FDFA', tooltip: 'Participants type the missing word. Accepts multiple correct spellings.' },
+  { value: 'matching', label: 'Matching', shortLabel: 'Match', color: '#DB2777', bg: '#FDF2F8', tooltip: 'Match each item on the left to its pair on the right.' },
   { value: 'poll', label: 'Poll', color: '#0F1B3D', bg: '#F3F4F6', tooltip: 'Gather opinions — no right or wrong answer.' },
   { value: 'openended', label: 'Open-ended', shortLabel: 'Open', color: '#D97706', bg: '#FFFBEB', tooltip: 'Free-text responses.' },
   { value: 'wordcloud', label: 'Word Cloud', shortLabel: 'Cloud', color: '#FF8A47', bg: '#FFF7ED', tooltip: 'Participants submit words forming a live cloud.' },
@@ -55,7 +57,7 @@ export const TYPE_PILLS: TypePill[] = [
 ]
 
 export const QUESTION_TYPE_GROUPS: { label: string; types: QuestionType[] }[] = [
-  { label: 'Scored', types: ['mcq', 'multiselect', 'truefalse'] },
+  { label: 'Scored', types: ['mcq', 'multiselect', 'truefalse', 'fillblank', 'matching'] },
   { label: 'Feedback', types: ['poll', 'rating', 'ranking'] },
   { label: 'Text', types: ['openended', 'wordcloud', 'qa'] },
   { label: 'Creative', types: ['case'] },
@@ -75,6 +77,8 @@ export function hasCorrectAnswer(type: QuestionType, question?: Question): boole
   if (type === 'mcq' || type === 'truefalse') return !!question?.correctAnswer
   if (type === 'multiselect') return (question?.correctAnswers?.length ?? 0) > 0
   if (type === 'ranking' && question?.correctOrder && question.correctOrder.length > 0) return true
+  if (type === 'fillblank') return (question?.blankAnswers?.some(a => a.trim() !== '') ?? false)
+  if (type === 'matching') return (question?.matchPairs?.some(p => p.left.trim() !== '' && p.right.trim() !== '') ?? false)
   return false
 }
 
@@ -124,6 +128,8 @@ export function convertQuestionType(question: Question, type: QuestionType): Que
     correctAnswer: undefined,
     correctAnswers: type === 'multiselect' ? [] : undefined,
     correctOrder: undefined,
+    blankAnswers: type === 'fillblank' ? [''] : undefined,
+    matchPairs: type === 'matching' ? [{ left: '', right: '' }, { left: '', right: '' }, { left: '', right: '' }] : undefined,
   }
 }
 
@@ -223,6 +229,8 @@ export function hydrateGeneratedQuestions(raw: Partial<Question>[]): Question[] 
       correctAnswer: q.correctAnswer,
       correctAnswers: q.correctAnswers,
       correctOrder: q.correctOrder,
+      blankAnswers: q.blankAnswers,
+      matchPairs: q.matchPairs,
       imageUrl: q.imageUrl,
       explanation: q.explanation,
       bloomsLevel: q.bloomsLevel,

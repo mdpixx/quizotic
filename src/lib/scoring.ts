@@ -6,6 +6,8 @@ export interface Question {
   correctAnswer?: string | string[]
   correctAnswers?: string[]
   correctOrder?: string[]
+  blankAnswers?: string[]
+  matchPairs?: { left: string; right: string }[]
   timerSeconds: number
   points: number
   explanation?: string
@@ -14,15 +16,33 @@ export interface Question {
   text?: string
 }
 
+// Canonical normalizer for free-text answer comparison. Mirrors
+// normalizeText in src/lib/quiz-types.ts — keep the two in sync.
+function normalizeText(s: unknown): string {
+  return String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
 export interface Participant {
   score: number
   streakCount: number
   answers: Record<number, unknown>
 }
 
-export type PublicQuestion = Omit<Question, 'correctAnswer' | 'correctAnswers' | 'correctOrder'>
+export type PublicQuestion = Omit<Question, 'correctAnswer' | 'correctAnswers' | 'correctOrder' | 'blankAnswers' | 'matchPairs'> & {
+  matchLefts?: string[]   // matching: left prompts in order
+  matchRights?: string[]  // matching: right options, shuffled (no alignment to lefts)
+}
 
-export const ASYNC_GRADEABLE_TYPES = new Set(['mcq', 'truefalse', 'multiselect'])
+function shuffled<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j]!, a[i]!]
+  }
+  return a
+}
+
+export const ASYNC_GRADEABLE_TYPES = new Set(['mcq', 'truefalse', 'multiselect', 'fillblank', 'matching'])
 export const ASYNC_PARTICIPATION_TYPES = new Set(['poll', 'openended', 'wordcloud', 'qa', 'rating', 'ranking', 'case', 'drawing'])
 
 export function isAsyncScoredType(type: string): boolean {
@@ -68,19 +88,31 @@ export function scoreRanking(question: Question, answer: unknown, speedMultiplie
 
 export function stripAnswers(q: Question): PublicQuestion {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { correctAnswer, correctAnswers, correctOrder, ...safe } = q
-  return safe
+  const { correctAnswer, correctAnswers, correctOrder, blankAnswers, matchPairs, ...safe } = q
+  return withMatchingColumns(safe, matchPairs)
+}
+
+// Splits a matching question's answer key into a left prompt list (in order)
+// and a shuffled right-option pool, so the answer alignment never reaches the
+// client. No-op for every other type.
+function withMatchingColumns(safe: PublicQuestion, matchPairs?: { left: string; right: string }[]): PublicQuestion {
+  if (safe.type !== 'matching' || !Array.isArray(matchPairs)) return safe
+  return {
+    ...safe,
+    matchLefts: matchPairs.map(p => p.left),
+    matchRights: shuffled(matchPairs.map(p => p.right)),
+  }
 }
 
 // Like stripAnswers but also backfills options for types that omit them
 // (truefalse is stored without options; callers must never get undefined).
 export function toPublicQuestion(q: Question): PublicQuestion {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { correctAnswer, correctAnswers, correctOrder, ...safe } = q
+  const { correctAnswer, correctAnswers, correctOrder, blankAnswers, matchPairs, ...safe } = q
   const options = (safe.options && (safe.options as unknown[]).length > 0)
     ? safe.options
     : q.type === 'truefalse' ? ['True', 'False'] : safe.options
-  return { ...safe, options }
+  return withMatchingColumns({ ...safe, options }, matchPairs)
 }
 
 // Returns the effective options array for a question, with type-appropriate defaults.
@@ -148,12 +180,40 @@ export function validateAnswer(
     return { ok: true, value: raw }
   }
 
+  if (type === 'fillblank') {
+    if (typeof raw !== 'string' || raw.trim() === '')
+      return { ok: false, error: 'Answer must be a non-empty string', code: 'invalid_answer' }
+    return { ok: true, value: raw.trim().slice(0, 200) }
+  }
+
+  if (type === 'matching') {
+    // Answer is an array of chosen right-column values (strings), one per left
+    // item, in the order the left items are presented.
+    const pairs = Array.isArray(question.matchPairs) ? question.matchPairs : []
+    if (!Array.isArray(raw) || raw.length !== pairs.length || pairs.length === 0)
+      return { ok: false, error: 'Matching answer must have one choice per left item', code: 'invalid_answer' }
+    const value = (raw as unknown[]).map(x => String(x ?? '').slice(0, 200))
+    return { ok: true, value }
+  }
+
   return { ok: false, error: `Unsupported question type: ${type}`, code: 'invalid_answer' }
 }
 
 export function checkAnswer(question: Question, answer: unknown): boolean {
   if (question.type === 'mcq' || question.type === 'truefalse') {
     return String(answer) === String(question.correctAnswer)
+  }
+  if (question.type === 'fillblank') {
+    const accepted = Array.isArray(question.blankAnswers) ? question.blankAnswers : []
+    if (accepted.length === 0) return false
+    const given = normalizeText(answer)
+    if (!given) return false
+    return accepted.some(a => normalizeText(a) === given)
+  }
+  if (question.type === 'matching') {
+    const pairs = Array.isArray(question.matchPairs) ? question.matchPairs : []
+    if (pairs.length === 0 || !Array.isArray(answer) || answer.length !== pairs.length) return false
+    return pairs.every((p, i) => normalizeText((answer as unknown[])[i]) === normalizeText(p.right))
   }
   if (question.type === 'multiselect') {
     const correctRaw = question.correctAnswers ?? question.correctAnswer

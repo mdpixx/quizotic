@@ -9,6 +9,8 @@ export type QuizQuestion = {
   explanation?: string
   scenarioText?: string
   supportingDetail?: string
+  matchLefts?: string[]   // matching — left prompts (ordered)
+  matchRights?: string[]  // matching — right options (shuffled)
   index: number
   total: number
 }

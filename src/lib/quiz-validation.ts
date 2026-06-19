@@ -118,6 +118,30 @@ export function validateQuizQuestions(questions: Question[]): QuizValidationIssu
       })
     }
 
+    if (type === 'fillblank') {
+      const accepted = (q.blankAnswers ?? []).filter(a => a.trim() !== '')
+      if (accepted.length === 0) {
+        issues.push({
+          questionIndex,
+          field: 'blankAnswers',
+          message: 'Fill-in-the-blank questions need at least one accepted answer.',
+          severity: 'error',
+        })
+      }
+    }
+
+    if (type === 'matching') {
+      const pairs = (q.matchPairs ?? []).filter(p => p.left.trim() !== '' && p.right.trim() !== '')
+      if (pairs.length < 2) {
+        issues.push({
+          questionIndex,
+          field: 'matchPairs',
+          message: 'Matching questions need at least two complete pairs.',
+          severity: 'error',
+        })
+      }
+    }
+
     if ((type === 'mcq' || type === 'multiselect' || type === 'poll' || type === 'case') && q.options?.some(opt => getOptionText(opt).length > 150)) {
       issues.push({
         questionIndex,

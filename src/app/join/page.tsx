@@ -86,6 +86,8 @@ interface Question {
   supportingDetail?: string
   correctAnswer?: string  // available in self-paced (follow-up) mode
   explanation?: string    // available in self-paced (follow-up) mode
+  matchLefts?: string[]   // matching — left prompts (ordered)
+  matchRights?: string[]  // matching — right options (shuffled)
 }
 
 interface LeaderboardEntry {
@@ -111,7 +113,7 @@ const OPTION_GRADIENTS = [
 ]
 const OPTION_COLORS = ANSWER_COLORS.map(c => c.hex)
 const OPTION_LABELS = ANSWER_LETTERS
-const TEXT_INPUT_TYPES = ['openended', 'wordcloud', 'qa']
+const TEXT_INPUT_TYPES = ['openended', 'wordcloud', 'qa', 'fillblank']
 
 // ─── Countdown Number (for get-ready overlay) ────────────────────────────────
 // Wall-clock-anchored countdown shared with the host. Formula:
@@ -523,6 +525,8 @@ function JoinPageInner() {
   const quickFireTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [presenterAggregate, setPresenterAggregate] = useState<PresenterAggregateData>({ total: 0 })
   const [rankingOrder, setRankingOrder] = useState<number[]>([])
+  // Matching: participant's chosen right-column value per left item (by index).
+  const [matchChoices, setMatchChoices] = useState<string[]>([])
   const rankingSensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
@@ -898,6 +902,7 @@ function JoinPageInner() {
       setMultiselectChosen(new Set())
       setIntermediateRank(null)
       setPersonalResult(null)
+      setMatchChoices(question.type === 'matching' ? (question.matchLefts ?? []).map(() => '') : [])
       // For ranking questions, initialize rankingOrder from the received options (which may be shuffled for sequence ranking)
       if (question.type === 'ranking') {
         const opts = question.options || []
@@ -1909,6 +1914,48 @@ function JoinPageInner() {
                   style={{ background: isSubmitted ? '#9ca3af' : '#FBD13B', color: isSubmitted ? '#fff' : '#0D0D0D', border: isSubmitted ? 'none' : '2px solid #0D0D0D' }}
                 >
                   {isSubmitted ? 'Submitted ✓' : 'Submit order →'}
+                </button>
+              </div>
+            )
+          })()
+        ) : question.type === 'matching' ? (
+          (() => {
+            const lefts = question.matchLefts ?? []
+            const rights = question.matchRights ?? []
+            const choices = lefts.map((_, i) => matchChoices[i] ?? '')
+            const allChosen = lefts.length > 0 && choices.every(c => c !== '')
+            const isSubmitted = selectedAnswer !== null
+            return (
+              <div className="flex flex-col gap-3 flex-1">
+                <p className="text-sm text-center font-semibold text-gray-500">Match each item, then submit</p>
+                {lefts.map((leftText, i) => (
+                  <div key={i} className="rounded-2xl border-2 border-gray-200 bg-white p-3">
+                    <p className="font-bold text-base mb-2" style={{ color: '#0F1B3D' }}>{leftText}</p>
+                    <select
+                      value={choices[i]}
+                      disabled={isSubmitted || timeLeft <= 0}
+                      onChange={e => setMatchChoices(prev => {
+                        const next = lefts.map((_, j) => prev[j] ?? '')
+                        next[i] = e.target.value
+                        return next
+                      })}
+                      className="w-full rounded-xl border-2 border-gray-200 bg-gray-50 px-3 py-3 text-base font-semibold outline-none focus:border-pink-400 disabled:opacity-60"
+                      style={{ color: '#831843' }}
+                    >
+                      <option value="">Choose a match…</option>
+                      {rights.map((r, ri) => (
+                        <option key={ri} value={r}>{r}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+                <button
+                  onClick={() => submitAnswerRaw(choices, 'matched')}
+                  disabled={isSubmitted || !allChosen || timeLeft <= 0}
+                  className="w-full py-4 rounded-2xl font-black text-xl transition-all disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[#0F1B3D] focus-visible:ring-offset-2 motion-safe:active:scale-[0.98]"
+                  style={{ background: isSubmitted ? '#9ca3af' : '#FBD13B', color: isSubmitted ? '#fff' : '#0D0D0D', border: isSubmitted ? 'none' : '2px solid #0D0D0D' }}
+                >
+                  {isSubmitted ? 'Submitted ✓' : 'Submit matches →'}
                 </button>
               </div>
             )

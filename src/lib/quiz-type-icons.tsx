@@ -33,6 +33,22 @@ export const TYPE_ICONS: Partial<Record<QuestionType, React.ReactNode>> = {
       <path d="M7 10l2 2 4-4" stroke="#16A34A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   ),
+  fillblank: (
+    <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
+      <path d="M3 7h6M3 11h10" stroke="#0D9488" strokeWidth="1.7" strokeLinecap="round"/>
+      <rect x="3" y="14" width="8" height="2.2" rx="1.1" fill="#0D9488" fillOpacity="0.35"/>
+      <rect x="12.5" y="13.4" width="4.5" height="3.4" rx="1" fill="#0D9488" fillOpacity="0.2" stroke="#0D9488" strokeWidth="1.2"/>
+    </svg>
+  ),
+  matching: (
+    <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
+      <circle cx="5" cy="6" r="2" fill="#DB2777" fillOpacity="0.25" stroke="#DB2777" strokeWidth="1.3"/>
+      <circle cx="5" cy="14" r="2" fill="#DB2777" fillOpacity="0.25" stroke="#DB2777" strokeWidth="1.3"/>
+      <circle cx="15" cy="6" r="2" fill="#DB2777" fillOpacity="0.25" stroke="#DB2777" strokeWidth="1.3"/>
+      <circle cx="15" cy="14" r="2" fill="#DB2777" fillOpacity="0.25" stroke="#DB2777" strokeWidth="1.3"/>
+      <path d="M7 6l6 8M7 14l6-8" stroke="#DB2777" strokeWidth="1.3" strokeLinecap="round"/>
+    </svg>
+  ),
   poll: (
     <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
       <rect x="3" y="12" width="3.5" height="5" rx="1" fill="#0F1B3D" fillOpacity="0.8"/>

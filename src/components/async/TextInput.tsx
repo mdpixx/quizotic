@@ -12,6 +12,7 @@ export function TextInput({ question, disabled, onSubmit }: AsyncInputProps) {
   const label =
     question.type === 'wordcloud' ? 'Your word or phrase' :
     question.type === 'qa' ? 'Your answer' :
+    question.type === 'fillblank' ? 'Fill in the blank' :
     'Your response'
 
   function handleSubmit() {
@@ -27,7 +28,7 @@ export function TextInput({ question, disabled, onSubmit }: AsyncInputProps) {
         {label}
       </label>
       <textarea
-        rows={question.type === 'wordcloud' ? 2 : 4}
+        rows={question.type === 'wordcloud' || question.type === 'fillblank' ? 2 : 4}
         maxLength={MAX_CHARS}
         value={value}
         onChange={e => setValue(e.target.value)}
@@ -35,6 +36,7 @@ export function TextInput({ question, disabled, onSubmit }: AsyncInputProps) {
         placeholder={
           question.type === 'wordcloud' ? 'Enter one or a few words…' :
           question.type === 'qa' ? 'Type your answer here…' :
+          question.type === 'fillblank' ? 'Type the missing word…' :
           'Share your thoughts…'
         }
         className="w-full px-4 py-3 rounded-xl text-sm resize-none outline-none focus:ring-2 transition-all disabled:opacity-50"

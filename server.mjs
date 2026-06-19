@@ -2574,8 +2574,13 @@ function isSequenceRanking(question) {
 
 function isScoredQuestion(question) {
   if (!question?.type) return false
-  if (['mcq', 'multiselect', 'truefalse'].includes(question.type)) return true
+  if (['mcq', 'multiselect', 'truefalse', 'fillblank', 'matching'].includes(question.type)) return true
   return isSequenceRanking(question)
+}
+
+// Canonical free-text normalizer. Mirrors normalizeText in src/lib/quiz-types.ts.
+function normalizeText(s) {
+  return String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
 function fisherYatesShuffle(array) {
@@ -2597,8 +2602,14 @@ function sanitizeQuestion(q) {
   // already gates their display behind the post-answer reveal phase, and
   // including them keeps the late-joiner catch-up path working without an
   // extra round-trip.
-  const { correctAnswer: _ca, correctAnswers: _cas, correctOrder: _co, ...safe } = q
-  void _ca; void _cas; void _co
+  const { correctAnswer: _ca, correctAnswers: _cas, correctOrder: _co, blankAnswers: _ba, matchPairs: _mp, ...safe } = q
+  void _ca; void _cas; void _co; void _ba
+  // Matching: send the left prompts in order plus a shuffled right-option pool,
+  // never the aligned pairs — otherwise the answer key leaks to participants.
+  if (q.type === 'matching' && Array.isArray(_mp)) {
+    safe.matchLefts = _mp.map(p => p.left)
+    safe.matchRights = fisherYatesShuffle(_mp.map(p => p.right))
+  }
   safe.isScored = isScoredQuestion(q)
   // Clamp timerSeconds to [5, 120] so a corrupted DB row can't ship a
   // sub-second timer to clients (host reported red-zone starts in live sessions).
@@ -2655,6 +2666,18 @@ function sendCurrentQuestionToSocket(socket, session) {
 function checkAnswer(question, answer) {
   if (question.type === 'mcq' || question.type === 'truefalse') {
     return String(answer) === String(question.correctAnswer)
+  }
+  if (question.type === 'fillblank') {
+    const accepted = Array.isArray(question.blankAnswers) ? question.blankAnswers : []
+    if (accepted.length === 0) return false
+    const given = normalizeText(answer)
+    if (!given) return false
+    return accepted.some(a => normalizeText(a) === given)
+  }
+  if (question.type === 'matching') {
+    const pairs = Array.isArray(question.matchPairs) ? question.matchPairs : []
+    if (pairs.length === 0 || !Array.isArray(answer) || answer.length !== pairs.length) return false
+    return pairs.every((p, i) => normalizeText(answer[i]) === normalizeText(p.right))
   }
   if (question.type === 'multiselect') {
     // Correct answers can come in as either `correctAnswers` (new array field)
@@ -3134,6 +3157,25 @@ function buildQuestionStats(session) {
       if (!sure && !ic) unsureWrong++
     }
 
+    // Fill-in-the-blank: surface the typed answers (with correctness) + the
+    // accepted-answer key. Matching: surface the left↔right answer key. Both
+    // render in QuestionResultsView via the 'answerkey' / 'pairs' renderers.
+    let extra = {}
+    if (q.type === 'fillblank') {
+      extra = {
+        correctAnswerText: Array.isArray(q.blankAnswers) ? q.blankAnswers.join(' / ') : null,
+        textResponses: answered.map(p => ({
+          name: p.name || p.realName || 'Anonymous',
+          archetype: p.archetype,
+          answer: typeof p.answers[i].answer === 'string' ? p.answers[i].answer : String(p.answers[i].answer ?? ''),
+          isCorrect: checkAnswer(q, p.answers[i].answer),
+          submittedAt: p.answers[i].clientReportedTimeMs ?? Date.now(),
+        })),
+      }
+    } else if (q.type === 'matching') {
+      extra = { matchPairs: Array.isArray(q.matchPairs) ? q.matchPairs : [] }
+    }
+
     return {
       index: i,
       text: q.text,
@@ -3143,6 +3185,7 @@ function buildQuestionStats(session) {
       bloomsLevel: q.bloomsLevel ?? null,
       explanation: q.explanation ?? null,
       isNonScored: false, totalResponses: total, optionDistribution: null,
+      ...extra,
     }
   })
 }
