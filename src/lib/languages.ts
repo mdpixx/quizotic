@@ -1,0 +1,35 @@
+// Canonical language list for every quiz-builder language selector.
+//
+// Ordering policy: English first (the default), then strictly alphabetical.
+// Values are sent to the generation/translation APIs as plain strings.
+export const QUIZ_LANGUAGES: string[] = [
+  'English',
+  'Arabic',
+  'Bengali',
+  'Chinese (Mandarin)',
+  'Dutch',
+  'Filipino',
+  'French',
+  'German',
+  'Greek',
+  'Hebrew',
+  'Hindi',
+  'Indonesian',
+  'Italian',
+  'Japanese',
+  'Korean',
+  'Marathi',
+  'Persian',
+  'Polish',
+  'Portuguese',
+  'Russian',
+  'Spanish',
+  'Swahili',
+  'Tamil',
+  'Telugu',
+  'Thai',
+  'Turkish',
+  'Ukrainian',
+  'Urdu',
+  'Vietnamese',
+]

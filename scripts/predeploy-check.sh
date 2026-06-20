@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Pre-deploy gate. Boots the dev server in the background, runs the E2E
+# Local release gate. Boots the dev server in the background, runs the E2E
 # critical-path test against it, then kills the server and exits with the
-# E2E result. Triggered by `npm run deploy` so a regression in answer
-# capture, host counter, or participant feedback BLOCKS the push to Railway.
+# E2E result. Run `npm run predeploy` before merging a production PR.
 #
 # Set SKIP_E2E=1 to bypass (emergency only — avoid).
 

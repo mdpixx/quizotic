@@ -6,7 +6,7 @@ _Update as tasks are completed or new ones emerge._
 -
 
 ## Up Next
-- Review + deploy the scheduled-quizzes build (`PORT=4000 npm run dev` to walk it; `npm run deploy` after Mahesh's go — check for live sessions first). The landing-funnel overhaul deployed earlier on 2026-06-12 is already live.
+- Review the scheduled-quizzes build (`PORT=4000 npm run dev` to walk it; run `npm run predeploy`, then merge its PR after Mahesh's go — check for live sessions first). Railway deploys the resulting `main` commit. The landing-funnel overhaul deployed earlier on 2026-06-12 is already live.
 - Set NEXT_PUBLIC_POSTHOG_KEY in Railway so funnel events (incl. new `quiz_scheduled`) actually record.
 
 ## Backlog

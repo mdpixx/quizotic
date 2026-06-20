@@ -89,10 +89,42 @@ const outputs = new Map([
 
 let stale = false
 
+async function matchesExpected(path, current, expected) {
+  if (!current) return false
+  if (!path.endsWith('.png')) return current.equals(expected)
+
+  // SVG antialiasing and PNG compression vary slightly across the macOS and
+  // Linux Sharp/libvips builds. Compare decoded pixels with a very small mean
+  // channel tolerance: harmless edge-rendering variance passes, while a real
+  // colour, geometry, size, or source-asset change still fails.
+  const [currentImage, expectedImage] = await Promise.all([
+    sharp(current).ensureAlpha().raw().toBuffer({ resolveWithObject: true }),
+    sharp(expected).ensureAlpha().raw().toBuffer({ resolveWithObject: true }),
+  ])
+
+  const currentInfo = currentImage.info
+  const expectedInfo = expectedImage.info
+  if (
+    currentInfo.width !== expectedInfo.width ||
+    currentInfo.height !== expectedInfo.height ||
+    currentInfo.channels !== expectedInfo.channels ||
+    currentImage.data.length !== expectedImage.data.length
+  ) {
+    return false
+  }
+
+  let totalDelta = 0
+  for (let i = 0; i < currentImage.data.length; i++) {
+    totalDelta += Math.abs(currentImage.data[i] - expectedImage.data[i])
+  }
+
+  return totalDelta / currentImage.data.length <= 0.5
+}
+
 for (const [path, expected] of outputs) {
   if (checkOnly) {
     const current = await readFile(path).catch(() => null)
-    if (!current?.equals(expected)) {
+    if (!await matchesExpected(path, current, expected)) {
       console.error(`Out of date: ${path.slice(root.length + 1)}`)
       stale = true
     }
