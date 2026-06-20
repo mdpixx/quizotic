@@ -93,14 +93,32 @@ async function matchesExpected(path, current, expected) {
   if (!current) return false
   if (!path.endsWith('.png')) return current.equals(expected)
 
-  // PNG compression can differ by a byte across Sharp/libvips builds even
-  // when every rendered pixel is identical. Compare decoded RGBA pixels so
-  // CI on Linux and local generation on macOS agree on visual asset drift.
-  const [currentPixels, expectedPixels] = await Promise.all([
-    sharp(current).ensureAlpha().raw().toBuffer(),
-    sharp(expected).ensureAlpha().raw().toBuffer(),
+  // SVG antialiasing and PNG compression vary slightly across the macOS and
+  // Linux Sharp/libvips builds. Compare decoded pixels with a very small mean
+  // channel tolerance: harmless edge-rendering variance passes, while a real
+  // colour, geometry, size, or source-asset change still fails.
+  const [currentImage, expectedImage] = await Promise.all([
+    sharp(current).ensureAlpha().raw().toBuffer({ resolveWithObject: true }),
+    sharp(expected).ensureAlpha().raw().toBuffer({ resolveWithObject: true }),
   ])
-  return currentPixels.equals(expectedPixels)
+
+  const currentInfo = currentImage.info
+  const expectedInfo = expectedImage.info
+  if (
+    currentInfo.width !== expectedInfo.width ||
+    currentInfo.height !== expectedInfo.height ||
+    currentInfo.channels !== expectedInfo.channels ||
+    currentImage.data.length !== expectedImage.data.length
+  ) {
+    return false
+  }
+
+  let totalDelta = 0
+  for (let i = 0; i < currentImage.data.length; i++) {
+    totalDelta += Math.abs(currentImage.data[i] - expectedImage.data[i])
+  }
+
+  return totalDelta / currentImage.data.length <= 0.5
 }
 
 for (const [path, expected] of outputs) {
