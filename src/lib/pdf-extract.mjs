@@ -27,6 +27,25 @@ const OCR_TIME_BUDGET_MS = 60_000     // hard ceiling per request (covers all ti
 
 let workerPromise = null
 
+function withTimeout(promise, ms, label) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${ms}ms`)),
+      ms,
+    )
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (error) => {
+        clearTimeout(timer)
+        reject(error)
+      },
+    )
+  })
+}
+
 async function getTesseractWorker() {
   if (workerPromise) return workerPromise
   const tesseractMod = await import('tesseract.js')
@@ -34,6 +53,11 @@ async function getTesseractWorker() {
   workerPromise = Tesseract.createWorker('eng', 1, {
     // Silence the per-line download/progress logs in production.
     logger: () => {},
+    // Tesseract otherwise throws from its worker message handler, outside the
+    // extractor's try/catch boundary, when language-data initialization fails.
+    errorHandler: (err) => {
+      console.warn('[pdf-extract] tesseract worker error:', err?.message ?? err)
+    },
   }).catch((err) => {
     workerPromise = null  // allow retry on next request
     throw err
@@ -149,7 +173,18 @@ async function extractViaVisionLLM(pages, deadline) {
 // run out of time/page budget. Re-uses the singleton worker so the second
 // request in a process doesn't pay the language-pack init cost.
 async function ocrPages(pages, deadline) {
-  const worker = await getTesseractWorker()
+  if (!pages || pages.length === 0) return ''
+
+  let worker
+  try {
+    const initBudget = Math.min(Math.max(0, deadline - Date.now()), 15_000)
+    worker = await withTimeout(getTesseractWorker(), initBudget, 'tesseract-init')
+  } catch (err) {
+    console.warn('[pdf-extract] OCR tier unavailable — worker init failed:', err?.message ?? err)
+    workerPromise = null
+    return ''
+  }
+
   const out = []
   let chars = 0
   for (let i = 0; i < pages.length && i < MAX_OCR_PAGES; i++) {
@@ -187,14 +222,25 @@ export async function extractPdfText(buffer, opts = {}) {
   let parser = null
   let pageCount = 0
   let textPath = ''
+  let pages = []
+  let cleanedOcr = ''
   try {
-    const { PDFParse } = await import('pdf-parse')
-    parser = new PDFParse({ data: buffer })
+    try {
+      const { PDFParse } = await import('pdf-parse')
+      parser = new PDFParse({ data: buffer })
+    } catch (err) {
+      console.warn('[pdf-extract] could not open PDF parser:', err?.message ?? err)
+      return { text: '', source: 'none', pageCount: 0, charCount: 0, ocrPagesUsed: 0, visionPagesUsed: 0 }
+    }
 
     // Tier 1 — fast text extraction.
-    const textResult = await parser.getText()
-    pageCount = textResult?.pages?.length ?? 0
-    textPath = stripMarkerNoise(textResult?.text ?? '')
+    try {
+      const textResult = await parser.getText()
+      pageCount = textResult?.pages?.length ?? 0
+      textPath = stripMarkerNoise(textResult?.text ?? '')
+    } catch (err) {
+      console.warn('[pdf-extract] text tier failed:', err?.message ?? err)
+    }
 
     if (isExtractedTextMeaningful(textPath)) {
       return {
@@ -207,12 +253,21 @@ export async function extractPdfText(buffer, opts = {}) {
       }
     }
 
-    // Tier 2 — Tesseract OCR. Render pages to PNG and recognise.
+    // Render once for both OCR and vision.
     console.log(`[pdf-extract] text path produced ${textPath.length} useful chars across ${pageCount} pages — falling back to OCR`)
-    const screenshot = await parser.getScreenshot()
-    const pages = screenshot?.pages ?? []
-    const ocrText = await ocrPages(pages, deadline)
-    const cleanedOcr = stripMarkerNoise(ocrText)
+    try {
+      const screenshot = await parser.getScreenshot()
+      pages = screenshot?.pages ?? []
+    } catch (err) {
+      console.warn('[pdf-extract] page rendering failed:', err?.message ?? err)
+    }
+
+    try {
+      const ocrText = await ocrPages(pages, deadline)
+      cleanedOcr = stripMarkerNoise(ocrText)
+    } catch (err) {
+      console.warn('[pdf-extract] OCR tier failed:', err?.message ?? err)
+    }
 
     if (isExtractedTextMeaningful(cleanedOcr)) {
       return {
@@ -229,8 +284,13 @@ export async function extractPdfText(buffer, opts = {}) {
     // pages. Handles handwriting, non-English scripts, low-quality scans,
     // diagram-heavy pages — anything Tesseract garbles.
     console.log(`[pdf-extract] OCR produced ${cleanedOcr.length} useful chars — falling back to vision LLM`)
-    const visionText = await extractViaVisionLLM(pages, deadline)
-    const cleanedVision = stripMarkerNoise(visionText)
+    let cleanedVision = ''
+    try {
+      const visionText = await extractViaVisionLLM(pages, deadline)
+      cleanedVision = stripMarkerNoise(visionText)
+    } catch (err) {
+      console.warn('[pdf-extract] vision tier failed:', err?.message ?? err)
+    }
 
     if (isExtractedTextMeaningful(cleanedVision)) {
       const visionPagesUsed = Math.min(pages.length, MAX_VISION_PAGES)

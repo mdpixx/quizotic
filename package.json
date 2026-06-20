@@ -16,8 +16,6 @@
     "brand:assets:check": "node scripts/generate-brand-assets.mjs --check",
     "test:e2e": "playwright test",
     "predeploy": "bash scripts/predeploy-check.sh",
-    "deploy": "bash scripts/deploy-to-railway.sh",
-    "deploy:force": "bash scripts/deploy-to-railway.sh",
     "repair-schema": "node scripts/ensure-critical-columns.mjs",
     "rewrite-r2-urls": "node scripts/rewrite-r2-urls.mjs",
     "mcp:quizotic": "node mcp/quizotic-mcp-server.mjs"

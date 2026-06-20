@@ -7,7 +7,7 @@
 //   so the route can fall back to OCR or refuse the AI call.
 
 import { describe, expect, it } from 'vitest'
-import { isExtractedTextMeaningful, __test__ } from '../lib/pdf-extract.mjs'
+import { isExtractedTextMeaningful, extractPdfText, __test__ } from '../lib/pdf-extract.mjs'
 
 describe('isExtractedTextMeaningful', () => {
   it('rejects empty string', () => {
@@ -81,6 +81,24 @@ describe('stripMarkerNoise', () => {
   it('collapses excessive whitespace', () => {
     const cleaned: string = __test__.stripMarkerNoise('foo\n\n\n   bar\t\t\tbaz')
     expect(cleaned).toBe('foo bar baz')
+  })
+})
+
+describe('extractPdfText resilience', () => {
+  it('returns source:"none" for a malformed PDF instead of rejecting', async () => {
+    const result = await extractPdfText(
+      Buffer.from('this is definitely not a pdf file', 'utf8'),
+      { timeBudgetMs: 2_000 },
+    )
+
+    expect(result).toMatchObject({
+      text: '',
+      source: 'none',
+      pageCount: 0,
+      charCount: 0,
+      ocrPagesUsed: 0,
+      visionPagesUsed: 0,
+    })
   })
 })
 

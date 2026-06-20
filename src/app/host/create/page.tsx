@@ -9,6 +9,7 @@ import { useAutosave } from '@/lib/use-autosave'
 import { useHistory } from '@/lib/use-history'
 import type { Question, QuestionType, BloomsLevel, Quiz, QuestionOption } from '@/lib/quiz-types'
 import { getOptionText, getOptionImage, isScoredQuestion, isSequenceRanking } from '@/lib/quiz-types'
+import { QUIZ_LANGUAGES } from '@/lib/languages'
 import { ImageUpload } from '@/components/ImageUpload'
 import { QuizThemePicker } from '@/components/host/QuizThemePicker'
 import { getQuizTheme, type QuizThemeId } from '@/lib/quiz-themes'
@@ -243,14 +244,6 @@ const CREATION_SHORTCUTS: { label: string; tab?: Tab; href?: string; note: strin
 const TOPIC_SUGGESTIONS = [
   'Indian History', 'Science & Space', 'Sports', 'General Knowledge',
   'Current Affairs', 'Technology', 'Geography', 'Bollywood',
-]
-
-const GLOBAL_LANGUAGES: { lang: string }[] = [
-  { lang: 'English' }, { lang: 'Arabic' }, { lang: 'Bahasa' }, { lang: 'Bengali' },
-  { lang: 'Filipino' }, { lang: 'French' }, { lang: 'German' }, { lang: 'Hindi' },
-  { lang: 'Japanese' }, { lang: 'Korean' }, { lang: 'Mandarin' }, { lang: 'Marathi' },
-  { lang: 'Portuguese' }, { lang: 'Russian' }, { lang: 'Spanish' }, { lang: 'Swahili' },
-  { lang: 'Tamil' }, { lang: 'Telugu' }, { lang: 'Turkish' },
 ]
 
 // ── Answer card colors — sourced from the canonical Kahoot palette ────────
@@ -2721,7 +2714,7 @@ function CreateQuizPageInner() {
                   <label className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5 block">Language</label>
                   <div className="flex gap-2">
                     <select value={quizLanguage} onChange={e => setQuizLanguage(e.target.value)} className="flex-1 bg-white border rounded-xl px-4 py-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-200" style={{ borderColor: '#E2E8F0' }}>
-                      {GLOBAL_LANGUAGES.map(({ lang }) => <option key={lang} value={lang}>{lang}</option>)}
+                      {QUIZ_LANGUAGES.map(lang => <option key={lang} value={lang}>{lang}</option>)}
                     </select>
                     {generatedOnTab && quizLanguage !== 'English' && quizLanguage !== translatedTo && (
                       <button onClick={handleManualTranslate} disabled={translating} className="px-4 py-2 rounded-xl text-xs font-bold border-2 transition-colors disabled:opacity-40 whitespace-nowrap" style={{ borderColor: '#0F1B3D', color: '#0F1B3D', background: '#F3F4F6' }}>
