@@ -462,6 +462,12 @@ export async function POST(req: NextRequest) {
     else {
       const body = await req.json()
       mode = body.mode ?? 'topic'
+      // Accept the builder's internal tab ids as synonyms so a client that
+      // forwards the raw tab id ('aitopic'/'aiurl') doesn't get rejected with
+      // "Invalid mode". Defense-in-depth: the client already maps these, but
+      // this kept regressing via stale monorepo syncs.
+      if (mode === 'aitopic') mode = 'topic'
+      else if (mode === 'aiurl') mode = 'url'
       questionCount = body.questionCount ?? 5
       difficulty = body.difficulty ?? 'medium'
       typeMix = body.typeMix as TypeMix | undefined

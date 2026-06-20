@@ -69,7 +69,13 @@ export function AIGenerateForm({ initialMode = 'aitopic', plan, onGenerated }: A
       } else {
         headers['Content-Type'] = 'application/json'
         body = JSON.stringify({
-          mode,
+          // Map the internal tab id to the API contract. /api/generate-quiz
+          // accepts 'topic' | 'url' in its JSON branch — sending the raw tab
+          // id ('aitopic'/'aiurl') makes it reject the request with
+          // "Invalid mode". (Matches host/create/page.tsx; this mapping was
+          // silently reverted once by a stale monorepo sync — see the
+          // ai-generate-mode regression test that now guards it.)
+          mode: mode === 'aitopic' ? 'topic' : 'url',
           topic: mode === 'aitopic' ? topic : undefined,
           url: mode === 'aiurl' ? url : undefined,
           questionCount: count,
