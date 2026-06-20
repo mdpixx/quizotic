@@ -89,10 +89,24 @@ const outputs = new Map([
 
 let stale = false
 
+async function matchesExpected(path, current, expected) {
+  if (!current) return false
+  if (!path.endsWith('.png')) return current.equals(expected)
+
+  // PNG compression can differ by a byte across Sharp/libvips builds even
+  // when every rendered pixel is identical. Compare decoded RGBA pixels so
+  // CI on Linux and local generation on macOS agree on visual asset drift.
+  const [currentPixels, expectedPixels] = await Promise.all([
+    sharp(current).ensureAlpha().raw().toBuffer(),
+    sharp(expected).ensureAlpha().raw().toBuffer(),
+  ])
+  return currentPixels.equals(expectedPixels)
+}
+
 for (const [path, expected] of outputs) {
   if (checkOnly) {
     const current = await readFile(path).catch(() => null)
-    if (!current?.equals(expected)) {
+    if (!await matchesExpected(path, current, expected)) {
       console.error(`Out of date: ${path.slice(root.length + 1)}`)
       stale = true
     }
