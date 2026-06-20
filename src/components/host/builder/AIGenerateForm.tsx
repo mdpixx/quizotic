@@ -69,7 +69,7 @@ export function AIGenerateForm({ initialMode = 'aitopic', plan, onGenerated }: A
       } else {
         headers['Content-Type'] = 'application/json'
         body = JSON.stringify({
-          mode,
+          mode: mode === 'aiurl' ? 'url' : 'topic',
           topic: mode === 'aitopic' ? topic : undefined,
           url: mode === 'aiurl' ? url : undefined,
           questionCount: count,

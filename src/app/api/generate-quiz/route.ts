@@ -200,7 +200,7 @@ interface TypeMix {
   case?: number
 }
 
-function buildUserPrompt(text: string, questionCount: number, difficulty: string, typeMix?: TypeMix): string {
+function buildUserPrompt(text: string, questionCount: number, difficulty: string, typeMix?: TypeMix, language = 'English'): string {
   const mcq = typeMix?.mcq ?? questionCount
   const multi = typeMix?.multiselect ?? 0
   const tf = typeMix?.truefalse ?? 0
@@ -256,7 +256,11 @@ function buildUserPrompt(text: string, questionCount: number, difficulty: string
     examples.push(`{"type":"case","text":"What should the team lead do first?","scenarioText":"A software team discovers a critical security vulnerability in production just before a major demo to investors. The fix requires 4 hours but the demo is in 2 hours.","options":["Postpone the demo","Deploy a hotfix during demo","Proceed and disclose after","Notify investors immediately"],"correctAnswer":"3","timerSeconds":30,"points":1000}`)
   }
 
-  return `Generate exactly ${questionCount} ${difficulty} quiz questions based on the following content.
+  const languageLine = language && language !== 'English'
+    ? `\n\nIMPORTANT: Write ALL question text, options, and any other text fields in ${language}. Use natural ${language} — do not mix in English except for proper nouns that have no common ${language} form.`
+    : ''
+
+  return `Generate exactly ${questionCount} ${difficulty} quiz questions based on the following content.${languageLine}
 
 Return a JSON array with exactly ${questionCount} items in this breakdown:${typeInstructions}
 
@@ -274,14 +278,14 @@ Content:
 ${text}`
 }
 
-function buildSimplePrompt(text: string, questionCount: number, difficulty: string): string {
-  return buildUserPrompt(text, questionCount, difficulty, { mcq: questionCount })
+function buildSimplePrompt(text: string, questionCount: number, difficulty: string, language = 'English'): string {
+  return buildUserPrompt(text, questionCount, difficulty, { mcq: questionCount }, language)
 }
 
-async function callModel(contentText: string, questionCount: number, difficulty: string, typeMix?: TypeMix, modelOverride?: string): Promise<unknown[]> {
+async function callModel(contentText: string, questionCount: number, difficulty: string, typeMix?: TypeMix, modelOverride?: string, language = 'English'): Promise<unknown[]> {
   const prompt = typeMix
-    ? buildUserPrompt(contentText, questionCount, difficulty, typeMix)
-    : buildSimplePrompt(contentText, questionCount, difficulty)
+    ? buildUserPrompt(contentText, questionCount, difficulty, typeMix, language)
+    : buildSimplePrompt(contentText, questionCount, difficulty, language)
 
   const response = await client.chat.completions.create({
     model: modelOverride ?? MODEL,
@@ -397,6 +401,7 @@ export async function POST(req: NextRequest) {
   let contentText = ''
   let typeMix: TypeMix | undefined
   let mode = 'document'
+  let language = 'English'
   let topicOrUrl: string | null = null
   // For analytics + UI transparency: which extraction tier produced the
   // content. logAiUsage records this so we can audit success rates and
@@ -414,6 +419,7 @@ export async function POST(req: NextRequest) {
       const file = formData.get('file') as File | null
       questionCount = Number(formData.get('questionCount') ?? 5)
       difficulty = (formData.get('difficulty') as string) ?? 'medium'
+      language = (formData.get('language') as string) ?? 'English'
       const typeMixStr = formData.get('typeMix') as string | null
       if (typeMixStr) {
         try { typeMix = JSON.parse(typeMixStr) } catch { /* use default */ }
@@ -461,9 +467,11 @@ export async function POST(req: NextRequest) {
     // ── JSON modes (topic / url) ───────────────────────────────────────────────
     else {
       const body = await req.json()
-      mode = body.mode ?? 'topic'
+      const rawMode = body.mode ?? 'topic'
+      mode = rawMode === 'aitopic' ? 'topic' : rawMode === 'aiurl' ? 'url' : rawMode
       questionCount = body.questionCount ?? 5
       difficulty = body.difficulty ?? 'medium'
+      language = body.language ?? 'English'
       typeMix = body.typeMix as TypeMix | undefined
 
       if (mode === 'topic') {
@@ -532,7 +540,7 @@ export async function POST(req: NextRequest) {
       const a = attempts[i]
       if (a.delayMs > 0) await sleep(a.delayMs)
       try {
-        questions = await callModel(contentText, questionCount, difficulty, typeMix, a.model)
+        questions = await callModel(contentText, questionCount, difficulty, typeMix, a.model, language)
         break
       } catch (err) {
         lastErr = err
