@@ -288,7 +288,7 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
     try {
       const quiz = await builder.handleSave()
       if (quiz) {
-        track('quiz_share_self_paced_opened_from_builder', { quizId: quiz.id })
+        track('selfpaced_share_opened', { quizId: quiz.id, source: 'builder' })
         setShareTarget({ id: quiz.id, title: quiz.title })
       }
     } finally {
