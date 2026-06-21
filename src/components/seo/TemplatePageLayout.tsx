@@ -97,7 +97,7 @@ export function TemplatePageLayout({ template }: TemplatePageLayoutProps) {
     },
   }
 
-  const importHref = `/auth/signin?next=${encodeURIComponent(`/host/create?template=${template.slug}`)}`
+  const importHref = `/auth/signin?next=${encodeURIComponent(`/host/build?template=${template.slug}`)}`
 
   return (
     <>
