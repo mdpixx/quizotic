@@ -1,0 +1,29 @@
+name: release-please
+
+# Versioning + changelog automation. On every push to main, release-please reads
+# Conventional Commit messages and maintains a "Release PR" that bumps the version
+# in package.json and regenerates CHANGELOG.md. Merging that PR tags vX.Y.Z and
+# cuts a GitHub Release. See docs/RELEASING.md.
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run release-please
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # Config + version state are read from the files committed at the repo root:
+          #   release-please-config.json        (release-type, changelog settings)
+          #   .release-please-manifest.json      (current version per package)
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
