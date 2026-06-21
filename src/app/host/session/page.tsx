@@ -459,6 +459,53 @@ export default function SessionPage() {
     return () => { stopBackgroundMusic() }
   }, [musicOn])
 
+  // Hydrate session prefs from the host's last setup. Without this, every
+  // session resets to the hardcoded defaults and a host who always runs
+  // Reflection mode with Teams ON has to re-toggle them every time.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const raw = localStorage.getItem('quizotic_host_session_prefs')
+      if (!raw) return
+      const p = JSON.parse(raw) as Partial<{
+        sessionMode: SessionMode
+        anonymousMode: boolean
+        teamMode: boolean
+        teamCount: number
+        displayMode: 'full-device' | 'shared-screen'
+        advancedSettingsOpen: boolean
+      }>
+      if (p.sessionMode === 'competitive' || p.sessionMode === 'accuracy' || p.sessionMode === 'reflection') {
+        setSessionMode(p.sessionMode)
+      }
+      if (typeof p.anonymousMode === 'boolean') setAnonymousMode(p.anonymousMode)
+      if (typeof p.teamMode === 'boolean') setTeamMode(p.teamMode)
+      if (typeof p.teamCount === 'number' && p.teamCount >= 2 && p.teamCount <= 6) setTeamCount(p.teamCount)
+      if (p.displayMode === 'full-device' || p.displayMode === 'shared-screen') setDisplayMode(p.displayMode)
+      if (typeof p.advancedSettingsOpen === 'boolean') setAdvancedSettingsOpen(p.advancedSettingsOpen)
+    } catch {
+      // Corrupted blob; fall back silently to defaults.
+    }
+  }, [])
+
+  // Persist whenever any session pref changes. One atomic write keeps the
+  // localStorage entries tidy and avoids race conditions across the keys.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      localStorage.setItem('quizotic_host_session_prefs', JSON.stringify({
+        sessionMode,
+        anonymousMode,
+        teamMode,
+        teamCount,
+        displayMode,
+        advancedSettingsOpen,
+      }))
+    } catch {
+      // Quota exceeded or storage disabled — non-fatal.
+    }
+  }, [sessionMode, anonymousMode, teamMode, teamCount, displayMode, advancedSettingsOpen])
+
   // Load ghost candidates when ghost mode is enabled
   useEffect(() => {
     if (!ghostMode || !quiz) return
