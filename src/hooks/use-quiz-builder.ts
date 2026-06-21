@@ -525,11 +525,18 @@ export function useQuizBuilder({
   useEffect(() => { handleSaveRef.current = handleSave }, [handleSave])
 
   const handleStartLive = useCallback(async () => {
-    const quiz = savedQuiz ?? await handleSave()
+    // Always re-save before starting live. Falling back to `savedQuiz` from
+    // a prior manual Save shipped a stale snapshot whenever a host added
+    // questions (or edited existing ones) after the last explicit Save —
+    // background cloud-autosave only refreshed lastSavedSnapshotRef, not
+    // savedQuiz, so the live session quietly ran against the older content.
+    // handleSave is an idempotent upsert keyed on quizIdRef.current, so this
+    // costs at most one extra POST when the builder is already clean.
+    const quiz = await handleSave()
     if (!quiz) return
     setActiveSession(quiz)
     window.location.href = '/host/session'
-  }, [savedQuiz, handleSave])
+  }, [handleSave])
 
   const dismissDraft = useCallback(() => setRecoveredDraft(null), [])
 
