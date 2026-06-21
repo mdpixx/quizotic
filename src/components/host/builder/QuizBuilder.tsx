@@ -25,6 +25,7 @@
 
 import React, { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { AnimatePresence } from 'framer-motion'
 import { useQuizBuilder } from '@/hooks/use-quiz-builder'
 import { track } from '@/lib/analytics'
 import { isKnownQuestionType } from '@/lib/quiz-builder-logic'
@@ -40,6 +41,7 @@ import { QuizSettingsPopover } from './QuizSettingsPopover'
 import { SparkleIcon } from './SparkleIcon'
 import { MobileToolbar } from '@/components/ui/MobileToolbar'
 import { NavButton } from '@/components/ui/NavButton'
+import { AssignQuizModal } from '@/components/host/AssignQuizModal'
 import type { Question } from '@/lib/quiz-types'
 
 // ── AutosaveBadge ─────────────────────────────────────────────────────────────
@@ -243,6 +245,11 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
   // When generate/import returns questions and the builder already holds real
   // content, we ask append-vs-replace instead of silently wiping the host's work.
   const [pendingApply, setPendingApply] = useState<{ questions: Partial<Question>[]; meta?: { title?: string; subject?: string } } | null>(null)
+  // Post-save self-paced sharing — opens AssignQuizModal in place of routing
+  // the host out to the library and asking them to re-find the quiz. Holds the
+  // freshly-saved id+title so the modal renders against the latest content.
+  const [shareTarget, setShareTarget] = useState<{ id: string; title: string } | null>(null)
+  const [sharing, setSharing] = useState(false)
 
   function handleBack() {
     const nav = resolveHostBackNavigation({
@@ -262,6 +269,31 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
       return
     }
     await builder.handleSave()
+  }
+
+  // "Share self-paced" — the equal-weight sibling to "Start live". Saves the
+  // current builder state first so the modal opens against the freshest quiz,
+  // then surfaces AssignQuizModal inline instead of forcing the host to
+  // navigate to the library and locate the quiz again. handleSave already
+  // returns null on validation failure, so a missing title or invalid
+  // question keeps the modal closed and the existing error UX takes over.
+  async function handleShareClick() {
+    if (!builder.title.trim()) {
+      setTitleError(true)
+      setTimeout(() => setTitleError(false), 2000)
+      return
+    }
+    if (sharing) return
+    setSharing(true)
+    try {
+      const quiz = await builder.handleSave()
+      if (quiz) {
+        track('quiz_share_self_paced_opened_from_builder', { quizId: quiz.id })
+        setShareTarget({ id: quiz.id, title: quiz.title })
+      }
+    } finally {
+      setSharing(false)
+    }
   }
 
   // Single entry for both Generate/Import (source modal) and the in-builder AI
@@ -376,12 +408,28 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
           {builder.saving ? 'Saving…' : 'Save'}
         </button>
 
-        {/* Start live button */}
+        {/* Dual outcomes — Share self-paced and Start live carry equal weight
+            so a trainer who prefers async distribution has a one-click path
+            that doesn't require leaving the builder to find the quiz again. */}
+        <button
+          type="button"
+          onClick={handleShareClick}
+          disabled={builder.saving || sharing}
+          className="hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-all disabled:opacity-50 hover:brightness-95"
+          style={{ background: '#2563EB', color: '#fff' }}
+          title="Save and share this quiz as a self-paced link participants can take any time"
+        >
+          <svg viewBox="0 0 20 20" fill="none" className="w-3.5 h-3.5">
+            <path d="M4 10a3 3 0 100-6 3 3 0 000 6zm12 0a3 3 0 100-6 3 3 0 000 6zm0 6a3 3 0 100 0 3 3 0 000 0z" stroke="currentColor" strokeWidth="1.6" />
+            <path d="M6.5 8.5l7-3M6.5 11.5l7 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+          {sharing ? 'Preparing…' : 'Share self-paced'}
+        </button>
         <button
           type="button"
           onClick={builder.handleStartLive}
-          disabled={builder.saving}
-          className="hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-all hover:brightness-95"
+          disabled={builder.saving || sharing}
+          className="hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-all disabled:opacity-50 hover:brightness-95"
           style={{ background: '#16A34A', color: '#fff' }}
         >
           &#9654; Start live
@@ -544,6 +592,22 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
           onCancel={() => setPendingApply(null)}
         />
       )}
+
+      {/* ── Share self-paced (inline publish dialog) ──────────────────── */}
+      {/* Opened by the "Share self-paced" CTA. Posts/updates the share via
+          the same modal used in the quiz library so trainers don't have to
+          leave the builder, re-find the quiz, and then publish from there. */}
+      <AnimatePresence>
+        {shareTarget && (
+          <AssignQuizModal
+            quizId={shareTarget.id}
+            quizTitle={shareTarget.title}
+            hasExistingShare={false}
+            onClose={() => setShareTarget(null)}
+            onChanged={() => { /* builder doesn't mirror library row state */ }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }
