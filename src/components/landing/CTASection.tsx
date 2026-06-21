@@ -16,13 +16,13 @@ export function CTASection() {
           Built on evidence. Designed for engagement. Free to start.
         </p>
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
-          <Link href="/auth/signin" className="cta-navy-btn"
+          <Link href="/auth/signin?intent=signup" className="cta-navy-btn"
             style={{ display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 18, color: '#fff', textDecoration: 'none', padding: '18px 40px', borderRadius: 12, background: '#0F1B3D', border: '3px solid #0D0D0D', boxShadow: '5px 5px 0 #0D0D0D' }}>
             Start Teaching Free →
           </Link>
           <Link href="/demo"
             style={{ display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 16, color: '#0D0D0D', textDecoration: 'underline', textUnderlineOffset: 4 }}>
-            or try a live demo first
+            or preview the host screen first
           </Link>
         </div>
       </div>

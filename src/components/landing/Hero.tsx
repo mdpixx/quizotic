@@ -242,19 +242,19 @@ export function Hero() {
             Free to start, nothing to install — students join in their phone browser in seconds. And it&apos;s the only platform built on learning science: Bloom&apos;s Taxonomy, Confidence Grid &amp; Spaced Retrieval.
           </p>
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-            <Link href="/auth/signin" className="btn-hero-primary"
+            <Link href="/auth/signin?intent=signup" className="btn-hero-primary"
               style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 17, color: '#0D0D0D', textDecoration: 'none', padding: '16px 32px', borderRadius: 12, background: '#FBD13B', border: '3px solid #0D0D0D', boxShadow: '5px 5px 0 #0D0D0D', display: 'inline-block' }}>
               Start Teaching Free →
             </Link>
             <Link href="/demo" className="btn-hero-ghost"
               style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontWeight: 600, fontSize: 16, color: 'rgba(255,255,255,0.85)', textDecoration: 'none', padding: '16px 28px', borderRadius: 12, border: '2px solid rgba(255,255,255,0.3)', display: 'inline-block' }}>
-              Try a Live Demo →
+              Preview the host screen →
             </Link>
           </div>
 
           {/* Trust strip — honest early-stage proof until real usage numbers exist */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 18px', marginTop: 28 }}>
-            {['Free forever plan', 'No app — join in the browser', 'Works on slow connections', 'Cards accepted'].map(item => (
+            {['Free forever plan', 'No app — join in the browser', 'Works on slow connections', 'No credit card required'].map(item => (
               <span key={item} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.55)' }}>
                 <svg viewBox="0 0 20 20" fill="none" width="14" height="14" aria-hidden>
                   <path d="M4 10.5l4 4 8-9" stroke="#FBD13B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
