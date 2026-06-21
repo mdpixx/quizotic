@@ -169,7 +169,7 @@ export function UseCasePageLayout({
 
           <div className="text-center pt-2 mb-14">
             <Link
-              href="/auth/signin"
+              href="/auth/signin?intent=signup"
               className="inline-block font-bold px-8 py-3 rounded-lg text-sm"
               style={{
                 background: '#FBD13B',
