@@ -242,7 +242,7 @@ export default function QuizzesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <Link href="/host/create" className="btn-primary" style={{ textDecoration: 'none' }}>
+          <Link href="/host/build" className="btn-primary" style={{ textDecoration: 'none' }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
             Create quiz
           </Link>
@@ -348,7 +348,7 @@ export default function QuizzesPage() {
             {quizzes.length === 0 ? 'Start with one clear question. Everything else can follow.' : 'Try a different search term or subject filter.'}
           </p>
           {quizzes.length === 0 && (
-            <Link href="/host/create" className="btn-primary" style={{ textDecoration: 'none' }}>
+            <Link href="/host/build" className="btn-primary" style={{ textDecoration: 'none' }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"/></svg>
               Create your first quiz
             </Link>
@@ -462,7 +462,7 @@ export default function QuizzesPage() {
                               </>
                             )}
                           </button>
-                          <Link href={`/host/create?edit=${quiz.id}`} className="btn-secondary flex-1 justify-center" style={{ textDecoration: 'none', padding: '7px 10px', fontSize: '12px' }}>
+                          <Link href={`/host/build?edit=${quiz.id}`} className="btn-secondary flex-1 justify-center" style={{ textDecoration: 'none', padding: '7px 10px', fontSize: '12px' }}>
                             Edit
                           </Link>
                           <RowActionsMenu

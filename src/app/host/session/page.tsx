@@ -1161,7 +1161,7 @@ export default function SessionPage() {
           <button
             onClick={() => {
               clearActiveSession()
-              router.push(quiz?.id ? `/host/create?id=${quiz.id}` : '/host')
+              router.push(quiz?.id ? `/host/build?edit=${quiz.id}` : '/host')
             }}
             className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-gray-700 transition-colors"
           >
@@ -1224,7 +1224,7 @@ export default function SessionPage() {
                 <button
                   onClick={() => {
                     clearActiveSession()
-                    router.push(quiz?.id ? `/host/create?id=${quiz.id}` : '/host')
+                    router.push(quiz?.id ? `/host/build?edit=${quiz.id}` : '/host')
                   }}
                   className="rounded-2xl border px-5 py-4 text-sm font-black transition-all hover:bg-gray-50"
                   style={{ borderColor: '#CBD5E1', color: '#334155' }}
