@@ -23,6 +23,8 @@ export interface PersonalResult {
   teamContribution?: number
   correctPositions?: number
   totalPositions?: number
+  pctCorrect?: number
+  speedRank?: number | null
 }
 
 interface ResultBeatProps {
@@ -30,6 +32,10 @@ interface ResultBeatProps {
   // Visible label fallback for sessions where the server hasn't sent
   // a personal_result yet (e.g. mid-deploy or non-scored questions).
   fallback?: React.ReactNode
+  // Tasteful emoji "reaction" on the reveal — only in competitive sessions
+  // (quiz nights / casual). Off in reflection/accuracy/corporate use so it
+  // never undercuts a professional setting.
+  competitive?: boolean
 }
 
 function CountUp({ to, duration = 700 }: { to: number; duration?: number }) {
@@ -51,18 +57,49 @@ function CountUp({ to, duration = 700 }: { to: number; duration?: number }) {
   return <>{val.toLocaleString()}</>
 }
 
-export function ResultBeat({ result, fallback }: ResultBeatProps) {
+function ordinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd']
+  const v = n % 100
+  return n + (s[(v - 20) % 10] || s[v] || s[0])
+}
+
+export function ResultBeat({ result, fallback, competitive }: ResultBeatProps) {
   if (!result) return <>{fallback ?? null}</>
 
-  const { isCorrect, pointsEarned, streakCount, streakBonus, rank, delta, isFastest, crossedTopFive, totalScore, correctPositions, totalPositions } = result
+  const { isCorrect, pointsEarned, streakCount, streakBonus, rank, delta, isFastest, crossedTopFive, totalScore, correctPositions, totalPositions, pctCorrect, speedRank } = result
   const correct = isCorrect === true
   const wrong = isCorrect === false
   const isSequenceRanking = correctPositions !== undefined && totalPositions !== undefined && totalPositions > 0
 
   const accent = correct ? '#16A34A' : wrong ? '#DC2626' : '#0F1B3D'
 
+  // "2nd fastest", "3rd fastest"… shown to correct non-fastest players so the
+  // speed contest isn't winner-takes-all. (The fastest already gets the
+  // dedicated "Fastest in the room" badge.)
+  const showSpeedRank = correct && typeof speedRank === 'number' && speedRank >= 2 && speedRank <= 10
+
+  // Tasteful reveal reaction — competitive sessions only. Seeded by question
+  // index so it's stable per question (no flicker on re-render) and differs
+  // between correct/wrong. Emoji keeps the participant page feather-light; a
+  // GIF set can be swapped in later behind the same `competitive` gate.
+  const reactionSet = correct
+    ? ['🎉', '🚀', '💪', '🎯', '⭐', '🙌']
+    : wrong
+      ? ['💡', '🙂', '🤏', '🌱']
+      : []
+  const reactionEmoji = competitive && reactionSet.length > 0
+    ? reactionSet[((result.questionIndex ?? 0) + (correct ? 0 : 4)) % reactionSet.length]
+    : null
+
   return (
     <div className="w-full flex flex-col items-stretch gap-3">
+      {reactionEmoji && (
+        <div className="flex justify-center" aria-hidden>
+          <span style={{ fontSize: 40, lineHeight: 1, animation: 'rbReactionPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both' }}>
+            {reactionEmoji}
+          </span>
+        </div>
+      )}
       {/* Sequence ranking feedback */}
       {isSequenceRanking && (
         <div
@@ -138,6 +175,14 @@ export function ResultBeat({ result, fallback }: ResultBeatProps) {
 
       {/* Badges row — only renders when something earned */}
       <div className="flex flex-wrap gap-2">
+        {typeof pctCorrect === 'number' && (
+          <span
+            className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-black"
+            style={{ background: '#E0E7FF', color: '#3730A3' }}
+          >
+            👥 {pctCorrect}% got it right
+          </span>
+        )}
         {streakCount >= 2 && (
           <span
             className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-black"
@@ -156,6 +201,14 @@ export function ResultBeat({ result, fallback }: ResultBeatProps) {
             style={{ background: '#FEF3C7', color: '#92400E' }}
           >
             ⚡ Fastest in the room
+          </span>
+        )}
+        {showSpeedRank && (
+          <span
+            className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-black"
+            style={{ background: '#FFF7ED', color: '#9A3412' }}
+          >
+            ⚡ {ordinal(speedRank as number)} fastest
           </span>
         )}
         {crossedTopFive && (

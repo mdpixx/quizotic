@@ -1710,6 +1710,9 @@ function JoinPageInner() {
         {getReadyVisible && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ background: 'rgba(15,27,61,0.92)' }}>
             <div className="text-center">
+              <p className="text-sm font-bold uppercase tracking-[0.25em] mb-3" style={{ color: '#FBD13B' }}>
+                Question {question.index + 1} of {question.total}
+              </p>
               <CountdownNumber targetTime={answerTimeRef.current} />
               <p className="text-xl font-bold mt-4" style={{ color: 'rgba(255,255,255,0.7)' }}>Get ready!</p>
             </div>
@@ -2180,6 +2183,7 @@ function JoinPageInner() {
             falls back to the waiting line until the question ends. */}
         <ResultBeat
           result={personalResult}
+          competitive={sessionMode === 'competitive'}
           fallback={<p className="text-gray-400 text-base">Waiting for next question…</p>}
         />
         {personalResult && (
