@@ -3114,6 +3114,26 @@ function emitQuestionEnded(io, gameCode, session, questionIndex) {
     if (t < fastestTime) { fastestTime = t; fastestKey = key }
   }
 
+  // ─ % correct + ordinal speed rank (AhaSlides-style post-question context) ─
+  // pctCorrect: share of players who answered this question correctly.
+  // speedRank: 1-based position by answer speed among correct answers (fastest = 1).
+  const correctTimes = []
+  let answeredCount = 0
+  for (const [key, p] of session.participants.entries()) {
+    if (p.isGhost) continue
+    const a = p.answers?.[questionIndex]
+    if (!a) continue
+    answeredCount++
+    if (a.isCorrect === true && typeof a.timeMs === 'number' && a.timeMs >= 0) {
+      correctTimes.push({ key, timeMs: a.timeMs })
+    }
+  }
+  const correctCount = correctTimes.length
+  const pctCorrect = answeredCount > 0 ? Math.round((correctCount / answeredCount) * 100) : 0
+  correctTimes.sort((a, b) => a.timeMs - b.timeMs)
+  const speedRankMap = new Map()
+  correctTimes.forEach((row, idx) => speedRankMap.set(row.key, idx + 1))
+
   for (const [socketId, p] of session.participants.entries()) {
     if (p.isGhost) continue
     const ans = p.answers?.[questionIndex]
@@ -3134,6 +3154,8 @@ function emitQuestionEnded(io, gameCode, session, questionIndex) {
       prevRank: fromRank ?? null,
       delta,
       isFastest: socketId === fastestKey,
+      pctCorrect,
+      speedRank: (ans?.isCorrect === true && speedRankMap.has(socketId)) ? speedRankMap.get(socketId) : null,
       crossedTopFive: typeof toRank === 'number' && toRank <= 5
         && (typeof fromRank !== 'number' || fromRank > 5),
       ...(ans?.correctPositions !== undefined ? { correctPositions: ans.correctPositions } : {}),

@@ -293,6 +293,9 @@ export default function SessionPage() {
   const [displayedLeaderboard, setDisplayedLeaderboard] = useState<LeaderboardEntry[]>([])
   const [topMovers, setTopMovers] = useState<TopMover[]>([])
   const [standingsRecommended, setStandingsRecommended] = useState(false)
+  // Pop-up leaderboard overlay — opened via the trophy button or 'L' key so the
+  // host can peek at standings any time without advancing the slide.
+  const [showLeaderboardPopup, setShowLeaderboardPopup] = useState(false)
   const [countdownValue, setCountdownValue] = useState<number | null>(null)
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [endNowArmed, setEndNowArmed] = useState(false)
@@ -907,6 +910,23 @@ export default function SessionPage() {
     }
     document.addEventListener('visibilitychange', onVisibilityChange)
     return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [])
+
+  // Pop-up leaderboard shortcut: 'L' toggles, Escape closes. Ignored while the
+  // host is typing in an input/textarea so we don't hijack real keystrokes.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      if (e.key === 'l' || e.key === 'L') {
+        e.preventDefault()
+        setShowLeaderboardPopup(s => !s)
+      } else if (e.key === 'Escape') {
+        setShowLeaderboardPopup(false)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   // End-anchored remaining-time math, the same shape and 100ms cadence as
@@ -2203,6 +2223,15 @@ export default function SessionPage() {
               >
                 {paused ? 'Resume' : 'Pause'}
               </button>
+              <button
+                onClick={() => setShowLeaderboardPopup(true)}
+                title="Show leaderboard (press L)"
+                aria-label="Show leaderboard"
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full font-bold text-sm border-2 transition-all hover:scale-[1.02]"
+                style={{ borderColor: '#9CA3AF', color: '#6B7280', background: 'transparent' }}
+              >
+                🏆 Standings
+              </button>
               {(() => {
               const isLast = questionIndex + 1 >= quiz.questions.length
               const scoredQ = isScoredQuestion(currentQuestion)
@@ -2308,6 +2337,49 @@ export default function SessionPage() {
             </div>
           </div>
         </motion.div>
+      )}
+
+      {/* Pop-up leaderboard — trophy button or 'L' key. Opens over the current
+          slide without advancing it; audience phones are unaffected. Renders the
+          latest leaderboard_update snapshot, or an empty state before Q1 ends. */}
+      {showLeaderboardPopup && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+          style={{ background: 'rgba(15,27,61,0.78)' }}
+          onClick={() => setShowLeaderboardPopup(false)}
+        >
+          <div
+            className="w-full max-w-2xl rounded-[28px] overflow-hidden"
+            style={{ background: '#fff', boxShadow: '0 24px 80px rgba(0,0,0,0.4)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4" style={{ background: '#0F1B3D' }}>
+              <h3 className="text-lg font-black text-white">🏆 Live Leaderboard</h3>
+              <button
+                onClick={() => setShowLeaderboardPopup(false)}
+                className="w-9 h-9 rounded-full flex items-center justify-center text-white text-lg transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-[#FBD13B]"
+                aria-label="Close leaderboard"
+              >✕</button>
+            </div>
+            <div className="p-4 max-h-[70vh] overflow-auto">
+              {leaderboard.length > 0 ? (
+                <LeaderboardView
+                  variant="fullscreen"
+                  topN={10}
+                  heading=""
+                  rows={buildLeaderboardStageRows(leaderboard, [], 10)}
+                />
+              ) : (
+                <p className="text-center py-10 text-sm font-semibold" style={{ color: '#9CA3AF' }}>
+                  No scores yet — the leaderboard appears after the first scored question.
+                </p>
+              )}
+            </div>
+            <div className="px-5 py-3 text-center text-xs font-semibold" style={{ color: '#9CA3AF', background: '#F8F9FA' }}>
+              Press <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ background: '#E5E7EB', color: '#0F1B3D' }}>L</kbd> to toggle · click outside to close
+            </div>
+          </div>
+        </div>
       )}
 
       {/* STANDINGS — dedicated between-questions screen for competitive quizzes */}

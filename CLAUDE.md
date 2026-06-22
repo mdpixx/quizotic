@@ -35,7 +35,7 @@ Quizotic/
 │   └── cost-analysis.md
 ├── src/
 │   └── app/               # Next.js App Router pages
-├── server.js              # Custom Node.js server (Next.js + Socket.io together)
+├── server.mjs             # Custom Node.js server (Next.js + Socket.io together)
 ├── package.json
 └── .env → ../../secrets/env/quizotic.env
 ```
@@ -59,9 +59,9 @@ reviewed commit; never overwrite this repo from a snapshot.
 
 ## Custom Server (IMPORTANT)
 Socket.io requires a persistent server — it does NOT work with Next.js serverless/edge functions.
-We use `server.js` — a custom Node.js server that boots Next.js + Socket.io in one process.
-Dev: `npm run dev` → runs `node server.js`
-Prod: Railway runs `node server.js`
+We use `server.mjs` — a custom Node.js server that boots Next.js + Socket.io in one process.
+Dev: `npm run dev` → runs `node server.mjs`
+Prod: Railway runs `node server.mjs`
 
 ## Important Rules
 - Never hardcode API keys or secrets — use .env (symlinked to secrets vault)
@@ -72,6 +72,7 @@ Prod: Railway runs `node server.js`
 - **Read AGENTS.md before writing Next.js code** — this is Next.js 16, not 14
 
 ## Reference Docs
+- **Releasing / deploy / rollback:** `docs/RELEASING.md` ← start here for all deploy questions
 - PRD: `docs/PRD.md`
 - Feature comparison: `docs/feature-comparison.md`
 - Cost analysis: `docs/cost-analysis.md`

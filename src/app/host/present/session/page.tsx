@@ -16,6 +16,7 @@ import { track } from '@/lib/analytics'
 import { PostSessionHeader } from '@/components/PostSessionHeader'
 import { PresentationSummary } from '@/components/PresentationSummary'
 import { useConfetti } from '@/hooks/useConfetti'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 
 // Canonical Kahoot palette for answer/option rendering — shared with quiz
 // host view and participant phone so colors match across every surface.
@@ -174,10 +175,26 @@ function SpeedWaveform({ recentVotes }: { recentVotes: number[] }) {
   )
 }
 
-// ─── Live vertical bar chart ──────────────────────────────────────────────────
+// ─── Live results chart (bar / donut / pie) ──────────────────────────────────
 
-function LiveVerticalBars({
+// Donut/pie geometry helpers.
+function polarXY(cx: number, cy: number, r: number, deg: number) {
+  const rad = ((deg - 90) * Math.PI) / 180
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) }
+}
+function pieSlicePath(cx: number, cy: number, r: number, startDeg: number, endDeg: number) {
+  const s = polarXY(cx, cy, r, startDeg)
+  const e = polarXY(cx, cy, r, endDeg)
+  const large = endDeg - startDeg <= 180 ? 0 : 1
+  return `M ${cx} ${cy} L ${s.x} ${s.y} A ${r} ${r} 0 ${large} 1 ${e.x} ${e.y} Z`
+}
+
+type ChartVariant = 'bar' | 'donut' | 'pie'
+type ChartMetric = 'count' | 'percent'
+
+function ResultChart({
   options, counts, total, colors, showResults, correctIndex,
+  variant = 'bar', metric = 'count',
 }: {
   options: string[]
   counts: number[]
@@ -185,27 +202,150 @@ function LiveVerticalBars({
   colors: string[]
   showResults: boolean
   correctIndex?: number
+  variant?: ChartVariant
+  metric?: ChartMetric
 }) {
   const max = Math.max(...counts, 1)
+  const correctActive = showResults && typeof correctIndex === 'number'
+  const pctOf = (i: number) => (total > 0 ? Math.round(((counts[i] ?? 0) / total) * 100) : 0)
+  const primary = (i: number) => (metric === 'percent' ? `${pctOf(i)}%` : `${counts[i] ?? 0}`)
+  const secondary = (i: number) => (metric === 'percent' ? `${counts[i] ?? 0}` : `${pctOf(i)}%`)
+  // Correct-answer reveal choreography: dim every non-correct option so the
+  // spotlight lands on the right answer (the AhaSlides/Mentimeter reveal beat).
+  const dimOpacity = (i: number) => (correctActive && correctIndex !== i ? 0.4 : 1)
+  const segColor = (i: number) => (correctActive && correctIndex === i ? '#16A34A' : colors[i % colors.length])
 
+  // ─ Donut / pie: proportional ring (or slices) + legend ────────────────────
+  if (variant === 'donut' || variant === 'pie') {
+    const r = 80
+    const cx = 100
+    const cy = 100
+    const C = 2 * Math.PI * r
+    const isDonut = variant === 'donut'
+    const leadingIdx = counts.indexOf(Math.max(...counts))
+    const focusIdx = correctActive ? (correctIndex as number) : total > 0 ? leadingIdx : -1
+
+    // Fraction per option + cumulative sweep angles. Computed without
+    // mutating a running accumulator inside the map so the render stays pure.
+    const fracs = options.map((_, i) => (total > 0 ? (counts[i] ?? 0) / total : 0))
+    const slices = options.map((opt, i) => {
+      const startDeg = fracs.slice(0, i).reduce((a, b) => a + b, 0) * 360
+      return { i, opt, f: fracs[i], startDeg, endDeg: startDeg + fracs[i] * 360 }
+    })
+
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-6 md:flex-row md:gap-10">
+        <div className="relative" style={{ width: 240, height: 240, flexShrink: 0 }}>
+          <svg viewBox="0 0 200 200" className="h-full w-full">
+            {isDonut ? (
+              <>
+                <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(0,0,0,0.06)" strokeWidth={26} />
+                {slices.filter(s => s.f > 0).map(s => (
+                  <circle key={s.i} cx={cx} cy={cy} r={r} fill="none"
+                    stroke={segColor(s.i)}
+                    strokeWidth={correctActive && correctIndex === s.i ? 32 : 26}
+                    strokeDasharray={`${s.f * C} ${C}`}
+                    strokeDashoffset={-(s.startDeg / 360) * C}
+                    transform="rotate(-90 100 100)"
+                    style={{
+                      opacity: dimOpacity(s.i),
+                      transition: 'stroke-dasharray 0.6s cubic-bezier(0.34,1.56,0.64,1), opacity 0.4s ease, stroke-width 0.3s ease',
+                      filter: correctActive && correctIndex === s.i ? 'drop-shadow(0 0 6px #16A34A88)' : 'none',
+                    }}
+                  />
+                ))}
+              </>
+            ) : (
+              <>
+                {total === 0 && <circle cx={cx} cy={cy} r={r} fill="rgba(0,0,0,0.06)" />}
+                {slices.filter(s => s.f > 0).map(s => (
+                  // A single option with 100% spans 0→360°, where SVG treats the
+                  // arc's identical start/end points as "omit the arc" (renders
+                  // nothing). Draw a full circle for that case instead.
+                  s.f >= 0.9999 ? (
+                    <circle key={s.i} cx={cx} cy={cy} r={r} fill={segColor(s.i)}
+                      stroke="#fff" strokeWidth={2}
+                      style={{
+                        opacity: dimOpacity(s.i),
+                        transition: 'opacity 0.4s ease',
+                        filter: correctActive && correctIndex === s.i ? 'drop-shadow(0 0 6px #16A34A88)' : 'none',
+                      }}
+                    />
+                  ) : (
+                  <path key={s.i} d={pieSlicePath(cx, cy, r, s.startDeg, s.endDeg)} fill={segColor(s.i)}
+                    stroke="#fff" strokeWidth={2} strokeLinejoin="round"
+                    style={{
+                      opacity: dimOpacity(s.i),
+                      transition: 'opacity 0.4s ease',
+                      filter: correctActive && correctIndex === s.i ? 'drop-shadow(0 0 6px #16A34A88)' : 'none',
+                    }}
+                  />
+                  )
+                ))}
+              </>
+            )}
+          </svg>
+
+          {isDonut && (
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
+              {total > 0 ? (
+                <>
+                  <span className="text-4xl font-black tabular-nums" style={{ color: correctActive ? '#16A34A' : '#0F1B3D', fontFamily: 'var(--font-heading)' }}>
+                    {focusIdx >= 0 ? primary(focusIdx) : '0'}
+                  </span>
+                  <span className="mt-1 inline-flex max-w-[150px] items-center gap-1 truncate text-[11px] font-bold uppercase tracking-wide" style={{ color: '#6B7280' }}>
+                    {correctActive && <span>✓</span>}
+                    {correctActive ? 'correct' : focusIdx >= 0 ? (options[focusIdx] || 'leading') : 'responses'}
+                  </span>
+                </>
+              ) : (
+                <span className="text-sm font-semibold" style={{ color: '#9CA3AF' }}>Waiting…</span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Legend */}
+        <div className="flex w-full max-w-xs flex-col justify-center gap-2 md:w-auto">
+          {options.map((opt, i) => (
+            <div key={i} className="flex items-center gap-2.5"
+              style={{ opacity: dimOpacity(i), transition: 'opacity 0.4s ease' }}>
+              <span className="h-3.5 w-3.5 flex-shrink-0 rounded-[4px]" style={{ background: segColor(i) }} />
+              <span className="flex-1 truncate text-sm font-semibold"
+                style={{ color: correctActive && correctIndex === i ? '#16A34A' : '#0F1B3D' }}>
+                {correctActive && correctIndex === i && <span className="mr-1">✓</span>}
+                {opt || `Option ${i + 1}`}
+              </span>
+              <span className="text-sm font-black tabular-nums" style={{ color: segColor(i) }}>{primary(i)}</span>
+              <span className="w-12 text-right text-xs tabular-nums" style={{ color: '#9CA3AF' }}>{secondary(i)}</span>
+            </div>
+          ))}
+          <p className="mt-1 text-center text-[11px] font-semibold md:text-left" style={{ color: '#9CA3AF' }}>
+            {total} {total === 1 ? 'response' : 'responses'}
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // ─ Bar (default): vertical columns, count + % dual, correct-reveal dim ────
   return (
     <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 32, flex: 1, minHeight: 200 }}>
       {options.map((opt, i) => {
         const count = counts[i] ?? 0
-        const pct = total > 0 ? Math.round((count / total) * 100) : 0
         const heightPct = count > 0 ? Math.max(3, (count / max) * 100) : 0
         const isLeading = count > 0 && count === Math.max(...counts)
-        const isCorrect = showResults && correctIndex === i
-        const color = isCorrect ? '#16A34A' : colors[i % colors.length]
+        const isCorrect = correctActive && correctIndex === i
+        const color = segColor(i)
 
         return (
-          <div key={i} style={{ flex: '1 1 0', minWidth: 0, maxWidth: 160, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%' }}>
-            {/* Bar area: count label sits directly above the bar */}
+          <div key={i} style={{ flex: '1 1 0', minWidth: 0, maxWidth: 160, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', opacity: dimOpacity(i), transition: 'opacity 0.4s ease' }}>
+            {/* Bar area: metric label sits directly above the bar */}
             <div style={{ flex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end' }}>
               {isCorrect ? (
                 <span style={{ color: '#16A34A', fontWeight: 900, fontSize: 22, lineHeight: 1, marginBottom: 4 }}>✓</span>
               ) : count > 0 ? (
-                <span style={{ color, fontWeight: 800, fontSize: 22, lineHeight: 1, marginBottom: 4 }}>{count}</span>
+                <span style={{ color, fontWeight: 800, fontSize: 22, lineHeight: 1, marginBottom: 4 }}>{primary(i)}</span>
               ) : null}
               <div
                 style={{
@@ -230,7 +370,7 @@ function LiveVerticalBars({
                 regardless of how many lines the actual label wraps to. */}
             <div style={{ width: '100%', height: 2, background: 'rgba(0,0,0,0.08)', borderRadius: 1, margin: '3px 0' }} />
 
-            {/* Option label + percentage — fixed height container so the
+            {/* Option label + secondary metric — fixed height container so the
                 floor line and bar baseline stay aligned across columns
                 even when one label wraps to 2 lines. */}
             <div style={{
@@ -262,7 +402,7 @@ function LiveVerticalBars({
               </div>
               {showResults && total > 0 && (
                 <div style={{ fontSize: 15, color, fontWeight: 700 }}>
-                  {pct}%
+                  {secondary(i)}
                 </div>
               )}
             </div>
@@ -365,7 +505,7 @@ function getVideoEmbedUrl(url: string): string {
 
 // ─── Slide content renderer ───────────────────────────────────────────────────
 
-function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slide: Slide; aggregate: AggregateData; showResults: boolean; correctRevealed: boolean }) {
+function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVariant = 'bar', chartMetric = 'count' }: { slide: Slide; aggregate: AggregateData; showResults: boolean; correctRevealed: boolean; chartVariant?: ChartVariant; chartMetric?: ChartMetric }) {
   const textColor = getSlideTextColor(slide)
   const headingStyle: React.CSSProperties = { fontFamily: 'var(--font-heading)', color: textColor, fontWeight: 900 }
 
@@ -390,13 +530,15 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed }: { slid
           </h2>
           <SlideImageFrame url={slide.contentImageUrl} />
           <div className="flex-1 min-h-0 flex flex-col justify-end">
-            <LiveVerticalBars
+            <ResultChart
               options={options}
               counts={counts}
               total={aggregate.total}
               colors={barColors}
               showResults={showResults}
               correctIndex={correctRevealed && typedSlide.showCorrect ? typedSlide.correctIndex : undefined}
+              variant={chartVariant}
+              metric={chartMetric}
             />
           </div>
         </div>
@@ -935,6 +1077,12 @@ export default function PresentSessionPage() {
   const waveTriggeredRef = useRef(false)
   const endingRef = useRef(false)
   const [plan, setPlan] = useState<'free' | 'pro'>('free')
+  // Results-chart view controls (host preference, persists across slides).
+  const [chartVariant, setChartVariant] = useState<ChartVariant>('bar')
+  const [chartMetric, setChartMetric] = useState<ChartMetric>('count')
+  // Direction-aware slide paging — forward/back animate from opposite sides.
+  const [slideDir, setSlideDir] = useState(1)
+  const reduceMotion = useReducedMotion()
 
   const currentSlide = presentation?.slides[slideIndex] ?? null
   const totalSlides = presentation?.slides.length ?? 0
@@ -1183,6 +1331,7 @@ export default function PresentSessionPage() {
       return
     }
     if (!presentation || slideIndex >= totalSlides - 1) return
+    setSlideDir(1)
     const newIndex = slideIndex + 1
     const nextSlide = presentation.slides[newIndex]
     const nextMode = nextSlide?.responseMode || 'instant'
@@ -1204,6 +1353,7 @@ export default function PresentSessionPage() {
       setShowIntro(true)
       return
     }
+    setSlideDir(-1)
     const newIndex = slideIndex - 1
     const prevSlide = presentation!.slides[newIndex]
     const prevMode = prevSlide?.responseMode || 'instant'
@@ -1390,6 +1540,18 @@ export default function PresentSessionPage() {
   if (phase !== 'live' || !currentSlide) return null
 
   const meta = SLIDE_TYPE_META[currentSlide.type]
+  const isChartSlide = currentSlide.type === 'multiple_choice' || currentSlide.type === 'quick_fire' || currentSlide.type === 'live_race' || currentSlide.type === 'word_duel'
+  // Direction-aware slide transition. Forward pages enter from the right,
+  // back from the left — reads as flipping through a deck. Collapses to a
+  // pure fade under prefers-reduced-motion.
+  const slideVariants = reduceMotion
+    ? { enter: { opacity: 0 }, center: { opacity: 1 }, exit: { opacity: 0 } }
+    : {
+        enter: (dir: number) => ({ opacity: 0, x: dir >= 0 ? 80 : -80 }),
+        center: { opacity: 1, x: 0 },
+        exit: (dir: number) => ({ opacity: 0, x: dir >= 0 ? -80 : 80 }),
+      }
+  const slideTransition = reduceMotion ? { duration: 0.15 } : { duration: 0.34, ease: [0.22, 1, 0.36, 1] as const }
 
   return (
     <div
@@ -1560,11 +1722,24 @@ export default function PresentSessionPage() {
           {/* Slide content */}
           <div className="flex-1 flex flex-col w-full mx-auto relative min-h-0"
             style={{ maxWidth: 'min(1600px, 92vw)', containerType: 'inline-size' }}>
-            {showIntro ? (
-              <IntroSlide title={presentation?.title || 'Presentation'} gameCode={gameCode} />
-            ) : (
-              <SlideContent slide={currentSlide} aggregate={aggregate} showResults={showResults} correctRevealed={correctRevealed} />
-            )}
+            <AnimatePresence mode="wait" initial={false} custom={slideDir}>
+              <motion.div
+                key={showIntro ? 'intro' : `slide-${slideIndex}`}
+                custom={slideDir}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={slideTransition}
+                className="flex-1 min-h-0 relative"
+              >
+                {showIntro ? (
+                  <IntroSlide title={presentation?.title || 'Presentation'} gameCode={gameCode} />
+                ) : (
+                  <SlideContent slide={currentSlide} aggregate={aggregate} showResults={showResults} correctRevealed={correctRevealed} chartVariant={chartVariant} chartMetric={chartMetric} />
+                )}
+              </motion.div>
+            </AnimatePresence>
             {plan === 'free' && (
               <div className="absolute bottom-2 right-3 z-10">
                 <span className="text-[10px] font-bold opacity-30" style={{ color: '#fff' }}>quizotic.live</span>
@@ -1615,6 +1790,26 @@ export default function PresentSessionPage() {
             }}>
             {mirrorOn ? '📱 Mirror On' : '📱 Mirror Off'}
           </button>
+          {isChartSlide && (
+            <div className="flex items-center gap-1 rounded-xl p-1" style={{ background: '#fff', border: '1.5px solid #E5E7EB' }}>
+              {([['bar', 'Bars'], ['donut', 'Donut'], ['pie', 'Pie']] as const).map(([v, label]) => (
+                <button key={v} onClick={() => setChartVariant(v)}
+                  className="px-3 py-2 rounded-lg text-xs font-bold transition-all hover:opacity-80"
+                  style={{ background: chartVariant === v ? '#0F1B3D' : 'transparent', color: chartVariant === v ? '#fff' : '#6B7280' }}>
+                  {label}
+                </button>
+              ))}
+              <span style={{ width: 1, height: 22, background: '#E5E7EB', margin: '0 3px' }} />
+              {([['count', '123'], ['percent', '%']] as const).map(([m, label]) => (
+                <button key={m} onClick={() => setChartMetric(m)}
+                  title={m === 'percent' ? 'Emphasise percentages' : 'Emphasise counts'}
+                  className="px-2.5 py-2 rounded-lg text-xs font-bold transition-all hover:opacity-80"
+                  style={{ background: chartMetric === m ? '#0F1B3D' : 'transparent', color: chartMetric === m ? '#fff' : '#6B7280' }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Center: navigation */}

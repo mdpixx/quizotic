@@ -30,6 +30,13 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
+      # Advisory only: main currently has pre-existing eslint errors. This step
+      # surfaces lint issues without blocking merges. Once the backlog is cleared,
+      # remove `continue-on-error` to make lint a hard gate. See docs/RELEASING.md.
+      - name: Lint (advisory)
+        run: npm run lint
+        continue-on-error: true
+
       - name: Verify generated brand assets
         run: npm run brand:assets:check
 
