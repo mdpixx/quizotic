@@ -763,8 +763,15 @@ app.prepare().then(async () => {
           return
         }
         const type = session.type === 'presenter' ? 'presenter' : 'quiz'
+        // Include the title so the participant join page can render
+        // "Joining {title}" before the user submits their name — without
+        // this, the title is only known after the socket join_session
+        // callback and the form sits on a generic "Join a live quiz" label.
+        const title = type === 'presenter'
+          ? (session.presentationData?.title || '')
+          : (session.quizData?.title || '')
         res.statusCode = 200
-        res.end(JSON.stringify({ ok: true, exists: true, type, status: session.status }))
+        res.end(JSON.stringify({ ok: true, exists: true, type, status: session.status, title }))
       } catch (err) {
         res.statusCode = 200
         res.setHeader('Content-Type', 'application/json')

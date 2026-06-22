@@ -55,11 +55,13 @@ export function proxy(request: NextRequest) {
   }
 
   // Local-only design preview: lets us inspect the host runtime UI / quiz
-  // builder without going through OAuth. Never enabled in production.
+  // builder without going through OAuth. Never enabled in production. Both
+  // /host/create (legacy) and /host/build (canonical) are previewable so
+  // teams in mid-migration can still inspect either route.
   if (
     process.env.NODE_ENV !== 'production' &&
     ((pathname === '/host/session' && request.nextUrl.searchParams.get('preview') === 'host-stage') ||
-     (pathname === '/host/create' && request.nextUrl.searchParams.get('preview') === 'builder'))
+     ((pathname === '/host/build' || pathname === '/host/create') && request.nextUrl.searchParams.get('preview') === 'builder'))
   ) {
     return NextResponse.next()
   }

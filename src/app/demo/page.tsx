@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
 import { Avatar } from '@/components/Avatar'
 import { Podium } from '@/components/Podium'
 import { CircularTimer } from '@/components/CircularTimer'
@@ -45,7 +46,26 @@ export default function DemoPage() {
       {/* Header */}
       <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
         <div className="max-w-3xl mx-auto px-4 py-3">
-          <h1 className="text-2xl font-black mb-2" style={{ color: '#0F1B3D' }}>Gamification Demo</h1>
+          <p
+            className="text-[11px] font-bold uppercase tracking-wider mb-1"
+            style={{ color: '#FBA100', letterSpacing: '0.08em' }}
+          >
+            Preview
+          </p>
+          <h1 className="text-2xl font-black mb-1" style={{ color: '#0F1B3D' }}>
+            Preview the host screen
+          </h1>
+          <p className="text-xs mb-3" style={{ color: '#6B7280' }}>
+            Sample of the gamified moments hosts see during a live Quizotic session — not a full quiz. To run a real session,{' '}
+            <Link
+              href="/auth/signin?intent=signup"
+              className="font-bold underline"
+              style={{ color: '#0F1B3D', textUnderlineOffset: 3 }}
+            >
+              Start Teaching Free
+            </Link>
+            .
+          </p>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {sections.map(s => (
               <button
@@ -70,6 +90,32 @@ export default function DemoPage() {
         {section === 'reactions' && <ReactionsDemo />}
         {section === 'teams' && <TeamsDemo />}
         {section === 'wave' && <WaveDemo />}
+
+        {/* End-of-preview CTA — visitors who scrolled this far should have a clear next step */}
+        <div
+          className="mt-10 rounded-2xl p-6 text-center"
+          style={{ background: '#0F1B3D' }}
+        >
+          <p className="text-white font-black text-lg mb-1">
+            Ready to run your own live session?
+          </p>
+          <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.65)' }}>
+            Build a quiz in minutes. Participants join from their phone browser — no app, no install.
+          </p>
+          <Link
+            href="/auth/signin?intent=signup"
+            className="inline-block font-bold px-6 py-3 rounded-lg text-sm"
+            style={{
+              background: '#FBD13B',
+              color: '#0D0D0D',
+              textDecoration: 'none',
+              border: '2px solid #0D0D0D',
+              boxShadow: '3px 3px 0 #0D0D0D',
+            }}
+          >
+            Start Teaching Free →
+          </Link>
+        </div>
       </div>
     </div>
   )

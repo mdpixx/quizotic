@@ -478,6 +478,11 @@ function JoinPageInner() {
 
   const followupParam = searchParams.get('followup')
   const modeParam = searchParams.get('mode') // 'presenter' for presenter sessions
+  const codeFromLink = searchParams.get('code') ?? ''
+  // True when the participant arrived via a deep link with a valid 6-digit
+  // code. We hide the code input in that case — the host already shared the
+  // exact session, so showing an editable field invites typo bugs.
+  const hasPrefilledCode = /^\d{6}$/.test(codeFromLink)
   const [phase, setPhase] = useState<Phase>(followupParam ? 'connecting' : 'form')
   const phaseRef = useRef<Phase>(followupParam ? 'connecting' : 'form')
 
@@ -504,8 +509,40 @@ function JoinPageInner() {
       if (html.getAttribute('data-feedback-hidden') === 'join-session') html.removeAttribute('data-feedback-hidden')
     }
   }, [phase])
-  const [code, setCode] = useState(searchParams.get('code') ?? '')
+  const [code, setCode] = useState(codeFromLink)
   const nameInputRef = useRef<HTMLInputElement>(null)
+
+  // When the participant lands with a valid ?code in the URL, pre-fetch the
+  // session title from the lookup endpoint so the form can render
+  // "Joining {title}" before the user submits — and so we can show an
+  // immediate error if the code is dead instead of waiting for the socket
+  // round-trip. Skipped for follow-up sessions (their title is fetched via
+  // the dedicated follow-up endpoint further down).
+  useEffect(() => {
+    if (!hasPrefilledCode || followupParam) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const r = await fetch('/api/session/lookup?code=' + encodeURIComponent(codeFromLink))
+        if (!r.ok) return
+        const data = await r.json().catch(() => null) as { ok?: boolean; exists?: boolean; title?: string } | null
+        if (cancelled) return
+        if (data?.exists && typeof data.title === 'string' && data.title) {
+          setQuizTitle(data.title)
+        }
+      } catch {
+        // Lookup failures are non-fatal — the user can still submit.
+      }
+    })()
+    return () => { cancelled = true }
+  }, [hasPrefilledCode, codeFromLink, followupParam])
+
+  // With the code already filled, drop focus straight on the name field so a
+  // direct-link visitor goes from arrival to typing their name in one step.
+  useEffect(() => {
+    if (!hasPrefilledCode) return
+    nameInputRef.current?.focus()
+  }, [hasPrefilledCode])
 
   // Presenter mode state
   const [presenterTitle, setPresenterTitle] = useState('')
@@ -1549,41 +1586,69 @@ function JoinPageInner() {
             <p className="text-lg mt-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
               {t('join.title')}
             </p>
-            <p className="text-xs font-bold uppercase tracking-[0.14em] mt-2" style={{ color: '#FBD13B' }}>
-              Join a live quiz with code
-            </p>
+            {/* Direct-link arrival: show what they're joining the moment the
+                lookup resolves, instead of the generic "Join a live quiz" CTA. */}
+            {hasPrefilledCode && quizTitle ? (
+              <p className="text-base font-bold mt-3" style={{ color: '#FBD13B', fontFamily: 'var(--font-heading)' }}>
+                Joining {quizTitle}
+              </p>
+            ) : (
+              <p className="text-xs font-bold uppercase tracking-[0.14em] mt-2" style={{ color: '#FBD13B' }}>
+                Join a live quiz with code
+              </p>
+            )}
           </div>
 
           <form onSubmit={handleJoin} className="space-y-4">
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]{6}"
-              placeholder={t('join.codePlaceholder')}
-              aria-label={t('join.codePlaceholder')}
-              autoComplete="one-time-code"
-              value={code}
-              onChange={e => {
-                // Strip non-digits, cap at 6. When the 6th digit lands, jump
-                // focus to the name field so the user flows straight into it.
-                const digits = e.target.value.replace(/\D/g, '').slice(0, 6)
-                setCode(digits)
-                if (digits.length === 6 && code.length < 6) {
-                  nameInputRef.current?.focus()
-                }
-              }}
-              disabled={phase === 'connecting'}
-              className="w-full rounded-xl px-5 py-4 text-2xl font-bold tracking-[0.3em] text-center outline-none transition-all placeholder:text-white/30 focus:ring-2"
-              style={{
-                background: 'rgba(255,255,255,0.07)',
-                border: code.length === 6
-                  ? '1.5px solid rgba(34,197,94,0.9)' // valid → green border
-                  : '1.5px solid rgba(255,255,255,0.12)',
-                color: 'white',
-                '--tw-ring-color': 'rgba(251,209,59,0.4)',
-              } as React.CSSProperties}
-              maxLength={6}
-            />
+            {hasPrefilledCode ? (
+              // Direct-link summary chip. Showing an editable field here invites
+              // typos on a code the host already shared, and the visitor can
+              // always change it via the "Use a different code" affordance below.
+              <div
+                className="flex items-center justify-between rounded-xl px-5 py-3"
+                style={{
+                  background: 'rgba(34,197,94,0.10)',
+                  border: '1.5px solid rgba(34,197,94,0.45)',
+                }}
+              >
+                <span className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                  Session code
+                </span>
+                <span className="text-xl font-black tracking-[0.3em] text-white" style={{ fontFamily: 'var(--font-heading)' }}>
+                  {code}
+                </span>
+              </div>
+            ) : (
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]{6}"
+                placeholder={t('join.codePlaceholder')}
+                aria-label={t('join.codePlaceholder')}
+                autoComplete="one-time-code"
+                value={code}
+                onChange={e => {
+                  // Strip non-digits, cap at 6. When the 6th digit lands, jump
+                  // focus to the name field so the user flows straight into it.
+                  const digits = e.target.value.replace(/\D/g, '').slice(0, 6)
+                  setCode(digits)
+                  if (digits.length === 6 && code.length < 6) {
+                    nameInputRef.current?.focus()
+                  }
+                }}
+                disabled={phase === 'connecting'}
+                className="w-full rounded-xl px-5 py-4 text-2xl font-bold tracking-[0.3em] text-center outline-none transition-all placeholder:text-white/30 focus:ring-2"
+                style={{
+                  background: 'rgba(255,255,255,0.07)',
+                  border: code.length === 6
+                    ? '1.5px solid rgba(34,197,94,0.9)' // valid → green border
+                    : '1.5px solid rgba(255,255,255,0.12)',
+                  color: 'white',
+                  '--tw-ring-color': 'rgba(251,209,59,0.4)',
+                } as React.CSSProperties}
+                maxLength={6}
+              />
+            )}
             <input
               ref={nameInputRef}
               type="text"
