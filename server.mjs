@@ -49,6 +49,14 @@ import {
 } from './src/lib/session-state.mjs'
 import { allowRate, generateGameCode, sanitizeDisplayText, startRateBucketSweep } from './src/lib/server-guards.mjs'
 
+// Two-screen host model: a session may have MULTIPLE host sockets at once
+// (projector + phone remote). `hostSocketId` stays as the PRIMARY (projector)
+// socket so legacy reads keep working; `hostSocketIds` is the full set. Any
+// socket in the set is authorised to fire host control events.
+function isHostSocket(session, socket) {
+  return !!(session?.hostSocketIds && session.hostSocketIds.has(socket.id))
+}
+
 // ─── Startup env var validation ────────────────────────────────
 if (process.env.NODE_ENV === 'production') {
   const REQUIRED = ['DATABASE_URL', 'NEXTAUTH_SECRET', 'OPENROUTER_API_KEY']
@@ -901,6 +909,8 @@ app.prepare().then(async () => {
       const hostResumeToken = randomUUID()
       sessions.set(gameCode, {
         hostSocketId: socket.id,
+        hostSocketIds: new Set([socket.id]), // Two-screen host model (projector + remote)
+        hostPin: String(Math.floor(1000 + Math.random() * 9000)), // 4-digit PIN to pair a phone remote
         hostResumeToken,         // Layer 3.3 — used by host_resume to reclaim session
         quizData,
         currentQuestionIndex: -1,
@@ -973,6 +983,10 @@ app.prepare().then(async () => {
         return
       }
       session.hostSocketId = socket.id
+      // Two-screen host model: projector reconnect rebinds the PRIMARY socket
+      // AND re-adds it to the host set so control events keep working.
+      if (!session.hostSocketIds) session.hostSocketIds = new Set()
+      session.hostSocketIds.add(socket.id)
       delete session.hostDisconnectedAt
       delete session.hostDisconnectedSocketId
       socket.join(`session:${gameCode}`)
@@ -989,12 +1003,48 @@ app.prepare().then(async () => {
       })
     })
 
+    // Two-screen host model — pair a phone remote to an existing session.
+    // The projector (primary) host displays a 4-digit PIN; the remote enters
+    // gameCode + pin. Authorised only for the session owner. On success the
+    // remote socket joins the host room and receives a full session_state
+    // snapshot; it does NOT become the primary (projector stays hostSocketId).
+    socket.on('host_join_remote', (payload = {}, callback) => {
+      const gameCode = typeof payload?.gameCode === 'string' ? payload.gameCode : null
+      const pin = typeof payload?.pin === 'string' ? payload.pin : null
+      const session = gameCode ? sessions.get(gameCode) : null
+      if (!session) {
+        socket.emit('host_remote_error', { message: 'Session not found.' })
+        if (typeof callback === 'function') callback({ success: false })
+        return
+      }
+      // Same owner check the host path uses: a stolen PIN alone must not grant
+      // host controls — the joining socket must be the signed-in session owner.
+      if (session.userId && session.userId !== socket.data.userId) {
+        socket.emit('host_remote_error', { message: 'Only the session owner can join as host.' })
+        if (typeof callback === 'function') callback({ success: false })
+        return
+      }
+      if (!session.hostPin || pin !== session.hostPin) {
+        socket.emit('host_remote_error', { message: 'Wrong PIN.' })
+        if (typeof callback === 'function') callback({ success: false })
+        return
+      }
+      if (!session.hostSocketIds) session.hostSocketIds = new Set()
+      session.hostSocketIds.add(socket.id)
+      socket.join(`session:${gameCode}`)
+      socket.join(`host:${gameCode}`)
+      // Full snapshot so the remote can render the current lobby / live state.
+      socket.emit('session_state', { ...buildSessionStateSnapshot(session), hostPin: session.hostPin })
+      console.log(`[host_join_remote] paired code=${gameCode} sid=${socket.id}`)
+      if (typeof callback === 'function') callback({ success: true })
+    })
+
     socket.on('start_quiz', (rawPayload) => {
       const parsed = validateSocketPayload(socket, GameCodeOnlySchema, rawPayload, undefined, 'start_quiz')
       if (!parsed) return
       const { gameCode } = parsed
       const session = sessions.get(gameCode)
-      if (!session || session.hostSocketId !== socket.id) return
+      if (!session || !isHostSocket(session, socket)) return
 
       session.status = 'active'
       session.currentQuestionIndex = 0
@@ -1030,7 +1080,7 @@ app.prepare().then(async () => {
       if (!parsed) return
       const { gameCode } = parsed
       const session = sessions.get(gameCode)
-      if (!session || session.hostSocketId !== socket.id) return
+      if (!session || !isHostSocket(session, socket)) return
       session.paused = true
       // Stop the auto-end timer and snapshot how much time remains so resume
       // can reschedule with the same remaining ms (rather than restarting the
@@ -1048,7 +1098,7 @@ app.prepare().then(async () => {
       if (!parsed) return
       const { gameCode } = parsed
       const session = sessions.get(gameCode)
-      if (!session || session.hostSocketId !== socket.id) return
+      if (!session || !isHostSocket(session, socket)) return
       session.paused = false
       const timer = session.quizData?.questions[session.currentQuestionIndex]?.timerSeconds || 20
       // Re-anchor the question's wall-clock end time to "now + remaining".
@@ -1079,7 +1129,7 @@ app.prepare().then(async () => {
       if (!parsed) return
       const { gameCode } = parsed
       const session = sessions.get(gameCode)
-      if (!session || session.hostSocketId !== socket.id) {
+      if (!session || !isHostSocket(session, socket)) {
         if (typeof callback === 'function') callback({ success: false, error: 'Session not found.' })
         return
       }
@@ -1102,7 +1152,7 @@ app.prepare().then(async () => {
       if (!parsed) return
       const { gameCode } = parsed
       const session = sessions.get(gameCode)
-      if (!session || session.hostSocketId !== socket.id) return
+      if (!session || !isHostSocket(session, socket)) return
       io.to(`session:${gameCode}`).emit('show_standings')
     })
 
@@ -1111,7 +1161,7 @@ app.prepare().then(async () => {
       if (!parsed) return
       const { gameCode } = parsed
       const session = sessions.get(gameCode)
-      if (!session || session.hostSocketId !== socket.id) return
+      if (!session || !isHostSocket(session, socket)) return
 
       session.currentQuestionIndex++
       const { currentQuestionIndex, quizData } = session
@@ -1278,7 +1328,7 @@ app.prepare().then(async () => {
       if (!parsed) return
       const { gameCode } = parsed
       const session = sessions.get(gameCode)
-      if (!session || session.hostSocketId !== socket.id) return
+      if (!session || !isHostSocket(session, socket)) return
 
       // Stop the pending auto-end timer so it doesn't fire after the session
       // has been torn down.
@@ -1388,6 +1438,8 @@ app.prepare().then(async () => {
       const presenterHostResumeToken = randomUUID()
       sessions.set(gameCode, {
         hostSocketId: socket.id,
+        hostSocketIds: new Set([socket.id]), // Two-screen host model (projector + remote)
+        hostPin: String(Math.floor(1000 + Math.random() * 9000)), // 4-digit PIN to pair a phone remote
         hostResumeToken: presenterHostResumeToken,
         type: 'presenter',
         presentationData,
@@ -1418,7 +1470,7 @@ app.prepare().then(async () => {
       if (!parsed) return
       const { gameCode, slideIndex } = parsed
       const session = sessions.get(gameCode)
-      if (!session || session.hostSocketId !== socket.id || session.type !== 'presenter') return
+      if (!session || !isHostSocket(session, socket) || session.type !== 'presenter') return
 
       session.currentSlideIndex = slideIndex
       if (!session.aggregates[slideIndex]) {
@@ -1441,7 +1493,7 @@ app.prepare().then(async () => {
       if (!parsed) return
       const { gameCode, slideIndex } = parsed
       const session = sessions.get(gameCode)
-      if (!session || session.hostSocketId !== socket.id || session.type !== 'presenter') return
+      if (!session || !isHostSocket(session, socket) || session.type !== 'presenter') return
 
       session.currentSlideIndex = slideIndex
       // Reset aggregate so fresh votes can come in
@@ -1466,7 +1518,7 @@ app.prepare().then(async () => {
     socket.on('toggle_mirror_to_participants', ({ gameCode, mirror } = {}) => {
       if (typeof gameCode !== 'string') return
       const session = sessions.get(gameCode)
-      if (!session || session.hostSocketId !== socket.id || session.type !== 'presenter') return
+      if (!session || !isHostSocket(session, socket) || session.type !== 'presenter') return
       session.mirrorToParticipants = !!mirror
       io.to(`session:${gameCode}`).emit('mirror_mode_changed', { mirrorToParticipants: session.mirrorToParticipants })
     })
@@ -1668,7 +1720,7 @@ app.prepare().then(async () => {
       if (!parsed) return
       const { gameCode } = parsed
       const session = sessions.get(gameCode)
-      if (!session || session.hostSocketId !== socket.id || session.type !== 'presenter') return
+      if (!session || !isHostSocket(session, socket) || session.type !== 'presenter') return
 
       const slideIndex = session.currentSlideIndex
       const agg = session.aggregates[slideIndex]
@@ -1683,7 +1735,7 @@ app.prepare().then(async () => {
       if (!parsed) return
       const { gameCode } = parsed
       const session = sessions.get(gameCode)
-      if (!session || session.hostSocketId !== socket.id || session.type !== 'presenter') return
+      if (!session || !isHostSocket(session, socket) || session.type !== 'presenter') return
 
       session.status = 'ended'
       stopSessionStateBroadcast(session)
@@ -1864,7 +1916,7 @@ app.prepare().then(async () => {
       if (!parsed) return
       const { gameCode } = parsed
       const session = sessions.get(gameCode)
-      if (!session || session.hostSocketId !== socket.id) {
+      if (!session || !isHostSocket(session, socket)) {
         callback({ success: false, error: 'Session not found.' })
         return
       }
@@ -2488,7 +2540,17 @@ app.prepare().then(async () => {
 
     socket.on('disconnect', () => {
       for (const [code, session] of sessions.entries()) {
-        if (session.hostSocketId === socket.id) {
+        // Two-screen host model: a disconnecting host socket may be the
+        // primary (projector) or a secondary (phone remote). Remove it from
+        // the host set in either case; only the PRIMARY path below runs the
+        // 5-minute grace / teardown logic.
+        if (session.hostSocketIds && session.hostSocketIds.has(socket.id)) {
+          session.hostSocketIds.delete(socket.id)
+          // Non-primary host (e.g. phone remote) dropping does NOT tear down
+          // the session — the projector is still live. Just stop tracking it.
+          if (session.hostSocketId !== socket.id) {
+            continue
+          }
           // Host disconnect grace: during lobby/active, give the host 5 minutes
           // to reconnect before tearing down the session. Mobile/laptop tab churn
           // and brief network blips were previously vaporising live games.
@@ -2498,7 +2560,10 @@ app.prepare().then(async () => {
             console.log(`[host] disconnected from ${code}, grace period 5min, status=${session.status}`)
             setTimeout(() => {
               const s = sessions.get(code)
-              if (s && s.hostSocketId === socket.id) {
+              // Only tear down if this socket is STILL the primary AND no other
+              // host socket (e.g. a phone remote, or a re-paired projector) is
+              // keeping the session alive.
+              if (s && s.hostSocketId === socket.id && (!s.hostSocketIds || s.hostSocketIds.size === 0)) {
                 if (s.endTimer) { clearTimeout(s.endTimer); s.endTimer = null }
                 stopSessionStateBroadcast(s)
                 io.to(`session:${code}`).emit('host_disconnected')
@@ -2886,7 +2951,14 @@ function realParticipantCount(participants) {
 // rest of this file keeps reading naturally. Exported helpers are unit-tested
 // directly; these wrappers stay trivial.
 const getConnectedCount = _getConnectedCount
-const buildSessionStateSnapshot = _buildSessionStateSnapshot
+// Two-screen host model: append hostPin to every session_state snapshot so the
+// projector lobby can display the pairing PIN. Wrapped here (instead of editing
+// the pure helper in src/lib/session-state.mjs) so this file is the only change.
+const buildSessionStateSnapshot = (session) => {
+  const snap = _buildSessionStateSnapshot(session)
+  if (session && typeof session.hostPin === 'string') snap.hostPin = session.hostPin
+  return snap
+}
 
 // Periodic authoritative state broadcast — keeps the host UI in sync even if
 // individual events are missed (network drops between server and host, hot
