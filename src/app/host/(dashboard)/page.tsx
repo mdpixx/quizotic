@@ -101,7 +101,7 @@ function Spinner() {
 // ── Card wrapper ──────────────────────────────────────────────────────────────
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`rounded-2xl border ${className}`} style={{ background: '#fff', borderColor: '#E2E8F0' }}>
+    <div className={`rounded-2xl border ${className}`} style={{ background: '#fff', borderColor: 'var(--color-line)', boxShadow: '0 1px 2px rgba(15,27,61,0.04), 0 4px 16px -8px rgba(15,27,61,0.08)' }}>
       {children}
     </div>
   )
@@ -194,8 +194,8 @@ export default function HostDashboard() {
     return (
       <div className="p-6 md:p-8 flex items-center justify-center" style={{ maxWidth: 1280, margin: '0 auto', minHeight: 400 }}>
         <div className="text-center">
-          <div className="w-8 h-8 rounded-full animate-spin mx-auto mb-3" style={{ border: '3px solid #E2E8F0', borderTopColor: '#FBD13B' }} />
-          <p className="text-sm font-medium" style={{ color: '#9CA3AF' }}>Loading dashboard...</p>
+          <div className="w-8 h-8 rounded-full animate-spin mx-auto mb-3" style={{ border: '3px solid var(--color-line)', borderTopColor: 'var(--color-yellow)' }} />
+          <p className="text-sm font-medium" style={{ color: 'var(--color-text-subtle)' }}>Loading dashboard...</p>
         </div>
       </div>
     )
@@ -213,10 +213,10 @@ export default function HostDashboard() {
               </svg>
             </span>
           </div>
-          <h1 className="text-3xl md:text-4xl font-black mb-2" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
+          <h1 className="font-display text-3xl md:text-4xl font-black mb-2" style={{ color: 'var(--color-ink)' }}>
             Welcome to Quizotic!
           </h1>
-          <p className="text-base md:text-lg max-w-lg mx-auto" style={{ color: '#64748B' }}>
+          <p className="text-base md:text-lg max-w-lg mx-auto" style={{ color: 'var(--color-text-muted)' }}>
             Let&apos;s get your first live session ready.
           </p>
         </motion.div>
@@ -236,8 +236,8 @@ export default function HostDashboard() {
           <div className="rounded-2xl p-5 flex items-center justify-between gap-4 flex-wrap"
             style={{ background: 'linear-gradient(135deg, #0F1B3D 0%, #1F2E6C 100%)' }}>
             <div style={{ minWidth: 220, flex: 1 }}>
-              <p className="text-[11px] font-black uppercase tracking-[0.14em] mb-1" style={{ color: '#FBD13B' }}>Feel it first</p>
-              <h3 className="text-lg font-black leading-tight" style={{ fontFamily: 'var(--font-heading)', color: '#fff' }}>
+              <p className="text-[11px] font-black uppercase tracking-[0.14em] mb-1" style={{ color: 'var(--color-yellow)' }}>Feel it first</p>
+              <h3 className="font-display text-lg font-black leading-tight" style={{ color: '#fff' }}>
                 Host a demo session right now
               </h3>
               <p className="text-xs mt-1 leading-relaxed" style={{ color: 'rgba(255,255,255,0.65)' }}>
@@ -246,7 +246,7 @@ export default function HostDashboard() {
             </div>
             <button onClick={hostDemoSession}
               className="flex-shrink-0 inline-flex items-center gap-2 text-sm font-bold px-5 py-3 rounded-xl transition-all hover:opacity-90 hover:scale-[1.02]"
-              style={{ background: '#FBD13B', color: '#0D0D0D', border: '2px solid #0D0D0D', fontFamily: 'var(--font-heading)' }}>
+              style={{ background: 'var(--color-yellow)', color: 'var(--color-ink)', border: '2px solid var(--color-ink)' }}>
               <svg viewBox="0 0 24 24" width="14" height="14" fill="#0D0D0D" aria-hidden><path d="M8 5v14l11-7z" /></svg>
               Go live in 10 seconds
             </button>
@@ -257,23 +257,23 @@ export default function HostDashboard() {
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }} className="mx-auto max-w-2xl mb-10">
           <Link href="/host/templates"
             className="flex items-center gap-3 rounded-2xl border p-4 transition-all hover:shadow-md hover:-translate-y-0.5"
-            style={{ background: '#fff', borderColor: '#E2E8F0', textDecoration: 'none' }}>
-            <span className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#F3F4F6', color: '#0F1B3D' }}>
+            style={{ background: '#fff', borderColor: 'var(--color-line)', textDecoration: 'none' }}>
+            <span className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'var(--color-paper-2)', color: 'var(--color-ink)' }}>
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
               </svg>
             </span>
             <span className="flex-1 min-w-0">
-              <span className="block text-sm font-black" style={{ color: '#0F1B3D' }}>Browse ready-made templates</span>
-              <span className="block text-xs mt-0.5" style={{ color: '#94A3B8' }}>{QUIZ_TEMPLATES.length} editable quizzes for schools and corporate teams</span>
+              <span className="block text-sm font-black" style={{ color: 'var(--color-ink)' }}>Browse ready-made templates</span>
+              <span className="block text-xs mt-0.5" style={{ color: 'var(--color-text-subtle)' }}>{QUIZ_TEMPLATES.length} editable quizzes for schools and corporate teams</span>
             </span>
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#94A3B8" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" /></svg>
           </Link>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
-          className="rounded-2xl border p-6" style={{ background: '#FAFBFF', borderColor: '#E2E8F0' }}>
-          <h3 className="text-base font-black mb-4 text-center" style={{ color: '#0F1B3D' }}>3 Steps to Go Live</h3>
+          className="rounded-2xl border p-6" style={{ background: 'var(--color-paper)', borderColor: 'var(--color-line)' }}>
+          <h3 className="font-display text-base font-black mb-4 text-center" style={{ color: 'var(--color-ink)' }}>3 Steps to Go Live</h3>
           <div className="grid sm:grid-cols-3 gap-4">
             {[
               { step: '1', title: 'Create', desc: 'Build a quiz or presentation with your content' },
@@ -281,11 +281,11 @@ export default function HostDashboard() {
               { step: '3', title: 'Review', desc: 'See scores, engagement, and insights in your analytics dashboard' },
             ].map((s) => (
               <div key={s.step} className="flex flex-col items-center text-center p-3">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-black text-white mb-3" style={{ background: '#0F1B3D' }}>
+                <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-black text-white mb-3" style={{ background: 'var(--color-ink)' }}>
                   {s.step}
                 </div>
-                <p className="text-sm font-black mb-1" style={{ color: '#0F1B3D' }}>{s.title}</p>
-                <p className="text-xs" style={{ color: '#64748B' }}>{s.desc}</p>
+                <p className="text-sm font-black mb-1" style={{ color: 'var(--color-ink)' }}>{s.title}</p>
+                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{s.desc}</p>
               </div>
             ))}
           </div>
@@ -320,10 +320,10 @@ export default function HostDashboard() {
       {/* ── Header — "Welcome back" + search + Create quiz ── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-[28px] font-black leading-tight" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
+          <h1 className="font-display text-[28px] font-black leading-tight" style={{ color: 'var(--color-ink)' }}>
             Welcome {firstName === 'back' ? 'back' : `back, ${firstName}`}.
           </h1>
-          <p className="text-sm mt-1" style={{ color: '#9CA3AF' }}>A calm look at your sessions, participants, and learning outcomes.</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--color-text-subtle)' }}>A calm look at your sessions, participants, and learning outcomes.</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <div className="relative hidden md:block">
@@ -379,7 +379,7 @@ export default function HostDashboard() {
                   {lastSession.status === 'ended' ? 'Completed' : lastSession.status}
                 </span>
               </div>
-              <h2 className="text-xl md:text-2xl font-black leading-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+              <h2 className="font-display text-xl md:text-2xl font-black leading-tight">
                 {lastSession.title}
               </h2>
               <p className="text-xs mt-1.5" style={{ color: 'rgba(255,255,255,0.65)' }}>
@@ -405,19 +405,19 @@ export default function HostDashboard() {
 
             <div className="grid grid-cols-3 gap-4 md:gap-6 md:min-w-[280px] md:text-center">
               <div>
-                <p className="text-2xl md:text-3xl font-black" style={{ fontFamily: 'var(--font-heading)' }}>
+                <p className="font-display text-2xl md:text-3xl font-black">
                   {lastSession.participants}
                 </p>
                 <p className="text-[10px] font-semibold mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>participants</p>
               </div>
               <div>
-                <p className="text-2xl md:text-3xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#FBD13B' }}>
+                <p className="font-display text-2xl md:text-3xl font-black" style={{ color: 'var(--color-yellow)' }}>
                   {lastSession.avgScore != null ? `${lastSession.avgScore}%` : '—'}
                 </p>
                 <p className="text-[10px] font-semibold mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>avg score</p>
               </div>
               <div>
-                <p className="text-2xl md:text-3xl font-black" style={{ fontFamily: 'var(--font-heading)' }}>
+                <p className="font-display text-2xl md:text-3xl font-black">
                   {lastSession.completionPct != null ? `${lastSession.completionPct}%` : '—'}
                 </p>
                 <p className="text-[10px] font-semibold mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>completion</p>
@@ -439,7 +439,7 @@ export default function HostDashboard() {
           <motion.div key={kpi.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
             className="dash-card p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.1em]" style={{ color: 'var(--color-text-muted)' }}>{kpi.label}</p>
-            <p className="text-[26px] font-black leading-tight mt-1.5" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>{kpi.value}</p>
+            <p className="font-display text-[26px] font-black leading-tight mt-1.5" style={{ color: 'var(--color-ink)' }}>{kpi.value}</p>
             {kpi.subtitle && <p className="text-[11px] mt-1" style={{ color: '#94A3B8' }}>{kpi.subtitle}</p>}
           </motion.div>
         ))}
@@ -456,19 +456,19 @@ export default function HostDashboard() {
       <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
         className="mb-5 grid gap-3 md:grid-cols-[1.2fr_1fr_1fr]">
         <Link href="/host/build" className="dash-card p-4 transition-all hover:-translate-y-0.5 hover:shadow-md" style={{ textDecoration: 'none' }}>
-          <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: '#7C3AED' }}>Next best action</p>
-          <h2 className="mt-1 text-lg font-black" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Create a quiz</h2>
-          <p className="mt-1 text-xs leading-relaxed" style={{ color: '#64748B' }}>Jump straight into the builder — add questions manually or generate with AI.</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: 'var(--color-accent-violet)' }}>Next best action</p>
+          <h2 className="font-display mt-1 text-lg font-black" style={{ color: 'var(--color-ink)' }}>Create a quiz</h2>
+          <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>Jump straight into the builder — add questions manually or generate with AI.</p>
         </Link>
         <Link href="/host/build?start=aidoc" className="dash-card p-4 transition-all hover:-translate-y-0.5 hover:shadow-md" style={{ textDecoration: 'none' }}>
-          <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: '#16A34A' }}>Practice loop</p>
-          <h2 className="mt-1 text-lg font-black" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Generate revision quiz</h2>
-          <p className="mt-1 text-xs leading-relaxed" style={{ color: '#64748B' }}>Turn notes or a weak topic into a self-paced quiz for follow-up work.</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: 'var(--color-accent-green)' }}>Practice loop</p>
+          <h2 className="font-display mt-1 text-lg font-black" style={{ color: 'var(--color-ink)' }}>Generate revision quiz</h2>
+          <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>Turn notes or a weak topic into a self-paced quiz for follow-up work.</p>
         </Link>
         <Link href="/host/reports" className="dash-card p-4 transition-all hover:-translate-y-0.5 hover:shadow-md" style={{ textDecoration: 'none' }}>
-          <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: '#D97706' }}>Review</p>
-          <h2 className="mt-1 text-lg font-black" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>Find what to reteach</h2>
-          <p className="mt-1 text-xs leading-relaxed" style={{ color: '#64748B' }}>Use reports for exports, weak questions, and learner follow-up decisions.</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: 'var(--color-attention)' }}>Review</p>
+          <h2 className="font-display mt-1 text-lg font-black" style={{ color: 'var(--color-ink)' }}>Find what to reteach</h2>
+          <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>Use reports for exports, weak questions, and learner follow-up decisions.</p>
         </Link>
       </motion.div>
 
@@ -480,8 +480,8 @@ export default function HostDashboard() {
           <Card>
             <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: '#F1F5F9' }}>
               <div>
-                <h2 className="text-base font-black" style={{ color: '#0F1B3D' }}>Session History</h2>
-                <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>All your recent quizzes and presentations</p>
+                <h2 className="font-display text-base font-black" style={{ color: 'var(--color-ink)' }}>Session History</h2>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-subtle)' }}>All your recent quizzes and presentations</p>
               </div>
               <Link href="/host/sessions" className="text-xs font-bold px-3 py-1.5 rounded-lg transition-colors hover:bg-gray-50" style={{ color: '#0F1B3D', border: '1px solid #D1D5DB' }}>
                 View all →
@@ -920,7 +920,7 @@ export default function HostDashboard() {
               const Cell = ({ label, value, percent, interp, bg, border, color }: { label: string; value: number; percent: number; interp: string; bg: string; border: string; color: string }) => (
                 <div className="rounded-xl p-3" style={{ background: bg, border: `1px solid ${border}` }}>
                   <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color }}>{label}</div>
-                  <div className="text-[24px] font-black leading-tight mt-1" style={{ color, fontFamily: 'var(--font-heading)' }}>{value}</div>
+                  <div className="text-[24px] font-black leading-tight mt-1" style={{ color, fontFamily: 'var(--font-display)' }}>{value}</div>
                   <div className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>{percent}% · {interp}</div>
                 </div>
               )

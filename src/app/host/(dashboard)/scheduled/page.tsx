@@ -78,7 +78,7 @@ function CopyLinkButton({ slug }: { slug: string | null }) {
         setTimeout(() => setCopied(false), 2000)
       }}
       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
-      style={{ background: copied ? '#16A34A' : '#0F1B3D', color: '#fff' }}
+      style={{ background: copied ? 'var(--color-success)' : 'var(--color-ink)', color: '#fff' }}
     >
       {ICON.copy}
       {copied ? 'Copied!' : 'Copy link'}
@@ -95,7 +95,7 @@ function QrToggle({ slug }: { slug: string | null }) {
       <button
         onClick={() => setOpen(o => !o)}
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors hover:bg-gray-50"
-        style={{ color: '#0F1B3D', borderColor: '#E2E8F0' }}
+        style={{ color: 'var(--color-ink)', borderColor: 'var(--color-line)' }}
         aria-expanded={open}
       >
         {ICON.qr}
@@ -109,7 +109,7 @@ function QrToggle({ slug }: { slug: string | null }) {
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden"
           >
-            <div className="mt-2 p-2.5 bg-white rounded-xl inline-block" style={{ border: '1px solid #E2E8F0' }}>
+            <div className="mt-2 p-2.5 bg-white rounded-xl inline-block" style={{ border: '1px solid var(--color-line)' }}>
               <QRCode value={url} size={128} bgColor="#ffffff" fgColor="#0F1B3D" level="M" />
             </div>
           </motion.div>
@@ -207,7 +207,7 @@ export default function ScheduledPage() {
     <div className="paper-grain min-h-full" style={{ background: 'var(--color-paper)' }}>
       <div className="p-6 md:p-8 max-w-[1100px] mx-auto">
         <div className="mb-6">
-          <h1 className="text-[28px] font-black leading-tight" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
+          <h1 className="text-[28px] font-black leading-tight" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-ink)' }}>
             Scheduled
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
@@ -223,14 +223,14 @@ export default function ScheduledPage() {
 
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#0F1B3D', borderTopColor: 'transparent' }} />
+            <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--color-ink)', borderTopColor: 'transparent' }} />
           </div>
         ) : sessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center rounded-[16px]" style={{ background: 'var(--color-paper-2)', border: '1px dashed #DDD4BC' }}>
             <div className="w-14 h-14 rounded-full flex items-center justify-center mb-4" style={{ background: '#fff', border: '1px solid var(--color-line)' }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-6 h-6" style={{ color: 'var(--color-text-muted)' }}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 14v4M14.5 16.5l-2.5 1.5"/></svg>
             </div>
-            <p className="text-[18px] font-black mb-1" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
+            <p className="text-[18px] font-black mb-1" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-ink)' }}>
               Nothing scheduled yet.
             </p>
             <p className="text-sm mb-5 max-w-[42ch]" style={{ color: 'var(--color-text-muted)' }}>
@@ -246,23 +246,23 @@ export default function ScheduledPage() {
             {upcoming.length > 0 && (
               <section>
                 <div className="flex items-center gap-2 mb-3">
-                  <h2 className="text-[16px] font-black" style={{ color: '#0F1B3D' }}>Upcoming</h2>
+                  <h2 className="text-[16px] font-black" style={{ color: 'var(--color-ink)' }}>Upcoming</h2>
                   <span className="chip" style={{ background: '#FFFBEB', color: '#92400E', border: '1px solid #FDE68A' }}>{upcoming.length}</span>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-3">
                   {upcoming.map(s => {
                     const opensMs = s.opensAt ? new Date(s.opensAt).getTime() - serverNow() : 0
                     return (
-                      <div key={s.sessionId} className="rounded-2xl border p-4 bg-white" style={{ borderColor: '#E2E8F0' }}>
+                      <div key={s.sessionId} className="rounded-2xl border p-4 bg-white" style={{ borderColor: 'var(--color-line)' }}>
                         <div className="flex items-start justify-between gap-2 mb-2">
-                          <h3 className="text-[15px] font-black leading-snug" style={{ color: '#0F1B3D' }}>{s.title}</h3>
-                          <span className="chip flex-shrink-0" style={{ background: '#F8FAFC', color: '#64748B', border: '1px solid #E2E8F0' }}>{s.questionCount} Qs</span>
+                          <h3 className="text-[15px] font-black leading-snug" style={{ color: 'var(--color-ink)' }}>{s.title}</h3>
+                          <span className="chip flex-shrink-0" style={{ background: 'var(--color-paper-2)', color: 'var(--color-text-muted)', border: '1px solid var(--color-line)' }}>{s.questionCount} Qs</span>
                         </div>
                         <div className="rounded-xl px-3 py-2 mb-3" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
                           <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#B45309' }}>Opens in</p>
                           <p className="text-lg font-black tabular-nums" style={{ color: '#92400E' }}>{fmtCountdown(opensMs)}</p>
                         </div>
-                        <div className="text-[12px] mb-3 space-y-0.5" style={{ color: '#64748B' }}>
+                        <div className="text-[12px] mb-3 space-y-0.5" style={{ color: 'var(--color-text-muted)' }}>
                           <p>Opens {fmtDateTime(s.opensAt)}</p>
                           <p>Closes {fmtDateTime(s.closesAt)}</p>
                         </div>
@@ -289,7 +289,7 @@ export default function ScheduledPage() {
             {open.length > 0 && (
               <section>
                 <div className="flex items-center gap-2 mb-3">
-                  <h2 className="text-[16px] font-black" style={{ color: '#0F1B3D' }}>Open now</h2>
+                  <h2 className="text-[16px] font-black" style={{ color: 'var(--color-ink)' }}>Open now</h2>
                   <span className="chip" style={{ background: '#ECFDF5', color: '#047857', border: '1px solid #BBF7D0' }}>{open.length}</span>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-3">
@@ -297,25 +297,25 @@ export default function ScheduledPage() {
                     const closesMs = s.closesAt ? new Date(s.closesAt).getTime() - serverNow() : null
                     const closing = closingIds.has(s.sessionId)
                     return (
-                      <div key={s.sessionId} className="rounded-2xl border p-4 bg-white" style={{ borderColor: '#E2E8F0' }}>
+                      <div key={s.sessionId} className="rounded-2xl border p-4 bg-white" style={{ borderColor: 'var(--color-line)' }}>
                         <div className="flex items-start justify-between gap-2 mb-2">
-                          <h3 className="text-[15px] font-black leading-snug" style={{ color: '#0F1B3D' }}>{s.title}</h3>
+                          <h3 className="text-[15px] font-black leading-snug" style={{ color: 'var(--color-ink)' }}>{s.title}</h3>
                           <span className="chip flex-shrink-0" style={{ background: '#ECFDF5', color: '#047857', border: '1px solid #BBF7D0' }}>Live</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 mb-3">
-                          <div className="rounded-xl px-3 py-2" style={{ background: '#F8FAFC' }}>
-                            <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Joined</p>
-                            <p className="text-sm font-black" style={{ color: '#0F1B3D' }}>{s.joinedCount}</p>
+                          <div className="rounded-xl px-3 py-2" style={{ background: 'var(--color-paper-2)' }}>
+                            <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--color-text-subtle)' }}>Joined</p>
+                            <p className="text-sm font-black" style={{ color: 'var(--color-ink)' }}>{s.joinedCount}</p>
                           </div>
-                          <div className="rounded-xl px-3 py-2" style={{ background: '#F8FAFC' }}>
-                            <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Finished</p>
-                            <p className="text-sm font-black" style={{ color: '#0F1B3D' }}>{s.finishedCount}</p>
+                          <div className="rounded-xl px-3 py-2" style={{ background: 'var(--color-paper-2)' }}>
+                            <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--color-text-subtle)' }}>Finished</p>
+                            <p className="text-sm font-black" style={{ color: 'var(--color-ink)' }}>{s.finishedCount}</p>
                           </div>
                         </div>
-                        <div className="text-[12px] mb-3" style={{ color: '#64748B' }}>
+                        <div className="text-[12px] mb-3" style={{ color: 'var(--color-text-muted)' }}>
                           <p>Closes {fmtDateTime(s.closesAt)}</p>
                           {closesMs !== null && (
-                            <p className="font-bold tabular-nums" style={{ color: '#0F1B3D' }}>Closes in {fmtCountdown(closesMs)}</p>
+                            <p className="font-bold tabular-nums" style={{ color: 'var(--color-ink)' }}>Closes in {fmtCountdown(closesMs)}</p>
                           )}
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
@@ -332,7 +332,7 @@ export default function ScheduledPage() {
                             <Link
                               href={`/host/quizzes/${s.quizId}/report`}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors hover:bg-gray-50"
-                              style={{ color: '#0F1B3D', borderColor: '#E2E8F0', textDecoration: 'none' }}
+                              style={{ color: 'var(--color-ink)', borderColor: 'var(--color-line)', textDecoration: 'none' }}
                             >
                               {ICON.report}
                               View live report
@@ -350,19 +350,19 @@ export default function ScheduledPage() {
             {ended.length > 0 && (
               <section>
                 <div className="flex items-center gap-2 mb-3">
-                  <h2 className="text-[16px] font-black" style={{ color: '#0F1B3D' }}>Recently closed</h2>
-                  <span className="chip" style={{ background: '#F8FAFC', color: '#64748B', border: '1px solid #E2E8F0' }}>{ended.length}</span>
+                  <h2 className="text-[16px] font-black" style={{ color: 'var(--color-ink)' }}>Recently closed</h2>
+                  <span className="chip" style={{ background: 'var(--color-paper-2)', color: 'var(--color-text-muted)', border: '1px solid var(--color-line)' }}>{ended.length}</span>
                 </div>
-                <div className="rounded-[16px] overflow-hidden" style={{ background: '#fff', border: '1px solid #E2E8F0' }}>
+                <div className="rounded-[16px] overflow-hidden" style={{ background: '#fff', border: '1px solid var(--color-line)' }}>
                   {ended.map((s, i, arr) => (
                     <div
                       key={s.sessionId}
                       className={`flex items-center gap-3 px-4 py-3 ${i < arr.length - 1 ? 'border-b' : ''}`}
-                      style={{ borderColor: '#E2E8F0' }}
+                      style={{ borderColor: 'var(--color-line)' }}
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="text-[14px] font-bold truncate" style={{ color: '#0F1B3D' }}>{s.title}</p>
-                        <p className="text-[11px]" style={{ color: '#64748B' }}>
+                        <p className="text-[14px] font-bold truncate" style={{ color: 'var(--color-ink)' }}>{s.title}</p>
+                        <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
                           {s.finishedCount} participant{s.finishedCount === 1 ? '' : 's'}
                           {s.avgScore !== null && <> · avg {s.avgScore}</>}
                           {s.endedAt && <> · ended {fmtDate(s.endedAt)}</>}
@@ -372,7 +372,7 @@ export default function ScheduledPage() {
                         <Link
                           href={`/host/quizzes/${s.quizId}/report`}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors hover:bg-gray-50 flex-shrink-0"
-                          style={{ color: '#0F1B3D', borderColor: '#E2E8F0', textDecoration: 'none' }}
+                          style={{ color: 'var(--color-ink)', borderColor: 'var(--color-line)', textDecoration: 'none' }}
                         >
                           {ICON.report}
                           View report
@@ -406,15 +406,15 @@ export default function ScheduledPage() {
               style={{ background: '#fff' }}
               onClick={e => e.stopPropagation()}
             >
-              <h3 className="text-lg font-black mb-2" style={{ color: '#0F1B3D' }}>Cancel this schedule?</h3>
-              <p className="text-sm mb-5" style={{ color: '#64748B' }}>
+              <h3 className="text-lg font-black mb-2" style={{ color: 'var(--color-ink)' }}>Cancel this schedule?</h3>
+              <p className="text-sm mb-5" style={{ color: 'var(--color-text-muted)' }}>
                 &ldquo;{confirmCancel.title}&rdquo; will be taken down and its share link will stop working. You can re-assign it anytime.
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setConfirmCancel(null)}
                   className="flex-1 py-2.5 rounded-xl text-sm font-bold border transition-colors hover:bg-gray-50"
-                  style={{ color: '#64748B', borderColor: '#E2E8F0' }}
+                  style={{ color: 'var(--color-text-muted)', borderColor: 'var(--color-line)' }}
                 >
                   Keep it
                 </button>

@@ -107,21 +107,25 @@ function NavLink({ item, onClick }: { item: NavItem; onClick?: () => void }) {
     <Link
       href={item.href}
       onClick={onClick}
-      className="relative flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all"
+      aria-current={active ? 'page' : undefined}
+      className="relative flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-0"
       style={{
-        background: active ? 'rgba(255,255,255,0.08)' : 'transparent',
-        color: active ? '#fff' : 'rgba(255,255,255,0.65)',
-      }}
+        background: active ? 'rgba(251,209,59,0.12)' : 'transparent',
+        color: active ? '#fff' : 'rgba(255,255,255,0.7)',
+        '--tw-ring-color': 'rgba(251,209,59,0.45)',
+      } as React.CSSProperties}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+      onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
     >
-      {/* Yellow vertical indicator bar (mockup signature) */}
+      {/* Gold vertical indicator bar (signature accent) */}
       {active && (
         <span
           aria-hidden
-          className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm"
-          style={{ background: '#FBD13B' }}
+          className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-sm"
+          style={{ background: 'var(--color-yellow)' }}
         />
       )}
-      <span style={{ color: active ? '#FBD13B' : 'rgba(255,255,255,0.6)', display: 'inline-flex' }}>
+      <span style={{ color: active ? 'var(--color-yellow)' : 'rgba(255,255,255,0.6)', display: 'inline-flex' }}>
         {item.icon}
       </span>
       <span>{item.label}</span>
@@ -164,7 +168,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
     <>
       {/* Logo */}
       <div className="px-5 py-5 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
-        <Link href="/host" className="flex items-center gap-2.5 group" onClick={onNavClick}>
+        <Link href="/host" className="flex items-center gap-2.5 group font-display" onClick={onNavClick} aria-label="Quizotic home">
           <QuizoticLogo variant="onDark" className="text-lg" markSize={32} />
         </Link>
       </div>
@@ -193,7 +197,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
 
       {/* Nav items */}
       <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
-        <p className="px-3 pt-1 pb-1 text-[10px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
+        <p className="font-display px-3 pt-2 pb-1.5 text-[10px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.35)' }}>
           Main
         </p>
         {navItems.map((item) => (
@@ -201,7 +205,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
         ))}
 
         <div className="pt-3 mt-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
-          <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+          <p className="font-display px-3 pt-1 pb-1.5 text-[10px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.35)' }}>
             Tools
           </p>
           <a
@@ -209,28 +213,28 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
             target="_blank"
             rel="noopener"
             onClick={onNavClick}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all hover:bg-white/[0.04]"
-            style={{ color: 'rgba(255,255,255,0.65)' }}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all hover:bg-white/[0.05]"
+            style={{ color: 'rgba(255,255,255,0.7)' }}
           >
-            <span style={{ color: 'rgba(255,255,255,0.6)', display: 'inline-flex' }}>{ICON.quickstart}</span>
+            <span style={{ color: 'rgba(255,255,255,0.55)', display: 'inline-flex' }}>{ICON.quickstart}</span>
             <span>Quick Start</span>
           </a>
           <Link
             href="/host/billing"
             onClick={onNavClick}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all hover:bg-white/[0.04]"
-            style={{ color: 'rgba(255,255,255,0.65)' }}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all hover:bg-white/[0.05]"
+            style={{ color: 'rgba(255,255,255,0.7)' }}
           >
-            <span style={{ color: 'rgba(255,255,255,0.6)', display: 'inline-flex' }}>{ICON.plan}</span>
+            <span style={{ color: 'rgba(255,255,255,0.55)', display: 'inline-flex' }}>{ICON.plan}</span>
             <span>Plan</span>
           </Link>
           <Link
             href="/join"
             onClick={onNavClick}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all hover:bg-white/[0.04]"
-            style={{ color: 'rgba(255,255,255,0.65)' }}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all hover:bg-white/[0.05]"
+            style={{ color: 'rgba(255,255,255,0.7)' }}
           >
-            <span style={{ color: 'rgba(255,255,255,0.6)', display: 'inline-flex' }}>{ICON.join}</span>
+            <span style={{ color: 'rgba(255,255,255,0.55)', display: 'inline-flex' }}>{ICON.join}</span>
             <span>Join a Game</span>
           </Link>
           {isAdmin && (
@@ -238,11 +242,11 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
               href="/host/admin"
               onClick={onNavClick}
               className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all mt-1"
-              style={{ color: '#FBD13B', background: 'rgba(251,209,59,0.1)' }}
+              style={{ color: 'var(--color-yellow)', background: 'rgba(251,209,59,0.1)' }}
             >
-              <span style={{ color: '#FBD13B', display: 'inline-flex' }}>{ICON.admin}</span>
+              <span style={{ color: 'var(--color-yellow)', display: 'inline-flex' }}>{ICON.admin}</span>
               <span>Admin Panel</span>
-              <span className="ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-full" style={{ background: '#FBD13B', color: '#0D0D0D' }}>
+              <span className="font-display ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-full" style={{ background: 'var(--color-yellow)', color: 'var(--color-ink)' }}>
                 ADMIN
               </span>
             </Link>
@@ -256,7 +260,10 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
           <div ref={menuRef} className="relative">
             <button
               onClick={() => setUserMenuOpen((o) => !o)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all hover:bg-white/5"
+              aria-expanded={userMenuOpen}
+              aria-label="Account menu"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all hover:bg-white/5 focus:outline-none focus-visible:ring-2"
+              style={{ '--tw-ring-color': 'rgba(251,209,59,0.45)' } as React.CSSProperties}
             >
               {user.image ? (
                 <img
@@ -270,7 +277,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
               )}
               <div className="flex-1 min-w-0 text-left">
                 <p
-                  className="text-sm font-bold truncate"
+                  className="text-sm font-bold font-display truncate"
                   style={{ color: '#fff' }}
                 >
                   {firstName}
@@ -292,20 +299,20 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
                   exit={{ opacity: 0, y: 4, scale: 0.97 }}
                   transition={{ duration: 0.15 }}
                   className="absolute bottom-full left-0 right-0 mb-1 rounded-xl shadow-lg border overflow-hidden"
-                  style={{ background: '#fff', borderColor: '#E2E8F0' }}
+                  style={{ background: 'var(--color-paper)', borderColor: 'var(--color-line)' }}
                 >
-                  <div className="px-4 py-2.5 border-b" style={{ borderColor: '#F1F5F9' }}>
-                    <p className="text-xs font-bold truncate" style={{ color: '#0F1B3D' }}>
+                  <div className="px-4 py-2.5 border-b" style={{ borderColor: 'var(--color-line)' }}>
+                    <p className="text-xs font-bold font-display truncate" style={{ color: 'var(--color-ink)' }}>
                       {user.name}
                     </p>
-                    <p className="text-xs truncate" style={{ color: '#9CA3AF' }}>
+                    <p className="text-xs truncate" style={{ color: 'var(--color-text-muted)' }}>
                       {user.email}
                     </p>
                   </div>
                   <button
                     onClick={() => signOut({ callbackUrl: '/' })}
                     className="w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-red-50"
-                    style={{ color: '#EF4444' }}
+                    style={{ color: 'var(--color-danger)' }}
                   >
                     Sign Out
                   </button>
@@ -351,8 +358,8 @@ export function HostSidebar({ mobileOpen, onMobileClose }: HostSidebarProps) {
             />
             {/* Sidebar panel */}
             <motion.aside
-              className="fixed inset-y-0 left-0 z-50 w-72 flex flex-col md:hidden"
-              style={{ background: '#0F1B3D' }}
+              className="fixed inset-y-0 left-0 z-50 w-72 flex flex-col md:hidden border-r"
+              style={{ background: '#0F1B3D', borderColor: 'rgba(255,255,255,0.08)' }}
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
@@ -361,7 +368,11 @@ export function HostSidebar({ mobileOpen, onMobileClose }: HostSidebarProps) {
               {/* Close button */}
               <button
                 onClick={onMobileClose}
-                className="absolute top-4 right-3 w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors z-10"
+                aria-label="Close menu"
+                className="absolute top-4 right-3 w-8 h-8 rounded-lg flex items-center justify-center transition-colors z-10 focus:outline-none focus-visible:ring-2"
+                style={{ color: 'rgba(255,255,255,0.6)', '--tw-ring-color': 'rgba(251,209,59,0.45)' } as React.CSSProperties}
+                onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.08)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; e.currentTarget.style.background = 'transparent' }}
               >
                 <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
                   <path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />

@@ -129,7 +129,7 @@ export default function ReportsPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-5">
           <div>
-            <h1 className="text-[28px] font-black leading-tight" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
+            <h1 className="font-display text-[28px] font-black leading-tight" style={{ color: 'var(--color-ink)' }}>
               Reports
             </h1>
             <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
@@ -138,7 +138,7 @@ export default function ReportsPage() {
           </div>
           <span className="chip" style={{ background: '#FAF5FF', color: 'var(--color-accent-violet)' }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3"><path d="M3 3v18h18"/><path d="M7 12l4-4 4 4 5-5"/></svg>
-            {endedSessions.length} report{endedSessions.length === 1 ? '' : 's'} available
+            <span className="font-display">{endedSessions.length}</span>&nbsp;report{endedSessions.length === 1 ? '' : 's'} available
           </span>
         </div>
 
@@ -146,15 +146,15 @@ export default function ReportsPage() {
         <div className="grid grid-cols-3 gap-3 mb-6">
           <div className="dash-card p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.1em]" style={{ color: 'var(--color-text-muted)' }}>Completed sessions</p>
-            <p className="text-[26px] font-black leading-tight mt-1.5" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>{endedSessions.length}</p>
+            <p className="font-display text-[26px] font-black leading-tight mt-1.5" style={{ color: 'var(--color-ink)' }}>{endedSessions.length}</p>
           </div>
           <div className="dash-card p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.1em]" style={{ color: 'var(--color-text-muted)' }}>Total participants</p>
-            <p className="text-[26px] font-black leading-tight mt-1.5" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>{totalParticipants}</p>
+            <p className="font-display text-[26px] font-black leading-tight mt-1.5" style={{ color: 'var(--color-ink)' }}>{totalParticipants}</p>
           </div>
           <div className="dash-card p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.1em]" style={{ color: 'var(--color-text-muted)' }}>Avg quiz score</p>
-            <p className="text-[26px] font-black leading-tight mt-1.5" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>{avgAcrossAll != null ? `${avgAcrossAll}%` : '—'}</p>
+            <p className="font-display text-[26px] font-black leading-tight mt-1.5" style={{ color: 'var(--color-ink)' }}>{avgAcrossAll != null ? `${avgAcrossAll}%` : '—'}</p>
           </div>
         </div>
 
@@ -172,9 +172,9 @@ export default function ReportsPage() {
             { label: 'Export marks', desc: 'Download CSV for a session, then push to Sheets/Classroom when integrations land.', tone: '#D97706' },
           ].map(item => {
             const body = (
-              <div className="dash-card p-4 h-full">
+              <div className="dash-card p-4 h-full" style={{ boxShadow: '0 1px 2px rgba(15,27,61,0.04), 0 4px 16px -8px rgba(15,27,61,0.08)' }}>
                 <p className="text-[11px] font-black uppercase tracking-[0.12em]" style={{ color: item.tone }}>{item.label}</p>
-                <p className="mt-2 text-xs leading-relaxed" style={{ color: '#64748B' }}>{item.desc}</p>
+                <p className="mt-2 text-xs leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>{item.desc}</p>
               </div>
             )
             return item.href ? (
@@ -221,14 +221,14 @@ export default function ReportsPage() {
         {/* Table of reports */}
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#0F1B3D', borderTopColor: 'transparent' }} />
+            <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--color-line)', borderTopColor: 'var(--color-yellow)' }} />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center rounded-[16px]" style={{ background: 'var(--color-paper-2)', border: '1px dashed #DDD4BC' }}>
+          <div className="flex flex-col items-center justify-center py-16 text-center rounded-[16px]" style={{ background: 'var(--color-paper-2)', border: '1px dashed var(--color-line)' }}>
             <div className="w-14 h-14 rounded-full flex items-center justify-center mb-3" style={{ background: '#fff', border: '1px solid var(--color-line)' }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-6 h-6" style={{ color: 'var(--color-text-muted)' }}><path d="M3 3v18h18"/><path d="M7 12l4-4 4 4 5-5"/></svg>
             </div>
-            <p className="text-[16px] font-black mb-1" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
+            <p className="font-display text-[16px] font-black mb-1" style={{ color: 'var(--color-ink)' }}>
               {endedSessions.length === 0 ? 'No reports yet.' : 'No reports match that filter.'}
             </p>
             <p className="text-sm max-w-[40ch]" style={{ color: 'var(--color-text-muted)' }}>
@@ -236,9 +236,9 @@ export default function ReportsPage() {
             </p>
           </div>
         ) : (
-          <div className="rounded-[16px] overflow-hidden" style={{ background: '#fff', border: '1px solid var(--color-line)' }}>
+          <div className="rounded-[16px] overflow-hidden" style={{ background: '#fff', border: '1px solid var(--color-line)', boxShadow: '0 1px 2px rgba(15,27,61,0.04), 0 4px 16px -8px rgba(15,27,61,0.08)' }}>
             {/* Table header — desktop only */}
-            <div className="hidden md:grid grid-cols-[1fr_100px_120px_90px_90px_auto] gap-4 px-4 py-3 text-[10px] font-bold uppercase tracking-[0.08em] border-b" style={{ color: 'var(--color-text-muted)', borderColor: 'var(--color-line)', background: 'var(--color-paper)' }}>
+            <div className="hidden md:grid grid-cols-[1fr_100px_120px_90px_90px_auto] gap-4 px-4 py-3 text-[10px] font-bold uppercase tracking-[0.08em] border-b" style={{ color: 'var(--color-text-muted)', borderColor: 'var(--color-line)', background: 'var(--color-paper-2)' }}>
               <div>Session</div>
               <div>Code</div>
               <div>Date</div>
@@ -259,7 +259,7 @@ export default function ReportsPage() {
                 >
                   {/* Session — title + type chip */}
                   <div className="flex items-center gap-3 min-w-0 mb-3 md:mb-0">
-                    <div className="w-10 h-10 rounded-[10px] flex-shrink-0 flex items-center justify-center" style={{ background: session.type === 'quiz' ? 'linear-gradient(135deg, #0F1B3D, #1B2A5E)' : 'linear-gradient(135deg, #0EA5E9, #0284C7)', color: '#fff' }}>
+                    <div className="w-10 h-10 rounded-[10px] flex-shrink-0 flex items-center justify-center" style={{ background: session.type === 'quiz' ? 'linear-gradient(135deg, var(--color-ink), var(--color-ink-2))' : 'linear-gradient(135deg, #0EA5E9, #0284C7)', color: '#fff' }}>
                       {session.type === 'quiz' ? (
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg>
                       ) : (
@@ -267,7 +267,7 @@ export default function ReportsPage() {
                       )}
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[14px] font-semibold truncate" style={{ color: '#0F1B3D' }}>{title}</div>
+                      <div className="text-[14px] font-semibold truncate" style={{ color: 'var(--color-ink)' }}>{title}</div>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <span className="chip" style={{ background: session.type === 'quiz' ? '#EFF6FF' : '#E0F2FE', color: session.type === 'quiz' ? '#1D4ED8' : '#0369A1' }}>
                           {session.type === 'quiz' ? 'Quiz' : 'Presentation'}
@@ -292,7 +292,7 @@ export default function ReportsPage() {
                   </div>
 
                   {/* Participants */}
-                  <div className="hidden md:block text-[13px] font-semibold" style={{ color: 'var(--color-accent-violet)' }}>
+                  <div className="hidden md:block font-display text-[15px] font-bold tabular-nums" style={{ color: 'var(--color-accent-violet)' }}>
                     {session.participantCount ?? 0}
                   </div>
 

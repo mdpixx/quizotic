@@ -84,15 +84,16 @@ export default function PresentationsPage() {
   )
 
   return (
+    <div className="paper-grain min-h-full" style={{ background: 'var(--color-paper)' }}>
     <div className="p-6 md:p-8 max-w-[1100px] mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
+          <h1 className="text-[28px] font-black font-display leading-tight" style={{ color: 'var(--color-ink)' }}>
             Presentations
           </h1>
-          <p className="text-sm mt-0.5" style={{ color: '#9CA3AF' }}>
-            {presentations.length} presentation{presentations.length !== 1 ? 's' : ''} saved
+          <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
+            <span className="font-display font-bold" style={{ color: 'var(--color-ink)' }}>{presentations.length}</span>&nbsp;presentation{presentations.length !== 1 ? 's' : ''} saved
           </p>
         </div>
         <Link href="/host/present/create" className="btn-primary-teal w-full sm:w-auto justify-center" style={{ textDecoration: 'none' }}>
@@ -102,7 +103,7 @@ export default function PresentationsPage() {
       </div>
 
       {error && (
-        <div className="mb-4 px-4 py-3 rounded-xl text-sm font-medium" style={{ background: '#FEE2E2', color: '#DC2626' }}>
+        <div className="mb-4 px-4 py-3 rounded-[10px] text-sm font-medium" style={{ background: '#FEE2E2', color: '#B91C1C' }}>
           {error}
         </div>
       )}
@@ -111,26 +112,26 @@ export default function PresentationsPage() {
       <div className="mb-4">
         <input
           type="text"
-          placeholder="Search presentations..."
+          placeholder="Search presentations…"
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="w-full max-w-md text-sm px-4 py-2.5 rounded-xl border outline-none focus:ring-2 focus:ring-yellow-200"
-          style={{ borderColor: '#E2E8F0', background: '#fff', color: '#0F1B3D' }}
+          style={{ borderColor: 'var(--color-line)', background: '#fff', color: 'var(--color-ink)' }}
         />
       </div>
 
       {/* Grid */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#0F1B3D', borderTopColor: 'transparent' }} />
+          <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--color-line)', borderTopColor: 'var(--color-yellow)' }} />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="text-5xl mb-4">📽</div>
-          <p className="text-lg font-black mb-2" style={{ color: '#0F1B3D' }}>
+        <div className="flex flex-col items-center justify-center py-20 text-center rounded-[16px]" style={{ background: 'var(--color-paper-2)', border: '1px dashed var(--color-line)' }}>
+          <div className="w-14 h-14 rounded-full flex items-center justify-center mb-3 text-3xl" style={{ background: '#fff', border: '1px solid var(--color-line)' }}>📽</div>
+          <p className="text-lg font-black font-display mb-2" style={{ color: 'var(--color-ink)' }}>
             {presentations.length === 0 ? 'No presentations yet' : 'No presentations match your search'}
           </p>
-          <p className="text-sm mb-6" style={{ color: '#9CA3AF' }}>
+          <p className="text-sm mb-6 max-w-[40ch]" style={{ color: 'var(--color-text-muted)' }}>
             {presentations.length === 0 ? 'Create your first presentation to get started' : 'Try a different search term'}
           </p>
           {presentations.length === 0 && (
@@ -151,22 +152,22 @@ export default function PresentationsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ delay: i * 0.04 }}
-                className="rounded-2xl border p-5 flex flex-col"
-                style={{ background: '#fff', borderColor: '#E2E8F0' }}
+                className="rounded-[16px] border p-5 flex flex-col"
+                style={{ background: '#fff', borderColor: 'var(--color-line)', boxShadow: '0 1px 2px rgba(15,27,61,0.04), 0 4px 16px -8px rgba(15,27,61,0.08)' }}
               >
                 <div className="flex items-start gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-                    style={{ background: '#FFF5F5' }}>
+                  <div className="w-10 h-10 rounded-[10px] flex items-center justify-center text-xl flex-shrink-0"
+                    style={{ background: 'var(--color-paper-2)' }}>
                     📽
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-black text-sm leading-snug truncate" style={{ color: '#0F1B3D' }}>
+                    <h3 className="font-black font-display text-sm leading-snug truncate" style={{ color: 'var(--color-ink)' }}>
                       {pres.title}
                     </h3>
                   </div>
                 </div>
 
-                <p className="text-[11px] mb-4 flex items-center gap-1.5" style={{ color: '#94A3B8' }}>
+                <p className="text-[11px] mb-4 flex items-center gap-1.5" style={{ color: 'var(--color-text-subtle)' }}>
                   Last edited {relativeTime(pres.updatedAt)}
                 </p>
 
@@ -190,6 +191,7 @@ export default function PresentationsPage() {
                     )}
                   </button>
                   <Link href={`/host/present/create?id=${pres.id}`} className="btn-secondary" style={{ textDecoration: 'none' }}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                     Edit
                   </Link>
                   <RowActionsMenu
@@ -225,19 +227,19 @@ export default function PresentationsPage() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="rounded-2xl p-6 max-w-sm w-full shadow-xl"
-              style={{ background: '#fff' }}
+              className="rounded-[16px] p-6 max-w-sm w-full shadow-xl"
+              style={{ background: '#fff', border: '1px solid var(--color-line)' }}
               onClick={e => e.stopPropagation()}
             >
-              <h3 className="text-lg font-black mb-2" style={{ color: '#0F1B3D' }}>Delete Presentation?</h3>
-              <p className="text-sm mb-5" style={{ color: '#64748B' }}>
+              <h3 className="text-lg font-black font-display mb-2" style={{ color: 'var(--color-ink)' }}>Delete Presentation?</h3>
+              <p className="text-sm mb-5" style={{ color: 'var(--color-text-muted)' }}>
                 This will permanently delete &ldquo;{presentations.find(p => p.id === confirmDelete)?.title}&rdquo;.
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setConfirmDelete(null)}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-bold border transition-colors hover:bg-gray-50"
-                  style={{ color: '#64748B', borderColor: '#E2E8F0' }}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold border transition-colors hover:bg-[var(--color-paper-2)]"
+                  style={{ color: 'var(--color-text-muted)', borderColor: 'var(--color-line)' }}
                 >
                   Cancel
                 </button>
@@ -254,6 +256,7 @@ export default function PresentationsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
     </div>
   )
 }

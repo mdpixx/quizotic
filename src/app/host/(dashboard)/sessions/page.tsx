@@ -92,14 +92,15 @@ export default function SessionsPage() {
   })()
 
   return (
+    <div className="paper-grain min-h-full" style={{ background: 'var(--color-paper)' }}>
     <div className="p-6 md:p-8 max-w-[1100px] mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-2xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
+          <h1 className="text-[28px] font-black font-display leading-tight" style={{ color: 'var(--color-ink)' }}>
             Sessions
           </h1>
-          <p className="text-sm mt-0.5" style={{ color: '#9CA3AF' }}>
+          <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
             All your quiz and presentation sessions
           </p>
         </div>
@@ -108,24 +109,24 @@ export default function SessionsPage() {
       {/* Quick stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
         {[
-          { label: 'Total Sessions', value: sessions.length, color: '#0F1B3D', icon: '⚡' },
-          { label: 'Total Participants', value: totalParticipants, color: '#7C3AED', icon: '👥' },
-          { label: 'Avg Quiz Score', value: avgScore != null ? `${avgScore}%` : '—', color: '#F59E0B', icon: '🎯' },
+          { label: 'Total Sessions', value: sessions.length, color: 'var(--color-ink)', icon: '⚡' },
+          { label: 'Total Participants', value: totalParticipants, color: 'var(--color-accent-violet)', icon: '👥' },
+          { label: 'Avg Quiz Score', value: avgScore != null ? `${avgScore}%` : '—', color: 'var(--color-secondary-dark)', icon: '🎯' },
         ].map((stat, i) => (
           <motion.div
             key={stat.label}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
-            className="rounded-2xl p-4 border flex items-center gap-3"
-            style={{ background: '#fff', borderColor: '#E2E8F0' }}
+            className="rounded-[16px] p-4 border flex items-center gap-3"
+            style={{ background: '#fff', borderColor: 'var(--color-line)' }}
           >
             <span className="text-2xl flex-shrink-0">{stat.icon}</span>
             <div className="min-w-0">
-              <p className="text-xl sm:text-2xl font-black leading-tight truncate" style={{ color: stat.color, fontFamily: 'var(--font-heading)' }}>
+              <p className="text-xl sm:text-2xl font-black font-display leading-tight truncate" style={{ color: stat.color }}>
                 {stat.value}
               </p>
-              <p className="text-xs font-semibold truncate" style={{ color: '#64748B' }}>{stat.label}</p>
+              <p className="text-xs font-semibold truncate" style={{ color: 'var(--color-text-muted)' }}>{stat.label}</p>
             </div>
           </motion.div>
         ))}
@@ -135,21 +136,23 @@ export default function SessionsPage() {
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <input
           type="text"
-          placeholder="Search sessions..."
+          placeholder="Search sessions…"
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="text-sm px-3 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-yellow-200 flex-1 min-w-[180px] max-w-xs"
-          style={{ borderColor: '#E2E8F0', background: '#fff', color: '#0F1B3D' }}
+          style={{ borderColor: 'var(--color-line)', background: '#fff', color: 'var(--color-ink)' }}
         />
         <div className="flex gap-1.5">
           {(['all', 'quiz', 'presentation'] as const).map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className="text-xs font-bold px-3 py-1.5 rounded-lg capitalize transition-all"
+              className="chip capitalize"
               style={{
-                background: filter === f ? '#0F1B3D' : '#F3F4F6',
-                color: filter === f ? '#fff' : '#0F1B3D',
+                background: filter === f ? 'var(--color-ink)' : 'var(--color-paper-2)',
+                color: filter === f ? '#fff' : 'var(--color-text-muted)',
+                cursor: 'pointer',
+                border: 'none',
               }}
             >
               {f === 'all' ? 'All' : f === 'quiz' ? '🧠 Quizzes' : '📽 Presentations'}
@@ -163,20 +166,20 @@ export default function SessionsPage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="rounded-2xl border overflow-hidden"
-        style={{ background: '#fff', borderColor: '#E2E8F0' }}
+        className="rounded-[16px] border overflow-hidden"
+        style={{ background: '#fff', borderColor: 'var(--color-line)' }}
       >
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#0F1B3D', borderTopColor: 'transparent' }} />
+            <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--color-ink)', borderTopColor: 'transparent' }} />
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="text-4xl mb-3">⚡</div>
-            <p className="text-base font-bold" style={{ color: '#0F1B3D' }}>
+            <div className="w-14 h-14 rounded-full flex items-center justify-center mb-3 text-3xl" style={{ background: 'var(--color-paper-2)' }}>⚡</div>
+            <p className="text-base font-black font-display" style={{ color: 'var(--color-ink)' }}>
               {sessions.length === 0 ? 'No sessions yet' : 'No sessions match your filter'}
             </p>
-            <p className="text-sm mt-1" style={{ color: '#9CA3AF' }}>
+            <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
               {sessions.length === 0
                 ? 'Host a quiz or presentation to see it here'
                 : 'Try adjusting your search or filter'}
@@ -188,9 +191,9 @@ export default function SessionsPage() {
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ background: '#F8FAFC' }}>
+                  <tr style={{ background: 'var(--color-paper)' }}>
                     {['Session', 'Code', 'Date', 'Participants', 'Avg Score', 'Duration', 'Status'].map(h => (
-                      <th key={h} className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wide" style={{ color: '#94A3B8' }}>
+                      <th key={h} className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wide font-display" style={{ color: 'var(--color-text-subtle)' }}>
                         {h}
                       </th>
                     ))}
@@ -205,37 +208,37 @@ export default function SessionsPage() {
                       lobby: { bg: '#FEF3C7', fg: '#D97706' },
                       abandoned: { bg: '#FEE2E2', fg: '#DC2626' },
                     }
-                    const statusStyle = statusStyles[s.status] ?? { bg: '#F1F5F9', fg: '#64748B' }
+                    const statusStyle = statusStyles[s.status] ?? { bg: 'var(--color-paper-2)', fg: 'var(--color-text-muted)' }
                     return (
-                      <tr key={s.id} className="border-t hover:bg-gray-50/40 transition-colors" style={{ borderColor: '#F1F5F9' }}>
+                      <tr key={s.id} className="border-t transition-colors" style={{ borderColor: 'var(--color-line)' }}>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <span className="text-lg">{s.type === 'quiz' ? '🧠' : '📽'}</span>
                             <div>
-                              <p className="font-semibold text-sm truncate max-w-[200px]" style={{ color: '#0F1B3D' }}>{getTitle(s)}</p>
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                                style={{ background: s.type === 'quiz' ? '#F3F4F6' : '#FFF5F5', color: s.type === 'quiz' ? '#0F1B3D' : '#EF4444' }}>
+                              <p className="font-semibold text-sm truncate max-w-[200px]" style={{ color: 'var(--color-ink)' }}>{getTitle(s)}</p>
+                              <span className="chip"
+                                style={{ background: s.type === 'quiz' ? 'var(--color-paper-2)' : '#FFF5F5', color: s.type === 'quiz' ? 'var(--color-ink)' : '#EF4444', fontSize: '10px', padding: '3px 8px' }}>
                                 {s.type}
                               </span>
                             </div>
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-xs font-mono font-bold px-2 py-1 rounded-lg" style={{ background: '#F1F5F9', color: '#0F1B3D' }}>{s.code}</span>
+                          <span className="text-xs font-mono font-bold px-2 py-1 rounded-lg font-display" style={{ background: 'var(--color-paper-2)', color: 'var(--color-ink)' }}>{s.code}</span>
                         </td>
-                        <td className="px-4 py-3 text-xs" style={{ color: '#64748B' }}>{fmtDate(s.createdAt)}</td>
-                        <td className="px-4 py-3 text-sm font-bold" style={{ color: '#7C3AED' }}>{s.participantCount ?? 0}</td>
+                        <td className="px-4 py-3 text-xs" style={{ color: 'var(--color-text-muted)' }}>{fmtDate(s.createdAt)}</td>
+                        <td className="px-4 py-3 text-sm font-bold font-display" style={{ color: 'var(--color-accent-violet)' }}>{s.participantCount ?? 0}</td>
                         <td className="px-4 py-3">
                           {avgS != null ? (
-                            <span className="text-xs font-bold px-2 py-1 rounded-lg"
-                              style={{ background: avgS >= 70 ? '#DCFCE7' : avgS >= 50 ? '#FEF3C7' : '#FEE2E2', color: avgS >= 70 ? '#16A34A' : avgS >= 50 ? '#D97706' : '#DC2626' }}>
+                            <span className="chip font-display"
+                              style={{ background: avgS >= 70 ? '#DCFCE7' : avgS >= 50 ? '#FEF3C7' : '#FEE2E2', color: avgS >= 70 ? '#16A34A' : avgS >= 50 ? '#D97706' : '#DC2626', padding: '4px 9px' }}>
                               {avgS}%
                             </span>
-                          ) : <span className="text-xs" style={{ color: '#CBD5E1' }}>—</span>}
+                          ) : <span className="text-xs" style={{ color: 'var(--color-text-subtle)' }}>—</span>}
                         </td>
-                        <td className="px-4 py-3 text-xs" style={{ color: '#64748B' }}>{fmtDuration(s.results?.duration)}</td>
+                        <td className="px-4 py-3 text-xs" style={{ color: 'var(--color-text-muted)' }}>{fmtDuration(s.results?.duration)}</td>
                         <td className="px-4 py-3">
-                          <span className="text-xs font-bold px-2 py-1 rounded-full capitalize" style={{ background: statusStyle.bg, color: statusStyle.fg }}>
+                          <span className="chip capitalize" style={{ background: statusStyle.bg, color: statusStyle.fg, padding: '4px 9px' }}>
                             {s.status}
                           </span>
                         </td>
@@ -257,7 +260,7 @@ export default function SessionsPage() {
                     lobby: { bg: '#FEF3C7', fg: '#D97706' },
                     abandoned: { bg: '#FEE2E2', fg: '#DC2626' },
                   }
-                  const statusStyle = statusStyles[s.status] ?? { bg: '#F1F5F9', fg: '#64748B' }
+                  const statusStyle = statusStyles[s.status] ?? { bg: 'var(--color-paper-2)', fg: 'var(--color-text-muted)' }
                   return {
                     id: s.id,
                     fields: [
@@ -266,9 +269,9 @@ export default function SessionsPage() {
                         value: <span>{s.type === 'quiz' ? '🧠' : '📽'} {getTitle(s)}</span>,
                         wide: true,
                       },
-                      { label: 'Code', value: <span className="font-mono font-bold">{s.code}</span> },
+                      { label: 'Code', value: <span className="font-mono font-bold font-display">{s.code}</span> },
                       { label: 'Date', value: fmtDate(s.createdAt) },
-                      { label: 'Players', value: <span style={{ color: '#7C3AED' }}>{s.participantCount ?? 0}</span> },
+                      { label: 'Players', value: <span style={{ color: 'var(--color-accent-violet)' }}>{s.participantCount ?? 0}</span> },
                       {
                         label: 'Avg Score',
                         value: avgS != null
@@ -287,6 +290,7 @@ export default function SessionsPage() {
           </>
         )}
       </motion.div>
+    </div>
     </div>
   )
 }

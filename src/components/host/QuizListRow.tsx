@@ -35,7 +35,7 @@ export interface QuizRecord {
 // ── Helpers (mirrored from page.tsx) ─────────────────────────────────────────
 
 const CARD_GRADIENTS = [
-  'linear-gradient(135deg, #F8FAFC 0%, #E0F2FE 100%)',
+  'linear-gradient(135deg, var(--color-paper-2) 0%, #E0F2FE 100%)',
   'linear-gradient(135deg, #FFF7ED 0%, #FED7AA 100%)',
   'linear-gradient(135deg, #F0FDF4 0%, #BBF7D0 100%)',
   'linear-gradient(135deg, #F5F3FF 0%, #DDD6FE 100%)',
@@ -69,13 +69,13 @@ function QuizCoverMotif({ id }: { id: string }) {
   return (
     <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden>
       <rect x="19" y="15" width="62" height="70" rx="10" fill="#fff" opacity="0.88" />
-      <rect x="28" y="27" width="44" height="7" rx="3.5" fill="#0F1B3D" opacity="0.18" />
+      <rect x="28" y="27" width="44" height="7" rx="3.5" fill="var(--color-ink)" opacity="0.18" />
       <rect x="28" y="43" width="38" height="6" rx="3" fill="#2563EB" opacity="0.22" />
       <rect x="28" y="57" width="32" height="6" rx="3" fill="#16A34A" opacity="0.22" />
-      <circle cx="70" cy="66" r="9" fill="#FBD13B" stroke="#0F1B3D" strokeOpacity="0.48" strokeWidth="2" />
-      <path d="M66.4 66l2.2 2.2 5-5.2" stroke="#0F1B3D" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="70" cy="66" r="9" fill="#FBD13B" stroke="var(--color-ink)" strokeOpacity="0.48" strokeWidth="2" />
+      <path d="M66.4 66l2.2 2.2 5-5.2" stroke="var(--color-ink)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
       {dots.map((s, i) => (
-        <circle key={i} cx={s.cx} cy={s.cy} r="1.2" fill="#0F1B3D" opacity={s.o * 0.35} />
+        <circle key={i} cx={s.cx} cy={s.cy} r="1.2" fill="var(--color-ink)" opacity={s.o * 0.35} />
       ))}
     </svg>
   )
@@ -88,9 +88,9 @@ function modeStatus(quiz: QuizRecord): { label: string; tone: 'ready' | 'draft' 
 }
 
 function statusStyle(tone: 'ready' | 'draft' | 'attention') {
-  if (tone === 'ready') return { background: '#ECFDF5', color: '#047857', border: '1px solid #BBF7D0' }
-  if (tone === 'attention') return { background: '#FFFBEB', color: '#92400E', border: '1px solid #FDE68A' }
-  return { background: '#F8FAFC', color: '#64748B', border: '1px solid #E2E8F0' }
+  if (tone === 'ready') return { background: '#ECFDF5', color: 'var(--color-success)', border: '1px solid #BBF7D0' }
+  if (tone === 'attention') return { background: '#FFF1ED', color: '#B4471F', border: '1px solid #F4D7CC' }
+  return { background: 'var(--color-paper-2)', color: 'var(--color-text-muted)', border: '1px solid var(--color-line)' }
 }
 
 function readinessSignals(quiz: QuizRecord): Array<{ label: string; tone: 'ready' | 'draft' | 'attention' }> {
@@ -125,7 +125,7 @@ function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-const SCHEDULED_CHIP_STYLE = { background: '#FFFBEB', color: '#92400E', border: '1px solid #FDE68A' }
+const SCHEDULED_CHIP_STYLE = { background: '#FFF1ED', color: '#B4471F', border: '1px solid #F4D7CC' }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -230,7 +230,7 @@ export function QuizListRow({
           <p
             className="text-[14px] font-bold leading-snug"
             style={{
-              color: '#0F1B3D',
+              color: 'var(--color-ink)',
               display: '-webkit-box',
               WebkitLineClamp: 2,
               WebkitBoxOrient: 'vertical',
@@ -270,7 +270,7 @@ export function QuizListRow({
                   </svg>
                 ) : (
                   <span className="play-dot" style={{ width: '14px', height: '14px' }}>
-                    <svg viewBox="0 0 24 24" fill="#0F1B3D" className="w-2 h-2"><path d="M8 5v14l11-7z" /></svg>
+                    <svg viewBox="0 0 24 24" fill="var(--color-ink)" className="w-2 h-2"><path d="M8 5v14l11-7z" /></svg>
                   </span>
                 )}
               </button>
@@ -295,7 +295,7 @@ export function QuizListRow({
         {/* Title + badges + metadata */}
         <div className="min-w-0">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-[14px] font-bold truncate" style={{ color: '#0F1B3D' }}>{quiz.title || 'Untitled quiz'}</span>
+            <span className="text-[14px] font-bold truncate" style={{ color: 'var(--color-ink)' }}>{quiz.title || 'Untitled quiz'}</span>
             <span className="chip flex-shrink-0" style={statusStyle(status.tone)}>{status.label}</span>
             {sLabel && <span className="chip flex-shrink-0" style={SCHEDULED_CHIP_STYLE}>{sLabel}</span>}
             {attention && <span className="chip flex-shrink-0" style={statusStyle('attention')}>{attention.label}</span>}
@@ -332,7 +332,7 @@ export function QuizListRow({
             ) : (
               <>
                 <span className="play-dot" style={{ width: '14px', height: '14px' }}>
-                  <svg viewBox="0 0 24 24" fill="#0F1B3D" className="w-2 h-2"><path d="M8 5v14l11-7z" /></svg>
+                  <svg viewBox="0 0 24 24" fill="var(--color-ink)" className="w-2 h-2"><path d="M8 5v14l11-7z" /></svg>
                 </span>
                 <span>Host live</span>
               </>
