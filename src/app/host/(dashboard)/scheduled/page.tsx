@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import QRCode from 'react-qr-code'
+import { AssignQuizModal } from '@/components/host/AssignQuizModal'
 
 // Host dashboard for self-paced / scheduled sessions. Polls /api/scheduled every
 // 30s and groups sessions into upcoming, open now, and recently closed. Live
@@ -126,6 +127,8 @@ export default function ScheduledPage() {
   const [confirmCancel, setConfirmCancel] = useState<ScheduledSession | null>(null)
   const [closingIds, setClosingIds] = useState<Set<string>>(new Set())
   const [cancellingId, setCancellingId] = useState<string | null>(null)
+  // "Schedule again" — reuse a finished quiz for a new cohort via the same modal.
+  const [assignQuiz, setAssignQuiz] = useState<{ id: string; title: string } | null>(null)
 
   // Client clock offset (serverNow - Date.now()) so countdowns track server time.
   const offsetRef = useRef(0)
@@ -369,14 +372,24 @@ export default function ScheduledPage() {
                         </p>
                       </div>
                       {s.quizId && (
-                        <Link
-                          href={`/host/quizzes/${s.quizId}/report`}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors hover:bg-gray-50 flex-shrink-0"
-                          style={{ color: 'var(--color-ink)', borderColor: 'var(--color-line)', textDecoration: 'none' }}
-                        >
-                          {ICON.report}
-                          View report
-                        </Link>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <button
+                            onClick={() => setAssignQuiz({ id: s.quizId!, title: s.title })}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors hover:bg-gray-50"
+                            style={{ color: 'var(--color-ink)', borderColor: 'var(--color-line)' }}
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+                            Schedule again
+                          </button>
+                          <Link
+                            href={`/host/quizzes/${s.quizId}/report`}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors hover:bg-gray-50"
+                            style={{ color: 'var(--color-ink)', borderColor: 'var(--color-line)', textDecoration: 'none' }}
+                          >
+                            {ICON.report}
+                            View report
+                          </Link>
+                        </div>
                       )}
                     </div>
                   ))}
@@ -431,6 +444,18 @@ export default function ScheduledPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Schedule again — reuse the My Quizzes assign modal. On change, refetch
+          so a freshly scheduled session shows up in the list. */}
+      {assignQuiz && (
+        <AssignQuizModal
+          quizId={assignQuiz.id}
+          quizTitle={assignQuiz.title}
+          hasExistingShare={false}
+          onClose={() => setAssignQuiz(null)}
+          onChanged={() => { fetchSessions() }}
+        />
+      )}
     </div>
   )
 }

@@ -625,6 +625,9 @@ function JoinPageInner() {
   // Answered
   const [isCorrect, setIsCorrect] = useState(false)
   const [answeredIsScored, setAnsweredIsScored] = useState(false)
+  // For scored questions, correctness/points are hidden ("locked in") until the
+  // question ends for everyone (personal_result) so neighbours can't copy.
+  const [revealed, setRevealed] = useState(false)
   const [pointsEarned, setPointsEarned] = useState(0)
   const [totalScore, setTotalScore] = useState(0)
   // Mirrors the persisted global mute in lib/sounds — initialised in an
@@ -933,6 +936,7 @@ function JoinPageInner() {
       setSelectedAnswer(null)
       setIsCorrect(false)
       setAnsweredIsScored(false)
+      setRevealed(false)
       setError('')
       setQuestion({ ...question, index, total })
       setPendingAnswer(null)
@@ -1000,7 +1004,7 @@ function JoinPageInner() {
       })
     })
 
-    socket.on('answer_confirmed', ({ isCorrect, points, totalScore, streakCount, late, correctPositions, totalPositions, isNonScored }: { isCorrect: boolean; points: number; totalScore: number; streakCount?: number; late?: boolean; correctPositions?: number; totalPositions?: number; isNonScored?: boolean }) => {
+    socket.on('answer_confirmed', ({ late, isNonScored }: { received?: boolean; late?: boolean; isNonScored?: boolean }) => {
       if (timerRef.current) clearInterval(timerRef.current)
       // Server has accepted at least one answer — drop outbox entries for the
       // current question so we don't double-submit on later reconnects.
@@ -1009,38 +1013,22 @@ function JoinPageInner() {
           if (item.questionIndex === question.index) outboxRef.current.delete(id)
         }
       }
-      setIsCorrect(isCorrect)
-      setPointsEarned(points)
-      setTotalScore(totalScore)
       setPhase('answered')
       if (late) {
         setAnswerToast('Submitted just past the buzzer — recorded but no points.')
       }
 
-      // Sequence ranking questions are scored even though they're type 'ranking'
-      const isSequenceRanking = question?.type === 'ranking' && correctPositions !== undefined && totalPositions !== undefined && totalPositions > 0
-      // For non-scored types (poll/rating/wordcloud/qa/openended/ranking/drawing/case, excluding sequence ranking)
-      // there is no right/wrong — always celebrate the submission with a positive
-      // sound and skip the red-flash buzz, regardless of what server reports.
-      const scored = isNonScored === false || (question ? (isScoredQuestion(question as unknown as QuizQuestion) || isSequenceRanking) : false)
+      // The server now reports isNonScored authoritatively (it already accounts
+      // for sequence-ranking being scored). Scored questions stay NEUTRAL here —
+      // correctness/points/score + sounds are revealed later via personal_result
+      // when the question ends for everyone, so an early submitter can't tip off
+      // a neighbour. Non-scored questions have nothing to leak, so celebrate now.
+      const scored = isNonScored === false
       setAnsweredIsScored(scored)
       if (!scored) {
         setStreak(0)
+        setRevealed(true)
         playCorrect()
-        return
-      }
-
-      if (isCorrect) {
-        const newStreak = streakCount ?? 1
-        setStreak(newStreak)
-        if (newStreak >= 3) playStreak()
-        else playCorrect()
-        fireConfetti('mini')
-      } else {
-        setStreak(0)
-        playWrong()
-        setShowRedFlash(true)
-        setTimeout(() => setShowRedFlash(false), 600)
       }
     })
 
@@ -1073,6 +1061,29 @@ function JoinPageInner() {
     socket.on('personal_result', (data: PersonalResult) => {
       setPersonalResult(data)
       if (typeof data.rank === 'number') setIntermediateRank(data.rank)
+      // REVEAL trigger. The question has ended for everyone, so it's now safe to
+      // show this player's correctness/points/score + play feedback. Non-scored
+      // questions report isCorrect === null and were already acknowledged on
+      // submit, so they're skipped here.
+      if (data.isCorrect === true || data.isCorrect === false) {
+        const correct = data.isCorrect === true
+        setIsCorrect(correct)
+        setPointsEarned(data.pointsEarned ?? 0)
+        setTotalScore(data.totalScore ?? 0)
+        setRevealed(true)
+        if (correct) {
+          const newStreak = data.streakCount ?? 1
+          setStreak(newStreak)
+          if (newStreak >= 3) playStreak()
+          else playCorrect()
+          fireConfetti('mini')
+        } else {
+          setStreak(0)
+          playWrong()
+          setShowRedFlash(true)
+          setTimeout(() => setShowRedFlash(false), 600)
+        }
+      }
     })
 
     socket.on('my_rank_update', ({ rank }: { rank: number }) => {
@@ -2181,7 +2192,7 @@ function JoinPageInner() {
         <StatusBanner connectionState={connectionState} answerToast={answerToast} />
         {/* Screen-reader live announcement for result */}
         <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
-          {isNonScored ? 'Response recorded.' : isCorrect ? `Correct! You earned ${pointsEarned} points. Total score: ${totalScore}.` : `Incorrect. Total score: ${totalScore}.`}
+          {isNonScored ? 'Response recorded.' : !revealed ? 'Answer locked in. Waiting for results.' : isCorrect ? `Correct! You earned ${pointsEarned} points. Total score: ${totalScore}.` : `Incorrect. Total score: ${totalScore}.`}
         </div>
         {/* Red flash overlay on wrong answer */}
         {showRedFlash && (
@@ -2198,6 +2209,12 @@ function JoinPageInner() {
           <div className="w-32 h-32 rounded-full flex items-center justify-center text-5xl bg-blue-50 border-2 border-blue-200">
             ✓
           </div>
+        ) : !revealed ? (
+          // Neutral "locked in" — correctness is hidden until the question ends
+          // for everyone, so a neighbour can't read it off this screen.
+          <div className="w-32 h-32 rounded-full flex items-center justify-center text-6xl bg-blue-50 border-2 border-blue-200" style={{ animation: 'correctPop 0.4s ease-out' }}>
+            🔒
+          </div>
         ) : (
           <div className={`w-32 h-32 rounded-full flex items-center justify-center text-6xl
             ${isCorrect ? 'bg-green-50 border-2 border-green-300' : 'bg-red-50 border-2 border-red-300'}`}
@@ -2208,6 +2225,11 @@ function JoinPageInner() {
         )}
         {isNonScored ? (
           <p className="font-display font-black text-4xl" style={{ color: '#0F1B3D' }}>{t('join.recorded')}</p>
+        ) : !revealed ? (
+          <div className="flex flex-col items-center gap-1">
+            <p className="font-display font-black text-3xl" style={{ color: '#0F1B3D' }}>Answer locked in!</p>
+            <p className="text-base font-medium" style={{ color: '#64748B' }}>Hang tight — results when everyone&rsquo;s in.</p>
+          </div>
         ) : (
           <p className={`font-display font-black text-4xl ${isCorrect ? 'text-green-600' : 'text-red-500'}`}>
             {isCorrect ? t('join.correct') : t('join.wrong')}

@@ -40,6 +40,7 @@ import { QuizSettingsPopover } from './QuizSettingsPopover'
 import { SparkleIcon } from './SparkleIcon'
 import { MobileToolbar } from '@/components/ui/MobileToolbar'
 import { NavButton } from '@/components/ui/NavButton'
+import { AssignQuizModal } from '@/components/host/AssignQuizModal'
 import type { Question } from '@/lib/quiz-types'
 
 // ── AutosaveBadge ─────────────────────────────────────────────────────────────
@@ -243,6 +244,8 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
   // When generate/import returns questions and the builder already holds real
   // content, we ask append-vs-replace instead of silently wiping the host's work.
   const [pendingApply, setPendingApply] = useState<{ questions: Partial<Question>[]; meta?: { title?: string; subject?: string } } | null>(null)
+  // Assign / schedule (self-paced) — saved quiz id captured when the modal opens.
+  const [assignQuizId, setAssignQuizId] = useState<string | null>(null)
 
   function handleBack() {
     const nav = resolveHostBackNavigation({
@@ -262,6 +265,19 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
       return
     }
     await builder.handleSave()
+  }
+
+  // Assign / schedule (self-paced): save first so we have a real quiz id, then
+  // open the same modal the My Quizzes list uses. Surfaces self-paced + schedule
+  // right where the host built the quiz instead of forcing a trip to My Quizzes.
+  async function handleAssignClick() {
+    if (!builder.title.trim()) {
+      setTitleError(true)
+      setTimeout(() => setTitleError(false), 2000)
+      return
+    }
+    const saved = await builder.handleSave()
+    if (saved?.id) setAssignQuizId(saved.id)
   }
 
   // Single entry for both Generate/Import (source modal) and the in-builder AI
@@ -374,6 +390,18 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
           title="Save (Ctrl+S / Cmd+S)"
         >
           {builder.saving ? 'Saving…' : 'Save'}
+        </button>
+
+        {/* Assign / Schedule (self-paced) — share a link or schedule a date */}
+        <button
+          type="button"
+          onClick={handleAssignClick}
+          disabled={builder.saving || builder.questions.length === 0}
+          className="hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-all hover:brightness-95 disabled:opacity-50"
+          style={{ background: '#fff', color: '#0F1B3D', border: '1.5px solid #0F1B3D' }}
+          title="Share a self-paced link or schedule the quiz for a date"
+        >
+          Assign / Schedule
         </button>
 
         {/* Start live button */}
@@ -492,7 +520,16 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
             className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-black transition-all hover:brightness-95"
             style={{ background: '#F3F4F6', color: '#0F1B3D' }}
           >
-            <span className="text-base leading-none">+</span> Add question
+            <span className="text-base leading-none">+</span> Add
+          </button>
+          <button
+            type="button"
+            onClick={handleAssignClick}
+            disabled={builder.saving || builder.questions.length === 0}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-black transition-all hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: '#fff', color: '#0F1B3D', border: '1.5px solid #0F1B3D' }}
+          >
+            Assign
           </button>
           <button
             type="button"
@@ -501,7 +538,7 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
             className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-black transition-all hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ background: '#16A34A', color: '#fff' }}
           >
-            &#9654; Start live
+            &#9654; Live
           </button>
         </MobileToolbar>
 
@@ -542,6 +579,17 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
           onAppend={() => resolveApply('append')}
           onReplace={() => resolveApply('replace')}
           onCancel={() => setPendingApply(null)}
+        />
+      )}
+
+      {/* ── Assign / Schedule (self-paced) — same modal as My Quizzes ───── */}
+      {assignQuizId && (
+        <AssignQuizModal
+          quizId={assignQuizId}
+          quizTitle={builder.title || 'Untitled quiz'}
+          hasExistingShare={false}
+          onClose={() => setAssignQuizId(null)}
+          onChanged={() => { /* builder doesn't track share state; modal self-manages */ }}
         />
       )}
     </div>

@@ -2317,26 +2317,8 @@ export default function SessionPage() {
                     <path d="M18 2H6v7a6 6 0 0 0 12 0V2z" />
                   </svg>
                 </button>
-                {/* Mirror toggle — only meaningful in presenter/shared-screen
-                    flows. Tucked into the secondary cluster, not primary. */}
-                {gameCode && (
-                  <button
-                    onClick={() => socketRef.current?.emit('toggle_mirror_to_participants', { gameCode, mirror: !displayMode })}
-                    title="Toggle mirroring question content to participant phones"
-                    aria-label="Toggle mirror to participants"
-                    className="hidden sm:flex h-10 w-10 items-center justify-center rounded-xl transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
-                    style={{
-                      background: 'rgba(255,255,255,0.08)',
-                      color: 'rgba(255,255,255,0.78)',
-                      border: '1px solid rgba(255,255,255,0.14)',
-                    }}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
-                      <rect x="3" y="4" width="18" height="14" rx="2" />
-                      <path d="M8 21h8" />
-                      <path d="M12 18v3" />
-                    </svg>
-                  </button>
-                )}
+                {/* (Removed the mirror/projector toggle — it only ever worked in
+                    presenter mode, so it was a dead no-op in a live quiz.) */}
                 {/* Phone remote — reachable during the live quiz, not just the
                     lobby. Account-based, so the QR/link is safe to show here. */}
                 <PhoneRemoteButton variant="bar" />
@@ -2481,7 +2463,7 @@ export default function SessionPage() {
                 />
               ) : (
                 <p className="text-center py-10 text-sm font-semibold" style={{ color: '#9CA3AF' }}>
-                  No scores yet — the leaderboard appears after the first scored question.
+                  Live standings appear here after the first scored question.
                 </p>
               )}
             </div>

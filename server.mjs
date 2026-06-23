@@ -2472,17 +2472,17 @@ app.prepare().then(async () => {
         confidence: confidence ?? 'unsure',
       })
 
+      // Neutral receipt only — do NOT reveal correctness/points/score here.
+      // Revealing on submit lets a neighbour copy the answer. The per-player
+      // reveal (isCorrect, points, score, streak) is delivered later via
+      // `personal_result` when the question ends (host reveal, timer, or
+      // all-answered). Non-scored questions have nothing to leak.
       socket.emit('answer_confirmed', {
-        isCorrect,
-        points,
-        basePoints,
-        streakBonus,
-        streakCount: participant.streakCount || 0,
-        totalScore: participant.score,
+        received: true,
         isNonScored,
         ...(isLate ? { late: true } : {}),
       })
-      if (ack) ack({ accepted: true, questionIndex: qi, isCorrect, points, totalScore: participant.score, ...(isLate ? { late: true } : {}) })
+      if (ack) ack({ accepted: true, questionIndex: qi, ...(isLate ? { late: true } : {}) })
 
       const numOptions = question.options?.length ?? 4
       io.to(`host:${gameCode}`).emit('answer_received', {
@@ -2515,13 +2515,24 @@ app.prepare().then(async () => {
 
       console.log(`[submit_answer:accept] code=${gameCode} q=${qi} sid=${socket.id} pts=${points} correct=${isCorrect}`)
 
-      // Participation-only questions can close as soon as everyone has
-      // responded. Scored questions must wait for the host reveal or timer so
-      // an early/wrong submitter cannot leak the correct answer to classmates.
-      if (isNonScored && !session.questionEnded && qi === session.currentQuestionIndex) {
-        const answered = countAnswers(session, qi)
-        const total = realParticipantCount(session.participants)
-        if (total > 0 && answered >= total) {
+      // "Lower of two" rule: end the question as soon as EVERY connected player
+      // has answered, without waiting out the rest of the timer. Now safe for
+      // scored questions too — correctness is no longer leaked on submit (see
+      // the neutral answer_confirmed above), so an early submitter can't tip off
+      // classmates, and the reveal still fires for everyone simultaneously.
+      // Counts answers among CONNECTED players only (matching getConnectedCount's
+      // ghost/disconnect rules) so a disconnected player can neither block the
+      // end nor trip it early by having answered before dropping.
+      if (!session.questionEnded && qi === session.currentQuestionIndex) {
+        let connected = 0
+        let answeredConnected = 0
+        for (const [sid, p] of session.participants.entries()) {
+          if (typeof sid === 'string' && sid.startsWith('ghost::')) continue
+          if (p?.disconnectedAt) continue
+          connected++
+          if (p.answers?.[qi] !== undefined) answeredConnected++
+        }
+        if (connected > 0 && answeredConnected >= connected) {
           session.questionEnded = true
           if (session.endTimer) { clearTimeout(session.endTimer); session.endTimer = null }
           emitQuestionEnded(io, gameCode, session, qi)
