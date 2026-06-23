@@ -25,6 +25,7 @@ import { QuizoticLogo } from '@/components/QuizoticLogo'
 import { BrandWatermark } from '@/components/BrandWatermark'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
 import { JoinPill } from '@/components/host/JoinPill'
+import { PhoneRemoteButton } from '@/components/host/PhoneRemoteButton'
 import { NavChevron } from '@/components/ui/NavButton'
 import { EndQuizConfirmModal } from '@/components/host/EndQuizConfirmModal'
 import { HostWordCloud } from '@/components/host/HostWordCloud'
@@ -219,9 +220,6 @@ export default function SessionPage() {
   const quizRef = useRef<Quiz | null>(null)
   const questionIndexRef = useRef<number>(0)
   const [gameCode, setGameCode] = useState('')
-  // 4-digit phone-remote pairing PIN (A2). Captured from session_state and
-  // shown as a subtle lobby affordance — never primary chrome.
-  const [hostPin, setHostPin] = useState<string>('')
   // key = participantId (preferred) or `name:<displayName>` for legacy events.
   // Storing connection state here lets us render a single list with offline
   // dimming during the disconnect grace period instead of removing entries.
@@ -637,8 +635,7 @@ export default function SessionPage() {
 
     // Authoritative state from server every 5s — replace the entire Map so
     // any drift (missed events, late hot-reload) is corrected.
-    socket.on('session_state', ({ active, disconnected, hostPin: pin }: { active: Array<{ participantId: string | null; name: string; archetype: string | null; team: { index: number; name: string; color: string } | null }>; disconnected: Array<{ participantId: string | null; name: string; archetype: string | null; team: { index: number; name: string; color: string } | null }>; connectedCount: number; totalCount: number; hostPin?: string }) => {
-      if (pin) setHostPin(pin)
+    socket.on('session_state', ({ active, disconnected }: { active: Array<{ participantId: string | null; name: string; archetype: string | null; team: { index: number; name: string; color: string } | null }>; disconnected: Array<{ participantId: string | null; name: string; archetype: string | null; team: { index: number; name: string; color: string } | null }>; connectedCount: number; totalCount: number }) => {
       setParticipants(() => {
         const next = new Map<string, { name: string; archetype: string; team?: { index: number; name: string; color: string } | null; connected: boolean }>()
         for (const p of active || []) {
@@ -1233,8 +1230,8 @@ export default function SessionPage() {
             Back to edit
           </button>
 
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-            <section className="rounded-3xl border bg-white p-5 shadow-sm md:p-7" style={{ borderColor: '#E2E8F0' }}>
+          <div className="grid gap-4 grid-cols-1 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+            <section className="min-w-0 rounded-3xl border bg-white p-5 shadow-sm md:p-7" style={{ borderColor: '#E2E8F0' }}>
               <p className="text-[11px] font-black uppercase tracking-[0.16em]" style={{ color: '#16A34A' }}>Ready to host</p>
               <h1 className="mt-2 text-3xl font-black leading-tight md:text-5xl" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>{quiz.title}</h1>
               <p className="mt-3 text-sm md:text-base" style={{ color: '#64748B' }}>
@@ -1296,7 +1293,7 @@ export default function SessionPage() {
               </div>
             </section>
 
-            <aside className="space-y-3">
+            <aside className="min-w-0 space-y-3">
               <section className="rounded-3xl border bg-white p-4 shadow-sm" style={{ borderColor: '#E2E8F0' }}>
                 <div className="mb-3 flex items-center justify-between">
                   <div>
@@ -1504,7 +1501,7 @@ export default function SessionPage() {
             )}
 
             {/* ── Two-column: PIN/QR left | Players canvas right ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-5 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-5 items-start [&>*]:min-w-0">
 
               {/* Left column: Game PIN card + Share links */}
               <div className="space-y-4">
@@ -1542,23 +1539,11 @@ export default function SessionPage() {
                     </div>
                   </div>
 
-                  {/* Phone-remote pairing affordance (A2). Subtle — not primary
-                      chrome. The 4-digit PIN lets a co-host join from their
-                      phone at quizotic.live/host/remote. */}
-                  {hostPin && (
-                    <div className="mt-5 -mb-1 flex items-center justify-center gap-1.5 text-center">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5" style={{ color: '#c32aa3' }} aria-hidden>
-                        <rect x="5" y="2" width="14" height="20" rx="2" />
-                        <line x1="12" y1="18" x2="12" y2="18" />
-                      </svg>
-                      <p className="text-xs font-medium" style={{ color: '#94A3B8' }}>
-                        Drive from your phone —{' '}
-                        <span className="font-bold" style={{ color: '#7e1f9b' }}>quizotic.live/host/remote</span>
-                        {' '}· PIN{' '}
-                        <span className="font-display font-black tabular-nums tracking-wider" style={{ color: '#46107a', fontFamily: 'var(--font-display)' }}>{hostPin}</span>
-                      </p>
-                    </div>
-                  )}
+                  {/* Phone-remote affordance — account-based, no PIN. Safe to
+                      show because identity (not a visible code) is the gate. */}
+                  <div className="mt-5 -mb-1 flex justify-center">
+                    <PhoneRemoteButton variant="lobby" />
+                  </div>
                 </div>
 
                 {/* Share / LMS links */}
@@ -1683,7 +1668,11 @@ export default function SessionPage() {
           initial={reduceStageMotion ? false : { opacity: 0, y: 18, scale: 0.99 }}
           animate={reduceStageMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.32, ease: [0.22, 0.61, 0.36, 1] }}
-          className={`h-svh max-h-svh overflow-hidden px-4 pt-3 pb-3 lg:px-8 lg:pt-4 lg:pb-4 flex flex-col gap-3 host-question-stage ${isAnswerRevealStage ? 'host-reveal-stage' : ''}`}
+          /* Height model is responsive: phones get an auto-height, page-scrolling
+             stage so the sticky control bar is always reachable (the old fixed
+             h-svh + overflow-hidden clipped it below the fold). lg+ keeps the
+             fixed projector-fit stage that compresses content without scroll. */
+          className={`min-h-svh lg:h-svh lg:max-h-svh lg:overflow-hidden px-4 pt-3 pb-3 lg:px-8 lg:pt-4 lg:pb-4 flex flex-col gap-3 host-question-stage ${isAnswerRevealStage ? 'host-reveal-stage' : ''}`}
           style={{
             background: 'linear-gradient(135deg, #071126 0%, #0F1B3D 55%, #102A43 100%)',
             color: '#FFFFFF',
@@ -1744,7 +1733,7 @@ export default function SessionPage() {
               </div>
             </div>
           ) : (
-            <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+            <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] items-center gap-4 [&>*]:min-w-0">
               <div>
                 <span className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: 'rgba(255,255,255,0.52)' }}>
                   Live Question
@@ -2348,6 +2337,9 @@ export default function SessionPage() {
                     </svg>
                   </button>
                 )}
+                {/* Phone remote — reachable during the live quiz, not just the
+                    lobby. Account-based, so the QR/link is safe to show here. */}
+                <PhoneRemoteButton variant="bar" />
               </div>
 
               {/* ── Center: ONE primary action + a single cadence override ──

@@ -910,7 +910,6 @@ app.prepare().then(async () => {
       sessions.set(gameCode, {
         hostSocketId: socket.id,
         hostSocketIds: new Set([socket.id]), // Two-screen host model (projector + remote)
-        hostPin: String(Math.floor(1000 + Math.random() * 9000)), // 4-digit PIN to pair a phone remote
         hostResumeToken,         // Layer 3.3 — used by host_resume to reclaim session
         quizData,
         currentQuestionIndex: -1,
@@ -1008,25 +1007,45 @@ app.prepare().then(async () => {
     // gameCode + pin. Authorised only for the session owner. On success the
     // remote socket joins the host room and receives a full session_state
     // snapshot; it does NOT become the primary (projector stays hostSocketId).
+    // Account-based phone remote: list the live sessions owned by the signed-in
+    // user so their phone can pick one to control. Identity (not a PIN) is the
+    // gate — a participant's socket carries a different userId (or none) and so
+    // sees nothing. `callback` may arrive as the first arg when the client emits
+    // with an ack and no payload.
+    socket.on('host_list_my_sessions', (payload, callback) => {
+      const cb = typeof callback === 'function' ? callback : (typeof payload === 'function' ? payload : null)
+      if (!socket.data.userId) {
+        if (cb) cb({ success: false, error: 'Sign in to control a session.', sessions: [] })
+        return
+      }
+      const mine = []
+      for (const [gameCode, session] of sessions) {
+        if (session.userId && session.userId === socket.data.userId && session.status !== 'ended') {
+          mine.push({
+            gameCode,
+            title: String(session.quizData?.title || session.presentationData?.title || 'Untitled'),
+            phase: session.status,
+            playerCount: getConnectedCount(session),
+          })
+        }
+      }
+      if (cb) cb({ success: true, sessions: mine })
+    })
+
     socket.on('host_join_remote', (payload = {}, callback) => {
       const gameCode = typeof payload?.gameCode === 'string' ? payload.gameCode : null
-      const pin = typeof payload?.pin === 'string' ? payload.pin : null
       const session = gameCode ? sessions.get(gameCode) : null
       if (!session) {
         socket.emit('host_remote_error', { message: 'Session not found.' })
-        if (typeof callback === 'function') callback({ success: false })
+        if (typeof callback === 'function') callback({ success: false, error: 'Session not found.' })
         return
       }
-      // Same owner check the host path uses: a stolen PIN alone must not grant
-      // host controls — the joining socket must be the signed-in session owner.
-      if (session.userId && session.userId !== socket.data.userId) {
-        socket.emit('host_remote_error', { message: 'Only the session owner can join as host.' })
-        if (typeof callback === 'function') callback({ success: false })
-        return
-      }
-      if (!session.hostPin || pin !== session.hostPin) {
-        socket.emit('host_remote_error', { message: 'Wrong PIN.' })
-        if (typeof callback === 'function') callback({ success: false })
+      // The phone must be signed into the SAME account that owns the session.
+      // Identity is the only gate — no PIN. A participant cannot take control
+      // because their userId won't match (or they aren't signed in at all).
+      if (!socket.data.userId || session.userId !== socket.data.userId) {
+        socket.emit('host_remote_error', { message: 'Sign in with the account hosting this session.' })
+        if (typeof callback === 'function') callback({ success: false, error: 'Not the session owner.' })
         return
       }
       if (!session.hostSocketIds) session.hostSocketIds = new Set()
@@ -1034,8 +1053,8 @@ app.prepare().then(async () => {
       socket.join(`session:${gameCode}`)
       socket.join(`host:${gameCode}`)
       // Full snapshot so the remote can render the current lobby / live state.
-      socket.emit('session_state', { ...buildSessionStateSnapshot(session), hostPin: session.hostPin })
-      console.log(`[host_join_remote] paired code=${gameCode} sid=${socket.id}`)
+      socket.emit('session_state', buildSessionStateSnapshot(session))
+      console.log(`[host_join_remote] paired code=${gameCode} sid=${socket.id} user=${socket.data.userId}`)
       if (typeof callback === 'function') callback({ success: true })
     })
 
@@ -1439,7 +1458,6 @@ app.prepare().then(async () => {
       sessions.set(gameCode, {
         hostSocketId: socket.id,
         hostSocketIds: new Set([socket.id]), // Two-screen host model (projector + remote)
-        hostPin: String(Math.floor(1000 + Math.random() * 9000)), // 4-digit PIN to pair a phone remote
         hostResumeToken: presenterHostResumeToken,
         type: 'presenter',
         presentationData,
@@ -2951,14 +2969,7 @@ function realParticipantCount(participants) {
 // rest of this file keeps reading naturally. Exported helpers are unit-tested
 // directly; these wrappers stay trivial.
 const getConnectedCount = _getConnectedCount
-// Two-screen host model: append hostPin to every session_state snapshot so the
-// projector lobby can display the pairing PIN. Wrapped here (instead of editing
-// the pure helper in src/lib/session-state.mjs) so this file is the only change.
-const buildSessionStateSnapshot = (session) => {
-  const snap = _buildSessionStateSnapshot(session)
-  if (session && typeof session.hostPin === 'string') snap.hostPin = session.hostPin
-  return snap
-}
+const buildSessionStateSnapshot = _buildSessionStateSnapshot
 
 // Periodic authoritative state broadcast — keeps the host UI in sync even if
 // individual events are missed (network drops between server and host, hot

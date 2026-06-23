@@ -28,11 +28,11 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useSession, signIn } from 'next-auth/react'
 
-import { useHostSocket, type HostPhase } from '@/lib/hooks/useHostSocket'
+import { useHostSocket, type HostPhase, type MySessionSummary } from '@/lib/hooks/useHostSocket'
 import { isMuted, toggleMuted, playBackgroundMusic, stopBackgroundMusic } from '@/lib/sounds'
 import { getPostQuestionAction, buildLeaderboardStageRows } from '@/lib/host-stage'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
-import { RemotePairing } from './_components/RemotePairing'
+import { RemoteSessionPicker } from './_components/RemoteSessionPicker'
 import { RemoteLobby } from './_components/RemoteLobby'
 import { RemoteQuestion } from './_components/RemoteQuestion'
 import { RemoteStandings } from './_components/RemoteStandings'
@@ -43,7 +43,7 @@ import { RemoteEnded } from './_components/RemoteEnded'
 // does it auto-transition phase to 'lobby' / 'standings'. We re-derive a view
 // phase from the server phase plus a couple of local flags that are set on
 // emit and cleared on the next server event — see DUAL-CONTROL SAFETY above.
-type View = 'pairing' | 'lobby' | 'question' | 'standings' | 'ended'
+type View = 'picker' | 'lobby' | 'question' | 'standings' | 'ended'
 
 export default function RemotePage() {
   return (
@@ -70,12 +70,15 @@ function RemotePageInner() {
   const { status } = useSession()
   const searchParams = useSearchParams()
 
-  // ── Pairing inputs (gameCode prefilled from ?code=) ──────────────────────
-  const [gameCode, setGameCode] = useState(searchParams.get('code') ?? '')
-  const [pin, setPin] = useState('')
+  // ── Pairing (account-based, no PIN) ──────────────────────────────────────
+  // A deep link (?code=) takes control of that session directly; otherwise the
+  // phone lists the signed-in user's live sessions and they tap one.
+  const deepLinkCode = searchParams.get('code') ?? ''
+  const [gameCode, setGameCode] = useState(deepLinkCode)
+  const [mySessions, setMySessions] = useState<MySessionSummary[] | null>(null)
 
   // One hook for the whole remote lifecycle. We do NOT auto-join on mount —
-  // pairing happens on submit once the host types the PIN.
+  // pairing happens once a session is picked (or auto, see effect below).
   const host = useHostSocket()
 
   // ── Local, server-anchored view state ────────────────────────────────────
@@ -97,13 +100,13 @@ function RemotePageInner() {
   const [busy, setBusy] = useState<string | null>(null)
 
   // Paired once the server confirms host_join_remote by sending a session_state
-  // snapshot. We do NOT set this optimistically — a wrong PIN must keep the
-  // pairing form mounted so its error banner stays visible.
+  // snapshot. We do NOT set this optimistically — a rejected take-control must
+  // keep the picker mounted so its error banner stays visible.
   const paired = !!host.sessionState
 
   // Derived view from server phase + local bridge flags.
   const view: View = useMemo(() => {
-    if (!paired) return 'pairing'
+    if (!paired) return 'picker'
     const p: HostPhase | null = host.phase
     if (p === 'ended') return 'ended'
     if (showingStandings) return 'standings'
@@ -146,14 +149,41 @@ function RemotePageInner() {
     return () => { try { stopBackgroundMusic() } catch { /* noop */ } }
   }, [musicOn])
 
-  // ── Pairing ──────────────────────────────────────────────────────────────
-  const handlePair = useCallback((code: string, pinValue: string) => {
+  // ── Pairing (account-based) ──────────────────────────────────────────────
+  // Once the socket connects: a deep link (?code=) takes control of that
+  // session; otherwise list the user's live sessions and auto-connect if there
+  // is exactly one, else show the picker. Identity (the auth cookie on the
+  // socket) is the gate — no PIN.
+  const { connected: hostConnected, sessionState: hostSessionState, listMySessions, takeControl } = host
+  useEffect(() => {
+    if (!hostConnected || hostSessionState) return
+    let cancelled = false
+    void (async () => {
+      if (deepLinkCode) {
+        setGameCode(deepLinkCode)
+        takeControl({ gameCode: deepLinkCode })
+        return
+      }
+      const list = await listMySessions()
+      if (cancelled) return
+      setMySessions(list)
+      if (list.length === 1) {
+        setGameCode(list[0].gameCode)
+        takeControl({ gameCode: list[0].gameCode })
+      }
+    })()
+    return () => { cancelled = true }
+  }, [hostConnected, hostSessionState, deepLinkCode, listMySessions, takeControl])
+
+  const handlePick = useCallback((code: string) => {
     setGameCode(code)
-    setPin(pinValue)
-    host.join({ gameCode: code, pin: pinValue })
-    // Do NOT optimistically mark paired — stay on the pairing form until the
-    // server replies with a session_state (success) or host_remote_error (the
-    // error banner is shown on this same form).
+    host.takeControl({ gameCode: code })
+    // Do NOT optimistically mark paired — stay on the picker until the server
+    // replies with a session_state (success) or host_remote_error (banner).
+  }, [host])
+
+  const handleRefresh = useCallback(async () => {
+    setMySessions(await host.listMySessions())
   }, [host])
 
   // ── Action handlers (each emits, sets a bridge flag, arms a busy gate) ───
@@ -233,14 +263,15 @@ function RemotePageInner() {
   }
 
   // ── Render ───────────────────────────────────────────────────────────────
-  if (view === 'pairing') {
+  if (view === 'picker') {
     return (
-      <RemotePairing
-        gameCode={gameCode}
-        pin={pin}
+      <RemoteSessionPicker
+        sessions={mySessions}
+        loading={host.error === null && (!!deepLinkCode || mySessions === null)}
         connected={host.connected}
         error={host.error}
-        onSubmit={handlePair}
+        onPick={handlePick}
+        onRefresh={handleRefresh}
         logo={<QuizoticLogo variant="onLight" className="text-xl" markSize={28} />}
       />
     )

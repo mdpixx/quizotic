@@ -42,8 +42,14 @@ export interface SessionStatePayload {
   disconnected: HostParticipantState[]
   connectedCount: number
   totalCount: number
-  /** 4-digit PIN — lets a phone pair as co-host via host_join_remote. */
-  hostPin?: string
+}
+
+/** A live session owned by the signed-in user, returned by host_list_my_sessions. */
+export interface MySessionSummary {
+  gameCode: string
+  title: string
+  phase: 'lobby' | 'active' | 'ended'
+  playerCount: number
 }
 
 export interface AnswerReceivedPayload {
@@ -92,8 +98,6 @@ export interface HostSocketState {
   phase: HostPhase | null
   /** Last authoritative session_state snapshot (participants + counts). */
   sessionState: SessionStatePayload | null
-  /** 4-digit pairing PIN (from session_state.hostPin). */
-  hostPin: string | null
   /** Live answer count + per-option counts as answers arrive. */
   answerCount: number
   optionCounts: number[]
@@ -114,9 +118,12 @@ export interface UseHostSocketResult extends HostSocketState {
   /** The raw socket.io client (null until connected). Escape hatch for
    *  advanced callers (clock-sync, ack callbacks). Prefer the emit helpers. */
   socket: Socket | null
-  /** Join an existing live session as a host surface. Call once the user has
-   *  a gameCode (projector) OR a gameCode + pin (phone remote). */
-  join: (args: { gameCode: string; pin?: string }) => void
+  /** List the live sessions owned by the signed-in user (phone remote picker).
+   *  Resolves [] if not signed in or none are live. */
+  listMySessions: () => Promise<MySessionSummary[]>
+  /** Take control of one of the user's own live sessions from a phone. Identity
+   *  is the gate (no PIN) — resolves false if the account doesn't own it. */
+  takeControl: (args: { gameCode: string }) => Promise<boolean>
   // ─── Emit helpers (no-ops until connected/joined) ────────────────────────
   startQuiz: () => void
   nextQuestion: () => void
@@ -136,11 +143,10 @@ export interface UseHostSocketResult extends HostSocketState {
 /**
  * Connect a host surface to the Quizotic realtime engine.
  *
- * @param gameCode  Optional initial code — if supplied the hook joins on mount.
- * @param pin       Pairing PIN for a phone remote (host_join_remote). Omit for
- *                  the projector (host_resume path handled by the page).
+ * @param gameCode  Optional initial code — if supplied the hook takes control
+ *                  on mount (phone remote pairing by account identity, no PIN).
  */
-export function useHostSocket(gameCode?: string, pin?: string): UseHostSocketResult {
+export function useHostSocket(gameCode?: string): UseHostSocketResult {
   const socketRef = useRef<Socket | null>(null)
   const [socket, setSocket] = useState<Socket | null>(null)
   const [connected, setConnected] = useState(false)
@@ -157,9 +163,7 @@ export function useHostSocket(gameCode?: string, pin?: string): UseHostSocketRes
   const [questionIndex, setQuestionIndex] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const hostPin = sessionState?.hostPin ?? null
-
-  // Set up the socket once (lazy). Caller drives join() with the gameCode.
+  // Set up the socket once (lazy). Caller drives takeControl() with the gameCode.
   useEffect(() => {
     const s = io()
     socketRef.current = s
@@ -247,17 +251,39 @@ export function useHostSocket(gameCode?: string, pin?: string): UseHostSocketRes
   const gameCodeRef = useRef<string | undefined>(gameCode)
   useEffect(() => { gameCodeRef.current = gameCode }, [gameCode])
 
-  const join = useCallback(({ gameCode: code, pin: pinArg }: { gameCode: string; pin?: string }) => {
+  const listMySessions = useCallback((): Promise<MySessionSummary[]> => {
     const s = socketRef.current
-    if (!s) return
-    gameCodeRef.current = code
-    // Phone remote: pair with the 4-digit PIN. Projector: host_resume is
-    // handled by the session page itself (it owns the resume token).
-    if (pinArg) {
-      s.emit('host_join_remote', { gameCode: code, pin: pinArg }, (res?: { success?: boolean; error?: string }) => {
+    if (!s) return Promise.resolve([])
+    return new Promise<MySessionSummary[]>(resolve => {
+      let settled = false
+      const timeout = setTimeout(() => { if (!settled) { settled = true; resolve([]) } }, 4000)
+      s.emit('host_list_my_sessions', (res?: { success?: boolean; error?: string; sessions?: MySessionSummary[] }) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timeout)
         if (res && !res.success && res.error) setError(res.error)
+        resolve(res?.sessions ?? [])
       })
-    }
+    })
+  }, [])
+
+  const takeControl = useCallback(({ gameCode: code }: { gameCode: string }): Promise<boolean> => {
+    const s = socketRef.current
+    if (!s) return Promise.resolve(false)
+    gameCodeRef.current = code
+    // Account-based pairing: identity (the signed-in cookie carried by the
+    // socket) is the gate. The server confirms with a session_state snapshot.
+    return new Promise<boolean>(resolve => {
+      let settled = false
+      const timeout = setTimeout(() => { if (!settled) { settled = true; resolve(false) } }, 4000)
+      s.emit('host_join_remote', { gameCode: code }, (res?: { success?: boolean; error?: string }) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timeout)
+        if (res && !res.success && res.error) setError(res.error)
+        resolve(!!res?.success)
+      })
+    })
   }, [])
 
   const emitIfReady = useCallback((event: string, payload: Record<string, unknown>) => {
@@ -300,18 +326,18 @@ export function useHostSocket(gameCode?: string, pin?: string): UseHostSocketRes
     socketRef.current?.disconnect()
   }, [])
 
-  // Auto-join if both a code and pin were supplied up-front (phone remote).
+  // Auto-take-control if a code was supplied up-front and the socket connects
+  // (phone remote deep-link). Identity is the gate — no PIN needed.
   useEffect(() => {
-    if (gameCode && pin) join({ gameCode, pin })
-    // join is stable; only re-run when identity inputs change.
-  }, [gameCode, pin, join])
+    if (gameCode && connected) takeControl({ gameCode })
+    // takeControl is stable; re-run when the code or connection changes.
+  }, [gameCode, connected, takeControl])
 
   return {
     socket,
     connected,
     phase,
     sessionState,
-    hostPin,
     answerCount,
     optionCounts,
     leaderboard,
@@ -321,7 +347,8 @@ export function useHostSocket(gameCode?: string, pin?: string): UseHostSocketRes
     explanation,
     questionIndex,
     error,
-    join,
+    listMySessions,
+    takeControl,
     startQuiz,
     nextQuestion,
     endQuestion,
