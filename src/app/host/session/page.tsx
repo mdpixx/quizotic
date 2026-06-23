@@ -12,7 +12,7 @@ import { PostSessionHeader } from '@/components/PostSessionHeader'
 import { CelebrationConfetti } from '@/components/CelebrationConfetti'
 import { SessionReport } from '@/components/SessionReport'
 import { LeaderboardView } from '@/components/LeaderboardView'
-import { playLeaderboardJingle, playTick, playBackgroundMusic, stopBackgroundMusic, isMuted, toggleMuted } from '@/lib/sounds'
+import { playLeaderboardJingle, playTick, playBackgroundMusic, stopBackgroundMusic, playBassBoom, playCelebration, preloadCelebrationSounds, playDrumroll, stopDrumroll, isMuted, toggleMuted } from '@/lib/sounds'
 import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/quiz-storage'
 import type { Quiz, QuestionStat, SessionMode } from '@/lib/quiz-types'
 import { ReflectionInsights } from '@/components/ReflectionInsights'
@@ -219,6 +219,9 @@ export default function SessionPage() {
   const quizRef = useRef<Quiz | null>(null)
   const questionIndexRef = useRef<number>(0)
   const [gameCode, setGameCode] = useState('')
+  // 4-digit phone-remote pairing PIN (A2). Captured from session_state and
+  // shown as a subtle lobby affordance — never primary chrome.
+  const [hostPin, setHostPin] = useState<string>('')
   // key = participantId (preferred) or `name:<displayName>` for legacy events.
   // Storing connection state here lets us render a single list with offline
   // dimming during the disconnect grace period instead of removing entries.
@@ -462,6 +465,36 @@ export default function SessionPage() {
     return () => { stopBackgroundMusic() }
   }, [musicOn])
 
+  // Auto-start background music at the FIRST question if the host hasn't
+  // muted. Toggling the Music button later still overrides this. Once-only —
+  // guarded by a ref so re-renders of the question phase don't re-trigger.
+  const musicAutostartedRef = useRef(false)
+  useEffect(() => {
+    if (phase !== 'question') return
+    if (musicAutostartedRef.current) return
+    if (musicOn) return // already on (persisted preference)
+    musicAutostartedRef.current = true
+    if (!isMuted()) setMusicOn(true)
+  }, [phase, musicOn])
+
+  // Host sound cues keyed to phase transitions (D). preloading the
+  // celebration MP3s before the ended phase avoids audible latency on the
+  // winner reveal. The standings jingle plays once on phase entry (the
+  // per-update jingle still fires from the leaderboard_update listener).
+  useEffect(() => {
+    if (phase === 'standings') {
+      try { playLeaderboardJingle() } catch {}
+    } else if (phase === 'ended') {
+      // Stop any lingering countdown drumroll before celebration overlaps.
+      try { stopDrumroll() } catch {}
+      try { preloadCelebrationSounds() } catch {}
+      try { playBassBoom() } catch {}
+      try { playCelebration() } catch {}
+      // Session is over — fade the background loop out.
+      stopBackgroundMusic()
+    }
+  }, [phase])
+
   // Hydrate session prefs from the host's last setup. Without this, every
   // session resets to the hardcoded defaults and a host who always runs
   // Reflection mode with Teams ON has to re-toggle them every time.
@@ -604,7 +637,8 @@ export default function SessionPage() {
 
     // Authoritative state from server every 5s — replace the entire Map so
     // any drift (missed events, late hot-reload) is corrected.
-    socket.on('session_state', ({ active, disconnected }: { active: Array<{ participantId: string | null; name: string; archetype: string | null; team: { index: number; name: string; color: string } | null }>; disconnected: Array<{ participantId: string | null; name: string; archetype: string | null; team: { index: number; name: string; color: string } | null }>; connectedCount: number; totalCount: number }) => {
+    socket.on('session_state', ({ active, disconnected, hostPin: pin }: { active: Array<{ participantId: string | null; name: string; archetype: string | null; team: { index: number; name: string; color: string } | null }>; disconnected: Array<{ participantId: string | null; name: string; archetype: string | null; team: { index: number; name: string; color: string } | null }>; connectedCount: number; totalCount: number; hostPin?: string }) => {
+      if (pin) setHostPin(pin)
       setParticipants(() => {
         const next = new Map<string, { name: string; archetype: string; team?: { index: number; name: string; color: string } | null; connected: boolean }>()
         for (const p of active || []) {
@@ -666,13 +700,21 @@ export default function SessionPage() {
               countdownTimerRef.current = null
             }
             setCountdownValue(null)
+            // Countdown is over — kill the '3' drumroll so it never bleeds
+            // into the question timer or a later celebration cue.
+            try { stopDrumroll() } catch {}
             startHostTimer(timerSeconds, effectiveStart)
             return
           }
           if (value !== lastShown) {
             lastShown = value
             setCountdownValue(value)
-            playTick()
+            if (value === 3) {
+              // Rising tension on '3'; ticks carry 2 and 1. Stopped above.
+              try { playDrumroll() } catch {}
+            } else {
+              playTick()
+            }
           }
         }
         updateCountdown()
@@ -1469,7 +1511,7 @@ export default function SessionPage() {
                 <div className="rounded-3xl p-7 text-center relative" style={{ background: 'rgba(255,255,255,0.96)', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
                   <p className="text-xs tracking-[0.4em] font-black uppercase mb-2" style={{ color: '#7e1f9b' }}>Game PIN</p>
                   <p
-                    className="font-black leading-none select-all whitespace-nowrap"
+                    className="font-display font-black leading-none select-all whitespace-nowrap"
                     style={{
                       fontSize: 'clamp(40px, 4.5vw, 64px)',
                       letterSpacing: '0.04em',
@@ -1477,7 +1519,7 @@ export default function SessionPage() {
                       WebkitBackgroundClip: 'text',
                       backgroundClip: 'text',
                       color: 'transparent',
-                      fontFamily: 'var(--font-heading)',
+                      fontFamily: 'var(--font-display)',
                     }}
                   >
                     {gameCode}
@@ -1499,6 +1541,24 @@ export default function SessionPage() {
                       <p className="text-sm mt-0.5" style={{ color: '#64748B' }}>enter code <span className="font-mono font-black" style={{ color: '#46107a' }}>{gameCode}</span></p>
                     </div>
                   </div>
+
+                  {/* Phone-remote pairing affordance (A2). Subtle — not primary
+                      chrome. The 4-digit PIN lets a co-host join from their
+                      phone at quizotic.live/host/remote. */}
+                  {hostPin && (
+                    <div className="mt-5 -mb-1 flex items-center justify-center gap-1.5 text-center">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5" style={{ color: '#c32aa3' }} aria-hidden>
+                        <rect x="5" y="2" width="14" height="20" rx="2" />
+                        <line x1="12" y1="18" x2="12" y2="18" />
+                      </svg>
+                      <p className="text-xs font-medium" style={{ color: '#94A3B8' }}>
+                        Drive from your phone —{' '}
+                        <span className="font-bold" style={{ color: '#7e1f9b' }}>quizotic.live/host/remote</span>
+                        {' '}· PIN{' '}
+                        <span className="font-display font-black tabular-nums tracking-wider" style={{ color: '#46107a', fontFamily: 'var(--font-display)' }}>{hostPin}</span>
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Share / LMS links */}
@@ -1635,11 +1695,11 @@ export default function SessionPage() {
               <div className="text-center">
                 <div
                   key={countdownValue}
-                  className="text-white font-black"
+                  className="font-display text-white font-black"
                   style={{
                     fontSize: 200,
                     lineHeight: 1,
-                    fontFamily: 'var(--font-heading)',
+                    fontFamily: 'var(--font-display)',
                     color: '#FBD13B',
                     animation: 'countdownPop 0.9s ease-out forwards',
                   }}
@@ -1665,7 +1725,7 @@ export default function SessionPage() {
                 <span className="text-xs font-black uppercase tracking-[0.22em]" style={{ color: 'rgba(255,255,255,0.5)' }}>
                   Answer Reveal
                 </span>
-                <span className="text-2xl font-black tabular-nums" style={{ color: '#FBD13B', fontFamily: 'var(--font-heading)' }}>
+                <span className="font-display text-2xl font-black tabular-nums" style={{ color: '#FBD13B', fontFamily: 'var(--font-display)' }}>
                   Q{questionIndex + 1}
                 </span>
                 <span className="text-sm font-bold whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.7)' }}>
@@ -1690,7 +1750,7 @@ export default function SessionPage() {
                   Live Question
                 </span>
                 <div className="mt-1 flex items-center gap-3">
-                  <span className="text-3xl md:text-4xl font-black tabular-nums" style={{ fontFamily: 'var(--font-heading)', color: '#FBD13B' }}>
+                  <span className="font-display text-3xl md:text-4xl font-black tabular-nums" style={{ fontFamily: 'var(--font-display)', color: '#FBD13B' }}>
                     Q{questionIndex + 1}
                   </span>
                   <span className="text-lg md:text-xl font-bold" style={{ color: 'rgba(255,255,255,0.72)' }}>
@@ -1703,7 +1763,7 @@ export default function SessionPage() {
                   questionStartedAt == null || Date.now() < questionStartedAt ? (
                     <span className="min-w-16 text-center text-sm font-semibold animate-pulse px-4 py-2 rounded-full" style={{ color: '#FBD13B', background: 'rgba(255,255,255,0.08)' }}>Loading…</span>
                   ) : (
-                    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(15,27,61,0.42)' }}>
+                    <div className="font-display flex h-20 w-20 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(15,27,61,0.42)', fontFamily: 'var(--font-display)' }}>
                       <CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} />
                     </div>
                   )
@@ -1785,11 +1845,11 @@ export default function SessionPage() {
             }}
           >
             <p
-              className="font-bold leading-snug break-words"
+              className="font-display font-bold leading-snug break-words"
               style={{
                 color: '#0F1B3D',
                 lineHeight: 1.1,
-                fontFamily: 'var(--font-heading)',
+                fontFamily: 'var(--font-display)',
               }}
             >
               {currentQuestion.text}
@@ -2165,73 +2225,135 @@ export default function SessionPage() {
 
           <div className="sticky bottom-0 z-30 mt-auto w-full pt-2">
             <div
-              className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-3xl px-4 py-3"
+              className="max-w-7xl mx-auto flex items-center justify-between gap-3 rounded-3xl px-3 py-2.5"
               style={{
                 background: 'rgba(15,27,61,0.78)',
                 border: '1px solid rgba(255,255,255,0.16)',
                 boxShadow: '0 18px 60px rgba(0,0,0,0.34)',
                 backdropFilter: 'blur(14px)',
                 WebkitBackdropFilter: 'blur(14px)',
-                paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))',
+                paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom, 0px))',
               }}
             >
-              <div className="flex items-center gap-3 min-w-0">
+              {/* ── Left: secondary icon cluster ───────────────────────────
+                  Music, Sound, Pause, and the Standings peek (L) live here as
+                  small icon buttons — accessible but not primary chrome. */}
+              <div className="flex items-center gap-1.5 min-w-0">
                 <button
                   onClick={() => setMusicOn(m => !m)}
                   title={musicOn ? 'Background music is playing — click to mute' : 'Play low-volume background music during the quiz'}
-                  className="flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-black transition-all shrink-0"
+                  aria-label={musicOn ? 'Mute background music' : 'Play background music'}
+                  aria-pressed={musicOn}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl text-base transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
                   style={{
-                    background: musicOn ? '#FEF3C7' : 'rgba(255,255,255,0.1)',
-                    color: musicOn ? '#B45309' : '#FFFFFF',
-                    border: `1.5px solid ${musicOn ? '#FCD34D' : 'rgba(255,255,255,0.16)'}`,
+                    background: musicOn ? 'rgba(251,209,59,0.22)' : 'rgba(255,255,255,0.08)',
+                    color: musicOn ? '#FBD13B' : 'rgba(255,255,255,0.78)',
+                    border: `1px solid ${musicOn ? 'rgba(251,209,59,0.5)' : 'rgba(255,255,255,0.14)'}`,
                   }}>
-                  {musicOn ? 'Music On' : 'Music Off'}
+                  {/* music note */}
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+                    <path d="M9 18V5l12-2v13" />
+                    <circle cx="6" cy="18" r="3" />
+                    <circle cx="18" cy="16" r="3" />
+                  </svg>
                 </button>
                 <button
                   onClick={() => setSoundMuted(toggleMuted())}
                   title={soundMuted ? 'Sound effects are muted — click to unmute' : 'Mute all sound effects (ticks, chimes, celebrations)'}
                   aria-label={soundMuted ? 'Unmute sound effects' : 'Mute sound effects'}
-                  className="flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-black transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
+                  aria-pressed={!soundMuted}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl text-base transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
                   style={{
-                    background: soundMuted ? 'rgba(255,255,255,0.1)' : '#FEF3C7',
-                    color: soundMuted ? '#FFFFFF' : '#B45309',
-                    border: `1.5px solid ${soundMuted ? 'rgba(255,255,255,0.16)' : '#FCD34D'}`,
+                    background: soundMuted ? 'rgba(255,255,255,0.08)' : 'rgba(251,209,59,0.22)',
+                    color: soundMuted ? 'rgba(255,255,255,0.5)' : '#FBD13B',
+                    border: `1px solid ${soundMuted ? 'rgba(255,255,255,0.14)' : 'rgba(251,209,59,0.5)'}`,
                   }}>
-                  {soundMuted ? '🔇' : '🔊'}
+                  {soundMuted ? (
+                    // muted speaker
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+                      <path d="M11 5 6 9H2v6h4l5 4V5z" />
+                      <line x1="23" y1="9" x2="17" y2="15" />
+                      <line x1="17" y1="9" x2="23" y2="15" />
+                    </svg>
+                  ) : (
+                    // speaker on
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+                      <path d="M11 5 6 9H2v6h4l5 4V5z" />
+                      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                    </svg>
+                  )}
                 </button>
-                <span className="hidden md:inline-flex items-center rounded-full px-3 py-2 text-xs font-black tracking-wide" style={{ color: '#0F1B3D', background: '#FBD13B' }}>
-                  Quizotic
-                </span>
+                <button
+                  onClick={() => {
+                    if (paused) {
+                      socketRef.current?.emit('resume_quiz', { gameCode })
+                      setPaused(false)
+                    } else {
+                      socketRef.current?.emit('pause_quiz', { gameCode })
+                      setPaused(true)
+                    }
+                  }}
+                  title={paused ? 'Resume the quiz' : 'Pause the quiz'}
+                  aria-label={paused ? 'Resume quiz' : 'Pause quiz'}
+                  aria-pressed={paused}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
+                  style={{
+                    background: paused ? 'rgba(34,197,94,0.18)' : 'rgba(255,255,255,0.08)',
+                    color: paused ? '#4ADE80' : 'rgba(255,255,255,0.78)',
+                    border: `1px solid ${paused ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.14)'}`,
+                  }}>
+                  {paused ? (
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden><path d="M8 5v14l11-7z" /></svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowLeaderboardPopup(true)}
+                  title="Peek at standings (press L)"
+                  aria-label="Show standings"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
+                  style={{
+                    background: 'rgba(255,255,255,0.08)',
+                    color: 'rgba(255,255,255,0.78)',
+                    border: '1px solid rgba(255,255,255,0.14)',
+                  }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+                    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+                    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+                    <path d="M4 22h16" />
+                    <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+                    <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+                    <path d="M18 2H6v7a6 6 0 0 0 12 0V2z" />
+                  </svg>
+                </button>
+                {/* Mirror toggle — only meaningful in presenter/shared-screen
+                    flows. Tucked into the secondary cluster, not primary. */}
+                {gameCode && (
+                  <button
+                    onClick={() => socketRef.current?.emit('toggle_mirror_to_participants', { gameCode, mirror: !displayMode })}
+                    title="Toggle mirroring question content to participant phones"
+                    aria-label="Toggle mirror to participants"
+                    className="hidden sm:flex h-10 w-10 items-center justify-center rounded-xl transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
+                    style={{
+                      background: 'rgba(255,255,255,0.08)',
+                      color: 'rgba(255,255,255,0.78)',
+                      border: '1px solid rgba(255,255,255,0.14)',
+                    }}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+                      <rect x="3" y="4" width="18" height="14" rx="2" />
+                      <path d="M8 21h8" />
+                      <path d="M12 18v3" />
+                    </svg>
+                  </button>
+                )}
               </div>
-              <div className="flex flex-wrap items-center justify-end gap-3">
-              <button
-                onClick={() => {
-                  if (paused) {
-                    socketRef.current?.emit('resume_quiz', { gameCode })
-                    setPaused(false)
-                  } else {
-                    socketRef.current?.emit('pause_quiz', { gameCode })
-                    setPaused(true)
-                  }
-                }}
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full font-bold text-sm border-2 transition-all hover:scale-[1.02]"
-                style={{
-                  borderColor: paused ? '#16A34A' : '#F59E0B',
-                  color: paused ? '#16A34A' : '#92400E',
-                  background: paused ? '#F0FDF4' : '#FFFBEB',
-                }}
-              >
-                {paused ? 'Resume' : 'Pause'}
-              </button>
-              <button
-                onClick={() => setShowLeaderboardPopup(true)}
-                title="Show leaderboard (press L)"
-                aria-label="Show leaderboard"
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full font-bold text-sm border-2 transition-all hover:scale-[1.02]"
-                style={{ borderColor: '#9CA3AF', color: '#6B7280', background: 'transparent' }}
-              >
-                🏆 Standings
-              </button>
+
+              {/* ── Center: ONE primary action + a single cadence override ──
+                  getPostQuestionAction drives label, colour, and onClick.
+                  Override is EITHER "Show standings" OR "Skip" — never both. */}
+              <div className="flex flex-1 items-center justify-end gap-2 sm:justify-center">
               {(() => {
               const isLast = questionIndex + 1 >= quiz.questions.length
               const scoredQ = isScoredQuestion(currentQuestion)
@@ -2268,8 +2390,8 @@ export default function SessionPage() {
                     }}
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm border-2 transition-all"
                     style={{
-                      borderColor: armed ? '#DC2626' : '#9CA3AF',
-                      color: armed ? '#FFFFFF' : '#6B7280',
+                      borderColor: armed ? '#DC2626' : 'rgba(255,255,255,0.2)',
+                      color: armed ? '#FFFFFF' : 'rgba(255,255,255,0.6)',
                       background: armed ? '#DC2626' : 'transparent',
                     }}
                   >
@@ -2291,32 +2413,28 @@ export default function SessionPage() {
                   : questionEnded
                     ? nextQuestion
                     : () => { void advanceAfterEndingCurrentQuestion() }
-              // Host override controls (smart default + explicit choice):
-              //  - cadence says "skip standings" → offer a quiet "Show standings"
-              //  - cadence recommends standings → offer a quiet "Skip" straight to next
+              // SINGLE cadence override (was two buttons). Cadence says
+              // "skip standings" → offer a quiet "Show standings"; cadence
+              // recommends standings → offer a quiet "Skip". One or the other.
               const showStandingsOverride = action === 'next' && questionEnded && scoredQ
                 && (sessionMode === 'competitive' || sessionMode === 'accuracy')
               const skipStandingsOverride = action === 'standings'
+              const overrideLabel = showStandingsOverride ? 'Show standings' : skipStandingsOverride ? 'Skip' : null
+              const overrideOnClick = showStandingsOverride
+                ? advanceFromQuestion
+                : skipStandingsOverride
+                  ? (questionEnded ? nextQuestion : () => { void advanceAfterEndingCurrentQuestion() })
+                  : null
               return (
-                <>
-                  {showStandingsOverride && (
+                <div className="flex items-center justify-end sm:justify-center gap-2 w-full">
+                  {overrideLabel && overrideOnClick && (
                     <button
-                      onClick={advanceFromQuestion}
-                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full font-bold text-sm border-2 transition-all hover:scale-[1.02]"
-                      style={{ borderColor: '#9CA3AF', color: '#6B7280', background: 'transparent' }}
-                      title="Show the leaderboard before moving on"
+                      onClick={overrideOnClick}
+                      className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-full font-semibold text-xs transition-all hover:underline underline-offset-4"
+                      style={{ color: 'rgba(255,255,255,0.62)', background: 'transparent' }}
+                      title={showStandingsOverride ? 'Show the leaderboard before moving on' : 'Skip the leaderboard and go straight to the next question'}
                     >
-                      Show standings
-                    </button>
-                  )}
-                  {skipStandingsOverride && (
-                    <button
-                      onClick={questionEnded ? nextQuestion : () => { void advanceAfterEndingCurrentQuestion() }}
-                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full font-bold text-sm border-2 transition-all hover:scale-[1.02]"
-                      style={{ borderColor: '#9CA3AF', color: '#6B7280', background: 'transparent' }}
-                      title="Skip the leaderboard and go straight to the next question"
-                    >
-                      Skip
+                      {overrideLabel}
                     </button>
                   )}
                   <button
@@ -2330,7 +2448,7 @@ export default function SessionPage() {
                     {label}
                     <NavChevron direction="forward" className="w-4 h-4" />
                   </button>
-                </>
+                </div>
               )
               })()}
               </div>
@@ -2399,7 +2517,7 @@ export default function SessionPage() {
             <p className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: '#9CA3AF' }}>
               After Question {questionIndex + 1} of {quiz.questions.length}
             </p>
-            <h2 className="text-4xl md:text-6xl font-black mt-1" style={{ fontFamily: 'var(--font-heading)', color: '#0F1B3D' }}>
+            <h2 className="font-display text-4xl md:text-6xl font-black mt-1" style={{ fontFamily: 'var(--font-display)', color: '#0F1B3D' }}>
               Places Are Moving
             </h2>
           </div>
@@ -2548,7 +2666,7 @@ export default function SessionPage() {
               <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.24em]" style={{ color: 'rgba(251,209,59,0.72)' }}>
                 Final Standings
               </p>
-              <h2 className="mt-1 text-3xl md:text-5xl font-black" style={{ color: '#FFFFFF', fontFamily: 'var(--font-heading)', letterSpacing: 0 }}>
+              <h2 className="font-display mt-1 text-3xl md:text-5xl font-black" style={{ color: '#FFFFFF', fontFamily: 'var(--font-display)', letterSpacing: 0 }}>
                 Session Complete
               </h2>
               <p className="mt-1 text-sm md:text-base font-semibold" style={{ color: 'rgba(255,255,255,0.68)' }}>
@@ -2557,7 +2675,7 @@ export default function SessionPage() {
             </div>
 
             <div className="relative z-10 flex-1 min-h-0 w-full flex items-center justify-center mt-3">
-              <div className="w-full max-w-5xl rounded-[28px] p-3 md:p-5" style={{ background: 'rgba(255,255,255,0.96)', boxShadow: '0 24px 80px rgba(0,0,0,0.35)' }}>
+              <div className="font-display w-full max-w-5xl rounded-[28px] p-3 md:p-5" style={{ background: 'rgba(255,255,255,0.96)', boxShadow: '0 24px 80px rgba(0,0,0,0.35)', fontFamily: 'var(--font-display)' }}>
                 <Podium
                   leaderboard={leaderboard}
                   sessionMode={sessionMode}

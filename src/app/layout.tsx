@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { Background } from "@/components/Background";
 
@@ -11,6 +11,18 @@ const inter = Inter({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-inter-loaded",
+  display: "swap",
+});
+
+// Space Grotesk — display/heading font for the session redesign (Stage 1).
+// Same self-hosting pattern as Inter: served from our origin (CSP-safe, no
+// runtime CDN), exposed as --font-display-loaded on <html> and consumed via
+// --font-display / .font-display in globals.css. Only weights actually used
+// by display headings are pulled to keep the participant payload small.
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-display-loaded",
   display: "swap",
 });
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -100,7 +112,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} h-full antialiased`}
+      className={`${inter.variable} ${spaceGrotesk.variable} h-full antialiased`}
     >
       <head>
         {GA4_ID ? (

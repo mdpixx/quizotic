@@ -52,6 +52,11 @@ html, body {
   --color-error:        #DC2626;
   --color-warning:      #CA8A04;
   --color-info:         #2563EB;
+  /* Redesign Stage 1 semantic aliases (kept distinct from --color-error/
+     --color-accent-coral so pages can opt in by intent without disturbing
+     existing usages of the legacy names). */
+  --color-danger:       #DC2626;
+  --color-attention:    #E07A5F;
 
   /* Answer option colors */
   --color-option-a:     #2D3A8C;   /* indigo */
@@ -73,6 +78,19 @@ html, body {
   --font-inter: var(--font-inter-loaded, 'Inter'), -apple-system, 'Segoe UI', system-ui, sans-serif;
   --font-heading: var(--font-inter);
   --font-body: var(--font-inter);
+  /* Display font for the session redesign (Stage 1). Falls back to Inter (the
+     body font) if Space Grotesk hasn't loaded yet, so layout never flashes a
+     system mismatch on slow classroom networks. Opt in via .font-display; body
+     text and existing headings are untouched. */
+  --font-display: 'Space Grotesk', var(--font-inter-loaded, 'Inter'), system-ui, sans-serif;
+
+  /* ── Additive type scale (redesign Stage 1) ──────────────────────
+     Fluid clamp() steps for display headings. Additive only — existing
+     heading sizing (host-question-card, etc.) is unchanged. Use on
+     elements that opt into .font-display. */
+  --text-display-1: clamp(2.75rem, 1.6rem + 4.6vw, 5rem);
+  --text-display-2: clamp(2.25rem, 1.4rem + 3.4vw, 3.75rem);
+  --text-display-3: clamp(1.75rem, 1.2rem + 2.2vw, 2.75rem);
 }
 
 /* ── Dark mode toggle ──────────────────────────────────────────────── */
@@ -600,6 +618,13 @@ body {
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
   letter-spacing: -0.03em;
+}
+
+/* Display font — opt-in for the session redesign (Stage 1). Space Grotesk
+   carries display headings/numbers; falls back to Inter until loaded.
+   Use alongside --text-display-* sizing tokens. */
+.font-display {
+  font-family: var(--font-display);
 }
 
 @media print {
