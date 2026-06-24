@@ -10,6 +10,7 @@ import { Avatar } from '@/components/Avatar'
 import { Podium } from '@/components/Podium'
 import { PostSessionHeader } from '@/components/PostSessionHeader'
 import { CelebrationConfetti } from '@/components/CelebrationConfetti'
+import { LottieConfetti } from '@/components/LottieConfetti'
 import { SessionReport } from '@/components/SessionReport'
 import { LeaderboardView } from '@/components/LeaderboardView'
 import { playLeaderboardJingle, playTick, playBackgroundMusic, stopBackgroundMusic, playBassBoom, playCelebration, preloadCelebrationSounds, playDrumroll, stopDrumroll, isMuted, toggleMuted } from '@/lib/sounds'
@@ -2635,6 +2636,11 @@ export default function SessionPage() {
               boxShadow: '0 30px 90px rgba(15,27,61,0.28)',
             }}
           >
+            {/* Looping Lottie confetti — self-hosted hero burst that rains over
+                the whole Final Standings screen. Sits behind the floating-gold
+                particle layer; both are scoped (layer="absolute") to this hero
+                section and ignore pointer events. */}
+            <LottieConfetti layer="absolute" />
             <CelebrationConfetti active layer="absolute" />
             <div className="relative z-10 text-center">
               <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.24em]" style={{ color: 'rgba(251,209,59,0.72)' }}>
