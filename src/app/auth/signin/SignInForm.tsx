@@ -33,11 +33,16 @@ export default function SignInForm({ intent, callbackUrl = '/host' }: SignInForm
       return ''
     }
   })
+  // Sign-up only: a new account needs a name. Sign-in never asks for it.
+  const [name, setName] = useState('')
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [resending, setResending] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
   const [error, setError] = useState('')
+  // When the wrong intent is used (e.g. signing in with an unknown email) we
+  // surface a one-tap link to the correct flow alongside the error message.
+  const [errorAction, setErrorAction] = useState<{ href: string; label: string } | null>(null)
   const [info, setInfo] = useState('')
   const codeInputRef = useRef<HTMLInputElement>(null)
 
@@ -109,12 +114,63 @@ export default function SignInForm({ intent, callbackUrl = '/host' }: SignInForm
     }
   }
 
+  // Returns whether an account already exists for this email, or null when the
+  // check itself failed (network/timeout) — callers fail open on null so a
+  // flaky check never locks a legitimate user out of signing in.
+  async function checkEmailExists(targetEmail: string): Promise<boolean | null> {
+    try {
+      const res = await fetch('/api/auth/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: targetEmail }),
+      })
+      if (!res.ok) return null
+      const { exists } = await res.json()
+      return Boolean(exists)
+    } catch {
+      return null
+    }
+  }
+
   async function handleEmailSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!email.trim()) return
+    if (isSignup && !name.trim()) {
+      setError('Please enter your name.')
+      return
+    }
     setLoading(true)
     setError('')
+    setErrorAction(null)
     setInfo('')
+
+    // Gate the two flows: sign-up rejects emails that already have an account,
+    // sign-in rejects emails that don't. This is what makes the buttons mean
+    // different things. Skipped (fail-open) when the check is unavailable.
+    const exists = await checkEmailExists(email.trim())
+    if (isSignup && exists === true) {
+      setLoading(false)
+      setError('You already have a Quizotic account with this email.')
+      setErrorAction({ href: '/auth/signin', label: 'Sign in instead →' })
+      return
+    }
+    if (!isSignup && exists === false) {
+      setLoading(false)
+      setError('No Quizotic account found for this email.')
+      setErrorAction({ href: '/auth/signin?intent=signup', label: 'Create an account →' })
+      return
+    }
+
+    // New account: stash the name so events.createUser can persist it once
+    // NextAuth creates the user after code verification. Short-lived cookie.
+    if (isSignup) {
+      try {
+        document.cookie = `quizotic_pending_name=${encodeURIComponent(name.trim())};path=/;max-age=1200;samesite=lax`
+      } catch {
+        // best-effort — onboarding still works without a pre-filled name
+      }
+    }
+
     const result = await requestCode(email.trim())
     setLoading(false)
     if (result.ok) {
@@ -320,6 +376,24 @@ export default function SignInForm({ intent, callbackUrl = '/host' }: SignInForm
           </div>
 
           <form onSubmit={handleEmailSubmit}>
+            {isSignup && (
+              <>
+                <label htmlFor="signup-name" className="block text-xs font-semibold mb-1.5" style={{ color: '#64748B' }}>
+                  Your name
+                </label>
+                <input
+                  id="signup-name"
+                  type="text"
+                  autoComplete="name"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="Jane Doe"
+                  required
+                  className="w-full mb-3 px-4 py-3 rounded-xl text-base outline-none transition-all focus:ring-2"
+                  style={{ background: '#F8FAFC', border: '1.5px solid #E2E8F0', color: '#0F1B3D', '--tw-ring-color': 'rgba(251,209,59,0.4)' } as React.CSSProperties}
+                />
+              </>
+            )}
             <label htmlFor="signin-email" className="block text-xs font-semibold mb-1.5" style={{ color: '#64748B' }}>
               Email address
             </label>
@@ -350,6 +424,11 @@ export default function SignInForm({ intent, callbackUrl = '/host' }: SignInForm
           <div className="mt-4 rounded-xl border px-4 py-3 text-sm font-medium"
             style={{ background: '#FEF2F2', borderColor: '#FECACA', color: '#DC2626' }}>
             {error}
+            {errorAction && (
+              <Link href={errorAction.href} className="block mt-2 font-bold" style={{ color: '#B91C1C', textDecoration: 'underline' }}>
+                {errorAction.label}
+              </Link>
+            )}
           </div>
         )}
         <p className="text-center text-sm mt-5" style={{ color: '#94A3B8' }}>

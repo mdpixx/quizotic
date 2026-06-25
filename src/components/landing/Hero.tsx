@@ -246,10 +246,6 @@ export function Hero() {
               style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 17, color: '#0D0D0D', textDecoration: 'none', padding: '16px 32px', borderRadius: 12, background: '#FBD13B', border: '3px solid #0D0D0D', boxShadow: '5px 5px 0 #0D0D0D', display: 'inline-block' }}>
               Start Teaching Free →
             </Link>
-            <Link href="/demo" className="btn-hero-ghost"
-              style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontWeight: 600, fontSize: 16, color: 'rgba(255,255,255,0.85)', textDecoration: 'none', padding: '16px 28px', borderRadius: 12, border: '2px solid rgba(255,255,255,0.3)', display: 'inline-block' }}>
-              Preview the host screen →
-            </Link>
           </div>
 
           {/* Trust strip — honest early-stage proof until real usage numbers exist */}
@@ -281,8 +277,6 @@ export function Hero() {
       <style>{`
         .btn-hero-primary { transition: transform 0.15s, box-shadow 0.15s; }
         .btn-hero-primary:hover { transform: translate(2px,2px); box-shadow: 3px 3px 0 #0D0D0D !important; }
-        .btn-hero-ghost:hover { border-color: rgba(255,255,255,0.7) !important; color: #fff !important; }
-        .btn-hero-ghost { transition: border-color 0.2s, color 0.2s; }
         @media (max-width: 768px) {
           .hero-inner { grid-template-columns: 1fr !important; gap: 40px !important; padding: 48px 24px 48px !important; }
           .hero-browser { justify-content: stretch !important; }
