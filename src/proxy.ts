@@ -44,7 +44,6 @@ export function proxy(request: NextRequest) {
     pathname === '/' ||
     pathname.startsWith('/join') ||
     pathname.startsWith('/play') ||
-    pathname.startsWith('/demo') ||
     pathname.startsWith('/auth') ||
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/webhooks') ||

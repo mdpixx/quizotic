@@ -20,10 +20,6 @@ export function CTASection() {
             style={{ display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 18, color: '#fff', textDecoration: 'none', padding: '18px 40px', borderRadius: 12, background: '#0F1B3D', border: '3px solid #0D0D0D', boxShadow: '5px 5px 0 #0D0D0D' }}>
             Start Teaching Free →
           </Link>
-          <Link href="/demo"
-            style={{ display: 'inline-block', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700, fontSize: 16, color: '#0D0D0D', textDecoration: 'underline', textUnderlineOffset: 4 }}>
-            or preview the host screen first
-          </Link>
         </div>
       </div>
 

@@ -340,18 +340,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // creation, not on later logins (a user travelling abroad shouldn't
       // appear to relocate). Best-effort; null is fine.
       let geo: { country: string | null; locale: string | null } = { country: null, locale: null }
+      // Email sign-ups arrive with no name (the OTP provider only knows the
+      // email). The sign-up form stashes the typed name in a short-lived
+      // cookie so we can attach it here, at the one moment the account is born.
+      let pendingName: string | null = null
       try {
         const hdrs = await nextHeaders()
         geo = extractGeo(hdrs)
+        const cookieHeader = hdrs.get('cookie') ?? ''
+        const match = cookieHeader.match(/(?:^|;\s*)quizotic_pending_name=([^;]+)/)
+        if (match) pendingName = decodeURIComponent(match[1]).trim() || null
       } catch (err) {
         console.warn('[auth] geo extraction failed:', err instanceof Error ? err.message : err)
       }
 
-      const updates: { referralCode?: string; country?: string; locale?: string; lastActiveAt?: Date } = {
+      // Prefer the OAuth-provided name (Google/Microsoft); fall back to the
+      // name the user typed on the email sign-up form.
+      const resolvedName = user.name || pendingName
+
+      const updates: { name?: string; referralCode?: string; country?: string; locale?: string; lastActiveAt?: Date } = {
         lastActiveAt: new Date(),
       }
-      if (user.name) {
-        updates.referralCode = await createUniqueReferralCode(user.name)
+      if (!user.name && pendingName) updates.name = pendingName
+      if (resolvedName) {
+        updates.referralCode = await createUniqueReferralCode(resolvedName)
       }
       if (geo.country) updates.country = geo.country
       if (geo.locale) updates.locale = geo.locale
@@ -369,7 +381,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       if (user.email) {
-        sendWelcomeEmail(user.email, user.name ?? null)
+        sendWelcomeEmail(user.email, resolvedName ?? null)
           .catch(err => console.error('[auth] welcome email failed:', err))
       }
     },
