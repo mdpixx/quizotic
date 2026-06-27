@@ -114,7 +114,39 @@ export function CelebrationConfetti({ active, batchSize = 12, intervalMs = 2400,
     return () => clearInterval(id)
   }, [active, reduced, intervalMs])
 
-  if (!active || reduced) return null
+  if (!active) return null
+
+  // Reduced-motion path: a calm, static sparkle field — no drift animation,
+  // no looping interval. A quiet celebration beats a blank screen.
+  if (reduced) {
+    const staticBatch = makeBatch(0, 20)
+    return (
+      <div
+        aria-hidden
+        style={{ position: layer, inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 60 }}
+      >
+        {staticBatch.map(p => {
+          const top = 8 + rand(p.id * 7 + 3) * 80
+          return (
+            <span
+              key={p.id}
+              style={{
+                position: 'absolute',
+                top: `${top}%`,
+                left: `${p.startX}vw`,
+                width: p.size,
+                height: p.size,
+                background: p.color,
+                borderRadius: '999px',
+                boxShadow: `0 0 ${p.size * 1.4}px ${p.color}66, 0 0 ${p.size * 0.6}px ${p.color}aa`,
+                opacity: 0.5,
+              }}
+            />
+          )
+        })}
+      </div>
+    )
+  }
 
   // Three overlapping batches so the stream feels continuous AND each
   // particle's 5–8s animation finishes before its batch leaves the DOM.

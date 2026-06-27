@@ -42,17 +42,19 @@ export function LottieConfetti({ layer = 'fixed', src = '/lottie/confetti.json' 
   // The raw Lottie JSON, fetched at runtime so it stays out of the JS bundle.
   const [data, setData] = useState<object | null>(null)
 
+  // Always fetch the animation data, even under prefers-reduced-motion. The
+  // render branch below plays it once (no loop) in that case, so reduce-motion
+  // users still get the celebration moment instead of a blank finale.
   useEffect(() => {
-    if (reduced) return
     let cancelled = false
     fetch(src)
       .then(res => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
       .then(json => { if (!cancelled) setData(json) })
       .catch(() => { /* asset unavailable — celebration silently degrades to the other layers */ })
     return () => { cancelled = true }
-  }, [src, reduced])
+  }, [src])
 
-  if (reduced || !data) return null
+  if (!data) return null
 
   return (
     <div
@@ -69,7 +71,9 @@ export function LottieConfetti({ layer = 'fixed', src = '/lottie/confetti.json' 
     >
       <Lottie
         animationData={data}
-        loop
+        // Loop the celebration normally; under prefers-reduced-motion play a
+        // single pass (no perpetual motion) rather than blanking the finale.
+        loop={!reduced}
         autoplay
         // Cover the whole viewport, cropping overflow, so confetti reaches the
         // edges regardless of aspect ratio (the source is 16:9, 1920×1080).

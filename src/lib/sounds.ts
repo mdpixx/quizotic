@@ -5,6 +5,12 @@ let audioCtx: AudioContext | null = null
 
 function getCtx(): AudioContext {
   if (!audioCtx) audioCtx = new AudioContext()
+  // Autoplay policy: a context first created outside a user gesture starts
+  // 'suspended' and stays silent. resume() is a no-op when already running, so
+  // calling it on every fetch is cheap insurance that cues always audibly fire
+  // — including the finale firecracker, which a socket event (not a click)
+  // triggers, and the countdown tick that fires as a question opens.
+  if (audioCtx.state === 'suspended') void audioCtx.resume()
   return audioCtx
 }
 
