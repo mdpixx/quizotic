@@ -2615,19 +2615,13 @@ export default function SessionPage() {
       {/* ENDED */}
       {phase === 'ended' && (
         <>
-        {/* Celebration confetti — fires for EVERY live session mode, not just
-            Competitive. Competitive renders its own (absolute, hero-scoped)
-            confetti below; for every other mode (Accuracy / Reflection /
-            Assessment) overlay viewport-wide confetti here so every finale
-            celebrates. The firecracker + fanfare are triggered mode-
-            independently from the phase===ended effect, so they already play
-            for all modes. */}
-        {leaderboard.length > 0 && sessionMode !== 'competitive' && (
-          <>
-            <LottieConfetti />
-            <CelebrationConfetti active />
-          </>
-        )}
+        {/* Celebration confetti fires for EVERY finale — including when the
+            host ends the quiz early or nobody finished (empty leaderboard).
+            The ranked Podium below still needs finishers, but the celebration
+            itself must not depend on that. Firecracker/fanfare play from the
+            mode-independent phase===ended effect. */}
+        <LottieConfetti />
+        <CelebrationConfetti active />
         <PostSessionHeader
           title={quiz?.title}
           subtitle={leaderboard.length > 0 ? `${leaderboard.length} participant${leaderboard.length === 1 ? '' : 's'} · Session complete` : 'Session complete'}
@@ -2651,16 +2645,6 @@ export default function SessionPage() {
               boxShadow: '0 30px 90px rgba(15,27,61,0.28)',
             }}
           >
-            {/* Looping Lottie confetti — self-hosted hero burst that rains over
-                the whole Final Standings screen. Sits behind the floating-gold
-                particle layer; both are scoped (layer="absolute") to this hero
-                section and ignore pointer events. */}
-            <LottieConfetti layer="absolute" />
-            {/* Pure-CSS gold-particle layer — reliable fallback that always
-                shows, even if the Lottie player fails to paint or the host has
-                Reduce Motion on (see CelebrationConfetti's reduced-motion path).
-                Lottie alone proved fragile in production, so keep both. */}
-            <CelebrationConfetti active layer="absolute" />
             <div className="relative z-10 text-center">
               <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.24em]" style={{ color: 'rgba(251,209,59,0.72)' }}>
                 Final Standings
