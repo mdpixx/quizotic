@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import QRCode from 'react-qr-code'
 import { track } from '@/lib/analytics'
+import { DialDateTimeField } from './DialDateTimeField'
 
 // Self-contained modal that replaces the old inline share dialog. It fetches /
 // publishes its own state so callers only pass identity + a change callback.
@@ -185,11 +186,10 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, onClose, 
   const shareUrl = slug ? `${origin}/q/${slug}` : ''
   const isScheduledUpcoming = !!(data?.opensAt && new Date(data.opensAt).getTime() > Date.now())
 
-  // Lowest selectable minute for the "Opens" custom field — blocks past times
-  // at the browser level instead of only failing on the server after submit.
-  const nowLocalMin = toLocalInputValue(new Date(Date.now()))
   // Live, inline schedule validation — mirrors the server rules so the host
-  // sees problems (and a human-readable summary) before they hit Save.
+  // sees problems (and a human-readable summary) before they hit Save. Past
+  // times and closes-before-opens are rejected here (the dial has no min attr,
+  // so this is the browser-side guard before submit).
   const scheduleError: string = (() => {
     if (!opensInput) return 'Pick when the quiz opens.'
     const opens = new Date(opensInput).getTime()
@@ -723,18 +723,14 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, onClose, 
                     })}
                   </div>
                   {opensPreset === 'custom' && (
-                    <input
-                      type="datetime-local"
+                    <DialDateTimeField
+                      ariaLabel="Quiz opens at"
                       value={opensInput}
-                      min={nowLocalMin}
-                      onChange={e => {
-                        const v = e.target.value
+                      onChange={v => {
                         setOpensInput(v)
                         // Keep closes ahead of opens — default to opens + 1 day if it falls behind.
                         if (!closesInput || new Date(closesInput) <= new Date(v)) setClosesInput(plusOneDay(v))
                       }}
-                      className="w-full h-10 px-3 mt-2 text-sm rounded-lg outline-none focus:ring-2 focus:ring-yellow-200"
-                      style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#0F1B3D' }}
                     />
                   )}
                 </div>
@@ -765,13 +761,10 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, onClose, 
                       )
                     })}
                   </div>
-                  <input
-                    type="datetime-local"
+                  <DialDateTimeField
+                    ariaLabel="Quiz closes at"
                     value={closesInput}
-                    min={opensInput || nowLocalMin}
-                    onChange={e => setClosesInput(e.target.value)}
-                    className="w-full h-10 px-3 text-sm rounded-lg outline-none focus:ring-2 focus:ring-yellow-200"
-                    style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#0F1B3D' }}
+                    onChange={setClosesInput}
                   />
                 </div>
 
