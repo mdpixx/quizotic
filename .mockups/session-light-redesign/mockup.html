@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Quizotic — Light Session Redesign (Mockup)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* ---- Quizotic brand tokens (from globals.css) ---- */
+    --navy:#0F1B3D; --navy-2:#1B2A5E; --indigo:#2D2A66; --indigo-soft:#2D3A8C;
+    --gold:#FBD13B; --gold-dark:#E0B528;
+    --paper:#FAF8F2; --paper-2:#F4F0E6; --line:#ECE7DA;
+    --ink:#0F1B3D; --muted:#6B7280; --muted-2:#9AA0AB;
+    --violet:#7C3AED;
+    /* option colors + soft tints */
+    --A:#F23A5C; --A-soft:#FDECEF; --A-line:#F8C9D2;
+    --B:#2D7FF9; --B-soft:#E8F1FE; --B-line:#BFD8FB;
+    --C:#E08A1E; --C-soft:#FBF0DD; --C-line:#F2D6A6;   /* warmed orange for life */
+    --D:#10A062; --D-soft:#E0F4EA; --D-line:#A7DCBE;     /* freshened green */
+    --ok:#16A34A; --ok-soft:#DCFCE7;
+    --font-display:'Bricolage Grotesque',system-ui,sans-serif;
+    --font-body:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;
+    --r-sm:12px; --r:16px; --r-lg:22px; --r-xl:30px; --r-pill:999px;
+    --sh-1:0 1px 2px rgba(15,27,61,.05),0 6px 18px rgba(15,27,61,.06);
+    --sh-2:0 18px 50px rgba(15,27,61,.14);
+    --sh-gold:0 10px 24px rgba(224,181,40,.34);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:var(--font-body); color:var(--ink);
+    background:var(--paper);
+    background-image:
+      radial-gradient(820px 520px at 8% -6%, rgba(45,42,102,.10), transparent 60%),
+      radial-gradient(760px 520px at 108% 4%, rgba(251,209,59,.18), transparent 58%),
+      radial-gradient(900px 700px at 50% 120%, rgba(124,58,237,.07), transparent 60%);
+    min-height:100vh; -webkit-font-smoothing:antialiased;
+  }
+
+  /* ============ TOP SWITCHER ============ */
+  .topbar{
+    position:sticky; top:0; z-index:50;
+    display:flex; align-items:center; gap:18px;
+    padding:12px 22px;
+    background:rgba(250,248,242,.82); backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex;align-items:center;gap:10px;margin-right:6px}
+  .brand svg{width:34px;height:34px;border-radius:9px;box-shadow:var(--sh-1)}
+  .brand b{font-family:var(--font-display);font-size:20px;letter-spacing:-.02em;color:var(--ink)}
+  .tabs{display:flex;gap:6px;background:#fff;padding:5px;border-radius:var(--r-pill);border:1px solid var(--line);box-shadow:var(--sh-1)}
+  .tab{
+    border:0;background:transparent;cursor:pointer;
+    font-family:var(--font-body);font-weight:600;font-size:13.5px;color:var(--muted);
+    padding:8px 16px;border-radius:var(--r-pill);transition:.18s;display:flex;align-items:center;gap:7px;
+  }
+  .tab .dot{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.5}
+  .tab:hover{color:var(--ink)}
+  .tab.active{background:var(--navy);color:#fff;box-shadow:var(--sh-1)}
+  .tab.active .dot{opacity:1;background:var(--gold)}
+  .mock-badge{margin-left:auto;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-2);
+    background:#fff;border:1px dashed var(--line);padding:6px 12px;border-radius:var(--r-pill)}
+
+  .screen{display:none;animation:fade .4s ease}
+  .screen.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  /* ============ SHARED COMPONENTS ============ */
+  .wrap{max-width:1280px;margin:0 auto;padding:26px 28px 60px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--sh-1)}
+  .chip{display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:12.5px;
+    padding:7px 13px;border-radius:var(--r-pill);border:1px solid var(--line);background:#fff;color:var(--ink)}
+  .chip.gold{background:var(--gold);border-color:var(--gold-dark);color:var(--navy)}
+  .chip.navy{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .chip.live::before{content:"";width:8px;height:8px;border-radius:50%;background:#E5484D;box-shadow:0 0 0 0 rgba(229,72,77,.6);animation:ping 1.6s infinite}
+  @keyframes ping{0%{box-shadow:0 0 0 0 rgba(229,72,77,.55)}70%{box-shadow:0 0 0 9px rgba(229,72,77,0)}100%{box-shadow:0 0 0 0 rgba(229,72,77,0)}}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;cursor:pointer;border:0;
+    font-family:var(--font-body);font-weight:700;border-radius:var(--r-pill);transition:.16s;white-space:nowrap}
+  .btn-primary{background:var(--gold);color:var(--navy);padding:14px 26px;font-size:15.5px;box-shadow:var(--sh-gold)}
+  .btn-primary:hover{background:var(--gold-dark);transform:translateY(-1px)}
+  .btn-primary.lg{padding:17px 34px;font-size:17px}
+  .btn-ghost{background:#fff;color:var(--ink);border:1px solid var(--line);padding:13px 20px;font-size:14.5px}
+  .btn-ghost:hover{border-color:var(--navy)}
+  .btn-dark{background:var(--navy);color:#fff;padding:14px 26px;font-size:15px}
+  .icon-btn{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink)}
+  .icon-btn:hover{border-color:var(--navy)}
+
+  .label-eyebrow{font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+  /* ===================== 1. LOBBY ===================== */
+  .lobby-hero{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+  .lobby-hero h1{font-family:var(--font-display);font-size:34px;line-height:1.04;margin:6px 0 0;letter-spacing:-.02em}
+  .lobby-hero h1 em{font-style:normal;background:linear-gradient(120deg,var(--indigo),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lobby-mode{display:flex;gap:8px}
+  .mode-pill{font-size:13px;font-weight:700;padding:9px 15px;border-radius:var(--r-pill);background:#fff;border:1px solid var(--line);cursor:pointer;color:var(--muted)}
+  .mode-pill.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .mode-pill.active .swatch{background:var(--gold)}
+
+  .lobby-grid{display:grid;grid-template-columns:0.95fr 1.1fr;gap:22px;align-items:stretch}
+  .join-card{padding:30px 30px 26px;text-align:center;position:relative;overflow:hidden}
+  .join-card::after{content:"";position:absolute;inset:0;background:radial-gradient(420px 220px at 50% -10%, rgba(124,58,237,.08),transparent 70%);pointer-events:none}
+  .join-card .eyebrow{margin-bottom:8px}
+  .pin{font-family:var(--font-display);font-weight:800;font-size:74px;letter-spacing:.06em;line-height:1;color:var(--navy);
+    background:linear-gradient(180deg,var(--navy),var(--indigo));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin:6px 0 18px}
+  .qr{width:188px;height:188px;margin:0 auto 16px;border-radius:var(--r);padding:12px;background:#fff;border:1px solid var(--line)}
+  .join-url{margin-top:14px;font-size:14px;color:var(--muted)}
+  .join-url b{color:var(--B);font-weight:700}
+  .remote-toggle{margin-top:18px;display:inline-flex;align-items:center;gap:10px;background:var(--paper);border:1px solid var(--line);padding:10px 14px;border-radius:var(--r-pill);font-weight:600;font-size:13.5px;cursor:pointer}
+  .toggle{width:40px;height:23px;border-radius:99px;background:var(--navy);position:relative;transition:.2s}
+  .toggle::after{content:"";position:absolute;top:3px;left:20px;width:17px;height:17px;border-radius:50%;background:var(--gold);transition:.2s}
+  .toggle.off{background:#CFD3DB}
+  .toggle.off::after{left:3px;background:#fff}
+
+  .players-card{padding:26px 28px;display:flex;flex-direction:column}
+  .players-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+  .players-head h2{font-family:var(--font-display);font-size:22px;margin:0;display:flex;align-items:center;gap:10px}
+  .star{color:var(--gold)}
+  .count-pill{font-family:var(--font-display);font-weight:700;font-size:15px;background:var(--gold);color:var(--navy);padding:6px 14px;border-radius:var(--r-pill);box-shadow:var(--sh-gold)}
+  .players-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;flex:1;align-content:start}
+  .player{display:flex;align-items:center;gap:11px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:11px 13px;animation:popin .5s cubic-bezier(.2,.9,.3,1.2) both}
+  .player:nth-child(2){animation-delay:.1s}.player:nth-child(3){animation-delay:.18s}
+  .player:nth-child(4){animation-delay:.26s}.player:nth-child(5){animation-delay:.34s}.player:nth-child(6){animation-delay:.42s}
+  @keyframes popin{from{opacity:0;transform:scale(.85) translateY(8px)}to{opacity:1;transform:none}}
+  .ava{width:38px;height:38px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px;font-family:var(--font-display)}
+  .player .nm{font-weight:700;font-size:14px;line-height:1.1}
+  .player .arch{font-size:11px;color:var(--muted);font-weight:600}
+  .slot{border:1.5px dashed var(--line);border-radius:var(--r);display:flex;align-items:center;justify-content:center;color:var(--muted-2);font-size:12.5px;font-weight:600;height:62px;background:transparent}
+
+  .lobby-foot{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:20px;flex-wrap:wrap}
+  .lobby-foot .left{display:flex;gap:10px;align-items:center}
+  .start-cta{flex:1;min-width:260px}
+
+  /* ===================== 2. LIVE QUESTION ===================== */
+  .q-stage{display:flex;flex-direction:column;gap:18px}
+  .q-bar{display:flex;align-items:center;justify-content:space-between;gap:16px;background:#fff;border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--sh-1);padding:14px 20px}
+  .q-bar .left{display:flex;align-items:center;gap:18px}
+  .q-counter{display:flex;flex-direction:column;line-height:1}
+  .q-counter .ey{font-size:11px;font-weight:800;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+  .q-counter .num{font-family:var(--font-display);font-weight:800;font-size:26px;margin-top:3px}
+  .q-counter .num .of{color:var(--muted-2);font-weight:600}
+  .ring{position:relative;width:58px;height:58px}
+  .ring svg{transform:rotate(-90deg)}
+  .ring .track{stroke:var(--paper-2)}
+  .ring .prog{stroke:var(--gold);stroke-linecap:round;animation:tick 14s linear infinite}
+  @keyframes tick{from{stroke-dashoffset:0}to{stroke-dashoffset:300}}
+  .ring .num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:18px}
+  .q-bar .right{display:flex;align-items:center;gap:12px}
+  .mini-join{display:flex;align-items:center;gap:10px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:7px 12px 7px 7px}
+  .mini-qr{width:40px;height:40px;border-radius:8px;background:#fff;border:1px solid var(--line);padding:3px}
+  .mini-join .pin-sm{font-family:var(--font-display);font-weight:800;font-size:17px;letter-spacing:.04em}
+
+  .q-card{background:#fff;border:1px solid var(--line);border-radius:var(--r-xl);box-shadow:var(--sh-2);padding:34px 40px;text-align:center;position:relative;overflow:hidden}
+  .q-card::before{content:"";position:absolute;left:0;top:0;height:6px;width:100%;background:linear-gradient(90deg,var(--A),var(--B),var(--C),var(--D));opacity:.85}
+  .q-card .qtopic{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--indigo-soft);background:var(--paper);border:1px solid var(--line);padding:7px 14px;border-radius:var(--r-pill);margin-bottom:18px}
+  .q-text{font-family:var(--font-display);font-weight:700;font-size:38px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);max-width:880px;margin:0 auto}
+
+  .answers{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .ans{display:flex;align-items:center;gap:16px;padding:20px 22px;border-radius:var(--r-lg);border:1.5px solid;cursor:pointer;transition:.16s;position:relative;overflow:hidden}
+  .ans:hover{transform:translateY(-2px);box-shadow:var(--sh-2)}
+  .ans .badge{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;color:#fff;flex:0 0 auto;box-shadow:var(--sh-1)}
+  .ans .badge .ltr{font-family:var(--font-display);font-weight:800;font-size:20px;margin-left:2px}
+  .ans .body{flex:1;min-width:0}
+  .ans .opt{font-weight:700;font-size:19px;line-height:1.15}
+  .ans .meta{font-size:12px;font-weight:700;color:var(--muted);margin-top:3px}
+  .ans .pct{font-family:var(--font-display);font-weight:800;font-size:16px}
+  .ans.A{background:var(--A-soft);border-color:var(--A-line)} .ans.A .badge{background:var(--A)} .ans.A .pct{color:var(--A)}
+  .ans.B{background:var(--B-soft);border-color:var(--B-line)} .ans.B .badge{background:var(--B)} .ans.B .pct{color:var(--B)}
+  .ans.C{background:var(--C-soft);border-color:var(--C-line)} .ans.C .badge{background:var(--C)} .ans.C .pct{color:var(--C)}
+  .ans.D{background:var(--D-soft);border-color:var(--D-line)} .ans.D .badge{background:var(--D)} .ans.D .pct{color:var(--D)}
+  .ans.correct{border-width:2.5px;box-shadow:0 0 0 4px rgba(16,160,98,.12)}
+  .ans.correct::after{content:"✓";position:absolute;right:18px;top:50%;transform:translateY(-50%);width:30px;height:30px;border-radius:50%;background:var(--ok);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800}
+  .voteline{position:absolute;left:0;bottom:0;height:5px;border-radius:0 5px 0 0}
+  .ans.A .voteline{background:var(--A)} .ans.B .voteline{background:var(--B)} .ans.C .voteline{background:var(--C)} .ans.D .voteline{background:var(--D)}
+
+  .q-foot{display:flex;align-items:center;justify-content:space-between;gap:16px}
+  .host-ctrl{display:flex;gap:10px;align-items:center}
+  .reveal-note{font-size:13px;color:var(--muted);font-weight:600}
+
+  /* ===================== 3. STANDINGS / PODIUM ===================== */
+  .fin-head{text-align:center;margin-bottom:10px}
+  .fin-head h1{font-family:var(--font-display);font-weight:800;font-size:40px;margin:6px 0 0;letter-spacing:-.02em;
+    background:linear-gradient(120deg,var(--navy),var(--indigo) 60%,var(--violet));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .confetti-stage{position:relative}
+  .confetti{position:absolute;top:-10px;width:9px;height:14px;border-radius:2px;opacity:.9;animation:fall 3.4s linear infinite}
+  @keyframes fall{0%{transform:translateY(-20px) rotate(0);opacity:0}10%{opacity:1}100%{transform:translateY(560px) rotate(540deg);opacity:0}}
+
+  .podium{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:18px;align-items:end;margin:30px 0 8px}
+  .pod{background:#fff;border:1px solid var(--line);border-radius:var(--r-lg) var(--r-lg) 0 0;box-shadow:var(--sh-1);text-align:center;padding:18px 14px 0;position:relative}
+  .pod .who{margin-bottom:12px}
+  .pod .ava{width:60px;height:60px;margin:0 auto 8px;font-size:20px;border:3px solid #fff;box-shadow:var(--sh-1)}
+  .pod .nm{font-family:var(--font-display);font-weight:700;font-size:18px}
+  .pod .sc{font-weight:800;color:var(--muted);font-size:13px;margin-top:2px}
+  .pod .medal{position:absolute;top:-26px;left:50%;transform:translateX(-50%);width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:var(--sh-1);border:4px solid #fff}
+  .pod .tier{border-radius:14px 14px 0 0;margin:0 -14px;color:#fff;font-family:var(--font-display);font-weight:800;font-size:34px;padding-top:10px;display:flex;align-items:flex-start;justify-content:center}
+  .pod.p2 .tier{height:120px;background:linear-gradient(180deg,#C9CEDB,#9AA0B4)}
+  .pod.p1 .tier{height:168px;background:linear-gradient(180deg,#FFD866,#F0B400)}
+  .pod.p3 .tier{height:96px;background:linear-gradient(180deg,#E7A86F,#B96B2E)}
+  .pod.p1{box-shadow:var(--sh-2)}
+  .pod.p1 .medal{background:linear-gradient(135deg,#FFE082,#E69500)}
+  .pod.p2 .medal{background:linear-gradient(135deg,#EEF1F7,#AEB4C6)}
+  .pod.p3 .medal{background:linear-gradient(135deg,#F5CFA6,#C97B3F)}
+  .pod .ranklab{font-size:12px;font-weight:800;letter-spacing:.1em;color:var(--muted)}
+
+  .ranklist{background:#fff;border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--sh-1);padding:8px;margin-top:24px}
+  .rk{display:flex;align-items:center;gap:14px;padding:13px 16px;border-radius:var(--r)}
+  .rk+.rk{border-top:1px solid var(--line)}
+  .rk .rno{font-family:var(--font-display);font-weight:800;font-size:17px;color:var(--muted-2);width:26px;text-align:center}
+  .rk .ava{width:36px;height:36px;font-size:13px}
+  .rk .nm{font-weight:700;font-size:15px}
+  .rk .arch{font-size:11.5px;font-weight:700;color:var(--muted)}
+  .rk .delta{font-size:12.5px;font-weight:700;display:inline-flex;align-items:center;gap:3px}
+  .rk .delta.up{color:var(--ok)} .rk .delta.dn{color:#E5484D}
+  .rk .sc{margin-left:auto;font-family:var(--font-display);font-weight:800;font-size:17px}
+  .fin-cta{display:flex;gap:12px;justify-content:center;margin-top:26px;flex-wrap:wrap}
+
+  /* ===================== 4. PHONE REMOTE ===================== */
+  .remote-wrap{display:flex;gap:40px;align-items:flex-start;justify-content:center;flex-wrap:wrap;padding:10px 0 20px}
+  .phone{width:362px;background:#0F1B3D;border-radius:46px;padding:13px;box-shadow:var(--sh-2);position:relative;flex:0 0 auto}
+  .phone .notch{position:absolute;top:18px;left:50%;transform:translateX(-50%);width:130px;height:26px;background:#0F1B3D;border-radius:0 0 18px 18px;z-index:3}
+  .screen-in{background:var(--paper);border-radius:34px;overflow:hidden;min-height:700px;position:relative}
+  .r-top{display:flex;align-items:center;justify-content:space-between;padding:42px 20px 12px}
+  .r-top .mini-brand{display:flex;align-items:center;gap:8px;font-family:var(--font-display);font-weight:700;font-size:14px}
+  .r-top .mini-brand svg{width:24px;height:24px;border-radius:6px}
+  .r-body{padding:6px 18px 24px}
+  .r-greet{display:flex;align-items:center;gap:11px;background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:11px 13px;margin-bottom:16px;box-shadow:var(--sh-1)}
+  .r-greet .ava{width:40px;height:40px;font-size:14px}
+  .r-greet .you{font-weight:800;font-size:14px}
+  .r-greet .pts{font-size:11.5px;color:var(--muted);font-weight:700}
+  .r-eyebrow{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:6px 4px 8px}
+  .r-q{background:#fff;border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 18px;box-shadow:var(--sh-1);margin-bottom:16px}
+  .r-q .qq{font-family:var(--font-display);font-weight:700;font-size:18px;line-height:1.25;letter-spacing:-.01em}
+  .r-q .qmeta{font-size:11.5px;font-weight:700;color:var(--muted);margin-top:8px}
+  .r-answers{display:flex;flex-direction:column;gap:11px}
+  .r-ans{display:flex;align-items:center;gap:13px;padding:15px 16px;border-radius:var(--r);border:1.5px solid;cursor:pointer;transition:.15s}
+  .r-ans:active{transform:scale(.98)}
+  .r-ans .badge{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--font-display);font-weight:800;font-size:17px;flex:0 0 auto}
+  .r-ans .opt{font-weight:700;font-size:15.5px}
+  .r-ans.A{background:var(--A-soft);border-color:var(--A-line)} .r-ans.A .badge{background:var(--A)}
+  .r-ans.B{background:var(--B-soft);border-color:var(--B-line)} .r-ans.B .badge{background:var(--B)}
+  .r-ans.C{background:var(--C-soft);border-color:var(--C-line)} .r-ans.C .badge{background:var(--C)}
+  .r-ans.D{background:var(--D-soft);border-color:var(--D-line)} .r-ans.D .badge{background:var(--D)}
+  .r-ans.selected{border-width:2.5px;box-shadow:0 0 0 4px rgba(15,27,61,.06)}
+  .r-locked{margin-top:18px;background:var(--navy);color:#fff;border-radius:var(--r-lg);padding:18px;text-align:center;animation:popin .5s}
+  .r-locked .lk{font-family:var(--font-display);font-weight:800;font-size:19px;display:flex;align-items:center;justify-content:center;gap:8px}
+  .r-locked .lk .tick{width:26px;height:26px;border-radius:50%;background:var(--ok);display:inline-flex;align-items:center;justify-content:center}
+  .r-locked .sub{font-size:12.5px;color:rgba(255,255,255,.7);font-weight:600;margin-top:6px}
+  .r-wait{display:flex;gap:5px;justify-content:center;margin-top:12px}
+  .r-wait i{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.3);animation:blink 1.2s infinite}
+  .r-wait i:nth-child(2){animation-delay:.2s}.r-wait i:nth-child(3){animation-delay:.4s}
+  @keyframes blink{0%,100%{opacity:.3}50%{opacity:1;background:var(--gold)}}
+
+  .remote-side{max-width:300px;padding-top:20px}
+  .remote-side h3{font-family:var(--font-display);font-size:22px;margin:0 0 8px;letter-spacing:-.02em}
+  .remote-side p{color:var(--muted);font-size:14px;line-height:1.55;margin:0 0 14px}
+  .remote-side .row{display:flex;align-items:center;gap:10px;font-size:13.5px;font-weight:600;color:var(--ink);margin-bottom:10px}
+  .remote-side .row .k{width:26px;height:26px;border-radius:8px;background:var(--gold);color:var(--navy);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:0 0 auto}
+  .r-subtabs{display:flex;gap:6px;margin:0 4px 14px;background:#fff;border:1px solid var(--line);padding:4px;border-radius:var(--r-pill);width:max-content}
+  .r-subtabs button{border:0;background:transparent;font-family:var(--font-body);font-weight:700;font-size:12.5px;color:var(--muted);padding:7px 14px;border-radius:var(--r-pill);cursor:pointer}
+  .r-subtabs button.active{background:var(--navy);color:#fff}
+  .r-state{display:none}.r-state.active{display:block;animation:fade .35s}
+
+  .result-card{background:linear-gradient(160deg,#fff,var(--paper));border:1px solid var(--line);border-radius:var(--r-lg);padding:22px;text-align:center;box-shadow:var(--sh-1)}
+  .result-card .place{font-family:var(--font-display);font-weight:800;font-size:48px;line-height:1;
+    background:linear-gradient(120deg,var(--gold-dark),var(--gold));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .result-card .lbl{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:2px}
+  .result-card .score{font-family:var(--font-display);font-weight:800;font-size:26px;margin-top:12px}
+  .result-card .acc{font-size:12.5px;color:var(--muted);font-weight:700}
+  .result-podium{display:flex;align-items:flex-end;justify-content:center;gap:8px;margin:18px 0 6px}
+  .rp{width:64px;background:#fff;border:1px solid var(--line);border-radius:10px 10px 0 0;text-align:center;padding:8px 4px 0}
+  .rp .ava{width:34px;height:34px;margin:0 auto 4px;font-size:12px}
+  .rp .nm{font-size:10px;font-weight:700;color:var(--muted)}
+  .rp .bar{margin:6px -4px 0;border-radius:8px 8px 0 0}
+  .rp.p1 .bar{height:62px;background:linear-gradient(180deg,#FFD866,#F0B400)}
+  .rp.p2 .bar{height:46px;background:linear-gradient(180deg,#C9CEDB,#9AA0B4)}
+  .rp.p3 .bar{height:34px;background:linear-gradient(180deg,#E7A86F,#B96B2E)}
+
+  @media (max-width:980px){
+    .lobby-grid{grid-template-columns:1fr}
+    .answers{grid-template-columns:1fr}
+    .q-text{font-size:28px}
+    .topbar{flex-wrap:wrap}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ TOP SWITCHER ============ -->
+<div class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 64 64" width="34" height="34" aria-hidden="true">
+      <rect width="64" height="64" rx="15" fill="#FBD13B"/>
+      <circle cx="31" cy="29" r="15" fill="none" stroke="#0F1B3D" stroke-width="9"/>
+      <path d="M39 38 49 48" fill="none" stroke="#0F1B3D" stroke-width="9" stroke-linecap="round"/>
+    </svg>
+    <b>Quizotic</b>
+  </div>
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-tab="lobby"><span class="dot"></span>Lobby</button>
+    <button class="tab" data-tab="question"><span class="dot"></span>Live Question</button>
+    <button class="tab" data-tab="standings"><span class="dot"></span>Standings</button>
+    <button class="tab" data-tab="remote"><span class="dot"></span>Phone Remote</button>
+  </div>
+  <div class="mock-badge">Light redesign · mockup</div>
+</div>
+
+<!-- ===================== 1. LOBBY ===================== -->
+<section class="screen active" id="lobby">
+  <div class="wrap">
+    <div class="lobby-hero">
+      <div>
+        <span class="label-eyebrow">Quiz · Indian Cricket Legends</span>
+        <h1>The room is filling up.<br><em>Let's make some noise.</em></h1>
+      </div>
+      <div class="lobby-mode">
+        <button class="mode-pill active"><span class="swatch" style="display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px"></span>Competitive</button>
+        <button class="mode-pill">Accuracy</button>
+        <button class="mode-pill">Reflection</button>
+      </div>
+    </div>
+
+    <div class="lobby-grid">
+      <!-- JOIN CARD -->
+      <div class="card join-card">
+        <div class="label-eyebrow eyebrow">Game PIN</div>
+        <div class="pin">254 013</div>
+        <div class="qr">
+          <!-- decorative QR -->
+          <svg viewBox="0 0 29 29" width="100%" height="100%" shape-rendering="crispEdges">
+            <rect width="29" height="29" fill="#fff"/>
+            <g fill="#0F1B3D" id="qrg"></g>
+          </svg>
+        </div>
+        <div class="label-eyebrow eyebrow" style="color:var(--ink)">Scan to join</div>
+        <div class="join-url">or visit <b>quizotic.live/join</b> &nbsp;·&nbsp; enter <b>254013</b></div>
+        <div class="remote-toggle"><span class="toggle"></span> Use phone as remote</div>
+      </div>
+
+      <!-- PLAYERS CARD -->
+      <div class="card players-card">
+        <div class="players-head">
+          <h2><span class="star">★</span> Waiting for players…</h2>
+          <span class="count-pill">6 joined</span>
+        </div>
+        <div class="players-grid">
+          <div class="player"><span class="ava" style="background:var(--A)">R</span><div><div class="nm">Rohit</div><div class="arch">⚡ Speedster</div></div></div>
+          <div class="player"><span class="ava" style="background:var(--B)">P</span><div><div class="nm">Priya</div><div class="arch">🎯 Sharpshooter</div></div></div>
+          <div class="player"><span class="ava" style="background:var(--C)">A</span><div><div class="nm">Aarav</div><div class="arch">🧠 Strategist</div></div></div>
+          <div class="player"><span class="ava" style="background:var(--D)">M</span><div><div class="nm">Meera</div><div class="arch">🔥 Streaker</div></div></div>
+          <div class="player"><span class="ava" style="background:var(--violet)">K</span><div><div class="nm">Kabir</div><div class="arch">💎 Consistent</div></div></div>
+          <div class="player"><span class="ava" style="background:var(--indigo-soft)">S</span><div><div class="nm">Sara</div><div class="arch">🌟 Rookie</div></div></div>
+          <div class="slot">+ waiting…</div>
+          <div class="slot">+ waiting…</div>
+          <div class="slot">+ waiting…</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lobby-foot">
+      <div class="left">
+        <button class="btn btn-ghost">🔗 Share with friends</button>
+        <button class="icon-btn" title="Help">?</button>
+        <button class="icon-btn" title="Settings">⚙</button>
+      </div>
+      <button class="btn btn-primary lg start-cta">Start Quiz  →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 2. LIVE QUESTION ===================== -->
+<section class="screen" id="question">
+  <div class="wrap q-stage">
+    <!-- top bar -->
+    <div class="q-bar">
+      <div class="left">
+        <span class="chip live">LIVE QUESTION</span>
+        <div class="q-counter">
+          <span class="ey">Question</span>
+          <span class="num">Q2 <span class="of">of 5</span></span>
+        </div>
+        <div class="ring">
+          <svg width="58" height="58" viewBox="0 0 58 58">
+            <circle class="track" cx="29" cy="29" r="25" fill="none" stroke-width="6"/>
+            <circle class="prog" cx="29" cy="29" r="25" fill="none" stroke-width="6" stroke-dasharray="157" stroke-dashoffset="40"/>
+          </svg>
+          <span class="num">12</span>
+        </div>
+      </div>
+      <div class="right">
+        <span class="chip gold" style="animation:ping 1.6s infinite">6 / 6 answered</span>
+        <div class="mini-join">
+          <div class="mini-qr"><svg viewBox="0 0 29 29" width="100%" height="100%" shape-rendering="crispEdges"><rect width="29" height="29" fill="#fff"/><g fill="#0F1B3D" id="qrg2"></g></svg></div>
+          <div><div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.08em">JOIN</div><div class="pin-sm">254013</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- question card -->
+    <div class="q-card">
+      <span class="qtopic">🏏 Cricket · ODI Records</span>
+      <p class="q-text">Which Indian cricketer holds the record for the most wickets in One Day Internationals?</p>
+    </div>
+
+    <!-- answers -->
+    <div class="answers">
+      <div class="ans A">
+        <span class="badge">▲<span class="ltr">A</span></span>
+        <div class="body"><div class="opt">Kapil Dev</div><div class="meta">2 votes</div></div>
+        <span class="pct">33%</span>
+        <span class="voteline" style="width:33%"></span>
+      </div>
+      <div class="ans B">
+        <span class="badge">◆<span class="ltr">B</span></span>
+        <div class="body"><div class="opt">Harbhajan Singh</div><div class="meta">1 vote</div></div>
+        <span class="pct">17%</span>
+        <span class="voteline" style="width:17%"></span>
+      </div>
+      <div class="ans C correct">
+        <span class="badge">●<span class="ltr">C</span></span>
+        <div class="body"><div class="opt">Anil Kumble</div><div class="meta">3 votes · correct</div></div>
+        <span class="pct">50%</span>
+        <span class="voteline" style="width:50%"></span>
+      </div>
+      <div class="ans D">
+        <span class="badge">■<span class="ltr">D</span></span>
+        <div class="body"><div class="opt">Zaheer Khan</div><div class="meta">0 votes</div></div>
+        <span class="pct">0%</span>
+        <span class="voteline" style="width:0%"></span>
+      </div>
+    </div>
+
+    <!-- foot -->
+    <div class="q-foot">
+      <div class="host-ctrl">
+        <button class="icon-btn" title="Music">🎵</button>
+        <button class="icon-btn" title="Quality">⚙</button>
+        <button class="icon-btn" title="Pause">⏸</button>
+        <button class="icon-btn" title="Players">👥</button>
+        <span class="reveal-note">All players answered — reveal when ready</span>
+      </div>
+      <button class="btn btn-primary lg">Reveal Answer  →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 3. STANDINGS ===================== -->
+<section class="screen" id="standings">
+  <div class="wrap">
+    <div class="fin-head confetti-stage">
+      <span class="label-eyebrow">Final standings</span>
+      <h1>And the champions are…</h1>
+      <div id="confetti"></div>
+    </div>
+
+    <!-- podium -->
+    <div class="podium">
+      <div class="pod p2">
+        <div class="medal">🥈</div>
+        <div class="who"><div class="ava" style="background:var(--B)">P</div><div class="nm">Priya</div><div class="sc">4,820 pts</div></div>
+        <div class="ranklab">2ND</div>
+        <div class="tier">2</div>
+      </div>
+      <div class="pod p1">
+        <div class="medal">🥇</div>
+        <div class="who"><div class="ava" style="background:var(--A)">R</div><div class="nm">Rohit</div><div class="sc">5,640 pts</div></div>
+        <div class="ranklab">CHAMPION</div>
+        <div class="tier">1</div>
+      </div>
+      <div class="pod p3">
+        <div class="medal">🥉</div>
+        <div class="who"><div class="ava" style="background:var(--C)">A</div><div class="nm">Aarav</div><div class="sc">4,210 pts</div></div>
+        <div class="ranklab">3RD</div>
+        <div class="tier">3</div>
+      </div>
+    </div>
+
+    <!-- rank list -->
+    <div class="ranklist">
+      <div class="rk">
+        <div class="rno">4</div>
+        <div class="ava" style="background:var(--D)">M</div>
+        <div><div class="nm">Meera</div><div class="arch">🔥 Streaker</div></div>
+        <span class="delta up">▲ 2</span>
+        <div class="sc">3,890</div>
+      </div>
+      <div class="rk">
+        <div class="rno">5</div>
+        <div class="ava" style="background:var(--violet)">K</div>
+        <div><div class="nm">Kabir</div><div class="arch">💎 Consistent</div></div>
+        <span class="delta dn">▼ 1</span>
+        <div class="sc">3,510</div>
+      </div>
+      <div class="rk">
+        <div class="rno">6</div>
+        <div class="ava" style="background:var(--indigo-soft)">S</div>
+        <div><div class="nm">Sara</div><div class="arch">🌟 Rookie</div></div>
+        <span class="delta up">▲ 1</span>
+        <div class="sc">2,940</div>
+      </div>
+    </div>
+
+    <div class="fin-cta">
+      <button class="btn btn-primary lg">▶ Play Again</button>
+      <button class="btn btn-ghost">📤 Share Results</button>
+      <button class="btn btn-dark">Download Report</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 4. PHONE REMOTE ===================== -->
+<section class="screen" id="remote">
+  <div class="wrap">
+    <div class="remote-wrap">
+      <!-- phone -->
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="screen-in">
+          <div class="r-top">
+            <div class="mini-brand">
+              <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="15" fill="#FBD13B"/><circle cx="31" cy="29" r="15" fill="none" stroke="#0F1B3D" stroke-width="9"/><path d="M39 38 49 48" fill="none" stroke="#0F1B3D" stroke-width="9" stroke-linecap="round"/></svg>
+              Quizotic
+            </div>
+            <span class="chip live">LIVE</span>
+          </div>
+          <div class="r-body">
+
+            <div class="r-greet">
+              <span class="ava" style="background:var(--C)">A</span>
+              <div style="flex:1"><div class="you">Hey Aarav 👋</div><div class="pts">3,890 pts · 🥉 3rd place</div></div>
+              <span class="chip gold">⚡ 3 streak</span>
+            </div>
+
+            <!-- sub-tab switcher -->
+            <div class="r-subtabs">
+              <button class="active" data-r="answering">Answering</button>
+              <button data-r="locked">Locked in</button>
+              <button data-r="result">Result</button>
+            </div>
+
+            <!-- state: answering -->
+            <div class="r-state active" id="r-answering">
+              <div class="r-eyebrow">Question 2 of 5 · 12s</div>
+              <div class="r-q">
+                <div class="qq">Which Indian cricketer holds the record for the most ODI wickets?</div>
+                <div class="qmeta">Tap your answer · faster = more points</div>
+              </div>
+              <div class="r-answers">
+                <div class="r-ans A"><span class="badge">A</span><span class="opt">Kapil Dev</span></div>
+                <div class="r-ans B selected"><span class="badge">B</span><span class="opt">Harbhajan Singh</span></div>
+                <div class="r-ans C"><span class="badge">C</span><span class="opt">Anil Kumble</span></div>
+                <div class="r-ans D"><span class="badge">D</span><span class="opt">Zaheer Khan</span></div>
+              </div>
+            </div>
+
+            <!-- state: locked -->
+            <div class="r-state" id="r-locked">
+              <div class="r-eyebrow">Answer locked</div>
+              <div class="r-q"><div class="qq">Which Indian cricketer holds the record for the most ODI wickets?</div></div>
+              <div class="r-answers">
+                <div class="r-ans B selected"><span class="badge">B</span><span class="opt">Harbhajan Singh</span></div>
+              </div>
+              <div class="r-locked">
+                <div class="lk"><span class="tick">✓</span> Locked in!</div>
+                <div class="sub">Waiting for the host to reveal the answer</div>
+                <div class="r-wait"><i></i><i></i><i></i></div>
+              </div>
+            </div>
+
+            <!-- state: result -->
+            <div class="r-state" id="r-result">
+              <div class="result-card">
+                <div class="place">3rd</div>
+                <div class="lbl">You finished</div>
+                <div class="score">3,890 pts</div>
+                <div class="acc">4 / 5 correct · 80% accuracy</div>
+                <div class="result-podium">
+                  <div class="rp p2"><div class="ava" style="background:var(--B)">P</div><div class="nm">Priya</div><div class="bar"></div></div>
+                  <div class="rp p1"><div class="ava" style="background:var(--A)">R</div><div class="nm">Rohit</div><div class="bar"></div></div>
+                  <div class="rp p3"><div class="ava" style="background:var(--C)">A</div><div class="nm">You</div><div class="bar"></div></div>
+                </div>
+              </div>
+              <button class="btn btn-primary lg" style="width:100%;margin-top:16px">Play Again  →</button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- side notes -->
+      <div class="remote-side">
+        <h3>Player remote</h3>
+        <p>The phone view mirrors the host — same soft-tinted answer tiles, huge tap targets, and a calm light surface. Switch states above to see the full player journey.</p>
+        <div class="row"><span class="k">1</span> Answering — tap a tile to choose</div>
+        <div class="row"><span class="k">2</span> Locked in — wait for the reveal</div>
+        <div class="row"><span class="k">3</span> Result — your rank, score &amp; podium</div>
+        <p style="margin-top:18px;font-size:13px">Designed to stay under 100KB and run smoothly on a 1–2 Mbps classroom connection.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  // tab switcher
+  const tabs=document.querySelectorAll('.tab');
+  const screens={lobby,question,standings,remote};
+  tabs.forEach(t=>t.onclick=()=>{
+    tabs.forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    Object.values(screens).forEach(s=>s.classList.remove('active'));
+    document.getElementById(t.dataset.tab).classList.add('active');
+    if(t.dataset.tab==='standings') startConfetti();
+  });
+
+  // remote sub-states
+  document.querySelectorAll('.r-subtabs button').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('.r-subtabs button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    document.querySelectorAll('.r-state').forEach(s=>s.classList.remove('active'));
+    document.getElementById('r-'+b.dataset.r).classList.add('active');
+  });
+
+  // decorative QR fill (deterministic pattern)
+  function fillQR(id){
+    const g=document.getElementById(id); if(!g) return;
+    let s='';
+    for(let y=0;y<29;y++)for(let x=0;x<29;x++){
+      const finder=(x<7&&y<7)||(x>21&&y<7)||(x<7&&y>21);
+      const innerFinder=(x<7&&y<7)&&((x==0||x==6||y==0||y==6)||(x>=2&&x<=4&&y>=2&&y<=4))
+        ||(x>21&&y<7)&&((x==22||x==28||y==0||y==6)||(x>=24&&x<=26&&y>=2&&y<=4))
+        ||(x<7&&y>21)&&((x==0||x==6||y==22||y==28)||(x>=2&&x<=4&&y>=24&&y<=26));
+      if(innerFinder){ s+=`<rect x="${x}" y="${y}" width="1" height="1"/>`; continue; }
+      if(finder) continue;
+      if(((x*7+y*3+x*y)%5)===0) s+=`<rect x="${x}" y="${y}" width="1" height="1"/>`;
+    }
+    g.innerHTML=s;
+  }
+  fillQR('qrg'); fillQR('qrg2');
+
+  // confetti
+  function startConfetti(){
+    const box=document.getElementById('confetti'); if(!box||box.dataset.done) return;
+    box.dataset.done='1'; box.innerHTML='';
+    const cols=['#FBD13B','#F23A5C','#2D7FF9','#E08A1E','#10A062','#7C3AED'];
+    for(let i=0;i<46;i++){
+      const c=document.createElement('div'); c.className='confetti';
+      c.style.left=(Math.random()*100)+'%';
+      c.style.background=cols[i%cols.length];
+      c.style.animationDelay=(Math.random()*2.2)+'s';
+      c.style.animationDuration=(2.6+Math.random()*1.8)+'s';
+      c.style.transform=`rotate(${Math.random()*360}deg)`;
+      box.appendChild(c);
+    }
+  }
+  startConfetti();
+
+  // mode pills (lobby)
+  document.querySelectorAll('.mode-pill').forEach(p=>p.onclick=()=>{
+    document.querySelectorAll('.mode-pill').forEach(x=>x.classList.remove('active'));
+    p.classList.add('active');
+  });
+</script>
+</body>
+</html>
