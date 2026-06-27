@@ -10,6 +10,7 @@ import { Avatar } from '@/components/Avatar'
 import { Podium } from '@/components/Podium'
 import { PostSessionHeader } from '@/components/PostSessionHeader'
 import { LottieConfetti } from '@/components/LottieConfetti'
+import { CelebrationConfetti } from '@/components/CelebrationConfetti'
 import { SessionReport } from '@/components/SessionReport'
 import { LeaderboardView } from '@/components/LeaderboardView'
 import { playLeaderboardJingle, playTick, playBackgroundMusic, stopBackgroundMusic, playBassBoom, playCelebration, playFirecracker, preloadCelebrationSounds, playDrumroll, stopDrumroll, isMuted, toggleMuted } from '@/lib/sounds'
@@ -2642,6 +2643,11 @@ export default function SessionPage() {
                 particle layer; both are scoped (layer="absolute") to this hero
                 section and ignore pointer events. */}
             <LottieConfetti layer="absolute" />
+            {/* Pure-CSS gold-particle layer — reliable fallback that always
+                shows, even if the Lottie player fails to paint or the host has
+                Reduce Motion on (see CelebrationConfetti's reduced-motion path).
+                Lottie alone proved fragile in production, so keep both. */}
+            <CelebrationConfetti active layer="absolute" />
             <div className="relative z-10 text-center">
               <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.24em]" style={{ color: 'rgba(251,209,59,0.72)' }}>
                 Final Standings
