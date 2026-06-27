@@ -163,7 +163,19 @@ async function reapOrphanedGameSessions() {
 //      CSV/XLSX/PDF export endpoints work on scheduled quizzes unchanged.
 // Every step is keyed on current DB state (WHERE guards / results IS NULL),
 // so the sweep is idempotent and safe across restarts.
-const ASYNC_SWEEP_INTERVAL_MS = 60_000
+// Adaptive sweep cadence. The sweep is delay-tolerant housekeeping: participant
+// deadlines are enforced live in the async routes (start/answer/state all check
+// closesAt/deadlineAt against now()), and host reports compute live from the
+// Answer/Attendee rows — so nothing user-facing depends on how promptly the
+// sweep runs. A fixed 60s interval kept firing DB queries 24/7, which pinned
+// Neon's compute awake (it can never scale-to-zero) and burned the entire
+// monthly compute allowance doing nothing during idle periods.
+//
+// Now: sweep often only while there is pending async work (open scheduled
+// quizzes, or ended-but-unfinalized sessions), and back off hard when idle so
+// the database can suspend between checks.
+const ASYNC_SWEEP_ACTIVE_MS = 60_000      // pending async work — stay responsive
+const ASYNC_SWEEP_IDLE_MS = 15 * 60_000   // nothing pending — let Neon scale-to-zero
 
 // Sum recorded answer points into Attendee.finalScore for in-progress
 // attendees matching extraWhere. Returns affected sessionIds.
@@ -285,8 +297,11 @@ async function buildAsyncResults(sessionId) {
   }
 }
 
+// Returns true if there is pending async work (open scheduled sessions, or
+// ended sessions still missing their finalized results) — the caller uses this
+// to decide whether to sweep again soon or back off and let the DB suspend.
 async function sweepAsyncSessions() {
-  if (!dbPool) return
+  if (!dbPool) return false
   try {
     // 1. Per-participant deadlines (open sessions only — ended ones are
     //    handled in step 3 anyway).
@@ -333,8 +348,26 @@ async function sweepAsyncSessions() {
         console.log(`[async-sweep] finalized results for session ${id} (${results.leaderboard.length} finisher(s))`)
       }
     }
+
+    // 4. Decide whether to keep sweeping at the active cadence. There is still
+    //    pending work if any async session is open (will eventually need
+    //    closing) or any ended session is still missing results. One cheap,
+    //    fully-indexed existence check — cost is dominated by the round trip,
+    //    not the scan. When this returns false the loop backs off to the idle
+    //    cadence and the DB is free to suspend.
+    const { rows: [pending] } = await dbPool.query(
+      `SELECT
+         EXISTS(SELECT 1 FROM "GameSession" WHERE mode = 'async' AND status = 'open') AS has_open,
+         EXISTS(SELECT 1 FROM "GameSession"
+                WHERE mode = 'async' AND status = 'ended' AND results IS NULL
+                  AND "endedAt" > now() - interval '7 days') AS has_unfinalized`,
+    )
+    return Boolean(pending?.has_open || pending?.has_unfinalized)
   } catch (err) {
     console.warn('[async-sweep] pass failed:', err.message)
+    // On error, treat as "no pending work" so a persistently failing DB doesn't
+    // hammer at the active cadence — the idle cadence still retries periodically.
+    return false
   }
 }
 
@@ -735,9 +768,23 @@ app.prepare().then(async () => {
   // Fire-and-forget: closing out orphaned rows must not delay boot.
   reapOrphanedGameSessions()
   // Robot invigilator for scheduled/self-paced quizzes: first pass shortly
-  // after boot (catch up on anything due while we were down), then every 60s.
-  setTimeout(sweepAsyncSessions, 5_000).unref?.()
-  setInterval(sweepAsyncSessions, ASYNC_SWEEP_INTERVAL_MS).unref?.()
+  // after boot (catch up on anything due while we were down), then on an
+  // adaptive cadence (active while work is pending, idle otherwise).
+  // Self-rescheduling sweep loop. Runs soon after boot to catch up on anything
+  // due while we were down, then reschedules itself: a short delay while async
+  // work is pending, a long idle delay otherwise. Using a chained setTimeout
+  // (not setInterval) also guarantees passes never overlap if one runs long.
+  async function runAsyncSweepLoop() {
+    let pending = false
+    try {
+      pending = await sweepAsyncSessions()
+    } catch (err) {
+      console.warn('[async-sweep] loop error:', err.message)
+    }
+    const delay = pending ? ASYNC_SWEEP_ACTIVE_MS : ASYNC_SWEEP_IDLE_MS
+    setTimeout(runAsyncSweepLoop, delay).unref?.()
+  }
+  setTimeout(runAsyncSweepLoop, 5_000).unref?.()
 
   const httpServer = createServer((req, res) => {
     // Short-circuit: session lookup API (no auth, reads in-memory sessions Map)
