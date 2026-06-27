@@ -93,6 +93,74 @@ function plusOneDay(localValue: string): string {
   return toLocalInputValue(new Date(base.getTime() + 24 * 60 * 60 * 1000))
 }
 
+// Add N days to a local datetime-local string, returning a local string.
+function plusDays(localValue: string, days: number): string {
+  if (!localValue) return ''
+  const base = new Date(localValue)
+  if (isNaN(base.getTime())) return ''
+  return toLocalInputValue(new Date(base.getTime() + days * 24 * 60 * 60 * 1000))
+}
+
+// ── "Opens at" quick presets ──────────────────────────────────────────────
+// Each returns a Date guaranteed to be in the future so the server's
+// past-time guard never rejects a one-tap choice.
+function presetInOneHour(): Date {
+  const d = new Date(Date.now() + 60 * 60 * 1000)
+  d.setSeconds(0, 0)
+  return d
+}
+function presetTomorrowAt(hour: number): Date {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  d.setHours(hour, 0, 0, 0)
+  return d
+}
+// Upcoming Saturday at 9 AM (today if it's Saturday before 9, else next Sat).
+function presetThisSaturday9(): Date {
+  const d = new Date()
+  d.setHours(9, 0, 0, 0)
+  let add = (6 - d.getDay() + 7) % 7
+  if (add === 0 && Date.now() > d.getTime()) add = 7
+  d.setDate(d.getDate() + add)
+  return d
+}
+
+// Human-readable echo, e.g. "Sat, 28 Jun, 9:00 AM" in the viewer's local tz.
+function humanLocal(localValue: string): string {
+  if (!localValue) return ''
+  const d = new Date(localValue)
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleString('en-IN', {
+    weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true,
+  })
+}
+
+// "1 day", "2 days 6 hrs", "45 min" — the window between open and close.
+function humanDuration(opensValue: string, closesValue: string): string {
+  const a = new Date(opensValue).getTime()
+  const b = new Date(closesValue).getTime()
+  if (isNaN(a) || isNaN(b) || b <= a) return ''
+  const mins = Math.round((b - a) / 60000)
+  const days = Math.floor(mins / 1440)
+  const hrs = Math.floor((mins % 1440) / 60)
+  const rem = mins % 60
+  const parts: string[] = []
+  if (days) parts.push(`${days} day${days > 1 ? 's' : ''}`)
+  if (hrs) parts.push(`${hrs} hr${hrs > 1 ? 's' : ''}`)
+  if (rem && !days) parts.push(`${rem} min`)
+  return parts.join(' ') || '0 min'
+}
+
+// Short local timezone name (e.g. "GMT+5:30") for the reassurance label.
+function localTzLabel(): string {
+  try {
+    const parts = new Intl.DateTimeFormat('en-IN', { timeZoneName: 'short' }).formatToParts(new Date())
+    return parts.find(p => p.type === 'timeZoneName')?.value ?? 'local time'
+  } catch {
+    return 'local time'
+  }
+}
+
 export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, onClose, onChanged }: AssignQuizModalProps) {
   const [tab, setTab] = useState<Tab>('now')
   const [loading, setLoading] = useState(hasExistingShare)
@@ -107,6 +175,8 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, onClose, 
   const [closesInput, setClosesInput] = useState<string>(() => plusOneDay(defaultOpensValue()))
   const [scheduleRetries, setScheduleRetries] = useState(false)
   const [scheduleTimeLimit, setScheduleTimeLimit] = useState<number | null>(null)
+  // Which "Opens" preset chip is active ('custom' shows the raw datetime field).
+  const [opensPreset, setOpensPreset] = useState<string>('custom')
 
   const qrRef = useRef<HTMLDivElement>(null)
 
@@ -114,6 +184,23 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, onClose, 
   const slug = data?.shareSlug ?? null
   const shareUrl = slug ? `${origin}/q/${slug}` : ''
   const isScheduledUpcoming = !!(data?.opensAt && new Date(data.opensAt).getTime() > Date.now())
+
+  // Lowest selectable minute for the "Opens" custom field — blocks past times
+  // at the browser level instead of only failing on the server after submit.
+  const nowLocalMin = toLocalInputValue(new Date(Date.now()))
+  // Live, inline schedule validation — mirrors the server rules so the host
+  // sees problems (and a human-readable summary) before they hit Save.
+  const scheduleError: string = (() => {
+    if (!opensInput) return 'Pick when the quiz opens.'
+    const opens = new Date(opensInput).getTime()
+    if (isNaN(opens)) return 'Open time is invalid.'
+    if (opens < Date.now() - 60_000) return 'Open time is in the past.'
+    if (!closesInput) return 'Pick when the quiz closes.'
+    const closes = new Date(closesInput).getTime()
+    if (isNaN(closes)) return 'Close time is invalid.'
+    if (closes <= opens) return 'Close time must be after the open time.'
+    return ''
+  })()
 
   const pushPatch = useCallback((d: PublishData) => {
     onChanged(quizId, {
@@ -157,7 +244,7 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, onClose, 
         if (next.opensAt) setTab('schedule')
         setScheduleRetries(next.allowRetries)
         setScheduleTimeLimit(next.timeLimitMinutes)
-        if (next.opensAt) setOpensInput(toLocalInputValue(new Date(next.opensAt)))
+        if (next.opensAt) { setOpensInput(toLocalInputValue(new Date(next.opensAt))); setOpensPreset('custom') }
         if (next.closesAt) setClosesInput(toLocalInputValue(new Date(next.closesAt)))
         pushPatch(next)
       } catch {
@@ -248,6 +335,17 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, onClose, 
 
   async function handleSetTimeLimit(minutes: number | null) {
     await patchSession({ timeLimitMinutes: minutes })
+  }
+
+  // Apply an "Opens at" preset chip: set the open time, keep the close time at
+  // least a day ahead, and remember which chip is active. 'custom' just reveals
+  // the raw datetime field without changing the value.
+  function selectOpensPreset(key: string, date?: Date) {
+    setOpensPreset(key)
+    if (!date) return
+    const local = toLocalInputValue(date)
+    setOpensInput(local)
+    if (!closesInput || new Date(closesInput) <= new Date(local)) setClosesInput(plusOneDay(local))
   }
 
   async function handleSaveSchedule() {
@@ -599,32 +697,97 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, onClose, 
             {/* ── Schedule tab ── */}
             {tab === 'schedule' && (
               <div>
-                <div className="grid gap-3 mb-4">
-                  <div>
-                    <label className="text-xs font-bold block mb-1" style={{ color: '#0F1B3D' }}>Opens at</label>
+                {/* Opens — one-tap presets, with a custom datetime escape hatch */}
+                <div className="mb-3">
+                  <label className="text-xs font-bold block mb-1.5" style={{ color: '#0F1B3D' }}>Opens</label>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {[
+                      { key: 'hour', label: 'In 1 hour', date: presetInOneHour() },
+                      { key: 'tom9', label: 'Tom 9 AM', date: presetTomorrowAt(9) },
+                      { key: 'sat9', label: 'Sat 9 AM', date: presetThisSaturday9() },
+                      { key: 'custom', label: 'Custom…', date: undefined as Date | undefined },
+                    ].map(opt => {
+                      const active = opensPreset === opt.key
+                      return (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          onClick={() => selectOpensPreset(opt.key, opt.date)}
+                          aria-pressed={active}
+                          className="py-1.5 rounded-lg text-xs font-bold border transition-colors"
+                          style={{ background: active ? '#0F1B3D' : '#fff', color: active ? '#FBD13B' : '#0F1B3D', borderColor: active ? '#0F1B3D' : '#E2E8F0' }}
+                        >
+                          {opt.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {opensPreset === 'custom' && (
                     <input
                       type="datetime-local"
                       value={opensInput}
+                      min={nowLocalMin}
                       onChange={e => {
                         const v = e.target.value
                         setOpensInput(v)
                         // Keep closes ahead of opens — default to opens + 1 day if it falls behind.
                         if (!closesInput || new Date(closesInput) <= new Date(v)) setClosesInput(plusOneDay(v))
                       }}
-                      className="w-full h-10 px-3 text-sm rounded-lg outline-none focus:ring-2 focus:ring-yellow-200"
+                      className="w-full h-10 px-3 mt-2 text-sm rounded-lg outline-none focus:ring-2 focus:ring-yellow-200"
                       style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#0F1B3D' }}
                     />
+                  )}
+                </div>
+
+                {/* Closes — absolute date/time, with relative quick-fills */}
+                <div className="mb-3">
+                  <label className="text-xs font-bold block mb-1.5" style={{ color: '#0F1B3D' }}>Closes</label>
+                  <div className="grid grid-cols-3 gap-1.5 mb-2">
+                    {[
+                      { label: '+1 day', days: 1 },
+                      { label: '+3 days', days: 3 },
+                      { label: '+1 week', days: 7 },
+                    ].map(opt => {
+                      const target = plusDays(opensInput, opt.days)
+                      const active = !!closesInput && closesInput === target
+                      return (
+                        <button
+                          key={opt.label}
+                          type="button"
+                          disabled={!opensInput}
+                          onClick={() => setClosesInput(target)}
+                          aria-pressed={active}
+                          className="py-1.5 rounded-lg text-xs font-bold border transition-colors disabled:opacity-40"
+                          style={{ background: active ? '#0F1B3D' : '#fff', color: active ? '#FBD13B' : '#0F1B3D', borderColor: active ? '#0F1B3D' : '#E2E8F0' }}
+                        >
+                          {opt.label}
+                        </button>
+                      )
+                    })}
                   </div>
-                  <div>
-                    <label className="text-xs font-bold block mb-1" style={{ color: '#0F1B3D' }}>Closes at</label>
-                    <input
-                      type="datetime-local"
-                      value={closesInput}
-                      onChange={e => setClosesInput(e.target.value)}
-                      className="w-full h-10 px-3 text-sm rounded-lg outline-none focus:ring-2 focus:ring-yellow-200"
-                      style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#0F1B3D' }}
-                    />
-                  </div>
+                  <input
+                    type="datetime-local"
+                    value={closesInput}
+                    min={opensInput || nowLocalMin}
+                    onChange={e => setClosesInput(e.target.value)}
+                    className="w-full h-10 px-3 text-sm rounded-lg outline-none focus:ring-2 focus:ring-yellow-200"
+                    style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#0F1B3D' }}
+                  />
+                </div>
+
+                {/* Live summary / inline validation */}
+                <div className="mb-4">
+                  {scheduleError ? (
+                    <p className="text-xs font-semibold px-3 py-2 rounded-lg" style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }}>
+                      {scheduleError}
+                    </p>
+                  ) : (
+                    <p className="text-xs px-3 py-2 rounded-lg" style={{ background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0' }}>
+                      Opens <strong>{humanLocal(opensInput)}</strong>, closes <strong>{humanLocal(closesInput)}</strong>
+                      {' · '}open for {humanDuration(opensInput, closesInput)}
+                      <span style={{ color: '#94A3B8' }}> · {localTzLabel()}</span>
+                    </p>
+                  )}
                 </div>
 
                 {/* Allow retries */}
@@ -676,8 +839,8 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, onClose, 
                   )}
                   <button
                     onClick={handleSaveSchedule}
-                    disabled={saving}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-60"
+                    disabled={saving || !!scheduleError}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                     style={{ background: '#FBD13B', color: '#0D0D0D', border: '2px solid #0D0D0D' }}
                   >
                     {saving ? 'Saving…' : hasSession ? 'Update schedule' : 'Schedule quiz'}
