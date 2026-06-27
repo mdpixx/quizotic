@@ -9,11 +9,10 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { Avatar } from '@/components/Avatar'
 import { Podium } from '@/components/Podium'
 import { PostSessionHeader } from '@/components/PostSessionHeader'
-import { CelebrationConfetti } from '@/components/CelebrationConfetti'
 import { LottieConfetti } from '@/components/LottieConfetti'
 import { SessionReport } from '@/components/SessionReport'
 import { LeaderboardView } from '@/components/LeaderboardView'
-import { playLeaderboardJingle, playTick, playBackgroundMusic, stopBackgroundMusic, playBassBoom, playCelebration, preloadCelebrationSounds, playDrumroll, stopDrumroll, isMuted, toggleMuted } from '@/lib/sounds'
+import { playLeaderboardJingle, playTick, playBackgroundMusic, stopBackgroundMusic, playBassBoom, playCelebration, playFirecracker, preloadCelebrationSounds, playDrumroll, stopDrumroll, isMuted, toggleMuted } from '@/lib/sounds'
 import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/quiz-storage'
 import type { Quiz, QuestionStat, SessionMode } from '@/lib/quiz-types'
 import { ReflectionInsights } from '@/components/ReflectionInsights'
@@ -487,6 +486,8 @@ export default function SessionPage() {
       // Stop any lingering countdown drumroll before celebration overlaps.
       try { stopDrumroll() } catch {}
       try { preloadCelebrationSounds() } catch {}
+      // Firecracker pop fires once, timed to the confetti launch on this screen.
+      try { playFirecracker() } catch {}
       try { playBassBoom() } catch {}
       try { playCelebration() } catch {}
       // Session is over — fade the background loop out.
@@ -2641,7 +2642,6 @@ export default function SessionPage() {
                 particle layer; both are scoped (layer="absolute") to this hero
                 section and ignore pointer events. */}
             <LottieConfetti layer="absolute" />
-            <CelebrationConfetti active layer="absolute" />
             <div className="relative z-10 text-center">
               <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.24em]" style={{ color: 'rgba(251,209,59,0.72)' }}>
                 Final Standings
@@ -2678,6 +2678,57 @@ export default function SessionPage() {
             <h2 className="text-4xl font-black max-w-3xl mx-auto" style={{ color: '#0F1B3D' }}>Session Complete</h2>
           )}
 
+          {/* The rest of the field — everyone outside the top-3 podium, so any
+              player can scroll down and find exactly where they finished. This
+              is the celebratory companion to the podium: names + scores only,
+              no analytics. */}
+          {leaderboard.length > 3 && (
+            <div className="max-w-2xl mx-auto w-full">
+              <h3
+                className="font-display text-xl md:text-2xl font-extrabold mb-3"
+                style={{ color: '#0F1B3D', fontFamily: 'var(--font-display)' }}
+              >
+                The rest of the field
+              </h3>
+              <div className="space-y-2">
+                {leaderboard.slice(3).map((entry, i) => {
+                  const rank = i + 4
+                  return (
+                    <div
+                      key={`${entry.name}-${rank}`}
+                      className="flex items-center gap-3 rounded-xl px-4 py-3 bg-white border"
+                      style={{ borderColor: '#E7E2D4' }}
+                    >
+                      <span
+                        className="font-display text-lg font-extrabold tabular-nums w-9 text-center flex-shrink-0"
+                        style={{ color: '#9CA3AF', fontFamily: 'var(--font-display)' }}
+                      >
+                        {rank}
+                      </span>
+                      <div
+                        className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                        style={{ background: '#0F1B3D' }}
+                      >
+                        {entry.name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="flex-1 font-semibold truncate" style={{ color: '#0F1B3D' }}>
+                        {entry.name}
+                      </span>
+                      {sessionMode === 'competitive' && (
+                        <span
+                          className="font-display text-base font-extrabold tabular-nums flex-shrink-0"
+                          style={{ color: '#0F1B3D', fontFamily: 'var(--font-display)' }}
+                        >
+                          {entry.score.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Team Leaderboard */}
           {teamLeaderboard && teamLeaderboard.length > 0 && (
             <div className="space-y-3 max-w-3xl mx-auto">
@@ -2701,6 +2752,20 @@ export default function SessionPage() {
               ))}
             </div>
           )}
+
+          {/* Host tools — analytics, sharing & follow-ups sit behind a closed
+              disclosure so the post-game screen stays celebratory (podium +
+              scores). The host can expand for the report/exports here; the full
+              breakdown also lives on the quiz report page. */}
+          <details className="max-w-3xl mx-auto group">
+            <summary
+              className="cursor-pointer list-none flex items-center justify-center gap-2 text-sm font-bold py-2 select-none"
+              style={{ color: '#6B7280' }}
+            >
+              <span>Report, sharing &amp; follow-ups</span>
+              <span className="transition-transform group-open:rotate-90">▸</span>
+            </summary>
+            <div className="space-y-8 pt-6">
 
           {/* Session Report */}
           <div className="max-w-3xl mx-auto">
@@ -2766,6 +2831,8 @@ export default function SessionPage() {
               </div>
             )}
           </div>
+            </div>
+          </details>
 
           {/* Action buttons — tight max-w-md block, hierarchical:
               Play Again (primary pill) → Export pills (small) → Back link (ghost). */}

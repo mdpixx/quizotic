@@ -280,6 +280,56 @@ export function playLeaderboardJingle() {
   })
 }
 
+// Firecracker / party-popper burst — a short launch whistle, a filtered-noise
+// boom, then a scatter of tiny crackle pops. Pure Web Audio (no asset), routed
+// through the master gain so the global mute applies. Played once when the
+// end-of-session confetti first launches, for a celebratory "pop".
+export function playFirecracker() {
+  const ctx = getCtx()
+  const t0 = ctx.currentTime
+
+  // 1) Launch whistle — quick upward sweep
+  {
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain); gain.connect(getMaster(ctx))
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(700, t0)
+    osc.frequency.exponentialRampToValueAtTime(1700, t0 + 0.18)
+    gain.gain.setValueAtTime(0.0001, t0)
+    gain.gain.exponentialRampToValueAtTime(0.06, t0 + 0.05)
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.2)
+    osc.start(t0); osc.stop(t0 + 0.22)
+  }
+
+  // Helper: a short band-passed noise burst (boom / crackle pop)
+  const burst = (start: number, dur: number, vol: number, freq: number) => {
+    const len = Math.max(1, Math.floor(ctx.sampleRate * dur))
+    const buffer = ctx.createBuffer(1, len, ctx.sampleRate)
+    const data = buffer.getChannelData(0)
+    for (let i = 0; i < len; i++) {
+      // white noise with a fast decay envelope
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2)
+    }
+    const src = ctx.createBufferSource()
+    src.buffer = buffer
+    const bp = ctx.createBiquadFilter()
+    bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = 0.7
+    const gain = ctx.createGain()
+    gain.gain.value = vol
+    src.connect(bp); bp.connect(gain); gain.connect(getMaster(ctx))
+    src.start(start); src.stop(start + dur)
+  }
+
+  // 2) Main boom
+  burst(t0 + 0.2, 0.25, 0.4, 380)
+
+  // 3) Crackle tail — a scatter of tiny high pops
+  for (let i = 0; i < 8; i++) {
+    burst(t0 + 0.28 + Math.random() * 0.5, 0.04, 0.14, 1600 + Math.random() * 2600)
+  }
+}
+
 export function playCelebration() {
   const ctx = getCtx()
   // Triumphant fanfare: C5 → E5 → G5 → C6 (sustained, with harmonics)

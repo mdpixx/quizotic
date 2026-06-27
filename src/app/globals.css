@@ -75,14 +75,17 @@ html, body {
 
   /* Fonts: self-hosted via next/font (--font-*-loaded set on <html>); falls back
      to local/system fonts if the web font hasn't loaded yet. */
-  --font-inter: var(--font-inter-loaded, 'Inter'), -apple-system, 'Segoe UI', system-ui, sans-serif;
+  --font-inter: var(--font-inter-loaded, 'Plus Jakarta Sans'), -apple-system, 'Segoe UI', system-ui, sans-serif;
   --font-heading: var(--font-inter);
   --font-body: var(--font-inter);
-  /* Display font for the session redesign (Stage 1). Falls back to Inter (the
-     body font) if Space Grotesk hasn't loaded yet, so layout never flashes a
-     system mismatch on slow classroom networks. Opt in via .font-display; body
-     text and existing headings are untouched. */
-  --font-display: 'Space Grotesk', var(--font-inter-loaded, 'Inter'), system-ui, sans-serif;
+  /* Display font — Bricolage Grotesque, loaded via next/font as
+     --font-display-loaded. Falls back to the body font, then system, so layout
+     never flashes a mismatch on slow classroom networks. Opt in via
+     .font-display / var(--font-display); body and existing headings are
+     untouched. (Previously this referenced a literal 'Space Grotesk' family
+     that next/font never registers, so the display font silently fell back to
+     the body font — now wired to the actual loaded variable.) */
+  --font-display: var(--font-display-loaded, 'Bricolage Grotesque'), var(--font-inter-loaded, 'Plus Jakarta Sans'), system-ui, sans-serif;
 
   /* ── Additive type scale (redesign Stage 1) ──────────────────────
      Fluid clamp() steps for display headings. Additive only — existing

@@ -1,27 +1,31 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Plus_Jakarta_Sans, Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
 import { Background } from "@/components/Background";
 
 // Self-hosted via next/font (served from our own origin → CSP `font-src 'self'`
 // covers it, no Google CDN dependency). display:'swap' avoids invisible text on
 // slow classroom networks. CSS vars are consumed by globals.css.
-// Inter matches Slido's clean, neutral typographic feel.
-const inter = Inter({
+//
+// Body font — Plus Jakarta Sans. Warmer and more characterful than Inter while
+// staying highly legible at small sizes on low-bandwidth classroom screens.
+// Exposed as --font-inter-loaded so every existing --font-body / --font-heading
+// consumer picks it up unchanged (the variable name is kept for compatibility).
+const bodyFont = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "500", "600", "700", "800"],
   variable: "--font-inter-loaded",
   display: "swap",
 });
 
-// Space Grotesk — display/heading font for the session redesign (Stage 1).
-// Same self-hosting pattern as Inter: served from our origin (CSP-safe, no
-// runtime CDN), exposed as --font-display-loaded on <html> and consumed via
-// --font-display / .font-display in globals.css. Only weights actually used
-// by display headings are pulled to keep the participant payload small.
-const spaceGrotesk = Space_Grotesk({
+// Display font — Bricolage Grotesque. A distinctive editorial-grotesque that
+// carries the big projected moments (PIN, questions, numbers, winner) and gives
+// Quizotic a recognizable type voice instead of the same neutral sans everyone
+// else ships. Self-hosted (CSP-safe), exposed as --font-display-loaded and
+// consumed via --font-display / .font-display in globals.css.
+const displayFont = Bricolage_Grotesque({
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  weight: ["500", "600", "700", "800"],
   variable: "--font-display-loaded",
   display: "swap",
 });
@@ -112,7 +116,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${spaceGrotesk.variable} h-full antialiased`}
+      className={`${bodyFont.variable} ${displayFont.variable} h-full antialiased`}
     >
       <head>
         {GA4_ID ? (
