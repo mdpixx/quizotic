@@ -2615,6 +2615,19 @@ export default function SessionPage() {
       {/* ENDED */}
       {phase === 'ended' && (
         <>
+        {/* Celebration confetti — fires for EVERY live session mode, not just
+            Competitive. Competitive renders its own (absolute, hero-scoped)
+            confetti below; for every other mode (Accuracy / Reflection /
+            Assessment) overlay viewport-wide confetti here so every finale
+            celebrates. The firecracker + fanfare are triggered mode-
+            independently from the phase===ended effect, so they already play
+            for all modes. */}
+        {leaderboard.length > 0 && sessionMode !== 'competitive' && (
+          <>
+            <LottieConfetti />
+            <CelebrationConfetti active />
+          </>
+        )}
         <PostSessionHeader
           title={quiz?.title}
           subtitle={leaderboard.length > 0 ? `${leaderboard.length} participant${leaderboard.length === 1 ? '' : 's'} · Session complete` : 'Session complete'}
