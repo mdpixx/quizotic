@@ -119,8 +119,7 @@ function buildWelcomeHtml(name: string | null): string {
     <table width="680" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 10px 40px rgba(15,27,61,0.10);max-width:680px;width:100%;">
       <tr><td style="background:#0F1B3D;padding:36px 32px 28px;text-align:center;">
         <table cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr>
-          <td><img src="https://www.quizotic.live/icons/icon-192.png" width="38" height="38" alt="Quizotic" style="display:block;border:0;border-radius:10px;"></td>
-          <td style="padding-left:12px;font-weight:900;font-size:24px;color:#ffffff;letter-spacing:-0.8px;">Quizotic</td>
+          <td style="font-weight:900;font-size:32px;color:#ffffff;letter-spacing:-0.8px;">Quizotic</td>
         </tr></table>
         <p style="margin:12px 0 0;font-size:12px;color:#CBD5E1;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;">The learning engagement platform</p>
       </td></tr>

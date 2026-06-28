@@ -77,7 +77,7 @@ export function Footer() {
     <footer style={{ background: '#0F1B3D', borderTop: '2px solid #FBD13B', padding: 'clamp(36px, 7vw, 48px) 24px' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
         {/* Wordmark */}
-        <QuizoticLogo variant="onDark" className="text-2xl" markSize={38} />
+        <QuizoticLogo variant="onDark" className="text-3xl" showMark={false} />
 
         {/* Links */}
         <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap', justifyContent: 'center' }}>

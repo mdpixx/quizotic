@@ -35,7 +35,7 @@ export function StickyNav() {
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', height: 64 }}>
           {/* Logo */}
           <Link href="/" style={{ textDecoration: 'none', flexShrink: 0 }}>
-            <QuizoticLogo variant="onDark" className="text-xl" markSize={30} />
+            <QuizoticLogo variant="onDark" className="text-2xl" showMark={false} />
           </Link>
 
           {/* Nav links desktop */}
