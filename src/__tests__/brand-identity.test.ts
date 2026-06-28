@@ -88,7 +88,9 @@ describe('Quizotic brand identity', () => {
     expect(openGraph).not.toContain('fontSize: 40')
 
     const authEmail = readFileSync(join(ROOT, 'src/lib/auth.ts'), 'utf8')
-    expect(authEmail).toContain(
+    // Welcome + OTP emails use a wordmark-only header (no Q icon, which read
+    // as "Q Quizotic"). icon-192 must not appear in any auth email.
+    expect(authEmail).not.toContain(
       'https://www.quizotic.live/icons/icon-192.png',
     )
     expect(authEmail).not.toContain('>Q</td>')
