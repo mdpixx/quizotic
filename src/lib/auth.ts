@@ -83,8 +83,7 @@ function buildOtpHtml(code: string): string {
         <!-- Header -->
         <tr><td style="background:#0F1B3D;padding:28px 32px;text-align:center;">
           <table cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr>
-            <td><img src="https://www.quizotic.live/icons/icon-192.png" width="32" height="32" alt="Quizotic" style="display:block;border:0;border-radius:8px;"></td>
-            <td style="padding-left:10px;font-weight:800;font-size:20px;color:#ffffff;letter-spacing:-0.5px;">Quizotic</td>
+            <td style="font-weight:800;font-size:28px;color:#ffffff;letter-spacing:-0.5px;">Quizotic</td>
           </tr></table>
         </td></tr>
         <!-- Body -->
