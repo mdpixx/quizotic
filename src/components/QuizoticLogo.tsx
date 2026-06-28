@@ -55,7 +55,7 @@ export function QuizoticLogo({
   variant = 'onDark',
   className = '',
   markSize = 32,
-  showMark = true,
+  showMark = false, // wordmark-only by default; the Q mark read as "Q Quizotic"
 }: Props) {
   const isLight = variant === 'onLight'
   return (
