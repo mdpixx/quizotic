@@ -7,7 +7,9 @@ export function preparePostHogDependencyScript(
 ): HTMLScriptElement | null {
   try {
     const path = new URL(script.src, 'https://quizotic.live').pathname
-    return path === '/static/toolbar.js' ? null : script
+    // Match both the direct assets host (/static/toolbar.js) and the reverse-
+    // proxied path (/ingest/static/toolbar.js) — see next.config.ts rewrites.
+    return path.endsWith('/static/toolbar.js') ? null : script
   } catch {
     return script
   }

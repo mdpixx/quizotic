@@ -18,6 +18,18 @@ describe('PostHog toolbar guard', () => {
     expect(preparePostHogDependencyScript(recorderScript)).toBe(recorderScript)
   })
 
+  it('blocks the toolbar even when served through the /ingest reverse proxy', () => {
+    const proxiedToolbar = {
+      src: 'https://www.quizotic.live/ingest/static/toolbar.js?v=1.396.3',
+    } as HTMLScriptElement
+    const proxiedRecorder = {
+      src: 'https://www.quizotic.live/ingest/static/recorder.js?v=1.396.3',
+    } as HTMLScriptElement
+
+    expect(preparePostHogDependencyScript(proxiedToolbar)).toBeNull()
+    expect(preparePostHogDependencyScript(proxiedRecorder)).toBe(proxiedRecorder)
+  })
+
   it('clears persisted toolbar state without affecting other PostHog data', () => {
     const removeItem = vi.fn()
 
