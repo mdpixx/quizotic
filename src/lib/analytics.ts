@@ -27,6 +27,14 @@ export type ProductEvent =
   | 'landing_join_code_used'
   | 'demo_session_started'
   | 'quiz_scheduled'
+  // Participant funnel (the live & self-paced player journey on /join and /q).
+  // join → joined → answered → finished, plus join_failed for the bounce reason.
+  | 'participant_joined'
+  | 'participant_join_failed'
+  | 'participant_answered'
+  | 'participant_finished'
+  | 'selfpaced_started'
+  | 'selfpaced_completed'
 
 export function track(event: ProductEvent, props?: Record<string, string | number | boolean | null>): void {
   if (!ENABLED) return

@@ -26,6 +26,7 @@ import { ANSWER_COLORS, ANSWER_LETTERS } from '@/lib/answer-colors'
 import { useConfetti } from '@/hooks/useConfetti'
 import { useWakeLock } from '@/hooks/useWakeLock'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
+import { track } from '@/lib/analytics'
 
 function phaseForPresenterSlide(
   slideType: string | undefined,
@@ -668,6 +669,9 @@ function JoinPageInner() {
 
   const gameCodeRef = useRef('')
   const displayNameRef = useRef('')
+  // Fire the participant funnel events at most once per live session so the
+  // PostHog funnel (joined → answered → finished) counts people, not retries.
+  const answeredTrackedRef = useRef(false)
   const shownQuestionsRef = useRef<{ index: number; text: string }[]>([])
 
   const [reflectionVisible, setReflectionVisible] = useState(false)
@@ -1011,6 +1015,12 @@ function JoinPageInner() {
 
     socket.on('answer_confirmed', ({ late, isNonScored }: { received?: boolean; late?: boolean; isNonScored?: boolean }) => {
       if (timerRef.current) clearInterval(timerRef.current)
+      // Participant funnel: count this player as "engaged" on their first
+      // accepted answer (once per session, not per question).
+      if (!answeredTrackedRef.current) {
+        answeredTrackedRef.current = true
+        track('participant_answered', { gameCode: gameCodeRef.current })
+      }
       // Server has accepted at least one answer — drop outbox entries for the
       // current question so we don't double-submit on later reconnects.
       if (question?.index !== undefined) {
@@ -1121,6 +1131,12 @@ function JoinPageInner() {
       const rank = leaderboard.findIndex(e => e.name === displayNameRef.current) + 1
       setMyRank(rank)
       setPhase('ended')
+      // Participant funnel: player stayed to the end of the live session.
+      track('participant_finished', {
+        gameCode: gameCodeRef.current,
+        rank,
+        players: leaderboard.length,
+      })
       // Podium now owns the full reveal sequence: staggered 3rd→2nd→1st, drumroll,
       // layered cheer + fanfare + bass boom, and a full-screen canvas-confetti burst.
       // Clear durable identity for this game code so a fresh re-join starts clean.
@@ -1373,6 +1389,7 @@ function JoinPageInner() {
       }
       setError("Couldn't join. Check your code or try again.")
       setPhase('form')
+      track('participant_join_failed', { reason: 'timeout', gameCode: trimmedCode })
     }, 8000)
 
     socket.emit(joinEvent, {
@@ -1387,6 +1404,7 @@ function JoinPageInner() {
       if (!res.success) {
         setError(res.error ?? 'Session not found. Check your 6-digit code and try again.')
         setPhase('form')
+        track('participant_join_failed', { reason: res.error ?? 'rejected', gameCode: trimmedCode })
         return
       }
 
@@ -1398,6 +1416,13 @@ function JoinPageInner() {
       }
       // The server has accepted us — the outbox is now safe to flush.
       joinAckedRef.current = true
+      // Participant funnel: a real, server-confirmed join. Re-arm the per-session
+      // answered guard so the next event fires once for this fresh session.
+      answeredTrackedRef.current = false
+      track('participant_joined', {
+        gameCode: trimmedCode,
+        mode: joinEvent === 'join_presenter_session' ? 'presenter' : 'live',
+      })
 
       if (joinEvent === 'join_presenter_session') {
         setPresenterTitle(res.presentationTitle ?? '')
