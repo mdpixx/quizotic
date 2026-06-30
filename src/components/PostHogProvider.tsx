@@ -11,13 +11,18 @@ import {
 import { isNoiseError } from '@/lib/error-noise'
 
 const POSTHOG_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY ?? ''
-const POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://eu.i.posthog.com'
+// Same-origin reverse proxy (see the /ingest rewrites in next.config.ts) so ad
+// blockers can't strip analytics — requests look first-party. ui_host points at
+// the real EU app so the toolbar and dashboard links still resolve correctly.
+const POSTHOG_PROXY_HOST = '/ingest'
+const POSTHOG_UI_HOST = 'https://eu.posthog.com'
 
 if (typeof window !== 'undefined' && POSTHOG_KEY) {
   clearPostHogToolbarState()
 
   posthog.init(POSTHOG_KEY, {
-    api_host: POSTHOG_HOST,
+    api_host: POSTHOG_PROXY_HOST,
+    ui_host: POSTHOG_UI_HOST,
     person_profiles: 'identified_only',
     capture_pageview: true,
     capture_pageleave: true,

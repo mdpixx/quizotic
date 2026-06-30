@@ -10,6 +10,22 @@ const nextConfig: NextConfig = {
     },
     proxyClientMaxBodySize: 20 * 1024 * 1024, // 20MB in bytes
   },
+  // PostHog needs its ingest path served from our own origin, untouched by the
+  // trailing-slash redirect, or the proxied requests 308 and break.
+  skipTrailingSlashRedirect: true,
+  async rewrites() {
+    // Reverse proxy for PostHog. Ad blockers block requests to *.posthog.com
+    // and were silently dropping 10-25% of events. Routing analytics through
+    // our own domain (/ingest → EU PostHog) makes them first-party and
+    // invisible to blockers. Static assets (recorder.js, surveys, etc.) come
+    // from the assets host; everything else from the ingestion host. Mirrors
+    // PostHog's official Next.js reverse-proxy guide. Sentry already does the
+    // same via its tunnelRoute (/monitoring).
+    return [
+      { source: '/ingest/static/:path*', destination: 'https://eu-assets.i.posthog.com/static/:path*' },
+      { source: '/ingest/:path*', destination: 'https://eu.i.posthog.com/:path*' },
+    ]
+  },
   async redirects() {
     return [
       {
