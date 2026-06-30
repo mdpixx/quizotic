@@ -6,12 +6,22 @@
 // skipped entirely — no warnings, no crashes, no network calls.
 
 import * as Sentry from '@sentry/nextjs'
+import { isNoiseError } from '@/lib/error-noise'
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN
 
 if (dsn) {
   Sentry.init({
     dsn,
+    // Drop known third-party browser noise (extensions, translation widgets,
+    // benign ResizeObserver warnings) so it doesn't bury real bugs or burn
+    // quota. Same matcher PostHog uses — see lib/error-noise.ts.
+    ignoreErrors: [/Object Not Found Matching Id:\s*\d+/i, /ResizeObserver loop/i],
+    beforeSend(event) {
+      const value = event.exception?.values?.[0]?.value
+      if (isNoiseError(value)) return null
+      return event
+    },
     // Performance traces — keep low while traffic is small to stay on the
     // free tier. Bump later when sample volume matters more than cost.
     tracesSampleRate: 0.1,

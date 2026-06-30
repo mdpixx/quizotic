@@ -8,6 +8,7 @@ import {
   clearPostHogToolbarState,
   preparePostHogDependencyScript,
 } from '@/lib/posthog-toolbar-guard'
+import { isNoiseError } from '@/lib/error-noise'
 
 const POSTHOG_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY ?? ''
 const POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://eu.i.posthog.com'
@@ -27,6 +28,16 @@ if (typeof window !== 'undefined' && POSTHOG_KEY) {
     // user experience is unchanged. Added because `$exception` was silently at
     // zero, leaving real breakages (e.g. a dead signup path) invisible.
     capture_exceptions: true,
+    // Drop known third-party browser noise (extensions, translation widgets)
+    // before it reaches Error Tracking. See lib/error-noise.ts for why.
+    before_send: (event) => {
+      if (event && event.event === '$exception') {
+        const list = event.properties?.['$exception_list']
+        const blob = typeof list === 'string' ? list : JSON.stringify(list ?? '')
+        if (isNoiseError(blob)) return null
+      }
+      return event
+    },
     advanced_disable_feature_flags: true,
     prepare_external_dependency_script: preparePostHogDependencyScript,
     loaded: (ph) => {

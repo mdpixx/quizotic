@@ -6,6 +6,7 @@ import { CountdownPill } from '@/components/async/CountdownPill'
 import { ErrorOverlay } from '@/components/async/ErrorOverlay'
 import { QuestionInput } from '@/components/async/QuestionInput'
 import { optText, type AnswerValue, type QuizQuestion } from '@/components/async/types'
+import { track } from '@/lib/analytics'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -256,6 +257,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
       if (dl) setDeadlineAt(dl)
       setCurrentQ(question)
       setPhase('question')
+      track('selfpaced_started', { slug })
     } catch {
       setNameError('Network error. Please try again.')
       setStarting(false)
@@ -357,6 +359,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
       }
       clearSession(slug)
       setPhase('done')
+      track('selfpaced_completed', { slug })
     } catch {
       clearSession(slug)
       setPhase('done')

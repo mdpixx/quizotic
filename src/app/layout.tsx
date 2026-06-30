@@ -119,6 +119,21 @@ export default function RootLayout({
       className={`${bodyFont.variable} ${displayFont.variable} h-full antialiased`}
     >
       <head>
+        {/*
+          Google Translate (and similar in-page translators) swap text nodes out
+          from under React. When React's reconciler later calls removeChild /
+          insertBefore on a node Translate already moved, the browser throws
+          "NotFoundError: Failed to execute 'removeChild'..." and the page white-
+          screens. This was our #2 error source (46× on /host/quizzes). Guarding
+          the two DOM methods to no-op on a mismatched parent is the standard,
+          battle-tested fix and is harmless to normal rendering. Must run before
+          hydration, so it's inline at the top of <head>.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){if(typeof Node!=='function'||!Node.prototype)return;var r=Node.prototype.removeChild;Node.prototype.removeChild=function(c){if(c&&c.parentNode!==this){return c;}return r.apply(this,arguments);};var i=Node.prototype.insertBefore;Node.prototype.insertBefore=function(n,ref){if(ref&&ref.parentNode!==this){return n;}return i.apply(this,arguments);};})();`,
+          }}
+        />
         {GA4_ID ? (
           <>
             <script
