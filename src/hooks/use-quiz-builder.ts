@@ -32,6 +32,7 @@ import {
   optionsForType,
   hydrateGeneratedQuestions,
 } from '@/lib/quiz-builder-logic'
+import { isScoredType } from '@/lib/quiz-types'
 import type { Question, QuestionType, Quiz } from '@/lib/quiz-types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -58,6 +59,9 @@ export interface UseQuizBuilderReturn {
   setTimeLimitMinutes: (v: number | null) => void
   allowRetries: boolean
   setAllowRetries: (v: boolean) => void
+  // Auto-attach a leaderboard slide after each newly added scored question.
+  autoLeaderboard: boolean
+  setAutoLeaderboard: (v: boolean) => void
 
   // Questions
   questions: Question[]
@@ -127,6 +131,11 @@ export function useQuizBuilder({
   const [selfPaced, setSelfPaced] = useState(false)
   const [timeLimitMinutes, setTimeLimitMinutes] = useState<number | null>(null)
   const [allowRetries, setAllowRetries] = useState(false)
+  // On by default — adding a scored question seeds a leaderboard slide after it.
+  // Builder-local preference (not persisted); the seeded slides live in questions[].
+  const [autoLeaderboard, setAutoLeaderboard] = useState(true)
+  const autoLeaderboardRef = useRef(true)
+  useEffect(() => { autoLeaderboardRef.current = autoLeaderboard }, [autoLeaderboard])
   const [activeIndex, setActiveIndex] = useState(0)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -320,7 +329,13 @@ export function useQuizBuilder({
     setQuestions(prev => {
       const q = makeQuestion({ type, options: optionsForType(type) })
       const next = [...prev, q]
-      setActiveIndex(next.length - 1)
+      const focusIndex = next.length - 1
+      // Auto-seed a leaderboard slide right after a newly added scored question
+      // (AhaSlides-style). Host can move/delete it or add more by hand.
+      if (autoLeaderboardRef.current && type !== 'leaderboard' && isScoredType(type)) {
+        next.push(makeQuestion({ type: 'leaderboard' }))
+      }
+      setActiveIndex(focusIndex)
       return next
     })
   }, [])
@@ -555,6 +570,8 @@ export function useQuizBuilder({
     setTimeLimitMinutes,
     allowRetries,
     setAllowRetries,
+    autoLeaderboard,
+    setAutoLeaderboard,
     questions,
     activeIndex,
     setActiveIndex,

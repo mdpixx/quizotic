@@ -18,6 +18,8 @@ interface QuizSettingsPopoverProps {
   setTimeLimitMinutes: (v: number | null) => void
   allowRetries: boolean
   setAllowRetries: (v: boolean) => void
+  autoLeaderboard: boolean
+  setAutoLeaderboard: (v: boolean) => void
 }
 
 function Toggle({ on, onChange, label, hint }: { on: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) {
@@ -48,6 +50,7 @@ function Toggle({ on, onChange, label, hint }: { on: boolean; onChange: (v: bool
 
 export function QuizSettingsPopover({
   selfPaced, setSelfPaced, timeLimitMinutes, setTimeLimitMinutes, allowRetries, setAllowRetries,
+  autoLeaderboard, setAutoLeaderboard,
 }: QuizSettingsPopoverProps) {
   const [open, setOpen] = useState(false)
   return (
@@ -73,6 +76,13 @@ export function QuizSettingsPopover({
             style={{ borderColor: '#E5E7EB' }}
           >
             <p className="text-[10px] font-black uppercase tracking-[0.16em] mb-2" style={{ color: '#7C3AED' }}>Quiz settings</p>
+
+            <Toggle
+              on={autoLeaderboard}
+              onChange={setAutoLeaderboard}
+              label="Auto leaderboards"
+              hint="On = adding a scored question drops a leaderboard slide after it. You can still move, delete, or add more by hand."
+            />
 
             <Toggle
               on={selfPaced}

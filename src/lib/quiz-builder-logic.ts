@@ -54,6 +54,7 @@ export const TYPE_PILLS: TypePill[] = [
   { value: 'rating', label: 'Rating', color: '#EA580C', bg: '#FFF7ED', tooltip: 'Star rating (1-5). Collect satisfaction scores.' },
   { value: 'ranking', label: 'Ranking', shortLabel: 'Rank', color: '#4F46E5', bg: '#EEF2FF', tooltip: 'Drag-to-rank items in order.' },
   { value: 'case', label: 'Scenario', shortLabel: 'Case', color: '#DC2626', bg: '#FFF1F2', tooltip: 'Present a real-world scenario with context.' },
+  { value: 'leaderboard', label: 'Leaderboard', shortLabel: 'Board', color: '#92400E', bg: '#FEF3C7', tooltip: 'Show live standings. Drop it anywhere to reveal the rankings during play.' },
 ]
 
 export const QUESTION_TYPE_GROUPS: { label: string; types: QuestionType[] }[] = [
@@ -61,6 +62,7 @@ export const QUESTION_TYPE_GROUPS: { label: string; types: QuestionType[] }[] = 
   { label: 'Feedback', types: ['poll', 'rating', 'ranking'] },
   { label: 'Text', types: ['openended', 'wordcloud', 'qa'] },
   { label: 'Creative', types: ['case'] },
+  { label: 'Flow', types: ['leaderboard'] },
 ]
 
 // ── Type helpers ──────────────────────────────────────────────────────────────
@@ -104,6 +106,19 @@ export function optionsForType(type: QuestionType): string[] | undefined {
 }
 
 export function makeQuestion(overrides?: Partial<Question>): Question {
+  // Leaderboard flow slides carry no options/answers — build a clean object so
+  // they never inherit the MCQ defaults below.
+  if (overrides?.type === 'leaderboard') {
+    return {
+      id: crypto.randomUUID(),
+      type: 'leaderboard',
+      text: '',
+      timerSeconds: 20,
+      points: 1000,
+      topN: 5,
+      ...overrides,
+    }
+  }
   return {
     id: crypto.randomUUID(),
     type: 'mcq',
@@ -130,6 +145,7 @@ export function convertQuestionType(question: Question, type: QuestionType): Que
     correctOrder: undefined,
     blankAnswers: type === 'fillblank' ? [''] : undefined,
     matchPairs: type === 'matching' ? [{ left: '', right: '' }, { left: '', right: '' }, { left: '', right: '' }] : undefined,
+    topN: type === 'leaderboard' ? (question.topN ?? 5) : undefined,
   }
 }
 

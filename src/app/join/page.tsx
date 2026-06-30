@@ -604,6 +604,9 @@ function JoinPageInner() {
 
   // Question
   const [question, setQuestion] = useState<Question | null>(null)
+  // Answerable-question progress (excludes leaderboard flow slides) for "X of N".
+  const [answerableNumber, setAnswerableNumber] = useState(0)
+  const [answerableTotal, setAnswerableTotal] = useState(0)
   const questionRef = useRef<Question | null>(null)
   useEffect(() => { questionRef.current = question }, [question])
   const [paused, setPaused] = useState(false)
@@ -928,8 +931,10 @@ function JoinPageInner() {
       }
     })
 
-    socket.on('question_show', ({ question, index, total, startAt }: { question: Omit<Question, 'index' | 'total'>; index: number; total: number; startAt?: number }) => {
+    socket.on('question_show', ({ question, index, total, startAt, answerableNumber: aNum, answerableTotal: aTot }: { question: Omit<Question, 'index' | 'total'>; index: number; total: number; startAt?: number; answerableNumber?: number; answerableTotal?: number }) => {
       shownQuestionsRef.current.push({ index, text: question.text })
+      setAnswerableNumber(typeof aNum === 'number' ? aNum : index + 1)
+      setAnswerableTotal(typeof aTot === 'number' ? aTot : total)
       // M3: reset prior-question state before showing the new one
       setExplanation(null)
       setCorrectAnswerIndex(null)
@@ -1056,6 +1061,21 @@ function JoinPageInner() {
       setIntermediateLeaderboard(top)
       if (tlb) setTeamLeaderboard(tlb)
       setTopMovers(tm ?? [])
+    })
+
+    // Host-placed leaderboard slide reached — show standings, no answer UI.
+    socket.on('leaderboard_slide_show', ({ top, teamLeaderboard: tlb }: {
+      index: number;
+      total?: number;
+      title?: string | null;
+      top: LeaderboardEntry[];
+      teamLeaderboard?: { name: string; color: string; score: number; members: number }[] | null;
+      totalPlayers?: number;
+    }) => {
+      setIntermediateLeaderboard(top ?? [])
+      if (tlb) setTeamLeaderboard(tlb)
+      setTopMovers([])
+      setPhase('standings')
     })
 
     socket.on('personal_result', (data: PersonalResult) => {
@@ -1787,7 +1807,7 @@ function JoinPageInner() {
           <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ background: 'rgba(15,27,61,0.92)' }}>
             <div className="text-center">
               <p className="text-sm font-bold uppercase tracking-[0.25em] mb-3" style={{ color: '#FBD13B' }}>
-                Question {question.index + 1} of {question.total}
+                Question {answerableNumber} of {answerableTotal}
               </p>
               <CountdownNumber targetTime={answerTimeRef.current} />
               <p className="text-xl font-bold mt-4" style={{ color: 'rgba(255,255,255,0.7)' }}>Get ready!</p>
@@ -1862,7 +1882,7 @@ function JoinPageInner() {
         {sharedScreenSimple ? (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 mb-4 text-center">
             <p className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: '#9CA3AF' }}>
-              Q{question.index + 1} / {question.total}
+              Q{answerableNumber} / {answerableTotal}
             </p>
             <p className="text-base font-bold mt-1" style={{ color: '#0F1B3D' }}>👀 Look at the host screen</p>
             <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Tap the colour matching your answer</p>
@@ -1870,7 +1890,7 @@ function JoinPageInner() {
         ) : (
         <div className={`participant-question-card font-display bg-white rounded-2xl shadow-sm border p-4 sm:p-6 mb-4 ${question.type === 'case' ? 'border-t-4' : 'border-gray-200 border-t-4'}`} style={{ borderTopColor: question.type === 'case' ? '#2D3A8C' : '#FBD13B' }}>
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-gray-400 font-bold tracking-wide">Q{question.index + 1} / {question.total}</span>
+            <span className="text-sm text-gray-400 font-bold tracking-wide">Q{answerableNumber} / {answerableTotal}</span>
             {(question.isScored || isScoredType(question.type as QuestionType)) && (
               <span className="text-base font-black" style={{ color: '#0F1B3D' }}>{question.points} pts</span>
             )}

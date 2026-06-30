@@ -425,7 +425,7 @@ export default function AsyncReportPage() {
         <section>
           <h2 className="text-[18px] font-black font-display mb-3" style={{ color: 'var(--color-ink)' }}>Per-question results</h2>
           <div className="space-y-4">
-            {questionStats.map((stat, i) => (
+            {questionStats.filter(s => !s.isLeaderboard).map((stat, i) => (
               <QuestionStatCard key={i} stat={stat} />
             ))}
           </div>

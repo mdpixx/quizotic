@@ -12,7 +12,7 @@
  * those were the source of duplication and the middle-list squeeze.
  */
 
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -30,7 +30,8 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { Question, QuestionType } from '@/lib/quiz-types'
-import { getTypePill } from '@/lib/quiz-builder-logic'
+import { getTypePill, validateQuizQuestions } from '@/lib/quiz-builder-logic'
+import { getTypeIcon } from '@/lib/quiz-type-icons'
 import { AddInteractionPicker } from './AddInteractionPicker'
 
 // ── Sortable question card ────────────────────────────────────────────────────
@@ -39,6 +40,7 @@ function QuestionCard({
   question,
   index,
   isActive,
+  invalid,
   onSelect,
   onDuplicate,
   onDelete,
@@ -50,6 +52,7 @@ function QuestionCard({
   question: Question
   index: number
   isActive: boolean
+  invalid: boolean
   onSelect: () => void
   onDuplicate: () => void
   onDelete: () => void
@@ -63,6 +66,8 @@ function QuestionCard({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: question.id, disabled: selectMode })
 
+  const highlighted = (selectMode && selected) || (isActive && !selectMode)
+
   return (
     <div
       ref={setNodeRef}
@@ -73,60 +78,66 @@ function QuestionCard({
         zIndex: isDragging ? 20 : undefined,
       }}
     >
+      {/* Grab anywhere on the card to reorder: dnd-kit listeners live on the card
+          root, and the PointerSensor's 5px activation constraint lets a plain
+          click fall through to select. Interactive children (checkbox, ···)
+          stop pointer-down so a press on them never starts a drag. */}
       <div
         onClick={selectMode ? onToggleSelected : onSelect}
-        className={`relative group flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl cursor-pointer transition-all select-none ${
-          isActive && !selectMode ? '' : 'hover:bg-gray-50'
+        className={`relative group flex flex-col items-center justify-center gap-1.5 px-2 pt-3 pb-2.5 rounded-xl cursor-grab active:cursor-grabbing transition-all select-none ${
+          highlighted ? '' : 'hover:bg-gray-50'
         } ${isDragging ? 'shadow-xl' : ''}`}
         style={
-          selectMode && selected
+          highlighted
             ? { background: '#EEF2FF', border: '1.5px solid #6366F1' }
-            : isActive && !selectMode
-              ? { background: '#EEF2FF', border: '1.5px solid #6366F1' }
-              : { border: '1.5px solid transparent' }
+            : { border: '1.5px solid #EEF0F4' }
         }
+        {...attributes}
+        {...listeners}
       >
-        {/* Select-mode checkbox OR drag handle + number */}
-        {selectMode ? (
-          <span
-            aria-hidden
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-[13px] font-extrabold flex-shrink-0"
-            style={selected ? { background: '#6366F1', color: '#fff' } : { background: '#E5E7EB', color: '#9CA3AF' }}
-          >
-            {selected ? '✓' : index + 1}
-          </span>
-        ) : (
-        <button
-          type="button"
-          aria-label={`Drag question ${index + 1}`}
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-extrabold flex-shrink-0 cursor-grab active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-indigo-400"
-          style={isActive ? { background: '#6366F1', color: '#fff' } : { background: '#E5E7EB', color: '#6B7280' }}
-          {...attributes}
-          {...listeners}
-          onClick={e => e.stopPropagation()}
-        >
+        {/* Index number — top-left */}
+        <span className="absolute top-1.5 left-2 text-[10px] font-bold leading-none text-gray-400">
           {index + 1}
-        </button>
+        </span>
+
+        {/* Validation warning dot — top-right (hidden while ··· hover-menu shows) */}
+        {invalid && !selectMode && (
+          <span
+            className="absolute top-1.5 right-2 w-2 h-2 rounded-full group-hover:opacity-0 transition-opacity"
+            style={{ background: '#F59E0B' }}
+            title="This slide is incomplete"
+            aria-label="Slide incomplete"
+          />
         )}
 
-        {/* Type pill + text */}
-        <div className="flex-1 min-w-0">
+        {/* Select-mode checkbox — top-right */}
+        {selectMode && (
           <span
-            className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded inline-block mb-0.5"
-            style={{ background: pill.bg, color: pill.color }}
+            aria-hidden
+            onPointerDown={e => e.stopPropagation()}
+            className="absolute top-1.5 right-1.5 w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-extrabold"
+            style={selected ? { background: '#6366F1', color: '#fff' } : { background: '#E5E7EB', color: '#9CA3AF' }}
           >
-            {pill.label}
+            {selected ? '✓' : ''}
           </span>
-          <p className="text-xs text-gray-600 truncate leading-tight">
-            {question.text.slice(0, 48) || 'Untitled'}
-          </p>
+        )}
+
+        {/* Centered content-type icon */}
+        <div className="[&>svg]:w-7 [&>svg]:h-7 flex items-center justify-center">
+          {getTypeIcon(question.type)}
         </div>
 
-        {/* ··· context menu trigger */}
+        {/* Type label */}
+        <span className="text-[11px] font-semibold leading-tight text-center" style={{ color: '#374151' }}>
+          {pill.label}
+        </span>
+
+        {/* ··· context menu trigger — top-right on hover */}
         {!selectMode && (
-        <div className="relative">
+        <div className="absolute top-0.5 right-0.5">
           <button
             type="button"
+            onPointerDown={e => e.stopPropagation()}
             onClick={e => { e.stopPropagation(); setMenuOpen(o => !o) }}
             className="w-6 h-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-gray-700 hover:bg-white/90 text-sm font-bold"
             aria-label={`Question ${index + 1} actions`}
@@ -222,10 +233,26 @@ export function QuestionList({
     }, [])
   }
 
+  // 5px activation distance: a plain pointer-down/up without movement reads as a
+  // click (select), only movement past the threshold starts a reorder. This lets
+  // the whole card be the drag surface while staying clickable.
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
+
+  // Per-slide validation → orange "incomplete" dot. Reuses the same rules as
+  // save-time validation so the panel and Save agree on what's incomplete.
+  const invalidIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const issue of validateQuizQuestions(questions)) {
+      if (issue.severity === 'error') {
+        const q = questions[issue.questionIndex]
+        if (q) ids.add(q.id)
+      }
+    }
+    return ids
+  }, [questions])
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
@@ -290,6 +317,7 @@ export function QuestionList({
                 question={q}
                 index={i}
                 isActive={i === activeIndex}
+                invalid={invalidIds.has(q.id)}
                 onSelect={() => onSelect(i)}
                 onDuplicate={() => onDuplicate(i)}
                 onDelete={() => onDelete(i)}

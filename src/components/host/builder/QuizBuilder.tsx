@@ -378,6 +378,8 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
           setTimeLimitMinutes={builder.setTimeLimitMinutes}
           allowRetries={builder.allowRetries}
           setAllowRetries={builder.setAllowRetries}
+          autoLeaderboard={builder.autoLeaderboard}
+          setAutoLeaderboard={builder.setAutoLeaderboard}
         />
 
         {/* Save button */}
