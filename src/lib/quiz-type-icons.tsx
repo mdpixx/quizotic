@@ -94,6 +94,14 @@ export const TYPE_ICONS: Partial<Record<QuestionType, React.ReactNode>> = {
       <path d="M7 7.5h6M7 10.5h6M7 13.5h4" stroke="#DC2626" strokeWidth="1.5" strokeLinecap="round"/>
     </svg>
   ),
+  leaderboard: (
+    <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
+      <path d="M6.5 3.5h7v3.5a3.5 3.5 0 01-7 0V3.5z" fill="#F59E0B" fillOpacity="0.25" stroke="#B45309" strokeWidth="1.5" strokeLinejoin="round"/>
+      <path d="M6.5 4.5H4.5V6a2 2 0 002 2M13.5 4.5h2V6a2 2 0 01-2 2" stroke="#B45309" strokeWidth="1.3" strokeLinecap="round"/>
+      <path d="M10 10.5v2.5" stroke="#B45309" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M7 16.5l.8-3h4.4l.8 3z" fill="#F59E0B" fillOpacity="0.25" stroke="#B45309" strokeWidth="1.4" strokeLinejoin="round"/>
+    </svg>
+  ),
 }
 
 export function getTypeIcon(type: QuestionType): React.ReactNode {
@@ -328,6 +336,25 @@ const ILLUSTRATIONS: Partial<Record<QuestionType, React.ReactNode>> = {
 
       <rect x="106" y="78" width="80" height="14" rx="5" fill="#DC2626" fillOpacity="0.12" stroke="#DC2626" strokeWidth="1" strokeOpacity="0.3"/>
       <text x="146" y="89" fontSize="8.5" fill="#DC2626" textAnchor="middle" fontFamily="system-ui,sans-serif" fontWeight="600">Option B</text>
+    </svg>
+  ),
+
+  // Winners' podium — 1st (center, tallest) with a trophy, 2nd left, 3rd right
+  leaderboard: (
+    <svg viewBox="0 0 200 100" width="100%" height="88" className="block">
+      {/* Trophy above #1 */}
+      <path d="M94 10h12v5a6 6 0 01-12 0z" fill="#FBBF24" stroke="#B45309" strokeWidth="1.2" strokeLinejoin="round"/>
+      <rect x="97.5" y="20.5" width="5" height="4" fill="#B45309"/>
+      <rect x="92" y="24" width="16" height="3" rx="1.5" fill="#B45309"/>
+      {/* 2nd place — left */}
+      <rect x="40" y="52" width="38" height="40" rx="4" fill="#CBD5E1"/>
+      <text x="59" y="76" fontSize="14" fill="#fff" textAnchor="middle" fontFamily="system-ui,sans-serif" fontWeight="bold">2</text>
+      {/* 1st place — center, tallest */}
+      <rect x="81" y="34" width="38" height="58" rx="4" fill="#F59E0B"/>
+      <text x="100" y="68" fontSize="16" fill="#fff" textAnchor="middle" fontFamily="system-ui,sans-serif" fontWeight="bold">1</text>
+      {/* 3rd place — right */}
+      <rect x="122" y="62" width="38" height="30" rx="4" fill="#E2A06B"/>
+      <text x="141" y="82" fontSize="13" fill="#fff" textAnchor="middle" fontFamily="system-ui,sans-serif" fontWeight="bold">3</text>
     </svg>
   ),
 }

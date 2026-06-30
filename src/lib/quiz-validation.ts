@@ -46,6 +46,10 @@ export function validateQuizQuestions(questions: Question[]): QuizValidationIssu
 
   questions.forEach((q, questionIndex) => {
     const type = q.type
+
+    // Leaderboard flow slides carry no text/options/answers — nothing to validate.
+    if (type === 'leaderboard') return
+
     const options = cleanOptions(q)
     const optionCount = options.length
 

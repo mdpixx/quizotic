@@ -12,6 +12,7 @@ export type QuestionType =
   | 'ranking'
   | 'case'
   | 'drawing'
+  | 'leaderboard'  // flow slide: shows live standings; not answerable, not scored
 
 // Question types that award points. Everything else is participation-only.
 // Keep in sync with the `nonScored` set in server.mjs (emitQuestionEnded / buildQuestionStats / computeMaxScore).
@@ -34,6 +35,13 @@ export function isSequenceRanking(q: Question): boolean {
 export function isScoredQuestion(q: Pick<Question, 'type' | 'correctOrder'>): boolean {
   if (isScoredType(q.type)) return true
   return q.type === 'ranking' && Array.isArray(q.correctOrder) && q.correctOrder.length > 0
+}
+
+// Leaderboard "flow" slides live in the same questions[] array so they drag,
+// reorder, and delete like any slide — but they are not answerable and never
+// scored. Everywhere that iterates questions as answerable must skip these.
+export function isLeaderboardSlide(q: Pick<Question, 'type'>): boolean {
+  return q.type === 'leaderboard'
 }
 
 // Maps each question type to the visualization used by QuestionResultsView.
@@ -62,6 +70,9 @@ export const RESULTS_RENDERER: Record<QuestionType, ResultsRenderer> = {
   ranking: 'ordered',
   case: 'inner',
   drawing: 'grid',
+  // Placeholder only — leaderboard slides are filtered out before the results
+  // renderer (see buildQuestionStats in server.mjs). Key required for exhaustiveness.
+  leaderboard: 'bars',
 }
 
 // Default option arrays per question type. Used to backfill AI-generated
@@ -132,6 +143,7 @@ export interface Question {
   bloomsLevel?: BloomsLevel // optional tag for session report Bloom's distribution
   scenarioText?: string     // 'case' type: the situation narrative (up to 500 chars)
   supportingDetail?: string // 'case' type: optional bold callout (stat, quote, data point)
+  topN?: number             // 'leaderboard' type: how many top players to show (default 5)
 }
 
 export interface Quiz {
@@ -147,6 +159,9 @@ export interface Quiz {
   selfPaced?: boolean
   timeLimitMinutes?: number | null
   allowRetries?: boolean
+  // When true (default), adding a scored question auto-seeds a leaderboard slide
+  // after it. Hosts can still move/delete those slides or add more manually.
+  autoLeaderboard?: boolean
 }
 
 export type SessionMode = 'competitive' | 'reflection' | 'selfpaced' | 'assessment' | 'accuracy'
@@ -184,6 +199,7 @@ export interface QuestionStat {
   bloomsLevel: BloomsLevel | null
   explanation: string | null
   isNonScored?: boolean
+  isLeaderboard?: boolean                 // true for leaderboard flow slides — report UIs skip these
   totalResponses?: number                 // total participants who submitted (any type)
   // Answer key (scored questions only; null for poll/openended/etc.)
   correctIndex?: number | null           // single correct option index — used to highlight the bar chart (mcq/truefalse)

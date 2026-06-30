@@ -985,7 +985,11 @@ app.prepare().then(async () => {
         // Standings-cadence + top-movers bookkeeping (Phase 1). scoringFormula
         // is set above based on sessionMode (accuracy → 'accuracy', else
         // 'classic') so we don't redeclare it here.
-        standingsCadence: sessionMode === 'accuracy' ? 999 : 3,
+        // Host-placed leaderboard slides drive standings → disable the auto every-Nth
+        // recommendation so the two don't double up.
+        standingsCadence: sessionMode === 'accuracy'
+          ? 999
+          : (Array.isArray(quizData?.questions) && quizData.questions.some(q => q?.type === 'leaderboard') ? 0 : 3),
         scoredQuestionsSeen: 0,
         previousTopThree: [],
         previousRanks: new Map(),
@@ -1114,6 +1118,14 @@ app.prepare().then(async () => {
 
       session.status = 'active'
       session.currentQuestionIndex = 0
+
+      // A leaderboard slide at the very front just shows (empty) standings.
+      if (isLeaderboardSlide(session.quizData.questions[0])) {
+        emitLeaderboardSlide(io, gameCode, session, 0)
+        console.log(`[session] started on leaderboard slide: ${gameCode}`)
+        return
+      }
+
       let question = sanitizeQuestion(session.quizData.questions[0])
       const startAt = Date.now() + 3500  // 3-second countdown window
       session.questionStartedAt = startAt
@@ -1132,6 +1144,7 @@ app.prepare().then(async () => {
         question,
         index: 0,
         total: session.quizData.questions.length,
+        ...answerableProgress(session.quizData.questions, 0),
         serverTimestamp: session.questionStartedAt,
         startAt,
       })
@@ -1274,10 +1287,17 @@ app.prepare().then(async () => {
       // Double-emitting caused the client to collapse standings → question in
       // a single microtask, hiding the standings screen entirely.
       const prevIndex = currentQuestionIndex - 1
-      if (!session.questionEnded) {
+      // Skip the reveal when leaving a leaderboard slide — there's nothing to end.
+      if (!session.questionEnded && !isLeaderboardSlide(quizData.questions[prevIndex])) {
         if (session.endTimer) { clearTimeout(session.endTimer); session.endTimer = null }
         session.questionEnded = true
         emitQuestionEnded(io, gameCode, session, prevIndex)
+      }
+
+      // Landing on a host-placed leaderboard slide: show standings, no question.
+      if (isLeaderboardSlide(quizData.questions[currentQuestionIndex])) {
+        emitLeaderboardSlide(io, gameCode, session, currentQuestionIndex)
+        return
       }
 
       const startAt = Date.now() + 3500  // 3-second countdown window
@@ -1298,6 +1318,7 @@ app.prepare().then(async () => {
         question,
         index: currentQuestionIndex,
         total: quizData.questions.length,
+        ...answerableProgress(quizData.questions, currentQuestionIndex),
         serverTimestamp: session.questionStartedAt,
         startAt,
       })
@@ -2357,6 +2378,8 @@ app.prepare().then(async () => {
       const qi = session.currentQuestionIndex
       const question = session.quizData.questions[qi]
       if (!question) return reject('no_question', { questionIndex: qi })
+      // Leaderboard slides aren't answerable — ignore hostile/stale submissions.
+      if (isLeaderboardSlide(question)) return reject('not_answerable', { questionIndex: qi })
 
       if (participant.answers[qi] !== undefined) return reject('duplicate', { questionIndex: qi })
 
@@ -2968,6 +2991,47 @@ function buildLeaderboardSnapshot(participants, limit = 5, opts = {}) {
     })
 }
 
+// Host-placed leaderboard "flow" slides live in the questions[] array but are
+// not answerable and never scored. Mirrors isLeaderboardSlide in quiz-types.ts.
+function isLeaderboardSlide(q) {
+  return q?.type === 'leaderboard'
+}
+
+// Progress over answerable questions only (leaderboard flow slides excluded),
+// so participant "Question X of N" ignores them. rawIndex stays the array index.
+function answerableProgress(questions, rawIndex) {
+  const list = Array.isArray(questions) ? questions : []
+  return {
+    answerableNumber: list.slice(0, rawIndex + 1).filter(q => !isLeaderboardSlide(q)).length,
+    answerableTotal: list.filter(q => !isLeaderboardSlide(q)).length,
+  }
+}
+
+// Reveal a leaderboard slide: emit the current standings (refreshed on land,
+// AhaSlides-style). No auto-end timer — it advances only when the host calls
+// next_question. Marks questionEnded so a later next_question doesn't try to
+// reveal it as a question.
+function emitLeaderboardSlide(io, gameCode, session, index) {
+  const slide = session.quizData.questions[index] || {}
+  const topN = Number.isFinite(slide.topN) ? Math.max(3, Math.min(10, slide.topN)) : 5
+  const newRanks = rankByScore(session.participants)
+  const top = buildLeaderboardSnapshot(session.participants, topN, {
+    previousRanks: session.previousRanks || new Map(),
+    newRanks,
+    questionIndex: index,
+  })
+  io.to(`session:${gameCode}`).emit('leaderboard_slide_show', {
+    index,
+    total: session.quizData.questions.length,
+    title: slide.text || null,
+    top,
+    teamLeaderboard: buildTeamLeaderboard(session),
+    totalPlayers: realParticipantCount(session.participants),
+  })
+  session.questionEnded = true
+  if (session.endTimer) { clearTimeout(session.endTimer); session.endTimer = null }
+}
+
 // Per-player rank lookup — returns {rank, total, score} for a given participant.
 function getParticipantRank(participants, targetId) {
   const sorted = Array.from(participants.entries())
@@ -3133,6 +3197,8 @@ function rankByScore(participants) {
 function emitQuestionEnded(io, gameCode, session, questionIndex) {
   const q = session.quizData.questions[questionIndex]
   if (!q) return
+  // Leaderboard flow slides aren't questions — nothing to reveal or score.
+  if (isLeaderboardSlide(q)) return
   const isSequenceRankingQ = isSequenceRanking(q)
   const isNonScored = !isScoredQuestion(q)
   const correctAnswer = isNonScored
@@ -3339,6 +3405,15 @@ function emitLiveResponses(io, gameCode, session, qi) {
 function buildQuestionStats(session) {
   const ps = Array.from(session.participants.values())
   return session.quizData.questions.map((q, i) => {
+    // Leaderboard flow slides aren't questions. Keep the array index-aligned
+    // (consumers do questionStats[index]) but tag it so report UIs skip it.
+    if (isLeaderboardSlide(q)) {
+      return {
+        index: i, text: '', type: 'leaderboard', correctPct: null, confidenceGrid: null,
+        bloomsLevel: null, explanation: null, isNonScored: true, isLeaderboard: true,
+        totalResponses: 0, optionDistribution: null,
+      }
+    }
     const isNonScored = !isScoredQuestion(q)
     const answered = ps.filter(p => p.answers[i] !== undefined)
     const total = answered.length

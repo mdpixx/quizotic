@@ -45,7 +45,7 @@ import {
   questionTextSizeClass,
   getTypePill,
 } from '@/lib/quiz-builder-logic'
-import { getTypeIcon } from '@/lib/quiz-type-icons'
+import { getTypeIcon, getTypeIllustration } from '@/lib/quiz-type-icons'
 import { QuestionSettingsPopover } from './QuestionSettingsPopover'
 import { SparkleIcon } from './SparkleIcon'
 
@@ -417,6 +417,100 @@ export function QuestionCanvas({
     opts.length < 6 &&
     (question.type === 'mcq' || question.type === 'multiselect' || question.type === 'poll' || question.type === 'ranking' || question.type === 'case')
   )
+
+  // ── Leaderboard flow slide ─────────────────────────────────────────────────
+  // A non-answerable slide. No options, no timer/points — just a heading and a
+  // "show top N" control. The standings are computed live when the host reaches
+  // this slide during the session (see server.mjs leaderboard_slide_show).
+  if (question.type === 'leaderboard') {
+    const topN = question.topN ?? 5
+    return (
+      <div className="flex flex-col h-full bg-white rounded-2xl" style={{ boxShadow: '0 4px 32px rgba(15,27,61,0.08)', border: '1px solid #E5E7EB' }}>
+        {/* Header: type dropdown + actions */}
+        <div className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 border-b sm:gap-2 sm:px-4 rounded-t-2xl" style={{ borderColor: '#F3F4F6', background: '#FAFAFA' }}>
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+            <TypeDropdown type={question.type} onChange={onTypeChange} />
+          </div>
+          <div className="flex items-center flex-shrink-0">
+            <span className="text-xs text-gray-400 font-medium tabular-nums hidden sm:block mr-1">
+              {index + 1} / {total}
+            </span>
+            <button
+              type="button"
+              onClick={onDuplicate}
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              title="Duplicate slide"
+            >
+              <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><rect x="6" y="6" width="9" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.5"/><path d="M4 14V5a1 1 0 011-1h9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            </button>
+            {total > 1 && (
+              <button
+                type="button"
+                onClick={onDelete}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 active:scale-95 transition-all"
+                title="Delete slide"
+              >
+                <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><path d="M7 8v7m3-7v7m3-7v7M4 5h12M8 5V4h4v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Body: podium + heading + top-N stepper */}
+        <div className="flex-1 overflow-y-auto px-6 py-8 flex flex-col items-center justify-center gap-5 text-center">
+          <div style={{ width: 220, maxWidth: '70%' }}>{getTypeIllustration('leaderboard')}</div>
+          <div>
+            <p className="text-lg font-black" style={{ color: '#0F1B3D' }}>Leaderboard</p>
+            <p className="text-sm text-gray-500 mt-1 mx-auto" style={{ maxWidth: 340 }}>
+              When you reach this slide while presenting, it reveals the current standings. Players see the rankings here — there&apos;s nothing to answer.
+            </p>
+          </div>
+
+          <input
+            type="text"
+            value={question.text}
+            onChange={e => onChange({ text: e.target.value })}
+            placeholder="Optional heading (e.g. Standings so far)"
+            maxLength={QUESTION_CHAR_LIMIT}
+            className="w-full max-w-sm text-sm font-medium text-center rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-yellow-200"
+            style={{ border: '1px solid #E2E8F0', color: '#0F1B3D' }}
+          />
+
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-semibold" style={{ color: '#374151' }}>Show top</span>
+            <div className="flex items-center gap-2 rounded-lg px-1.5 py-1" style={{ background: '#F3F4F6' }}>
+              <button
+                type="button"
+                onClick={() => onChange({ topN: Math.max(3, topN - 1) })}
+                disabled={topN <= 3}
+                className="w-7 h-7 flex items-center justify-center rounded-md text-base font-bold text-gray-600 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                aria-label="Show fewer players"
+              >
+                &minus;
+              </button>
+              <span className="w-6 text-center text-sm font-black tabular-nums" style={{ color: '#0F1B3D' }}>{topN}</span>
+              <button
+                type="button"
+                onClick={() => onChange({ topN: Math.min(10, topN + 1) })}
+                disabled={topN >= 10}
+                className="w-7 h-7 flex items-center justify-center rounded-md text-base font-bold text-gray-600 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                aria-label="Show more players"
+              >
+                +
+              </button>
+            </div>
+            <span className="text-sm" style={{ color: '#374151' }}>players</span>
+          </div>
+        </div>
+
+        {plan === 'free' && (
+          <div className="flex-shrink-0 border-t px-4 py-2 flex justify-end rounded-b-2xl" style={{ borderColor: '#F3F4F6' }}>
+            <span className="text-[9px] font-bold opacity-30" style={{ color: '#0F1B3D' }}>quizotic.live</span>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col h-full bg-white rounded-2xl" style={{ boxShadow: '0 4px 32px rgba(15,27,61,0.08)', border: '1px solid #E5E7EB' }}>

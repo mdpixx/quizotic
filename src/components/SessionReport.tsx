@@ -336,7 +336,7 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
         <p style="margin:8px 0 0;font-size:12px;color:#7e22ce">These students may hold incorrect prior knowledge — targeted correction needed.</p>
       </div>` : ''
 
-    const rows = questionStats.map((stat, i) => {
+    const rows = questionStats.filter(s => !s.isLeaderboard).map((stat, i) => {
       const isNonScored = stat.isNonScored || stat.correctPct == null
       const isWeak = !isNonScored && (stat.correctPct ?? 0) < 50
       const isStrong = !isNonScored && (stat.correctPct ?? 0) >= 80
@@ -570,7 +570,7 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
       <BloomsDistribution stats={questionStats} />
 
       <div className="space-y-4">
-        {questionStats.map((stat) => {
+        {questionStats.filter(s => !s.isLeaderboard).map((stat) => {
           const isNonScored = stat.isNonScored || stat.correctPct == null
           const isWeak = !isNonScored && (stat.correctPct ?? 0) < 50
           const isStrong = !isNonScored && (stat.correctPct ?? 0) >= 80

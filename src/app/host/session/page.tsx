@@ -325,6 +325,9 @@ export default function SessionPage() {
   const [displayedLeaderboard, setDisplayedLeaderboard] = useState<LeaderboardEntry[]>([])
   const [topMovers, setTopMovers] = useState<TopMover[]>([])
   const [standingsRecommended, setStandingsRecommended] = useState(false)
+  // True while the current slide is a host-placed leaderboard "flow" slide
+  // (reuses the 'standings' phase but advances straight to the next slide).
+  const [onLeaderboardSlide, setOnLeaderboardSlide] = useState(false)
   // Pop-up leaderboard overlay — opened via the trophy button or 'L' key so the
   // host can peek at standings any time without advancing the slide.
   const [showLeaderboardPopup, setShowLeaderboardPopup] = useState(false)
@@ -438,6 +441,10 @@ export default function SessionPage() {
   }, [phase, gameCode])
 
   const currentQuestion = quiz?.questions[questionIndex] ?? null
+  // Progress counts exclude leaderboard flow slides so "Question X of N" reflects
+  // answerable questions only (the raw index still addresses the server array).
+  const answerableTotal = quiz ? quiz.questions.filter(q => q.type !== 'leaderboard').length : 0
+  const answerableNumber = quiz ? quiz.questions.slice(0, questionIndex + 1).filter(q => q.type !== 'leaderboard').length : 0
   const isAnswerRevealStage = Boolean(
     currentQuestion && isScoredQuestion(currentQuestion) && questionEnded && correctRevealed,
   )
@@ -692,6 +699,7 @@ export default function SessionPage() {
       const effectiveStart = typeof startAt === 'number' ? startAt : Date.now()
       // Leaving the standings screen for the next question.
       setPhase('question')
+      setOnLeaderboardSlide(false)
       setEndNowArmed(false)
       if (endNowArmTimerRef.current) { clearTimeout(endNowArmTimerRef.current); endNowArmTimerRef.current = null }
       setQuestionStartedAt(effectiveStart)
@@ -802,6 +810,31 @@ export default function SessionPage() {
       try { playLeaderboardJingle() } catch {}
     })
 
+    // Host-placed leaderboard slide reached during play — show standings and
+    // wait for the host to advance. Reuses the 'standings' phase.
+    socket.on('leaderboard_slide_show', ({ index, top, teamLeaderboard: tlb }: {
+      index: number;
+      total?: number;
+      title?: string | null;
+      top: LeaderboardEntry[];
+      teamLeaderboard?: { name: string; color: string; score: number; members: number }[] | null;
+      totalPlayers?: number;
+    }) => {
+      setQuestionIndex(index)
+      setOnLeaderboardSlide(true)
+      setQuestionEnded(true)
+      setExplanation(null)
+      setTopMovers([])
+      setPreviousIntermediateLeaderboard([])
+      setIntermediateLeaderboard(top ?? [])
+      setDisplayedLeaderboard([])
+      if (tlb) setTeamLeaderboard(tlb)
+      if (hostTimerRef.current) { clearInterval(hostTimerRef.current); hostTimerRef.current = null }
+      setHostTimeLeft(0)
+      setPhase('standings')
+      try { playLeaderboardJingle() } catch {}
+    })
+
     socket.on('drawing_submitted', (entry: { name: string; archetype: string; dataUrl: string }) => {
       setDrawings(prev => [...prev, entry])
     })
@@ -896,6 +929,7 @@ export default function SessionPage() {
       socket.off('question_started')
       socket.off('ranking_submission')
       socket.off('question_show')
+      socket.off('leaderboard_slide_show')
       socket.off('question_ended')
       socket.off('session_ended')
       socket.off('leaderboard_update')
@@ -1130,7 +1164,11 @@ export default function SessionPage() {
   function advanceFromQuestion() {
     const current = quiz?.questions?.[questionIndex]
     const scored = current ? isScoredQuestion(current) : false
-    if (sessionMode === 'competitive' && scored) {
+    // If the very next slide is a host-placed leaderboard, skip the built-in
+    // between-question standings — the leaderboard slide will show them instead
+    // (avoids standings appearing twice in a row).
+    const nextIsLeaderboard = quiz?.questions?.[questionIndex + 1]?.type === 'leaderboard'
+    if (sessionMode === 'competitive' && scored && !nextIsLeaderboard) {
       socketRef.current?.emit('show_standings', { gameCode })
       setPhase('standings')
       return
@@ -1754,10 +1792,10 @@ export default function SessionPage() {
                   Answer Reveal
                 </span>
                 <span className="font-display text-2xl font-black tabular-nums" style={{ color: '#FBD13B', fontFamily: 'var(--font-display)' }}>
-                  Q{questionIndex + 1}
+                  Q{answerableNumber}
                 </span>
                 <span className="text-sm font-bold whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                  of {quiz.questions.length}
+                  of {answerableTotal}
                 </span>
               </div>
               <div className="flex shrink-0 items-center gap-2 sm:gap-3">
@@ -1779,10 +1817,10 @@ export default function SessionPage() {
                 </span>
                 <div className="mt-1 flex items-center gap-3">
                   <span className="font-display text-3xl md:text-4xl font-black tabular-nums" style={{ fontFamily: 'var(--font-display)', color: '#FBD13B' }}>
-                    Q{questionIndex + 1}
+                    Q{answerableNumber}
                   </span>
                   <span className="text-lg md:text-xl font-bold" style={{ color: 'rgba(255,255,255,0.72)' }}>
-                    of {quiz.questions.length}
+                    of {answerableTotal}
                   </span>
                 </div>
               </div>
@@ -2528,10 +2566,10 @@ export default function SessionPage() {
           <div className="max-w-7xl mx-auto space-y-6">
           <div className="text-center">
             <p className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: '#9CA3AF' }}>
-              After Question {questionIndex + 1} of {quiz.questions.length}
+              {onLeaderboardSlide ? 'Standings' : `After Question ${answerableNumber} of ${answerableTotal}`}
             </p>
             <h2 className="font-display text-4xl md:text-6xl font-black mt-1" style={{ fontFamily: 'var(--font-display)', color: '#0F1B3D' }}>
-              Places Are Moving
+              {onLeaderboardSlide ? (currentQuestion.text?.trim() || 'Leaderboard') : 'Places Are Moving'}
             </h2>
           </div>
 
@@ -2917,7 +2955,7 @@ export default function SessionPage() {
                   if (questionStats.length > 0) {
                     rows.push([])
                     rows.push(['Question', 'Correct %', 'Type', 'Text'])
-                    questionStats.forEach((stat, i) => {
+                    questionStats.filter(s => !s.isLeaderboard).forEach((stat, i) => {
                       const pctStr = stat.isNonScored || stat.correctPct == null ? 'N/A' : `${stat.correctPct}%`
                       const typeStr = stat.type || 'mcq'
                       rows.push([`Q${i + 1}`, pctStr, typeStr, `"${stat.text.replace(/"/g, '""')}"`])
