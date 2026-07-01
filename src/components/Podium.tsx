@@ -274,7 +274,7 @@ export function Podium({
 
       {/* Podium — wider spacing and clipped internally so shake never pushes glow past the edge */}
       <div
-        className="flex items-end justify-center gap-3 sm:gap-6 relative"
+        className="flex items-end justify-center gap-2 sm:gap-6 relative"
         style={{
           minHeight: isFinale ? 380 : 280,
           // Shake removed — read as "jittery" on a projector. The spotlight
@@ -295,7 +295,7 @@ export function Podium({
           return (
             <div
               key={entry.name}
-              className={`flex flex-col items-center gap-2 relative ${top3.length === 1 ? (isFinale ? 'w-60' : 'w-44') : isFinale ? 'w-[150px] sm:w-[190px]' : 'w-[110px] sm:w-[140px]'}`}
+              className={`flex flex-col items-center gap-2 relative ${top3.length === 1 ? (isFinale ? 'w-60' : 'w-44') : isFinale ? 'flex-1 min-w-0 max-w-[190px]' : 'flex-1 min-w-0 max-w-[140px]'}`}
             >
               {/* Spotlight halo behind winner — compact + softer so it doesn't spill outward */}
               {isWinner && !reduced && (phase === 'drumroll' || phase === 'winner' || phase === 'rest') && (
