@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Avatar } from '@/components/Avatar'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
+import { useFeedback } from '@/components/FeedbackProvider'
 
 // Lucide-style SVG icons — consistent 1.8 stroke, no emoji inside product
 const ICON = {
@@ -140,6 +141,7 @@ interface HostSidebarProps {
 
 function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const { data: session } = useSession()
+  const { openFeedback } = useFeedback()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -310,9 +312,16 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
                     </p>
                   </div>
                   <button
+                    onClick={() => { setUserMenuOpen(false); openFeedback('account-menu') }}
+                    className="w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-black/5"
+                    style={{ color: 'var(--color-ink)' }}
+                  >
+                    Send feedback
+                  </button>
+                  <button
                     onClick={() => signOut({ callbackUrl: '/' })}
-                    className="w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-red-50"
-                    style={{ color: 'var(--color-danger)' }}
+                    className="w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-red-50 border-t"
+                    style={{ color: 'var(--color-danger)', borderColor: 'var(--color-line)' }}
                   >
                     Sign Out
                   </button>

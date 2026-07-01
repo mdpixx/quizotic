@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
+import { useFeedback } from '@/components/FeedbackProvider'
 
 const FOOTER_LINKS = [
   { href: '/features', label: 'Features' },
@@ -73,6 +74,7 @@ const GUIDE_LINKS = [
 ]
 
 export function Footer() {
+  const { openFeedback } = useFeedback()
   return (
     <footer style={{ background: '#0F1B3D', borderTop: '2px solid #FBD13B', padding: 'clamp(36px, 7vw, 48px) 24px' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
@@ -88,6 +90,15 @@ export function Footer() {
                   onMouseLeave={e => (e.target as HTMLElement).style.color = 'rgba(255,255,255,0.65)'}>{l.label}</a>
               : <Link key={l.href} href={l.href} style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 14, color: 'rgba(255,255,255,0.65)', textDecoration: 'none' }}>{l.label}</Link>
           ))}
+          <button
+            type="button"
+            onClick={() => openFeedback('footer')}
+            style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 14, color: 'rgba(255,255,255,0.65)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', transition: 'color 0.2s' }}
+            onMouseEnter={e => (e.target as HTMLElement).style.color = '#FBD13B'}
+            onMouseLeave={e => (e.target as HTMLElement).style.color = 'rgba(255,255,255,0.65)'}
+          >
+            Feedback
+          </button>
         </div>
 
         {/* Compare row */}

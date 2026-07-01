@@ -13,6 +13,7 @@ import { LottieConfetti } from '@/components/LottieConfetti'
 import { CelebrationConfetti } from '@/components/CelebrationConfetti'
 import { SessionReport } from '@/components/SessionReport'
 import { LeaderboardView } from '@/components/LeaderboardView'
+import { useFeedback } from '@/components/FeedbackProvider'
 import { playLeaderboardJingle, playTick, playBackgroundMusic, stopBackgroundMusic, playBassBoom, playCelebration, playFirecracker, preloadCelebrationSounds, playDrumroll, stopDrumroll, isMuted, toggleMuted } from '@/lib/sounds'
 import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/quiz-storage'
 import type { Quiz, QuestionStat, SessionMode } from '@/lib/quiz-types'
@@ -331,6 +332,7 @@ export default function SessionPage() {
   // Pop-up leaderboard overlay — opened via the trophy button or 'L' key so the
   // host can peek at standings any time without advancing the slide.
   const [showLeaderboardPopup, setShowLeaderboardPopup] = useState(false)
+  const { openFeedback } = useFeedback()
   const [countdownValue, setCountdownValue] = useState<number | null>(null)
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [endNowArmed, setEndNowArmed] = useState(false)
@@ -338,16 +340,6 @@ export default function SessionPage() {
   // Soft auto-advance on standings — null means disabled / cancelled.
   // Number is the remaining ms before nextQuestion() fires automatically.
   const [standingsAutoMs, setStandingsAutoMs] = useState<number | null>(null)
-  useEffect(() => {
-    const html = document.documentElement
-    const shouldHideFeedback = phase === 'question' || phase === 'standings' || phase === 'ended'
-    if (shouldHideFeedback) html.setAttribute('data-feedback-hidden', 'host-session')
-    else if (html.getAttribute('data-feedback-hidden') === 'host-session') html.removeAttribute('data-feedback-hidden')
-
-    return () => {
-      if (html.getAttribute('data-feedback-hidden') === 'host-session') html.removeAttribute('data-feedback-hidden')
-    }
-  }, [phase])
 
   useEffect(() => {
     // Always reset scroll on phase change so the projector view starts at
@@ -3002,6 +2994,18 @@ export default function SessionPage() {
               className="text-sm font-semibold text-gray-500 hover:text-gray-700 underline-offset-4 hover:underline transition-colors"
             >
               ← Back to Library
+            </button>
+          </div>
+
+          {/* Post-session feedback — the moment the host actually has an opinion
+              about the product, so this is our highest-signal prompt. */}
+          <div className="flex justify-center pt-1 pb-2">
+            <button
+              type="button"
+              onClick={() => openFeedback('post-session')}
+              className="text-xs font-semibold text-gray-400 hover:text-gray-600 underline-offset-4 hover:underline transition-colors"
+            >
+              How did that go? Send feedback
             </button>
           </div>
         </motion.div>

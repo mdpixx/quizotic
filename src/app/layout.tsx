@@ -33,7 +33,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/components/AuthProvider";
 import { PostHogProvider } from "@/components/PostHogProvider";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
-import { FloatingFeedbackButton } from "@/components/FloatingFeedbackButton";
+import { FeedbackProvider } from "@/components/FeedbackProvider";
 
 export const metadata: Metadata = {
   title: {
@@ -157,8 +157,9 @@ gtag('config', '${GA4_ID}', { send_page_view: true });`,
           <PostHogProvider>
             <ThemeProvider>
               <Background />
-              {children}
-              <FloatingFeedbackButton />
+              <FeedbackProvider>
+                {children}
+              </FeedbackProvider>
             </ThemeProvider>
           </PostHogProvider>
         </AuthProvider>

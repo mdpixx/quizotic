@@ -9,6 +9,7 @@
 
 import { LeaderboardView, type LeaderboardRow } from '@/components/LeaderboardView'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
+import { useFeedback } from '@/components/FeedbackProvider'
 
 interface TeamLeaderboardEntry {
   name: string
@@ -30,6 +31,7 @@ export function RemoteEnded({
   busy,
   onEndSession,
 }: RemoteEndedProps) {
+  const { openFeedback } = useFeedback()
   const winner = rows[0]
   return (
     <div
@@ -105,6 +107,19 @@ export function RemoteEnded({
           <LeaderboardView rows={rows} variant="compact" topN={10} heading="Final leaderboard" />
         )}
       </div>
+
+      <button
+        type="button"
+        onClick={() => openFeedback('post-session')}
+        className="mb-3 w-full rounded-2xl py-3 text-sm font-black font-display transition-all"
+        style={{
+          background: 'var(--color-paper-2)',
+          color: 'var(--color-primary)',
+          border: '2px dashed var(--color-line)',
+        }}
+      >
+        How did that go? Tell us
+      </button>
 
       <div className="grid grid-cols-2 gap-3">
         <button

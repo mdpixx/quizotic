@@ -2082,27 +2082,6 @@ function CreateQuizPageInner() {
     setTimeout(() => setSelfPacedShare(prev => ({ ...prev, copied: false })), 2000)
   }
 
-  useEffect(() => {
-    const html = document.documentElement
-    const media = window.matchMedia('(max-width: 767px)')
-    const owner = 'host-create-mobile'
-    const update = () => {
-      if (media.matches) {
-        html.setAttribute('data-feedback-hidden', owner)
-      } else if (html.getAttribute('data-feedback-hidden') === owner) {
-        html.removeAttribute('data-feedback-hidden')
-      }
-    }
-    update()
-    media.addEventListener('change', update)
-    return () => {
-      media.removeEventListener('change', update)
-      if (html.getAttribute('data-feedback-hidden') === owner) {
-        html.removeAttribute('data-feedback-hidden')
-      }
-    }
-  }, [])
-
   // ── Sidebar stats ───────────────────────────────────────────────────────────
 
   const totalSeconds = questions.reduce((s, q) => s + q.timerSeconds, 0)
