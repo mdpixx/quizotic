@@ -492,24 +492,6 @@ function JoinPageInner() {
   // "ended" / "selfpaced-done" terminal screens.
   useWakeLock(phase !== 'form' && phase !== 'ended' && phase !== 'selfpaced-done')
 
-  useEffect(() => {
-    const html = document.documentElement
-    const shouldHideFeedback = phase === 'question'
-      || phase === 'answered'
-      || phase === 'standings'
-      || phase === 'ended'
-      || phase === 'selfpaced'
-      || phase === 'presenter-voting'
-      || phase === 'presenter-voted'
-      || phase === 'presenter-results'
-
-    if (shouldHideFeedback) html.setAttribute('data-feedback-hidden', 'join-session')
-    else if (html.getAttribute('data-feedback-hidden') === 'join-session') html.removeAttribute('data-feedback-hidden')
-
-    return () => {
-      if (html.getAttribute('data-feedback-hidden') === 'join-session') html.removeAttribute('data-feedback-hidden')
-    }
-  }, [phase])
   const [code, setCode] = useState(codeFromLink)
   const nameInputRef = useRef<HTMLInputElement>(null)
 

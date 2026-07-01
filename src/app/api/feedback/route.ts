@@ -1,5 +1,6 @@
-// Receives feedback submissions from the FloatingFeedbackButton and emails
-// the operator. Designed to be small and self-contained: validation via
+// Receives feedback submissions from the FeedbackModal (opened via the account
+// menu, footer link, or post-session prompt) and emails the operator. Designed
+// to be small and self-contained: validation via
 // Zod, send via the existing Resend wrapper, log to console as a backstop.
 //
 // Why no Feedback DB model: emailing is enough for the volume we expect,
