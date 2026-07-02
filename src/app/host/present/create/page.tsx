@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState, useCallback, useEffect, useRef, Suspense } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   type Slide, type SlideType, type Presentation,
@@ -1633,7 +1632,6 @@ function PresentCreatePageInner() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [planLimitBlocked, setPlanLimitBlocked] = useState<string | null>(null) // message from API when 403 on save
   const [starting, setStarting] = useState(false)
-  const [startError, setStartError] = useState<string | null>(null)
   const [incompletePrompt, setIncompletePrompt] = useState<{
     slides: { index: number; id: string; typeLabel: string; issue: string }[]
     patched: Presentation
@@ -1701,7 +1699,6 @@ function PresentCreatePageInner() {
   // Reading searchParams imperatively here avoids subscribing to the param as
   // a dep, which would re-run this effect on every Next.js re-render and
   // overwrite unsaved in-memory edits with the stale localStorage snapshot.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const editId = params.get('id')
@@ -1976,13 +1973,11 @@ function PresentCreatePageInner() {
   async function handleSaveAndPresent() {
     if (starting) return
     setStarting(true)
-    setStartError(null)
     try {
       await savePresentation()
       startPresentation()
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to save. Please try again.'
-      setStartError(msg)
       if (typeof window !== 'undefined') window.alert(msg)
     } finally {
       setStarting(false)
@@ -2032,7 +2027,6 @@ function PresentCreatePageInner() {
     lastSavedRef.current = JSON.stringify(snap)
     // Silent autosave — no button state flipping. Errors still surface via saveError.
     return savePresentation(false)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, { delayMs: 5000 })
 
   // Warn before leaving with unsaved changes

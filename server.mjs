@@ -827,7 +827,7 @@ app.prepare().then(async () => {
           : (session.quizData?.title || '')
         res.statusCode = 200
         res.end(JSON.stringify({ ok: true, exists: true, type, status: session.status, title }))
-      } catch (err) {
+      } catch {
         res.statusCode = 200
         res.setHeader('Content-Type', 'application/json')
         res.end(JSON.stringify({ ok: true, exists: false }))
@@ -3032,15 +3032,6 @@ function emitLeaderboardSlide(io, gameCode, session, index) {
   if (session.endTimer) { clearTimeout(session.endTimer); session.endTimer = null }
 }
 
-// Per-player rank lookup — returns {rank, total, score} for a given participant.
-function getParticipantRank(participants, targetId) {
-  const sorted = Array.from(participants.entries())
-    .sort(([, a], [, b]) => b.score - a.score)
-  const idx = sorted.findIndex(([sid]) => sid === targetId)
-  if (idx === -1) return null
-  const [, p] = sorted[idx]
-  return { rank: idx + 1, total: sorted.length, score: p.score }
-}
 
 function countAnswers(session, questionIndex) {
   let count = 0

@@ -13,10 +13,21 @@
 //   - lobby (variant="lobby") — a pill under the Game PIN card
 //   - live control bar (variant="bar") — a compact icon button
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import QRCode from 'react-qr-code'
 
 const REMOTE_PATH = '/host/remote'
+
+// Client-only constant: server renders the canonical domain, the client
+// swaps in its own origin without a hydration mismatch or an extra render.
+const noopSubscribe = () => () => {}
+function useRemoteUrl(): string {
+  return useSyncExternalStore(
+    noopSubscribe,
+    () => window.location.origin + REMOTE_PATH,
+    () => 'https://quizotic.live' + REMOTE_PATH,
+  )
+}
 
 interface PhoneRemoteButtonProps {
   /** lobby = light pill on the PIN card; bar = dark icon in the control bar. */
@@ -25,13 +36,8 @@ interface PhoneRemoteButtonProps {
 
 export function PhoneRemoteButton({ variant }: PhoneRemoteButtonProps) {
   const [open, setOpen] = useState(false)
-  const [remoteUrl, setRemoteUrl] = useState('https://quizotic.live' + REMOTE_PATH)
+  const remoteUrl = useRemoteUrl()
   const wrapRef = useRef<HTMLDivElement>(null)
-
-  // Resolve the absolute URL on the client to avoid a hydration mismatch.
-  useEffect(() => {
-    if (typeof window !== 'undefined') setRemoteUrl(window.location.origin + REMOTE_PATH)
-  }, [])
 
   // Close on outside click / Escape.
   useEffect(() => {

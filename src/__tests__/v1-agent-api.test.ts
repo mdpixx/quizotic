@@ -11,7 +11,7 @@ const prismaMock = vi.hoisted(() => ({
   answer: { findMany: vi.fn() },
 }))
 
-const authMock = vi.hoisted(() => vi.fn(async () => apiUser))
+const authMock = vi.hoisted(() => vi.fn(async (): Promise<typeof apiUser | null> => apiUser))
 const quotaMock = vi.hoisted(() => vi.fn(async () => ({ allowed: true, plan: 'free', used: 0, limit: 30, remaining: 25 })))
 const logUsageMock = vi.hoisted(() => vi.fn(async () => {}))
 const chatCreateMock = vi.hoisted(() => vi.fn(async () => ({

@@ -33,10 +33,20 @@ export function useHistory<T>(
   const initializedRef = useRef(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const applyRef = useRef(apply)
-  applyRef.current = apply
+  useEffect(() => {
+    applyRef.current = apply
+  })
 
-  const [, setVersion] = useState(0)
-  const bump = useCallback(() => setVersion(v => v + 1), [])
+  // canUndo/canRedo live in state (not read off refs during render) so
+  // consumers re-render exactly when the flags actually flip.
+  const [flags, setFlags] = useState({ canUndo: false, canRedo: false })
+  const bump = useCallback(() => {
+    setFlags(prev => {
+      const canUndo = pastRef.current.length > 0
+      const canRedo = futureRef.current.length > 0
+      return prev.canUndo === canUndo && prev.canRedo === canRedo ? prev : { canUndo, canRedo }
+    })
+  }, [])
 
   useEffect(() => {
     if (!initializedRef.current) {
@@ -101,8 +111,8 @@ export function useHistory<T>(
   }, [bump])
 
   return {
-    canUndo: pastRef.current.length > 0,
-    canRedo: futureRef.current.length > 0,
+    canUndo: flags.canUndo,
+    canRedo: flags.canRedo,
     undo,
     redo,
     reset,

@@ -114,7 +114,7 @@ test.describe('Live quiz — answer capture critical path', () => {
       //    must accept this; any future schema constraint that rejects
       //    floats fails this assertion BEFORE the change reaches prod.
       const fractionalServerSubmittedAt = Date.now() + 0.5
-      const ackPromise = emitWithAck<{ accepted: boolean; reason?: string; isCorrect?: boolean }>(
+      const ackPromise = emitWithAck<{ accepted: boolean; reason?: string }>(
         participant,
         'submit_answer',
         {
@@ -139,7 +139,10 @@ test.describe('Live quiz — answer capture critical path', () => {
         )
       }
       expect(ack.accepted).toBe(true)
-      expect(ack.isCorrect).toBe(true)
+      // Correctness is deliberately NOT in the ack — it arrives via
+      // personal_result at reveal so early answerers can't leak it to
+      // classmates. regressions.spec.ts guards that contract in full.
+      expect(ack).not.toHaveProperty('isCorrect')
 
       const recv = await answerReceived
       expect(recv.count).toBe(1)

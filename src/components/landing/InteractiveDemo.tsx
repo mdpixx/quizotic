@@ -26,16 +26,21 @@ const QUESTIONS = [
 
 const OPTION_COLORS = ['#2D3A8C', '#FF8A47', '#5BC0EB', '#E07A5F']
 
+// Generated once at module scope: render must stay pure (react-hooks/purity),
+// and the confetti only appears client-side after a quiz finishes, so a fixed
+// particle layout is indistinguishable from a per-render one.
+const CONFETTI_PARTICLES = Array.from({ length: 30 }, (_, i) => ({
+  id: i,
+  left: `${Math.random() * 100}%`,
+  delay: `${Math.random() * 0.5}s`,
+  duration: `${1.5 + Math.random() * 1.5}s`,
+  color: ['#0F1B3D', '#FBD13B', '#16A34A', '#2D3A8C', '#FF8A47', '#5BC0EB'][i % 6],
+  size: 4 + Math.random() * 6,
+  rotation: Math.random() * 360,
+}))
+
 function CSSConfetti() {
-  const particles = Array.from({ length: 30 }, (_, i) => ({
-    id: i,
-    left: `${Math.random() * 100}%`,
-    delay: `${Math.random() * 0.5}s`,
-    duration: `${1.5 + Math.random() * 1.5}s`,
-    color: ['#0F1B3D', '#FBD13B', '#16A34A', '#2D3A8C', '#FF8A47', '#5BC0EB'][i % 6],
-    size: 4 + Math.random() * 6,
-    rotation: Math.random() * 360,
-  }))
+  const particles = CONFETTI_PARTICLES
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none z-20">

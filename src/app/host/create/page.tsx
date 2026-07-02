@@ -7,7 +7,7 @@ import { saveQuiz, loadQuizzes, setActiveSession } from '@/lib/quiz-storage'
 import { draftKey, readDraft, writeDraft, clearDraft, formatDraftAge } from '@/lib/draft-storage'
 import { useAutosave } from '@/lib/use-autosave'
 import { useHistory } from '@/lib/use-history'
-import type { Question, QuestionType, BloomsLevel, Quiz, QuestionOption } from '@/lib/quiz-types'
+import type { Question, QuestionType, BloomsLevel, Quiz } from '@/lib/quiz-types'
 import { getOptionText, getOptionImage, isScoredQuestion, isSequenceRanking } from '@/lib/quiz-types'
 import { QUIZ_LANGUAGES } from '@/lib/languages'
 import { ImageUpload } from '@/components/ImageUpload'
@@ -15,7 +15,6 @@ import { QuizThemePicker } from '@/components/host/QuizThemePicker'
 import { getQuizTheme, type QuizThemeId } from '@/lib/quiz-themes'
 import { formatQuizValidationIssues, hasQuizValidationErrors, validateQuizQuestions } from '@/lib/quiz-validation'
 import { resolveHostBackNavigation } from '@/lib/host-navigation'
-import QRCode from 'react-qr-code'
 import {
   DndContext,
   closestCenter,
@@ -298,17 +297,6 @@ function needsCorrectAnswer(type: QuestionType): boolean {
   return type === 'mcq' || type === 'truefalse' || type === 'multiselect'
 }
 
-// Picks a responsive Tailwind text size based on question length so long
-// questions don't overflow the preview card / live-session header.
-function questionTextSizeClass(text: string): string {
-  const len = text.length
-  if (len > 240) return 'text-base md:text-lg'
-  if (len > 180) return 'text-lg md:text-xl'
-  if (len > 120) return 'text-xl md:text-2xl'
-  if (len > 70) return 'text-xl md:text-3xl'
-  return 'text-2xl md:text-4xl'
-}
-
 function getTypePill(type: QuestionType) {
   return TYPE_PILLS.find(t => t.value === type) ?? TYPE_PILLS[0]
 }
@@ -508,7 +496,6 @@ function QuestionPreview({
   onChange: (q: Question) => void
   plan: 'free' | 'pro'
 }) {
-  const pill = getTypePill(question.type)
   const opts = question.options ?? []
   const rankingSensors = useSensors(
     useSensor(PointerSensor),
@@ -808,53 +795,8 @@ function QuestionEditor({
   onDelete: () => void
   onDuplicate: () => void
 }) {
-
-
   function handleTypeChange(type: QuestionType) {
     onChange(convertQuestionType(question, type))
-  }
-
-  function handleOptionChange(i: number, value: string) {
-    const options = [...(question.options ?? [])]
-    const existing = options[i]
-    const existingImage = getOptionImage(existing ?? '')
-    options[i] = existingImage ? { text: value, imageUrl: existingImage } : value
-    onChange({ ...question, options })
-  }
-
-  function handleOptionImageUpload(i: number, imageUrl: string) {
-    const options = [...(question.options ?? [])]
-    const text = getOptionText(options[i] ?? '')
-    options[i] = { text, imageUrl }
-    onChange({ ...question, options })
-  }
-
-  function handleOptionImageRemove(i: number) {
-    const options = [...(question.options ?? [])]
-    const text = getOptionText(options[i] ?? '')
-    options[i] = text
-    onChange({ ...question, options })
-  }
-
-  function handleAddOption() {
-    const options = [...(question.options ?? []), '']
-    onChange({ ...question, options })
-  }
-
-  function handleRemoveOption(i: number) {
-    const options = question.options?.filter((_, idx) => idx !== i) ?? []
-    const correctAnswers = question.correctAnswers
-      ?.filter(answer => answer !== String(i))
-      .map(answer => {
-        const n = Number(answer)
-        return Number.isInteger(n) && n > i ? String(n - 1) : answer
-      })
-    const correctAnswer = question.correctAnswer === String(i)
-      ? undefined
-      : Number.isInteger(Number(question.correctAnswer)) && Number(question.correctAnswer) > i
-        ? String(Number(question.correctAnswer) - 1)
-        : question.correctAnswer
-    onChange({ ...question, options, correctAnswer, correctAnswers })
   }
 
   return (
@@ -1480,16 +1422,6 @@ function CreateQuizPageInner() {
   const typeMixSum = Object.values(typeMix).reduce((a, b) => a + b, 0)
   const typeMixValid = typeMixSum === aiCount
   const countOptions = QUESTION_COUNT_OPTIONS[plan] ?? QUESTION_COUNT_OPTIONS.free
-
-  function handleTypeMixChange(key: keyof TypeMix, val: number) {
-    typeMixTouchedRef.current = true
-    setTypeMix(prev => ({ ...prev, [key]: val }))
-  }
-
-  function maxForType(key: keyof TypeMix): number {
-    const remaining = aiCount - typeMixSum
-    return typeMix[key] + Math.max(0, remaining)
-  }
 
   function handleIncrement(key: keyof TypeMix) {
     typeMixTouchedRef.current = true

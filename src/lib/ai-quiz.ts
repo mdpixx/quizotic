@@ -64,8 +64,6 @@ ${TYPE_EXAMPLES[type] ?? TYPE_EXAMPLES['mcq']}`
 // ── Options-only prompt ───────────────────────────────────────────────────────
 
 export function buildOptionsPrompt(questionText: string, type: QuestionType): string {
-  const isScored = type === 'mcq' || type === 'multiselect' || type === 'truefalse'
-
   if (type === 'truefalse') {
     return `For the true/false question: "${questionText}"
 
