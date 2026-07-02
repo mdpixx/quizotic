@@ -10,6 +10,10 @@ const checkOnly = process.argv.includes('--check')
 const targets = {
   iconSvg: join(root, 'src/app/icon.svg'),
   publicSvg: join(root, 'public/brand/quizotic-mark.svg'),
+  publicIconSvg: join(root, 'public/icons/icon.svg'),
+  publicFavicon16Svg: join(root, 'public/icons/favicon-16.svg'),
+  publicFavicon32Svg: join(root, 'public/icons/favicon-32.svg'),
+  publicMaskableSvg: join(root, 'public/icons/icon-maskable.svg'),
   favicon: join(root, 'src/app/favicon.ico'),
   apple: join(root, 'src/app/apple-icon.png'),
   pwa192: join(root, 'public/icons/icon-192.png'),
@@ -18,6 +22,36 @@ const targets = {
 }
 
 const source = await readFile(sourcePath)
+
+const favicon16Svg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <title>Quizotic</title>
+  <rect width="16" height="16" rx="3.8" fill="#FBD13B"/>
+  <path d="M8 1.6 14.4 8 8 14.4 1.6 8Z" fill="#0F1B3D"/>
+  <circle cx="8" cy="8" r="2.65" fill="#FBD13B"/>
+  <path d="M9.5 9.5 12.5 12.5" fill="none" stroke="#FBD13B" stroke-width="2.2" stroke-linecap="round"/>
+  <circle cx="8" cy="8" r="1" fill="#0F1B3D"/>
+</svg>
+`)
+
+const favicon32Svg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <title>Quizotic</title>
+  <rect width="32" height="32" rx="7.5" fill="#FBD13B"/>
+  <rect x="7" y="7" width="18" height="18" rx="4.5" fill="#0F1B3D" transform="rotate(45 16 16)"/>
+  <circle cx="16" cy="16" r="5" fill="#FBD13B"/>
+  <path d="M19 19 24.5 24.5" fill="none" stroke="#FBD13B" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="16" cy="16" r="1.9" fill="#0F1B3D"/>
+</svg>
+`)
+
+const maskableSvg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <title>Quizotic</title>
+  <rect width="64" height="64" fill="#FBD13B"/>
+  <rect x="16" y="16" width="32" height="32" rx="8" fill="#0F1B3D" transform="rotate(45 32 32)"/>
+  <circle cx="32" cy="32" r="9" fill="#FBD13B"/>
+  <path d="M37.4 37.4 47 47" fill="none" stroke="#FBD13B" stroke-width="7.25" stroke-linecap="round"/>
+  <circle cx="32" cy="32" r="3.35" fill="#0F1B3D"/>
+</svg>
+`)
 
 async function png(size) {
   return sharp(source, { density: 512 })
@@ -80,6 +114,10 @@ const faviconImages = await Promise.all(
 const outputs = new Map([
   [targets.iconSvg, source],
   [targets.publicSvg, source],
+  [targets.publicIconSvg, source],
+  [targets.publicFavicon16Svg, favicon16Svg],
+  [targets.publicFavicon32Svg, favicon32Svg],
+  [targets.publicMaskableSvg, maskableSvg],
   [targets.favicon, ico(faviconImages)],
   [targets.apple, await png(180)],
   [targets.pwa192, await png(192)],
