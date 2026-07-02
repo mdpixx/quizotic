@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <title>Quizotic</title>
+  <rect width="64" height="64" fill="#FBD13B"/>
+  <rect x="16" y="16" width="32" height="32" rx="8" fill="#0F1B3D" transform="rotate(45 32 32)"/>
+  <circle cx="32" cy="32" r="9" fill="#FBD13B"/>
+  <path d="M37.4 37.4 47 47" fill="none" stroke="#FBD13B" stroke-width="7.25" stroke-linecap="round"/>
+  <circle cx="32" cy="32" r="3.35" fill="#0F1B3D"/>
+</svg>
