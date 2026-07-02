@@ -31,14 +31,6 @@ const TARGET_Y  = yVal(73)
 const NAV_MAIN  = ['Analytics','Sessions','Participants','Reports']
 const NAV_CONTENT = ['My Quizzes','Presentations']
 
-function SidebarIcon({ d }: { d: string }) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d={d}/>
-    </svg>
-  )
-}
-
 export function ProductShowcase() {
   return (
     <section id="dashboard" style={{ padding: 'clamp(56px, 11vw, 120px) 24px', background: '#F8F9FA' }}>

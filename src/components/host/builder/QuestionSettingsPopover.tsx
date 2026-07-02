@@ -12,7 +12,6 @@
 
 import React from 'react'
 import type { Question, BloomsLevel } from '@/lib/quiz-types'
-import { isScoredQuestion } from '@/lib/quiz-types'
 import { ImageUpload } from '@/components/ImageUpload'
 import { hasCorrectAnswer, needsCorrectAnswer } from '@/lib/quiz-builder-logic'
 

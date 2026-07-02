@@ -90,16 +90,6 @@ function playMilestoneSound(ctx: AudioContext) {
 
 function PollBar({ label, count, total, color }: { label: string; count: number; total: number; color: string }) {
   const pct = total > 0 ? Math.round((count / total) * 100) : 0
-  const [ripple, setRipple] = useState(false)
-  const prevCount = useRef(count)
-
-  useEffect(() => {
-    if (count > prevCount.current) {
-      setRipple(true)
-      setTimeout(() => setRipple(false), 600)
-      prevCount.current = count
-    }
-  }, [count])
 
   return (
     <div className="space-y-1.5 relative overflow-visible">
@@ -116,11 +106,15 @@ function PollBar({ label, count, total, color }: { label: string; count: number;
             transition: 'width 0.6s cubic-bezier(0.34,1.56,0.64,1)',
           }}
         />
-        {ripple && (
-          <div className="absolute inset-0 rounded-full animate-pulse"
-            style={{ background: `${color}33`, animationDuration: '0.6s' }} />
+        {/* key={count} remounts the overlay on every new vote so the fade-out
+            animation replays — a stateless replacement for the old
+            setState + setTimeout ripple. */}
+        {count > 0 && (
+          <div key={count} className="absolute inset-0 rounded-full"
+            style={{ background: `${color}33`, animation: 'poll-ripple 0.6s ease-out both' }} />
         )}
       </div>
+      <style>{`@keyframes poll-ripple { 0% { opacity: 1 } 100% { opacity: 0 } }`}</style>
     </div>
   )
 }

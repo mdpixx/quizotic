@@ -191,7 +191,6 @@ export function useQuizBuilder({
           setQuestions(quiz.questions)
         }
       })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editId])
 
   // ── Plan detection ─────────────────────────────────────────────────────────
@@ -533,7 +532,6 @@ export function useQuizBuilder({
       track(existing ? 'quiz_saved' : 'quiz_created', { questionCount: questions.length, selfPaced })
     }
     return dbSaveFailed ? null : finalQuiz
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, subject, questions, theme, editId, selfPaced, timeLimitMinutes, allowRetries])
 
   // Keep the Cmd/Ctrl+S shortcut pointing at the freshest save closure.

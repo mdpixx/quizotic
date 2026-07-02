@@ -34,7 +34,6 @@ import type { Question, QuestionType } from '@/lib/quiz-types'
 import { getOptionText, getOptionImage, isScoredQuestion, isSequenceRanking } from '@/lib/quiz-types'
 import {
   ANSWER_COLORS,
-  TYPE_PILLS,
   QUESTION_TYPE_GROUPS,
   TIMER_OPTIONS,
   POINTS_OPTIONS,

@@ -15,7 +15,7 @@ import type { Quiz } from '@/lib/quiz-types'
 import { track } from '@/lib/analytics'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar, Cell, RadarChart, PolarGrid, PolarAngleAxis, Radar,
+  RadarChart, PolarGrid, PolarAngleAxis, Radar,
 } from 'recharts'
 
 // ── Types ─────────────────────────────────────────────────────────────────────

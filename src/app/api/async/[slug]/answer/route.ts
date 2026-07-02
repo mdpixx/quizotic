@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { type NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { checkAnswer, calcPoints, computeStreakBonus, isAsyncScoredType, isAsyncScoredQuestion, scoreRanking, toPublicQuestion, validateAnswer, type Question } from '@/lib/scoring'
+import { checkAnswer, calcPoints, computeStreakBonus, isAsyncScoredQuestion, scoreRanking, toPublicQuestion, validateAnswer, type Question } from '@/lib/scoring'
 import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 import type { Prisma } from '@prisma/client'
 

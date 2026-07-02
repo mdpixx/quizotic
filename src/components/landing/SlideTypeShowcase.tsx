@@ -162,7 +162,7 @@ const SLIDE_TYPES = [
   },
 ]
 
-function FlipCard({ s, index }: { s: typeof SLIDE_TYPES[0]; index: number }) {
+function FlipCard({ s }: { s: typeof SLIDE_TYPES[0] }) {
   const [flipped, setFlipped] = useState(false)
   const [hovered, setHovered] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -260,8 +260,8 @@ export function SlideTypeShowcase() {
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }} className="slide-grid">
-          {SLIDE_TYPES.map((s, i) => (
-            <FlipCard key={s.title} s={s} index={i} />
+          {SLIDE_TYPES.map(s => (
+            <FlipCard key={s.title} s={s} />
           ))}
         </div>
 

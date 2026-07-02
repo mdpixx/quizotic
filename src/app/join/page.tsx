@@ -19,7 +19,7 @@ import { DndContext, closestCenter, MouseSensor, TouchSensor, KeyboardSensor, us
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { isContentSlideType, isInteractiveSlideType } from '@/lib/presentation-types'
-import { isScoredQuestion, isScoredType, getEffectiveOptions } from '@/lib/quiz-types'
+import { isScoredType, getEffectiveOptions } from '@/lib/quiz-types'
 import type { Question as QuizQuestion, QuestionType } from '@/lib/quiz-types'
 import { SlideImage } from '@/components/SlideImage'
 import { ANSWER_COLORS, ANSWER_LETTERS } from '@/lib/answer-colors'
@@ -533,14 +533,12 @@ function JoinPageInner() {
   const [presenterTotalSlides, setPresenterTotalSlides] = useState(0)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [presenterCurrentSlide, setPresenterCurrentSlide] = useState<any>(null)
-  const [presenterVoted, setPresenterVoted] = useState(false)
   const presenterVotedRef = useRef(false)
   const [presenterResponseMode, setPresenterResponseMode] = useState<'instant' | 'on_click' | 'private'>('instant')
   const presenterResponseModeRef = useRef<'instant' | 'on_click' | 'private'>('instant')
   // When the host has "Mirror to participants" OFF (default), content slides
   // render a passive waiting screen on the participant device instead of
   // mirroring the slide content. Interactive slides are unaffected.
-  const [mirrorToParticipants, setMirrorToParticipants] = useState(false)
   const mirrorToParticipantsRef = useRef(false)
   const [quickFireLeft, setQuickFireLeft] = useState<number | null>(null)
   const quickFireTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -630,7 +628,6 @@ function JoinPageInner() {
 
   // Ended
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
-  const [myRank, setMyRank] = useState<number>(0)
 
   // Intermediate leaderboard (between questions)
   const [intermediateLeaderboard, setIntermediateLeaderboard] = useState<LeaderboardEntry[]>([])
@@ -1111,7 +1108,6 @@ function JoinPageInner() {
       setTeamLeaderboard(tlb ?? null)
       if (sm) setSessionMode(sm)
       const rank = leaderboard.findIndex(e => e.name === displayNameRef.current) + 1
-      setMyRank(rank)
       setPhase('ended')
       // Participant funnel: player stayed to the end of the live session.
       track('participant_finished', {
@@ -1165,7 +1161,6 @@ function JoinPageInner() {
       setPresenterSlideIndex(slideIndex)
       setPresenterTotalSlides(total)
       if (slide !== undefined) setPresenterCurrentSlide(slide)
-      setPresenterVoted(false)
       presenterVotedRef.current = false
       setPresenterAggregate({ total: 0 })
       setUpvotedIdeas(new Set())
@@ -1179,7 +1174,6 @@ function JoinPageInner() {
       setPresenterResponseMode(mode)
       presenterResponseModeRef.current = mode
       const mirrorFlag = !!mirror
-      setMirrorToParticipants(mirrorFlag)
       mirrorToParticipantsRef.current = mirrorFlag
       // Clear any previous quickfire timer
       if (quickFireTimerRef.current) { clearInterval(quickFireTimerRef.current); quickFireTimerRef.current = null }
@@ -1200,7 +1194,6 @@ function JoinPageInner() {
     })
 
     socket.on('presenter_response_confirmed', () => {
-      setPresenterVoted(true)
       presenterVotedRef.current = true
       if (presenterResponseModeRef.current === 'instant') {
         setPhase('presenter-results')
@@ -1233,7 +1226,6 @@ function JoinPageInner() {
     // ignore the signal because the input UI is unchanged.
     socket.on('mirror_mode_changed', ({ mirrorToParticipants: mirror }: { mirrorToParticipants: boolean }) => {
       const flag = !!mirror
-      setMirrorToParticipants(flag)
       mirrorToParticipantsRef.current = flag
       const sType = (presenterCurrentSlide as Record<string, unknown> | null)?.type as string | undefined
       if (isContentSlideType(sType)) {
@@ -1339,7 +1331,6 @@ function JoinPageInner() {
         setPresenterSlideIndex(res.currentSlideIndex ?? 0)
         setPresenterTotalSlides(res.totalSlides ?? 0)
         setPresenterCurrentSlide(res.currentSlide ?? null)
-        setPresenterVoted(false)
         presenterVotedRef.current = false
         setPresenterAggregate({ total: 0 })
         setPresenterResponseMode((res.responseMode as 'instant' | 'on_click' | 'private') || 'instant')
@@ -1412,7 +1403,6 @@ function JoinPageInner() {
         setPresenterTotalSlides(res.totalSlides ?? 0)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setPresenterCurrentSlide((res.currentSlide as any) ?? null)
-        setPresenterVoted(false)
         presenterVotedRef.current = false
         setPresenterAggregate({ total: 0 })
         setPresenterResponseMode((res.responseMode as 'instant' | 'on_click' | 'private') || 'instant')
@@ -1573,7 +1563,6 @@ function JoinPageInner() {
     setPointsEarned(0)
     setTotalScore(0)
     setLeaderboard([])
-    setMyRank(0)
   }
 
   // ─── Form Phase ────────────────────────────────────────────────────────────

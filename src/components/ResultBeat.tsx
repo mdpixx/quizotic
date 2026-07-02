@@ -41,7 +41,7 @@ interface ResultBeatProps {
 function CountUp({ to, duration = 700 }: { to: number; duration?: number }) {
   const [val, setVal] = useState(0)
   useEffect(() => {
-    if (to <= 0) { setVal(0); return }
+    if (to <= 0) return
     const start = performance.now()
     let raf = 0
     const tick = (t: number) => {
@@ -54,7 +54,8 @@ function CountUp({ to, duration = 700 }: { to: number; duration?: number }) {
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
   }, [to, duration])
-  return <>{val.toLocaleString()}</>
+  // to <= 0 renders 0 directly — no state reset needed in the effect.
+  return <>{(to <= 0 ? 0 : val).toLocaleString()}</>
 }
 
 function ordinal(n: number): string {

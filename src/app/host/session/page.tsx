@@ -214,11 +214,6 @@ function buildHostStagePreviewQuiz(): Quiz {
 // Layer 3.3 — host re-attach. Token survives a tab reload but is scoped to
 // this browser tab (sessionStorage). Server issues it at create_session and
 // validates on host_resume to rebind hostSocketId without losing the live game.
-function getHostResumeToken(gameCode: string): string {
-  if (typeof window === 'undefined' || !gameCode) return ''
-  try { return window.sessionStorage.getItem(`quizotic_host_token_${gameCode}`) || '' }
-  catch { return '' }
-}
 function setHostResumeToken(gameCode: string, token: string): void {
   if (typeof window === 'undefined' || !gameCode || !token) return
   try { window.sessionStorage.setItem(`quizotic_host_token_${gameCode}`, token) }
