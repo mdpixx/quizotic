@@ -211,17 +211,32 @@ function buildHostStagePreviewQuiz(): Quiz {
 }
 
 
-// Layer 3.3 — host re-attach. Token survives a tab reload but is scoped to
-// this browser tab (sessionStorage). Server issues it at create_session and
-// validates on host_resume to rebind hostSocketId without losing the live game.
-function setHostResumeToken(gameCode: string, token: string): void {
+// Layer 3.3 — host re-attach. Code + token survive a tab reload but are scoped
+// to this browser tab (sessionStorage). Server issues the token at
+// create_session and validates it on host_resume to rebind hostSocketId
+// without losing the live game. Stored together so a reload can rediscover
+// which session to reclaim.
+const HOST_RESUME_KEY = 'quizotic_host_resume'
+function saveHostResume(gameCode: string, token: string): void {
   if (typeof window === 'undefined' || !gameCode || !token) return
-  try { window.sessionStorage.setItem(`quizotic_host_token_${gameCode}`, token) }
+  try { window.sessionStorage.setItem(HOST_RESUME_KEY, JSON.stringify({ gameCode, token })) }
   catch { /* noop */ }
 }
-function clearHostResumeToken(gameCode: string): void {
-  if (typeof window === 'undefined' || !gameCode) return
-  try { window.sessionStorage.removeItem(`quizotic_host_token_${gameCode}`) }
+function loadHostResume(): { gameCode: string; token: string } | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.sessionStorage.getItem(HOST_RESUME_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { gameCode?: unknown; token?: unknown }
+    if (typeof parsed.gameCode === 'string' && parsed.gameCode && typeof parsed.token === 'string' && parsed.token) {
+      return { gameCode: parsed.gameCode, token: parsed.token }
+    }
+    return null
+  } catch { return null }
+}
+function clearHostResume(): void {
+  if (typeof window === 'undefined') return
+  try { window.sessionStorage.removeItem(HOST_RESUME_KEY) }
   catch { /* noop */ }
 }
 
@@ -241,6 +256,9 @@ export default function SessionPage() {
   // Refs that initSocket's stable closure needs to read on reconnect.
   const gameCodeRef = useRef<string>('')
   const hostResumeTokenRef = useRef<string>('')
+  // True while a reload-recovery is in flight: refs were seeded from
+  // sessionStorage but the UI hasn't been rebuilt from host_resume yet.
+  const resumeRestorePendingRef = useRef(false)
 
   const [phase, setPhase] = useState<Phase>(initialQuiz ? 'idle' : 'loading')
   const [quiz, setQuiz] = useState<Quiz | null>(initialQuiz)
@@ -585,6 +603,21 @@ export default function SessionPage() {
     if (!quiz || socketInitialized.current) return
     socketInitialized.current = true
 
+    // Reload recovery: if this tab hosted a session before a reload, the
+    // refs are empty but sessionStorage still has the code + resume token.
+    // Seed the refs so the connect handler below reclaims the session, and
+    // remember that the UI needs rebuilding from the host_resume callback.
+    // The pending flag lives in a ref, not this closure — StrictMode runs
+    // this effect twice and the refs persist across the double-invoke.
+    if (!gameCodeRef.current) {
+      const persisted = loadHostResume()
+      if (persisted) {
+        gameCodeRef.current = persisted.gameCode
+        hostResumeTokenRef.current = persisted.token
+        resumeRestorePendingRef.current = true
+      }
+    }
+
     const socket = io()
     socketRef.current = socket
 
@@ -603,11 +636,50 @@ export default function SessionPage() {
       const code = gameCodeRef.current
       const token = hostResumeTokenRef.current
       if (code && token) {
-        socket.emit('host_resume', { gameCode: code, token }, (res?: { success?: boolean; error?: string }) => {
+        socket.emit('host_resume', { gameCode: code, token }, (res?: {
+          success?: boolean
+          error?: string
+          type?: string
+          status?: string
+          currentQuestionIndex?: number
+        }) => {
           if (res?.success) {
             console.log('[host_resume] reattached to', code)
+            // After a plain socket reconnect the React state is intact and we
+            // must not touch it. After a reload it was lost — rebuild the UI
+            // from the server's snapshot. Participant list and answer counts
+            // refill via the 5s session_state broadcast and live events.
+            if (resumeRestorePendingRef.current) {
+              resumeRestorePendingRef.current = false
+              const restoredQuiz = quizRef.current
+              if ((res.type ?? 'quiz') === 'quiz' && restoredQuiz) {
+                setGameCode(code)
+                if (res.status === 'lobby') {
+                  setPhase('lobby')
+                } else if (res.status === 'active') {
+                  const idx = Math.min(
+                    Math.max(res.currentQuestionIndex ?? 0, 0),
+                    restoredQuiz.questions.length - 1,
+                  )
+                  questionIndexRef.current = idx
+                  setQuestionIndex(idx)
+                  // Timer/answer counts for the in-flight question aren't
+                  // recoverable; the host lands on the question controls and
+                  // can reveal or advance — both resync everyone.
+                  setPhase('question')
+                }
+              }
+            }
           } else if (res?.error) {
             console.warn('[host_resume] failed:', res.error)
+            if (resumeRestorePendingRef.current) {
+              // Session is gone (ended or expired) — drop the stale handle so
+              // the next reload doesn't retry forever.
+              resumeRestorePendingRef.current = false
+              gameCodeRef.current = ''
+              hostResumeTokenRef.current = ''
+              clearHostResume()
+            }
           }
         })
       }
@@ -872,8 +944,8 @@ export default function SessionPage() {
         questionCount: qs?.length ?? 0,
         durationSec: sessionStartTimeRef.current ? Math.round((Date.now() - sessionStartTimeRef.current) / 1000) : null,
       })
-      // Game over — invalidate the host resume token for this gameCode.
-      if (gameCodeRef.current) clearHostResumeToken(gameCodeRef.current)
+      // Game over — invalidate the host resume handle.
+      clearHostResume()
       hostResumeTokenRef.current = ''
 
       // Save session record for analytics
@@ -981,7 +1053,7 @@ export default function SessionPage() {
         gameCodeRef.current = res.gameCode
         if (res.hostResumeToken) {
           hostResumeTokenRef.current = res.hostResumeToken
-          setHostResumeToken(res.gameCode, res.hostResumeToken)
+          saveHostResume(res.gameCode, res.hostResumeToken)
         }
         setPhase('lobby')
       } else {

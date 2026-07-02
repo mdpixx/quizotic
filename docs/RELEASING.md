@@ -37,15 +37,13 @@ Runs on every PR and every push to `main`:
 | Step | Blocking? |
 |------|-----------|
 | `npm ci` + `npx prisma generate` | yes |
-| **Lint** (`npm run lint`) | **advisory** — `continue-on-error` (see below) |
+| **Lint** (`npm run lint`) | **yes** — errors block; warnings don't |
 | Brand assets check (`npm run brand:assets:check`) | yes |
 | Unit + regression tests (`npm test`) | yes |
 | Production build (`npm run build`) | yes |
 
-### Making lint blocking later
-`main` currently carries pre-existing eslint errors, so lint is advisory for now.
-Once the backlog is cleared (`npm run lint` exits 0 locally), make it a hard gate
-by deleting the `continue-on-error: true` line from the **Lint (advisory)** step.
+Lint became a hard gate in July 2026 once the eslint error backlog was cleared.
+Keep it at 0 errors — new errors fail every PR.
 
 ## Versioning + CHANGELOG (release-please)
 

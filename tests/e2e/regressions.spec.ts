@@ -40,10 +40,13 @@ function waitFor<T>(s: Socket, ev: string, timeoutMs = 5_000): Promise<T> {
 test.describe('Regressions — quiz', () => {
   test('scored answer confirmation must not reveal the correct answer before host reveal', async () => {
     // A participant who answers early may be sitting beside classmates who
-    // have not answered yet. `answer_confirmed` can show right/wrong feedback,
-    // but answer data must stay hidden until the host reveal (`end_question`).
+    // have not answered yet, so answer data must stay hidden until the host
+    // reveal (`end_question`). A second, silent participant keeps the
+    // all-answered early-end from firing — with everyone answered the server
+    // legitimately reveals immediately (Kahoot-style early end).
     const host = await connect(await hostAuthCookie())
     const participant = await connect()
+    const classmate = await connect()
     try {
       const created = await emit<{ success: boolean; gameCode?: string }>(host, 'create_session', {
         quizData: {
@@ -62,6 +65,7 @@ test.describe('Regressions — quiz', () => {
       const gameCode = created.gameCode!
 
       const joined = await emit<{ success: boolean; participantId?: string }>(participant, 'join_session', { gameCode, displayName: 'No Leak' })
+      await emit<{ success: boolean }>(classmate, 'join_session', { gameCode, displayName: 'Still Thinking' })
       const qShown = waitFor<unknown>(participant, 'question_show')
       host.emit('start_quiz', { gameCode })
       await qShown
@@ -73,7 +77,6 @@ test.describe('Regressions — quiz', () => {
       const answerReceived = waitFor<{ count: number }>(host, 'answer_received')
       const confirmed = await emit<{
         accepted: boolean
-        isCorrect?: boolean
         correctAnswer?: unknown
         correctAnswers?: unknown
         correctOrder?: unknown
@@ -88,7 +91,9 @@ test.describe('Regressions — quiz', () => {
       })
 
       expect(confirmed.accepted).toBe(true)
-      expect(confirmed.isCorrect).toBe(false)
+      // The ack must carry NO grading data at all — not even isCorrect.
+      // Right/wrong feedback arrives via personal_result at host reveal.
+      expect(confirmed).not.toHaveProperty('isCorrect')
       expect(confirmed).not.toHaveProperty('correctAnswer')
       expect(confirmed).not.toHaveProperty('correctAnswers')
       expect(confirmed).not.toHaveProperty('correctOrder')
@@ -104,7 +109,7 @@ test.describe('Regressions — quiz', () => {
       const revealed = await reveal
       expect(revealed.correctAnswer).toBe('1')
     } finally {
-      host.disconnect(); participant.disconnect()
+      host.disconnect(); participant.disconnect(); classmate.disconnect()
     }
   })
 
