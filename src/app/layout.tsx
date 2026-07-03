@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans, Bricolage_Grotesque } from "next/font/google";
+import { Poppins } from "next/font/google";
 import "./globals.css";
 import { Background } from "@/components/Background";
 
@@ -7,23 +7,21 @@ import { Background } from "@/components/Background";
 // covers it, no Google CDN dependency). display:'swap' avoids invisible text on
 // slow classroom networks. CSS vars are consumed by globals.css.
 //
-// Body font — Plus Jakarta Sans. Warmer and more characterful than Inter while
-// staying highly legible at small sizes on low-bandwidth classroom screens.
-// Exposed as --font-inter-loaded so every existing --font-body / --font-heading
-// consumer picks it up unchanged (the variable name is kept for compatibility).
-const bodyFont = Plus_Jakarta_Sans({
+// Quiz type voice — Poppins. A rounded geometric sans that stays crisp on a
+// projector at the back of a classroom while feeling friendly and energetic
+// (replacing Plus Jakarta Sans + Bricolage Grotesque, which read as too plain
+// on the quiz pages). Used for BOTH body and the big projected moments so the
+// question, options, numbers, and winner all share one cohesive family. Exposed
+// under the existing --font-*-loaded variable names so every globals.css
+// consumer picks it up unchanged.
+const bodyFont = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
   variable: "--font-inter-loaded",
   display: "swap",
 });
 
-// Display font — Bricolage Grotesque. A distinctive editorial-grotesque that
-// carries the big projected moments (PIN, questions, numbers, winner) and gives
-// Quizotic a recognizable type voice instead of the same neutral sans everyone
-// else ships. Self-hosted (CSP-safe), exposed as --font-display-loaded and
-// consumed via --font-display / .font-display in globals.css.
-const displayFont = Bricolage_Grotesque({
+const displayFont = Poppins({
   subsets: ["latin"],
   weight: ["500", "600", "700", "800"],
   variable: "--font-display-loaded",

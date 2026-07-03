@@ -87,25 +87,25 @@ export function ImmersiveStatsOverlay({
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex flex-col items-center justify-center p-6 lg:p-10"
+      className="fixed inset-0 z-[80] overflow-y-auto p-6 lg:p-10"
       style={{ background: 'rgba(7,17,38,0.96)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}
       role="dialog"
       aria-modal="true"
       aria-label={`Question ${questionNumber} results`}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      {/* Close button */}
+      {/* Close button — fixed so it stays reachable when the content scrolls. */}
       <button
         type="button"
         onClick={onClose}
-        className="absolute top-4 right-4 flex h-11 w-11 items-center justify-center rounded-full transition-colors"
+        className="fixed top-4 right-4 z-[81] flex h-11 w-11 items-center justify-center rounded-full transition-colors"
         style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)' }}
         aria-label="Close stats (Esc)"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
       </button>
 
-      <div className="w-full max-w-5xl flex flex-col items-center gap-6 lg:gap-8">
+      <div className="w-full max-w-5xl mx-auto min-h-full flex flex-col items-center justify-center gap-6 lg:gap-8">
         {/* Header */}
         <div className="text-center">
           <p className="text-xs font-black uppercase tracking-[0.28em]" style={{ color: 'rgba(255,255,255,0.5)' }}>
@@ -151,11 +151,23 @@ export function ImmersiveStatsOverlay({
             </p>
           </div>
         ) : (
-          <div className="text-center py-8">
+          <div className="flex flex-col items-center gap-4 py-6">
+            {/* Empty donut outline before reveal — the shape is present so the
+                panel reads as a chart waiting to fill, not a blank space. It
+                fills with color + stats on reveal / timer-end / all-answered. */}
+            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label="Results appear after the reveal">
+              <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={stroke} />
+              <text x="50%" y="46%" dominantBaseline="central" textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="46" fontWeight="900" fontFamily="var(--font-heading)">
+                —
+              </text>
+              <text x="50%" y="62%" dominantBaseline="central" textAnchor="middle" fill="rgba(255,255,255,0.35)" fontSize="16" fontWeight="700" fontFamily="var(--font-heading)">
+                accuracy
+              </text>
+            </svg>
             <p className="text-2xl font-display font-bold" style={{ color: 'rgba(255,255,255,0.7)' }}>
               {correctRevealed ? 'Live results' : 'Reveal the answer to see results'}
             </p>
-            <p className="mt-2 text-lg tabular-nums" style={{ color: '#FBD13B' }}>
+            <p className="text-lg tabular-nums" style={{ color: '#FBD13B' }}>
               {answered}/{connectedCount} answered
             </p>
           </div>

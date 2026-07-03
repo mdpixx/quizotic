@@ -123,7 +123,13 @@ export function HostStatsRail({
             <RevealStatsDonut correct={revealCorrect} incorrect={revealIncorrect} unattempted={revealUnattempted} />
           ) : (
             <div className="flex items-center gap-3 py-1 opacity-60">
-              <div className="w-[96px] h-[96px] rounded-full flex-shrink-0" style={{ background: 'rgba(255,255,255,0.08)' }} aria-hidden />
+              {/* Hollow donut outline (not a filled disc) — same footprint as the
+                  real donut so the rail never reflows; it fills with color + stats
+                  on reveal / timer-end / all-answered. */}
+              <svg width={96} height={96} viewBox="0 0 96 96" className="flex-shrink-0" aria-hidden>
+                <circle cx="48" cy="48" r="43" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="10" />
+                <text x="48" y="53" textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="20" fontWeight="900" fontFamily="var(--font-heading)">—</text>
+              </svg>
               <div className="space-y-1.5">
                 <div className="h-3 w-20 rounded-full" style={{ background: 'rgba(255,255,255,0.12)' }} />
                 <div className="h-3 w-24 rounded-full" style={{ background: 'rgba(255,255,255,0.12)' }} />

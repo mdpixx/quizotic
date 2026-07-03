@@ -75,7 +75,7 @@ html, body {
 
   /* Fonts: self-hosted via next/font (--font-*-loaded set on <html>); falls back
      to local/system fonts if the web font hasn't loaded yet. */
-  --font-inter: var(--font-inter-loaded, 'Plus Jakarta Sans'), -apple-system, 'Segoe UI', system-ui, sans-serif;
+  --font-inter: var(--font-inter-loaded, 'Poppins'), -apple-system, 'Segoe UI', system-ui, sans-serif;
   --font-heading: var(--font-inter);
   --font-body: var(--font-inter);
   /* Display font — Bricolage Grotesque, loaded via next/font as
@@ -85,7 +85,7 @@ html, body {
      untouched. (Previously this referenced a literal 'Space Grotesk' family
      that next/font never registers, so the display font silently fell back to
      the body font — now wired to the actual loaded variable.) */
-  --font-display: var(--font-display-loaded, 'Bricolage Grotesque'), var(--font-inter-loaded, 'Plus Jakarta Sans'), system-ui, sans-serif;
+  --font-display: var(--font-display-loaded, 'Poppins'), var(--font-inter-loaded, 'Poppins'), system-ui, sans-serif;
 
   /* ── Additive type scale (redesign Stage 1) ──────────────────────
      Fluid clamp() steps for display headings. Additive only — existing

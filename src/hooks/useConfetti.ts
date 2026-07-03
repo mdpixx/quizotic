@@ -71,10 +71,19 @@ async function loadConfetti() {
   if (cached) return cached
   try {
     const mod = await import('canvas-confetti')
-    // Bind to our body-level canvas. `resize` keeps it sized to the viewport;
-    // `useWorker` offloads the physics off the main thread for smoother bursts.
+    // Bind to our body-level canvas. `resize` keeps it sized to the viewport.
+    //
+    // ── Why NOT `useWorker: true` (THE real finale-confetti bug) ──────────────
+    // canvas-confetti's worker is built from a `blob:` URL. Our CSP (next.config
+    // .ts) sets `worker-src 'self'` with no `blob:`, so Chrome blocks the worker
+    // — but only AFTER the library has already called transferControlToOffscreen
+    // on this canvas. Once transferred, the main thread can no longer draw to it
+    // either, so every burst logs "confetti fired" yet paints nothing. Three
+    // prior fixes chased canvas position/z-index and never suspected the worker.
+    // Main-thread rendering removes the entire failure class and is plenty smooth
+    // for a 3.6s finale. (worker-src also gets `blob:` now as defense-in-depth.)
     const canvas = getConfettiCanvas()
-    const confetti = mod.default.create(canvas, { resize: true, useWorker: true }) as CreateTypes
+    const confetti = mod.default.create(canvas, { resize: true }) as CreateTypes
     const make = mod.default.shapeFromPath as ((opts: { path: string }) => Shape) | undefined
     // Real-world confetti is mostly rectangles (3:1) with the occasional
     // long ribbon (8:1). Both shapes carry per-particle rotation in
@@ -150,7 +159,10 @@ async function firePreset(preset: Preset) {
   const mixedShapes = [shapes.rect, shapes.rect, shapes.ribbon, shapes.curl, shapes.circle, shapes.star]
 
   if (preset === 'winner') {
-    fireWinner(confetti, base, mixedShapes, shapes, factor)
+    // The finale is a deliberate, host-triggered celebration (the host ended the
+    // quiz to reach this screen), so it fires even under prefers-reduced-motion.
+    // Incidental presets below still honor reduced motion via `base`.
+    fireWinner(confetti, { ...base, disableForReducedMotion: false }, mixedShapes, shapes, factor)
     return
   }
   if (preset === 'mini') {
@@ -264,9 +276,9 @@ export function useConfetti() {
 
 // Looping ambient celebration — replaces Podium.startConfettiLoop. Returns a
 // stop() that the caller MUST invoke on unmount. Respects reduced motion.
-export function startConfettiLoop(): () => void {
+export function startConfettiLoop(force = false): () => void {
   if (typeof window === 'undefined') return () => {}
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (!force && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     // Reduced-motion users get no animated confetti by design — but log it
     // once so "confetti isn't working" is diagnosable instead of a mystery.
     if (!reducedMotionLoopWarned) {
@@ -287,23 +299,28 @@ export function startConfettiLoop(): () => void {
     if (stopped || !lib) return
     const { confetti, shapes } = lib
     const mixed = [shapes.rect, shapes.ribbon, shapes.curl, shapes.circle, shapes.star]
+    // When the caller forces the loop (the finale), override each burst's
+    // reduced-motion flag so canvas-confetti still paints under macOS Reduce
+    // Motion. Ambient/non-forced loops keep respecting the user preference.
+    const disableRM = !force
+    const burst = (o: ConfettiOptions) => confetti({ ...o, disableForReducedMotion: disableRM })
 
     // Welcome burst — the same physics as `winner` Phase 1+2 so the loop
     // begins with momentum instead of trickling in.
-    confetti({
-      colors: BRAND_COLORS, disableForReducedMotion: true, decay: 0.92, gravity: 1.0,
+    burst({
+      colors: BRAND_COLORS, decay: 0.92, gravity: 1.0,
       origin: { x: 0.5, y: 0.6 }, angle: 90, spread: 110,
       particleCount: 140, startVelocity: 55, scalar: 1.15, ticks: 320, shapes: mixed,
     })
     setTimeout(() => {
       if (stopped) return
-      confetti({
-        colors: BRAND_COLORS, disableForReducedMotion: true, decay: 0.92, gravity: 1.0,
+      burst({
+        colors: BRAND_COLORS, decay: 0.92, gravity: 1.0,
         origin: { x: 0.02, y: 0.85 }, angle: 75, spread: 60,
         particleCount: 80, startVelocity: 70, scalar: 1.1, ticks: 350, shapes: mixed,
       })
-      confetti({
-        colors: BRAND_COLORS, disableForReducedMotion: true, decay: 0.92, gravity: 1.0,
+      burst({
+        colors: BRAND_COLORS, decay: 0.92, gravity: 1.0,
         origin: { x: 0.98, y: 0.85 }, angle: 105, spread: 60,
         particleCount: 80, startVelocity: 70, scalar: 1.1, ticks: 350, shapes: mixed,
       })
@@ -314,28 +331,28 @@ export function startConfettiLoop(): () => void {
       const variant = tick % 3
       if (variant === 0) {
         // Drift rain from the top — pure gravity fall.
-        confetti({
-          colors: GOLD_COLORS, disableForReducedMotion: true, decay: 0.92,
+        burst({
+          colors: GOLD_COLORS, decay: 0.92,
           origin: { x: 0.5, y: -0.05 }, angle: 270, spread: 180,
           particleCount: 50, startVelocity: 6, gravity: 0.75, ticks: 500, scalar: 0.85,
           shapes: mixed,
         })
       } else if (variant === 1) {
         // Side firework cannons.
-        confetti({
-          colors: BRAND_COLORS, disableForReducedMotion: true, decay: 0.92, gravity: 1.0,
+        burst({
+          colors: BRAND_COLORS, decay: 0.92, gravity: 1.0,
           origin: { x: 0.02, y: 0.85 }, angle: 75, spread: 55,
           particleCount: 30, startVelocity: 65, scalar: 1.1, ticks: 350, shapes: mixed,
         })
-        confetti({
-          colors: BRAND_COLORS, disableForReducedMotion: true, decay: 0.92, gravity: 1.0,
+        burst({
+          colors: BRAND_COLORS, decay: 0.92, gravity: 1.0,
           origin: { x: 0.98, y: 0.85 }, angle: 105, spread: 55,
           particleCount: 30, startVelocity: 65, scalar: 1.1, ticks: 350, shapes: mixed,
         })
       } else {
         // Star burst near the title area.
-        confetti({
-          colors: GOLD_COLORS, disableForReducedMotion: true, decay: 0.92, gravity: 0.95,
+        burst({
+          colors: GOLD_COLORS, decay: 0.92, gravity: 0.95,
           origin: { x: 0.5, y: 0.4 }, angle: 90, spread: 110,
           particleCount: 50, startVelocity: 45, scalar: 1.3, ticks: 350, shapes: ['star'],
         })

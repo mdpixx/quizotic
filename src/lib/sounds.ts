@@ -200,7 +200,26 @@ export function playStreak() {
 export function playCheer(): Promise<void> {
   return playMp3('/sounds/cheer.mp3', 0.85)
 }
+// Continuous crowd applause for the winner podium finale — loops the cheer clip
+// until stopCheer() is called (podium unmount / host leaves the finale). Keeps
+// the celebration energy up for the whole podium moment instead of one clap.
+export function playCheerLoop(volume = 0.8): Promise<void> {
+  const el = getMp3('/sounds/cheer.mp3', volume)
+  if (!el) return Promise.resolve()
+  try {
+    el.loop = true
+    el.volume = volume
+    el.currentTime = 0
+    const p = el.play()
+    return p instanceof Promise ? p.catch(() => {}) : Promise.resolve()
+  } catch {
+    return Promise.resolve()
+  }
+}
 export function stopCheer(): void {
+  // Reset loop so a later one-shot playCheer() doesn't inherit looping.
+  const el = mp3Cache.get('/sounds/cheer.mp3')
+  if (el) { try { el.loop = false } catch { /* ignore */ } }
   stopMp3('/sounds/cheer.mp3')
 }
 

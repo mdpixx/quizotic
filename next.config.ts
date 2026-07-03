@@ -74,7 +74,10 @@ const nextConfig: NextConfig = {
               connectSrc,
               "frame-src https://api.razorpay.com https://checkout.razorpay.com",
               "frame-ancestors 'none'",
-              "worker-src 'self'",
+              // `blob:` lets libraries that spin Web Workers from an inline blob
+              // (e.g. canvas-confetti's optional useWorker path) load them instead
+              // of being silently CSP-blocked. Harmless to our own workers.
+              "worker-src 'self' blob:",
               "manifest-src 'self'",
             ].join('; '),
           },
