@@ -25,21 +25,24 @@ export function QuizoticMark({
       style={{ display: 'block', flexShrink: 0 }}
     >
       <rect width="64" height="64" rx="15" fill="#FBD13B" />
-      <circle
-        cx="31"
-        cy="29"
-        r="15"
-        fill="none"
-        stroke="#0F1B3D"
-        strokeWidth="9"
+      <rect
+        x="14"
+        y="14"
+        width="36"
+        height="36"
+        rx="9"
+        fill="#0F1B3D"
+        transform="rotate(45 32 32)"
       />
+      <circle cx="32" cy="32" r="10" fill="#FBD13B" />
       <path
-        d="M39 38 49 48"
+        d="M38 38 49 49"
         fill="none"
-        stroke="#0F1B3D"
-        strokeWidth="9"
+        stroke="#FBD13B"
+        strokeWidth="8"
         strokeLinecap="round"
       />
+      <circle cx="32" cy="32" r="3.8" fill="#0F1B3D" />
     </svg>
   )
 }

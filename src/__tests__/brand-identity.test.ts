@@ -16,7 +16,8 @@ describe('Quizotic brand identity', () => {
     expect(markup).toContain('aria-label="Quizotic"')
     expect(markup).toContain('viewBox="0 0 64 64"')
     expect(markup).toContain('fill="#FBD13B"')
-    expect(markup).toContain('stroke="#0F1B3D"')
+    expect(markup).toContain('fill="#0F1B3D"')
+    expect(markup).toContain('transform="rotate(45 32 32)"')
     expect(markup).not.toContain('<text')
   })
 
