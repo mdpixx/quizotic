@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { io, Socket } from 'socket.io-client'
@@ -381,10 +381,18 @@ export default function SessionPage() {
   const [showImmersiveStats, setShowImmersiveStats] = useState(false)
   // Per-host preference: auto-open the immersive stats screen after each answer
   // reveal. Persisted in localStorage so it survives reloads / new sessions.
+  // The toggle lives inside the ImmersiveStatsOverlay footer.
   const [autoStatsAfterReveal, setAutoStatsAfterReveal] = useState(false)
   useEffect(() => {
     if (typeof window === 'undefined') return
     setAutoStatsAfterReveal(localStorage.getItem('quizotic_host_autoStats') === 'true')
+  }, [])
+  const toggleAutoStatsAfterReveal = useCallback(() => {
+    setAutoStatsAfterReveal(prev => {
+      const next = !prev
+      try { localStorage.setItem('quizotic_host_autoStats', String(next)) } catch { /* noop */ }
+      return next
+    })
   }, [])
   // Soft auto-advance on standings — null means disabled / cancelled.
   // Number is the remaining ms before nextQuestion() fires automatically.
@@ -502,12 +510,15 @@ export default function SessionPage() {
   // revealed — a visible stutter. Now the card keeps its pre-reveal footprint;
   // the reveal donut/bars live in the left rail, so the center never needs to
   // compress to make room.
+  // hasExplanation reads the QUIZ data, not the `explanation` state — the state
+  // only arrives with question_ended, which used to flip the fit (and the
+  // question font size) at the exact moment of the reveal.
   const hostQuestionFit = currentQuestion
     ? getHostQuestionFit({
         stage: 'live',
         questionText: currentQuestion.text,
         optionTexts: (getEffectiveOptions(currentQuestion) ?? []).map(getOptionText),
-        hasExplanation: Boolean(explanation),
+        hasExplanation: Boolean(currentQuestion.explanation),
       })
     : null
 
@@ -1982,7 +1993,7 @@ export default function SessionPage() {
              stage so the sticky control bar is always reachable (the old fixed
              h-svh + overflow-hidden clipped it below the fold). lg+ keeps the
              fixed projector-fit stage that compresses content without scroll. */
-          className={`min-h-svh lg:h-svh lg:max-h-svh lg:overflow-hidden px-4 pt-3 pb-3 lg:px-8 lg:pt-4 lg:pb-4 flex flex-col gap-3 host-question-stage ${isAnswerRevealStage ? 'host-reveal-stage' : ''}`}
+          className="min-h-svh lg:h-svh lg:max-h-svh lg:overflow-hidden px-4 pt-3 pb-3 lg:px-8 lg:pt-4 lg:pb-4 flex flex-col gap-3 host-question-stage"
           style={{
             background: 'linear-gradient(135deg, #071126 0%, #0F1B3D 55%, #102A43 100%)',
             color: '#FFFFFF',
@@ -2033,35 +2044,15 @@ export default function SessionPage() {
             </div>
           )}
 
-          {isAnswerRevealStage ? (
-            <div className="host-reveal-topbar max-w-7xl mx-auto w-full flex items-center justify-between gap-3 rounded-2xl px-4 py-2">
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="text-xs font-black uppercase tracking-[0.22em]" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                  Answer Reveal
-                </span>
-                <span className="font-display text-2xl font-black tabular-nums" style={{ color: '#FBD13B', fontFamily: 'var(--font-display)' }}>
-                  Q{answerableNumber}
-                </span>
-                <span className="text-sm font-bold whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                  of {answerableTotal}
-                </span>
-              </div>
-              <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-                <span className="host-reveal-chip">
-                  {answered}/{connectedCount} answered
-                </span>
-                {gameCode && (
-                  <span className="host-reveal-chip hidden sm:inline-flex">
-                    Join {gameCode}
-                  </span>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] items-center gap-4 [&>*]:min-w-0">
+          {/* Header — ONE structure for live AND reveal. Swapping to a compact
+              "Answer Reveal" bar here used to change the header height the
+              moment the host revealed, which moved the question and every
+              answer box below it. Only the label text and the timer circle's
+              inner content change now; every box keeps its exact geometry. */}
+          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] items-center gap-4 [&>*]:min-w-0">
               <div>
-                <span className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: 'rgba(255,255,255,0.52)' }}>
-                  Live Question
+                <span className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: isAnswerRevealStage ? '#FBD13B' : 'rgba(255,255,255,0.52)' }}>
+                  {isAnswerRevealStage ? 'Answer Reveal' : 'Live Question'}
                 </span>
                 <QuestionNavigator
                   questions={quiz.questions}
@@ -2078,7 +2069,13 @@ export default function SessionPage() {
                     <span className="min-w-16 text-center text-sm font-semibold animate-pulse px-4 py-2 rounded-full" style={{ color: '#FBD13B', background: 'rgba(255,255,255,0.08)' }}>Loading…</span>
                   ) : (
                     <div className="font-display flex h-20 w-20 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(15,27,61,0.42)', fontFamily: 'var(--font-display)' }}>
-                      <CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} />
+                      {questionEnded ? (
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#4ADE80" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-9 h-9" aria-label="Question ended">
+                          <path d="M20 6 9 17l-5-5" />
+                        </svg>
+                      ) : (
+                        <CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} />
+                      )}
                     </div>
                   )
                 )}
@@ -2093,8 +2090,7 @@ export default function SessionPage() {
                   <JoinPill gameCode={gameCode} variant="compact" />
                 </div>
               </div>
-            </div>
-          )}
+          </div>
 
           {/* Progress bar */}
           <div className="max-w-7xl mx-auto h-3 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.14)' }}>
@@ -2107,7 +2103,9 @@ export default function SessionPage() {
             />
           </div>
 
-          {isHostStagePreview && !isAnswerRevealStage && (
+          {/* Kept mounted through the reveal so the dev preview stage doesn't
+              reflow when it disappears — buttons stay usable at any stage. */}
+          {isHostStagePreview && (
             <div className="max-w-7xl mx-auto flex flex-wrap items-center gap-2 rounded-2xl p-3" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.16)' }}>
               <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: 'rgba(255,255,255,0.58)' }}>
                 Preview simulator
@@ -2179,7 +2177,7 @@ export default function SessionPage() {
 
           {/* Question card — text auto-scales so long questions stay in view */}
           <div
-            className={`host-question-card ${hostQuestionFit?.questionClass ?? 'host-question-fit-large'} w-full rounded-[28px] shadow-2xl border ${isAnswerRevealStage ? 'p-4 md:p-5' : currentQuestion.type === 'wordcloud' ? 'p-4 md:p-5 host-question-card-compact' : 'p-5 md:p-7'} ${currentQuestion.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
+            className={`host-question-card ${hostQuestionFit?.questionClass ?? 'host-question-fit-large'} w-full rounded-[28px] shadow-2xl border ${currentQuestion.type === 'wordcloud' ? 'p-4 md:p-5 host-question-card-compact' : 'p-5 md:p-7'} ${currentQuestion.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
             style={{
               background: 'rgba(255,255,255,0.96)',
               boxShadow: '0 24px 80px rgba(0,0,0,0.35)',
@@ -2449,13 +2447,31 @@ export default function SessionPage() {
                       {OPTION_LABELS[i]}
                     </span>
                     <span className="host-opt-text flex-1 min-w-0 break-words text-gray-900 font-black">{optText}</span>
-                    {correctRevealed && <span className="host-reveal-votes text-xl font-black tabular-nums text-gray-500">{votes}</span>}
-                    {highlightCorrect && <span className="host-reveal-check text-green-600 text-2xl font-black">✓</span>}
+                    {/* Vote count + check occupy FIXED-width slots that are
+                        always mounted — they fade in on reveal instead of
+                        being inserted, so the answer text never re-wraps. */}
+                    <span
+                      className={`host-reveal-votes w-10 text-right font-black tabular-nums text-gray-500 flex-shrink-0 transition-opacity duration-300 ${correctRevealed ? 'opacity-100' : 'opacity-0'}`}
+                      aria-hidden={!correctRevealed}
+                    >
+                      {votes}
+                    </span>
+                    {isScoredQuestion(currentQuestion) && (
+                      <span
+                        className={`host-reveal-check w-7 text-center text-green-600 font-black flex-shrink-0 transition-opacity duration-300 ${highlightCorrect ? 'opacity-100' : 'opacity-0'}`}
+                        aria-hidden={!highlightCorrect}
+                      >
+                        ✓
+                      </span>
+                    )}
                   </div>
+                  {/* Vote-share bar: the fill is the REAL percentage for every
+                      option, including the correct one (green marks correct;
+                      a forced-100% green bar misread as "everyone got it"). */}
                   <div className={`h-3 ${highlightCorrect ? 'bg-[#BBF7D0]' : 'bg-gray-100'}`}>
                     <div
                       className={`h-full transition-all duration-500 ${highlightCorrect ? 'bg-green-500' : OPTION_COLORS[i]}`}
-                      style={{ width: highlightCorrect ? '100%' : correctRevealed ? `${pct}%` : '0%' }}
+                      style={{ width: correctRevealed ? `${pct}%` : '0%' }}
                     />
                   </div>
                 </div>
@@ -2464,27 +2480,54 @@ export default function SessionPage() {
           </div>
           )}
 
-          {/* Reveal footer — explanation + headline only. The accuracy donut and
-              per-option vote bars now live in the left stats rail (and the
-              immersive overlay), so the center stage no longer grows a tall
-              stats block on reveal — that growth was the main source of the
-              question/options "stutter." Reserving this footer for explanation
-              keeps the answer options in their pre-reveal positions. */}
-          {isScoredQuestion(currentQuestion) && questionEnded && correctRevealed && (explanation || connectedCount > 0) && (() => {
+          {/* Reveal footer — ALWAYS mounted for scored questions with a fixed
+              min-height, so the answer grid above (flex-1) is sized the same
+              before and after the reveal. Inserting this strip at reveal time
+              used to shrink every answer tile the moment the host revealed.
+              Contents swap in place: waiting hint → (non-competitive) reveal
+              button → "% got it right" + explanation. */}
+          {isScoredQuestion(currentQuestion) && (() => {
             const revealCorrect = revealCorrectCount ?? optionCounts[Number(currentQuestion.correctAnswer)] ?? 0
+            const showResults = questionEnded && correctRevealed
+            const showManualReveal = sessionMode !== 'competitive' && questionEnded && !correctRevealed
             return (
               <div
-                className="host-reveal-footer w-full rounded-2xl px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3"
+                className="host-reveal-footer w-full rounded-2xl px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 min-h-[58px]"
                 style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.16)' }}
               >
-                {connectedCount > 0 && (
-                  <p className="text-lg font-black whitespace-nowrap flex-shrink-0" style={{ color: '#FBD13B', fontFamily: 'var(--font-heading)' }}>
-                    {Math.round((revealCorrect / connectedCount) * 100)}% got it right
-                  </p>
-                )}
-                {explanation && (
-                  <p className="leading-snug font-semibold text-sm flex-1 min-w-0" style={{ color: 'rgba(255,255,255,0.82)' }}>
-                    {explanation}
+                {showResults ? (
+                  <>
+                    {connectedCount > 0 && (
+                      <p className="text-lg font-black whitespace-nowrap flex-shrink-0" style={{ color: '#FBD13B', fontFamily: 'var(--font-heading)' }}>
+                        {Math.round((revealCorrect / connectedCount) * 100)}% got it right
+                      </p>
+                    )}
+                    {explanation ? (
+                      <p className="leading-snug font-semibold text-sm flex-1 min-w-0" style={{ color: 'rgba(255,255,255,0.82)' }}>
+                        {explanation}
+                      </p>
+                    ) : connectedCount === 0 ? (
+                      <p className="leading-snug font-semibold text-sm flex-1 min-w-0" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                        No participants answered this question.
+                      </p>
+                    ) : null}
+                  </>
+                ) : showManualReveal ? (
+                  <>
+                    <button
+                      onClick={() => setCorrectRevealed(true)}
+                      className="inline-flex items-center gap-2 px-5 py-2 rounded-full font-black text-sm transition-all hover:scale-[1.02] flex-shrink-0"
+                      style={{ background: '#16A34A', color: '#fff' }}
+                    >
+                      Reveal Correct Answer
+                    </button>
+                    <p className="leading-snug font-semibold text-sm flex-1 min-w-0" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                      Answers are in — reveal when the room is ready.
+                    </p>
+                  </>
+                ) : (
+                  <p className="leading-snug font-semibold text-sm" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                    Results and explanation appear here after the reveal.
                   </p>
                 )}
               </div>
@@ -2577,15 +2620,8 @@ export default function SessionPage() {
             </div>
           )}
 
-          {sessionMode !== 'competitive' && isScoredQuestion(currentQuestion) && questionEnded && !correctRevealed && (
-            <button
-              onClick={() => setCorrectRevealed(true)}
-              className="w-full py-4 rounded-2xl font-bold text-lg border-2 transition-all hover:scale-[1.01]"
-              style={{ borderColor: '#16A34A', color: '#fff', background: '#16A34A' }}
-            >
-              Reveal Correct Answer
-            </button>
-          )}
+          {/* (Non-competitive "Reveal Correct Answer" now lives inside the
+              always-mounted reveal footer above — same slot, zero reflow.) */}
 
           <div className="sticky bottom-0 z-30 mt-auto w-full pt-2">
             <div
@@ -2750,7 +2786,7 @@ export default function SessionPage() {
                         stopLiveQuestionTimer()
                       })
                     }}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm border-2 transition-all"
+                    className="inline-flex h-11 items-center gap-2 px-5 rounded-full font-bold text-sm border-2 transition-all"
                     style={{
                       borderColor: armed ? '#DC2626' : 'rgba(255,255,255,0.2)',
                       color: armed ? '#FFFFFF' : 'rgba(255,255,255,0.6)',
@@ -2801,7 +2837,7 @@ export default function SessionPage() {
                   )}
                   <button
                     onClick={onClick}
-                    className="inline-flex items-center gap-2 px-6 py-2.5 font-black text-sm rounded-full transition-colors shadow-md animate-pulse"
+                    className="inline-flex h-11 items-center gap-2 px-6 font-black text-sm rounded-full transition-colors shadow-md animate-pulse"
                     style={{
                       background: action === 'reveal' ? '#16A34A' : action === 'standings' && standingsRecommended ? '#FBD13B' : '#FBBF24',
                       color: action === 'reveal' ? '#FFFFFF' : '#0F1B3D',
@@ -2880,6 +2916,8 @@ export default function SessionPage() {
           options={immersiveOptions}
           correctRevealed={correctRevealed}
           isScored={isScoredQuestion(currentQuestion)}
+          autoOpenAfterReveal={autoStatsAfterReveal}
+          onToggleAutoOpen={toggleAutoStatsAfterReveal}
         />
       )}
       {showLeaderboardPopup && (
