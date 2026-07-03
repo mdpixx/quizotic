@@ -26,6 +26,7 @@ type Participant = {
   team?: { index: number; name: string; color: string } | null
   disconnectedAt?: number
   disconnectedSocketId?: string
+  answers?: Record<number, unknown>
 }
 
 type Session = {
@@ -33,6 +34,7 @@ type Session = {
   participantsById?: Map<string, Participant>
   disconnectedParticipants?: Map<string, { socketId: string; participant: Participant; gameCode: string }>
   _pendingPersist?: unknown[]
+  currentQuestionIndex?: number
 }
 
 function makeSession(): Session {
@@ -107,7 +109,25 @@ describe('buildSessionStateSnapshot', () => {
 
   it('returns an empty snapshot for a fresh session', () => {
     const snap = buildSessionStateSnapshot(makeSession())
-    expect(snap).toEqual({ active: [], disconnected: [], connectedCount: 0, totalCount: 0 })
+    expect(snap).toEqual({ active: [], disconnected: [], connectedCount: 0, totalCount: 0, questionIndex: null })
+  })
+
+  it('flags who has answered the current question (answeredCurrent)', () => {
+    const s = makeSession()
+    s.currentQuestionIndex = 2
+    addParticipant(s, { participantId: 'p1', socketId: 's1', name: 'Alice', answers: { 2: { answer: 'A' } } })
+    addParticipant(s, { participantId: 'p2', socketId: 's2', name: 'Bob', answers: { 1: { answer: 'B' } } })
+    addParticipant(s, { participantId: 'p3', socketId: 's3', name: 'Cara' })
+    const snap = buildSessionStateSnapshot(s)
+    const byName = Object.fromEntries(snap.active.map((p: { name: string; answeredCurrent: boolean }) => [p.name, p.answeredCurrent]))
+    expect(byName).toEqual({ Alice: true, Bob: false, Cara: false })
+  })
+
+  it('answeredCurrent stays false in the lobby (no current question)', () => {
+    const s = makeSession()
+    addParticipant(s, { participantId: 'p1', socketId: 's1', name: 'Alice', answers: { 0: { answer: 'A' } } })
+    const snap = buildSessionStateSnapshot(s)
+    expect(snap.active[0].answeredCurrent).toBe(false)
   })
 })
 

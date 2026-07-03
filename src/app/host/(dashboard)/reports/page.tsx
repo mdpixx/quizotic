@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { downloadFromUrl } from '@/lib/download'
 
 interface SessionRecord {
   id: string
@@ -41,35 +42,6 @@ function getAvgScore(results: SessionRecord['results']): number | null {
   const avgRaw = lb.reduce((s, p) => s + (p.score ?? 0), 0) / lb.length
   const pct = (avgRaw / maxScore) * 100
   return Math.max(0, Math.min(100, Math.round(pct)))
-}
-
-// Trigger a browser download from a Blob/URL response
-async function downloadFromUrl(url: string, filename: string): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const res = await fetch(url)
-    if (!res.ok) {
-      let message = `Download failed (${res.status})`
-      try {
-        const body = await res.json()
-        if (body?.error) message = body.error
-      } catch {
-        // Not JSON — fall through to default message
-      }
-      return { ok: false, error: message }
-    }
-    const blob = await res.blob()
-    const objectUrl = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = objectUrl
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    window.URL.revokeObjectURL(objectUrl)
-    return { ok: true }
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Unknown error' }
-  }
 }
 
 export default function ReportsPage() {
@@ -258,7 +230,7 @@ export default function ReportsPage() {
                   style={{ borderColor: 'var(--color-line)' }}
                 >
                   {/* Session — title + type chip */}
-                  <div className="flex items-center gap-3 min-w-0 mb-3 md:mb-0">
+                  <Link href={`/host/reports/${session.id}`} className="flex items-center gap-3 min-w-0 mb-3 md:mb-0 group" style={{ textDecoration: 'none' }}>
                     <div className="w-10 h-10 rounded-[10px] flex-shrink-0 flex items-center justify-center" style={{ background: session.type === 'quiz' ? 'linear-gradient(135deg, var(--color-ink), var(--color-ink-2))' : 'linear-gradient(135deg, #0EA5E9, #0284C7)', color: '#fff' }}>
                       {session.type === 'quiz' ? (
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg>
@@ -267,7 +239,7 @@ export default function ReportsPage() {
                       )}
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[14px] font-semibold truncate" style={{ color: 'var(--color-ink)' }}>{title}</div>
+                      <div className="text-[14px] font-semibold truncate group-hover:underline" style={{ color: 'var(--color-ink)' }}>{title}</div>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <span className="chip" style={{ background: session.type === 'quiz' ? '#EFF6FF' : '#E0F2FE', color: session.type === 'quiz' ? '#1D4ED8' : '#0369A1' }}>
                           {session.type === 'quiz' ? 'Quiz' : 'Presentation'}
@@ -279,7 +251,7 @@ export default function ReportsPage() {
                         )}
                       </div>
                     </div>
-                  </div>
+                  </Link>
 
                   {/* Code */}
                   <div className="hidden md:block font-mono text-[13px] font-semibold" style={{ color: 'var(--color-text-muted)' }}>
@@ -307,8 +279,17 @@ export default function ReportsPage() {
                     )}
                   </div>
 
-                  {/* Download */}
+                  {/* View + Download */}
                   <div className="flex items-center gap-2 md:justify-end flex-shrink-0 md:col-start-6">
+                    <Link
+                      href={`/host/reports/${session.id}`}
+                      className="btn-secondary"
+                      style={{ padding: '7px 12px', fontSize: '12px', textDecoration: 'none' }}
+                      title="View the question-by-question report"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5"><path d="M3 3v18h18"/><path d="M7 12l4-4 4 4 5-5"/></svg>
+                      View
+                    </Link>
                     <button
                       onClick={() => handleCsvDownload(session)}
                       disabled={isDownloading}

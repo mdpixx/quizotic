@@ -105,6 +105,32 @@ export const HostResumeSchema = z.object({
   token: z.string().min(8).max(128),
 })
 
+// Timer control mid-question: extend adds `seconds` (default 15) to the
+// running countdown; restart resets it to the question's full duration.
+export const AdjustTimerSchema = z.object({
+  gameCode: z.string().min(4).max(10),
+  action: z.enum(['extend', 'restart']),
+  seconds: z.number().int().min(5).max(60).optional(),
+})
+
+// Jump to an arbitrary not-yet-played question (question navigator).
+export const GotoQuestionSchema = z.object({
+  gameCode: z.string().min(4).max(10),
+  index: z.number().int().min(0).max(99),
+})
+
+// Remove a disruptive participant and block their participantId from rejoining.
+export const KickParticipantSchema = z.object({
+  gameCode: z.string().min(4).max(10),
+  participantId: z.string().uuid(),
+})
+
+// Flip anonymous (archetype-only) display names on or off mid-session.
+export const SetAnonymousModeSchema = z.object({
+  gameCode: z.string().min(4).max(10),
+  anonymous: z.boolean(),
+})
+
 // ─── Helper ────────────────────────────────────────────────────────────────
 
 /**

@@ -31,6 +31,9 @@ import { PhoneRemoteButton } from '@/components/host/PhoneRemoteButton'
 import { NavChevron } from '@/components/ui/NavButton'
 import { EndQuizConfirmModal } from '@/components/host/EndQuizConfirmModal'
 import { HostWordCloud } from '@/components/host/HostWordCloud'
+import { RevealStatsDonut } from '@/components/host/RevealStatsDonut'
+import { LiveRosterPanel } from '@/components/host/LiveRosterPanel'
+import { QuestionNavigator } from '@/components/host/QuestionNavigator'
 import { getQuizTheme } from '@/lib/quiz-themes'
 import { buildLeaderboardStageRows, getHostQuestionFit, getPostQuestionAction } from '@/lib/host-stage'
 import { startClockSync, getServerNow, resyncClock } from '@/lib/clock-sync'
@@ -269,6 +272,14 @@ export default function SessionPage() {
   // Storing connection state here lets us render a single list with offline
   // dimming during the disconnect grace period instead of removing entries.
   const [participants, setParticipants] = useState<Map<string, { name: string; archetype: string; team?: { index: number; name: string; color: string } | null; connected: boolean }>>(new Map())
+  // Map keys (pid:… / name:…) of participants who answered the CURRENT
+  // question — drives the live roster panel's submitted ticks.
+  const [answeredKeys, setAnsweredKeys] = useState<Set<string>>(new Set())
+  // Question indexes already presented this session — the navigator renders
+  // them dimmed. After a host reload this is approximated as 0..current (a
+  // question jumped over before the reload will wrongly show as played; the
+  // server still accepts the jump since it tracks the truth).
+  const [playedIndexes, setPlayedIndexes] = useState<Set<number>>(new Set())
   // Derived: count of currently CONNECTED participants. Used everywhere the
   // host UI shows a "players" number — drives the lobby chip, the start
   // button, the answered/total fraction, and the % calculations during
@@ -413,6 +424,9 @@ export default function SessionPage() {
   // or via explicit "Reveal answer" button.
   const [questionEnded, setQuestionEnded] = useState(false)
   const [correctRevealed, setCorrectRevealed] = useState(false)
+  // Server-computed correct count for the reveal donut — exact across all
+  // scored types (optionCounts only covers mcq/truefalse).
+  const [revealCorrectCount, setRevealCorrectCount] = useState<number | null>(null)
   // P3.4 — Drawing question gallery
   const [drawings, setDrawings] = useState<Array<{ name: string; archetype: string; dataUrl: string }>>([])
   // Host-side aggregates for text-based / rating / Q&A types. Reset on every
@@ -734,7 +748,7 @@ export default function SessionPage() {
 
     // Authoritative state from server every 5s — replace the entire Map so
     // any drift (missed events, late hot-reload) is corrected.
-    socket.on('session_state', ({ active, disconnected }: { active: Array<{ participantId: string | null; name: string; archetype: string | null; team: { index: number; name: string; color: string } | null }>; disconnected: Array<{ participantId: string | null; name: string; archetype: string | null; team: { index: number; name: string; color: string } | null }>; connectedCount: number; totalCount: number }) => {
+    socket.on('session_state', ({ active, disconnected, questionIndex: snapshotQuestionIndex }: { active: Array<{ participantId: string | null; name: string; archetype: string | null; team: { index: number; name: string; color: string } | null; answeredCurrent?: boolean }>; disconnected: Array<{ participantId: string | null; name: string; archetype: string | null; team: { index: number; name: string; color: string } | null; answeredCurrent?: boolean }>; connectedCount: number; totalCount: number; questionIndex?: number | null }) => {
       setParticipants(() => {
         const next = new Map<string, { name: string; archetype: string; team?: { index: number; name: string; color: string } | null; connected: boolean }>()
         for (const p of active || []) {
@@ -745,11 +759,33 @@ export default function SessionPage() {
         }
         return next
       })
+      // Authoritative re-seed of the roster panel's submitted ticks — makes a
+      // reloading host converge within one snapshot interval. Union, not
+      // replace: within the same question both sources are true positives,
+      // and union can't flash-remove a tick that arrived after the snapshot
+      // was built. Skip snapshots from another question (in-flight during a
+      // transition); question_show clears the set.
+      if (snapshotQuestionIndex === questionIndexRef.current) {
+        setAnsweredKeys(prev => {
+          const next = new Set(prev)
+          for (const p of [...(active || []), ...(disconnected || [])]) {
+            if (p.answeredCurrent) next.add(keyFor(p.participantId, p.name))
+          }
+          return next
+        })
+      }
     })
 
-    socket.on('answer_received', ({ count, optionCounts: counts }: { count: number; optionCounts?: number[] }) => {
+    socket.on('answer_received', ({ count, optionCounts: counts, participantId }: { count: number; optionCounts?: number[]; participantId?: string | null }) => {
       setAnswered(count)
       if (counts) setOptionCounts(counts)
+      if (participantId) {
+        setAnsweredKeys(prev => {
+          const next = new Set(prev)
+          next.add(keyFor(participantId))
+          return next
+        })
+      }
     })
 
     // question_show fires for host too (host is in session: room).
@@ -760,6 +796,28 @@ export default function SessionPage() {
       setPhase('question')
       setOnLeaderboardSlide(false)
       setEndNowArmed(false)
+      // The server is the navigation authority: converge the projector's
+      // question index and per-question flags here so local advance, phone
+      // remote advance and goto_question all land on one code path. Without
+      // this, server-driven navigation left currentQuestion stale.
+      questionIndexRef.current = index
+      setQuestionIndex(index)
+      setExplanation(null)
+      setQuestionEnded(false)
+      setCorrectRevealed(false)
+      setAnswered(0)
+      setOptionCounts([])
+      setPlayedIndexes(prev => {
+        const next = new Set(prev)
+        if (next.size === 0) {
+          // First question_show after load — seed everything up to here so a
+          // reloaded host doesn't render past questions as jumpable.
+          for (let i = 0; i <= index; i++) next.add(i)
+        } else {
+          next.add(index)
+        }
+        return next
+      })
       if (endNowArmTimerRef.current) { clearTimeout(endNowArmTimerRef.current); endNowArmTimerRef.current = null }
       setQuestionStartedAt(effectiveStart)
       setRankingSubmissions([])
@@ -771,6 +829,8 @@ export default function SessionPage() {
       setOpenendedEntries([])
       setRatingValues([])
       setLiveStat(null)
+      setRevealCorrectCount(null)
+      setAnsweredKeys(new Set())
 
       // Tighten the clock offset right when a new question arrives — same
       // reasoning as the participant client.
@@ -836,14 +896,24 @@ export default function SessionPage() {
       runHostCountdown(getServerNow() + remainingMs)
     })
 
+    // Host extended or restarted the timer mid-question — same re-anchor
+    // contract as quiz_resumed. While paused only the display updates; the
+    // countdown restarts on resume.
+    socket.on('timer_adjusted', ({ remainingMs, paused: stillPaused }: { remainingMs?: number; action?: 'extend' | 'restart'; paused?: boolean }) => {
+      if (typeof remainingMs !== 'number' || remainingMs < 0) return
+      setHostTimeLeft(Math.max(0, Math.ceil(remainingMs / 1000)))
+      if (!stillPaused) runHostCountdown(getServerNow() + remainingMs)
+    })
+
     socket.on('ranking_submission', ({ ranking }: { ranking: number[] }) => {
       if (Array.isArray(ranking)) {
         setRankingSubmissions(prev => [...prev, ranking])
       }
     })
 
-    socket.on('question_ended', ({ explanation: exp }: { correctAnswer: string; explanation: string | null }) => {
+    socket.on('question_ended', ({ explanation: exp, correctCount: cc }: { correctAnswer: string; explanation: string | null; correctCount?: number | null }) => {
       setExplanation(exp)
+      setRevealCorrectCount(typeof cc === 'number' ? cc : null)
       setQuestionEnded(true)
       if (hostTimerRef.current) { clearInterval(hostTimerRef.current); hostTimerRef.current = null }
       setHostTimeLeft(0)
@@ -995,6 +1065,7 @@ export default function SessionPage() {
       socket.off('drawing_submitted')
       socket.off('live_responses')
       socket.off('question_reveal')
+      socket.off('timer_adjusted')
       stopClockSync()
       socket.disconnect()
       // Reset the init guard so the effect re-creates the socket if it runs
@@ -1169,6 +1240,45 @@ export default function SessionPage() {
       setRankingSubmissions([])
       // Host timer starts via question_show socket event (synchronized with server startAt)
     }
+  }
+
+  // Remove a disruptive participant. Server confirms via the existing
+  // participant_left event, which already prunes the roster Map.
+  function kickParticipant(key: string) {
+    const pid = key.startsWith('pid:') ? key.slice(4) : null
+    if (!pid || !socketRef.current?.connected || !gameCode) return
+    socketRef.current.emit('kick_participant', { gameCode, participantId: pid }, () => {})
+  }
+
+  // Flip anonymous names mid-session; local state follows the server ack so
+  // the toggle can't drift from the authoritative session flag.
+  function toggleAnonymousMode() {
+    if (!socketRef.current?.connected || !gameCode) return
+    const next = !anonymousMode
+    socketRef.current.emit('set_anonymous_mode', { gameCode, anonymous: next }, (res?: { success?: boolean }) => {
+      if (res?.success) setAnonymousMode(next)
+    })
+  }
+
+  // Question navigator jump — the server ends the live question (if any),
+  // presents the target, and the shared question_show handler converges the
+  // projector state. Resolves with the server's verdict for popover feedback.
+  function gotoQuestion(index: number): Promise<{ success: boolean; reason?: string }> {
+    if (!socketRef.current?.connected || !gameCode) return Promise.resolve({ success: false, reason: 'not_active' })
+    return new Promise(resolve => {
+      let settled = false
+      const timeout = setTimeout(() => {
+        if (settled) return
+        settled = true
+        resolve({ success: false })
+      }, 3000)
+      socketRef.current?.emit('goto_question', { gameCode, index }, (res?: { success?: boolean; reason?: string }) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timeout)
+        resolve({ success: !!res?.success, reason: res?.reason })
+      })
+    })
   }
 
   function endCurrentQuestion(): Promise<boolean> {
@@ -1814,6 +1924,18 @@ export default function SessionPage() {
             color: '#FFFFFF',
           }}
         >
+          {/* Live per-participant status drawer — collapsed edge tab by default
+              so the projected question stays full-bleed. */}
+          <LiveRosterPanel
+            participants={participants}
+            answeredKeys={answeredKeys}
+            answered={answered}
+            connectedCount={connectedCount}
+            onKick={kickParticipant}
+            anonymous={anonymousMode}
+            onToggleAnonymous={toggleAnonymousMode}
+          />
+
           {/* 3-2-1 Countdown overlay */}
           {countdownValue !== null && (
             <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(15,27,61,0.92)' }}>
@@ -1874,14 +1996,14 @@ export default function SessionPage() {
                 <span className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: 'rgba(255,255,255,0.52)' }}>
                   Live Question
                 </span>
-                <div className="mt-1 flex items-center gap-3">
-                  <span className="font-display text-3xl md:text-4xl font-black tabular-nums" style={{ fontFamily: 'var(--font-display)', color: '#FBD13B' }}>
-                    Q{answerableNumber}
-                  </span>
-                  <span className="text-lg md:text-xl font-bold" style={{ color: 'rgba(255,255,255,0.72)' }}>
-                    of {answerableTotal}
-                  </span>
-                </div>
+                <QuestionNavigator
+                  questions={quiz.questions}
+                  currentIndex={questionIndex}
+                  playedIndexes={playedIndexes}
+                  answerableNumber={answerableNumber}
+                  answerableTotal={answerableTotal}
+                  onJump={gotoQuestion}
+                />
               </div>
               <div className="flex flex-wrap items-center justify-start lg:justify-end gap-3">
                 {currentQuestion.timerSeconds > 0 && (
@@ -2248,28 +2370,34 @@ export default function SessionPage() {
           </div>
           )}
 
-          {isScoredQuestion(currentQuestion) && questionEnded && correctRevealed && (
-            <div
-              className="host-reveal-footer max-w-7xl mx-auto rounded-3xl p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-4"
-              style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.18)' }}
-            >
-              <div className="flex-1">
-                <p className="text-xs font-black uppercase tracking-[0.22em]" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                  Answer Reveal
-                </p>
-                <p className="mt-1 text-2xl md:text-3xl font-black" style={{ color: '#FFFFFF', fontFamily: 'var(--font-heading)' }}>
-                  {connectedCount > 0
-                    ? `${Math.round(((optionCounts[Number(currentQuestion.correctAnswer)] ?? 0) / connectedCount) * 100)}% got it right`
-                    : 'Waiting for answers'}
-                </p>
+          {isScoredQuestion(currentQuestion) && questionEnded && correctRevealed && (() => {
+            const revealCorrect = revealCorrectCount ?? optionCounts[Number(currentQuestion.correctAnswer)] ?? 0
+            const revealIncorrect = Math.max(0, answered - revealCorrect)
+            const revealUnattempted = Math.max(0, connectedCount - answered)
+            return (
+              <div
+                className="host-reveal-footer max-w-7xl mx-auto rounded-3xl p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-5"
+                style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.18)' }}
+              >
+                <RevealStatsDonut correct={revealCorrect} incorrect={revealIncorrect} unattempted={revealUnattempted} />
+                <div className="flex-1">
+                  <p className="text-xs font-black uppercase tracking-[0.22em]" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                    Answer Reveal
+                  </p>
+                  <p className="mt-1 text-2xl md:text-3xl font-black" style={{ color: '#FFFFFF', fontFamily: 'var(--font-heading)' }}>
+                    {connectedCount > 0
+                      ? `${Math.round((revealCorrect / connectedCount) * 100)}% got it right`
+                      : 'Waiting for answers'}
+                  </p>
+                </div>
+                {explanation && (
+                  <p className={`md:max-w-2xl leading-snug font-semibold ${hostQuestionFit?.explanationClass ?? 'host-explanation-fit-roomy'}`} style={{ color: 'rgba(255,255,255,0.82)' }}>
+                    {explanation}
+                  </p>
+                )}
               </div>
-              {explanation && (
-                <p className={`md:max-w-2xl leading-snug font-semibold ${hostQuestionFit?.explanationClass ?? 'host-explanation-fit-roomy'}`} style={{ color: 'rgba(255,255,255,0.82)' }}>
-                  {explanation}
-                </p>
-              )}
-            </div>
-          )}
+            )
+          })()}
 
           {/* Drawing gallery — P3.4 */}
           {currentQuestion.type === 'drawing' && (
@@ -2434,6 +2562,37 @@ export default function SessionPage() {
                     <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
                   )}
                 </button>
+                {!questionEnded && (
+                  <>
+                    <button
+                      onClick={() => socketRef.current?.emit('adjust_timer', { gameCode, action: 'extend', seconds: 15 }, () => {})}
+                      title="Add 15 seconds to the timer"
+                      aria-label="Add 15 seconds"
+                      className="flex h-10 items-center justify-center rounded-xl px-2.5 text-[13px] font-black transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
+                      style={{
+                        background: 'rgba(255,255,255,0.08)',
+                        color: 'rgba(255,255,255,0.78)',
+                        border: '1px solid rgba(255,255,255,0.14)',
+                      }}>
+                      +15s
+                    </button>
+                    <button
+                      onClick={() => socketRef.current?.emit('adjust_timer', { gameCode, action: 'restart' }, () => {})}
+                      title="Restart the timer at the question's full time"
+                      aria-label="Restart timer"
+                      className="flex h-10 w-10 items-center justify-center rounded-xl transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
+                      style={{
+                        background: 'rgba(255,255,255,0.08)',
+                        color: 'rgba(255,255,255,0.78)',
+                        border: '1px solid rgba(255,255,255,0.14)',
+                      }}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+                        <path d="M3 12a9 9 0 1 0 9-9" />
+                        <path d="M3 4v5h5" />
+                      </svg>
+                    </button>
+                  </>
+                )}
                 <button
                   onClick={() => setShowLeaderboardPopup(true)}
                   title="Peek at standings (press L)"

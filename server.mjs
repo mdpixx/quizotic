@@ -25,16 +25,20 @@ if (process.env.SENTRY_DSN && process.env.NODE_ENV === 'production') {
 
 import { assignArchetype } from './src/lib/archetypes.mjs'
 import {
+  AdjustTimerSchema,
   CreateSessionSchema,
   BrainstormUpvoteSchema,
   CreatePresenterSessionSchema,
   GameCodeOnlySchema,
+  GotoQuestionSchema,
   HostResumeSchema,
   JoinFollowupSchema,
   JoinSessionSchema,
+  KickParticipantSchema,
   PingTimeSchema,
   PresenterResponseSchema,
   PresenterSlideSchema,
+  SetAnonymousModeSchema,
   SubmitAnswerSchema,
   SubmitDrawingSchema,
   validateSocketPayload,
@@ -1117,40 +1121,7 @@ app.prepare().then(async () => {
       if (!session || !isHostSocket(session, socket)) return
 
       session.status = 'active'
-      session.currentQuestionIndex = 0
-
-      // A leaderboard slide at the very front just shows (empty) standings.
-      if (isLeaderboardSlide(session.quizData.questions[0])) {
-        emitLeaderboardSlide(io, gameCode, session, 0)
-        console.log(`[session] started on leaderboard slide: ${gameCode}`)
-        return
-      }
-
-      let question = sanitizeQuestion(session.quizData.questions[0])
-      const startAt = Date.now() + 3500  // 3-second countdown window
-      session.questionStartedAt = startAt
-
-      // If sequence ranking: shuffle options and build a map from display slot → original index
-      if (isSequenceRanking(session.quizData.questions[0])) {
-        const indexed = (question.options || []).map((opt, origIndex) => ({ opt, origIndex }))
-        const shuffled = fisherYatesShuffle(indexed)
-        session.currentRankingShuffleMap = shuffled.map(e => e.origIndex)
-        question = { ...question, options: shuffled.map(e => e.opt) }
-      } else {
-        session.currentRankingShuffleMap = null
-      }
-
-      io.to(`session:${gameCode}`).emit('question_show', {
-        question,
-        index: 0,
-        total: session.quizData.questions.length,
-        ...answerableProgress(session.quizData.questions, 0),
-        serverTimestamp: session.questionStartedAt,
-        startAt,
-      })
-
-      scheduleQuestionAutoEnd(io, gameCode, session)
-
+      presentQuestion(io, gameCode, session, 0)
       console.log(`[session] started: ${gameCode}`)
     })
 
@@ -1197,6 +1168,130 @@ app.prepare().then(async () => {
       }
       io.to(`session:${gameCode}`).emit('quiz_resumed', { remainingMs })
       console.log(`[session] resumed: ${gameCode}`)
+    })
+
+    // Mid-question timer control: 'extend' adds seconds to the countdown,
+    // 'restart' resets it to the question's full duration. Works while paused
+    // too — the frozen remaining is mutated and participants pick it up from
+    // quiz_resumed on resume. Cumulative extensions are tracked per question
+    // in session.timerExtensionMs so the submit_answer late-window and
+    // reconnect replays honour the new deadline.
+    socket.on('adjust_timer', (rawPayload, callback) => {
+      const parsed = validateSocketPayload(socket, AdjustTimerSchema, rawPayload, callback, 'adjust_timer')
+      if (!parsed) return
+      const { gameCode, action } = parsed
+      const session = sessions.get(gameCode)
+      if (!session || !isHostSocket(session, socket)) {
+        if (typeof callback === 'function') callback({ success: false, error: 'Session not found.' })
+        return
+      }
+      if (session.status !== 'active' || session.questionEnded) {
+        if (typeof callback === 'function') callback({ success: false, reason: 'ended' })
+        return
+      }
+      const q = session.quizData?.questions?.[session.currentQuestionIndex]
+      if (!q || isLeaderboardSlide(q)) {
+        if (typeof callback === 'function') callback({ success: false, reason: 'no_question' })
+        return
+      }
+      const timerSeconds = clampTimerSeconds(q.timerSeconds, q.id ?? '(no-id)')
+      const addMs = (parsed.seconds ?? 15) * 1000
+      const MAX_EXTENSION_MS = 5 * 60 * 1000
+      session.timerExtensionMs = session.timerExtensionMs || 0
+
+      const now = Date.now()
+      const base = session.paused
+        ? (typeof session.pauseRemainingMs === 'number' ? session.pauseRemainingMs : 0)
+        : Math.max(0, (session.questionEndsAt || now) - now)
+      // +500ms grace on restart mirrors scheduleQuestionAutoEnd so the client
+      // gets a chance to paint the final "0".
+      const newRemaining = action === 'restart' ? timerSeconds * 1000 + 500 : base + addMs
+      const delta = newRemaining - base
+      if (session.timerExtensionMs + delta > MAX_EXTENSION_MS) {
+        if (typeof callback === 'function') callback({ success: false, reason: 'cap' })
+        return
+      }
+      session.timerExtensionMs += delta
+
+      if (session.paused) {
+        session.pauseRemainingMs = newRemaining
+        // Participants' timers are frozen — only the host display updates now;
+        // quiz_resumed carries the increased remaining on resume.
+        io.to(`host:${gameCode}`).emit('timer_adjusted', { remainingMs: newRemaining, action, paused: true })
+      } else {
+        scheduleQuestionAutoEnd(io, gameCode, session, newRemaining)
+        io.to(`session:${gameCode}`).emit('timer_adjusted', { remainingMs: newRemaining, action })
+      }
+      if (typeof callback === 'function') callback({ success: true, remainingMs: newRemaining })
+      console.log(`[session] timer ${action}: ${gameCode} remaining=${newRemaining}ms extension=${session.timerExtensionMs}ms`)
+    })
+
+    // Remove a disruptive participant. Their Answer rows stay in the audit
+    // log, but they leave every future leaderboard and their participantId is
+    // blocked from rejoining this session. (Clearing localStorage forges a
+    // fresh identity — name-based blocking would punish innocent name-sharers,
+    // so we deliberately don't.)
+    socket.on('kick_participant', (rawPayload, callback) => {
+      const parsed = validateSocketPayload(socket, KickParticipantSchema, rawPayload, callback, 'kick_participant')
+      if (!parsed) return
+      const { gameCode, participantId } = parsed
+      const session = sessions.get(gameCode)
+      const cb = typeof callback === 'function' ? callback : () => {}
+      if (!session || !isHostSocket(session, socket)) {
+        cb({ success: false, error: 'Session not found.' })
+        return
+      }
+      const target = session.participantsById?.get(participantId)
+      if (!target) { cb({ success: false, reason: 'not_found' }); return }
+      if (!session.blockedParticipantIds) session.blockedParticipantIds = new Set()
+      session.blockedParticipantIds.add(participantId)
+
+      // Tell the participant (if connected), then drop them from the room.
+      const targetSocket = target.socketId ? io.sockets.sockets.get(target.socketId) : null
+      if (targetSocket) {
+        targetSocket.emit('removed_by_host', {})
+        targetSocket.leave(`session:${gameCode}`)
+      }
+      // Clear any disconnect-grace entry so the grace timer can't resurrect them.
+      const dKey = String(target.realName || target.name || '').toLowerCase()
+      session.disconnectedParticipants?.delete(dKey)
+      if (target.socketId) session.participants.delete(target.socketId)
+      session.participantsById.delete(participantId)
+      if (target.attendeeId) {
+        updateAttendeeOnLeave(target.attendeeId, target.joinedAt).catch(console.error)
+      }
+
+      // Reuse the existing removal event — host roster/count logic already
+      // handles participant_left.
+      const connectedCount = getConnectedCount(session)
+      io.to(`host:${gameCode}`).emit('participant_left', { name: target.name, participantId, count: connectedCount, connectedCount })
+      cb({ success: true })
+      console.log(`[session] kicked pid=${participantId} (${target.realName || target.name}) from ${gameCode}`)
+    })
+
+    // Flip anonymous (archetype-only) display names on or off mid-session.
+    // Leaderboards pick the new names up on the next leaderboard_update; the
+    // host roster converges immediately via the session_state push below.
+    socket.on('set_anonymous_mode', (rawPayload, callback) => {
+      const parsed = validateSocketPayload(socket, SetAnonymousModeSchema, rawPayload, callback, 'set_anonymous_mode')
+      if (!parsed) return
+      const { gameCode, anonymous } = parsed
+      const session = sessions.get(gameCode)
+      const cb = typeof callback === 'function' ? callback : () => {}
+      if (!session || !isHostSocket(session, socket)) {
+        cb({ success: false, error: 'Session not found.' })
+        return
+      }
+      session.anonymousMode = anonymous
+      for (const [sid, p] of session.participants.entries()) {
+        if (typeof sid === 'string' && sid.startsWith('ghost::')) continue
+        if (!p) continue
+        p.name = anonymous ? (p.archetype || p.name) : (p.realName || p.name)
+      }
+      io.to(`session:${gameCode}`).emit('anonymous_mode_changed', { anonymous })
+      io.to(`host:${gameCode}`).emit('session_state', buildSessionStateSnapshot(session))
+      cb({ success: true })
+      console.log(`[session] anonymous mode ${anonymous ? 'ON' : 'OFF'}: ${gameCode}`)
     })
 
     // Host manually ended the live question (confirm-tap "End Now") — fire
@@ -1294,36 +1389,42 @@ app.prepare().then(async () => {
         emitQuestionEnded(io, gameCode, session, prevIndex)
       }
 
-      // Landing on a host-placed leaderboard slide: show standings, no question.
-      if (isLeaderboardSlide(quizData.questions[currentQuestionIndex])) {
-        emitLeaderboardSlide(io, gameCode, session, currentQuestionIndex)
+      presentQuestion(io, gameCode, session, currentQuestionIndex)
+    })
+
+    // Question navigator: jump straight to any not-yet-played question.
+    // Played questions are view-only history — re-opening one can't collect
+    // second answers (duplicate guard + ON CONFLICT DO NOTHING), so the
+    // server refuses the jump rather than presenting a silently dead question.
+    socket.on('goto_question', (rawPayload, callback) => {
+      const parsed = validateSocketPayload(socket, GotoQuestionSchema, rawPayload, callback, 'goto_question')
+      if (!parsed) return
+      const { gameCode, index } = parsed
+      const session = sessions.get(gameCode)
+      const cb = typeof callback === 'function' ? callback : () => {}
+      if (!session || !isHostSocket(session, socket)) {
+        cb({ success: false, error: 'Session not found.' })
         return
       }
+      if (session.status !== 'active') { cb({ success: false, reason: 'not_active' }); return }
+      // Keeping pause bookkeeping simple: resume first, then jump.
+      if (session.paused) { cb({ success: false, reason: 'paused' }); return }
+      const questions = session.quizData?.questions ?? []
+      if (index >= questions.length) { cb({ success: false, reason: 'out_of_range' }); return }
+      if (index === session.currentQuestionIndex) { cb({ success: false, reason: 'current' }); return }
+      if (session.playedQuestionIndexes?.has(index)) { cb({ success: false, reason: 'played' }); return }
 
-      const startAt = Date.now() + 3500  // 3-second countdown window
-      session.questionStartedAt = startAt
-      let question = sanitizeQuestion(quizData.questions[currentQuestionIndex])
-
-      // If sequence ranking: shuffle options and build a map from display slot → original index
-      if (isSequenceRanking(quizData.questions[currentQuestionIndex])) {
-        const indexed = (question.options || []).map((opt, origIndex) => ({ opt, origIndex }))
-        const shuffled = fisherYatesShuffle(indexed)
-        session.currentRankingShuffleMap = shuffled.map(e => e.origIndex)
-        question = { ...question, options: shuffled.map(e => e.opt) }
-      } else {
-        session.currentRankingShuffleMap = null
+      // End the current live question exactly as next_question does.
+      const prevIndex = session.currentQuestionIndex
+      if (!session.questionEnded && questions[prevIndex] && !isLeaderboardSlide(questions[prevIndex])) {
+        if (session.endTimer) { clearTimeout(session.endTimer); session.endTimer = null }
+        session.questionEnded = true
+        emitQuestionEnded(io, gameCode, session, prevIndex)
       }
 
-      io.to(`session:${gameCode}`).emit('question_show', {
-        question,
-        index: currentQuestionIndex,
-        total: quizData.questions.length,
-        ...answerableProgress(quizData.questions, currentQuestionIndex),
-        serverTimestamp: session.questionStartedAt,
-        startAt,
-      })
-
-      scheduleQuestionAutoEnd(io, gameCode, session)
+      presentQuestion(io, gameCode, session, index)
+      cb({ success: true, index })
+      console.log(`[session] goto question ${index + 1}: ${gameCode}`)
     })
 
     // P3.4 — Drawing question type: participant submits a drawing (base64 JPEG).
@@ -2095,6 +2196,11 @@ app.prepare().then(async () => {
         callback({ success: false, error: 'This game has already ended.' })
         return
       }
+      // Kicked participants stay out — durable participantId block.
+      if (incomingPid && session.blockedParticipantIds?.has(incomingPid)) {
+        callback({ success: false, error: 'You were removed from this game by the host.' })
+        return
+      }
 
       // Truncate + strip HTML/control chars server-side for safety
       const safeName = sanitizeDisplayText(displayName) || 'Anonymous'
@@ -2406,7 +2512,9 @@ app.prepare().then(async () => {
       // `late: true` in answer_confirmed and the streak does not advance.
       // Previously this branch did an early `return` and silently dropped the
       // answer, leaving the host stuck at "0 answered" forever.
-      const isLate = !!(session.questionStartedAt && rawElapsed > timerMs + 2000)
+      // timerExtensionMs widens the window when the host extended/restarted the
+      // timer — otherwise every answer in the extended window is marked late.
+      const isLate = !!(session.questionStartedAt && rawElapsed > timerMs + (session.timerExtensionMs || 0) + 2000)
       if (isLate) {
         console.warn(`[submit_answer:late-but-recorded] code=${gameCode} q=${qi} sid=${socket.id} pid=${participant.participantId} rawElapsed=${rawElapsed}ms deadline=${timerMs + 2000}ms`)
       }
@@ -2489,6 +2597,8 @@ app.prepare().then(async () => {
           total: getConnectedCount(session),
           connectedCount: getConnectedCount(session),
           optionCounts: countAnswersByOption(session, qi, numOptions),
+          participantId: participant.participantId ?? null,
+          questionIndex: qi,
         })
 
         io.to(`host:${gameCode}`).emit('ranking_submission', { ranking: storedOrder, order: storedOrder })
@@ -2560,6 +2670,8 @@ app.prepare().then(async () => {
         total: getConnectedCount(session),
         connectedCount: getConnectedCount(session),
         optionCounts: countAnswersByOption(session, qi, numOptions),
+        participantId: participant.participantId ?? null,
+        questionIndex: qi,
       })
 
       // Forward raw text/rating payloads to the host so it can render live
@@ -2870,7 +2982,9 @@ function sendCurrentQuestionToSocket(socket, session) {
   // is less than 1.5s, skip the replay — the next question_show is imminent
   // and a sub-second timer paint looks like a bug to the user.
   const safeTimer = clampTimerSeconds(q.timerSeconds, q.id ?? '(no-id)')
-  const endsAt = (questionStartedAt || 0) + safeTimer * 1000
+  // Include any host-granted extensions so a mid-extension reconnect isn't
+  // skipped (or painted with an already-expired timer).
+  const endsAt = (questionStartedAt || 0) + safeTimer * 1000 + (session.timerExtensionMs || 0)
   if (Date.now() > endsAt - 1500) return
   socket.emit('question_show', {
     question: sanitizeQuestion(q),
@@ -3133,6 +3247,49 @@ function buildTeamLeaderboard(session) {
   return Array.from(teamScores.values()).sort((a, b) => b.score - a.score)
 }
 
+// Present question `index` to the whole room: leaderboard-slide branch,
+// wall-clock start anchor, sequence-ranking shuffle, question_show emit and
+// the auto-end timer. Single code path shared by start_quiz, next_question
+// and goto_question so all three stay behaviourally identical.
+function presentQuestion(io, gameCode, session, index) {
+  session.currentQuestionIndex = index
+  if (!session.playedQuestionIndexes) session.playedQuestionIndexes = new Set()
+  session.playedQuestionIndexes.add(index)
+  const { quizData } = session
+
+  // Landing on a host-placed leaderboard slide: show standings, no question.
+  if (isLeaderboardSlide(quizData.questions[index])) {
+    emitLeaderboardSlide(io, gameCode, session, index)
+    return
+  }
+
+  const startAt = Date.now() + 3500  // 3-second countdown window
+  session.questionStartedAt = startAt
+  session.timerExtensionMs = 0
+  let question = sanitizeQuestion(quizData.questions[index])
+
+  // If sequence ranking: shuffle options and build a map from display slot → original index
+  if (isSequenceRanking(quizData.questions[index])) {
+    const indexed = (question.options || []).map((opt, origIndex) => ({ opt, origIndex }))
+    const shuffled = fisherYatesShuffle(indexed)
+    session.currentRankingShuffleMap = shuffled.map(e => e.origIndex)
+    question = { ...question, options: shuffled.map(e => e.opt) }
+  } else {
+    session.currentRankingShuffleMap = null
+  }
+
+  io.to(`session:${gameCode}`).emit('question_show', {
+    question,
+    index,
+    total: quizData.questions.length,
+    ...answerableProgress(quizData.questions, index),
+    serverTimestamp: session.questionStartedAt,
+    startAt,
+  })
+
+  scheduleQuestionAutoEnd(io, gameCode, session)
+}
+
 // Schedule the automatic "question ended" trigger for the current question.
 // Together with the all-answered check in submit_answer, this implements the
 // "lower of two" rule so the dedicated Standings screen fires without the
@@ -3200,11 +3357,26 @@ function emitQuestionEnded(io, gameCode, session, questionIndex) {
   // real player movement. previousRanks is whatever we saved last round.
   const previousRanks = session.previousRanks || new Map()
 
+  // Exact correct-count across answer types (multiselect/fillblank/matching
+  // can't be derived from optionCounts on the host). ~20 bytes on the wire.
+  let revealCorrectCount = null
+  if (!isNonScored) {
+    revealCorrectCount = 0
+    for (const p of session.participants.values()) {
+      if (p.isGhost) continue
+      const a = p.answers?.[questionIndex]
+      if (a === undefined) continue
+      const ic = q.type === 'ranking' ? a.isCorrect === true : checkAnswer(q, a.answer)
+      if (ic) revealCorrectCount++
+    }
+  }
+
   io.to(`session:${gameCode}`).emit('question_ended', {
     correctAnswer,
     correctOrder: isSequenceRankingQ ? q.correctOrder ?? null : null,
     explanation: q.explanation ?? null,
     isNonScored,
+    correctCount: revealCorrectCount,
   })
 
   // Ghost Mode — advance ghost player scores by their per-question allocation.
