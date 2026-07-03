@@ -1,10 +1,15 @@
 'use client'
 
-// Collapsible right-edge roster drawer for the host's live question screen.
-// Shows each participant's live status for the current question — ✓ submitted,
-// animated dots while attempting, greyed when offline — with quick filters.
-// Collapsed by default so the projected question stays full-bleed; the slim
-// edge tab always shows the answered fraction.
+// Roster of live participant status for the host's question screen — ✓ submitted,
+// animated dots while attempting, greyed when offline.
+//
+// Two variants share one body:
+//   - variant="drawer" (default, mobile): the original fixed right-edge
+//     drawer collapsed behind a slim edge tab, so the projected question stays
+//     full-bleed on narrow screens.
+//   - variant="rail" (desktop lg+): an inline, always-visible panel rendered
+//     as the right rail of the 3-column host stage. No edge tab, no drawer
+//     animation — the roster is always at hand, matching the Wayground layout.
 
 import { useMemo, useState } from 'react'
 import { Avatar } from '@/components/Avatar'
@@ -24,6 +29,8 @@ interface LiveRosterPanelProps {
   onKick?: (key: string, name: string) => void
   anonymous?: boolean
   onToggleAnonymous?: () => void
+  /** "drawer" = fixed edge-tab drawer (mobile); "rail" = inline always-on panel (desktop). */
+  variant?: 'drawer' | 'rail'
 }
 
 type Filter = 'all' | 'submitted' | 'attempting'
@@ -52,7 +59,7 @@ function StatusIcon({ submitted, connected }: { submitted: boolean; connected: b
   )
 }
 
-export function LiveRosterPanel({ participants, answeredKeys, answered, connectedCount, onKick, anonymous, onToggleAnonymous }: LiveRosterPanelProps) {
+export function LiveRosterPanel({ participants, answeredKeys, answered, connectedCount, onKick, anonymous, onToggleAnonymous, variant = 'drawer' }: LiveRosterPanelProps) {
   const [open, setOpen] = useState(false)
   const [filter, setFilter] = useState<Filter>('all')
   const [kickArmedKey, setKickArmedKey] = useState<string | null>(null)
@@ -75,6 +82,127 @@ export function LiveRosterPanel({ participants, answeredKeys, answered, connecte
 
   const attemptingCount = Math.max(0, connectedCount - answered)
 
+  const header = (
+    <div className="px-4 pt-4 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: 'rgba(255,255,255,0.55)' }}>
+          Answered <span style={{ color: '#FBD13B' }}>{answered}/{connectedCount}</span>
+        </p>
+        {onToggleAnonymous && (
+          <button
+            onClick={onToggleAnonymous}
+            className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide transition-colors"
+            style={{
+              background: anonymous ? 'rgba(255,255,255,0.12)' : 'rgba(34,197,94,0.2)',
+              color: anonymous ? 'rgba(255,255,255,0.7)' : '#4ADE80',
+              border: '1px solid rgba(255,255,255,0.14)',
+            }}
+            title={anonymous ? 'Names are hidden (archetypes shown) — click to show real names' : 'Real names visible — click to hide behind archetypes'}
+            aria-pressed={!anonymous}
+          >
+            {anonymous ? 'Names hidden' : 'Names shown'}
+          </button>
+        )}
+      </div>
+      <div className="flex items-center gap-1.5 mt-2.5">
+        {([
+          { id: 'all', label: `All` },
+          { id: 'submitted', label: `✓ ${answered}` },
+          { id: 'attempting', label: `⋯ ${attemptingCount}` },
+        ] as const).map(f => (
+          <button
+            key={f.id}
+            onClick={() => setFilter(f.id)}
+            className="px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors"
+            style={{
+              background: filter === f.id ? '#FBD13B' : 'rgba(255,255,255,0.1)',
+              color: filter === f.id ? '#0F1B3D' : 'rgba(255,255,255,0.75)',
+            }}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+
+  const list = (
+    <div className="flex-1 overflow-y-auto px-2 py-2">
+      {rows.length === 0 ? (
+        <p className="text-[12px] text-center py-6" style={{ color: 'rgba(255,255,255,0.45)' }}>
+          {filter === 'submitted' ? 'No answers yet.' : filter === 'attempting' ? 'Everyone has answered.' : 'No participants.'}
+        </p>
+      ) : (
+        rows.map(row => (
+          <div
+            key={row.key}
+            className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg group"
+            style={{ opacity: row.connected || row.submitted ? 1 : 0.45, filter: row.connected ? undefined : 'grayscale(0.8)' }}
+          >
+            <Avatar archetype={row.archetype || row.name} size={28} />
+            <span
+              className="flex-1 text-[13px] font-semibold truncate"
+              style={{ color: '#fff', textShadow: row.team ? undefined : 'none', borderLeft: row.team ? `3px solid ${row.team.color}` : undefined, paddingLeft: row.team ? 6 : 0 }}
+              title={row.name}
+            >
+              {row.name}
+            </span>
+            {onKick && row.key.startsWith('pid:') && (
+              kickArmedKey === row.key ? (
+                <button
+                  onClick={() => { onKick(row.key, row.name); setKickArmedKey(null) }}
+                  onBlur={() => setKickArmedKey(null)}
+                  className="text-[10px] font-black px-2 py-0.5 rounded-full"
+                  style={{ background: '#DC2626', color: '#fff' }}
+                >
+                  Remove?
+                </button>
+              ) : (
+                <button
+                  onClick={() => setKickArmedKey(row.key)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-[13px] leading-none px-1.5 py-0.5 rounded"
+                  style={{ color: 'rgba(255,255,255,0.5)' }}
+                  title={`Remove ${row.name} from the game`}
+                  aria-label={`Remove ${row.name}`}
+                >
+                  ×
+                </button>
+              )
+            )}
+            <StatusIcon submitted={row.submitted} connected={row.connected} />
+          </div>
+        ))
+      )}
+    </div>
+  )
+
+  // ── Rail variant: inline, always-visible right rail (desktop lg+) ──────────
+  if (variant === 'rail') {
+    return (
+      <aside
+        className="host-rail host-roster-rail flex flex-col rounded-2xl overflow-hidden h-full"
+        style={{
+          background: 'rgba(15,27,61,0.92)',
+          border: '1px solid rgba(255,255,255,0.18)',
+          boxShadow: '0 12px 40px -12px rgba(0,0,0,0.5)',
+        }}
+        aria-live="off"
+      >
+        <div className="flex items-center justify-between px-4 pt-4 pb-2">
+          <h3 className="text-sm font-black uppercase tracking-[0.18em]" style={{ color: '#fff' }}>
+            Participants
+          </h3>
+          <span className="text-[11px] font-black tabular-nums px-2 py-0.5 rounded-full" style={{ color: '#0F1B3D', background: '#FBD13B' }}>
+            {connectedCount}
+          </span>
+        </div>
+        {header}
+        {list}
+      </aside>
+    )
+  }
+
+  // ── Drawer variant: fixed right-edge drawer (mobile <lg) ───────────────────
   return (
     <div className="fixed right-0 top-1/2 -translate-y-1/2 z-40 flex items-center" aria-live="off">
       {/* Edge tab — always visible */}
@@ -101,95 +229,8 @@ export function LiveRosterPanel({ participants, answeredKeys, answered, connecte
         }}
       >
         <div className="w-[300px] max-h-[80vh] flex flex-col">
-          <div className="px-4 pt-4 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                Answered <span style={{ color: '#FBD13B' }}>{answered}/{connectedCount}</span>
-              </p>
-              {onToggleAnonymous && (
-                <button
-                  onClick={onToggleAnonymous}
-                  className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide transition-colors"
-                  style={{
-                    background: anonymous ? 'rgba(255,255,255,0.12)' : 'rgba(34,197,94,0.2)',
-                    color: anonymous ? 'rgba(255,255,255,0.7)' : '#4ADE80',
-                    border: '1px solid rgba(255,255,255,0.14)',
-                  }}
-                  title={anonymous ? 'Names are hidden (archetypes shown) — click to show real names' : 'Real names visible — click to hide behind archetypes'}
-                  aria-pressed={!anonymous}
-                >
-                  {anonymous ? 'Names hidden' : 'Names shown'}
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5 mt-2.5">
-              {([
-                { id: 'all', label: `All` },
-                { id: 'submitted', label: `✓ ${answered}` },
-                { id: 'attempting', label: `⋯ ${attemptingCount}` },
-              ] as const).map(f => (
-                <button
-                  key={f.id}
-                  onClick={() => setFilter(f.id)}
-                  className="px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors"
-                  style={{
-                    background: filter === f.id ? '#FBD13B' : 'rgba(255,255,255,0.1)',
-                    color: filter === f.id ? '#0F1B3D' : 'rgba(255,255,255,0.75)',
-                  }}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-2 py-2">
-            {rows.length === 0 ? (
-              <p className="text-[12px] text-center py-6" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                {filter === 'submitted' ? 'No answers yet.' : filter === 'attempting' ? 'Everyone has answered.' : 'No participants.'}
-              </p>
-            ) : (
-              rows.map(row => (
-                <div
-                  key={row.key}
-                  className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg group"
-                  style={{ opacity: row.connected || row.submitted ? 1 : 0.45, filter: row.connected ? undefined : 'grayscale(0.8)' }}
-                >
-                  <Avatar archetype={row.archetype || row.name} size={28} />
-                  <span
-                    className="flex-1 text-[13px] font-semibold truncate"
-                    style={{ color: '#fff', textShadow: row.team ? undefined : 'none', borderLeft: row.team ? `3px solid ${row.team.color}` : undefined, paddingLeft: row.team ? 6 : 0 }}
-                    title={row.name}
-                  >
-                    {row.name}
-                  </span>
-                  {onKick && row.key.startsWith('pid:') && (
-                    kickArmedKey === row.key ? (
-                      <button
-                        onClick={() => { onKick(row.key, row.name); setKickArmedKey(null) }}
-                        onBlur={() => setKickArmedKey(null)}
-                        className="text-[10px] font-black px-2 py-0.5 rounded-full"
-                        style={{ background: '#DC2626', color: '#fff' }}
-                      >
-                        Remove?
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => setKickArmedKey(row.key)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity text-[13px] leading-none px-1.5 py-0.5 rounded"
-                        style={{ color: 'rgba(255,255,255,0.5)' }}
-                        title={`Remove ${row.name} from the game`}
-                        aria-label={`Remove ${row.name}`}
-                      >
-                        ×
-                      </button>
-                    )
-                  )}
-                  <StatusIcon submitted={row.submitted} connected={row.connected} />
-                </div>
-              ))
-            )}
-          </div>
+          {header}
+          {list}
         </div>
       </div>
     </div>

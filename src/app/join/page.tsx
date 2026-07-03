@@ -2233,6 +2233,12 @@ function JoinPageInner() {
         style={{
           paddingTop: 'max(1.25rem, env(safe-area-inset-top, 0px))',
           paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 0px))',
+          // Reserve space for the post-reveal stat cards (score, correct-answer,
+          // ResultBeat) so the layout doesn't grow when personal_result arrives.
+          // This avoids the "stutter" where the centered icon/headline jumps as
+          // the cards mount. The region is taller than its pre-reveal contents,
+          // so reveal only fills reserved space instead of pushing layout.
+          minHeight: '100svh',
         }}
       >
         <StatusBanner connectionState={connectionState} answerToast={answerToast} />

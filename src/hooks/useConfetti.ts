@@ -55,10 +55,19 @@ async function loadConfetti() {
       shapes: { rect, ribbon, curl, star: 'star', circle: 'circle', square: 'square' },
     }
     return cached
-  } catch {
+  } catch (err) {
+    // Surface the failure instead of silently no-opping. A previous regression
+    // (dead 'winner' preset + silent catch) made confetti vanish with zero
+    // console output, which looked like "confetti doesn't work." Log once.
+    if (!loadConfettiWarned) {
+      loadConfettiWarned = true
+      console.warn('[quizotic] canvas-confetti failed to load — celebrations will be skipped.', err)
+    }
     return null
   }
 }
+let loadConfettiWarned = false
+let reducedMotionLoopWarned = false
 
 // Probe Battery API once per session. Returns 0.5 for low battery (halve
 // counts) or 1 for full power. Cached to avoid awaiting the Battery promise
@@ -92,7 +101,7 @@ function scale(opts: ConfettiOptions, factor: number): ConfettiOptions {
 
 async function firePreset(preset: Preset) {
   const lib = await loadConfetti()
-  if (!lib) return
+  if (!lib) return // loadConfetti already warned via console
   const { confetti, shapes } = lib
   const factor = await getBatteryScale()
   const base: ConfettiOptions = {
@@ -221,7 +230,15 @@ export function useConfetti() {
 // stop() that the caller MUST invoke on unmount. Respects reduced motion.
 export function startConfettiLoop(): () => void {
   if (typeof window === 'undefined') return () => {}
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return () => {}
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    // Reduced-motion users get no animated confetti by design — but log it
+    // once so "confetti isn't working" is diagnosable instead of a mystery.
+    if (!reducedMotionLoopWarned) {
+      reducedMotionLoopWarned = true
+      console.info('[quizotic] prefers-reduced-motion is on — confetti loop is intentionally skipped.')
+    }
+    return () => {}
+  }
 
   let stopped = false
   let tick = 0
@@ -291,7 +308,13 @@ export function startConfettiLoop(): () => void {
 
     timers.welcome = setTimeout(fire, 900)
     timers.interval = setInterval(fire, 1800)
-  }).catch(() => { /* library unavailable — silent skip */ })
+  }).catch(err => {
+    // loadConfetti already warned; this catches any rejection from the chain.
+    if (!loadConfettiWarned) {
+      loadConfettiWarned = true
+      console.warn('[quizotic] confetti loop aborted — library unavailable.', err)
+    }
+  })
 
   return () => {
     stopped = true

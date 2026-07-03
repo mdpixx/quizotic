@@ -12,7 +12,7 @@ import {
   stopCheer,
   stopDrumroll,
 } from '@/lib/sounds'
-import { startConfettiLoop } from '@/hooks/useConfetti'
+import { startConfettiLoop, useConfetti } from '@/hooks/useConfetti'
 
 interface PodiumEntry {
   name: string
@@ -157,6 +157,7 @@ export function Podium({
   const top3 = leaderboard.slice(0, 3)
   const rest = leaderboard.slice(3)
   const firedWinnerEffects = useRef(false)
+  const fireConfetti = useConfetti()
 
   // Preload MP3s as soon as the podium mounts so there's no delay on reveal.
   useEffect(() => {
@@ -201,8 +202,12 @@ export function Podium({
       playBassBoom()
       playCheer()
       playCelebration()
-      // Floating-gold CelebrationConfetti layer handles the visual celebration
-      // now — avoid a competing canvas-confetti burst on the same moment.
+      // Fire the dramatic multi-phase confetti fireworks at the winner reveal.
+      // This was previously disabled (relying only on the floating-gold DOM
+      // layer), which read as "confetti doesn't work." The 'winner' preset
+      // runs a 3.6s side-cannon + fountain + gold-crown sequence that lands
+      // exactly on this moment. useConfetti respects prefers-reduced-motion.
+      fireConfetti('winner')
     }, PHASE_TIMINGS[3].at))
 
     return () => {
@@ -210,7 +215,7 @@ export function Podium({
       stopDrumroll()
       stopCheer()
     }
-  }, [reduced, skipIntro])
+  }, [reduced, skipIntro, fireConfetti])
 
   const skip = () => {
     stopDrumroll()
@@ -317,27 +322,33 @@ export function Podium({
                 />
               )}
 
-              {/* Crown for winner */}
-              {isWinner && winnerRevealed && (
-                <div
-                  className="rounded-full px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.24em]"
-                  style={{
-                    animation: 'crownBounce 0.6s ease-out forwards',
-                    zIndex: 2,
-                    color: '#5C2D00',
-                    background: 'linear-gradient(180deg, #FFF3C4, #FBD13B)',
-                    boxShadow: '0 8px 24px rgba(251,209,59,0.32)',
-                  }}
-                >
-                  Winner
+              {/* Badge slot — FIXED-HEIGHT so the winner column never grows when
+                  the crown / mystery-? mount during the reveal chain. Previously
+                  these were conditional {cond && <el/>} siblings that pushed the
+                  avatar/name column downward the instant they appeared — the main
+                  source of the podium "stutter." Now the slot always reserves its
+                  space; only its contents swap (crown ↔ mystery ↔ empty). */}
+              {isWinner ? (
+                <div className="flex items-end justify-center" style={{ height: 30, zIndex: 2 }} aria-hidden={!winnerRevealed && !winnerPending}>
+                  {winnerRevealed ? (
+                    <div
+                      className="rounded-full px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.24em]"
+                      style={{
+                        animation: 'crownBounce 0.6s ease-out forwards',
+                        color: '#5C2D00',
+                        background: 'linear-gradient(180deg, #FFF3C4, #FBD13B)',
+                        boxShadow: '0 8px 24px rgba(251,209,59,0.32)',
+                      }}
+                    >
+                      Winner
+                    </div>
+                  ) : winnerPending ? (
+                    <div style={{ fontSize: '2rem', lineHeight: 1, color: 'rgba(30,27,75,0.35)', animation: 'mysteryBlink 0.7s ease-in-out infinite' }}>
+                      ?
+                    </div>
+                  ) : null}
                 </div>
-              )}
-              {/* Placeholder mystery mark while drumroll builds suspense */}
-              {isWinner && winnerPending && (
-                <div style={{ fontSize: '2rem', color: 'rgba(30,27,75,0.35)', animation: 'mysteryBlink 0.7s ease-in-out infinite', zIndex: 2 }}>
-                  ?
-                </div>
-              )}
+              ) : null}
 
               {/* Avatar + name */}
               <div
@@ -354,17 +365,20 @@ export function Podium({
                     : undefined,
                 }}
               >
-                {/* Medal — hangs above avatar once the place is revealed */}
-                {visible && (cfg.place === 1 || cfg.place === 2 || cfg.place === 3) && (!isWinner || winnerRevealed) && (
-                  <div
-                    style={{
-                      animation: !reduced ? 'medalDrop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both' : undefined,
-                      marginBottom: -6,
-                    }}
-                  >
-                    <Medal place={cfg.place as 1 | 2 | 3} size={isWinner ? (isFinale ? 58 : 44) : (isFinale ? 42 : 34)} />
-                  </div>
-                )}
+                {/* Medal slot — FIXED-HEIGHT so the avatar never jumps down when
+                    the medal drops in. The slot reserves the medal's height even
+                    before the place is revealed; the medal animates into it. */}
+                <div style={{ height: isWinner ? (isFinale ? 50 : 38) : (isFinale ? 36 : 28), marginBottom: -6 }}>
+                  {visible && (cfg.place === 1 || cfg.place === 2 || cfg.place === 3) && (!isWinner || winnerRevealed) && (
+                    <div
+                      style={{
+                        animation: !reduced ? 'medalDrop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both' : undefined,
+                      }}
+                    >
+                      <Medal place={cfg.place as 1 | 2 | 3} size={isWinner ? (isFinale ? 58 : 44) : (isFinale ? 42 : 34)} />
+                    </div>
+                  )}
+                </div>
                 <div
                   className={`rounded-full overflow-hidden ${isHighlighted ? 'ring-3' : ''}`}
                   style={isHighlighted ? ({ '--tw-ring-color': '#FBD13B' } as React.CSSProperties) : undefined}
