@@ -31,9 +31,9 @@ html, body {
   --color-border:       rgba(15,27,61,0.10);
 
   /* ── Learning studio palette (redesign Tier 1) ───────────────── */
-  --color-paper:        #FAF8F2;   /* warm off-white for host surfaces */
-  --color-paper-2:      #F3EFE3;   /* warm wash for pills / empty states */
-  --color-line:         #E7E2D4;   /* warm divider */
+  --color-paper:        #F4F7FB;   /* cool off-white for host surfaces */
+  --color-paper-2:      #EAF0F7;   /* cool wash for pills / empty states */
+  --color-line:         #D9E1ED;   /* cool divider */
   --color-yellow:       #FBD13B;
   --color-yellow-dark:  #E0B528;
   --color-ink:          #0F1B3D;
