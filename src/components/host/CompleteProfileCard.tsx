@@ -38,7 +38,7 @@ const selectStyle: React.CSSProperties = {
   outline: 'none',
 }
 
-export function CompleteProfileCard() {
+export function CompleteProfileCard({ onDismissed }: { onDismissed?: () => void } = {}) {
   const [visible, setVisible] = useState(false)
   const [orgType, setOrgType] = useState('')
   const [organization, setOrganization] = useState('')
@@ -54,6 +54,7 @@ export function CompleteProfileCard() {
   function clearFlag() {
     try { localStorage.removeItem(PENDING_KEY) } catch { /* best-effort */ }
     setVisible(false)
+    onDismissed?.()
   }
 
   async function handleSave() {
@@ -78,7 +79,7 @@ export function CompleteProfileCard() {
   if (!visible) return null
 
   return (
-    <div className="rounded-2xl border p-4 mb-5" style={{ background: '#FFFDF0', borderColor: '#F1E9A8' }}>
+    <div className="rounded-2xl border p-4 h-full" style={{ background: '#FFFDF0', borderColor: '#F1E9A8' }}>
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
           <p className="text-sm font-black" style={{ color: '#0F1B3D' }}>Help us tailor Quizotic to you</p>

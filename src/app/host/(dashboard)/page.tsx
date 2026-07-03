@@ -131,6 +131,12 @@ export default function HostDashboard() {
   const [loading, setLoading] = useState(true)
   const [range, setRange] = useState(90)
   const [bloomsView, setBloomsView] = useState<'bar' | 'radar'>('bar')
+  // Mirrors CompleteProfileCard's own pending flag so this layout can decide
+  // whether to place the share banner beside it or full-width.
+  const [profilePending, setProfilePending] = useState(false)
+  useEffect(() => {
+    try { setProfilePending(localStorage.getItem('quizotic:profilePending') === '1') } catch { /* private mode */ }
+  }, [])
 
   // Instant win for a brand-new user: a ready-made icebreaker quiz goes live
   // in one click so they experience the host↔phone loop before building
@@ -354,7 +360,7 @@ export default function HostDashboard() {
       {/* ── Hero: Last session (Tier 3) ── */}
       {lastSession && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.02 }}
-          className="relative overflow-hidden rounded-2xl p-6 md:p-7 mb-5"
+          className="relative overflow-hidden rounded-2xl p-6 md:p-7 mb-4"
           style={{ background: 'linear-gradient(135deg, #0F1B3D 0%, #182659 50%, #1F2E6C 100%)', color: '#fff' }}>
           {/* subtle glow */}
           <div className="absolute inset-0 pointer-events-none" style={{
@@ -428,7 +434,7 @@ export default function HostDashboard() {
       )}
 
       {/* ── KPI strip — clean label/value/subtitle layout ── */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
         {[
           { label: `Sessions (${range}d)`, value: loading ? '—' : s?.totalSessions ?? 0, subtitle: null as string | null },
           { label: 'Participants', value: loading ? '—' : s?.totalParticipants ?? 0, subtitle: null },
@@ -445,16 +451,16 @@ export default function HostDashboard() {
         ))}
       </div>
 
-      {/* ── Deferred onboarding questions — dismissible, shows once ── */}
-      <CompleteProfileCard />
-
-      {/* ── Share banner ── */}
-      <div className="mb-5">
+      {/* ── Growth row — profile questions + share banner in one slim band ──
+          CompleteProfileCard self-hides (returns null) once answered/dismissed,
+          so we mirror its pending flag to switch between 2-col and full-width. */}
+      <div className={profilePending ? 'mb-4 grid gap-3 md:grid-cols-2' : 'mb-4'}>
+        <CompleteProfileCard onDismissed={() => setProfilePending(false)} />
         <ShareQuizotic context="dashboard" size="sm" />
       </div>
 
       <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
-        className="mb-5 grid gap-3 md:grid-cols-[1.2fr_1fr_1fr]">
+        className="mb-4 grid gap-3 md:grid-cols-[1.2fr_1fr_1fr]">
         <Link href="/host/build" className="dash-card p-4 transition-all hover:-translate-y-0.5 hover:shadow-md" style={{ textDecoration: 'none' }}>
           <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: 'var(--color-accent-violet)' }}>Next best action</p>
           <h2 className="font-display mt-1 text-lg font-black" style={{ color: 'var(--color-ink)' }}>Create a quiz</h2>
@@ -473,7 +479,7 @@ export default function HostDashboard() {
       </motion.div>
 
       {/* ── Row 2: Session History (full width — Top Participants moved to bottom) ── */}
-      <div className="mb-5">
+      <div className="mb-4">
 
         {/* Session History — full width */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
@@ -500,7 +506,7 @@ export default function HostDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {data?.recentSessions.map((sess) => (
+                      {data?.recentSessions.slice(0, 5).map((sess) => (
                         <tr key={sess.id} className="border-t hover:bg-slate-50 transition-colors" style={{ borderColor: '#F1F5F9' }}>
                           <td className="px-4 py-3">
                             <p className="font-bold text-sm truncate max-w-[180px]" style={{ color: '#0F1B3D' }}>{sess.title}</p>
@@ -538,7 +544,7 @@ export default function HostDashboard() {
                 <div className="md:hidden">
                   <DataCardList
                     emptyState="No sessions yet."
-                    items={(data?.recentSessions ?? []).map(sess => ({
+                    items={(data?.recentSessions ?? []).slice(0, 5).map(sess => ({
                       id: sess.id,
                       fields: [
                         { label: 'Session', value: <span>{sess.title} <span className="text-[10px] font-bold capitalize" style={{ color: sess.type === 'quiz' ? '#0F1B3D' : '#D97706' }}>· {sess.type}</span></span>, wide: true },
@@ -558,7 +564,7 @@ export default function HostDashboard() {
       </div>
 
       {/* ── Row 3: Question Difficulty + Bloom's Coverage + Engagement Score ── */}
-      <div className="grid md:grid-cols-3 gap-5 mb-5">
+      <div className="grid md:grid-cols-3 gap-5 mb-4">
 
         {/* Hardest questions — sorted ascending by correct %, chip + bar (Tier 4.1 restyle) */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
@@ -855,7 +861,7 @@ export default function HostDashboard() {
       </div>
 
       {/* ── Row 4: Performance Trend (full width) ── */}
-      <div className="mb-5">
+      <div className="mb-4">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
           <Card>
             <div className="px-5 py-4 border-b flex items-center justify-between gap-3 flex-wrap" style={{ borderColor: '#F1F5F9' }}>
@@ -900,7 +906,7 @@ export default function HostDashboard() {
       </div>
 
       {/* ── Row 5: Confidence grid + At-risk learners ── */}
-      <div className="grid md:grid-cols-3 gap-5 mb-6">
+      <div className="grid md:grid-cols-3 gap-5 mb-4">
 
         {/* Confidence Grid — 2×2 with axis labels + interpretations (Tier 4.1 restyle) */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="md:col-span-2">
@@ -1035,7 +1041,7 @@ export default function HostDashboard() {
           return '#0F1B3D'
         }
         return (
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.48 }} className="mb-6">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.48 }} className="mb-4">
             <Card>
               <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: '#F1F5F9' }}>
                 <div>
