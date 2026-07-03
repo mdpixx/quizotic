@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { RESULTS_RENDERER, type QuestionStat } from '@/lib/quiz-types'
 import { AssignQuizModal } from '@/components/host/AssignQuizModal'
+import { ParticipantMatrix } from '@/components/results/ParticipantMatrix'
 
 type LeaderboardEntry = {
   name: string
@@ -36,6 +37,7 @@ type TeacherInsights = {
 }
 
 type ReportData = {
+  sessionId: string
   title: string
   subject: string | null
   shareSlug: string | null
@@ -419,6 +421,19 @@ export default function AsyncReportPage() {
           </div>
         )}
       </section>
+
+      {/* Participant × question matrix */}
+      {leaderboard.length > 0 && (
+        <section>
+          <h2 className="text-[18px] font-black font-display mb-1" style={{ color: 'var(--color-ink)' }}>Question-by-question breakdown</h2>
+          <p className="text-[12px] mb-3" style={{ color: 'var(--color-text-muted)' }}>
+            Every participant against every question — spot exactly who missed what.
+          </p>
+          <div className="rounded-[16px] border bg-white p-4" style={{ borderColor: 'var(--color-line)' }}>
+            <ParticipantMatrix sessionId={data.sessionId} />
+          </div>
+        </section>
+      )}
 
       {/* Per-question stats */}
       {questionStats.length > 0 && (

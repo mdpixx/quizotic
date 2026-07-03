@@ -1128,12 +1128,10 @@ function JoinPageInner() {
       setPaused(true)
     })
 
-    socket.on('quiz_resumed', ({ remainingMs }: { remainingMs?: number }) => {
-      setPaused(false)
-      if (phaseRef.current !== 'question') return
-      // Wall-clock anchored, same as question_show. The old decrement-per-
-      // second interval drifted from the host (and the server auto-end) by
-      // up to a second after every pause/resume cycle.
+    // Wall-clock anchored re-anchor shared by quiz_resumed and timer_adjusted.
+    // The old decrement-per-second interval drifted from the host (and the
+    // server auto-end) by up to a second after every pause/resume cycle.
+    const restartCountdown = (remainingMs?: number) => {
       const remMs = remainingMs !== undefined ? remainingMs : timeLeftRef.current * 1000
       const endAt = getServerNow() + remMs
       const secs = Math.max(0, Math.ceil(remMs / 1000))
@@ -1150,11 +1148,43 @@ function JoinPageInner() {
           })
         }, 100)
       }
+    }
+
+    socket.on('quiz_resumed', ({ remainingMs }: { remainingMs?: number }) => {
+      setPaused(false)
+      if (phaseRef.current !== 'question') return
+      restartCountdown(remainingMs)
+    })
+
+    // Host extended or restarted the timer mid-question. Already-answered
+    // players (phase 'answered') ignore it — their locked-in screen has no
+    // countdown to move.
+    socket.on('timer_adjusted', ({ remainingMs }: { remainingMs?: number; action?: 'extend' | 'restart' }) => {
+      if (phaseRef.current !== 'question') return
+      if (typeof remainingMs !== 'number' || remainingMs < 0) return
+      restartCountdown(remainingMs)
     })
 
     socket.on('host_disconnected', () => {
       setError('The host has left. Session ended.')
       setPhase('form')
+    })
+
+    // Host removed this participant. Clear the durable identity so the join
+    // form starts clean (the server blocks the old participantId anyway).
+    socket.on('removed_by_host', () => {
+      if (gameCodeRef.current) clearParticipantId(gameCodeRef.current)
+      participantIdRef.current = ''
+      outboxRef.current.clear()
+      if (timerRef.current) clearInterval(timerRef.current)
+      setError('You were removed from the game by the host.')
+      setPhase('form')
+    })
+
+    // Host flipped anonymous (archetype-only) names mid-session — update the
+    // "your name is hidden" notice so the participant knows what others see.
+    socket.on('anonymous_mode_changed', ({ anonymous }: { anonymous?: boolean }) => {
+      setAnonymousMode(!!anonymous)
     })
 
     socket.on('presenter_slide_changed', ({ slideIndex, total, slide, responseMode, mirrorToParticipants: mirror }: { slideIndex: number; total: number; slide?: unknown; responseMode?: string; mirrorToParticipants?: boolean }) => {

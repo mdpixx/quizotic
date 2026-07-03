@@ -31,8 +31,9 @@ export function buildSessionStateSnapshot(session) {
   const active = []
   const disconnected = []
   if (!session?.participants) {
-    return { active, disconnected, connectedCount: 0, totalCount: 0 }
+    return { active, disconnected, connectedCount: 0, totalCount: 0, questionIndex: null }
   }
+  const qi = session.currentQuestionIndex ?? null
   for (const [sid, p] of session.participants.entries()) {
     if (typeof sid === 'string' && sid.startsWith('ghost::')) continue
     if (!p) continue
@@ -42,6 +43,9 @@ export function buildSessionStateSnapshot(session) {
       archetype: p.archetype || null,
       team: p.team || null,
       score: p.score || 0,
+      // Whether this participant has answered the CURRENT question — lets a
+      // reloading host rebuild the live roster panel's submitted ticks.
+      answeredCurrent: qi != null && p.answers?.[qi] !== undefined,
     }
     if (p.disconnectedAt) {
       disconnected.push({ ...entry, disconnectedAt: p.disconnectedAt })
@@ -54,6 +58,9 @@ export function buildSessionStateSnapshot(session) {
     disconnected,
     connectedCount: active.length,
     totalCount: active.length + disconnected.length,
+    // Which question the answeredCurrent flags refer to — lets the host
+    // ignore a snapshot that was built just before a question transition.
+    questionIndex: qi,
   }
 }
 

@@ -7,7 +7,9 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 // uses Tailwind's motion-safe variant so prefers-reduced-motion users get the
 // colour change without the animation.
 export function CircularTimer({ timeLeft, total }: { timeLeft: number; total: number }) {
-  const progress = total > 0 ? timeLeft / total : 0
+  // Clamp to 1 — a host-extended timer can push timeLeft above the question's
+  // original duration, and an unclamped ratio yields a negative dash offset.
+  const progress = Math.min(1, total > 0 ? timeLeft / total : 0)
   const offset = CIRCUMFERENCE * (1 - progress)
   const isLow = timeLeft <= 5
   const isWarning = timeLeft <= 10 && !isLow
