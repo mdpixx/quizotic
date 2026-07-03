@@ -597,6 +597,10 @@ function JoinPageInner() {
   const [timeLeft, setTimeLeft] = useState(0)
   const [getReadyVisible, setGetReadyVisible] = useState(false)
   const timeLeftRef = useRef(0)
+  // Live pause state so the countdown tick freezes on quiz_paused even if the
+  // interval isn't torn down — keeps the participant clock in lockstep with the
+  // host and the paused server (which is already rejecting submissions).
+  const pausedRef = useRef(false)
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
 
   // Text answer (for open-ended, word cloud, Q&A)
@@ -657,6 +661,7 @@ function JoinPageInner() {
 
   useEffect(() => { phaseRef.current = phase }, [phase])
   useEffect(() => { timeLeftRef.current = timeLeft }, [timeLeft])
+  useEffect(() => { pausedRef.current = paused }, [paused])
 
   // Mobile lifecycle (Layer 2.7): when the tab regains visibility (user
   // unlocks phone, switches back from another app), force a liveness check
@@ -1140,6 +1145,7 @@ function JoinPageInner() {
       if (timerRef.current) clearInterval(timerRef.current)
       if (remMs > 0) {
         timerRef.current = setInterval(() => {
+          if (pausedRef.current) return // frozen while the host has the quiz paused
           const left = Math.max(0, Math.ceil((endAt - getServerNow()) / 1000))
           setTimeLeft(prev => {
             if (left <= 0) { if (timerRef.current) clearInterval(timerRef.current); return 0 }

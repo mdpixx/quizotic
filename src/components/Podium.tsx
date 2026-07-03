@@ -6,6 +6,7 @@ import {
   playBassBoom,
   playCelebration,
   playCheer,
+  playCheerLoop,
   playCorrect,
   playDrumroll,
   preloadCelebrationSounds,
@@ -168,10 +169,13 @@ export function Podium({
   // shown statically (skipIntro), or waits for the dramatic reveal to
   // complete (phase === 'rest') so the welcome burst doesn't step on the
   // drumroll/winnerSlam moment. Cleanup stops all timers on unmount.
-  const shouldLoop = loopConfetti && !reduced && (skipIntro || phase === 'rest')
+  const shouldLoop = loopConfetti && (skipIntro || phase === 'rest')
   useEffect(() => {
     if (!shouldLoop) return
-    const stop = startConfettiLoop()
+    // Force the loop through prefers-reduced-motion. `loopConfetti` is only set
+    // on the finale podium — a deliberate celebration the host opted into by
+    // ending the quiz — so it should always paint, even under macOS Reduce Motion.
+    const stop = startConfettiLoop(true)
     return () => stop()
   }, [shouldLoop])
 
@@ -183,6 +187,15 @@ export function Podium({
     if (skipIntro) return
     if (reduced) {
       playCelebration()
+      // The finale still celebrates under reduced motion (host opted in): fire
+      // the winner burst + looping applause. The forced confetti loop above
+      // handles the ongoing sprinkle; cleanup stops the applause on unmount.
+      if (isFinale) {
+        playBassBoom()
+        playCheerLoop()
+        fireConfetti('winner')
+        return () => stopCheer()
+      }
       return
     }
 
@@ -200,7 +213,10 @@ export function Podium({
       firedWinnerEffects.current = true
       stopDrumroll()
       playBassBoom()
-      playCheer()
+      // Finale loops applause through the whole podium moment; other podiums
+      // (between-question standings) keep the single celebratory cheer.
+      if (isFinale) playCheerLoop()
+      else playCheer()
       playCelebration()
       // Fire the dramatic multi-phase confetti fireworks at the winner reveal.
       // This was previously disabled (relying only on the floating-gold DOM
@@ -215,7 +231,7 @@ export function Podium({
       stopDrumroll()
       stopCheer()
     }
-  }, [reduced, skipIntro, fireConfetti])
+  }, [reduced, skipIntro, isFinale, fireConfetti])
 
   const skip = () => {
     stopDrumroll()
@@ -240,7 +256,7 @@ export function Podium({
       ? [PODIUM_CONFIG[0], PODIUM_CONFIG[1]]
       : [PODIUM_CONFIG[1]]
   const configForCount = isFinale
-    ? baseConfigForCount.map(cfg => ({ ...cfg, height: Math.round(cfg.height * 1.22) }))
+    ? baseConfigForCount.map(cfg => ({ ...cfg, height: Math.round(cfg.height * 1.08) }))
     : baseConfigForCount
 
   // Which places have been revealed yet?

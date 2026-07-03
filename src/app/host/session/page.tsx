@@ -348,6 +348,12 @@ export default function SessionPage() {
   useEffect(() => { setSoundMuted(isMuted()) }, [])
   const [hostTimeLeft, setHostTimeLeft] = useState(0)
   const hostTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Mirror `paused` into a ref so the long-lived countdown interval can freeze
+  // the instant the host pauses — without depending on the server's quiz_paused
+  // round-trip actually reaching this tab. This is the real fix for "the timer
+  // kept counting down after I paused": the tick reads live pause state.
+  const pausedRef = useRef(false)
+  useEffect(() => { pausedRef.current = paused }, [paused])
   const [plan, setPlan] = useState<'free' | 'pro'>('free')
   const [questionStartedAt, setQuestionStartedAt] = useState<number | null>(null)
   const [rankingSubmissions, setRankingSubmissions] = useState<number[][]>([])
@@ -1248,6 +1254,11 @@ export default function SessionPage() {
     if (hostTimerRef.current) clearInterval(hostTimerRef.current)
     let lastTickSecond = Math.ceil((endAt - getServerNow()) / 1000) + 1
     hostTimerRef.current = setInterval(() => {
+      // Frozen while paused — the interval keeps spinning but the displayed
+      // countdown holds. quiz_resumed re-anchors endAt on resume, so the digits
+      // continue from where they stopped. Correct even if the interval outlives
+      // a dropped quiz_paused event.
+      if (pausedRef.current) return
       const remaining = Math.max(0, Math.ceil((endAt - getServerNow()) / 1000))
       setHostTimeLeft(remaining)
       // Tick on host for the final 5 seconds — stays in sync with the
@@ -2068,25 +2079,26 @@ export default function SessionPage() {
                   questionStartedAt == null || Date.now() < questionStartedAt ? (
                     <span className="min-w-16 text-center text-sm font-semibold animate-pulse px-4 py-2 rounded-full" style={{ color: '#FBD13B', background: 'rgba(255,255,255,0.08)' }}>Loading…</span>
                   ) : (
-                    <div className="font-display flex h-20 w-20 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(15,27,61,0.42)', fontFamily: 'var(--font-display)' }}>
+                    <div className="font-display flex h-16 w-16 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(15,27,61,0.42)', fontFamily: 'var(--font-display)' }}>
                       {questionEnded ? (
-                        <svg viewBox="0 0 24 24" fill="none" stroke="#4ADE80" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-9 h-9" aria-label="Question ended">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#4ADE80" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7" aria-label="Question ended">
                           <path d="M20 6 9 17l-5-5" />
                         </svg>
                       ) : (
-                        <CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} />
+                        <CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} size={64} />
                       )}
                     </div>
                   )
                 )}
-                <span className="inline-flex h-14 items-center rounded-full px-5 text-xl font-black tabular-nums whitespace-nowrap" style={{ color: '#0F1B3D', background: '#FBD13B', boxShadow: '0 6px 0 rgba(0,0,0,0.24)' }}>
+                <span className="inline-flex h-12 items-center rounded-full px-4 text-lg font-black tabular-nums whitespace-nowrap" style={{ color: '#0F1B3D', background: '#FBD13B', boxShadow: '0 5px 0 rgba(0,0,0,0.24)' }}>
                   {answered}/{connectedCount}
-                  <span className="ml-2 text-sm uppercase tracking-wider">answered</span>
+                  <span className="ml-2 text-xs uppercase tracking-wider">answered</span>
                 </span>
-                <div className="hidden xl:block">
-                  <JoinPill gameCode={gameCode} variant="dock" />
-                </div>
-                <div className="hidden md:block xl:hidden">
+                {/* Full Join QR now lives at the top of the participants rail
+                    (right column) to slim this bar and reclaim vertical space for
+                    the question. Below lg the rail is hidden, so a compact code
+                    chip stays here to keep the join code visible. */}
+                <div className="lg:hidden">
                   <JoinPill gameCode={gameCode} variant="compact" />
                 </div>
               </div>
@@ -2557,20 +2569,24 @@ export default function SessionPage() {
 
             </div>{/* /CENTER column */}
 
-            {/* RIGHT — always-visible participant roster rail (lg+). Mobile uses
-                the edge-tab drawer rendered above; this rail is desktop-only so
-                the roster is permanently at hand on the projector view. */}
-            <div className="hidden lg:block min-h-0">
-              <LiveRosterPanel
-                participants={participants}
-                answeredKeys={answeredKeys}
-                answered={answered}
-                connectedCount={connectedCount}
-                onKick={kickParticipant}
-                anonymous={anonymousMode}
-                onToggleAnonymous={toggleAnonymousMode}
-                variant="rail"
-              />
+            {/* RIGHT — Join QR (moved out of the top bar) + always-visible
+                participant roster rail (lg+). Mobile uses the edge-tab drawer
+                rendered above; this rail is desktop-only so the join code and
+                roster are permanently at hand on the projector view. */}
+            <div className="hidden lg:flex flex-col gap-3 min-h-0">
+              <JoinPill gameCode={gameCode} variant="dock" />
+              <div className="flex-1 min-h-0">
+                <LiveRosterPanel
+                  participants={participants}
+                  answeredKeys={answeredKeys}
+                  answered={answered}
+                  connectedCount={connectedCount}
+                  onKick={kickParticipant}
+                  anonymous={anonymousMode}
+                  onToggleAnonymous={toggleAnonymousMode}
+                  variant="rail"
+                />
+              </div>
             </div>
           </div>{/* /host-3col-stage */}
 
@@ -3124,11 +3140,14 @@ export default function SessionPage() {
             style={{
               height: 'calc(100dvh - 56px)',
               background:
-                'radial-gradient(circle at 50% 8%, rgba(251,209,59,0.24), transparent 24%), radial-gradient(circle at 8% 72%, rgba(34,211,238,0.18), transparent 24%), linear-gradient(145deg, #071126 0%, #0F1B3D 58%, #111827 100%)',
+                // Yellow top-center glow removed — it tinted the "Session
+                // Complete" heading and hurt legibility. Cool cyan accent stays
+                // low-left, behind the podium, away from the text.
+                'radial-gradient(circle at 8% 72%, rgba(34,211,238,0.16), transparent 24%), linear-gradient(145deg, #071126 0%, #0F1B3D 58%, #111827 100%)',
               boxShadow: '0 30px 90px rgba(15,27,61,0.28)',
             }}
           >
-            <div className="relative z-10 text-center">
+            <div className="relative z-10 shrink-0 text-center">
               <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.24em]" style={{ color: 'rgba(251,209,59,0.72)' }}>
                 Final Standings
               </p>
@@ -3140,8 +3159,10 @@ export default function SessionPage() {
               </p>
             </div>
 
-            <div className="relative z-10 flex-1 min-h-0 w-full flex items-center justify-center mt-3">
-              <div className="font-display w-full max-w-5xl rounded-[28px] p-3 md:p-5" style={{ background: 'rgba(255,255,255,0.96)', boxShadow: '0 24px 80px rgba(0,0,0,0.35)', fontFamily: 'var(--font-display)' }}>
+            {/* shrink-0 header + max-h-full card so the podium never grows up into
+                the subtitle on short/projector viewports (was overlapping). */}
+            <div className="relative z-10 flex-1 min-h-0 w-full flex items-center justify-center mt-4 md:mt-6 overflow-hidden">
+              <div className="font-display w-full max-w-5xl max-h-full overflow-hidden rounded-[28px] p-3 md:p-5" style={{ background: 'rgba(255,255,255,0.96)', boxShadow: '0 24px 80px rgba(0,0,0,0.35)', fontFamily: 'var(--font-display)' }}>
                 <Podium
                   leaderboard={leaderboard}
                   sessionMode={sessionMode}
