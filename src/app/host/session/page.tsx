@@ -37,6 +37,7 @@ import { HostStatsRail, type OptionStat as StatsOptionStat } from '@/components/
 import { ImmersiveStatsOverlay, type ImmersiveOptionStat } from '@/components/host/ImmersiveStatsOverlay'
 import { getQuizTheme } from '@/lib/quiz-themes'
 import { buildLeaderboardStageRows, getHostQuestionFit, getPostQuestionAction } from '@/lib/host-stage'
+import { useConfetti } from '@/hooks/useConfetti'
 import { startClockSync, getServerNow, resyncClock } from '@/lib/clock-sync'
 import { track } from '@/lib/analytics'
 
@@ -250,6 +251,19 @@ export default function SessionPage() {
   const isHostStagePreview = typeof window !== 'undefined' &&
     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
     window.location.search.includes('preview=host-stage')
+
+  // Preview/dev-only test hook: exposes the real bundled confetti factory so a
+  // real-browser Playwright test can fire a burst and assert the dedicated
+  // canvas renders pixels — without polluting prod (localhost + preview only).
+  const fireConfettiForTest = useConfetti()
+  useEffect(() => {
+    if (!isHostStagePreview) return
+    ;(window as unknown as { __quizoticFireConfetti?: (preset?: string) => void }).__quizoticFireConfetti =
+      (preset) => fireConfettiForTest((preset as 'winner' | 'mini' | 'milestone' | 'ambient') ?? 'winner')
+    return () => {
+      delete (window as unknown as { __quizoticFireConfetti?: (preset?: string) => void }).__quizoticFireConfetti
+    }
+  }, [isHostStagePreview, fireConfettiForTest])
   const [initialQuiz] = useState<Quiz | null>(() => {
     const session = getActiveSession()
     if (session) return session

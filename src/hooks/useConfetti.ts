@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useRef } from 'react'
-import type { Options as ConfettiOptions, Shape } from 'canvas-confetti'
+import type { Options as ConfettiOptions, Shape, CreateTypes } from 'canvas-confetti'
 
 // Single source of truth for celebration bursts across the app. Every site
 // that previously called canvas-confetti directly (Podium winner reveal,
@@ -9,16 +9,17 @@ import type { Options as ConfettiOptions, Shape } from 'canvas-confetti'
 // should fire through this hook so the look stays consistent and shape/physics
 // tuning lives in one place.
 //
-// Goals vs. the old config:
-//   - Side cannons fire from the true edge (x: 0.02 / 0.98) and arc upward
-//     (angle 75°/105°) so particles pop up and gravity brings them down,
-//     instead of the previous flat 60°/120° spread.
-//   - Particle shapes mix rectangles + ribbons + circles + stars (real-confetti
-//     mix) — the old config relied on plain `square` which read as boxes.
-//   - Longer `ticks` so particles live long enough to fall, and explicit
-//     `gravity` + `decay` so motion feels weighted.
-//   - prefers-reduced-motion is respected automatically via canvas-confetti's
-//     `disableForReducedMotion: true`, so callers don't have to gate.
+// ── Why we bind to an explicit canvas (the previous bug) ────────────────────
+// canvas-confetti's DEFAULT appends its own canvas to document.body. That had
+// stopped rendering in the host finale: the podium lives inside a framer-motion
+// <motion.section> (which applies a `transform`) with overflow:hidden, and the
+// global canvas ended up clipped / behind the stacked section so particles drew
+// but were never visible. The fix is to render OUR OWN full-viewport canvas as
+// a direct child of <body> (portal'd, position:fixed, pointer-events:none, a
+// z-index that beats everything) and bind confetti to it with confetti.create.
+// Because this canvas is a body-level sibling — not inside any transformed or
+// clipped ancestor — confetti is always painted on top. This is the
+// library-documented pattern for embedding confetti into an existing app.
 
 type Preset = 'winner' | 'mini' | 'milestone' | 'ambient'
 
@@ -31,10 +32,38 @@ const BRAND_COLORS = [
 ]
 const GOLD_COLORS = ['#FFE066', '#FBD13B', '#FFFFFF', '#FFC300', '#FBBF24', '#FFD700']
 
-// Cached canvas-confetti module + custom shapes. Built lazily on first call so
-// the participant join page (which doesn't celebrate) never pays the cost.
+const CONFETTI_CANVAS_ID = 'quizotic-confetti-canvas'
+
+// Lazily create (once per page) a full-viewport <canvas> appended directly to
+// <body>, then return it. Idempotent — repeated calls return the same node.
+function getConfettiCanvas(): HTMLCanvasElement {
+  if (typeof document === 'undefined') throw new Error('document unavailable')
+  const existing = document.getElementById(CONFETTI_CANVAS_ID) as HTMLCanvasElement | null
+  if (existing) return existing
+  const canvas = document.createElement('canvas')
+  canvas.id = CONFETTI_CANVAS_ID
+  // Full viewport, fixed, never blocks pointer events, always on top. Inline
+  // styles so no CSS load order / Tailwind purge can strip it.
+  Object.assign(canvas.style, {
+    position: 'fixed',
+    top: '0',
+    left: '0',
+    width: '100%',
+    height: '100%',
+    pointerEvents: 'none',
+    zIndex: '9999',
+    // Transparent so it never dims the podium beneath it.
+    background: 'transparent',
+  } as Partial<CSSStyleDeclaration>)
+  document.body.appendChild(canvas)
+  return canvas
+}
+
+// Cached confetti scope bound to our dedicated canvas + custom shapes. Built
+// lazily on first call so the participant join page (which doesn't celebrate)
+// never pays the cost.
 let cached: {
-  confetti: ConfettiFn
+  confetti: CreateTypes
   shapes: { rect: Shape; ribbon: Shape; curl: Shape; star: Shape; circle: Shape; square: Shape }
 } | null = null
 
@@ -42,7 +71,10 @@ async function loadConfetti() {
   if (cached) return cached
   try {
     const mod = await import('canvas-confetti')
-    const confetti = mod.default as unknown as ConfettiFn
+    // Bind to our body-level canvas. `resize` keeps it sized to the viewport;
+    // `useWorker` offloads the physics off the main thread for smoother bursts.
+    const canvas = getConfettiCanvas()
+    const confetti = mod.default.create(canvas, { resize: true, useWorker: true }) as CreateTypes
     const make = mod.default.shapeFromPath as ((opts: { path: string }) => Shape) | undefined
     // Real-world confetti is mostly rectangles (3:1) with the occasional
     // long ribbon (8:1). Both shapes carry per-particle rotation in
@@ -103,6 +135,10 @@ async function firePreset(preset: Preset) {
   const lib = await loadConfetti()
   if (!lib) return // loadConfetti already warned via console
   const { confetti, shapes } = lib
+  // Visible confirmation the call path + canvas binding succeeded. Look for
+  // this in the browser console on the next play — if it logs but you still
+  // see no confetti, the issue is rendering (z-index/clip), not the call.
+  console.info(`[quizotic] confetti fired: preset=${preset}`, { canvasBound: true })
   const factor = await getBatteryScale()
   const base: ConfettiOptions = {
     colors: BRAND_COLORS,
