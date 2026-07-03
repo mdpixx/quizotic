@@ -251,9 +251,13 @@ body {
    Now nested inside the center column of the 3-col grid (or full-width on
    mobile), so use a descendant selector. */
 .host-question-stage .host-question-card {
-  flex: 0 1 auto;
-  min-height: 0;
-  max-height: 34%;
+  /* Never clip the question text: the card is NOT allowed to shrink below its
+     content (flex-shrink 0) — the option grid below (min-h-0, 1fr rows) is the
+     flexible part that absorbs the difference. The fit classes already shrink
+     the font under pressure; max-height stays as a hard stop for pathological
+     questions only. */
+  flex: 0 0 auto;
+  max-height: 40%;
   overflow: hidden;
 }
 
@@ -279,46 +283,11 @@ body {
   min-height: 0;
 }
 
-.host-reveal-stage {
-  gap: 0.55rem;
-}
-
-.host-reveal-topbar {
-  flex-shrink: 0;
-  min-height: 44px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
-}
-
-.host-reveal-chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 30px;
-  border-radius: 999px;
-  padding: 0 0.8rem;
-  color: #0F1B3D;
-  background: #FBD13B;
-  font-size: 0.78rem;
-  font-weight: 900;
-  white-space: nowrap;
-}
-
-.host-reveal-stage > .max-w-7xl.h-3 {
-  display: none;
-}
-
-.host-question-stage.host-reveal-stage > .host-question-card {
-  flex: 0 0 auto;
-  max-height: none;
-  overflow: visible;
-  border-radius: 1.25rem;
-}
-
-.host-reveal-stage .host-question-card p {
-  font-size: clamp(1.35rem, 2.35vw, 2.25rem);
-  line-height: 1.06 !important;
-}
+/* NOTE: the old `.host-reveal-stage` compact-mode overrides (smaller gaps,
+   hidden progress bar, resized question text, tighter option tiles, swapped
+   top bar) are gone on purpose. The stage keeps ONE geometry for live and
+   reveal; only colors/opacity change at reveal, so nothing on the projector
+   ever jumps. */
 
 .host-options-stage {
   /* Equal-height rows so all four tiles are identical size regardless of
@@ -366,37 +335,14 @@ body {
   font-size: 1.1rem;
 }
 
-.host-reveal-stage .host-options-stage {
-  gap: 0.65rem;
-}
-
-.host-reveal-stage .host-options-stage > div {
-  border-radius: 1rem;
-}
-
-.host-reveal-stage .host-options-stage > div > div.flex-1 {
-  padding: 0.75rem 0.9rem;
-  gap: 0.75rem;
-}
-
-.host-reveal-stage .host-options-stage > div > div.flex-1 > span:first-child {
-  width: 2.65rem;
-  height: 2.65rem;
-  border-radius: 0.75rem;
-  font-size: 1.2rem;
-}
-
-.host-reveal-stage .host-opt-text {
-  font-size: clamp(0.95rem, 1.25vw, 1.45rem);
-  line-height: 1.08;
-}
-
+/* Reveal chrome inside option tiles: fixed-width slots that only fade in.
+   Sizes stay constant so the answer text never re-wraps at reveal. */
 .host-reveal-votes {
-  font-size: 0.95rem !important;
+  font-size: 1.05rem;
 }
 
 .host-reveal-check {
-  font-size: 1.35rem !important;
+  font-size: 1.35rem;
 }
 
 .host-explanation-fit-roomy {
@@ -482,8 +428,13 @@ body {
 }
 
 @media (min-width: 1024px) and (min-height: 760px) {
+  /* Floor keeps the options readable when the question is short, but stays
+     low enough that a 3-line question + the always-mounted reveal footer
+     still fit inside the fixed-height stage. The old 44vh floor forced the
+     question card to clip (or pushed the footer off-screen) whenever the
+     question wrapped past one line. */
   .host-question-stage .host-answer-stage {
-    min-height: clamp(300px, 44vh, 560px);
+    min-height: 240px;
   }
 
   .host-question-card-compact {
@@ -504,11 +455,7 @@ body {
 
   /* Card is nested in the 3-col center column now — use descendant selector. */
   .host-question-stage .host-question-card {
-    max-height: 28%;
-  }
-
-  .host-question-stage.host-reveal-stage .host-question-card {
-    max-height: none;
+    max-height: 32%;
   }
 
   /* Tighten the side rails on short viewports so the center keeps room. */

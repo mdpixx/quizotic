@@ -114,19 +114,13 @@ export function HostStatsRail({
       </div>
 
       {/* Reveal block — reserved space so the rail never reflows on reveal.
-          Pre-reveal shows a muted placeholder of the same height; post-reveal
-          swaps in the donut + breakdown. No height change = no stutter. */}
+          Pre-reveal shows a muted placeholder of the SAME total height
+          (donut row + headline line); post-reveal swaps in the donut +
+          breakdown. No height change = no stutter. */}
       {isScored ? (
         <div className="px-4 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }}>
           {correctRevealed ? (
-            <>
-              <RevealStatsDonut correct={revealCorrect} incorrect={revealIncorrect} unattempted={revealUnattempted} />
-              {connectedCount > 0 && (
-                <p className="mt-2 text-[13px] font-black" style={{ color: '#fff' }}>
-                  {Math.round((revealCorrect / connectedCount) * 100)}% got it right
-                </p>
-              )}
-            </>
+            <RevealStatsDonut correct={revealCorrect} incorrect={revealIncorrect} unattempted={revealUnattempted} />
           ) : (
             <div className="flex items-center gap-3 py-1 opacity-60">
               <div className="w-[96px] h-[96px] rounded-full flex-shrink-0" style={{ background: 'rgba(255,255,255,0.08)' }} aria-hidden />
@@ -138,16 +132,31 @@ export function HostStatsRail({
               <span className="sr-only">Stats appear here after you reveal the answer</span>
             </div>
           )}
+          {/* Headline keeps its line reserved in both states. */}
+          <p
+            className={`mt-2 text-[13px] font-black transition-opacity duration-300 ${correctRevealed && connectedCount > 0 ? 'opacity-100' : 'opacity-0'}`}
+            style={{ color: '#fff' }}
+            aria-hidden={!correctRevealed || connectedCount === 0}
+          >
+            {connectedCount > 0 ? `${Math.round((revealCorrect / connectedCount) * 100)}% got it right` : ' '}
+          </p>
         </div>
       ) : null}
 
-      {/* Per-option vote bars — visible for ALL question types once the host
-          reveals. Reserved-height track per option so nothing shifts; only the
-          inner fill width animates 0% → pct. */}
-      {options.length > 0 && correctRevealed && (
+      {/* Per-option vote bars — ALWAYS mounted so the rail's layout is
+          identical before and after the reveal. Pre-reveal the rows are
+          masked (0% bars, counts hidden) so the projector never leaks the
+          live distribution while participants are still answering; on reveal
+          only the fills animate and the numbers fade in. */}
+      {options.length > 0 && (
         <div className="px-4 py-3 flex-1 min-h-0 overflow-y-auto" style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }}>
           <p className="text-[11px] font-black uppercase tracking-[0.18em] mb-2" style={{ color: 'rgba(255,255,255,0.55)' }}>
             Votes
+            {!correctRevealed && (
+              <span className="ml-1.5 normal-case tracking-normal font-bold" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                · after reveal
+              </span>
+            )}
           </p>
           <div className="space-y-2">
             {options.map((opt, i) => {
@@ -164,12 +173,26 @@ export function HostStatsRail({
                       >
                         {opt.letter}
                       </span>
-                      {opt.isCorrect && correctRevealed && (
-                        <svg viewBox="0 0 24 24" fill="none" stroke="#4ADE80" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 flex-shrink-0" aria-label="Correct answer"><path d="M20 6 9 17l-5-5" /></svg>
+                      {/* Check slot reserved on EVERY row (not just the correct
+                          one) — a single indented row before reveal would
+                          silently give the answer away on the projector. */}
+                      {isScored && (
+                        <svg
+                          viewBox="0 0 24 24" fill="none" stroke="#4ADE80" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+                          className={`w-3.5 h-3.5 flex-shrink-0 transition-opacity duration-300 ${correctRevealed && opt.isCorrect ? 'opacity-100' : 'opacity-0'}`}
+                          aria-label={correctRevealed && opt.isCorrect ? 'Correct answer' : undefined}
+                          aria-hidden={!(correctRevealed && opt.isCorrect)}
+                        >
+                          <path d="M20 6 9 17l-5-5" />
+                        </svg>
                       )}
                       <span className="truncate" style={{ color: 'rgba(255,255,255,0.75)' }}>{opt.text}</span>
                     </span>
-                    <span className="tabular-nums flex-shrink-0 ml-2" style={{ color: '#fff' }}>
+                    <span
+                      className={`tabular-nums flex-shrink-0 ml-2 transition-opacity duration-300 ${correctRevealed ? 'opacity-100' : 'opacity-0'}`}
+                      style={{ color: '#fff' }}
+                      aria-hidden={!correctRevealed}
+                    >
                       {pct}% <span style={{ color: 'rgba(255,255,255,0.5)' }}>· {votes}</span>
                     </span>
                   </div>
@@ -177,7 +200,7 @@ export function HostStatsRail({
                   <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
                     <div
                       className="h-full rounded-full transition-all duration-500"
-                      style={{ width: `${pct}%`, background: opt.isCorrect && correctRevealed ? '#16A34A' : color.hex }}
+                      style={{ width: correctRevealed ? `${pct}%` : '0%', background: opt.isCorrect && correctRevealed ? '#16A34A' : color.hex }}
                     />
                   </div>
                 </div>

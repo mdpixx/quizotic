@@ -31,6 +31,10 @@ interface ImmersiveStatsOverlayProps {
   options: ImmersiveOptionStat[]
   correctRevealed: boolean
   isScored: boolean
+  /** Host preference: open this overlay automatically after each reveal. */
+  autoOpenAfterReveal?: boolean
+  /** Flips (and persists) the auto-open preference. */
+  onToggleAutoOpen?: () => void
 }
 
 export function ImmersiveStatsOverlay({
@@ -45,6 +49,8 @@ export function ImmersiveStatsOverlay({
   options,
   correctRevealed,
   isScored,
+  autoOpenAfterReveal,
+  onToggleAutoOpen,
 }: ImmersiveStatsOverlayProps) {
   // Esc closes (defense-in-depth — the page-level key handler also clears `open`).
   useEffect(() => {
@@ -201,9 +207,22 @@ export function ImmersiveStatsOverlay({
           </div>
         )}
 
-        <p className="text-sm" style={{ color: 'rgba(255,255,255,0.45)' }}>
-          Press <kbd className="px-1.5 py-0.5 rounded text-xs font-bold" style={{ background: 'rgba(255,255,255,0.12)' }}>Esc</kbd> or tap outside to close
-        </p>
+        <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
+          {onToggleAutoOpen && (
+            <label className="flex items-center gap-2 cursor-pointer select-none text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.7)' }}>
+              <input
+                type="checkbox"
+                checked={Boolean(autoOpenAfterReveal)}
+                onChange={onToggleAutoOpen}
+                className="w-4 h-4 rounded accent-[#FBD13B]"
+              />
+              Open automatically after each reveal
+            </label>
+          )}
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            Press <kbd className="px-1.5 py-0.5 rounded text-xs font-bold" style={{ background: 'rgba(255,255,255,0.12)' }}>Esc</kbd> or tap outside to close
+          </p>
+        </div>
       </div>
     </div>
   )
