@@ -31,9 +31,10 @@ import { PhoneRemoteButton } from '@/components/host/PhoneRemoteButton'
 import { NavChevron } from '@/components/ui/NavButton'
 import { EndQuizConfirmModal } from '@/components/host/EndQuizConfirmModal'
 import { HostWordCloud } from '@/components/host/HostWordCloud'
-import { RevealStatsDonut } from '@/components/host/RevealStatsDonut'
 import { LiveRosterPanel } from '@/components/host/LiveRosterPanel'
 import { QuestionNavigator } from '@/components/host/QuestionNavigator'
+import { HostStatsRail, type OptionStat as StatsOptionStat } from '@/components/host/HostStatsRail'
+import { ImmersiveStatsOverlay, type ImmersiveOptionStat } from '@/components/host/ImmersiveStatsOverlay'
 import { getQuizTheme } from '@/lib/quiz-themes'
 import { buildLeaderboardStageRows, getHostQuestionFit, getPostQuestionAction } from '@/lib/host-stage'
 import { startClockSync, getServerNow, resyncClock } from '@/lib/clock-sync'
@@ -361,15 +362,29 @@ export default function SessionPage() {
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [endNowArmed, setEndNowArmed] = useState(false)
   const endNowArmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Full-screen immersive stats overlay — host opens it on demand (button in
+  // the stats rail, 'S' key) or optionally auto-shows after each reveal.
+  const [showImmersiveStats, setShowImmersiveStats] = useState(false)
+  // Per-host preference: auto-open the immersive stats screen after each answer
+  // reveal. Persisted in localStorage so it survives reloads / new sessions.
+  const [autoStatsAfterReveal, setAutoStatsAfterReveal] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setAutoStatsAfterReveal(localStorage.getItem('quizotic_host_autoStats') === 'true')
+  }, [])
   // Soft auto-advance on standings — null means disabled / cancelled.
   // Number is the remaining ms before nextQuestion() fires automatically.
   const [standingsAutoMs, setStandingsAutoMs] = useState<number | null>(null)
 
   useEffect(() => {
-    // Always reset scroll on phase change so the projector view starts at
-    // the top — the host shouldn't have to scroll up to see the podium when
-    // the quiz ends.
-    if (phase === 'question' || phase === 'standings' || phase === 'ended') window.scrollTo(0, 0)
+    // Reset scroll on phase change so the projector view starts at the top —
+    // but ONLY when the page is actually scrolled, and with instant behavior.
+    // Previously this fired unconditionally on every phase entry (including
+    // 'ended'), which combined with the podium's staggered reveal produced a
+    // visible position shift the moment the podium mounted.
+    if ((phase === 'question' || phase === 'standings' || phase === 'ended') && window.scrollY > 0) {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior })
+    }
   }, [phase, questionIndex])
 
   // Leaderboard tile-shuffle animation: when we enter the standings phase,
@@ -467,14 +482,35 @@ export default function SessionPage() {
   const isAnswerRevealStage = Boolean(
     currentQuestion && isScoredQuestion(currentQuestion) && questionEnded && correctRevealed,
   )
+  // Fit is computed from LIVE-stage pressure ONLY and held constant across the
+  // reveal. Previously this flipped `stage` to 'reveal' on answer-reveal, which
+  // re-sized the question text (font-size + card height) the instant the host
+  // revealed — a visible stutter. Now the card keeps its pre-reveal footprint;
+  // the reveal donut/bars live in the left rail, so the center never needs to
+  // compress to make room.
   const hostQuestionFit = currentQuestion
     ? getHostQuestionFit({
-        stage: isAnswerRevealStage ? 'reveal' : 'live',
+        stage: 'live',
         questionText: currentQuestion.text,
         optionTexts: (getEffectiveOptions(currentQuestion) ?? []).map(getOptionText),
         hasExplanation: Boolean(explanation),
       })
     : null
+
+  // Per-option stats payload shared by the left stats rail and the immersive
+  // overlay. Built once here so both stay in sync and the question phase's
+  // JSX stays readable.
+  const statsOptions: StatsOptionStat[] = useMemo(() => {
+    if (!currentQuestion) return []
+    const opts = getEffectiveOptions(currentQuestion) ?? []
+    return opts.map((opt, i) => ({
+      letter: OPTION_LABELS[i] ?? String(i + 1),
+      text: getOptionText(opt),
+      votes: optionCounts[i] ?? 0,
+      isCorrect: String(i) === currentQuestion.correctAnswer,
+    }))
+  }, [currentQuestion, optionCounts])
+  const immersiveOptions: ImmersiveOptionStat[] = statsOptions
 
   useEffect(() => {
     // useState lazy initializer already loaded the quiz from localStorage —
@@ -1148,8 +1184,9 @@ export default function SessionPage() {
     return () => document.removeEventListener('visibilitychange', onVisibilityChange)
   }, [])
 
-  // Pop-up leaderboard shortcut: 'L' toggles, Escape closes. Ignored while the
-  // host is typing in an input/textarea so we don't hijack real keystrokes.
+  // Pop-up leaderboard shortcut: 'L' toggles, Escape closes. 'S' toggles the
+  // full-screen immersive stats overlay. Ignored while the host is typing in an
+  // input/textarea so we don't hijack real keystrokes.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const t = e.target as HTMLElement | null
@@ -1157,13 +1194,26 @@ export default function SessionPage() {
       if (e.key === 'l' || e.key === 'L') {
         e.preventDefault()
         setShowLeaderboardPopup(s => !s)
+      } else if (e.key === 's' || e.key === 'S') {
+        e.preventDefault()
+        setShowImmersiveStats(s => !s)
       } else if (e.key === 'Escape') {
         setShowLeaderboardPopup(false)
+        setShowImmersiveStats(false)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  // Auto-show the immersive stats overlay after each answer reveal, when the
+  // host has opted in. Fires once per question (guarded by questionEnded +
+  // correctRevealed) so re-renders don't re-trigger it.
+  useEffect(() => {
+    if (!autoStatsAfterReveal) return
+    if (phase !== 'question') return
+    if (questionEnded && correctRevealed) setShowImmersiveStats(true)
+  }, [autoStatsAfterReveal, phase, questionEnded, correctRevealed])
 
   // End-anchored remaining-time math, the same shape and 100ms cadence as
   // the participant timer in join/page.tsx — the two screens flip digits
@@ -1924,17 +1974,20 @@ export default function SessionPage() {
             color: '#FFFFFF',
           }}
         >
-          {/* Live per-participant status drawer — collapsed edge tab by default
-              so the projected question stays full-bleed. */}
-          <LiveRosterPanel
-            participants={participants}
-            answeredKeys={answeredKeys}
-            answered={answered}
-            connectedCount={connectedCount}
-            onKick={kickParticipant}
-            anonymous={anonymousMode}
-            onToggleAnonymous={toggleAnonymousMode}
-          />
+          {/* Mobile (<lg): per-participant roster as a fixed edge-tab drawer so
+              the narrow projected question stays full-bleed. On lg+ the roster
+              lives in the dedicated right rail of the 3-column grid below. */}
+          <div className="lg:hidden">
+            <LiveRosterPanel
+              participants={participants}
+              answeredKeys={answeredKeys}
+              answered={answered}
+              connectedCount={connectedCount}
+              onKick={kickParticipant}
+              anonymous={anonymousMode}
+              onToggleAnonymous={toggleAnonymousMode}
+            />
+          </div>
 
           {/* 3-2-1 Countdown overlay */}
           {countdownValue !== null && (
@@ -2072,6 +2125,33 @@ export default function SessionPage() {
             </div>
           )}
 
+          {/* ── 3-column stage (lg+): STATS LEFT | QUESTION CENTER | ROSTER RIGHT ──
+              The question body (case card, question card, answer stage, reveal
+              breakdown) sits in the center; the left stats rail and right roster
+              rail are always visible on desktop. On mobile the grid collapses to
+              a single column (roster stays in its edge-tab drawer above), so the
+              question keeps full width on phones. The grid itself never reflows
+              on reveal — its columns are fixed; only rail contents swap in place. */}
+          <div className="host-3col-stage flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)_300px] gap-3">
+
+            {/* LEFT — live stats rail (lg+). Hidden on mobile to keep the question
+                full-bleed; the immersive overlay (button in the control bar) is
+                the mobile equivalent. */}
+            <div className="hidden lg:block min-h-0">
+              <HostStatsRail
+                answered={answered}
+                connectedCount={connectedCount}
+                optionCounts={optionCounts}
+                options={statsOptions}
+                correctRevealed={correctRevealed}
+                isScored={isScoredQuestion(currentQuestion)}
+                onExpand={() => setShowImmersiveStats(true)}
+              />
+            </div>
+
+            {/* CENTER — question + answers (full width on mobile) */}
+            <div className="flex flex-col gap-3 min-w-0 min-h-0">
+
           {/* Case scenario card (shown for 'case' type) */}
           {currentQuestion.type === 'case' && currentQuestion.scenarioText && (
             <div className="rounded-2xl p-6 border" style={{ background: '#0F1B3D', borderColor: '#1E2A4F' }}>
@@ -2085,7 +2165,7 @@ export default function SessionPage() {
 
           {/* Question card — text auto-scales so long questions stay in view */}
           <div
-            className={`host-question-card ${hostQuestionFit?.questionClass ?? 'host-question-fit-large'} max-w-7xl mx-auto w-full rounded-[28px] shadow-2xl border ${isAnswerRevealStage ? 'p-4 md:p-5' : currentQuestion.type === 'wordcloud' ? 'p-4 md:p-5 host-question-card-compact' : 'p-5 md:p-7'} ${currentQuestion.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
+            className={`host-question-card ${hostQuestionFit?.questionClass ?? 'host-question-fit-large'} w-full rounded-[28px] shadow-2xl border ${isAnswerRevealStage ? 'p-4 md:p-5' : currentQuestion.type === 'wordcloud' ? 'p-4 md:p-5 host-question-card-compact' : 'p-5 md:p-7'} ${currentQuestion.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
             style={{
               background: 'rgba(255,255,255,0.96)',
               boxShadow: '0 24px 80px rgba(0,0,0,0.35)',
@@ -2370,28 +2450,26 @@ export default function SessionPage() {
           </div>
           )}
 
-          {isScoredQuestion(currentQuestion) && questionEnded && correctRevealed && (() => {
+          {/* Reveal footer — explanation + headline only. The accuracy donut and
+              per-option vote bars now live in the left stats rail (and the
+              immersive overlay), so the center stage no longer grows a tall
+              stats block on reveal — that growth was the main source of the
+              question/options "stutter." Reserving this footer for explanation
+              keeps the answer options in their pre-reveal positions. */}
+          {isScoredQuestion(currentQuestion) && questionEnded && correctRevealed && (explanation || connectedCount > 0) && (() => {
             const revealCorrect = revealCorrectCount ?? optionCounts[Number(currentQuestion.correctAnswer)] ?? 0
-            const revealIncorrect = Math.max(0, answered - revealCorrect)
-            const revealUnattempted = Math.max(0, connectedCount - answered)
             return (
               <div
-                className="host-reveal-footer max-w-7xl mx-auto rounded-3xl p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-5"
-                style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.18)' }}
+                className="host-reveal-footer w-full rounded-2xl px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3"
+                style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.16)' }}
               >
-                <RevealStatsDonut correct={revealCorrect} incorrect={revealIncorrect} unattempted={revealUnattempted} />
-                <div className="flex-1">
-                  <p className="text-xs font-black uppercase tracking-[0.22em]" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                    Answer Reveal
+                {connectedCount > 0 && (
+                  <p className="text-lg font-black whitespace-nowrap flex-shrink-0" style={{ color: '#FBD13B', fontFamily: 'var(--font-heading)' }}>
+                    {Math.round((revealCorrect / connectedCount) * 100)}% got it right
                   </p>
-                  <p className="mt-1 text-2xl md:text-3xl font-black" style={{ color: '#FFFFFF', fontFamily: 'var(--font-heading)' }}>
-                    {connectedCount > 0
-                      ? `${Math.round((revealCorrect / connectedCount) * 100)}% got it right`
-                      : 'Waiting for answers'}
-                  </p>
-                </div>
+                )}
                 {explanation && (
-                  <p className={`md:max-w-2xl leading-snug font-semibold ${hostQuestionFit?.explanationClass ?? 'host-explanation-fit-roomy'}`} style={{ color: 'rgba(255,255,255,0.82)' }}>
+                  <p className="leading-snug font-semibold text-sm flex-1 min-w-0" style={{ color: 'rgba(255,255,255,0.82)' }}>
                     {explanation}
                   </p>
                 )}
@@ -2419,6 +2497,25 @@ export default function SessionPage() {
               )}
             </div>
           )}
+
+            </div>{/* /CENTER column */}
+
+            {/* RIGHT — always-visible participant roster rail (lg+). Mobile uses
+                the edge-tab drawer rendered above; this rail is desktop-only so
+                the roster is permanently at hand on the projector view. */}
+            <div className="hidden lg:block min-h-0">
+              <LiveRosterPanel
+                participants={participants}
+                answeredKeys={answeredKeys}
+                answered={answered}
+                connectedCount={connectedCount}
+                onKick={kickParticipant}
+                anonymous={anonymousMode}
+                onToggleAnonymous={toggleAnonymousMode}
+                variant="rail"
+              />
+            </div>
+          </div>{/* /host-3col-stage */}
 
           {/* Quizotic watermark — free plan */}
           {plan === 'free' && (
@@ -2488,10 +2585,14 @@ export default function SessionPage() {
                 paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom, 0px))',
               }}
             >
+              {/* Symmetric 3-zone control bar: [left cluster] [CENTER primary]
+                  [right cluster]. grid-cols-[1fr_auto_1fr] keeps the primary
+                  action truly centered regardless of how many secondary buttons
+                  each side holds — the 1fr spacers absorb any imbalance. */}
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
               {/* ── Left: secondary icon cluster ───────────────────────────
-                  Music, Sound, Pause, and the Standings peek (L) live here as
-                  small icon buttons — accessible but not primary chrome. */}
-              <div className="flex items-center gap-1.5 min-w-0">
+                  Music, Sound, Pause, and timer (+15s / restart) controls. */}
+              <div className="flex items-center gap-1.5 min-w-0 justify-start">
                 <button
                   onClick={() => setMusicOn(m => !m)}
                   title={musicOn ? 'Background music is playing — click to mute' : 'Play low-volume background music during the quiz'}
@@ -2593,36 +2694,14 @@ export default function SessionPage() {
                     </button>
                   </>
                 )}
-                <button
-                  onClick={() => setShowLeaderboardPopup(true)}
-                  title="Peek at standings (press L)"
-                  aria-label="Show standings"
-                  className="flex h-10 w-10 items-center justify-center rounded-xl transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
-                  style={{
-                    background: 'rgba(255,255,255,0.08)',
-                    color: 'rgba(255,255,255,0.78)',
-                    border: '1px solid rgba(255,255,255,0.14)',
-                  }}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
-                    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
-                    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
-                    <path d="M4 22h16" />
-                    <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
-                    <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
-                    <path d="M18 2H6v7a6 6 0 0 0 12 0V2z" />
-                  </svg>
-                </button>
                 {/* (Removed the mirror/projector toggle — it only ever worked in
                     presenter mode, so it was a dead no-op in a live quiz.) */}
-                {/* Phone remote — reachable during the live quiz, not just the
-                    lobby. Account-based, so the QR/link is safe to show here. */}
-                <PhoneRemoteButton variant="bar" />
               </div>
 
               {/* ── Center: ONE primary action + a single cadence override ──
                   getPostQuestionAction drives label, colour, and onClick.
                   Override is EITHER "Show standings" OR "Skip" — never both. */}
-              <div className="flex flex-1 items-center justify-end gap-2 sm:justify-center">
+              <div className="flex items-center justify-center gap-2 col-start-2 min-w-0">
               {(() => {
               const isLast = questionIndex + 1 >= quiz.questions.length
               const scoredQ = isScoredQuestion(currentQuestion)
@@ -2721,6 +2800,51 @@ export default function SessionPage() {
               )
               })()}
               </div>
+
+              {/* ── Right: secondary cluster ──────────────────────────────
+                  Standings peek (L), Expand stats (S), and Phone remote.
+                  Mirrors the left cluster so the centered primary stays balanced
+                  and the bar reads symmetrically on a projector. */}
+              <div className="flex items-center gap-1.5 justify-end col-start-3">
+                <button
+                  onClick={() => setShowLeaderboardPopup(true)}
+                  title="Peek at standings (press L)"
+                  aria-label="Show standings"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
+                  style={{
+                    background: 'rgba(255,255,255,0.08)',
+                    color: 'rgba(255,255,255,0.78)',
+                    border: '1px solid rgba(255,255,255,0.14)',
+                  }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+                    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+                    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+                    <path d="M4 22h16" />
+                    <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+                    <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+                    <path d="M18 2H6v7a6 6 0 0 0 12 0V2z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setShowImmersiveStats(s => !s)}
+                  title="Full-screen stats (press S)"
+                  aria-label="Toggle full-screen stats"
+                  aria-pressed={showImmersiveStats}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
+                  style={{
+                    background: showImmersiveStats ? 'rgba(251,209,59,0.22)' : 'rgba(255,255,255,0.08)',
+                    color: showImmersiveStats ? '#FBD13B' : 'rgba(255,255,255,0.78)',
+                    border: `1px solid ${showImmersiveStats ? 'rgba(251,209,59,0.5)' : 'rgba(255,255,255,0.14)'}`,
+                  }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+                    <path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" />
+                  </svg>
+                </button>
+                {/* Phone remote — reachable during the live quiz, not just the
+                    lobby. Account-based, so the QR/link is safe to show here. */}
+                <PhoneRemoteButton variant="bar" />
+              </div>
+              </div>{/* /3-zone grid */}
             </div>
           </div>
         </motion.div>
@@ -2729,6 +2853,21 @@ export default function SessionPage() {
       {/* Pop-up leaderboard — trophy button or 'L' key. Opens over the current
           slide without advancing it; audience phones are unaffected. Renders the
           latest leaderboard_update snapshot, or an empty state before Q1 ends. */}
+      {currentQuestion && (
+        <ImmersiveStatsOverlay
+          open={showImmersiveStats}
+          onClose={() => setShowImmersiveStats(false)}
+          questionNumber={answerableNumber}
+          questionTotal={answerableTotal}
+          questionText={currentQuestion.text}
+          answered={answered}
+          connectedCount={connectedCount}
+          optionCounts={optionCounts}
+          options={immersiveOptions}
+          correctRevealed={correctRevealed}
+          isScored={isScoredQuestion(currentQuestion)}
+        />
+      )}
       {showLeaderboardPopup && (
         <div
           className="fixed inset-0 z-[70] flex items-center justify-center p-4"
@@ -2954,7 +3093,11 @@ export default function SessionPage() {
                 <Podium
                   leaderboard={leaderboard}
                   sessionMode={sessionMode}
-                  loopConfetti={false}
+                  // Enable the ambient confetti loop so celebration continues
+                  // after the winner-reveal burst. Previously false, which left
+                  // only the subtle DOM layers (often invisible under macOS
+                  // reduced-motion) — read as "confetti doesn't work."
+                  loopConfetti
                   showRest={false}
                   variant="finale"
                 />
@@ -2963,10 +3106,14 @@ export default function SessionPage() {
           </motion.section>
         ) : null}
 
+        {/* Rest-of-field report. Opacity-only fade (no y-translate, no mount
+            delay) so the section occupies its layout box from the first frame —
+            a delayed y-translate + 100ms delay previously made the page grow
+            downward a moment after the podium mounted, read as a stutter. */}
         <motion.div
-          initial={reduceStageMotion ? false : { opacity: 0, y: 18 }}
-          animate={reduceStageMotion ? undefined : { opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.22, 0.61, 0.36, 1], delay: 0.1 }}
+          initial={reduceStageMotion ? false : { opacity: 0 }}
+          animate={reduceStageMotion ? undefined : { opacity: 1 }}
+          transition={{ duration: 0.35, ease: 'easeOut' }}
           className="px-4 max-w-7xl mx-auto py-8 space-y-8"
         >
           {!(sessionMode === 'competitive' && leaderboard.length > 0) && (

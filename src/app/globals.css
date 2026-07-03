@@ -230,9 +230,27 @@ body {
   flex-shrink: 0;
 }
 
+/* ── 3-column stage (lg+): STATS LEFT | QUESTION CENTER | ROSTER RIGHT ───────
+   The rails are always-visible panels flanking the question. On mobile the
+   grid collapses to a single column (the rails are hidden via `hidden lg:block`
+   in the JSX; the roster uses its edge-tab drawer, stats use the immersive
+   overlay). The grid owns the flex-1 middle region between the header/progress
+   and the control bar, so the question never gets squeezed by the rails. */
+.host-3col-stage {
+  min-height: 0;
+}
+
+/* Rails fill their column height and scroll internally, never pushing the grid
+   taller. Background/border/shadow are set inline per-rail. */
+.host-rail {
+  min-height: 0;
+}
+
 /* The question card must never starve the answer options. It scales down by
-   content pressure instead of creating an inner scroll on the presenter view. */
-.host-question-stage > .host-question-card {
+   content pressure instead of creating an inner scroll on the presenter view.
+   Now nested inside the center column of the 3-col grid (or full-width on
+   mobile), so use a descendant selector. */
+.host-question-stage .host-question-card {
   flex: 0 1 auto;
   min-height: 0;
   max-height: 34%;
@@ -484,12 +502,19 @@ body {
     min-height: 248px;
   }
 
-  .host-question-stage > .host-question-card {
+  /* Card is nested in the 3-col center column now — use descendant selector. */
+  .host-question-stage .host-question-card {
     max-height: 28%;
   }
 
-  .host-question-stage.host-reveal-stage > .host-question-card {
+  .host-question-stage.host-reveal-stage .host-question-card {
     max-height: none;
+  }
+
+  /* Tighten the side rails on short viewports so the center keeps room. */
+  .host-3col-stage {
+    grid-template-columns: 240px minmax(0, 1fr) 260px;
+    gap: 0.5rem;
   }
 
   .host-question-card p {
