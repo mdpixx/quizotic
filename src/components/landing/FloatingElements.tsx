@@ -1,73 +1,102 @@
 'use client'
 
-const SHAPES = [
-  // circles — navy
-  { type: 'circle', size: 120, top: '8%', left: '5%', delay: 0, duration: 18, opacity: 0.04, color: '#0F1B3D' },
-  { type: 'circle', size: 80, top: '22%', left: '85%', delay: 3, duration: 22, opacity: 0.03, color: '#FBD13B' },
-  { type: 'circle', size: 60, top: '45%', left: '10%', delay: 6, duration: 16, opacity: 0.04, color: '#0F1B3D' },
-  { type: 'circle', size: 100, top: '65%', left: '90%', delay: 2, duration: 20, opacity: 0.035, color: '#0F1B3D' },
-  { type: 'circle', size: 50, top: '80%', left: '30%', delay: 8, duration: 24, opacity: 0.03, color: '#FBD13B' },
-  // dots
-  { type: 'dot', size: 8, top: '15%', left: '45%', delay: 1, duration: 12, opacity: 0.08, color: '#0F1B3D' },
-  { type: 'dot', size: 6, top: '35%', left: '72%', delay: 4, duration: 14, opacity: 0.07, color: '#FBD13B' },
-  { type: 'dot', size: 10, top: '55%', left: '20%', delay: 7, duration: 10, opacity: 0.06, color: '#0F1B3D' },
-  { type: 'dot', size: 7, top: '75%', left: '60%', delay: 2, duration: 16, opacity: 0.08, color: '#0F1B3D' },
-  { type: 'dot', size: 5, top: '90%', left: '80%', delay: 5, duration: 13, opacity: 0.07, color: '#FBD13B' },
-  // hexagons
-  { type: 'hex', size: 18, top: '12%', left: '65%', delay: 3, duration: 20, opacity: 0.05, color: '#0F1B3D' },
-  { type: 'hex', size: 14, top: '50%', left: '50%', delay: 9, duration: 18, opacity: 0.04, color: '#FBD13B' },
-  { type: 'hex', size: 16, top: '85%', left: '15%', delay: 6, duration: 22, opacity: 0.05, color: '#0F1B3D' },
-  // diamonds
-  { type: 'diamond', size: 12, top: '28%', left: '35%', delay: 2, duration: 15, opacity: 0.06, color: '#0F1B3D' },
-  { type: 'diamond', size: 10, top: '60%', left: '75%', delay: 5, duration: 17, opacity: 0.06, color: '#FBD13B' },
-  { type: 'diamond', size: 14, top: '40%', left: '92%', delay: 8, duration: 19, opacity: 0.05, color: '#0F1B3D' },
-]
+// Ambient quiz-flavored shapes drifting inside the navy hero. Purely
+// decorative (aria-hidden, pointer-events: none) and intentionally faint —
+// the goal is a page that feels alive, not a screensaver. Animations use the
+// existing globals.css keyframes (drift / float-slow / orb-drift), which the
+// global prefers-reduced-motion rule already freezes.
 
-function ShapeElement({ type, size, color }: { type: string; size: number; color: string }) {
-  if (type === 'circle') {
-    return (
-      <div
-        className="rounded-full"
-        style={{ width: size, height: size, background: `radial-gradient(circle, ${color} 0%, transparent 70%)` }}
-      />
-    )
-  }
-  if (type === 'dot') {
-    return <div className="rounded-full" style={{ width: size, height: size, background: color }} />
-  }
-  if (type === 'hex') {
-    return (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-        <path d="M12 2l9 5v10l-9 5-9-5V7z" />
-      </svg>
-    )
-  }
-  // diamond
+const ANSWER = ['#2D3A8C', '#FF8A47', '#5BC0EB', '#E07A5F']
+
+interface Shape {
+  el: React.ReactNode
+  top: string
+  left: string
+  duration: number
+  delay: number
+  anim: 'drift' | 'float-slow' | 'orb-drift'
+}
+
+function Pill({ color, letter }: { color: string; letter: string }) {
   return (
     <div style={{
-      width: size,
-      height: size,
-      background: color,
-      transform: 'rotate(45deg)',
-    }} />
+      width: 74, height: 30, borderRadius: 8, background: color, opacity: 0.16,
+      display: 'flex', alignItems: 'center', paddingLeft: 10,
+      fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 700,
+      fontSize: 13, color: '#fff',
+    }}>
+      {letter}
+    </div>
   )
 }
 
+function TimerRing({ size }: { size: number }) {
+  const r = size / 2 - 3
+  const c = 2 * Math.PI * r
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ opacity: 0.14 }}>
+      <circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(255,255,255,0.5)" strokeWidth="3" fill="none" />
+      <circle
+        cx={size / 2} cy={size / 2} r={r} stroke="#FBD13B" strokeWidth="3" fill="none"
+        strokeDasharray={c} strokeDashoffset={c * 0.35} strokeLinecap="round"
+        transform={`rotate(-90 ${size / 2} ${size / 2})`}
+      />
+    </svg>
+  )
+}
+
+function Check({ size, color }: { size: number; color: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" style={{ opacity: 0.18 }}>
+      <path d="M5 12.5l4.5 4.5L19 7" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  )
+}
+
+function QMark({ size }: { size: number }) {
+  return (
+    <div style={{
+      fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800,
+      fontSize: size, color: '#FBD13B', opacity: 0.10, lineHeight: 1,
+    }}>
+      ?
+    </div>
+  )
+}
+
+function Dot({ size, color }: { size: number; color: string }) {
+  return <div style={{ width: size, height: size, borderRadius: '50%', background: color, opacity: 0.22 }} />
+}
+
+const SHAPES: Shape[] = [
+  { el: <Pill color={ANSWER[0]} letter="A" />, top: '5%', left: '37%', duration: 19, delay: 0, anim: 'drift' },
+  { el: <Pill color={ANSWER[2]} letter="C" />, top: '72%', left: '6%', duration: 23, delay: 4, anim: 'orb-drift' },
+  { el: <Pill color={ANSWER[1]} letter="B" />, top: '26%', left: '91%', duration: 21, delay: 2, anim: 'float-slow' },
+  { el: <TimerRing size={64} />, top: '8%', left: '58%', duration: 26, delay: 1, anim: 'orb-drift' },
+  { el: <TimerRing size={40} />, top: '82%', left: '86%', duration: 18, delay: 6, anim: 'drift' },
+  { el: <Check size={34} color="#16A34A" />, top: '48%', left: '2%', duration: 17, delay: 3, anim: 'float-slow' },
+  { el: <Check size={26} color="#FBD13B" />, top: '62%', left: '95%', duration: 20, delay: 7, anim: 'drift' },
+  { el: <QMark size={72} />, top: '38%', left: '46%', duration: 24, delay: 5, anim: 'orb-drift' },
+  { el: <QMark size={44} />, top: '86%', left: '40%', duration: 22, delay: 2, anim: 'float-slow' },
+  { el: <Dot size={9} color="#FBD13B" />, top: '20%', left: '38%', duration: 14, delay: 1, anim: 'drift' },
+  { el: <Dot size={6} color="#5BC0EB" />, top: '55%', left: '73%', duration: 16, delay: 5, anim: 'orb-drift' },
+  { el: <Dot size={11} color="#FF8A47" />, top: '90%', left: '64%', duration: 15, delay: 3, anim: 'drift' },
+]
+
 export function FloatingElements() {
   return (
-    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
-      {SHAPES.map((shape, i) => (
+    <div aria-hidden="true" style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
+      {SHAPES.map((s, i) => (
         <div
           key={i}
-          className="absolute"
           style={{
-            top: shape.top,
-            left: shape.left,
-            opacity: shape.opacity,
-            animation: `drift ${shape.duration}s ease-in-out ${shape.delay}s infinite`,
+            position: 'absolute',
+            top: s.top,
+            left: s.left,
+            animation: `${s.anim} ${s.duration}s ease-in-out ${s.delay}s infinite`,
           }}
         >
-          <ShapeElement type={shape.type} size={shape.size} color={shape.color} />
+          {s.el}
         </div>
       ))}
     </div>

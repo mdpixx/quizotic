@@ -27,9 +27,12 @@ export function StickyNav() {
     <>
       <nav style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-        background: '#0F1B3D',
+        background: scrolled ? 'rgba(15,27,61,0.82)' : '#0F1B3D',
+        backdropFilter: scrolled ? 'blur(14px) saturate(1.4)' : 'none',
+        WebkitBackdropFilter: scrolled ? 'blur(14px) saturate(1.4)' : 'none',
         boxShadow: scrolled ? '0 2px 24px rgba(0,0,0,0.3)' : 'none',
-        transition: 'box-shadow 0.3s',
+        borderBottom: scrolled ? '1px solid rgba(255,255,255,0.08)' : '1px solid transparent',
+        transition: 'box-shadow 0.3s, background 0.3s, border-color 0.3s',
         paddingTop: 'env(safe-area-inset-top, 0px)',
       }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', height: 64 }}>

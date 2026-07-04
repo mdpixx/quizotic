@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { Reveal, Stagger, StaggerItem } from './motion'
 
 const BLOOM_BARS = [
   { label: 'Remember', color: '#DC2626', pct: 100 },
@@ -65,7 +66,7 @@ function ConfidenceGrid() {
     },
   ]
   return (
-    <div>
+    <Stagger gap={0.12}>
       {/* Column headers */}
       <div style={{ display: 'grid', gridTemplateColumns: '52px 1fr 1fr', gap: 8, marginBottom: 8 }}>
         <div />
@@ -79,17 +80,17 @@ function ConfidenceGrid() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 6 }}>
             <span style={{ ...axisLabel, fontSize: 11 }}>{r.row}</span>
           </div>
-          {r.cells.map(c => (
-            <div key={c.label} style={{ border: `2px solid ${c.color}`, borderRadius: 10, padding: '14px', background: `${c.color}22` }}>
+          {r.cells.map((c, ci) => (
+            <StaggerItem key={c.label} index={ri * 2 + ci} style={{ border: `2px solid ${c.color}`, borderRadius: 10, padding: '14px', background: `${c.color}22` }}>
               <div style={{ fontFamily: cellLabel, fontSize: 11, color: 'rgba(255,255,255,0.65)', marginBottom: 4 }}>{c.label}</div>
               <div style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 32, color: '#fff', lineHeight: 1, marginBottom: 4 }}>{c.pct}</div>
               <div style={{ fontFamily: cellLabel, fontSize: 13, color: '#fff', fontWeight: 700, marginBottom: 4 }}>{c.desc}</div>
               <div style={{ fontFamily: cellLabel, fontSize: 11, color: 'rgba(255,255,255,0.65)' }}>{c.note}</div>
-            </div>
+            </StaggerItem>
           ))}
         </div>
       ))}
-    </div>
+    </Stagger>
   )
 }
 
@@ -141,24 +142,17 @@ function ForgettingCurve({ animate }: { animate: boolean }) {
   )
 }
 
+// Reveal (not a bespoke observer) so the card is visible in server HTML —
+// no-JS and slow-connection visitors still see the section content.
 function UspCard({ children, reverse = false }: { children: React.ReactNode; reverse?: boolean }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const [visible, setVisible] = useState(false)
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const obs = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) { setVisible(true); obs.disconnect() }
-    }, { threshold: 0.15 })
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [])
-
   return (
-    <div ref={ref} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 64, alignItems: 'center', padding: 'clamp(32px, 6vw, 64px) 0', borderBottom: '1px solid rgba(255,255,255,0.08)', opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(24px)', transition: 'opacity 0.6s ease, transform 0.6s ease' }} className={`usp-card${reverse ? ' usp-reverse' : ''}`}>
+    <Reveal
+      y={24}
+      className={`usp-card${reverse ? ' usp-reverse' : ''}`}
+      style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 64, alignItems: 'center', padding: 'clamp(32px, 6vw, 64px) 0', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+    >
       {children}
-    </div>
+    </Reveal>
   )
 }
 
