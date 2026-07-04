@@ -1,4 +1,5 @@
 import { JsonLd } from '@/components/seo/JsonLd'
+import { Reveal, Stagger, StaggerItem } from './motion'
 
 const FAQS = [
   {
@@ -51,33 +52,43 @@ export function HomepageFAQ() {
       <JsonLd data={faqLd} />
       <section style={{ background: '#F9FAFB', borderTop: '1px solid #E5E7EB', padding: 'clamp(40px, 8vw, 64px) 24px' }}>
         <div style={{ maxWidth: 860, margin: '0 auto' }}>
-          <h2
-            style={{
-              fontFamily: 'var(--font-space-grotesk)',
-              fontSize: 26,
-              fontWeight: 800,
-              color: '#0F1B3D',
-              marginBottom: 32,
-            }}
-          >
-            Frequently asked
-          </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {FAQS.map(f => (
-              <details
-                key={f.question}
-                style={{ background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 12, padding: '16px 20px' }}
-              >
-                <summary style={{ fontWeight: 700, fontSize: 15, cursor: 'pointer', color: '#0F1B3D', lineHeight: 1.5 }}>
-                  {f.question}
-                </summary>
-                <p className="prose-justify" style={{ fontSize: 14, lineHeight: 1.75, color: '#4B5563', marginTop: 12 }}>
-                  {f.answer}
-                </p>
-              </details>
+          <Reveal>
+            <h2
+              style={{
+                fontFamily: 'var(--font-space-grotesk)',
+                fontSize: 26,
+                fontWeight: 800,
+                color: '#0F1B3D',
+                marginBottom: 32,
+              }}
+            >
+              Frequently asked
+            </h2>
+          </Reveal>
+          <Stagger gap={0.05} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {FAQS.map((f, i) => (
+              <StaggerItem key={f.question} index={i}>
+                <details
+                  className="faq-item"
+                  style={{ background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 12, padding: '16px 20px', transition: 'border-color 0.2s, box-shadow 0.2s' }}
+                >
+                  <summary style={{ fontWeight: 700, fontSize: 15, cursor: 'pointer', color: '#0F1B3D', lineHeight: 1.5 }}>
+                    {f.question}
+                  </summary>
+                  <p className="prose-justify" style={{ fontSize: 14, lineHeight: 1.75, color: '#4B5563', marginTop: 12 }}>
+                    {f.answer}
+                  </p>
+                </details>
+              </StaggerItem>
             ))}
-          </div>
+          </Stagger>
         </div>
+        <style>{`
+          .faq-item:hover { border-color: #0F1B3D; }
+          .faq-item[open] { border-color: #0F1B3D; box-shadow: 3px 3px 0 rgba(15,27,61,0.12); }
+          .faq-item[open] p { animation: fadeInUp 0.3s ease-out; }
+          .faq-item summary::marker { color: #FBD13B; }
+        `}</style>
       </section>
     </>
   )

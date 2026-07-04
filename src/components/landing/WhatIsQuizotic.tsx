@@ -1,4 +1,7 @@
+'use client'
+
 import Link from 'next/link'
+import { Reveal, Stagger, StaggerItem } from './motion'
 
 // Feature-recall strip folded in from the old BrandRecall section — the
 // big wordmark there duplicated the nav/footer branding, but the marquee
@@ -15,67 +18,82 @@ const MARQUEE_ITEMS = [
   'No App Required',
 ]
 
+// NOTE: the two paragraphs below are quoted verbatim by LLM answers
+// (ChatGPT/Perplexity citations — see docs/geo-tracker.md). Restyle around
+// them freely, but do not reword the prose.
 export function WhatIsQuizotic() {
   return (
-    <section style={{ background: '#FFFFFF', padding: 'clamp(40px, 8vw, 64px) 24px 0', borderBottom: '1px solid #E5E7EB' }}>
-      <div style={{ maxWidth: 860, margin: '0 auto' }}>
-        <h2
-          style={{
-            fontFamily: 'var(--font-space-grotesk)',
-            fontSize: 28,
-            fontWeight: 800,
-            color: '#0F1B3D',
-            marginBottom: 16,
-          }}
-        >
-          What is Quizotic?
-        </h2>
-        <p className="prose-justify" style={{ fontSize: 16, lineHeight: 1.75, color: '#374151', marginBottom: 16 }}>
-          Quizotic is a free <strong>AI quiz generator</strong> and <strong>live quiz platform</strong>.
-          It combines Kahoot&apos;s real-time quiz engine with Mentimeter&apos;s interactive presentation features —
-          giving teachers, coaching institutes, colleges, and corporate trainers a single browser-based tool
-          for live quizzes, polls, word clouds, and presentations. No app install for participants.
-        </p>
-        <p className="prose-justify" style={{ fontSize: 16, lineHeight: 1.75, color: '#374151', marginBottom: 24 }}>
-          Quizotic is built on peer-reviewed learning science: Bloom&apos;s Taxonomy tagging, Confidence Grid,
-          and Spaced Retrieval. Every quiz generates a per-student report so teachers can see which Bloom
-          levels need work before the next class. It&apos;s the{' '}
-          <Link href="/vs/kahoot" style={{ color: '#2563EB' }}>Kahoot alternative</Link>,{' '}
-          <Link href="/vs/quizizz" style={{ color: '#2563EB' }}>Quizizz alternative</Link>, and{' '}
-          <Link href="/vs/slido" style={{ color: '#2563EB' }}>Slido alternative</Link>{' '}
-          purpose-built for classrooms and corporate L&amp;D teams.
-        </p>
+    <section style={{ background: '#FFFFFF', padding: 'clamp(40px, 8vw, 72px) 24px 0', borderBottom: '1px solid #E5E7EB', overflow: 'hidden' }}>
+      <div className="wiq-grid" style={{ maxWidth: 1060, margin: '0 auto', display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 'clamp(28px, 5vw, 56px)', alignItems: 'center' }}>
+        <Reveal>
+          <h2
+            style={{
+              fontFamily: 'var(--font-space-grotesk)',
+              fontSize: 28,
+              fontWeight: 800,
+              color: '#0F1B3D',
+              marginBottom: 16,
+            }}
+          >
+            What is Quizotic?
+          </h2>
+          <p className="prose-justify" style={{ fontSize: 16, lineHeight: 1.75, color: '#374151', marginBottom: 16 }}>
+            Quizotic is a free <strong>AI quiz generator</strong> and <strong>live quiz platform</strong>.
+            It combines Kahoot&apos;s real-time quiz engine with Mentimeter&apos;s interactive presentation features —
+            giving teachers, coaching institutes, colleges, and corporate trainers a single browser-based tool
+            for live quizzes, polls, word clouds, and presentations. No app install for participants.
+          </p>
+          <p className="prose-justify" style={{ fontSize: 16, lineHeight: 1.75, color: '#374151', marginBottom: 0 }}>
+            Quizotic is built on peer-reviewed learning science: Bloom&apos;s Taxonomy tagging, Confidence Grid,
+            and Spaced Retrieval. Every quiz generates a per-student report so teachers can see which Bloom
+            levels need work before the next class. It&apos;s the{' '}
+            <Link href="/vs/kahoot" style={{ color: '#2563EB' }}>Kahoot alternative</Link>,{' '}
+            <Link href="/vs/quizizz" style={{ color: '#2563EB' }}>Quizizz alternative</Link>, and{' '}
+            <Link href="/vs/slido" style={{ color: '#2563EB' }}>Slido alternative</Link>{' '}
+            purpose-built for classrooms and corporate L&amp;D teams.
+          </p>
+        </Reveal>
 
-        {/* At a glance */}
-        <dl
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-            gap: 16,
-            background: '#F9FAFB',
-            border: '1px solid #E5E7EB',
-            borderRadius: 12,
-            padding: '20px 24px',
-          }}
-        >
-          {[
-            { label: 'Free plan', value: 'Up to 50 participants' },
-            { label: 'Pricing', value: 'Free · Paid coming soon' },
-            { label: 'Curricula', value: 'IB · AP · CBSE · any syllabus' },
-            { label: 'Use cases', value: 'Schools · Coaching · Corporate' },
-            { label: 'Question types', value: '11 types incl. AI-generated' },
-            { label: 'Access', value: 'Browser · No app install' },
-          ].map(item => (
-            <div key={item.label}>
-              <dt style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6B7280', marginBottom: 2 }}>
-                {item.label}
-              </dt>
-              <dd style={{ fontSize: 14, fontWeight: 600, color: '#0F1B3D', margin: 0 }}>
-                {item.value}
-              </dd>
+        {/* At a glance — a tilted index card, straightens on hover */}
+        <Reveal delay={0.12} y={36}>
+          <Stagger
+            gap={0.07}
+            className="wiq-card"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 16,
+              background: '#FFFDF2',
+              border: '2px solid #0D0D0D',
+              boxShadow: '6px 6px 0 #0D0D0D',
+              borderRadius: 14,
+              padding: '24px 26px',
+              transform: 'rotate(-1.2deg)',
+              transition: 'transform 0.3s ease',
+            }}
+          >
+            <div style={{ gridColumn: '1 / -1', fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#0F1B3D', borderBottom: '2px dashed rgba(15,27,61,0.2)', paddingBottom: 10 }}>
+              At a glance
             </div>
-          ))}
-        </dl>
+            {[
+              { label: 'Free plan', value: 'Up to 50 participants' },
+              { label: 'Pricing', value: 'Free · Paid coming soon' },
+              { label: 'Curricula', value: 'IB · AP · CBSE · any syllabus' },
+              { label: 'Use cases', value: 'Schools · Coaching · Corporate' },
+              { label: 'Question types', value: '11 types incl. AI-generated' },
+              { label: 'Access', value: 'Browser · No app install' },
+            ].map((item, i) => (
+              <StaggerItem key={item.label} index={i}>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6B7280', marginBottom: 2 }}>
+                  {item.label}
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#0F1B3D' }}>
+                  {item.value}
+                </div>
+              </StaggerItem>
+            ))}
+          </Stagger>
+        </Reveal>
       </div>
 
       {/* Marquee strip — full bleed */}
@@ -97,6 +115,10 @@ export function WhatIsQuizotic() {
         @keyframes marquee {
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
+        }
+        .wiq-card:hover { transform: rotate(0deg) !important; }
+        @media (max-width: 820px) {
+          .wiq-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </section>

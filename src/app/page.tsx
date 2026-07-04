@@ -7,13 +7,14 @@ import { Hero } from '@/components/landing/Hero'
 import { QuizVsPresentation } from '@/components/landing/QuizVsPresentation'
 import { HowItWorks } from '@/components/landing/HowItWorks'
 import { LearningScience } from '@/components/landing/LearningScience'
-import { SlideTypeShowcase } from '@/components/landing/SlideTypeShowcase'
 import { ProductShowcase } from '@/components/landing/ProductShowcase'
 import { CTASection } from '@/components/landing/CTASection'
 import { Footer } from '@/components/landing/Footer'
 import { WhatIsQuizotic } from '@/components/landing/WhatIsQuizotic'
 import { TopicClusters } from '@/components/landing/TopicClusters'
 import { HomepageFAQ } from '@/components/landing/HomepageFAQ'
+import { SocialProofSlot } from '@/components/landing/SocialProofSlot'
+import { ScrollProgress } from '@/components/landing/ScrollProgress'
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -68,14 +69,18 @@ export default async function Home() {
     <>
       <JsonLd data={[jsonLd, organizationLd, websiteLd]} />
       <StickyNav />
+      <ScrollProgress />
       <main>
         <Hero />
+        {/* Position #2 is deliberate — these paragraphs are what LLM answers
+            (ChatGPT/Perplexity) quote about Quizotic today. */}
         <WhatIsQuizotic />
-        <QuizVsPresentation />
         <HowItWorks />
+        {/* Includes the slide-type carousel (#slide-types) inside #features */}
+        <QuizVsPresentation />
         <LearningScience />
-        <SlideTypeShowcase />
         <ProductShowcase />
+        <SocialProofSlot />
         <HomepageFAQ />
         <CTASection />
         {/* SEO topic-cluster links — kept in the HTML for crawlers, but near

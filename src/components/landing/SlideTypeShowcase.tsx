@@ -191,7 +191,9 @@ function FlipCard({ s }: { s: typeof SLIDE_TYPES[0] }) {
       style={{
         perspective: 1000,
         cursor: 'pointer',
-        height: 160,
+        height: 170,
+        width: 212,
+        flexShrink: 0,
       }}
     >
       <div style={{
@@ -247,37 +249,64 @@ function FlipCard({ s }: { s: typeof SLIDE_TYPES[0] }) {
   )
 }
 
+// Rendered inside the QuizVsPresentation ("Two superpowers") section as a
+// full-bleed, auto-scrolling carousel — one compact row instead of the old
+// three-row grid, so the page gets ~2 screens shorter without losing a card.
+// The track pauses on hover/focus so flips stay easy to read; under
+// prefers-reduced-motion it stops entirely and becomes a manual scroller.
 export function SlideTypeShowcase() {
   return (
-    <section id="slide-types" style={{ padding: 'clamp(56px, 11vw, 120px) 24px', background: '#fff' }}>
-      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-        <h2 style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 'clamp(28px, 3.5vw, 48px)', color: '#0F1B3D', letterSpacing: '-0.03em', textAlign: 'center', marginBottom: 16 }}>
-          19 interactive slide types.{' '}
-          <span style={{ background: '#FBD13B', padding: '2px 8px', borderRadius: 6 }}>And counting.</span>
-        </h2>
-        <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 18, color: '#555', textAlign: 'center', maxWidth: 640, margin: '0 auto clamp(28px, 7vw, 56px)', lineHeight: 1.6 }}>
-          From quick polls to collaborative word clouds — every slide type is designed to keep learners actively thinking, not passively watching.
-        </p>
+    <div id="slide-types" style={{ paddingTop: 'clamp(40px, 8vw, 72px)' }}>
+      <h2 style={{ fontFamily: 'var(--font-heading, "Space Grotesk", sans-serif)', fontWeight: 800, fontSize: 'clamp(24px, 3vw, 36px)', color: '#0F1B3D', letterSpacing: '-0.03em', textAlign: 'center', marginBottom: 12 }}>
+        19 interactive slide types.{' '}
+        <span style={{ background: '#FBD13B', padding: '2px 8px', borderRadius: 6 }}>And counting.</span>
+      </h2>
+      <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 16, color: '#555', textAlign: 'center', maxWidth: 640, margin: '0 auto 32px', lineHeight: 1.6 }}>
+        From quick polls to collaborative word clouds — tap any card to flip it. The row keeps rolling; hover to pause.
+      </p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }} className="slide-grid">
-          {SLIDE_TYPES.map(s => (
-            <FlipCard key={s.title} s={s} />
+      {/* Full-bleed marquee (breaks out of the centered container to span the
+          viewport; body is overflow-x-hidden so the 100vw trick is safe).
+          Two copies of the deck give a seamless loop. */}
+      <div className="slide-marquee" style={{ overflowX: 'auto', overflowY: 'hidden', margin: '0 calc(50% - 50vw)', padding: '6px 0 10px', scrollbarWidth: 'none' }}>
+        {/* No outer gap/padding on the track — each copy carries its own
+            trailing gap so translateX(-50%) loops back seamlessly. */}
+        <div className="slide-track" style={{ display: 'flex', width: 'max-content' }}>
+          {[0, 1].map(copy => (
+            <div key={copy} aria-hidden={copy === 1} style={{ display: 'flex', gap: 18, paddingRight: 18 }}>
+              {SLIDE_TYPES.map(s => (
+                <FlipCard key={`${copy}-${s.title}`} s={s} />
+              ))}
+            </div>
           ))}
         </div>
-
-        <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 14, color: '#888', textAlign: 'center', marginTop: 24 }}>
-          + 7 more display &amp; utility slide types (title, bullets, quote, video, image, scale, wheel)
-        </p>
       </div>
+
+      <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 14, color: '#888', textAlign: 'center', marginTop: 18 }}>
+        + 7 more display &amp; utility slide types (title, bullets, quote, video, image, scale, wheel)
+      </p>
 
       <style>{`
         @keyframes hint-pulse {
           0%, 100% { opacity: 0.6; }
           50% { opacity: 1; }
         }
-        @media (max-width: 900px) { .slide-grid { grid-template-columns: repeat(3, 1fr) !important; } }
-        @media (max-width: 600px) { .slide-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+        .slide-marquee::-webkit-scrollbar { display: none; }
+        .slide-track {
+          animation: slide-roll 60s linear infinite;
+        }
+        .slide-marquee:hover .slide-track,
+        .slide-marquee:focus-within .slide-track {
+          animation-play-state: paused;
+        }
+        @keyframes slide-roll {
+          0%   { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .slide-track { animation: none !important; }
+        }
       `}</style>
-    </section>
+    </div>
   )
 }
