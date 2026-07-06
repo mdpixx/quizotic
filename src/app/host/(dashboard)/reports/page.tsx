@@ -51,6 +51,16 @@ export default function ReportsPage() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [downloadError, setDownloadError] = useState<string | null>(null)
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null)
+  const [plan, setPlan] = useState<'free' | 'pro'>('free')
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/billing/status')
+      .then(r => r.json())
+      .then(d => { if (!cancelled && d.plan === 'pro') setPlan('pro') })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   const fetchSessions = useCallback(async () => {
     setLoading(true)
@@ -290,22 +300,33 @@ export default function ReportsPage() {
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5"><path d="M3 3v18h18"/><path d="M7 12l4-4 4 4 5-5"/></svg>
                       View
                     </Link>
-                    <button
-                      onClick={() => handleCsvDownload(session)}
-                      disabled={isDownloading}
-                      className="btn-secondary"
-                      style={{ padding: '7px 12px', fontSize: '12px' }}
-                      title="Download full session data as CSV (Pro only)"
-                    >
-                      {isDownloading ? (
-                        <svg className="animate-spin w-3 h-3" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" opacity="0.3"/><path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-                      ) : (
-                        <>
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                          CSV
-                        </>
-                      )}
-                    </button>
+                    {plan === 'pro' ? (
+                      <button
+                        onClick={() => handleCsvDownload(session)}
+                        disabled={isDownloading}
+                        className="btn-secondary"
+                        style={{ padding: '7px 12px', fontSize: '12px' }}
+                        title="Download full session data as CSV"
+                      >
+                        {isDownloading ? (
+                          <svg className="animate-spin w-3 h-3" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" opacity="0.3"/><path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                        ) : (
+                          <>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                            CSV
+                          </>
+                        )}
+                      </button>
+                    ) : (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-[10px] px-3 py-[7px] text-[12px] font-semibold cursor-not-allowed"
+                        style={{ border: '1px solid var(--color-line)', color: 'var(--color-text-muted)', background: '#fff' }}
+                        title="CSV export is a Pro feature — email info@quizotic.live to upgrade"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        CSV
+                      </span>
+                    )}
                   </div>
                 </div>
               )

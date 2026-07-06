@@ -6,7 +6,13 @@
    slightly wider than the viewport (wide medal SVG, podium tier, name span)
    could trigger a scroll. This is the belt-and-suspenders root lock. */
 html, body {
+  /* `hidden` turns body into a scroll container, which silently disables
+     position:sticky for every descendant — the host's bottom control bar
+     stopped pinning on phones because of it. `clip` gives the same sideways
+     clip without creating a scrollport, so sticky works; browsers too old
+     for `clip` keep the `hidden` fallback declared first. */
   overflow-x: hidden;
+  overflow-x: clip;
   max-width: 100vw;
 }
 
@@ -419,6 +425,18 @@ body {
   gap: 0.32em 0.6em;
 }
 
+/* Phone-width control bar: 8 icon controls + "+15s" must share one row with
+   the clusters justified apart, so shave each 40px icon to 36px. Desktop and
+   tablet keep the full 40px touch targets. */
+@media (max-width: 639px) {
+  .host-control-bar .h-10 {
+    height: 2.25rem;
+  }
+  .host-control-bar .w-10 {
+    width: 2.25rem;
+  }
+}
+
 .host-wordcloud-word {
   display: inline-block;
   font-family: var(--font-heading);
@@ -458,10 +476,16 @@ body {
     max-height: 32%;
   }
 
-  /* Tighten the side rails on short viewports so the center keeps room. */
-  .host-3col-stage {
-    grid-template-columns: 240px minmax(0, 1fr) 260px;
-    gap: 0.5rem;
+  /* Tighten the side rails on short viewports so the center keeps room.
+     lg-only: this is an unlayered rule, so without the width guard it beats
+     Tailwind's layered `grid-cols-1` and forces a 3-column template onto
+     short phones (SE portrait / landscape), squeezing the question into the
+     240px rail track while the rails themselves are display:none. */
+  @media (min-width: 1024px) {
+    .host-3col-stage {
+      grid-template-columns: 240px minmax(0, 1fr) 260px;
+      gap: 0.5rem;
+    }
   }
 
   .host-question-card p {

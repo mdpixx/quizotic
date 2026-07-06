@@ -22,11 +22,11 @@ export function JoinPill({ gameCode, variant = 'fixed' }: JoinPillProps) {
   if (variant === 'compact') {
     return (
       <div
-        className="inline-flex items-center gap-2 rounded-full bg-white/95 px-4 py-2 shadow-md border border-gray-200"
+        className="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 shadow-md border border-gray-200"
         aria-label="Join this session"
       >
         <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Join</span>
-        <span className="text-lg font-black tabular-nums" style={{ color: '#0F1B3D', letterSpacing: '0.08em' }}>
+        <span className="text-base font-black tabular-nums" style={{ color: '#0F1B3D', letterSpacing: '0.08em' }}>
           {gameCode}
         </span>
       </div>
