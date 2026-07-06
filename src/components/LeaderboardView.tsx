@@ -88,9 +88,11 @@ export function LeaderboardView({
     return <CompactLeaderboard rows={sorted} highlightId={highlightId} heading={heading} />
   }
 
-  // Fullscreen variant — presentation leaderboard slide
+  // Fullscreen variant — presentation leaderboard slide. Column widths step
+  // down below sm so the name bar keeps real width on phones (the fixed
+  // rank/score columns used to leave it ~80px at 375px).
   return (
-    <div className="flex flex-col h-full w-full px-6 py-4 gap-4">
+    <div className="flex flex-col h-full w-full px-2 py-3 sm:px-6 sm:py-4 gap-3 sm:gap-4">
       <div className="flex items-baseline justify-between flex-shrink-0">
         <h2
           className="text-3xl md:text-4xl font-black"
@@ -123,10 +125,10 @@ export function LeaderboardView({
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 40 }}
                 transition={{ type: 'spring', stiffness: 320, damping: 30, mass: 0.8 }}
-                className="flex items-center gap-3 relative"
+                className="flex items-center gap-2 sm:gap-3 relative"
               >
                 <span
-                  className="w-10 text-center text-2xl font-black tabular-nums flex-shrink-0"
+                  className="w-7 sm:w-10 text-center text-lg sm:text-2xl font-black tabular-nums flex-shrink-0"
                   style={{ color: '#0F1B3D' }}
                 >
                   {i < 3 ? MEDAL_EMOJI[i] : `#${rank}`}
@@ -153,7 +155,7 @@ export function LeaderboardView({
                     )}
                     <div className="flex-1 min-w-0">
                       <span
-                        className="block text-lg md:text-2xl font-black truncate"
+                        className="block text-base sm:text-lg md:text-2xl font-black truncate"
                         style={{
                           color: i < 3 ? '#0F1B3D' : '#FFFFFF',
                           textShadow: i < 3 ? 'none' : '0 1px 2px rgba(0,0,0,0.25)',
@@ -187,7 +189,7 @@ export function LeaderboardView({
                 </div>
 
                 <span
-                  className="w-28 text-right text-xl md:text-3xl font-black tabular-nums flex-shrink-0"
+                  className="w-16 sm:w-28 text-right text-base sm:text-xl md:text-3xl font-black tabular-nums flex-shrink-0"
                   style={{ color: '#0F1B3D' }}
                 >
                   {row.score.toLocaleString()}

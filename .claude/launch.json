@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "quizotic-dev",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "PORT=4000 node server.mjs"],
+      "port": 4000
+    }
+  ]
+}

@@ -13,8 +13,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     const { id } = await params
+    // Accept the DB id or the 6-digit game code (the live host screen only
+    // knows the code) — same contract as the matrix endpoint.
     const session = await prisma.gameSession.findFirst({
-      where: { id, userId: user.id },
+      where: { userId: user.id, OR: [{ id }, { code: id }] },
     })
 
     if (!session) {

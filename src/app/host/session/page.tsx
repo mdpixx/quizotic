@@ -1797,7 +1797,7 @@ export default function SessionPage() {
             <div className="flex items-center justify-between shrink-0">
               <QuizoticLogo variant="onDark" className="text-2xl" markSize={40} />
               <div className="flex items-center gap-2">
-                <span className="text-sm font-bold px-4 py-1.5 rounded-full bg-white/15 border border-white/25 text-white backdrop-blur">
+                <span className="hidden sm:inline-block text-sm font-bold px-4 py-1.5 rounded-full bg-white/15 border border-white/25 text-white backdrop-blur">
                   {{ competitive: '⚡ Competitive', accuracy: '✓ Accuracy', reflection: '🌙 Reflection', selfpaced: '🎯 Self-paced', assessment: '📋 Assessment' }[sessionMode] ?? '⚡ Competitive'}
                 </span>
                 <span className="text-sm font-black px-4 py-1.5 rounded-full text-[#0F1B3D]" style={{ background: '#FBD13B', boxShadow: '0 4px 0 rgba(0,0,0,0.15)' }}>
@@ -1812,15 +1812,15 @@ export default function SessionPage() {
                 <p className="text-xs font-black uppercase tracking-widest text-white/60 w-full sm:w-auto">How scoring works</p>
                 {sessionMode === 'competitive' ? (
                   <>
-                    <span className="text-sm text-white font-semibold">⚡ Answer faster = more points (50–100% of question value)</span>
+                    <span className="text-xs sm:text-sm text-white font-semibold">⚡ Answer faster = more points (50–100% of question value)</span>
                     <span className="hidden sm:inline text-white/30">·</span>
-                    <span className="text-sm text-white font-semibold">🔥 Streak: +100 for 2 right, +200 for 3, +500 for 4+</span>
+                    <span className="text-xs sm:text-sm text-white font-semibold">🔥 Streak: +100 for 2 right, +200 for 3, +500 for 4+</span>
                   </>
                 ) : (
                   <>
-                    <span className="text-sm text-white font-semibold">✓ Any correct answer earns full points — no time pressure</span>
+                    <span className="text-xs sm:text-sm text-white font-semibold">✓ Any correct answer earns full points — no time pressure</span>
                     <span className="hidden sm:inline text-white/30">·</span>
-                    <span className="text-sm text-white font-semibold">🔥 Streak: +100 for 2 right, +200 for 3, +500 for 4+</span>
+                    <span className="text-xs sm:text-sm text-white font-semibold">🔥 Streak: +100 for 2 right, +200 for 3, +500 for 4+</span>
                   </>
                 )}
               </div>
@@ -2060,7 +2060,7 @@ export default function SessionPage() {
               moment the host revealed, which moved the question and every
               answer box below it. Only the label text and the timer circle's
               inner content change now; every box keeps its exact geometry. */}
-          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] items-center gap-4 [&>*]:min-w-0">
+          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] items-center gap-2 lg:gap-4 [&>*]:min-w-0">
               <div>
                 <span className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: isAnswerRevealStage ? '#FBD13B' : 'rgba(255,255,255,0.52)' }}>
                   {isAnswerRevealStage ? 'Answer Reveal' : 'Live Question'}
@@ -2074,23 +2074,27 @@ export default function SessionPage() {
                   onJump={gotoQuestion}
                 />
               </div>
-              <div className="flex flex-wrap items-center justify-start lg:justify-end gap-3">
+              <div className="flex flex-wrap items-center justify-start lg:justify-end gap-2 lg:gap-3">
                 {currentQuestion.timerSeconds > 0 && (
                   questionStartedAt == null || Date.now() < questionStartedAt ? (
                     <span className="min-w-16 text-center text-sm font-semibold animate-pulse px-4 py-2 rounded-full" style={{ color: '#FBD13B', background: 'rgba(255,255,255,0.08)' }}>Loading…</span>
                   ) : (
-                    <div className="font-display flex h-16 w-16 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(15,27,61,0.42)', fontFamily: 'var(--font-display)' }}>
+                    <div className="font-display flex h-12 w-12 lg:h-16 lg:w-16 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(15,27,61,0.42)', fontFamily: 'var(--font-display)' }}>
                       {questionEnded ? (
-                        <svg viewBox="0 0 24 24" fill="none" stroke="#4ADE80" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7" aria-label="Question ended">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#4ADE80" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 lg:w-7 lg:h-7" aria-label="Question ended">
                           <path d="M20 6 9 17l-5-5" />
                         </svg>
                       ) : (
-                        <CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} size={64} />
+                        <>
+                          {/* Phone header is a single tight row — smaller dial. */}
+                          <span className="lg:hidden"><CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} size={48} /></span>
+                          <span className="hidden lg:inline"><CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} size={64} /></span>
+                        </>
                       )}
                     </div>
                   )
                 )}
-                <span className="inline-flex h-12 items-center rounded-full px-4 text-lg font-black tabular-nums whitespace-nowrap" style={{ color: '#0F1B3D', background: '#FBD13B', boxShadow: '0 5px 0 rgba(0,0,0,0.24)' }}>
+                <span className="inline-flex h-10 lg:h-12 items-center rounded-full px-3 lg:px-4 text-base lg:text-lg font-black tabular-nums whitespace-nowrap" style={{ color: '#0F1B3D', background: '#FBD13B', boxShadow: '0 5px 0 rgba(0,0,0,0.24)' }}>
                   {answered}/{connectedCount}
                   <span className="ml-2 text-xs uppercase tracking-wider">answered</span>
                 </span>
@@ -2428,7 +2432,10 @@ export default function SessionPage() {
               )
             })()
           ) : (
-          <div className={`max-w-7xl mx-auto w-full flex-1 min-h-0 grid grid-cols-2 gap-3 md:gap-5 host-answer-stage host-options-stage ${hostQuestionFit?.optionClass ?? 'host-option-fit-large'}`}>
+          /* Options: single column on phones — the always-mounted vote/check
+             slots + letter chip leave a 2-col layout ~zero px for the answer
+             text at 375px, wrapping it one character per line. */
+          <div className={`max-w-7xl mx-auto w-full flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 md:gap-5 host-answer-stage host-options-stage ${hostQuestionFit?.optionClass ?? 'host-option-fit-large'}`}>
             {getEffectiveOptions(currentQuestion)?.map((opt, i) => {
               const votes = optionCounts[i] ?? 0
               const pct = connectedCount > 0 ? (votes / connectedCount) * 100 : 0
@@ -2654,11 +2661,14 @@ export default function SessionPage() {
               {/* Symmetric 3-zone control bar: [left cluster] [CENTER primary]
                   [right cluster]. grid-cols-[1fr_auto_1fr] keeps the primary
                   action truly centered regardless of how many secondary buttons
-                  each side holds — the 1fr spacers absorb any imbalance. */}
-              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                  each side holds — the 1fr spacers absorb any imbalance.
+                  Below sm the 3 zones need ~530px, so the bar re-stacks into
+                  two rows instead: primary action full-width on top (order-1),
+                  the two icon clusters share the second row. */}
+              <div className="host-control-bar flex flex-wrap items-center gap-2 sm:grid sm:grid-cols-[1fr_auto_1fr]">
               {/* ── Left: secondary icon cluster ───────────────────────────
                   Music, Sound, Pause, and timer (+15s / restart) controls. */}
-              <div className="flex items-center gap-1.5 min-w-0 justify-start">
+              <div className="order-2 flex-1 sm:order-none sm:flex-initial sm:col-start-1 flex items-center gap-1 sm:gap-1.5 min-w-0 justify-start">
                 <button
                   onClick={() => setMusicOn(m => !m)}
                   title={musicOn ? 'Background music is playing — click to mute' : 'Play low-volume background music during the quiz'}
@@ -2767,7 +2777,7 @@ export default function SessionPage() {
               {/* ── Center: ONE primary action + a single cadence override ──
                   getPostQuestionAction drives label, colour, and onClick.
                   Override is EITHER "Show standings" OR "Skip" — never both. */}
-              <div className="flex items-center justify-center gap-2 col-start-2 min-w-0">
+              <div className="order-1 w-full sm:order-none sm:w-auto flex items-center justify-center gap-2 sm:col-start-2 min-w-0">
               {(() => {
               const isLast = questionIndex + 1 >= quiz.questions.length
               const scoredQ = isScoredQuestion(currentQuestion)
@@ -2802,7 +2812,7 @@ export default function SessionPage() {
                         stopLiveQuestionTimer()
                       })
                     }}
-                    className="inline-flex h-11 items-center gap-2 px-5 rounded-full font-bold text-sm border-2 transition-all"
+                    className="inline-flex h-11 w-full sm:w-auto items-center justify-center gap-2 px-5 rounded-full font-bold text-sm border-2 transition-all"
                     style={{
                       borderColor: armed ? '#DC2626' : 'rgba(255,255,255,0.2)',
                       color: armed ? '#FFFFFF' : 'rgba(255,255,255,0.6)',
@@ -2840,11 +2850,11 @@ export default function SessionPage() {
                   ? (questionEnded ? nextQuestion : () => { void advanceAfterEndingCurrentQuestion() })
                   : null
               return (
-                <div className="flex items-center justify-end sm:justify-center gap-2 w-full">
+                <div className="flex items-center justify-center gap-2 w-full">
                   {overrideLabel && overrideOnClick && (
                     <button
                       onClick={overrideOnClick}
-                      className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-full font-semibold text-xs transition-all hover:underline underline-offset-4"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full font-semibold text-xs transition-all hover:underline underline-offset-4 shrink-0"
                       style={{ color: 'rgba(255,255,255,0.62)', background: 'transparent' }}
                       title={showStandingsOverride ? 'Show the leaderboard before moving on' : 'Skip the leaderboard and go straight to the next question'}
                     >
@@ -2853,7 +2863,7 @@ export default function SessionPage() {
                   )}
                   <button
                     onClick={onClick}
-                    className="inline-flex h-11 items-center gap-2 px-6 font-black text-sm rounded-full transition-colors shadow-md animate-pulse"
+                    className="inline-flex h-11 flex-1 sm:flex-initial items-center justify-center gap-2 px-6 font-black text-sm rounded-full transition-colors shadow-md animate-pulse"
                     style={{
                       background: action === 'reveal' ? '#16A34A' : action === 'standings' && standingsRecommended ? '#FBD13B' : '#FBBF24',
                       color: action === 'reveal' ? '#FFFFFF' : '#0F1B3D',
@@ -2871,7 +2881,7 @@ export default function SessionPage() {
                   Standings peek (L), Expand stats (S), and Phone remote.
                   Mirrors the left cluster so the centered primary stays balanced
                   and the bar reads symmetrically on a projector. */}
-              <div className="flex items-center gap-1.5 justify-end col-start-3">
+              <div className="order-3 sm:order-none flex items-center gap-1 sm:gap-1.5 justify-end sm:col-start-3">
                 <button
                   onClick={() => setShowLeaderboardPopup(true)}
                   title="Peek at standings (press L)"
@@ -3136,9 +3146,11 @@ export default function SessionPage() {
             initial={reduceStageMotion ? false : { opacity: 0, y: 18 }}
             animate={reduceStageMotion ? undefined : { opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: [0.22, 0.61, 0.36, 1] }}
-            className="relative overflow-hidden flex flex-col items-center justify-center px-4 md:px-8 py-4 md:py-6"
+            /* lg+: viewport-locked hero for projectors (no scroll). Below lg the
+               fixed height clipped the finale podium on short phones (SE et al),
+               so phones get natural height and scroll instead. */
+            className="relative overflow-hidden flex flex-col items-center justify-center px-4 md:px-8 py-4 md:py-6 min-h-[60svh] lg:h-[calc(100dvh-56px)]"
             style={{
-              height: 'calc(100dvh - 56px)',
               background:
                 // Yellow top-center glow removed — it tinted the "Session
                 // Complete" heading and hurt legibility. Cool cyan accent stays
@@ -3191,6 +3203,24 @@ export default function SessionPage() {
         >
           {!(sessionMode === 'competitive' && leaderboard.length > 0) && (
             <h2 className="text-4xl font-black max-w-3xl mx-auto" style={{ color: '#0F1B3D' }}>Session Complete</h2>
+          )}
+
+          {/* Direct line from the podium to the full session report — the
+              dashboard report has the confidence grid, per-question breakdown
+              and participant matrix, so surface it here instead of burying it
+              in the disclosure below. */}
+          {gameCode && (
+            <div className="flex justify-center">
+              <a
+                href={`/host/reports/${gameCode}`}
+                className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-black transition-all hover:scale-[1.02]"
+                style={{ background: '#0F1B3D', color: '#FFFFFF', boxShadow: '0 6px 18px rgba(15,27,61,0.28)', fontFamily: 'var(--font-heading)' }}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4" aria-hidden><path d="M3 3v18h18"/><path d="M7 12l4-4 4 4 5-5"/></svg>
+                View full session report
+                <span aria-hidden>→</span>
+              </a>
+            </div>
           )}
 
           {/* The rest of the field — everyone outside the top-3 podium, so any
@@ -3383,7 +3413,16 @@ export default function SessionPage() {
             {/* Export pills — compact row */}
             <div className="flex items-center justify-center gap-2 flex-wrap">
               <span className="text-xs font-semibold text-gray-500">Export:</span>
-              <button
+              {plan !== 'pro' && (
+                <span
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 text-gray-400 bg-white cursor-not-allowed inline-flex items-center gap-1"
+                  title="CSV export is a Pro feature — email info@quizotic.live to upgrade"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3" aria-hidden><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  CSV · Pro
+                </span>
+              )}
+              {plan === 'pro' && <button
                 onClick={() => {
                   if (!quiz || leaderboard.length === 0) return
                   const rows = [['Rank', 'Name', 'Score']]
@@ -3411,7 +3450,7 @@ export default function SessionPage() {
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 hover:border-gray-400 transition-all text-gray-700 bg-white"
               >
                 CSV
-              </button>
+              </button>}
               {plan === 'pro' && gameCode && (
                 <>
                   <a
