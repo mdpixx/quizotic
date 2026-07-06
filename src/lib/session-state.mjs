@@ -115,3 +115,104 @@ export function flushPendingPersist(session, sessionDbId, insertFn) {
   for (const p of pending) insertFn(sessionDbId, p)
   return pending.length
 }
+
+// ─── Session persistence (serialize ⇆ deserialize) ─────────────────────────
+// Live sessions live in the in-memory `sessions` Map, so a process restart
+// (every Railway redeploy, or a crash) wipes them and participants hit
+// "Game not found". These helpers turn a session into a JSON-safe object for
+// a durable store (Redis) and back, so a restarted instance can rehydrate the
+// Map and let hosts/participants auto-reconnect. Pure — no I/O — so the store
+// module and unit tests can exercise the round-trip without booting the server.
+
+// Runtime handles and ephemeral socket bindings that must never be persisted.
+// Timers are re-armed on boot; socket bindings are re-established when the host
+// (host_resume) and participants (participantId) reconnect. participants are
+// serialized separately (below); participantsById / disconnectedParticipants
+// are rebuilt from participants on load so shared object references stay intact.
+const NON_PERSISTED_SESSION_FIELDS = new Set([
+  'endTimer',
+  '_stateBroadcastTimer',
+  '_dbInsertPromise',
+  'hostSocketId',
+  'hostSocketIds',
+  'participants',
+  'participantsById',
+  'disconnectedParticipants',
+])
+
+function encodeValue(v) {
+  if (v instanceof Map) return { __t: 'Map', v: [...v.entries()] }
+  if (v instanceof Set) return { __t: 'Set', v: [...v] }
+  return v
+}
+
+function decodeValue(v) {
+  if (v && typeof v === 'object' && v.__t === 'Map') return new Map(v.v)
+  if (v && typeof v === 'object' && v.__t === 'Set') return new Set(v.v)
+  return v
+}
+
+export function serializeParticipant(p) {
+  const out = { ...p }
+  if (out.joinedAt instanceof Date) out.joinedAt = out.joinedAt.toISOString()
+  return out
+}
+
+export function deserializeParticipant(raw) {
+  const p = { ...raw }
+  if (typeof p.joinedAt === 'string') {
+    const d = new Date(p.joinedAt)
+    if (!Number.isNaN(d.getTime())) p.joinedAt = d
+  }
+  return p
+}
+
+// Turn a live session into a JSON-safe plain object. Maps/Sets are tagged so
+// they round-trip; participants are stored as [key, record] entries to preserve
+// their map key (the old socket id for real players, `ghost::*` for ghosts).
+export function serializeSession(session) {
+  if (!session) return null
+  const out = {}
+  for (const [k, v] of Object.entries(session)) {
+    if (NON_PERSISTED_SESSION_FIELDS.has(k)) continue
+    if (typeof v === 'function') continue
+    out[k] = encodeValue(v)
+  }
+  out.participants = session.participants
+    ? [...session.participants.entries()].map(([key, p]) => [key, serializeParticipant(p)])
+    : []
+  return out
+}
+
+// Rebuild a live session object from its serialized form. The old process's
+// sockets are gone, so real participants are marked offline (disconnectedAt)
+// until they reconnect via participantId — getConnectedCount honours this so
+// the host's roster is accurate on rehydration. Ephemeral bindings and timers
+// are reset; the boot rehydrator restarts the state-broadcast loop.
+export function deserializeSession(obj) {
+  if (!obj) return null
+  const session = {}
+  for (const [k, v] of Object.entries(obj)) {
+    if (k === 'participants') continue
+    session[k] = decodeValue(v)
+  }
+  const participants = new Map()
+  const participantsById = new Map()
+  for (const [key, raw] of obj.participants || []) {
+    const p = deserializeParticipant(raw)
+    const isGhost = String(key).startsWith('ghost::')
+    if (!isGhost && !p.disconnectedAt) p.disconnectedAt = Date.now()
+    participants.set(key, p)
+    if (p.participantId && !isGhost) participantsById.set(p.participantId, p)
+  }
+  session.participants = participants
+  session.participantsById = participantsById
+  session.hostSocketId = null
+  session.hostSocketIds = new Set()
+  session.endTimer = null
+  session._stateBroadcastTimer = null
+  if (!(session.disconnectedParticipants instanceof Map)) {
+    session.disconnectedParticipants = new Map()
+  }
+  return session
+}

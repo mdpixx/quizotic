@@ -51,6 +51,14 @@ import {
   buildSessionStateSnapshot as _buildSessionStateSnapshot,
   flushPendingPersist as _flushPendingPersist,
 } from './src/lib/session-state.mjs'
+import {
+  initSessionStore,
+  isSessionStoreEnabled,
+  saveSession,
+  removeSession,
+  saveAllSessions,
+  loadAllSessions,
+} from './src/lib/session-store.mjs'
 import { allowRate, generateGameCode, sanitizeDisplayText, startRateBucketSweep } from './src/lib/server-guards.mjs'
 
 // Two-screen host model: a session may have MULTIPLE host sockets at once
@@ -736,8 +744,14 @@ setInterval(() => {
 // quiz payload + every participant's answer arrays for 5 minutes. Strip the
 // heavy fields immediately (results are already persisted to the DB by the
 // time this is called) and delete after a short grace.
-const ENDED_SESSION_GRACE_MS = 60_000
+// 5-minute grace: an ended game (or one whose server just restarted) resolves
+// to a clear "already ended" message and lets stragglers reload, rather than a
+// dead-end "Game not found" that reads like a code typo.
+const ENDED_SESSION_GRACE_MS = 5 * 60_000
 function scheduleEndedSessionCleanup(gameCode, session) {
+  // Drop from the durable store immediately so a redeploy during the grace
+  // window doesn't resurrect a finished game.
+  removeSession(gameCode)
   session.quizData = session.quizData
     ? { id: session.quizData.id || null, title: session.quizData.title || '', questions: [] }
     : session.quizData
@@ -759,6 +773,7 @@ function evictEndedSessions() {
     if (s.status === 'ended') {
       if (s.endTimer) { clearTimeout(s.endTimer); s.endTimer = null }
       sessions.delete(code)
+      removeSession(code)
       evicted++
     }
   }
@@ -855,12 +870,14 @@ app.prepare().then(async () => {
     pingTimeout: 25000,
   })
 
-  // ─── REDIS ADAPTER (optional) ──────────────────────────────────
-  // When REDIS_URL is set, cross-instance event broadcasting is enabled.
-  // Note: session state still lives in the in-memory `sessions` Map on each
-  // instance — Railway sticky sessions keep a given client pinned to one
-  // process. The Redis adapter only relays broadcasts. A future phase will
-  // migrate session state to Redis for fully-stateless instances.
+  // ─── REDIS (optional) ──────────────────────────────────────────
+  // When REDIS_URL is set, we use Redis for two things:
+  //   1. Socket.io adapter — cross-instance event broadcasting.
+  //   2. Session durability — the in-memory `sessions` Map is mirrored to Redis
+  //      (write-through on create + a throttled snapshot from the broadcast
+  //      loop + a flush on shutdown) and rehydrated on boot. Without this, every
+  //      redeploy/crash wiped all live games and participants hit "Game not
+  //      found"; now hosts/participants auto-reconnect to the restored session.
   if (process.env.REDIS_URL) {
     try {
       const [{ Redis }, { createAdapter }] = await Promise.all([
@@ -869,17 +886,45 @@ app.prepare().then(async () => {
       ])
       const pubClient = new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: null, enableReadyCheck: false })
       const subClient = pubClient.duplicate()
+      // Dedicated client for session-state reads/writes. Kept separate from the
+      // adapter's pub/sub clients (subClient runs in subscriber mode and can't
+      // issue normal commands).
+      const storeClient = new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: null, enableReadyCheck: false })
       await Promise.all([
         new Promise((res, rej) => pubClient.once('ready', res).once('error', rej)),
         new Promise((res, rej) => subClient.once('ready', res).once('error', rej)),
+        new Promise((res, rej) => storeClient.once('ready', res).once('error', rej)),
       ])
       io.adapter(createAdapter(pubClient, subClient))
+      initSessionStore(storeClient)
       console.log('[socket.io] Redis adapter attached — cross-instance broadcast enabled')
     } catch (err) {
-      console.error('[socket.io] Redis adapter failed to attach, falling back to in-memory:', err.message)
+      console.error('[socket.io] Redis attach failed, falling back to in-memory (no session durability):', err.message)
     }
   } else {
-    console.log('[socket.io] Running with in-memory adapter (single-instance). Set REDIS_URL to enable horizontal scale.')
+    console.log('[socket.io] Running with in-memory adapter (single-instance, no session durability). Set REDIS_URL to enable it.')
+  }
+
+  // ─── BOOT REHYDRATION ──────────────────────────────────────────
+  // Restore live sessions persisted by the previous process so a redeploy or
+  // crash doesn't end games in progress. Ended sessions are skipped; each
+  // restored session resumes its host state-broadcast loop. Hosts reconnect via
+  // host_resume and participants via their participantId — both look the session
+  // up in this Map, so simply repopulating it is enough for them to rejoin.
+  if (isSessionStoreEnabled()) {
+    try {
+      const restored = await loadAllSessions()
+      let live = 0
+      for (const [gameCode, session] of restored) {
+        if (session.status === 'ended' || sessions.has(gameCode)) continue
+        sessions.set(gameCode, session)
+        startSessionStateBroadcast(io, gameCode, session)
+        live++
+      }
+      if (live) console.log(`[session-store] rehydrated ${live} live session(s) from Redis`)
+    } catch (err) {
+      console.error('[session-store] boot rehydration failed:', err?.message ?? err)
+    }
   }
 
   // Verify auth on socket connection — attach userId to socket.data
@@ -1005,6 +1050,10 @@ app.prepare().then(async () => {
       // Start the periodic state broadcast right away so the host UI can
       // reconcile even before the first participant joins.
       startSessionStateBroadcast(io, gameCode, sessions.get(gameCode))
+      // Persist immediately so a redeploy in the first few seconds (before the
+      // throttled broadcast snapshot) still survives. Best-effort — never block
+      // the host on Redis.
+      saveSession(gameCode, sessions.get(gameCode))
       console.log(`[session] created: ${gameCode}${teamMode ? ` (teams: ${numTeams})` : ''}`)
       callback({ success: true, gameCode, hostResumeToken })
     })
@@ -1648,6 +1697,7 @@ app.prepare().then(async () => {
       socket.join(`session:${gameCode}`)
       socket.join(`host:${gameCode}`)
       startSessionStateBroadcast(io, gameCode, sessions.get(gameCode))
+      saveSession(gameCode, sessions.get(gameCode))
       console.log(`[presenter] created: ${gameCode}`)
       callback({ success: true, gameCode, hostResumeToken: presenterHostResumeToken })
     })
@@ -1970,6 +2020,7 @@ app.prepare().then(async () => {
       })
 
       sessions.delete(gameCode)
+      removeSession(gameCode)
       console.log(`[presenter] ended: ${gameCode}`)
     })
 
@@ -2779,6 +2830,7 @@ app.prepare().then(async () => {
                 stopSessionStateBroadcast(s)
                 io.to(`session:${code}`).emit('host_disconnected')
                 sessions.delete(code)
+                removeSession(code)
                 console.log(`[session] deleted (host never returned): ${code}`)
               }
             }, 5 * 60 * 1000)
@@ -2788,6 +2840,7 @@ app.prepare().then(async () => {
           stopSessionStateBroadcast(session)
           io.to(`session:${code}`).emit('host_disconnected')
           sessions.delete(code)
+          removeSession(code)
           console.log(`[session] deleted (host left): ${code}`)
           continue
         }
@@ -2862,6 +2915,14 @@ app.prepare().then(async () => {
       httpServer.close()
       // Best-effort flush of any queued session-state persists
       try { await _flushPendingPersist() } catch (err) { console.warn('[shutdown] flushPendingPersist failed:', err?.message ?? err) }
+      // Snapshot every live session to Redis so the next instance rehydrates
+      // them — an intentional deploy shouldn't drop games in progress.
+      if (isSessionStoreEnabled()) {
+        try {
+          const flushed = await saveAllSessions(sessions.entries())
+          console.log(`[shutdown] flushed ${flushed} live session(s) to Redis`)
+        } catch (err) { console.warn('[shutdown] session flush failed:', err?.message ?? err) }
+      }
       // Drain DB pool
       if (dbPool) await dbPool.end().catch(() => {})
       console.log('[shutdown] drained — exiting')
@@ -3211,6 +3272,9 @@ function startSessionStateBroadcast(io, gameCode, session) {
     }
     const snapshot = buildSessionStateSnapshot(s)
     io.to(`host:${gameCode}`).emit('session_state', snapshot)
+    // Throttled durability snapshot — captures incremental state (joins,
+    // answers, question/slide advances) without wiring every mutation.
+    saveSession(gameCode, s)
   }
   session._stateBroadcastTimer = setInterval(tick, 5000)
 }
