@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import posthog from 'posthog-js'
+import { captureRaw } from '@/lib/analytics'
 
 type Context = 'pricing' | 'join' | 'dashboard' | 'host-ended' | 'participant-ended'
 type Size = 'sm' | 'md'
@@ -56,7 +56,7 @@ function buildUrl(context: Context, channel: Channel) {
 
 function track(context: Context, channel: Channel) {
   try {
-    posthog.capture?.('share_quizotic_click', { context, channel })
+    captureRaw('share_quizotic_click', { context, channel })
   } catch {
     // Non-blocking
   }

@@ -18,7 +18,8 @@
     "predeploy": "bash scripts/predeploy-check.sh",
     "repair-schema": "node scripts/ensure-critical-columns.mjs",
     "rewrite-r2-urls": "node scripts/rewrite-r2-urls.mjs",
-    "mcp:quizotic": "node mcp/quizotic-mcp-server.mjs"
+    "mcp:quizotic": "node mcp/quizotic-mcp-server.mjs",
+    "budget:check": "node scripts/check-bundle-budget.mjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",

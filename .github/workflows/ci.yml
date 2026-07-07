@@ -45,3 +45,9 @@ jobs:
         env:
           DATABASE_URL: postgresql://build:build@localhost:5432/build
         run: npm run build
+
+      # Participant-page JS budget — phones on 1-2 Mbps classroom connections.
+      # Fails the build if /join's initial JS exceeds the gzip budget; split or
+      # lazy-load the new weight instead of raising the number.
+      - name: Check participant bundle budget
+        run: npm run budget:check

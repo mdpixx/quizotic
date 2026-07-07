@@ -1,6 +1,6 @@
 'use client'
 
-import posthog from 'posthog-js'
+import { captureRaw } from '@/lib/analytics'
 import { NavChevron } from '@/components/ui/NavButton'
 
 // Convert a participant into a host at the ideal moment — right after they've
@@ -20,7 +20,7 @@ interface Props {
 export function CreateYourOwnCTA({ context = 'quiz-ended', className = 'mt-6' }: Props) {
   const handleClick = () => {
     try {
-      posthog.capture?.('participant_create_cta_click', { context })
+      captureRaw('participant_create_cta_click', { context })
     } catch {
       // Non-blocking — never let analytics break navigation.
     }
