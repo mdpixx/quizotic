@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 
 import { io, Socket } from 'socket.io-client'
 import QRCode from 'react-qr-code'
+import { useFitText } from '@/hooks/use-fit-text'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Avatar } from '@/components/Avatar'
 import { Podium } from '@/components/Podium'
@@ -539,6 +540,20 @@ export default function SessionPage() {
         hasExplanation: Boolean(currentQuestion.explanation),
       })
     : null
+
+  // Closed-loop question fit: the bucket classes above are only the
+  // pre-measure guess — tuned on laptop screens, they under-shrink on
+  // projectors (1024×768, 125% scaling) and the card's max-height +
+  // overflow:hidden then CLIPS the question. Measuring the real card and
+  // shrinking until it fits guarantees the full question is visible at any
+  // resolution. Fitted once per question and held through the reveal.
+  const questionCardRef = useRef<HTMLDivElement>(null)
+  const questionTextRef = useRef<HTMLParagraphElement>(null)
+  useFitText(questionCardRef, questionTextRef, {
+    min: 16,
+    max: 46,
+    deps: [currentQuestion?.text, currentQuestion?.imageUrl, phase],
+  })
 
   // Per-option stats payload shared by the left stats rail and the immersive
   // overlay. Built once here so both stay in sync and the question phase's
@@ -2309,16 +2324,23 @@ export default function SessionPage() {
             </div>
           )}
 
-          {/* Question card — text auto-scales so long questions stay in view */}
+          {/* Question card — text auto-scales so long questions stay in view.
+              flex-col so the image (min-h-0 shrink, object-contain) is the
+              member that yields under the card's max-height cap: at projector
+              heights the image alone can exceed the cap, and no font size can
+              fix that — the text wins the space fight, the image shrinks
+              keeping its ratio. */}
           <div
-            className={`host-question-card ${hostQuestionFit?.questionClass ?? 'host-question-fit-large'} w-full rounded-[28px] shadow-2xl border ${currentQuestion.type === 'wordcloud' ? 'p-4 md:p-5 host-question-card-compact' : 'p-5 md:p-7'} ${currentQuestion.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
+            ref={questionCardRef}
+            className={`host-question-card ${hostQuestionFit?.questionClass ?? 'host-question-fit-large'} w-full flex flex-col rounded-[28px] shadow-2xl border ${currentQuestion.type === 'wordcloud' ? 'p-4 md:p-5 host-question-card-compact' : 'p-5 md:p-7'} ${currentQuestion.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
             style={{
               background: 'rgba(255,255,255,0.96)',
               boxShadow: '0 24px 80px rgba(0,0,0,0.35)',
             }}
           >
             <p
-              className="font-display font-bold leading-snug break-words"
+              ref={questionTextRef}
+              className="shrink-0 font-display font-bold leading-snug break-words"
               style={{
                 color: '#0F1B3D',
                 lineHeight: 1.1,
@@ -2328,7 +2350,7 @@ export default function SessionPage() {
               {currentQuestion.text}
             </p>
             {currentQuestion.imageUrl && (
-              <img src={currentQuestion.imageUrl} alt={`Image for question ${questionIndex + 1}`} className="mt-3 rounded-xl w-full object-contain" style={{ maxHeight: 'min(18vh, 200px)' }} loading="eager" />
+              <img src={currentQuestion.imageUrl} alt={`Image for question ${questionIndex + 1}`} className="mt-3 rounded-xl w-full min-h-0 shrink object-contain" style={{ maxHeight: 'min(18vh, 200px)' }} loading="eager" />
             )}
           </div>
 
