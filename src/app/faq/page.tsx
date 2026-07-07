@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 const FAQS = [
   {
     q: 'Is Quizotic really free?',
-    a: 'Yes — completely free right now. No credit card required, no time limit. You can run live sessions with up to 50 participants, create up to 5 quizzes, and use AI generation (30 questions/month). We are not charging currently as a gesture of learning enablement while we grow.',
+    a: 'Yes — completely free right now. No credit card required, no time limit. You can run live sessions with up to 50 participants, create up to 20 quizzes, and use AI generation (30 questions/month). We are not charging currently as a gesture of learning enablement while we grow.',
   },
   {
     q: 'How is Quizotic different from Kahoot?',

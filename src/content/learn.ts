@@ -133,7 +133,7 @@ export const LEARN_ARTICLES: Record<string, LearnArticle> = {
       {
         question: 'Is it really free for Indian teachers?',
         answer:
-          'Yes. Quizotic\'s free plan covers up to 50 participants per session and 5 saved quizzes — enough for a section. For multiple sections or batch-wise mocks, the Pro plan is ₹499/month. Kahoot\'s free tier is restricted in many features; the paid Indian-priced tiers do not exist (USD only).',
+          'Yes. Quizotic\'s free plan covers up to 50 participants per session and 20 saved quizzes — enough for a section. For multiple sections or batch-wise mocks, the Pro plan is ₹499/month. Kahoot\'s free tier is restricted in many features; the paid Indian-priced tiers do not exist (USD only).',
       },
       {
         question: 'Can I use this for a CBSE Class 10 board prep?',

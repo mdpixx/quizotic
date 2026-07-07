@@ -15,7 +15,7 @@ import { SessionReport } from '@/components/SessionReport'
 import { LeaderboardView } from '@/components/LeaderboardView'
 import { useFeedback } from '@/components/FeedbackProvider'
 import { playLeaderboardJingle, playTick, playBackgroundMusic, stopBackgroundMusic, playBassBoom, playCelebration, playFirecracker, preloadCelebrationSounds, playDrumroll, stopDrumroll, isMuted, toggleMuted } from '@/lib/sounds'
-import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/quiz-storage'
+import { getActiveSession, setActiveSession, clearActiveSession, consumeStartIntent } from '@/lib/quiz-storage'
 import type { Quiz, QuestionStat, SessionMode } from '@/lib/quiz-types'
 import { ReflectionInsights } from '@/components/ReflectionInsights'
 import { getOptionText, getOptionImage, isScoredQuestion, getEffectiveOptions } from '@/lib/quiz-types'
@@ -277,6 +277,18 @@ export default function SessionPage() {
   // True while a reload-recovery is in flight: refs were seeded from
   // sessionStorage but the UI hasn't been rebuilt from host_resume yet.
   const resumeRestorePendingRef = useRef(false)
+  // A still-running session from an earlier run of this tab, discovered while
+  // booting with a fresh Start-live intent. The host must explicitly choose
+  // (resume it / end it & start fresh) — never silently reattach, which used
+  // to skip the lobby and drop the host mid-game.
+  const [staleSession, setStaleSession] = useState<{ gameCode: string; token: string } | null>(null)
+  // True while "end it & start fresh" is tearing the old session down: the
+  // session_ended event it triggers must only clean up, not flip the UI to
+  // the old game's ended screen.
+  const discardingStaleRef = useRef(false)
+  // Latches the boot-time resume-vs-chooser decision so StrictMode's second
+  // effect invocation can't re-decide after the intent marker was consumed.
+  const bootDecisionRef = useRef<'unset' | 'chooser' | 'resume' | 'none'>('unset')
 
   const [phase, setPhase] = useState<Phase>(initialQuiz ? 'idle' : 'loading')
   const [quiz, setQuiz] = useState<Quiz | null>(initialQuiz)
@@ -678,6 +690,58 @@ export default function SessionPage() {
       .catch(() => {})
   }, [ghostMode, quiz])
 
+  // Shared host_resume emit — used by the connect handler (reload recovery /
+  // reconnect) and by the stale-session chooser's Resume button. Touches only
+  // refs and stable setters, so the empty-deps useCallback is safe.
+  const emitHostResume = useCallback((socket: Socket, code: string, token: string) => {
+    socket.emit('host_resume', { gameCode: code, token }, (res?: {
+      success?: boolean
+      error?: string
+      type?: string
+      status?: string
+      currentQuestionIndex?: number
+    }) => {
+      if (res?.success) {
+        console.log('[host_resume] reattached to', code)
+        // After a plain socket reconnect the React state is intact and we
+        // must not touch it. After a reload it was lost — rebuild the UI
+        // from the server's snapshot. Participant list and answer counts
+        // refill via the 5s session_state broadcast and live events.
+        if (resumeRestorePendingRef.current) {
+          resumeRestorePendingRef.current = false
+          const restoredQuiz = quizRef.current
+          if ((res.type ?? 'quiz') === 'quiz' && restoredQuiz) {
+            setGameCode(code)
+            if (res.status === 'lobby') {
+              setPhase('lobby')
+            } else if (res.status === 'active') {
+              const idx = Math.min(
+                Math.max(res.currentQuestionIndex ?? 0, 0),
+                restoredQuiz.questions.length - 1,
+              )
+              questionIndexRef.current = idx
+              setQuestionIndex(idx)
+              // Timer/answer counts for the in-flight question aren't
+              // recoverable; the host lands on the question controls and
+              // can reveal or advance — both resync everyone.
+              setPhase('question')
+            }
+          }
+        }
+      } else if (res?.error) {
+        console.warn('[host_resume] failed:', res.error)
+        if (resumeRestorePendingRef.current) {
+          // Session is gone (ended or expired) — drop the stale handle so
+          // the next reload doesn't retry forever.
+          resumeRestorePendingRef.current = false
+          gameCodeRef.current = ''
+          hostResumeTokenRef.current = ''
+          clearHostResume()
+        }
+      }
+    })
+  }, [])
+
   // Socket setup — run ONCE after quiz is loaded (empty deps, guarded by quiz check)
   const socketInitialized = useRef(false)
   useEffect(() => {
@@ -688,14 +752,26 @@ export default function SessionPage() {
     // refs are empty but sessionStorage still has the code + resume token.
     // Seed the refs so the connect handler below reclaims the session, and
     // remember that the UI needs rebuilding from the host_resume callback.
-    // The pending flag lives in a ref, not this closure — StrictMode runs
-    // this effect twice and the refs persist across the double-invoke.
-    if (!gameCodeRef.current) {
+    // EXCEPT when the host just clicked "host this quiz" somewhere
+    // (consumeStartIntent): then a persisted handle means an EARLIER session
+    // is still running, and silently reattaching would skip the lobby and
+    // dump the host mid-game. Surface the choice instead (staleSession UI).
+    // The decision is latched in a ref: consumeStartIntent() is read-and-
+    // clear, so StrictMode's second effect run must not re-decide (it would
+    // see "no intent" and silently take the resume path).
+    if (!gameCodeRef.current && bootDecisionRef.current === 'unset') {
       const persisted = loadHostResume()
-      if (persisted) {
+      const freshStart = consumeStartIntent()
+      if (persisted && freshStart) {
+        bootDecisionRef.current = 'chooser'
+        setStaleSession(persisted)
+      } else if (persisted) {
+        bootDecisionRef.current = 'resume'
         gameCodeRef.current = persisted.gameCode
         hostResumeTokenRef.current = persisted.token
         resumeRestorePendingRef.current = true
+      } else {
+        bootDecisionRef.current = 'none'
       }
     }
 
@@ -717,52 +793,7 @@ export default function SessionPage() {
       const code = gameCodeRef.current
       const token = hostResumeTokenRef.current
       if (code && token) {
-        socket.emit('host_resume', { gameCode: code, token }, (res?: {
-          success?: boolean
-          error?: string
-          type?: string
-          status?: string
-          currentQuestionIndex?: number
-        }) => {
-          if (res?.success) {
-            console.log('[host_resume] reattached to', code)
-            // After a plain socket reconnect the React state is intact and we
-            // must not touch it. After a reload it was lost — rebuild the UI
-            // from the server's snapshot. Participant list and answer counts
-            // refill via the 5s session_state broadcast and live events.
-            if (resumeRestorePendingRef.current) {
-              resumeRestorePendingRef.current = false
-              const restoredQuiz = quizRef.current
-              if ((res.type ?? 'quiz') === 'quiz' && restoredQuiz) {
-                setGameCode(code)
-                if (res.status === 'lobby') {
-                  setPhase('lobby')
-                } else if (res.status === 'active') {
-                  const idx = Math.min(
-                    Math.max(res.currentQuestionIndex ?? 0, 0),
-                    restoredQuiz.questions.length - 1,
-                  )
-                  questionIndexRef.current = idx
-                  setQuestionIndex(idx)
-                  // Timer/answer counts for the in-flight question aren't
-                  // recoverable; the host lands on the question controls and
-                  // can reveal or advance — both resync everyone.
-                  setPhase('question')
-                }
-              }
-            }
-          } else if (res?.error) {
-            console.warn('[host_resume] failed:', res.error)
-            if (resumeRestorePendingRef.current) {
-              // Session is gone (ended or expired) — drop the stale handle so
-              // the next reload doesn't retry forever.
-              resumeRestorePendingRef.current = false
-              gameCodeRef.current = ''
-              hostResumeTokenRef.current = ''
-              clearHostResume()
-            }
-          }
-        })
+        emitHostResume(socket, code, token)
       }
     })
 
@@ -1071,6 +1102,14 @@ export default function SessionPage() {
       questionStats: QuestionStat[];
       sessionMode: SessionMode;
     }) => {
+      // "End it & start fresh" tore down an EARLIER session — this event is
+      // its teardown echo, not the end of the game being hosted now. Clean up
+      // the handle and stay on the current screen.
+      if (discardingStaleRef.current) {
+        discardingStaleRef.current = false
+        clearHostResume()
+        return
+      }
       if (sm) setSessionMode(sm)
       setLeaderboard(lb)
       setTeamLeaderboard(tlb ?? null)
@@ -1140,7 +1179,42 @@ export default function SessionPage() {
       // the effect runs once, so this only fires on unmount.
       socketInitialized.current = false
     }
-  }, [quiz])
+  }, [quiz, emitHostResume])
+
+  // ── Stale-session chooser actions ─────────────────────────────────────────
+  // Shown when the host arrived with a fresh Start-live intent but an earlier
+  // session from this tab is still running (see boot seeding above).
+
+  function resumeStaleSession() {
+    const stale = staleSession
+    const socket = socketRef.current
+    if (!stale || !socket) return
+    setStaleSession(null)
+    gameCodeRef.current = stale.gameCode
+    hostResumeTokenRef.current = stale.token
+    resumeRestorePendingRef.current = true
+    emitHostResume(socket, stale.gameCode, stale.token)
+  }
+
+  function discardStaleSession() {
+    const stale = staleSession
+    const socket = socketRef.current
+    if (!stale || !socket) return
+    setStaleSession(null)
+    // end_session only accepts the bound host socket, so reclaim first, then
+    // end. The resulting session_ended event is swallowed by the discard
+    // guard in its handler; the host stays on the idle screen to start fresh.
+    discardingStaleRef.current = true
+    socket.emit('host_resume', { gameCode: stale.gameCode, token: stale.token }, (res?: { success?: boolean }) => {
+      if (res?.success) {
+        socket.emit('end_session', { gameCode: stale.gameCode })
+      } else {
+        // Session already expired server-side — nothing to end.
+        discardingStaleRef.current = false
+        clearHostResume()
+      }
+    })
+  }
 
   async function createSession() {
     if (!quiz || creating) return
@@ -1539,6 +1613,43 @@ export default function SessionPage() {
       data-theme={quizTheme.id}
     >
       {!isLiveHostStage && <BrandWatermark placement="host" />}
+
+      {/* Stale-session chooser — an earlier session from this tab is still
+          running and the host just clicked "host this quiz". Block until they
+          decide; silently reattaching used to skip the lobby mid-game. */}
+      {staleSession && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+          <div className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="stale-session-title">
+            <p className="text-[11px] font-black uppercase tracking-[0.16em]" style={{ color: '#D97706' }}>Session still running</p>
+            <h2 id="stale-session-title" className="mt-1 text-xl font-black" style={{ color: '#0F1B3D' }}>You have a live session from earlier</h2>
+            <p className="mt-2 text-sm" style={{ color: '#64748B' }}>
+              Game code <span className="font-black tabular-nums" style={{ color: '#0F1B3D' }}>{staleSession.gameCode}</span> is
+              still open — participants may still be connected. Resume it, or end it and start fresh with this quiz.
+            </p>
+            <div className="mt-5 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={resumeStaleSession}
+                disabled={!socketConnected}
+                className="w-full rounded-2xl py-3 text-sm font-black transition-all hover:opacity-90 disabled:opacity-50"
+                style={{ background: '#0F1B3D', color: '#FBD13B' }}
+              >
+                Resume session {staleSession.gameCode}
+              </button>
+              <button
+                type="button"
+                onClick={discardStaleSession}
+                disabled={!socketConnected}
+                className="w-full rounded-2xl border py-3 text-sm font-black transition-colors hover:bg-red-50 disabled:opacity-50"
+                style={{ borderColor: '#FECACA', color: '#B91C1C' }}
+              >
+                End it &amp; start fresh
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* IDLE */}
       {phase === 'idle' && quiz && (

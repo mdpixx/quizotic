@@ -45,7 +45,7 @@ Missed questions automatically queue for review at expanding intervals (1 day, 3
 
 ## Plans & Pricing (INR)
 
-- **Free** — up to 50 participants per session, 5 saved quizzes, 30 AI generations/month.
+- **Free** — up to 50 participants per session, 20 saved quizzes, 30 AI generations/month.
 - **Pro** — ₹499/month or ₹4,499/year (25% saved). Up to 200 participants, advanced reports, AI generator, team mode, GST invoices.
 - **Team** — for institutes: seat-based, admin dashboard, SSO, bulk licenses.
 
