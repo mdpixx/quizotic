@@ -261,9 +261,14 @@ body {
      content (flex-shrink 0) — the option grid below (min-h-0, 1fr rows) is the
      flexible part that absorbs the difference. The fit classes already shrink
      the font under pressure; max-height stays as a hard stop for pathological
-     questions only. */
+     questions only.
+     min-height floors the % cap on short projector viewports (a 720p
+     projector mirrored from a 125%-scaled laptop is 576 CSS px tall): below
+     ~120px not even a 16px-font question fits, so the options grid absorbs
+     the squeeze instead of the question clipping. */
   flex: 0 0 auto;
   max-height: 40%;
+  min-height: 120px;
   overflow: hidden;
 }
 
@@ -471,9 +476,14 @@ body {
     min-height: 248px;
   }
 
-  /* Card is nested in the 3-col center column now — use descendant selector. */
+  /* Card is nested in the 3-col center column now — use descendant selector.
+     Compact padding: at 576 CSS px (720p projector behind 125% scaling) the
+     md:p-7 padding alone ate 56px of the ~120px card, leaving less than a
+     16px-font question needs. Proportionate padding keeps the min-height
+     floor meaningful. */
   .host-question-stage .host-question-card {
     max-height: 32%;
+    padding: 1rem 1.25rem;
   }
 
   /* Tighten the side rails on short viewports so the center keeps room.
