@@ -1829,8 +1829,15 @@ export default function SessionPage() {
             {/* ── Two-column: PIN/QR left | Players canvas right ── */}
             <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[380px_1fr] lg:grid-rows-1 gap-4 lg:gap-5 overflow-y-auto lg:overflow-hidden [&>*]:min-w-0">
 
-              {/* Left column: Game PIN card + phone remote */}
-              <div className="space-y-4 min-h-0 lg:overflow-y-auto pr-1">
+              {/* Left column: Game PIN card + phone remote.
+                  `min-h-0` is scoped to `lg` on purpose: on mobile the grid
+                  collapses to one column, and an unqualified `min-h-0` lets the
+                  fixed-height grid compress this row below the PIN/QR card's
+                  natural height. The card then overflows downward and the
+                  players panel (which has backdrop-blur) renders on top of it,
+                  visibly blurring the QR. Scoping to `lg` keeps the desktop
+                  column scroll while letting mobile size to content + scroll. */}
+              <div className="space-y-4 lg:min-h-0 lg:overflow-y-auto pr-1">
                 <div className="rounded-3xl p-7 text-center relative" style={{ background: 'rgba(255,255,255,0.96)', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
                   <p className="text-xs tracking-[0.4em] font-black uppercase mb-2" style={{ color: '#2D2A66' }}>Game PIN</p>
                   <p
