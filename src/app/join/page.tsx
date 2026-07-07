@@ -10,7 +10,9 @@ import { ShareQuizotic } from '@/components/ShareQuizotic'
 import { NavChevron } from '@/components/ui/NavButton'
 import { CreateYourOwnCTA } from '@/components/CreateYourOwnCTA'
 import { playTick, playCorrect, playWrong, playStreak, isMuted, toggleMuted } from '@/lib/sounds'
-import { LeaderboardView } from '@/components/LeaderboardView'
+// LeaderboardView drags framer-motion (~180KB raw) into whatever bundle
+// imports it statically — lazy like the other mid-game views below; warmed
+// right after a successful join so the first standings render is instant.
 import { ResultBeat, type PersonalResult } from '@/components/ResultBeat'
 import { startClockSync, getServerNow, resyncClock } from '@/lib/clock-sync'
 import { PRESENTATION_SEQUENCE } from '@/lib/sequence-theme'
@@ -42,6 +44,7 @@ function phaseForPresenterSlide(
 }
 
 const CircularTimer = dynamic(() => import('@/components/CircularTimer').then(m => m.CircularTimer), { ssr: false })
+const LeaderboardView = dynamic(() => import('@/components/LeaderboardView').then(m => m.LeaderboardView), { ssr: false })
 const DrawingCanvas = dynamic(() => import('@/components/DrawingCanvas').then(m => m.DrawingCanvas), { ssr: false })
 const Podium = dynamic(() => import('@/components/Podium').then(m => m.Podium), { ssr: false })
 const ReflectionMoment = dynamic(() => import('@/components/ReflectionMoment').then(m => m.ReflectionMoment), { ssr: false })
@@ -779,15 +782,17 @@ function JoinPageInner() {
   }, [])
 
   // ─── Deferred Socket.io — connect only when user joins ─────────────────────
-  const initSocket = useCallback(() => {
-    if (socketRef.current) return socketRef.current
-    // Dynamic import to keep socket.io-client out of the initial form bundle.
-    // ESLint complains about require() in TS but a dynamic require IS what we
-    // want here — `await import()` would force the surrounding fn to be async
-    // and rewriting initSocket's call sites to handle Promise<Socket> is more
-    // churn than this single line warrants.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { io: ioConnect } = require('socket.io-client') as typeof import('socket.io-client')
+  // Promise-memoized so concurrent callers share one socket across the await.
+  const socketInitPromiseRef = useRef<Promise<Socket> | null>(null)
+  const initSocket = useCallback((): Promise<Socket> => {
+    if (socketInitPromiseRef.current) return socketInitPromiseRef.current
+    socketInitPromiseRef.current = (async () => {
+    // Real code-split: `await import()` emits a separate chunk. The previous
+    // require() here was bundled statically by turbopack despite the comment
+    // claiming otherwise, so socket.io-client sat in the initial form bundle.
+    // A prefetch on mount (below) warms the chunk, so by the time the
+    // participant taps Join this await resolves from cache.
+    const { io: ioConnect } = await import('socket.io-client')
     const socket: Socket = ioConnect({
       reconnection: true,
       reconnectionAttempts: 10,
@@ -1270,14 +1275,32 @@ function JoinPageInner() {
     })
 
     return socket
+    })()
+    return socketInitPromiseRef.current
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Warm the socket.io-client chunk once the form has painted, so the join
+  // tap never waits on a network fetch for it (matters at 1–2 Mbps).
+  useEffect(() => {
+    const t = setTimeout(() => { void import('socket.io-client') }, 1500)
+    return () => clearTimeout(t)
+  }, [])
+
+  // Warm the lazy mid-game views once actually in a session (not on the
+  // form): the first standings/leaderboard render should never wait on a
+  // chunk fetch mid-quiz.
+  const inSession = phase !== 'form' && phase !== 'connecting'
+  useEffect(() => {
+    if (!inSession) return
+    void import('@/components/LeaderboardView')
+  }, [inSession])
 
   // Auto-join follow-up session if ?followup= param is present
   useEffect(() => {
     if (followupParam) {
-      const socket = initSocket()
       followupCodeRef.current = followupParam
+      void initSocket().then(socket => {
       socket.emit('join_followup', { code: followupParam }, (res: {
         success: boolean; error?: string;
         questions?: Question[]; quizTitle?: string; label?: string;
@@ -1297,12 +1320,14 @@ function JoinPageInner() {
         setSpShowAnswer(false)
         setPhase('selfpaced')
       })
+      })
     }
 
     return () => {
       if (socketRef.current) {
         socketRef.current.disconnect()
         socketRef.current = null
+        socketInitPromiseRef.current = null
       }
     }
   }, [followupParam, initSocket])
@@ -1341,7 +1366,7 @@ function JoinPageInner() {
     participantIdRef.current = getOrCreateParticipantId(trimmedCode)
 
     // Connect socket on first join (deferred from page load)
-    const socket = initSocket()
+    const socket = await initSocket()
 
     // Route to presenter join if mode=presenter
     if (modeParam === 'presenter') {
