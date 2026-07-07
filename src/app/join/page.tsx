@@ -2880,7 +2880,7 @@ function JoinPageInner() {
                   style={{ background: OPTION_COLORS_P[i % OPTION_COLORS_P.length], color: '#fff', opacity: slide.type === 'quick_fire' && quickFireLeft === 0 ? 0.5 : 1 }}>
                   <span className="w-9 h-9 rounded-lg inline-flex items-center justify-center text-lg mr-3 font-black"
                     style={{ background: 'rgba(255,255,255,0.2)' }}>
-                    {['A','B','C','D','E'][i]}
+                    {ANSWER_LETTERS[i % ANSWER_LETTERS.length]}
                   </span>
                   {opt || `Option ${i+1}`}
                 </button>
