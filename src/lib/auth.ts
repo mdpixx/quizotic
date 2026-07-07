@@ -152,7 +152,7 @@ function buildWelcomeHtml(name: string | null): string {
           <div style="font-size:11px;font-weight:800;color:#854D0E;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;">🎁 Your free plan — no card needed</div>
           <table cellpadding="0" cellspacing="0" width="100%">
             <tr><td width="50%" style="padding:4px 0;font-size:13px;color:#422006;"><span style="color:#0F1B3D;font-weight:900;">✓</span> &nbsp;50 participants per session</td><td width="50%" style="padding:4px 0;font-size:13px;color:#422006;"><span style="color:#0F1B3D;font-weight:900;">✓</span> &nbsp;30 AI questions / month</td></tr>
-            <tr><td style="padding:4px 0;font-size:13px;color:#422006;"><span style="color:#0F1B3D;font-weight:900;">✓</span> &nbsp;5 quizzes + 3 lessons</td><td style="padding:4px 0;font-size:13px;color:#422006;"><span style="color:#0F1B3D;font-weight:900;">✓</span> &nbsp;Free forever</td></tr>
+            <tr><td style="padding:4px 0;font-size:13px;color:#422006;"><span style="color:#0F1B3D;font-weight:900;">✓</span> &nbsp;20 quizzes + 3 lessons</td><td style="padding:4px 0;font-size:13px;color:#422006;"><span style="color:#0F1B3D;font-weight:900;">✓</span> &nbsp;Free forever</td></tr>
           </table>
         </div>
       </td></tr>

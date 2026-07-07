@@ -3,7 +3,7 @@ export const PLAN_LIMITS = {
     maxParticipants: 50,
     maxAiQuestions: 30,      // AI-generated questions per month (proportional)
     maxQuestionsPerGeneration: 10,
-    maxSavedQuizzes: 5,
+    maxSavedQuizzes: 20,
     maxSavedPresentations: 3,
     maxSlidesPerPresentation: 50,
     maxSessionHistory: 3,
