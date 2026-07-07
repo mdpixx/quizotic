@@ -153,15 +153,16 @@ export function convertQuestionType(question: Question, type: QuestionType): Que
 
 /**
  * Picks a responsive Tailwind text size class based on question text length so
- * long questions don't overflow the canvas card or live-session header.
+ * the full question always fits inside the fixed-height canvas band without
+ * scrolling. Tuned for QUESTION_CHAR_LIMIT (160); the >200 bucket only guards
+ * legacy/imported content.
  */
 export function questionTextSizeClass(text: string): string {
   const len = text.length
-  if (len > 240) return 'text-base md:text-lg'
-  if (len > 180) return 'text-lg md:text-xl'
-  if (len > 120) return 'text-xl md:text-2xl'
-  if (len > 70) return 'text-xl md:text-3xl'
-  return 'text-2xl md:text-4xl'
+  if (len > 200) return 'text-base md:text-lg lg:text-xl'
+  if (len > 120) return 'text-lg md:text-xl lg:text-2xl'
+  if (len > 70) return 'text-xl md:text-2xl lg:text-3xl'
+  return 'text-2xl md:text-3xl lg:text-4xl'
 }
 
 export const QUESTION_CHAR_LIMIT = 160

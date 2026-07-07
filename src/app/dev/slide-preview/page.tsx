@@ -8,6 +8,7 @@
  */
 
 import React from 'react'
+import { ANSWER_LETTERS } from '@/lib/answer-colors'
 
 // ─── Sample data ──────────────────────────────────────────────────────────────
 
@@ -368,7 +369,7 @@ function ParticipantView({ s }: { s: SlideSample }) {
                 style={{ background: OPTION_COLORS_P[i % OPTION_COLORS_P.length], color: '#fff' }}>
                 <span className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-sm mr-3 font-black"
                   style={{ background: 'rgba(255,255,255,0.2)' }}>
-                  {['A', 'B', 'C', 'D', 'E'][i]}
+                  {ANSWER_LETTERS[i % ANSWER_LETTERS.length]}
                 </span>
                 {opt}
               </button>

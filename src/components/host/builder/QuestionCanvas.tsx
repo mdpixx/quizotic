@@ -50,18 +50,41 @@ import { SparkleIcon } from './SparkleIcon'
 
 // ── AutoGrowTextarea ─────────────────────────────────────────────────────────
 
+// CSS-only auto-grow: an invisible replica of the text sizes the grid cell and
+// the textarea stretches to fill it. Unlike the old scrollHeight-in-JS
+// approach, the height can never go stale — it tracks font-size breakpoint
+// changes and hidden→visible container switches (mobile pager vs desktop
+// canvas) with zero measurement code, so the text is never clipped.
 function AutoGrowTextarea(
-  props: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { minRows?: number }
+  props: React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
+    minRows?: number
+    wrapperClassName?: string
+  }
 ) {
-  const { minRows = 1, value, ...rest } = props
-  const ref = useRef<HTMLTextAreaElement>(null)
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${el.scrollHeight}px`
-  }, [value])
-  return <textarea ref={ref} value={value} rows={minRows} {...rest} />
+  const { minRows = 1, value, className, style, wrapperClassName = 'w-full', ...rest } = props
+  const text = String(value ?? '')
+  // Replica falls back to the placeholder so the empty state reserves the same
+  // height the placeholder text renders at; trailing space keeps a trailing
+  // newline from collapsing.
+  const replica = (text.length > 0 ? text : rest.placeholder ?? '') + ' '
+  return (
+    <div className={`grid min-w-0 ${wrapperClassName}`}>
+      <div
+        aria-hidden
+        className={`${className ?? ''} invisible whitespace-pre-wrap break-words pointer-events-none select-none`}
+        style={{ ...style, gridArea: '1 / 1' }}
+      >
+        {replica}
+      </div>
+      <textarea
+        value={value}
+        rows={minRows}
+        className={`${className ?? ''} h-full overflow-y-auto break-words`}
+        style={{ ...style, gridArea: '1 / 1' }}
+        {...rest}
+      />
+    </div>
+  )
 }
 
 // ── CharCount badge ──────────────────────────────────────────────────────────
@@ -596,7 +619,13 @@ export function QuestionCanvas({
       </div>
 
       {/* ── Question text ─────────────────────────────────────────────────── */}
-      <div className="flex-shrink-0 relative px-6 pt-6 pb-3 text-center" style={{ background: '#FAFAF8', borderBottom: '1px solid #EDE8E0' }}>
+      {/* Fixed-height band: the question sits in the same place on every slide
+          regardless of type or text length. The font scales down with length
+          (questionTextSizeClass) so the full text fits without scrolling. */}
+      <div
+        className="flex-shrink-0 relative px-6 py-4 text-center flex flex-col justify-center"
+        style={{ background: '#FAFAF8', borderBottom: '1px solid #EDE8E0', height: 'clamp(132px, 24vh, 208px)' }}
+      >
         <CharCount value={question.text} limit={QUESTION_CHAR_LIMIT} />
         <AutoGrowTextarea
           value={question.text}
@@ -604,6 +633,7 @@ export function QuestionCanvas({
           placeholder="What would you like to ask?"
           minRows={1}
           maxLength={160}
+          wrapperClassName="w-full max-h-full overflow-hidden"
           className={`w-full font-bold text-center bg-transparent outline-none resize-none border border-transparent hover:border-blue-200 hover:bg-blue-50/40 focus:border-transparent focus:ring-2 focus:ring-blue-100 rounded-lg transition-all leading-snug cursor-text ${questionTextSizeClass(question.text)}`}
           style={{ color: '#0F1B3D' }}
         />
@@ -611,13 +641,15 @@ export function QuestionCanvas({
 
       {/* ── Image preview (if set) ──────────────────────────────────────── */}
       {question.imageUrl && (
-        <div className="flex-shrink-0 flex items-center justify-center bg-gray-50 border-b" style={{ height: 'clamp(140px, 32vh, 420px)', borderColor: '#E5E7EB' }}>
+        <div className="flex-shrink-0 flex items-center justify-center bg-gray-50 border-b" style={{ height: 'clamp(120px, 26vh, 320px)', borderColor: '#E5E7EB' }}>
           <img src={question.imageUrl} alt="" className="max-w-full max-h-full object-contain" />
         </div>
       )}
 
       {/* ── Options / type body ───────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-3 justify-center">
+      {/* Top-aligned (no justify-center) so answers start at the same y on
+          every slide instead of floating with the leftover space. */}
+      <div className="flex-1 overflow-y-auto px-6 py-4 flex flex-col gap-3">
 
         {/* MCQ / multi-select / T-F / Poll / Case — coloured option tiles */}
         {(question.type === 'mcq' || question.type === 'multiselect' || question.type === 'truefalse' || question.type === 'poll' || question.type === 'case') && opts.length > 0 && (
@@ -640,7 +672,7 @@ export function QuestionCanvas({
                 return (
                   <div
                     key={i}
-                    className="relative overflow-hidden rounded-xl min-h-[100px] flex"
+                    className="relative overflow-hidden rounded-xl min-h-[clamp(64px,11vh,88px)] flex"
                     style={{
                       background: c.hex,
                       boxShadow: isCorrect
@@ -668,7 +700,8 @@ export function QuestionCanvas({
                         placeholder={`Option ${c.letter}`}
                         disabled={question.type === 'truefalse'}
                         maxLength={100}
-                        className="flex-1 min-w-0 text-sm font-bold bg-transparent outline-none border border-transparent hover:border-white/40 hover:bg-white/10 focus:border-white/40 focus:bg-white/10 text-white placeholder:text-white/60 disabled:opacity-70 resize-none leading-snug rounded transition-all cursor-text"
+                        wrapperClassName="flex-1 min-w-0"
+                        className="w-full text-sm font-bold bg-transparent outline-none border border-transparent hover:border-white/40 hover:bg-white/10 focus:border-white/40 focus:bg-white/10 text-white placeholder:text-white/60 disabled:opacity-70 resize-none leading-snug rounded transition-all cursor-text"
                         style={{ textShadow: '0 1px 2px rgba(0,0,0,0.15)' }}
                       />
                       {/* Remove option button (not for truefalse, min 2 options) */}
