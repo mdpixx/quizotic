@@ -67,11 +67,15 @@ function AutoGrowTextarea(
   // height the placeholder text renders at; trailing space keeps a trailing
   // newline from collapsing.
   const replica = (text.length > 0 ? text : rest.placeholder ?? '') + ' '
+  // grid-cols-[minmax(0,1fr)] + overflow-wrap:anywhere: a long unbroken string
+  // must not widen the grid track (break-word wraps visually but keeps the full
+  // word as the min-content width, which let a spaceless question stretch the
+  // textarea past the viewport and clip from the left).
   return (
-    <div className={`grid min-w-0 ${wrapperClassName}`}>
+    <div className={`grid grid-cols-[minmax(0,1fr)] min-w-0 ${wrapperClassName}`}>
       <div
         aria-hidden
-        className={`${className ?? ''} invisible whitespace-pre-wrap break-words pointer-events-none select-none`}
+        className={`${className ?? ''} invisible whitespace-pre-wrap [overflow-wrap:anywhere] pointer-events-none select-none`}
         style={{ ...style, gridArea: '1 / 1' }}
       >
         {replica}
@@ -79,7 +83,7 @@ function AutoGrowTextarea(
       <textarea
         value={value}
         rows={minRows}
-        className={`${className ?? ''} h-full overflow-y-auto break-words`}
+        className={`${className ?? ''} h-full overflow-y-auto [overflow-wrap:anywhere]`}
         style={{ ...style, gridArea: '1 / 1' }}
         {...rest}
       />
