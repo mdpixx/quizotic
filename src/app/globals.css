@@ -332,14 +332,15 @@ body {
   margin-top: auto;
 }
 
-/* Answer option text: centered, never hyphenated. Each tile fits its OWN
+/* Answer option text: left-aligned, never hyphenated. Each tile fits its OWN
    --opt-fit-size (see HostOptionTile) so short answers grow to fill the card
    instead of all tiles adopting the longest one's size. No text-justify: a
-   ragged last line read as a dead right strip; centering reads as intentional. */
+   ragged last line read as a dead right strip; left-aligning keeps the reading
+   edge clean and lets the letter chip anchor the text. */
 .host-opt-text {
   font-size: var(--opt-fit-size, clamp(1.05rem, 0.7rem + 1.3vw, 1.75rem));
   line-height: 1.14;
-  text-align: center;
+  text-align: left;
   overflow-wrap: anywhere;
 }
 

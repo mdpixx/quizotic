@@ -29,7 +29,7 @@ export interface HostOptionTileProps {
 // while a long one shrinks — previously every tile adopted the worst (longest)
 // tile's size and short answers sat adrift in whitespace.
 //
-// Text is centered and never hyphenated (no "-" word breaks). The vote count +
+// Text is left-aligned and never hyphenated (no "-" word breaks). The vote count +
 // correct check are a small corner badge, positioned absolutely, so while the
 // question is LIVE the text owns the tile's full width — no dead right strip
 // reserving space for reveal chrome that hasn't appeared yet. The badge fades
