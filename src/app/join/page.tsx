@@ -1965,7 +1965,7 @@ function JoinPageInner() {
             )}
           </div>
           <p
-            className="font-bold leading-snug break-words"
+            className="font-medium leading-snug break-words text-justify [hyphens:auto]"
             style={{
               color: '#0F1B3D',
               fontSize: (() => {
@@ -2184,7 +2184,7 @@ function JoinPageInner() {
                     {question.type === 'rating' ? optText : OPTION_LABELS[idx]}
                   </span>
                   {question.type !== 'rating' && !sharedScreenSimple && (
-                    <span className="min-w-0 break-words text-base sm:text-lg font-semibold leading-snug" style={{ overflowWrap: 'anywhere' }}>{optText}</span>
+                    <span className="w-full min-w-0 break-words text-base sm:text-lg font-medium leading-snug text-justify [hyphens:auto]" style={{ overflowWrap: 'anywhere' }}>{optText}</span>
                   )}
                 </button>
               )

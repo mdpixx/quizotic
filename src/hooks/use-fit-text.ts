@@ -17,22 +17,50 @@ import { useLayoutEffect, type RefObject } from 'react'
  * font-size remains the pre-hydration fallback; the fitted value is written
  * as an inline style, which wins over any bucket class.
  */
+interface FitTextOptions {
+  min: number
+  max: number
+  deps: readonly unknown[]
+  /**
+   * Write the size to this CSS custom property on `target` instead of an
+   * inline font-size — for fitting a GROUP (e.g. every option tile in the
+   * answer grid shares one size via `font-size: var(--opt-fit-size, …)`).
+   */
+  cssVar?: string
+  /**
+   * Custom fit predicate evaluated after each candidate size is applied.
+   * Needed when scroll metrics can't see the overflow: a centered flex item
+   * taller than its min-h-0 parent paints ABOVE the box, and upward overflow
+   * is invisible to scrollHeight (scroll metrics only extend down/right) —
+   * geometric rect containment is the honest check there. The box's own
+   * scroll overflow is always checked in addition.
+   */
+  fits?: () => boolean
+}
+
+// (Callers pick min: keep >= 12px — below that a projected wall becomes
+// unreadable from the back of a classroom.)
 export function useFitText(
   box: RefObject<HTMLElement | null>,
   target: RefObject<HTMLElement | null>,
-  { min, max, deps }: { min: number; max: number; deps: readonly unknown[] }
+  { min, max, deps, cssVar, fits }: FitTextOptions
 ): void {
   useLayoutEffect(() => {
     const boxEl = box.current
     const targetEl = target.current
     if (!boxEl || !targetEl) return
 
+    const apply = (px: number) => {
+      if (cssVar) targetEl.style.setProperty(cssVar, `${px}px`)
+      else targetEl.style.fontSize = `${px}px`
+    }
+
+    const clears = (el: HTMLElement): boolean =>
+      el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1
+
     const fitsAt = (px: number): boolean => {
-      targetEl.style.fontSize = `${px}px`
-      return (
-        boxEl.scrollHeight <= boxEl.clientHeight + 1 &&
-        boxEl.scrollWidth <= boxEl.clientWidth + 1
-      )
+      apply(px)
+      return clears(boxEl) && (fits ? fits() : true)
     }
 
     const fit = () => {
@@ -50,7 +78,7 @@ export function useFitText(
       }
       // Apply the best size even when nothing "fits": min is the legibility
       // floor and the box's own overflow rule is the last-resort guard.
-      targetEl.style.fontSize = `${best}px`
+      apply(best)
     }
 
     fit()
@@ -69,21 +97,31 @@ export function useFitText(
       if (!img.complete) img.addEventListener('load', onImgLoad)
     }
 
-    // The box is content-sized up to its cap, so observing it would loop on
-    // our own writes. Its parent provides the bound (the % cap resolves
-    // against it) and only changes on real layout shifts — observe that.
+    // Re-fit when the box's real bounds move: the box itself (its flex/grid
+    // share can change when SIBLINGS resize — e.g. the question card refits
+    // after its image loads and the answer grid inherits the leftover) and
+    // its parent (viewport/layout shifts). The size guard makes this
+    // loop-safe against our own font writes: a converged fit re-applies the
+    // same size, so observed dimensions stop changing and the observer goes
+    // quiet.
     const parent = boxEl.parentElement
     let ro: ResizeObserver | null = null
-    if (parent && typeof ResizeObserver !== 'undefined') {
-      let lastW = parent.clientWidth
-      let lastH = parent.clientHeight
+    if (typeof ResizeObserver !== 'undefined') {
+      const last = new Map<HTMLElement, { w: number; h: number }>()
+      const watched = parent ? [boxEl, parent] : [boxEl]
+      for (const el of watched) last.set(el, { w: el.clientWidth, h: el.clientHeight })
       ro = new ResizeObserver(() => {
-        if (parent.clientWidth === lastW && parent.clientHeight === lastH) return
-        lastW = parent.clientWidth
-        lastH = parent.clientHeight
-        fit()
+        let changed = false
+        for (const el of watched) {
+          const prev = last.get(el)!
+          if (el.clientWidth !== prev.w || el.clientHeight !== prev.h) {
+            last.set(el, { w: el.clientWidth, h: el.clientHeight })
+            changed = true
+          }
+        }
+        if (changed) fit()
       })
-      ro.observe(parent)
+      for (const el of watched) ro.observe(el)
     }
 
     return () => {
