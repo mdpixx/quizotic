@@ -11,6 +11,7 @@ import { Avatar } from '@/components/Avatar'
 import { Podium } from '@/components/Podium'
 import { PostSessionHeader } from '@/components/PostSessionHeader'
 import { LottieConfetti } from '@/components/LottieConfetti'
+import { DualCannonLottie } from '@/components/DualCannonLottie'
 import { CelebrationConfetti } from '@/components/CelebrationConfetti'
 import { SessionReport } from '@/components/SessionReport'
 import { LeaderboardView } from '@/components/LeaderboardView'
@@ -3361,6 +3362,7 @@ export default function SessionPage() {
             itself must not depend on that. Firecracker/fanfare play from the
             mode-independent phase===ended effect. */}
         <LottieConfetti />
+        <DualCannonLottie />
         <CelebrationConfetti active />
         <PostSessionHeader
           title={quiz?.title}
