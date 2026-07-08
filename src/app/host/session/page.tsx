@@ -555,6 +555,53 @@ export default function SessionPage() {
     deps: [currentQuestion?.text, currentQuestion?.imageUrl, phase],
   })
 
+  // Same closed-loop guarantee for the answer tiles: every tile is
+  // overflow-hidden inside a bounded grid, so a long option used to clip on
+  // projectors. One shared size (via --opt-fit-size) fits the WORST tile so
+  // all options stay visually uniform.
+  const optionsGridRef = useRef<HTMLDivElement>(null)
+  useFitText(optionsGridRef, optionsGridRef, {
+    min: 12,
+    max: 30,
+    cssVar: '--opt-fit-size',
+    // Geometric containment, not scroll metrics: each tile's inner flex is
+    // min-h-0 (it SHRINKS to the tile), so an over-tall centered span paints
+    // upward out of the tile — invisible to scrollHeight. The span's rect
+    // must sit inside its tile's rect.
+    fits: () => {
+      const grid = optionsGridRef.current
+      if (!grid) return true
+      return Array.from(grid.querySelectorAll<HTMLElement>('.host-opt-text')).every(span => {
+        const tile = span.closest<HTMLElement>('.host-options-stage > div')
+        if (!tile) return true
+        const s = span.getBoundingClientRect()
+        const tr = tile.getBoundingClientRect()
+        return s.top >= tr.top - 1 && s.bottom <= tr.bottom + 1 && s.right <= tr.right + 1
+      })
+    },
+    deps: [
+      currentQuestion?.id,
+      (currentQuestion ? getEffectiveOptions(currentQuestion) ?? [] : []).map(getOptionText).join(' '),
+      phase,
+    ],
+  })
+
+  // Shuffled right-column pool for the matching host view. Deterministic per
+  // question (hash sort) so re-renders and host reloads never reshuffle the
+  // wall mid-question; phones run their own shuffle, so parity isn't needed.
+  const matchingRightPool = useMemo(() => {
+    if (currentQuestion?.type !== 'matching') return []
+    const qid = currentQuestion.id ?? ''
+    const hash = (s: string) => {
+      let h = 0
+      for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0
+      return h
+    }
+    return (currentQuestion.matchPairs ?? [])
+      .map(p => p.right)
+      .sort((a, b) => hash(a + qid) - hash(b + qid))
+  }, [currentQuestion])
+
   // Per-option stats payload shared by the left stats rail and the immersive
   // overlay. Built once here so both stay in sync and the question phase's
   // JSX stays readable.
@@ -2311,7 +2358,7 @@ export default function SessionPage() {
             </div>
 
             {/* CENTER — question + answers (full width on mobile) */}
-            <div className="flex flex-col gap-3 min-w-0 min-h-0">
+            <div className="host-center-col flex flex-col gap-3 min-w-0 min-h-0">
 
           {/* Case scenario card (shown for 'case' type) */}
           {currentQuestion.type === 'case' && currentQuestion.scenarioText && (
@@ -2340,10 +2387,10 @@ export default function SessionPage() {
           >
             <p
               ref={questionTextRef}
-              className="shrink-0 font-display font-bold leading-snug break-words"
+              className="shrink-0 font-display font-medium leading-snug break-words text-justify [hyphens:auto]"
               style={{
                 color: '#0F1B3D',
-                lineHeight: 1.1,
+                lineHeight: 1.15,
                 fontFamily: 'var(--font-display)',
               }}
             >
@@ -2571,11 +2618,62 @@ export default function SessionPage() {
                 </>
               )
             })()
+          ) : currentQuestion.type === 'matching' ? (
+          /* Matching — the wall must show the task: numbered left prompts and
+             the shuffled right-option pool while live (never the aligned
+             pairs — that's the answer key), then the correct pairs once the
+             host reveals. Without this branch the projector showed an empty
+             stage while phones had the full task. */
+          <div className="max-w-5xl mx-auto w-full flex-1 min-h-0 overflow-y-auto bg-white rounded-2xl border border-gray-200 p-4 md:p-5 host-answer-stage">
+            {(() => {
+              const pairs = currentQuestion.matchPairs ?? []
+              if (correctRevealed) {
+                return (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-green-700 mb-2">Correct matches</p>
+                    {pairs.map((p, i) => (
+                      <div key={i} className="flex items-center gap-3 rounded-xl px-4 py-2" style={{ background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
+                        <span className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-semibold flex-shrink-0 text-white" style={{ background: '#16A34A' }}>{i + 1}</span>
+                        <span className="flex-1 min-w-0 break-words text-gray-900 font-medium [hyphens:auto]">{p.left}</span>
+                        <span className="flex-shrink-0 text-green-600 font-semibold" aria-hidden>&harr;</span>
+                        <span className="flex-1 min-w-0 break-words text-green-800 font-medium [hyphens:auto]">{p.right}</span>
+                      </div>
+                    ))}
+                  </div>
+                )
+              }
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400 mb-3">Match these</p>
+                    {pairs.map((p, i) => (
+                      <div key={i} className="flex items-center gap-3 rounded-xl px-4 py-2.5" style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }}>
+                        <span className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-semibold flex-shrink-0" style={{ background: '#EEF2FF', color: '#4F46E5' }}>{i + 1}</span>
+                        <span className="flex-1 min-w-0 break-words text-gray-900 font-medium [hyphens:auto]">{p.left}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400 mb-3">With one of these</p>
+                    {matchingRightPool.map((right, i) => (
+                      <div key={i} className="flex items-center gap-3 rounded-xl px-4 py-2.5" style={{ background: '#FDF2F8', border: '1px solid #FBCFE8' }}>
+                        <span className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-semibold flex-shrink-0" style={{ background: '#FCE7F3', color: '#DB2777' }}>{String.fromCharCode(65 + i)}</span>
+                        <span className="flex-1 min-w-0 break-words text-gray-900 font-medium [hyphens:auto]">{right}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
           ) : (
-          /* Options: single column on phones — the always-mounted vote/check
-             slots + letter chip leave a 2-col layout ~zero px for the answer
-             text at 375px, wrapping it one character per line. */
-          <div className={`max-w-7xl mx-auto w-full flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 md:gap-5 host-answer-stage host-options-stage ${hostQuestionFit?.optionClass ?? 'host-option-fit-large'}`}>
+          /* Options: column count comes from the CENTER COLUMN's container
+             width (see .host-options-stage in globals.css) — the always-
+             mounted vote/check slots + letter chip leave a 2-col layout
+             ~zero px for the answer text whenever the center is narrow
+             (phones at 375px, but also desktop 1024px where the side rails
+             shrink the center to ~360px). */
+          <div ref={optionsGridRef} className={`max-w-7xl mx-auto w-full flex-1 min-h-0 grid gap-2 sm:gap-3 md:gap-5 host-answer-stage host-options-stage ${hostQuestionFit?.optionClass ?? 'host-option-fit-large'}`}>
             {getEffectiveOptions(currentQuestion)?.map((opt, i) => {
               const votes = optionCounts[i] ?? 0
               const pct = connectedCount > 0 ? (votes / connectedCount) * 100 : 0
@@ -2605,7 +2703,7 @@ export default function SessionPage() {
                     <span className={`w-11 h-11 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-xl md:text-2xl font-black text-white flex-shrink-0 ${OPTION_COLORS[i]}`} style={{ boxShadow: '0 4px 0 rgba(0,0,0,0.16)' }}>
                       {OPTION_LABELS[i]}
                     </span>
-                    <span className="host-opt-text flex-1 min-w-0 break-words text-gray-900 font-black">{optText}</span>
+                    <span className="host-opt-text flex-1 min-w-0 break-words text-gray-900 font-medium text-justify [hyphens:auto]">{optText}</span>
                     {/* Vote count + check occupy FIXED-width slots that are
                         always mounted — they fade in on reveal instead of
                         being inserted, so the answer text never re-wraps. */}

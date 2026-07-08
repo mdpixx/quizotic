@@ -267,7 +267,7 @@ body {
      ~120px not even a 16px-font question fits, so the options grid absorbs
      the squeeze instead of the question clipping. */
   flex: 0 0 auto;
-  max-height: 40%;
+  max-height: 34%;
   min-height: 120px;
   overflow: hidden;
 }
@@ -300,10 +300,28 @@ body {
    reveal; only colors/opacity change at reveal, so nothing on the projector
    ever jumps. */
 
+/* The center column is a size container so the answer grid picks its column
+   count from the REAL width available between the side rails, not the
+   viewport breakpoint. At 1024px the rails leave ~360px of center; the old
+   viewport-based sm:grid-cols-2 forced two columns into it and the fixed
+   letter/vote/check slots starved the option text to ~3px per line. */
+.host-center-col {
+  container-type: inline-size;
+}
+
 .host-options-stage {
-  /* Equal-height rows so all four tiles are identical size regardless of
-     how much text is inside each one. Long text line-clamps within the tile. */
-  grid-template-rows: repeat(2, 1fr);
+  /* Equal-height rows so all tiles are identical size regardless of how much
+     text is inside each one (auto-rows also keeps 6-option grids uniform).
+     minmax(0,1fr), not bare 1fr: implicit 1fr rows are minmax(auto,1fr), so
+     differing content minimums make rows unequal. */
+  grid-auto-rows: minmax(0, 1fr);
+  grid-template-columns: 1fr;
+}
+
+@container (min-width: 520px) {
+  .host-options-stage {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .host-options-stage > div {
@@ -319,18 +337,18 @@ body {
 /* Answer option text: fixed viewport-relative size with pressure classes.
    Do not line-clamp on the presenter view; hosts need the full answer visible. */
 .host-opt-text {
-  font-size: clamp(1.05rem, 0.7rem + 1.3vw, 1.75rem);
+  font-size: var(--opt-fit-size, clamp(1.05rem, 0.7rem + 1.3vw, 1.75rem));
   line-height: 1.14;
   overflow-wrap: anywhere;
 }
 
 .host-option-fit-comfy .host-opt-text {
-  font-size: clamp(0.95rem, 0.58rem + 1.05vw, 1.35rem);
+  font-size: var(--opt-fit-size, clamp(0.95rem, 0.58rem + 1.05vw, 1.35rem));
   line-height: 1.1;
 }
 
 .host-option-fit-tight .host-opt-text {
-  font-size: clamp(0.78rem, 0.5rem + 0.82vw, 1.05rem);
+  font-size: var(--opt-fit-size, clamp(0.78rem, 0.5rem + 0.82vw, 1.05rem));
   line-height: 1.06;
 }
 
@@ -450,7 +468,7 @@ body {
   white-space: nowrap;
 }
 
-@media (min-width: 1024px) and (min-height: 760px) {
+@media (min-width: 1024px) and (min-height: 800px) {
   /* Floor keeps the options readable when the question is short, but stays
      low enough that a 3-line question + the always-mounted reveal footer
      still fit inside the fixed-height stage. The old 44vh floor forced the
@@ -465,7 +483,7 @@ body {
   }
 }
 
-@media (max-height: 760px) {
+@media (max-height: 800px) {
   .host-question-stage {
     gap: 0.5rem;
   }
@@ -482,7 +500,7 @@ body {
      16px-font question needs. Proportionate padding keeps the min-height
      floor meaningful. */
   .host-question-stage .host-question-card {
-    max-height: 32%;
+    max-height: 30%;
     padding: 1rem 1.25rem;
   }
 
@@ -524,12 +542,12 @@ body {
   }
 
   .host-opt-text {
-    font-size: clamp(0.78rem, 1.12vw, 1rem);
+    font-size: var(--opt-fit-size, clamp(0.78rem, 1.12vw, 1rem));
     line-height: 1.06;
   }
 
   .host-option-fit-tight .host-opt-text {
-    font-size: clamp(0.68rem, 0.96vw, 0.86rem);
+    font-size: var(--opt-fit-size, clamp(0.68rem, 0.96vw, 0.86rem));
   }
 
   .host-reveal-topbar {
@@ -560,7 +578,7 @@ body {
   }
 
   .host-reveal-stage .host-opt-text {
-    font-size: clamp(0.68rem, 0.98vw, 0.92rem);
+    font-size: var(--opt-fit-size, clamp(0.68rem, 0.98vw, 0.92rem));
   }
 
   .host-reveal-footer {
@@ -586,15 +604,15 @@ body {
   }
 
   .host-opt-text {
-    font-size: clamp(1.5rem, 1.2vw, 2.2rem);
+    font-size: var(--opt-fit-size, clamp(1.5rem, 1.2vw, 2.2rem));
   }
 
   .host-option-fit-comfy .host-opt-text {
-    font-size: clamp(1.3rem, 1vw, 1.8rem);
+    font-size: var(--opt-fit-size, clamp(1.3rem, 1vw, 1.8rem));
   }
 
   .host-option-fit-tight .host-opt-text {
-    font-size: clamp(1.05rem, 0.85vw, 1.4rem);
+    font-size: var(--opt-fit-size, clamp(1.05rem, 0.85vw, 1.4rem));
   }
 
   .host-options-stage > div > div.flex-1 > span:first-child {
