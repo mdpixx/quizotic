@@ -627,6 +627,9 @@ function JoinPageInner() {
   useEffect(() => { setSoundMuted(isMuted()) }, [])
   const [explanation, setExplanation] = useState<string | null>(null)
   const [correctAnswerIndex, setCorrectAnswerIndex] = useState<string | null>(null)
+  // fillblank has no option index — the server sends the best accepted answer
+  // as text (correctAnswerText) instead. Shown in the reveal card.
+  const [correctAnswerText, setCorrectAnswerText] = useState<string | null>(null)
 
   // Streak + reactions
   const [streak, setStreak] = useState(0)
@@ -936,6 +939,7 @@ function JoinPageInner() {
       // M3: reset prior-question state before showing the new one
       setExplanation(null)
       setCorrectAnswerIndex(null)
+      setCorrectAnswerText(null)
       setSelectedAnswer(null)
       setIsCorrect(false)
       setAnsweredIsScored(false)
@@ -1041,9 +1045,10 @@ function JoinPageInner() {
       }
     })
 
-    socket.on('question_ended', ({ explanation: exp, correctAnswer: ca }: { correctAnswer: string; explanation: string | null }) => {
+    socket.on('question_ended', ({ explanation: exp, correctAnswer: ca, correctAnswerText: cat }: { correctAnswer: string; correctAnswerText?: string | null; explanation: string | null }) => {
       setExplanation(exp)
       if (ca !== undefined && ca !== null) setCorrectAnswerIndex(ca)
+      if (typeof cat === 'string' && cat.trim()) setCorrectAnswerText(cat)
       // Once a question has ended, "paused" is meaningless — clear it so the
       // review screen never blocks a later answer if the next question's
       // question_show raced with a paused state.
@@ -2366,6 +2371,21 @@ function JoinPageInner() {
               <p className="text-[11px] font-bold uppercase tracking-wide text-green-600 mb-1">Correct answer</p>
               <p className="participant-correct-answer-text font-black text-green-800">
                 {getOptText(correctOption)}
+              </p>
+            </div>
+          </div>
+        )}
+        {/* fillblank reveal — no option index, so the server sends the best
+            accepted answer as text. Mirrors the option card above. */}
+        {question?.type === 'fillblank' && correctAnswerText && (
+          <div className={`w-full max-w-full rounded-2xl p-4 flex items-start gap-3 text-left ${isCorrect ? 'bg-green-50 border border-green-200' : 'bg-green-50 border-2 border-green-300'}`}>
+            <span className="font-display w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white font-black text-base flex-shrink-0" aria-label="Correct answer">
+              ✓
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-green-600 mb-1">Correct answer</p>
+              <p className="participant-correct-answer-text font-black text-green-800 break-words">
+                {correctAnswerText}
               </p>
             </div>
           </div>

@@ -3424,6 +3424,14 @@ function emitQuestionEnded(io, gameCode, session, questionIndex) {
   const correctAnswer = isNonScored
     ? null
     : (q.correctAnswers ?? q.correctAnswer ?? null)
+  // fillblank keeps its accepted answers in blankAnswers (not correctAnswer),
+  // so the index-based correctAnswer above is null for it. Surface the FIRST
+  // non-empty accepted answer as the reveal key — the host authoring UI labels
+  // blankAnswers[0] "Correct answer" and the rest "Also accept…", so index 0 is
+  // the best answer to display. Without this the FIB reveal showed nothing.
+  const correctAnswerText = q.type === 'fillblank'
+    ? (Array.isArray(q.blankAnswers) ? (q.blankAnswers.find(a => typeof a === 'string' && a.trim()) ?? null) : null)
+    : null
 
   // Snapshot ranks BEFORE we apply ghost score updates so the deltas reflect
   // real player movement. previousRanks is whatever we saved last round.
@@ -3445,6 +3453,7 @@ function emitQuestionEnded(io, gameCode, session, questionIndex) {
 
   io.to(`session:${gameCode}`).emit('question_ended', {
     correctAnswer,
+    correctAnswerText,
     correctOrder: isSequenceRankingQ ? q.correctOrder ?? null : null,
     explanation: q.explanation ?? null,
     isNonScored,

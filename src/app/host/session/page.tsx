@@ -2229,8 +2229,9 @@ export default function SessionPage() {
               top pill + progress row duplicated them and wasted vertical space
               the question/answers need). Mobile has no side rails, so it keeps
               a compact navigator + answered chip inline. */}
-          <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-2 lg:gap-4 [&>*]:min-w-0">
-            {/* Mobile (<lg): compact navigator + answered (no rails on phones) */}
+          <div className="max-w-7xl mx-auto w-full grid grid-cols-[1fr_auto_1fr] items-center gap-2 lg:gap-4 [&>*]:min-w-0">
+            {/* Mobile (<lg): compact navigator + answered (no rails on phones).
+                Desktop: stage label chip. Left grid cell. */}
             <div className="lg:hidden flex items-center gap-2 min-w-0">
               <QuestionNavigator
                 questions={quiz.questions}
@@ -2244,12 +2245,21 @@ export default function SessionPage() {
                 {answered}/{connectedCount}
               </span>
             </div>
-            {/* Desktop (lg+): stage label chip only */}
-            <span className="hidden lg:inline-flex items-center rounded-full px-4 py-1.5 text-xs font-black uppercase tracking-[0.24em]" style={{ color: isAnswerRevealStage ? '#FBD13B' : 'rgba(255,255,255,0.72)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)' }}>
+            <span className="hidden lg:inline-flex items-center rounded-full px-4 py-1.5 text-xs font-black uppercase tracking-[0.24em] justify-self-start" style={{ color: isAnswerRevealStage ? '#FBD13B' : 'rgba(255,255,255,0.72)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)' }}>
               {isAnswerRevealStage ? 'Answer Reveal' : 'Live Question'}
             </span>
-            {/* Timer (both) + mobile join chip */}
-            <div className="flex items-center gap-2 lg:gap-3">
+            {/* CENTER — quiz title. Desktop only: the middle cell is empty on
+                mobile so the tight navigator/join-pill clusters keep their
+                room. Truncated so long titles never collide with the side
+                controls; the 1fr side cells absorb any width imbalance and the
+                title stays truly centered. */}
+            <div className="hidden lg:flex justify-center min-w-0 px-2">
+              <span className="truncate text-base font-bold tracking-wide" style={{ color: 'rgba(255,255,255,0.88)', fontFamily: 'var(--font-heading)' }} title={quiz.title}>
+                {quiz.title}
+              </span>
+            </div>
+            {/* Timer (both) + mobile join chip. Right grid cell. */}
+            <div className="flex items-center gap-2 lg:gap-3 justify-self-end">
               {currentQuestion.timerSeconds > 0 && (
                 questionStartedAt == null || Date.now() < questionStartedAt ? (
                   <span className="min-w-16 text-center text-sm font-semibold animate-pulse px-4 py-2 rounded-full" style={{ color: '#FBD13B', background: 'rgba(255,255,255,0.08)' }}>Loading…</span>
@@ -2657,12 +2667,43 @@ export default function SessionPage() {
               )
             })()}
           </div>
+          ) : currentQuestion.type === 'fillblank' ? (
+          /* Fill-in-the-blank — there are no option tiles to vote on, so while
+             live the wall shows the prompt + a neutral "type your answer"
+             placeholder, and on reveal it surfaces the FIRST accepted answer
+             (blankAnswers[0], labelled "Correct answer" in the authoring UI).
+             Without this branch the host fell through to the options grid,
+             which iterates zero options and rendered an empty stage. */
+          <div className="max-w-3xl mx-auto w-full flex-1 min-h-0 flex flex-col items-center justify-center bg-white rounded-2xl border border-gray-200 p-6 md:p-8 host-answer-stage">
+            {(() => {
+              const bestAnswer = (currentQuestion.blankAnswers ?? []).find(a => typeof a === 'string' && a.trim())
+              if (correctRevealed) {
+                return (
+                  <div className="w-full max-w-xl rounded-2xl p-5 flex items-start gap-4" style={{ background: '#F0FDF4', border: '2px solid #BBF7D0' }}>
+                    <span className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-black text-xl flex-shrink-0" style={{ background: '#16A34A' }}>✓</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-green-700 mb-1">Correct answer</p>
+                      <p className="break-words font-black text-2xl text-green-800">{bestAnswer ?? '—'}</p>
+                    </div>
+                  </div>
+                )
+              }
+              return (
+                <div className="w-full max-w-xl text-center">
+                  <p className="text-sm font-semibold uppercase tracking-[0.14em] text-gray-400 mb-3">Type your answer</p>
+                  <div className="rounded-2xl px-5 py-4 text-gray-400 text-lg" style={{ background: '#F8FAFC', border: '1px dashed #CBD5E1' }}>
+                    Waiting for responses…
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
           ) : (
           /* Options grid: column count comes from the CENTER COLUMN's container
              width (see .host-options-stage in globals.css). Each tile is a
              HostOptionTile that fits its OWN text — short answers grow to fill
-             the card, long ones shrink — centered, never hyphenated, with the
-             vote count + correct check as a corner badge that reserves no
+             the card, long ones shrink — left-aligned, never hyphenated, with
+             the vote count + correct check as a corner badge that reserves no
              width while the question is live. */
           <div className={`max-w-7xl mx-auto w-full flex-1 min-h-0 grid gap-2 sm:gap-3 md:gap-5 host-answer-stage host-options-stage ${hostQuestionFit?.optionClass ?? 'host-option-fit-large'}`}>
             {getEffectiveOptions(currentQuestion)?.map((opt, i) => {

@@ -125,8 +125,8 @@ for (const vp of [
     }
 
     // Typography contract for the wall: never auto-hyphenate (no "-" word
-    // breaks) and center the text so a short answer fills its tile instead of
-    // leaving a dead right strip.
+    // breaks) and left-align the text so the reading edge is clean and the
+    // letter chip anchors it.
     const optStyles = await page.locator('.host-options-stage .host-opt-text').evaluateAll(spans =>
       spans.map(s => {
         const cs = getComputedStyle(s)
@@ -136,7 +136,7 @@ for (const vp of [
     expect(optStyles.length).toBeGreaterThan(0)
     for (const st of optStyles) {
       expect(st.hyphens, 'option text must not auto-hyphenate').not.toBe('auto')
-      expect(st.align, 'option text must be centered').toBe('center')
+      expect(st.align, 'option text must be left-aligned').toBe('left')
     }
 
     await context.close()
@@ -205,8 +205,8 @@ for (const vp of [
     }
 
     // Typography contract for the wall: never auto-hyphenate (no "-" word
-    // breaks) and center the text so a short answer fills its tile instead of
-    // leaving a dead right strip.
+    // breaks) and left-align the text so the reading edge is clean and the
+    // letter chip anchors it.
     const optStyles = await page.locator('.host-options-stage .host-opt-text').evaluateAll(spans =>
       spans.map(s => {
         const cs = getComputedStyle(s)
@@ -216,7 +216,7 @@ for (const vp of [
     expect(optStyles.length).toBeGreaterThan(0)
     for (const st of optStyles) {
       expect(st.hyphens, 'option text must not auto-hyphenate').not.toBe('auto')
-      expect(st.align, 'option text must be centered').toBe('center')
+      expect(st.align, 'option text must be left-aligned').toBe('left')
     }
     await context.close()
   })
