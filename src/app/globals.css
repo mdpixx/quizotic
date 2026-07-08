@@ -334,11 +334,14 @@ body {
   margin-top: auto;
 }
 
-/* Answer option text: fixed viewport-relative size with pressure classes.
-   Do not line-clamp on the presenter view; hosts need the full answer visible. */
+/* Answer option text: centered, never hyphenated. Each tile fits its OWN
+   --opt-fit-size (see HostOptionTile) so short answers grow to fill the card
+   instead of all tiles adopting the longest one's size. No text-justify: a
+   ragged last line read as a dead right strip; centering reads as intentional. */
 .host-opt-text {
   font-size: var(--opt-fit-size, clamp(1.05rem, 0.7rem + 1.3vw, 1.75rem));
   line-height: 1.14;
+  text-align: center;
   overflow-wrap: anywhere;
 }
 
@@ -364,14 +367,13 @@ body {
   font-size: 1.1rem;
 }
 
-/* Reveal chrome inside option tiles: fixed-width slots that only fade in.
-   Sizes stay constant so the answer text never re-wraps at reveal. */
-.host-reveal-votes {
-  font-size: 1.05rem;
-}
-
-.host-reveal-check {
-  font-size: 1.35rem;
+/* Reveal badge: a small corner pill (vote count + ✓) positioned absolutely
+   inside the tile content. Out of flow, it reserves no width while the
+   question is live — the answer text owns the full tile — and simply fades in
+   on reveal. Stays above the text so a full-width line can't paint over it. */
+.host-opt-badge {
+  z-index: 1;
+  letter-spacing: 0.01em;
 }
 
 .host-explanation-fit-roomy {
