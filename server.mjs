@@ -3330,6 +3330,14 @@ function presentQuestion(io, gameCode, session, index) {
   const startAt = Date.now() + 3500  // 3-second countdown window
   session.questionStartedAt = startAt
   session.timerExtensionMs = 0
+  // Pause is per-question: any path that reaches here (start_quiz,
+  // next_question, goto_question) authoritatively starts the new question
+  // unpaused. Without this reset, advancing while paused left session.paused
+  // true on the new question, so submit_answer was rejected ('paused') and the
+  // host button showed "paused" while the timer kept running.
+  session.paused = false
+  session.pauseRemainingMs = null
+  if (session.endTimer) { clearTimeout(session.endTimer); session.endTimer = null }
   let question = sanitizeQuestion(quizData.questions[index])
 
   // If sequence ranking: shuffle options and build a map from display slot → original index

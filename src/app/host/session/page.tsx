@@ -931,6 +931,10 @@ export default function SessionPage() {
       setPhase('question')
       setOnLeaderboardSlide(false)
       setEndNowArmed(false)
+      // Pause is per-question: a fresh question is always live. Without this
+      // the button kept showing "paused" (and runHostCountdown stayed frozen)
+      // if the previous question was advanced while paused.
+      setPaused(false)
       // The server is the navigation authority: converge the projector's
       // question index and per-question flags here so local advance, phone
       // remote advance and goto_question all land on one code path. Without
@@ -1050,6 +1054,10 @@ export default function SessionPage() {
       setExplanation(exp)
       setRevealCorrectCount(typeof cc === 'number' ? cc : null)
       setQuestionEnded(true)
+      // Once a question has ended, "paused" is meaningless — clear it so the
+      // review/standings screen never renders a stuck paused state if the
+      // question was ended mid-pause (e.g. auto-end timer racing pause).
+      setPaused(false)
       if (hostTimerRef.current) { clearInterval(hostTimerRef.current); hostTimerRef.current = null }
       setHostTimeLeft(0)
       // Stay on the question screen so the host can review who answered

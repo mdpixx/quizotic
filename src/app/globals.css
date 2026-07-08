@@ -310,18 +310,16 @@ body {
 }
 
 .host-options-stage {
-  /* Equal-height rows so all tiles are identical size regardless of how much
+  /* One full-width tile per row: the answer owns the entire center-column
+     width so long options read cleanly, and more options just add another
+     row instead of cramming into columns. (Previously a container query
+     flipped this to 1fr 1fr above 520px, which starved text horizontally.)
+     Equal-height rows so all tiles are identical size regardless of how much
      text is inside each one (auto-rows also keeps 6-option grids uniform).
      minmax(0,1fr), not bare 1fr: implicit 1fr rows are minmax(auto,1fr), so
      differing content minimums make rows unequal. */
   grid-auto-rows: minmax(0, 1fr);
   grid-template-columns: 1fr;
-}
-
-@container (min-width: 520px) {
-  .host-options-stage {
-    grid-template-columns: 1fr 1fr;
-  }
 }
 
 .host-options-stage > div {

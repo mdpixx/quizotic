@@ -928,6 +928,11 @@ function JoinPageInner() {
       shownQuestionsRef.current.push({ index, text: question.text })
       setAnswerableNumber(typeof aNum === 'number' ? aNum : index + 1)
       setAnswerableTotal(typeof aTot === 'number' ? aTot : total)
+      // Pause is per-question: a fresh question is always live. Without this
+      // the local answer guard (if (paused) return in handleAnswerTap) stayed
+      // armed after an advance-while-paused, so participants could never
+      // record an answer even though the timer was visibly running.
+      setPaused(false)
       // M3: reset prior-question state before showing the new one
       setExplanation(null)
       setCorrectAnswerIndex(null)
@@ -1039,6 +1044,10 @@ function JoinPageInner() {
     socket.on('question_ended', ({ explanation: exp, correctAnswer: ca }: { correctAnswer: string; explanation: string | null }) => {
       setExplanation(exp)
       if (ca !== undefined && ca !== null) setCorrectAnswerIndex(ca)
+      // Once a question has ended, "paused" is meaningless — clear it so the
+      // review screen never blocks a later answer if the next question's
+      // question_show raced with a paused state.
+      setPaused(false)
       // Don't auto-transition. Participants stay on the answered/question
       // screen showing personal feedback until the host explicitly broadcasts
       // 'show_standings' (then phase = 'standings') or 'question_show'
