@@ -202,20 +202,25 @@ function fireWinner(
   shapes: { rect: Shape; ribbon: Shape; curl: Shape; star: Shape; circle: Shape },
   factor: number,
 ) {
+  // The finale now leads with the dual-cannon Lottie overlay, so the canvas
+  // layer plays a SUPPORTING role — directional side cannons + a center
+  // fountain + gentle drift rain, at roughly half the old density. The former
+  // gold-crown burst and gold star streamers were what read as "over-done";
+  // both are gone. Stars are dropped from the shapes entirely.
   // Phase 1 (t=0): two side cannons firing inward and upward.
   confetti(scale({
     ...base, origin: { x: 0.02, y: 0.85 }, angle: 75, spread: 50,
-    particleCount: 100, startVelocity: 80, ticks: 350, scalar: 1.1, shapes: mixedShapes,
+    particleCount: 50, startVelocity: 80, ticks: 350, scalar: 1.1, shapes: mixedShapes,
   }, factor))
   confetti(scale({
     ...base, origin: { x: 0.98, y: 0.85 }, angle: 105, spread: 50,
-    particleCount: 100, startVelocity: 80, ticks: 350, scalar: 1.1, shapes: mixedShapes,
+    particleCount: 50, startVelocity: 80, ticks: 350, scalar: 1.1, shapes: mixedShapes,
   }, factor))
 
   // Phase 2 (t=300): center fountain.
   setTimeout(() => confetti(scale({
     ...base, origin: { x: 0.5, y: 0.9 }, angle: 90, spread: 70,
-    particleCount: 120, startVelocity: 65, ticks: 320, scalar: 1.0, shapes: mixedShapes,
+    particleCount: 60, startVelocity: 65, ticks: 320, scalar: 1.0, shapes: mixedShapes,
   }, factor)), 300)
 
   // Phase 3 (t=900): side cannons reload — heavier on ribbons for streamer feel.
@@ -223,11 +228,11 @@ function fireWinner(
     const ribbonHeavy = [shapes.ribbon, shapes.ribbon, shapes.curl, shapes.curl, shapes.rect, shapes.circle]
     confetti(scale({
       ...base, origin: { x: 0.02, y: 0.85 }, angle: 75, spread: 50,
-      particleCount: 60, startVelocity: 70, ticks: 400, scalar: 1.15, shapes: ribbonHeavy,
+      particleCount: 30, startVelocity: 70, ticks: 400, scalar: 1.15, shapes: ribbonHeavy,
     }, factor))
     confetti(scale({
       ...base, origin: { x: 0.98, y: 0.85 }, angle: 105, spread: 50,
-      particleCount: 60, startVelocity: 70, ticks: 400, scalar: 1.15, shapes: ribbonHeavy,
+      particleCount: 30, startVelocity: 70, ticks: 400, scalar: 1.15, shapes: ribbonHeavy,
     }, factor))
   }, 900)
 
@@ -235,25 +240,9 @@ function fireWinner(
   // very low initial velocity so gravity is doing all the work.
   setTimeout(() => confetti(scale({
     ...base, origin: { x: 0.5, y: -0.05 }, angle: 270, spread: 180,
-    particleCount: 80, startVelocity: 5, gravity: 0.7, ticks: 500, scalar: 0.85,
+    particleCount: 40, startVelocity: 5, gravity: 0.7, ticks: 500, scalar: 0.85,
     shapes: mixedShapes,
   }, factor)), 1800)
-
-  // Phase 5 (t=2800): gold crown burst — pure gold rectangles.
-  setTimeout(() => confetti(scale({
-    ...base, origin: { x: 0.5, y: 0.5 }, angle: 90, spread: 360,
-    particleCount: 90, startVelocity: 35, ticks: 280, scalar: 1.2,
-    shapes: [shapes.rect, shapes.rect, shapes.ribbon],
-    colors: GOLD_COLORS,
-  }, factor)), 2800)
-
-  // Phase 6 (t=3600): star streamers — final flourish.
-  setTimeout(() => confetti(scale({
-    ...base, origin: { x: 0.5, y: 0.4 }, angle: 90, spread: 100,
-    particleCount: 50, startVelocity: 50, ticks: 350, scalar: 1.4,
-    shapes: ['star'],
-    colors: GOLD_COLORS,
-  }, factor)), 3600)
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
@@ -298,7 +287,7 @@ export function startConfettiLoop(force = false): () => void {
   loadConfetti().then(lib => {
     if (stopped || !lib) return
     const { confetti, shapes } = lib
-    const mixed = [shapes.rect, shapes.ribbon, shapes.curl, shapes.circle, shapes.star]
+    const mixed = [shapes.rect, shapes.ribbon, shapes.curl, shapes.circle]
     // When the caller forces the loop (the finale), override each burst's
     // reduced-motion flag so canvas-confetti still paints under macOS Reduce
     // Motion. Ambient/non-forced loops keep respecting the user preference.
@@ -310,57 +299,50 @@ export function startConfettiLoop(force = false): () => void {
     burst({
       colors: BRAND_COLORS, decay: 0.92, gravity: 1.0,
       origin: { x: 0.5, y: 0.6 }, angle: 90, spread: 110,
-      particleCount: 140, startVelocity: 55, scalar: 1.15, ticks: 320, shapes: mixed,
+      particleCount: 80, startVelocity: 55, scalar: 1.15, ticks: 320, shapes: mixed,
     })
     setTimeout(() => {
       if (stopped) return
       burst({
         colors: BRAND_COLORS, decay: 0.92, gravity: 1.0,
         origin: { x: 0.02, y: 0.85 }, angle: 75, spread: 60,
-        particleCount: 80, startVelocity: 70, scalar: 1.1, ticks: 350, shapes: mixed,
+        particleCount: 48, startVelocity: 70, scalar: 1.1, ticks: 350, shapes: mixed,
       })
       burst({
         colors: BRAND_COLORS, decay: 0.92, gravity: 1.0,
         origin: { x: 0.98, y: 0.85 }, angle: 105, spread: 60,
-        particleCount: 80, startVelocity: 70, scalar: 1.1, ticks: 350, shapes: mixed,
+        particleCount: 48, startVelocity: 70, scalar: 1.1, ticks: 350, shapes: mixed,
       })
     }, 200)
 
     const fire = () => {
       tick++
-      const variant = tick % 3
+      const variant = tick % 2
       if (variant === 0) {
         // Drift rain from the top — pure gravity fall.
         burst({
           colors: GOLD_COLORS, decay: 0.92,
           origin: { x: 0.5, y: -0.05 }, angle: 270, spread: 180,
-          particleCount: 50, startVelocity: 6, gravity: 0.75, ticks: 500, scalar: 0.85,
+          particleCount: 30, startVelocity: 6, gravity: 0.75, ticks: 500, scalar: 0.85,
           shapes: mixed,
         })
-      } else if (variant === 1) {
+      } else {
         // Side firework cannons.
         burst({
           colors: BRAND_COLORS, decay: 0.92, gravity: 1.0,
           origin: { x: 0.02, y: 0.85 }, angle: 75, spread: 55,
-          particleCount: 30, startVelocity: 65, scalar: 1.1, ticks: 350, shapes: mixed,
+          particleCount: 18, startVelocity: 65, scalar: 1.1, ticks: 350, shapes: mixed,
         })
         burst({
           colors: BRAND_COLORS, decay: 0.92, gravity: 1.0,
           origin: { x: 0.98, y: 0.85 }, angle: 105, spread: 55,
-          particleCount: 30, startVelocity: 65, scalar: 1.1, ticks: 350, shapes: mixed,
-        })
-      } else {
-        // Star burst near the title area.
-        burst({
-          colors: GOLD_COLORS, decay: 0.92, gravity: 0.95,
-          origin: { x: 0.5, y: 0.4 }, angle: 90, spread: 110,
-          particleCount: 50, startVelocity: 45, scalar: 1.3, ticks: 350, shapes: ['star'],
+          particleCount: 18, startVelocity: 65, scalar: 1.1, ticks: 350, shapes: mixed,
         })
       }
     }
 
-    timers.welcome = setTimeout(fire, 900)
-    timers.interval = setInterval(fire, 1800)
+    timers.welcome = setTimeout(fire, 1200)
+    timers.interval = setInterval(fire, 3000)
   }).catch(err => {
     // loadConfetti already warned; this catches any rejection from the chain.
     if (!loadConfettiWarned) {

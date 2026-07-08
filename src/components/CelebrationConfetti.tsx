@@ -104,7 +104,7 @@ interface CelebrationConfettiProps {
 // only 4.8s, visibly cutting most particles mid-flight.)
 //
 // With batchSize 12 + 3 overlapping batches, ~36 particles are on screen.
-export function CelebrationConfetti({ active, batchSize = 12, intervalMs = 2400, layer = 'fixed' }: CelebrationConfettiProps) {
+export function CelebrationConfetti({ active, batchSize = 6, intervalMs = 3600, layer = 'fixed' }: CelebrationConfettiProps) {
   const reduced = usePrefersReducedMotion()
   const [seed, setSeed] = useState(0)
 
@@ -199,11 +199,13 @@ export function CelebrationConfetti({ active, batchSize = 12, intervalMs = 2400,
           100% { transform: translate3d(0, -120vh, 0); }
         }
         /* Opacity envelope — particles fade in at the bottom and out near
-           the top so nothing visibly pops into existence at viewport edges. */
+           the top so nothing visibly pops into existence at viewport edges.
+           Peak kept low (~0.55) so this layer reads as a subtle shimmer behind
+           the Lottie + canvas celebration, not a competing screen of dots. */
         @keyframes celebFade {
           0%   { opacity: 0; }
-          12%  { opacity: 0.85; }
-          82%  { opacity: 0.85; }
+          12%  { opacity: 0.55; }
+          82%  { opacity: 0.55; }
           100% { opacity: 0; }
         }
       `}</style>
