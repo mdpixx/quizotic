@@ -56,18 +56,18 @@ export function QuestionNavigator({ questions, currentIndex, playedIndexes, answ
     <div ref={rootRef} className="relative">
       <button
         onClick={() => { setOpen(o => !o); setNotice(null) }}
-        className="mt-1 flex items-center gap-3 rounded-xl px-2 py-1 -mx-2 transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-[#FBD13B]"
+        className="flex w-full items-center gap-2 rounded-xl px-2 py-1 transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-[#FBD13B]"
         title="Jump to another question"
         aria-haspopup="dialog"
         aria-expanded={open}
       >
-        <span className="font-display text-3xl md:text-4xl font-black tabular-nums" style={{ fontFamily: 'var(--font-display)', color: '#FBD13B' }}>
+        <span className="font-display text-2xl font-black tabular-nums leading-none" style={{ fontFamily: 'var(--font-display)', color: '#FBD13B' }}>
           Q{answerableNumber}
         </span>
-        <span className="text-lg md:text-xl font-bold" style={{ color: 'rgba(255,255,255,0.72)' }}>
+        <span className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.72)' }}>
           of {answerableTotal}
         </span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" style={{ transform: open ? 'rotate(180deg)' : undefined }} aria-hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 ml-auto" style={{ transform: open ? 'rotate(180deg)' : undefined }} aria-hidden>
           <path d="M6 9l6 6 6-6" />
         </svg>
       </button>

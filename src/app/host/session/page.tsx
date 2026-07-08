@@ -34,6 +34,7 @@ import { EndQuizConfirmModal } from '@/components/host/EndQuizConfirmModal'
 import { HostWordCloud } from '@/components/host/HostWordCloud'
 import { LiveRosterPanel } from '@/components/host/LiveRosterPanel'
 import { QuestionNavigator } from '@/components/host/QuestionNavigator'
+import { HostOptionTile } from '@/components/host/HostOptionTile'
 import { HostStatsRail, type OptionStat as StatsOptionStat } from '@/components/host/HostStatsRail'
 import { ImmersiveStatsOverlay, type ImmersiveOptionStat } from '@/components/host/ImmersiveStatsOverlay'
 import { getQuizTheme } from '@/lib/quiz-themes'
@@ -555,36 +556,10 @@ export default function SessionPage() {
     deps: [currentQuestion?.text, currentQuestion?.imageUrl, phase],
   })
 
-  // Same closed-loop guarantee for the answer tiles: every tile is
-  // overflow-hidden inside a bounded grid, so a long option used to clip on
-  // projectors. One shared size (via --opt-fit-size) fits the WORST tile so
-  // all options stay visually uniform.
-  const optionsGridRef = useRef<HTMLDivElement>(null)
-  useFitText(optionsGridRef, optionsGridRef, {
-    min: 12,
-    max: 30,
-    cssVar: '--opt-fit-size',
-    // Geometric containment, not scroll metrics: each tile's inner flex is
-    // min-h-0 (it SHRINKS to the tile), so an over-tall centered span paints
-    // upward out of the tile — invisible to scrollHeight. The span's rect
-    // must sit inside its tile's rect.
-    fits: () => {
-      const grid = optionsGridRef.current
-      if (!grid) return true
-      return Array.from(grid.querySelectorAll<HTMLElement>('.host-opt-text')).every(span => {
-        const tile = span.closest<HTMLElement>('.host-options-stage > div')
-        if (!tile) return true
-        const s = span.getBoundingClientRect()
-        const tr = tile.getBoundingClientRect()
-        return s.top >= tr.top - 1 && s.bottom <= tr.bottom + 1 && s.right <= tr.right + 1
-      })
-    },
-    deps: [
-      currentQuestion?.id,
-      (currentQuestion ? getEffectiveOptions(currentQuestion) ?? [] : []).map(getOptionText).join(' '),
-      phase,
-    ],
-  })
+  // Answer tiles now fit THEMSELVES: each HostOptionTile runs its own
+  // useFitText, so a short answer grows to fill its card while a long one
+  // shrinks — instead of every tile sharing the worst (longest) tile's size
+  // and leaving short answers adrift in whitespace. No grid-level fit here.
 
   // Shuffled right-column pool for the matching host view. Deterministic per
   // question (hash sort) so re-renders and host reloads never reshuffle the
@@ -2240,63 +2215,56 @@ export default function SessionPage() {
               moment the host revealed, which moved the question and every
               answer box below it. Only the label text and the timer circle's
               inner content change now; every box keeps its exact geometry. */}
-          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] items-center gap-2 lg:gap-4 [&>*]:min-w-0">
-              <div>
-                <span className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: isAnswerRevealStage ? '#FBD13B' : 'rgba(255,255,255,0.52)' }}>
-                  {isAnswerRevealStage ? 'Answer Reveal' : 'Live Question'}
-                </span>
-                <QuestionNavigator
-                  questions={quiz.questions}
-                  currentIndex={questionIndex}
-                  playedIndexes={playedIndexes}
-                  answerableNumber={answerableNumber}
-                  answerableTotal={answerableTotal}
-                  onJump={gotoQuestion}
-                />
+          {/* Slim header — one row. Desktop keeps only the stage label + timer:
+              the question navigator lives at the top of the left rail, and the
+              answered count + progress bar live in the left rail too (the old
+              top pill + progress row duplicated them and wasted vertical space
+              the question/answers need). Mobile has no side rails, so it keeps
+              a compact navigator + answered chip inline. */}
+          <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-2 lg:gap-4 [&>*]:min-w-0">
+            {/* Mobile (<lg): compact navigator + answered (no rails on phones) */}
+            <div className="lg:hidden flex items-center gap-2 min-w-0">
+              <QuestionNavigator
+                questions={quiz.questions}
+                currentIndex={questionIndex}
+                playedIndexes={playedIndexes}
+                answerableNumber={answerableNumber}
+                answerableTotal={answerableTotal}
+                onJump={gotoQuestion}
+              />
+              <span className="inline-flex items-center rounded-full px-3 py-1.5 text-sm font-black tabular-nums whitespace-nowrap" style={{ color: '#0F1B3D', background: '#FBD13B' }}>
+                {answered}/{connectedCount}
+              </span>
+            </div>
+            {/* Desktop (lg+): stage label chip only */}
+            <span className="hidden lg:inline-flex items-center rounded-full px-4 py-1.5 text-xs font-black uppercase tracking-[0.24em]" style={{ color: isAnswerRevealStage ? '#FBD13B' : 'rgba(255,255,255,0.72)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)' }}>
+              {isAnswerRevealStage ? 'Answer Reveal' : 'Live Question'}
+            </span>
+            {/* Timer (both) + mobile join chip */}
+            <div className="flex items-center gap-2 lg:gap-3">
+              {currentQuestion.timerSeconds > 0 && (
+                questionStartedAt == null || Date.now() < questionStartedAt ? (
+                  <span className="min-w-16 text-center text-sm font-semibold animate-pulse px-4 py-2 rounded-full" style={{ color: '#FBD13B', background: 'rgba(255,255,255,0.08)' }}>Loading…</span>
+                ) : (
+                  <div className="font-display flex h-12 w-12 lg:h-16 lg:w-16 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(15,27,61,0.42)', fontFamily: 'var(--font-display)' }}>
+                    {questionEnded ? (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="#4ADE80" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 lg:w-7 lg:h-7" aria-label="Question ended">
+                        <path d="M20 6 9 17l-5-5" />
+                      </svg>
+                    ) : (
+                      <>
+                        {/* Phone header is a single tight row — smaller dial. */}
+                        <span className="lg:hidden"><CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} size={48} /></span>
+                        <span className="hidden lg:inline"><CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} size={64} /></span>
+                      </>
+                    )}
+                  </div>
+                )
+              )}
+              <div className="lg:hidden">
+                <JoinPill gameCode={gameCode} variant="compact" />
               </div>
-              <div className="flex flex-wrap items-center justify-start lg:justify-end gap-2 lg:gap-3">
-                {currentQuestion.timerSeconds > 0 && (
-                  questionStartedAt == null || Date.now() < questionStartedAt ? (
-                    <span className="min-w-16 text-center text-sm font-semibold animate-pulse px-4 py-2 rounded-full" style={{ color: '#FBD13B', background: 'rgba(255,255,255,0.08)' }}>Loading…</span>
-                  ) : (
-                    <div className="font-display flex h-12 w-12 lg:h-16 lg:w-16 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(15,27,61,0.42)', fontFamily: 'var(--font-display)' }}>
-                      {questionEnded ? (
-                        <svg viewBox="0 0 24 24" fill="none" stroke="#4ADE80" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 lg:w-7 lg:h-7" aria-label="Question ended">
-                          <path d="M20 6 9 17l-5-5" />
-                        </svg>
-                      ) : (
-                        <>
-                          {/* Phone header is a single tight row — smaller dial. */}
-                          <span className="lg:hidden"><CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} size={48} /></span>
-                          <span className="hidden lg:inline"><CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} size={64} /></span>
-                        </>
-                      )}
-                    </div>
-                  )
-                )}
-                <span className="inline-flex h-10 lg:h-12 items-center rounded-full px-3 lg:px-4 text-base lg:text-lg font-black tabular-nums whitespace-nowrap" style={{ color: '#0F1B3D', background: '#FBD13B', boxShadow: '0 5px 0 rgba(0,0,0,0.24)' }}>
-                  {answered}/{connectedCount}
-                  <span className="ml-2 text-xs uppercase tracking-wider">answered</span>
-                </span>
-                {/* Full Join QR now lives at the top of the participants rail
-                    (right column) to slim this bar and reclaim vertical space for
-                    the question. Below lg the rail is hidden, so a compact code
-                    chip stays here to keep the join code visible. */}
-                <div className="lg:hidden">
-                  <JoinPill gameCode={gameCode} variant="compact" />
-                </div>
-              </div>
-          </div>
-
-          {/* Progress bar */}
-          <div className="max-w-7xl mx-auto h-3 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.14)' }}>
-            <div
-              className="h-full rounded-full transition-all duration-300"
-              style={{
-                width: connectedCount > 0 ? `${(answered / connectedCount) * 100}%` : '0%',
-                background: 'linear-gradient(90deg, #FBD13B 0%, #22C55E 100%)',
-              }}
-            />
+            </div>
           </div>
 
           {/* Kept mounted through the reveal so the dev preview stage doesn't
@@ -2345,16 +2313,31 @@ export default function SessionPage() {
             {/* LEFT — live stats rail (lg+). Hidden on mobile to keep the question
                 full-bleed; the immersive overlay (button in the control bar) is
                 the mobile equivalent. */}
-            <div className="hidden lg:block min-h-0">
-              <HostStatsRail
-                answered={answered}
-                connectedCount={connectedCount}
-                optionCounts={optionCounts}
-                options={statsOptions}
-                correctRevealed={correctRevealed}
-                isScored={isScoredQuestion(currentQuestion)}
-                onExpand={() => setShowImmersiveStats(true)}
-              />
+            <div className="hidden lg:flex flex-col gap-2 min-h-0">
+              {/* Question navigator — sits ABOVE the rail (not inside it) so its
+                  jump popover isn't clipped by the rail's overflow-hidden. The
+                  compact trigger reads as the rail's header card. */}
+              <div className="shrink-0 rounded-2xl px-2.5 py-1.5" style={{ background: 'rgba(15,27,61,0.92)', border: '1px solid rgba(255,255,255,0.18)' }}>
+                <QuestionNavigator
+                  questions={quiz.questions}
+                  currentIndex={questionIndex}
+                  playedIndexes={playedIndexes}
+                  answerableNumber={answerableNumber}
+                  answerableTotal={answerableTotal}
+                  onJump={gotoQuestion}
+                />
+              </div>
+              <div className="flex-1 min-h-0">
+                <HostStatsRail
+                  answered={answered}
+                  connectedCount={connectedCount}
+                  optionCounts={optionCounts}
+                  options={statsOptions}
+                  correctRevealed={correctRevealed}
+                  isScored={isScoredQuestion(currentQuestion)}
+                  onExpand={() => setShowImmersiveStats(true)}
+                />
+              </div>
             </div>
 
             {/* CENTER — question + answers (full width on mobile) */}
@@ -2387,7 +2370,7 @@ export default function SessionPage() {
           >
             <p
               ref={questionTextRef}
-              className="shrink-0 font-display font-medium leading-snug break-words text-justify [hyphens:auto]"
+              className="shrink-0 font-display font-medium leading-snug break-words"
               style={{
                 color: '#0F1B3D',
                 lineHeight: 1.15,
@@ -2634,9 +2617,9 @@ export default function SessionPage() {
                     {pairs.map((p, i) => (
                       <div key={i} className="flex items-center gap-3 rounded-xl px-4 py-2" style={{ background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
                         <span className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-semibold flex-shrink-0 text-white" style={{ background: '#16A34A' }}>{i + 1}</span>
-                        <span className="flex-1 min-w-0 break-words text-gray-900 font-medium [hyphens:auto]">{p.left}</span>
+                        <span className="flex-1 min-w-0 break-words text-gray-900 font-medium">{p.left}</span>
                         <span className="flex-shrink-0 text-green-600 font-semibold" aria-hidden>&harr;</span>
-                        <span className="flex-1 min-w-0 break-words text-green-800 font-medium [hyphens:auto]">{p.right}</span>
+                        <span className="flex-1 min-w-0 break-words text-green-800 font-medium">{p.right}</span>
                       </div>
                     ))}
                   </div>
@@ -2649,7 +2632,7 @@ export default function SessionPage() {
                     {pairs.map((p, i) => (
                       <div key={i} className="flex items-center gap-3 rounded-xl px-4 py-2.5" style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }}>
                         <span className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-semibold flex-shrink-0" style={{ background: '#EEF2FF', color: '#4F46E5' }}>{i + 1}</span>
-                        <span className="flex-1 min-w-0 break-words text-gray-900 font-medium [hyphens:auto]">{p.left}</span>
+                        <span className="flex-1 min-w-0 break-words text-gray-900 font-medium">{p.left}</span>
                       </div>
                     ))}
                   </div>
@@ -2658,7 +2641,7 @@ export default function SessionPage() {
                     {matchingRightPool.map((right, i) => (
                       <div key={i} className="flex items-center gap-3 rounded-xl px-4 py-2.5" style={{ background: '#FDF2F8', border: '1px solid #FBCFE8' }}>
                         <span className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-semibold flex-shrink-0" style={{ background: '#FCE7F3', color: '#DB2777' }}>{String.fromCharCode(65 + i)}</span>
-                        <span className="flex-1 min-w-0 break-words text-gray-900 font-medium [hyphens:auto]">{right}</span>
+                        <span className="flex-1 min-w-0 break-words text-gray-900 font-medium">{right}</span>
                       </div>
                     ))}
                   </div>
@@ -2667,71 +2650,32 @@ export default function SessionPage() {
             })()}
           </div>
           ) : (
-          /* Options: column count comes from the CENTER COLUMN's container
-             width (see .host-options-stage in globals.css) — the always-
-             mounted vote/check slots + letter chip leave a 2-col layout
-             ~zero px for the answer text whenever the center is narrow
-             (phones at 375px, but also desktop 1024px where the side rails
-             shrink the center to ~360px). */
-          <div ref={optionsGridRef} className={`max-w-7xl mx-auto w-full flex-1 min-h-0 grid gap-2 sm:gap-3 md:gap-5 host-answer-stage host-options-stage ${hostQuestionFit?.optionClass ?? 'host-option-fit-large'}`}>
+          /* Options grid: column count comes from the CENTER COLUMN's container
+             width (see .host-options-stage in globals.css). Each tile is a
+             HostOptionTile that fits its OWN text — short answers grow to fill
+             the card, long ones shrink — centered, never hyphenated, with the
+             vote count + correct check as a corner badge that reserves no
+             width while the question is live. */
+          <div className={`max-w-7xl mx-auto w-full flex-1 min-h-0 grid gap-2 sm:gap-3 md:gap-5 host-answer-stage host-options-stage ${hostQuestionFit?.optionClass ?? 'host-option-fit-large'}`}>
             {getEffectiveOptions(currentQuestion)?.map((opt, i) => {
               const votes = optionCounts[i] ?? 0
               const pct = connectedCount > 0 ? (votes / connectedCount) * 100 : 0
               const isCorrect = String(i) === currentQuestion.correctAnswer
-              // Green ring only for scored types AND only after host reveals the answer.
-              // This prevents leaking the correct answer on projector screens.
+              // Green ring only for scored types AND only after host reveals
+              // the answer — prevents leaking it on projector screens.
               const highlightCorrect = isScoredQuestion(currentQuestion) && isCorrect && correctRevealed
-              const optText = getOptionText(opt)
-              const optImage = getOptionImage(opt)
               return (
-                <div
+                <HostOptionTile
                   key={i}
-                  className={`rounded-2xl overflow-hidden border-2 transition-all ${highlightCorrect ? 'ring-4 ring-green-300 border-green-200' : 'border-white/15'}`}
-                  style={{
-                    background: highlightCorrect
-                      ? '#DCFCE7'
-                      : 'rgba(255,255,255,0.96)',
-                    boxShadow: highlightCorrect
-                      ? '0 18px 50px rgba(34,197,94,0.3)'
-                      : '0 12px 34px rgba(0,0,0,0.22)',
-                  }}
-                >
-                  {optImage && (
-                    <img src={optImage} alt="" className="w-full object-cover" style={{ height: 'min(14vh, 128px)' }} loading="lazy" />
-                  )}
-                  <div className="flex-1 min-h-0 p-3 md:p-5 flex items-center gap-4">
-                    <span className={`w-11 h-11 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-xl md:text-2xl font-black text-white flex-shrink-0 ${OPTION_COLORS[i]}`} style={{ boxShadow: '0 4px 0 rgba(0,0,0,0.16)' }}>
-                      {OPTION_LABELS[i]}
-                    </span>
-                    <span className="host-opt-text flex-1 min-w-0 break-words text-gray-900 font-medium text-justify [hyphens:auto]">{optText}</span>
-                    {/* Vote count + check occupy FIXED-width slots that are
-                        always mounted — they fade in on reveal instead of
-                        being inserted, so the answer text never re-wraps. */}
-                    <span
-                      className={`host-reveal-votes w-10 text-right font-black tabular-nums text-gray-500 flex-shrink-0 transition-opacity duration-300 ${correctRevealed ? 'opacity-100' : 'opacity-0'}`}
-                      aria-hidden={!correctRevealed}
-                    >
-                      {votes}
-                    </span>
-                    {isScoredQuestion(currentQuestion) && (
-                      <span
-                        className={`host-reveal-check w-7 text-center text-green-600 font-black flex-shrink-0 transition-opacity duration-300 ${highlightCorrect ? 'opacity-100' : 'opacity-0'}`}
-                        aria-hidden={!highlightCorrect}
-                      >
-                        ✓
-                      </span>
-                    )}
-                  </div>
-                  {/* Vote-share bar: the fill is the REAL percentage for every
-                      option, including the correct one (green marks correct;
-                      a forced-100% green bar misread as "everyone got it"). */}
-                  <div className={`h-3 ${highlightCorrect ? 'bg-[#BBF7D0]' : 'bg-gray-100'}`}>
-                    <div
-                      className={`h-full transition-all duration-500 ${highlightCorrect ? 'bg-green-500' : OPTION_COLORS[i]}`}
-                      style={{ width: correctRevealed ? `${pct}%` : '0%' }}
-                    />
-                  </div>
-                </div>
+                  letter={OPTION_LABELS[i] ?? String(i + 1)}
+                  colorClass={OPTION_COLORS[i] ?? 'bg-gray-500'}
+                  text={getOptionText(opt)}
+                  imageUrl={getOptionImage(opt) ?? undefined}
+                  votes={votes}
+                  votePct={pct}
+                  showVotes={correctRevealed}
+                  highlightCorrect={highlightCorrect}
+                />
               )
             })}
           </div>

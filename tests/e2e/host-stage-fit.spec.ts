@@ -124,6 +124,21 @@ for (const vp of [
       expect(m.rightOver, 'option text must not clip past its tile').toBeLessThanOrEqual(1)
     }
 
+    // Typography contract for the wall: never auto-hyphenate (no "-" word
+    // breaks) and center the text so a short answer fills its tile instead of
+    // leaving a dead right strip.
+    const optStyles = await page.locator('.host-options-stage .host-opt-text').evaluateAll(spans =>
+      spans.map(s => {
+        const cs = getComputedStyle(s)
+        return { hyphens: cs.hyphens, align: cs.textAlign }
+      })
+    )
+    expect(optStyles.length).toBeGreaterThan(0)
+    for (const st of optStyles) {
+      expect(st.hyphens, 'option text must not auto-hyphenate').not.toBe('auto')
+      expect(st.align, 'option text must be centered').toBe('center')
+    }
+
     await context.close()
   })
 }
@@ -187,6 +202,21 @@ for (const vp of [
       expect(m.top, 'option text must not clip above its tile').toBeGreaterThanOrEqual(-1)
       expect(m.bottomOver, 'option text must not clip below its tile').toBeLessThanOrEqual(1)
       expect(m.rightOver, 'option text must not clip past its tile').toBeLessThanOrEqual(1)
+    }
+
+    // Typography contract for the wall: never auto-hyphenate (no "-" word
+    // breaks) and center the text so a short answer fills its tile instead of
+    // leaving a dead right strip.
+    const optStyles = await page.locator('.host-options-stage .host-opt-text').evaluateAll(spans =>
+      spans.map(s => {
+        const cs = getComputedStyle(s)
+        return { hyphens: cs.hyphens, align: cs.textAlign }
+      })
+    )
+    expect(optStyles.length).toBeGreaterThan(0)
+    for (const st of optStyles) {
+      expect(st.hyphens, 'option text must not auto-hyphenate').not.toBe('auto')
+      expect(st.align, 'option text must be centered').toBe('center')
     }
     await context.close()
   })
