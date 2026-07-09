@@ -414,16 +414,28 @@ body {
 }
 
 .host-options-stage {
-  /* One full-width tile per row: the answer owns the entire center-column
-     width so long options read cleanly, and more options just add another
-     row instead of cramming into columns. (Previously a container query
-     flipped this to 1fr 1fr above 520px, which starved text horizontally.)
-     Equal-height rows so all tiles are identical size regardless of how much
-     text is inside each one (auto-rows also keeps 6-option grids uniform).
-     minmax(0,1fr), not bare 1fr: implicit 1fr rows are minmax(auto,1fr), so
-     differing content minimums make rows unequal. */
+  /* Two equal columns — matches the atrium mockup: the wide center (rails are
+     now only 64px + 92px, leaving ~830px+) has room for a 2×2 grid so four
+     options read as a balanced block instead of four cramped full-width rows.
+     Equal-height rows (minmax(0,1fr), not bare 1fr — implicit 1fr rows are
+     minmax(auto,1fr) so differing content minimums made rows unequal) keep all
+     tiles identical regardless of text length; odd counts (5–6 options) just
+     add a partial row. Drops to one column on a genuinely narrow center
+     (phones, or a very tight window) via the container query below. */
   grid-auto-rows: minmax(0, 1fr);
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(12px, 1.8vw, 22px);
+}
+
+/* Narrow center (mobile / <lg, where the rails are hidden and the column is
+   the full phone width): one column so each option owns the full width and
+   the text never cramps. The center column is the size container
+   (.host-center-col { container-type: inline-size }), so this follows the
+   REAL available width — not the viewport breakpoint. */
+@container (max-width: 540px) {
+  .host-options-stage {
+    grid-template-columns: 1fr;
+  }
 }
 
 .host-options-stage > div {

@@ -77,11 +77,13 @@ export function HostOptionTile({
 
   return (
     <div
-      className={`host-option-tile relative overflow-hidden rounded-2xl transition-all duration-500`}
+      className={`host-option-tile relative overflow-hidden transition-all duration-500`}
       style={{
         // Correct on reveal → emerald bloom + green edge glow + ring.
         // Wrong on reveal → desaturate so it recedes.
-        // Live → the option's own jewel gradient.
+        // Live → the option's own jewel gradient. Radius 18px to match the
+        // atrium mockup's tile geometry.
+        borderRadius: 18,
         background: highlightCorrect
           ? 'linear-gradient(158deg, #1fc765 0%, #16A34A 56%, #0A6E3D 100%)'
           : `linear-gradient(158deg, ${jewel.hexLight} 0%, ${jewel.hex} 56%, ${jewel.hexDark} 100%)`,
