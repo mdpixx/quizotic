@@ -101,12 +101,13 @@ export function HostOptionTile({
           {votes}
         </div>
       </div>
-      {/* Vote-share bar — fill animates on reveal. Track is re-tinted for the
-          dark-glass tile; correct option fills green, others keep their chip
-          hue. A forced-100% green bar would misread as "everyone got it right". */}
+      {/* Vote-share bar — fill animates on reveal. Green is reserved EXCLUSIVELY
+          for the correct answer: wrong options use a neutral white fill instead
+          of their chip hue, because option D's chip is green and a green bar on
+          a wrong answer misread as "this is correct". Track is tinted for glass. */}
       <div className={`h-3 ${highlightCorrect ? 'bg-[#BBF7D0]/40' : 'bg-white/10'}`}>
         <div
-          className={`h-full transition-all duration-500 ${highlightCorrect ? 'bg-green-500' : colorClass}`}
+          className={`h-full transition-all duration-500 ${highlightCorrect ? 'bg-green-500' : 'bg-white/70'}`}
           style={{ width: showVotes ? `${votePct}%` : '0%' }}
         />
       </div>
