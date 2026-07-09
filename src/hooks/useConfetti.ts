@@ -206,21 +206,23 @@ function fireWinner(
   // layer plays a SUPPORTING role — directional side cannons + a center
   // fountain + gentle drift rain, at roughly half the old density. The former
   // gold-crown burst and gold star streamers were what read as "over-done";
-  // both are gone. Stars are dropped from the shapes entirely.
+  // both are gone. Stars are dropped from the shapes entirely. Particle counts
+  // were trimmed a further ~25% so the supporting canvas layer no longer
+  // competes with (and overshadows) the podium and the Lottie cannons.
   // Phase 1 (t=0): two side cannons firing inward and upward.
   confetti(scale({
     ...base, origin: { x: 0.02, y: 0.85 }, angle: 75, spread: 50,
-    particleCount: 50, startVelocity: 80, ticks: 350, scalar: 1.1, shapes: mixedShapes,
+    particleCount: 36, startVelocity: 80, ticks: 350, scalar: 1.1, shapes: mixedShapes,
   }, factor))
   confetti(scale({
     ...base, origin: { x: 0.98, y: 0.85 }, angle: 105, spread: 50,
-    particleCount: 50, startVelocity: 80, ticks: 350, scalar: 1.1, shapes: mixedShapes,
+    particleCount: 36, startVelocity: 80, ticks: 350, scalar: 1.1, shapes: mixedShapes,
   }, factor))
 
   // Phase 2 (t=300): center fountain.
   setTimeout(() => confetti(scale({
     ...base, origin: { x: 0.5, y: 0.9 }, angle: 90, spread: 70,
-    particleCount: 60, startVelocity: 65, ticks: 320, scalar: 1.0, shapes: mixedShapes,
+    particleCount: 44, startVelocity: 65, ticks: 320, scalar: 1.0, shapes: mixedShapes,
   }, factor)), 300)
 
   // Phase 3 (t=900): side cannons reload — heavier on ribbons for streamer feel.
@@ -228,11 +230,11 @@ function fireWinner(
     const ribbonHeavy = [shapes.ribbon, shapes.ribbon, shapes.curl, shapes.curl, shapes.rect, shapes.circle]
     confetti(scale({
       ...base, origin: { x: 0.02, y: 0.85 }, angle: 75, spread: 50,
-      particleCount: 30, startVelocity: 70, ticks: 400, scalar: 1.15, shapes: ribbonHeavy,
+      particleCount: 22, startVelocity: 70, ticks: 400, scalar: 1.15, shapes: ribbonHeavy,
     }, factor))
     confetti(scale({
       ...base, origin: { x: 0.98, y: 0.85 }, angle: 105, spread: 50,
-      particleCount: 30, startVelocity: 70, ticks: 400, scalar: 1.15, shapes: ribbonHeavy,
+      particleCount: 22, startVelocity: 70, ticks: 400, scalar: 1.15, shapes: ribbonHeavy,
     }, factor))
   }, 900)
 
@@ -240,7 +242,7 @@ function fireWinner(
   // very low initial velocity so gravity is doing all the work.
   setTimeout(() => confetti(scale({
     ...base, origin: { x: 0.5, y: -0.05 }, angle: 270, spread: 180,
-    particleCount: 40, startVelocity: 5, gravity: 0.7, ticks: 500, scalar: 0.85,
+    particleCount: 30, startVelocity: 5, gravity: 0.7, ticks: 500, scalar: 0.85,
     shapes: mixedShapes,
   }, factor)), 1800)
 }
