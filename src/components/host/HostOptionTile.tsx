@@ -108,10 +108,26 @@ export function HostOptionTile({
       {imageUrl && (
         <img src={imageUrl} alt="" className="w-full object-cover" style={{ height: 'min(14vh, 128px)' }} loading="lazy" />
       )}
-      <div ref={contentRef} className="relative z-10 flex flex-1 min-h-0 items-center gap-3 p-3 md:gap-4 md:p-5">
+      <div
+        ref={contentRef}
+        className="relative z-10 flex flex-1 min-h-0 items-center"
+        style={{
+          // Atrium mockup .tile padding (line 118): generous horizontal padding
+          // is what makes tiles read as cards rather than strips, and a wide
+          // glyph↔label gap keeps the letter badge cleanly anchored.
+          gap: 'clamp(12px, 1.6vw, 18px)',
+          padding: 'clamp(16px, 2.4vh, 26px) clamp(18px, 2.6vw, 32px)',
+        }}
+      >
         <span
-          className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-xl font-black text-white md:h-14 md:w-14 md:text-2xl"
+          className="host-option-glyph flex flex-shrink-0 items-center justify-center font-black text-white"
           style={{
+            // Atrium mockup .tile .glyph (lines 120-122): viewport-scaled square
+            // with a 13px radius and a dark translucent fill + top sheen.
+            width: 'clamp(40px, 4.6vw, 54px)',
+            height: 'clamp(40px, 4.6vw, 54px)',
+            borderRadius: 13,
+            fontSize: 'clamp(21px, 2.4vw, 28px)',
             background: 'rgba(0,0,0,0.18)',
             border: '1px solid rgba(255,255,255,0.24)',
             boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.3)',
