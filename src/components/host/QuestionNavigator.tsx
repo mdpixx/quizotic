@@ -18,6 +18,10 @@ interface QuestionNavigatorProps {
   answerableNumber: number
   answerableTotal: number
   onJump: (index: number) => Promise<{ success: boolean; reason?: string }>
+  /** When set, render as a bare navrail dot showing this label instead of the
+   *  default "Q3 of 15 ▾" trigger. Used by the atrium left rail so the current
+   *  question's dot is the click target for the jump grid. */
+  railLabel?: string
 }
 
 const REASON_LABEL: Record<string, string> = {
@@ -28,7 +32,7 @@ const REASON_LABEL: Record<string, string> = {
   out_of_range: 'That question does not exist.',
 }
 
-export function QuestionNavigator({ questions, currentIndex, playedIndexes, answerableNumber, answerableTotal, onJump }: QuestionNavigatorProps) {
+export function QuestionNavigator({ questions, currentIndex, playedIndexes, answerableNumber, answerableTotal, onJump, railLabel }: QuestionNavigatorProps) {
   const [open, setOpen] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -56,20 +60,28 @@ export function QuestionNavigator({ questions, currentIndex, playedIndexes, answ
     <div ref={rootRef} className="relative">
       <button
         onClick={() => { setOpen(o => !o); setNotice(null) }}
-        className="flex w-full items-center gap-2 rounded-xl px-2 py-1 transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-[#FBD13B]"
+        className={railLabel
+          ? 'host-navrail-dot is-cur'
+          : 'flex w-full items-center gap-2 rounded-xl px-2 py-1 transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-[#FBD13B]'}
         title="Jump to another question"
         aria-haspopup="dialog"
         aria-expanded={open}
       >
-        <span className="font-display text-2xl font-black tabular-nums leading-none" style={{ fontFamily: 'var(--font-display)', color: '#FBD13B' }}>
-          Q{answerableNumber}
-        </span>
-        <span className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.72)' }}>
-          of {answerableTotal}
-        </span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 ml-auto" style={{ transform: open ? 'rotate(180deg)' : undefined }} aria-hidden>
-          <path d="M6 9l6 6 6-6" />
-        </svg>
+        {railLabel ? (
+          <>{railLabel}</>
+        ) : (
+          <>
+            <span className="font-display text-2xl font-black tabular-nums leading-none" style={{ fontFamily: 'var(--font-display)', color: '#FBD13B' }}>
+              Q{answerableNumber}
+            </span>
+            <span className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.72)' }}>
+              of {answerableTotal}
+            </span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 ml-auto" style={{ transform: open ? 'rotate(180deg)' : undefined }} aria-hidden>
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </>
+        )}
       </button>
 
       {open && (

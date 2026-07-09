@@ -192,6 +192,12 @@ html, body {
   50%       { box-shadow: 0 6px 32px rgba(251,209,59,0.55); }
 }
 
+/* Timer urgency pulse — used by the atrium room-gauge timer at ≤5s. */
+@keyframes tpulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+
 @keyframes shimmer {
   0%   { transform: translateX(-100%); }
   100% { transform: translateX(200%); }
@@ -236,21 +242,119 @@ body {
   flex-shrink: 0;
 }
 
-/* ── 3-column stage (lg+): STATS LEFT | QUESTION CENTER | ROSTER RIGHT ───────
-   The rails are always-visible panels flanking the question. On mobile the
-   grid collapses to a single column (the rails are hidden via `hidden lg:block`
-   in the JSX; the roster uses its edge-tab drawer, stats use the immersive
-   overlay). The grid owns the flex-1 middle region between the header/progress
-   and the control bar, so the question never gets squeezed by the rails. */
-.host-3col-stage {
+/* ── "The Atrium" stage (lg+): NAVRAIL LEFT | QUESTION CENTER | GAUGE RIGHT ──
+   A full-width, editorial layout: a slim left question-navigator (marginalia),
+   a generous center that finally uses the horizontal space, and a slim right
+   "room" gauge that fuses the answered count + a vertical fill bar + the timer
+   into one quiet glance. The roster is OFF the canvas — a slide-over sheet
+   opened from the dock — so the billboard stays question + options, period.
+   On mobile the grid collapses to a single column (navrail + gauge hidden). */
+.host-atrium {
   min-height: 0;
 }
 
-/* Rails fill their column height and scroll internally, never pushing the grid
-   taller. Background/border/shadow are set inline per-rail. */
-.host-rail {
+/* Left navigator dot (vertical Q01…QNN list). Pure typography marginalia. */
+.host-navrail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
   min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding-top: 0.25rem;
 }
+.host-navrail::-webkit-scrollbar { display: none; }
+
+.host-navrail-dot {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255,255,255,0.46);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  flex: none;
+  transition: background .18s, color .18s;
+}
+.host-navrail-dot:hover { background: rgba(255,255,255,0.06); color: #fff; }
+.host-navrail-dot.is-done { color: rgba(255,255,255,0.26); }
+.host-navrail-dot.is-cur {
+  color: #0F1B3D;
+  background: linear-gradient(180deg, #FBD13B, #E0B528);
+  font-weight: 800;
+  box-shadow: 0 6px 16px -4px rgba(251,209,59,0.55);
+}
+.host-navrail-dot.is-cur::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 18px;
+  border-radius: 2px;
+  background: #FBD13B;
+  box-shadow: 0 0 8px #FBD13B;
+}
+
+/* Right "room" gauge: answered/total + vertical gold fill bar + timer. */
+.host-gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  justify-content: flex-start;
+}
+.host-gauge-bar {
+  position: relative;
+  width: 8px;
+  flex: 1;
+  min-height: 60px;
+  max-height: 34vh;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+.host-gauge-bar > div {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  border-radius: 6px;
+  background: linear-gradient(0deg, #E0B528, #FBD13B);
+  box-shadow: 0 0 14px rgba(251,209,59,0.5);
+  transition: height .5s ease;
+}
+.host-gauge.is-allin .host-gauge-count { color: #FBD13B; text-shadow: 0 0 16px rgba(251,209,59,0.5); }
+
+/* Auto-hiding control dock. Idle (3s no pointer) → fade to a sliver; any
+   pointer move revives. Pinned at full opacity during the reveal so the host
+   can always drive the next step. */
+.host-dock { transition: opacity .5s ease, transform .5s ease; }
+.host-question-stage.is-idle .host-dock { opacity: 0.14; transform: translateY(8px); }
+.host-question-stage.is-idle:hover .host-dock,
+.host-dock:hover { opacity: 1; transform: none; }
+.host-question-stage.is-reveal .host-dock { opacity: 1 !important; transform: none !important; }
+
+/* Right-edge roster slide-over sheet. */
+.host-roster-sheet {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: min(380px, 92vw);
+  background: rgba(15,27,61,0.96);
+  border-left: 1px solid rgba(255,255,255,0.18);
+  transform: translateX(100%);
+  transition: transform .35s cubic-bezier(0.2,0.8,0.2,1);
+  overflow-y: auto;
+  z-index: 61;
+  padding: 1.4rem;
+}
+.host-roster-sheet.is-open { transform: none; }
 
 /* The question card must never starve the answer options. It scales down by
    content pressure instead of creating an inner scroll on the presenter view.
@@ -515,14 +619,13 @@ body {
     padding: 1rem 1.25rem;
   }
 
-  /* Tighten the side rails on short viewports so the center keeps room.
+  /* Tighten the atrium on short viewports so the center keeps room.
      lg-only: this is an unlayered rule, so without the width guard it beats
      Tailwind's layered `grid-cols-1` and forces a 3-column template onto
-     short phones (SE portrait / landscape), squeezing the question into the
-     240px rail track while the rails themselves are display:none. */
+     short phones (SE portrait / landscape), squeezing the question. */
   @media (min-width: 1024px) {
-    .host-3col-stage {
-      grid-template-columns: 240px minmax(0, 1fr) 260px;
+    .host-atrium {
+      grid-template-columns: 48px minmax(0, 1fr) 72px;
       gap: 0.5rem;
     }
   }

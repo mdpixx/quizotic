@@ -23,7 +23,6 @@ import { getOptionText, getOptionImage, isScoredQuestion, getEffectiveOptions } 
 import { ANSWER_COLORS, ANSWER_LETTERS } from '@/lib/answer-colors'
 import { QuestionResultsView } from '@/components/results/QuestionResultsView'
 import { QaModerationPanel, type QaModerationState, type QaStatus } from '@/components/host/QaModerationPanel'
-import { CircularTimer } from '@/components/CircularTimer'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
 import { BrandWatermark } from '@/components/BrandWatermark'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
@@ -35,7 +34,7 @@ import { HostWordCloud } from '@/components/host/HostWordCloud'
 import { LiveRosterPanel } from '@/components/host/LiveRosterPanel'
 import { QuestionNavigator } from '@/components/host/QuestionNavigator'
 import { HostOptionTile } from '@/components/host/HostOptionTile'
-import { HostStatsRail, type OptionStat as StatsOptionStat } from '@/components/host/HostStatsRail'
+import { type OptionStat as StatsOptionStat } from '@/components/host/HostStatsRail'
 import { ImmersiveStatsOverlay, type ImmersiveOptionStat } from '@/components/host/ImmersiveStatsOverlay'
 import { getQuizTheme } from '@/lib/quiz-themes'
 import { buildLeaderboardStageRows, getHostQuestionFit, getPostQuestionAction } from '@/lib/host-stage'
@@ -493,6 +492,11 @@ export default function SessionPage() {
   // Host-side Q&A moderation: status + curated upvotes keyed by `${at}-${name}`.
   const [qaModeration, setQaModeration] = useState<Record<string, QaModerationState>>({})
   const [qaPanelOpen, setQaPanelOpen] = useState(false)
+  // Atrium: roster demoted to an on-demand slide-over sheet; control dock
+  // auto-hides to a sliver after 3s idle (any pointer move revives; pinned
+  // during the reveal so the host can always drive the next step).
+  const [rosterSheetOpen, setRosterSheetOpen] = useState(false)
+  const [hostDockIdle, setHostDockIdle] = useState(false)
   const [openendedEntries, setOpenendedEntries] = useState<Array<{ name: string; archetype: string; text: string; at: number }>>([])
   const [ratingValues, setRatingValues] = useState<number[]>([])
   // Running aggregate for non-scored questions — fed by `live_responses` while
@@ -1350,11 +1354,38 @@ export default function SessionPage() {
       } else if (e.key === 'Escape') {
         setShowLeaderboardPopup(false)
         setShowImmersiveStats(false)
+        setRosterSheetOpen(false)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  // Control dock auto-hide: 3s of no pointer activity fades the dock to a
+  // sliver; any pointer move, touch, or keypress revives it. Pinned at full
+  // opacity during the answer-reveal so the host can always reach the next
+  // action. Mirrors the mockup's "ambient chrome" behaviour.
+  useEffect(() => {
+    if (phase !== 'question') return
+    // During the reveal the dock stays pinned — never idle.
+    if (isAnswerRevealStage) { setHostDockIdle(false); return }
+    let idleTimer: ReturnType<typeof setTimeout> | null = null
+    const poke = () => {
+      setHostDockIdle(false)
+      if (idleTimer) clearTimeout(idleTimer)
+      idleTimer = setTimeout(() => setHostDockIdle(true), 3000)
+    }
+    poke()
+    window.addEventListener('mousemove', poke, { passive: true })
+    window.addEventListener('touchstart', poke, { passive: true })
+    window.addEventListener('keydown', poke, { passive: true })
+    return () => {
+      if (idleTimer) clearTimeout(idleTimer)
+      window.removeEventListener('mousemove', poke)
+      window.removeEventListener('touchstart', poke)
+      window.removeEventListener('keydown', poke)
+    }
+  }, [phase, isAnswerRevealStage])
 
   // Auto-show the immersive stats overlay after each answer reveal, when the
   // host has opted in. Fires once per question (guarded by questionEnded +
@@ -2156,7 +2187,9 @@ export default function SessionPage() {
         </div>
       )}
 
-      {/* QUESTION */}
+      {/* QUESTION — "The Atrium": full-width projected stage with slim marginalia
+          rails (left question-navigator, right room gauge) framing a generous
+          center, and the roster demoted to an on-demand slide-over sheet. */}
       {phase === 'question' && currentQuestion && quiz && (
         <motion.div
           key={`host-question-${questionIndex}-${currentQuestion.type}`}
@@ -2167,27 +2200,12 @@ export default function SessionPage() {
              stage so the sticky control bar is always reachable (the old fixed
              h-svh + overflow-hidden clipped it below the fold). lg+ keeps the
              fixed projector-fit stage that compresses content without scroll. */
-          className="min-h-svh lg:h-svh lg:max-h-svh lg:overflow-hidden px-4 pt-3 pb-3 lg:px-8 lg:pt-4 lg:pb-4 flex flex-col gap-3 host-question-stage"
+          className={`min-h-svh lg:h-svh lg:max-h-svh lg:overflow-hidden px-4 pt-3 pb-3 lg:px-8 lg:pt-4 lg:pb-4 flex flex-col gap-3 host-question-stage ${isAnswerRevealStage ? 'is-reveal' : ''} ${hostDockIdle ? 'is-idle' : ''}`}
           style={{
             background: 'linear-gradient(135deg, #071126 0%, #0F1B3D 55%, #102A43 100%)',
             color: '#FFFFFF',
           }}
         >
-          {/* Mobile (<lg): per-participant roster as a fixed edge-tab drawer so
-              the narrow projected question stays full-bleed. On lg+ the roster
-              lives in the dedicated right rail of the 3-column grid below. */}
-          <div className="lg:hidden">
-            <LiveRosterPanel
-              participants={participants}
-              answeredKeys={answeredKeys}
-              answered={answered}
-              connectedCount={connectedCount}
-              onKick={kickParticipant}
-              anonymous={anonymousMode}
-              onToggleAnonymous={toggleAnonymousMode}
-            />
-          </div>
-
           {/* 3-2-1 Countdown overlay */}
           {countdownValue !== null && (
             <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(15,27,61,0.92)' }}>
@@ -2218,21 +2236,14 @@ export default function SessionPage() {
             </div>
           )}
 
-          {/* Header — ONE structure for live AND reveal. Swapping to a compact
-              "Answer Reveal" bar here used to change the header height the
-              moment the host revealed, which moved the question and every
-              answer box below it. Only the label text and the timer circle's
-              inner content change now; every box keeps its exact geometry. */}
-          {/* Slim header — one row. Desktop keeps only the stage label + timer:
-              the question navigator lives at the top of the left rail, and the
-              answered count + progress bar live in the left rail too (the old
-              top pill + progress row duplicated them and wasted vertical space
-              the question/answers need). Mobile has no side rails, so it keeps
-              a compact navigator + answered chip inline. */}
-          <div className="max-w-7xl mx-auto w-full grid grid-cols-[1fr_auto_1fr] items-center gap-2 lg:gap-4 [&>*]:min-w-0">
-            {/* Mobile (<lg): compact navigator + answered (no rails on phones).
-                Desktop: stage label chip. Left grid cell. */}
-            <div className="lg:hidden flex items-center gap-2 min-w-0">
+          {/* ── Thin text-only eyebrow: QUESTION N/15 · category · … · PIN ──
+              The timer moved OUT of the header into the right room gauge (it
+              pairs with the answered count there — one glance right answers
+              "wait or move on?"). The header now reads as a calm editorial
+              masthead, nothing competing for attention. */}
+          <div className="flex items-center gap-3 lg:gap-4 flex-wrap">
+            {/* Mobile: compact navigator inline (no left rail on phones). */}
+            <div className="lg:hidden">
               <QuestionNavigator
                 questions={quiz.questions}
                 currentIndex={questionIndex}
@@ -2241,49 +2252,27 @@ export default function SessionPage() {
                 answerableTotal={answerableTotal}
                 onJump={gotoQuestion}
               />
-              <span className="inline-flex items-center rounded-full px-3 py-1.5 text-sm font-black tabular-nums whitespace-nowrap" style={{ color: '#0F1B3D', background: '#FBD13B' }}>
-                {answered}/{connectedCount}
-              </span>
             </div>
-            <span className="hidden lg:inline-flex items-center rounded-full px-4 py-1.5 text-xs font-black uppercase tracking-[0.24em] justify-self-start" style={{ color: isAnswerRevealStage ? '#FBD13B' : 'rgba(255,255,255,0.72)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)' }}>
-              {isAnswerRevealStage ? 'Answer Reveal' : 'Live Question'}
+            <span className="text-[11px] font-bold uppercase tracking-[0.22em] whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.46)' }}>
+              Question <b style={{ color: '#FBD13B', fontWeight: 800 }}>{answerableNumber > 0 ? String(answerableNumber).padStart(2, '0') : String(questionIndex + 1).padStart(2, '0')}</b> <span style={{ color: 'rgba(255,255,255,0.26)' }}>/ {answerableTotal || quiz.questions.length}</span>
             </span>
-            {/* CENTER — quiz title. Desktop only: the middle cell is empty on
-                mobile so the tight navigator/join-pill clusters keep their
-                room. Truncated so long titles never collide with the side
-                controls; the 1fr side cells absorb any width imbalance and the
-                title stays truly centered. */}
-            <div className="hidden lg:flex justify-center min-w-0 px-2">
-              <span className="truncate text-base font-bold tracking-wide" style={{ color: 'rgba(255,255,255,0.88)', fontFamily: 'var(--font-heading)' }} title={quiz.title}>
-                {quiz.title}
+            <span className="hidden lg:inline text-[11px]" style={{ color: 'rgba(255,255,255,0.26)' }}>·</span>
+            <span className="hidden lg:inline text-[11px] font-bold uppercase tracking-[0.22em] truncate" style={{ color: 'rgba(255,255,255,0.46)' }} title={quiz.title}>
+              {quiz.subject ?? quiz.title}
+            </span>
+            {/* PIN pushed right. Mobile join pill sits next to it. */}
+            <div className="ml-auto flex items-center gap-2">
+              <span className="hidden sm:inline-flex items-center gap-2 text-xs font-semibold rounded-[10px] px-3 py-1.5" style={{ color: 'rgba(255,255,255,0.7)', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.14)' }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 3v18"/></svg>
+                PIN <b style={{ letterSpacing: '0.14em', color: '#fff' }}>{gameCode}</b>
               </span>
-            </div>
-            {/* Timer (both) + mobile join chip. Right grid cell. */}
-            <div className="flex items-center gap-2 lg:gap-3 justify-self-end">
-              {currentQuestion.timerSeconds > 0 && (
-                questionStartedAt == null || Date.now() < questionStartedAt ? (
-                  <span className="min-w-16 text-center text-sm font-semibold animate-pulse px-4 py-2 rounded-full" style={{ color: '#FBD13B', background: 'rgba(255,255,255,0.08)' }}>Loading…</span>
-                ) : (
-                  <div className="font-display flex h-12 w-12 lg:h-16 lg:w-16 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(15,27,61,0.42)', fontFamily: 'var(--font-display)' }}>
-                    {questionEnded ? (
-                      <svg viewBox="0 0 24 24" fill="none" stroke="#4ADE80" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 lg:w-7 lg:h-7" aria-label="Question ended">
-                        <path d="M20 6 9 17l-5-5" />
-                      </svg>
-                    ) : (
-                      <>
-                        {/* Phone header is a single tight row — smaller dial. */}
-                        <span className="lg:hidden"><CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} size={48} /></span>
-                        <span className="hidden lg:inline"><CircularTimer timeLeft={hostTimeLeft} total={currentQuestion.timerSeconds} size={64} /></span>
-                      </>
-                    )}
-                  </div>
-                )
-              )}
               <div className="lg:hidden">
                 <JoinPill gameCode={gameCode} variant="compact" />
               </div>
             </div>
           </div>
+          {/* Hairline separator — a soft gradient line, not a hard border. */}
+          <div className="hidden lg:block" style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.16) 12%, rgba(255,255,255,0.16) 88%, transparent)' }} />
 
           {/* Kept mounted through the reveal so the dev preview stage doesn't
               reflow when it disappears — buttons stay usable at any stage. */}
@@ -2319,44 +2308,54 @@ export default function SessionPage() {
             </div>
           )}
 
-          {/* ── 3-column stage (lg+): STATS LEFT | QUESTION CENTER | ROSTER RIGHT ──
-              The question body (case card, question card, answer stage, reveal
-              breakdown) sits in the center; the left stats rail and right roster
-              rail are always visible on desktop. On mobile the grid collapses to
-              a single column (roster stays in its edge-tab drawer above), so the
-              question keeps full width on phones. The grid itself never reflows
-              on reveal — its columns are fixed; only rail contents swap in place. */}
-          <div className="host-3col-stage flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)_300px] gap-3">
+          {/* ── ATRIUM stage (lg+): NAVRAIL LEFT | QUESTION CENTER | GAUGE RIGHT ──
+              A slim left question-navigator (pure typographic marginalia), a
+              generous center that uses the full width, and a slim right "room"
+              gauge that fuses answered-count + vertical fill bar + timer. The
+              roster is OFF the canvas — a slide-over sheet opened from the dock. */}
+          <div className="host-atrium flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[64px_minmax(0,1fr)_92px] gap-3 lg:gap-5">
 
-            {/* LEFT — live stats rail (lg+). Hidden on mobile to keep the question
-                full-bleed; the immersive overlay (button in the control bar) is
-                the mobile equivalent. */}
-            <div className="hidden lg:flex flex-col gap-2 min-h-0">
-              {/* Question navigator — sits ABOVE the rail (not inside it) so its
-                  jump popover isn't clipped by the rail's overflow-hidden. The
-                  compact trigger reads as the rail's header card. */}
-              <div className="shrink-0 rounded-2xl px-2.5 py-1.5" style={{ background: 'rgba(15,27,61,0.92)', border: '1px solid rgba(255,255,255,0.18)' }}>
-                <QuestionNavigator
-                  questions={quiz.questions}
-                  currentIndex={questionIndex}
-                  playedIndexes={playedIndexes}
-                  answerableNumber={answerableNumber}
-                  answerableTotal={answerableTotal}
-                  onJump={gotoQuestion}
-                />
-              </div>
-              <div className="flex-1 min-h-0">
-                <HostStatsRail
-                  answered={answered}
-                  connectedCount={connectedCount}
-                  optionCounts={optionCounts}
-                  options={statsOptions}
-                  correctRevealed={correctRevealed}
-                  isScored={isScoredQuestion(currentQuestion)}
-                  onExpand={() => setShowImmersiveStats(true)}
-                />
-              </div>
-            </div>
+            {/* LEFT — vertical question navigator (lg+). Pure typographic
+                marginalia: Q01…QNN numbered dots, current gold with a marker
+                bar, done dimmed. The current dot doubles as the trigger for the
+                full QuestionNavigator jump grid (kept as a popover so replays
+                stay server-gated). Other dots are read-only position indicators. */}
+            <aside className="host-navrail hidden lg:flex">
+              <span className="text-[9px] font-bold uppercase tracking-[0.2em]" style={{ color: 'rgba(255,255,255,0.26)', writingMode: 'vertical-rl', transform: 'rotate(180deg)', marginBottom: 10 }}>Quiz</span>
+              {quiz.questions.map((q, i) => {
+                const isLeaderboardSlide = q.type === 'leaderboard'
+                const done = playedIndexes.has(i) && i !== questionIndex
+                const cur = i === questionIndex
+                const label = isLeaderboardSlide ? '★' : String(i + 1).padStart(2, '0')
+                if (cur) {
+                  // The current dot wraps QuestionNavigator so its click opens
+                  // the jump grid. Its own visual trigger is suppressed — we
+                  // render OUR gold dot and let the navigator own the popover.
+                  return (
+                    <div key={i} className="relative">
+                      <QuestionNavigator
+                        questions={quiz.questions}
+                        currentIndex={questionIndex}
+                        playedIndexes={playedIndexes}
+                        answerableNumber={answerableNumber}
+                        answerableTotal={answerableTotal}
+                        onJump={gotoQuestion}
+                        railLabel={label}
+                      />
+                    </div>
+                  )
+                }
+                return (
+                  <span
+                    key={i}
+                    className={`host-navrail-dot ${done ? 'is-done' : ''}`}
+                    title={isLeaderboardSlide ? `Standings (Q${i + 1})` : `Question ${i + 1}`}
+                  >
+                    {label}
+                  </span>
+                )
+              })}
+            </aside>
 
             {/* CENTER — question + answers (full width on mobile). gap-6 gives
                 the white "spotlight" question card clear breathing room above
@@ -2712,13 +2711,17 @@ export default function SessionPage() {
             {getEffectiveOptions(currentQuestion)?.map((opt, i) => {
               const votes = optionCounts[i] ?? 0
               const pct = connectedCount > 0 ? (votes / connectedCount) * 100 : 0
+              // Correctness: single-correct (correctAnswer) OR multiselect
+              // (correctAnswers[]). The glow applies to ALL correct options.
               const isCorrect = String(i) === currentQuestion.correctAnswer
-              // Green ring only for scored types AND only after host reveals
-              // the answer — prevents leaking it on projector screens.
+                || (Array.isArray(currentQuestion.correctAnswers) && currentQuestion.correctAnswers.includes(String(i)))
+              // Correct highlight only for scored types AND only after the host
+              // reveals — prevents leaking the answer on projector screens.
               const highlightCorrect = isScoredQuestion(currentQuestion) && isCorrect && correctRevealed
               return (
                 <HostOptionTile
                   key={i}
+                  index={i}
                   letter={OPTION_LABELS[i] ?? String(i + 1)}
                   colorClass={OPTION_COLORS[i] ?? 'bg-gray-500'}
                   text={getOptionText(opt)}
@@ -2733,58 +2736,44 @@ export default function SessionPage() {
           </div>
           )}
 
-          {/* Reveal footer — ALWAYS mounted for scored questions with a fixed
-              min-height, so the answer grid above (flex-1) is sized the same
-              before and after the reveal. Inserting this strip at reveal time
-              used to shrink every answer tile the moment the host revealed.
-              Contents swap in place: waiting hint → (non-competitive) reveal
-              button → "% got it right" + explanation. */}
+          {/* Explanation line — a single quiet strip under the answer grid.
+              Pre-reveal: nothing (the right gauge carries the answered count).
+              Non-competitive + ended: the "Reveal Correct Answer" button. On
+              reveal (scored): the explanation with a gold left accent, matching
+              the atrium's calm editorial tone. No "% got it right" here — that
+              headline moved to the right room gauge (single home per datum). */}
           {isScoredQuestion(currentQuestion) && (() => {
-            const revealCorrect = revealCorrectCount ?? optionCounts[Number(currentQuestion.correctAnswer)] ?? 0
             const showResults = questionEnded && correctRevealed
             const showManualReveal = sessionMode !== 'competitive' && questionEnded && !correctRevealed
-            return (
-              <div
-                className="host-reveal-footer w-full rounded-2xl px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 min-h-[58px]"
-                style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.16)' }}
-              >
-                {showResults ? (
-                  <>
-                    {connectedCount > 0 && (
-                      <p className="text-lg font-black whitespace-nowrap flex-shrink-0" style={{ color: '#FBD13B', fontFamily: 'var(--font-heading)' }}>
-                        {Math.round((revealCorrect / connectedCount) * 100)}% got it right
-                      </p>
-                    )}
-                    {explanation ? (
-                      <p className="leading-snug font-semibold text-sm flex-1 min-w-0" style={{ color: 'rgba(255,255,255,0.82)' }}>
-                        {explanation}
-                      </p>
-                    ) : connectedCount === 0 ? (
-                      <p className="leading-snug font-semibold text-sm flex-1 min-w-0" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                        No participants answered this question.
-                      </p>
-                    ) : null}
-                  </>
-                ) : showManualReveal ? (
-                  <>
-                    <button
-                      onClick={() => setCorrectRevealed(true)}
-                      className="inline-flex items-center gap-2 px-5 py-2 rounded-full font-black text-sm transition-all hover:scale-[1.02] flex-shrink-0"
-                      style={{ background: '#16A34A', color: '#fff' }}
-                    >
-                      Reveal Correct Answer
-                    </button>
-                    <p className="leading-snug font-semibold text-sm flex-1 min-w-0" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                      Answers are in — reveal when the room is ready.
+            if (showResults) {
+              return (
+                <div className="w-full flex items-center justify-center">
+                  <div className="flex items-start gap-2.5 max-w-[780px] w-full" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', borderLeft: '3px solid #FBD13B', borderRadius: '0 12px 12px 0', padding: '11px 16px' }}>
+                    <span style={{ color: '#FBD13B', flex: 'none', marginTop: 1 }}>💡</span>
+                    <p className="leading-snug text-sm m-0" style={{ color: 'rgba(255,255,255,0.78)' }}>
+                      {explanation ?? (connectedCount === 0 ? 'No participants answered this question.' : '')}
                     </p>
-                  </>
-                ) : (
-                  <p className="leading-snug font-semibold text-sm" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                    Results and explanation appear here after the reveal.
+                  </div>
+                </div>
+              )
+            }
+            if (showManualReveal) {
+              return (
+                <div className="w-full flex items-center justify-center gap-3 flex-wrap">
+                  <button
+                    onClick={() => setCorrectRevealed(true)}
+                    className="inline-flex items-center gap-2 px-5 py-2 rounded-full font-black text-sm transition-all hover:scale-[1.02] flex-shrink-0"
+                    style={{ background: '#16A34A', color: '#fff' }}
+                  >
+                    Reveal Correct Answer
+                  </button>
+                  <p className="leading-snug font-semibold text-sm m-0" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                    Answers are in — reveal when the room is ready.
                   </p>
-                )}
-              </div>
-            )
+                </div>
+              )
+            }
+            return null
           })()}
 
           {/* Drawing gallery — P3.4 */}
@@ -2810,26 +2799,52 @@ export default function SessionPage() {
 
             </div>{/* /CENTER column */}
 
-            {/* RIGHT — Join QR (moved out of the top bar) + always-visible
-                participant roster rail (lg+). Mobile uses the edge-tab drawer
-                rendered above; this rail is desktop-only so the join code and
-                roster are permanently at hand on the projector view. */}
-            <div className="hidden lg:flex flex-col gap-3 min-h-0">
-              <JoinPill gameCode={gameCode} variant="dock" />
-              <div className="flex-1 min-h-0">
-                <LiveRosterPanel
-                  participants={participants}
-                  answeredKeys={answeredKeys}
-                  answered={answered}
-                  connectedCount={connectedCount}
-                  onKick={kickParticipant}
-                  anonymous={anonymousMode}
-                  onToggleAnonymous={toggleAnonymousMode}
-                  variant="rail"
-                />
-              </div>
-            </div>
-          </div>{/* /host-3col-stage */}
+            {/* RIGHT — room gauge (lg+). The quiet hero: answered/connected count
+                over a vertical gold fill bar, an "All in" badge, and the timer.
+                On reveal the count flips to "% got it right" (the old donut's
+                single job, relocated). One glance right = "wait or move on?".
+                Hidden on mobile (mobile keeps the answered chip in the eyebrow +
+                the immersive overlay for stats). */}
+            {(() => {
+              const scoredQ = isScoredQuestion(currentQuestion)
+              const revealCorrect = scoredQ && correctRevealed
+                ? (revealCorrectCount ?? optionCounts[Number(currentQuestion.correctAnswer)] ?? 0)
+                : 0
+              const showResults = scoredQ && questionEnded && correctRevealed
+              const pctAnswered = connectedCount > 0 ? Math.round((answered / connectedCount) * 100) : 0
+              const allIn = connectedCount > 0 && answered >= connectedCount
+              const timerActive = currentQuestion.timerSeconds > 0 && !questionEnded
+              const tsec = Math.max(0, Math.ceil(hostTimeLeft))
+              const urgent = tsec <= 5
+              const warn = tsec > 5 && tsec <= 10
+              return (
+                <aside className={`hidden lg:flex host-gauge ${allIn && !correctRevealed ? 'is-allin' : ''}`} style={{ paddingTop: 4 }}>
+                  <span className="text-[9px] font-bold uppercase tracking-[0.2em]" style={{ color: 'rgba(255,255,255,0.26)' }}>
+                    {showResults ? 'Accuracy' : 'Room'}
+                  </span>
+                  <div className="host-gauge-count text-center" style={{ fontWeight: 800, fontSize: 30, lineHeight: 1, color: '#fff', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.03em' }}>
+                    {showResults && connectedCount > 0 ? (
+                      <>{Math.round((revealCorrect / connectedCount) * 100)}<span style={{ fontSize: '0.5em', fontWeight: 700 }}>%</span></>
+                    ) : (
+                      <>{answered}<span style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.46)', letterSpacing: '0.04em', marginTop: 3 }}>of {connectedCount} in</span></>
+                    )}
+                  </div>
+                  <div className="host-gauge-bar">
+                    <div style={{ height: showResults ? '100%' : `${pctAnswered}%` }} />
+                  </div>
+                  {(allIn && !correctRevealed) && (
+                    <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.1em', color: '#0F1B3D', background: 'linear-gradient(180deg, #FBD13B, #E0B528)', padding: '3px 9px', borderRadius: 999, boxShadow: '0 4px 12px -2px rgba(251,209,59,0.6)' }}>All in</span>
+                  )}
+                  {currentQuestion.timerSeconds > 0 && (
+                    <div className="flex items-center gap-1.5 text-[13px] font-bold" style={{ color: !timerActive ? 'rgba(255,255,255,0.46)' : urgent ? '#DC2626' : warn ? '#F59E0B' : 'rgba(255,255,255,0.7)', fontVariantNumeric: 'tabular-nums', marginTop: 4, animation: urgent && timerActive ? 'tpulse 1s ease-in-out infinite' : undefined }}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 15, height: 15 }}><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.8M9 2h6"/></svg>
+                      <span>{!timerActive ? (questionEnded ? 'done' : `${currentQuestion.timerSeconds}s`) : `${tsec}s`}</span>
+                    </div>
+                  )}
+                </aside>
+              )
+            })()}
+          </div>{/* /host-atrium */}
 
           {/* Quizotic watermark — free plan */}
           {plan === 'free' && (
@@ -2877,19 +2892,23 @@ export default function SessionPage() {
             </div>
           )}
 
-          {/* (Non-competitive "Reveal Correct Answer" now lives inside the
-              always-mounted reveal footer above — same slot, zero reflow.) */}
-
+          {/* Control dock — slim, centered glass bar. Auto-hides to a sliver
+              after 3s idle (any pointer move revives; pinned during reveal).
+              Same symmetric 3-zone logic + getPostQuestionAction as before. */}
           <div className="sticky bottom-0 z-30 mt-auto w-full pt-2">
+            <div className="flex justify-center">
             <div
-              className="max-w-7xl mx-auto flex items-center justify-between gap-3 rounded-3xl px-3 py-2.5"
+              className="host-dock flex flex-wrap items-center gap-2 sm:grid sm:grid-cols-[1fr_auto_1fr] mx-auto"
               style={{
-                background: 'rgba(15,27,61,0.78)',
-                border: '1px solid rgba(255,255,255,0.16)',
-                boxShadow: '0 18px 60px rgba(0,0,0,0.34)',
+                width: 'min(680px, 92vw)',
+                background: 'rgba(15,27,61,0.74)',
+                border: '1px solid rgba(255,255,255,0.14)',
+                boxShadow: '0 18px 50px -16px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)',
                 backdropFilter: 'blur(14px)',
                 WebkitBackdropFilter: 'blur(14px)',
-                paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom, 0px))',
+                borderRadius: 20,
+                padding: '8px 12px',
+                marginBottom: 14,
               }}
             >
               {/* Symmetric 3-zone control bar: [left cluster] [CENTER primary]
@@ -3150,14 +3169,74 @@ export default function SessionPage() {
                     <path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" />
                   </svg>
                 </button>
+                {/* Roster — opens the room slide-over sheet (kept off the canvas
+                    so the billboard stays question + options). */}
+                <button
+                  onClick={() => setRosterSheetOpen(true)}
+                  title="View participants"
+                  aria-label="View participants"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
+                  style={{
+                    background: 'rgba(255,255,255,0.08)',
+                    color: 'rgba(255,255,255,0.78)',
+                    border: '1px solid rgba(255,255,255,0.14)',
+                  }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+                    <circle cx="9" cy="8" r="3.5" /><path d="M3 20a6 6 0 0 1 12 0M17 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-4-5.6" />
+                  </svg>
+                </button>
                 {/* Phone remote — reachable during the live quiz, not just the
                     lobby. Account-based, so the QR/link is safe to show here. */}
                 <PhoneRemoteButton variant="bar" />
               </div>
               </div>{/* /3-zone grid */}
             </div>
+            </div>{/* /dock centering wrapper */}
           </div>
         </motion.div>
+      )}
+
+      {/* Roster slide-over sheet — the room, on demand. Replaces the old
+          always-visible right rail so the projected billboard stays clean.
+          Scrim click + the panel's own close both dismiss it. */}
+      {phase === 'question' && (
+        <>
+          <div
+            onClick={() => setRosterSheetOpen(false)}
+            className={`fixed inset-0 z-[60] transition-opacity duration-300 ${rosterSheetOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+            style={{ background: 'rgba(4,9,24,0.55)', backdropFilter: 'blur(4px)' }}
+            aria-hidden={!rosterSheetOpen}
+          />
+          <aside
+            className={`host-roster-sheet ${rosterSheetOpen ? 'is-open' : ''}`}
+            role="dialog"
+            aria-label="Participants"
+            aria-hidden={!rosterSheetOpen}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-lg font-extrabold m-0">Room · {gameCode}</h3>
+              <button
+                onClick={() => setRosterSheetOpen(false)}
+                aria-label="Close participants"
+                className="text-lg leading-none"
+                style={{ color: 'rgba(255,255,255,0.46)', background: 'none', border: 'none', cursor: 'pointer' }}
+              >✕</button>
+            </div>
+            <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.46)' }}>
+              {connectedCount} connected · {answered} answered
+            </p>
+            <LiveRosterPanel
+              participants={participants}
+              answeredKeys={answeredKeys}
+              answered={answered}
+              connectedCount={connectedCount}
+              onKick={kickParticipant}
+              anonymous={anonymousMode}
+              onToggleAnonymous={toggleAnonymousMode}
+              variant="rail"
+            />
+          </aside>
+        </>
       )}
 
       {/* Pop-up leaderboard — trophy button or 'L' key. Opens over the current
