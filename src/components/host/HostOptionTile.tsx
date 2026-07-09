@@ -67,12 +67,17 @@ export function HostOptionTile({
 
   return (
     <div
-      className={`host-option-tile rounded-2xl overflow-hidden border-2 transition-all ${highlightCorrect ? 'ring-4 ring-green-300 border-green-200' : 'border-white/15'}`}
+      className={`host-option-tile rounded-2xl overflow-hidden border-2 transition-all ${highlightCorrect ? 'ring-4 ring-green-300 border-green-200' : 'border-white/20'}`}
       style={{
-        background: highlightCorrect ? '#DCFCE7' : 'rgba(255,255,255,0.96)',
+        // Dark glass surface on the projector gradient: the question card stays
+        // solid white (the "spotlight"), so making the answer tiles translucent
+        // glass gives the two zones distinct materials at a glance. Correct tile
+        // turns green glass on reveal — geometry is identical, only tint shifts,
+        // so nothing jumps on the projector.
+        background: highlightCorrect ? 'rgba(34,197,94,0.16)' : 'rgba(255,255,255,0.06)',
         boxShadow: highlightCorrect
-          ? '0 18px 50px rgba(34,197,94,0.3)'
-          : '0 12px 34px rgba(0,0,0,0.22)',
+          ? '0 18px 50px rgba(34,197,94,0.30), inset 0 1px 0 rgba(255,255,255,0.14)'
+          : '0 12px 34px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.10)',
       }}
     >
       {imageUrl && (
@@ -85,7 +90,7 @@ export function HostOptionTile({
         >
           {letter}
         </span>
-        <span ref={textRef} className="host-opt-text flex-1 min-w-0 break-words text-gray-900 font-medium">{text}</span>
+        <span ref={textRef} className="host-opt-text flex-1 min-w-0 break-words font-medium">{text}</span>
         {/* Corner badge — absolute so it reserves no width while live; fades in on reveal. */}
         <div
           className={`host-opt-badge absolute top-2 right-3 flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] md:text-xs font-black tabular-nums transition-opacity duration-300 ${showVotes ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
@@ -96,9 +101,10 @@ export function HostOptionTile({
           {votes}
         </div>
       </div>
-      {/* Vote-share bar — fill animates on reveal. Correct option turns green;
-          a forced-100% green bar would misread as "everyone got it right". */}
-      <div className={`h-3 ${highlightCorrect ? 'bg-[#BBF7D0]' : 'bg-gray-100'}`}>
+      {/* Vote-share bar — fill animates on reveal. Track is re-tinted for the
+          dark-glass tile; correct option fills green, others keep their chip
+          hue. A forced-100% green bar would misread as "everyone got it right". */}
+      <div className={`h-3 ${highlightCorrect ? 'bg-[#BBF7D0]/40' : 'bg-white/10'}`}>
         <div
           className={`h-full transition-all duration-500 ${highlightCorrect ? 'bg-green-500' : colorClass}`}
           style={{ width: showVotes ? `${votePct}%` : '0%' }}

@@ -336,12 +336,15 @@ body {
    --opt-fit-size (see HostOptionTile) so short answers grow to fill the card
    instead of all tiles adopting the longest one's size. No text-justify: a
    ragged last line read as a dead right strip; left-aligning keeps the reading
-   edge clean and lets the letter chip anchor the text. */
+   edge clean and lets the letter chip anchor the text.
+   Light text pairs with the dark-glass tile surface (the question card is the
+   solid-white "spotlight" above; the option tiles are translucent glass). */
 .host-opt-text {
   font-size: var(--opt-fit-size, clamp(1.05rem, 0.7rem + 1.3vw, 1.75rem));
   line-height: 1.14;
   text-align: left;
   overflow-wrap: anywhere;
+  color: rgba(255,255,255,0.92);
 }
 
 .host-option-fit-comfy .host-opt-text {
@@ -487,6 +490,13 @@ body {
 @media (max-height: 800px) {
   .host-question-stage {
     gap: 0.5rem;
+  }
+
+  /* Short viewports (720p projectors): pull the spotlight/glass seam back from
+     1.5rem (lg:gap-6) to 0.875rem so the question card's max-height cap doesn't
+     starve the answer grid. Mobile keeps gap-3 (0.75rem), negligibly tighter. */
+  .host-center-col {
+    gap: 0.875rem;
   }
 
   /* Short viewports (720p laptops / windowed projectors): guarantee the answer

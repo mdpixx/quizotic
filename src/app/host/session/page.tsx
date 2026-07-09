@@ -2359,8 +2359,11 @@ export default function SessionPage() {
               </div>
             </div>
 
-            {/* CENTER — question + answers (full width on mobile) */}
-            <div className="host-center-col flex flex-col gap-3 min-w-0 min-h-0">
+            {/* CENTER — question + answers (full width on mobile). gap-6 gives
+                the white "spotlight" question card clear breathing room above
+                the dark-glass answer tiles — a deliberate seam, not a hairline.
+                Short viewports (720p projectors) tighten this in globals.css. */}
+            <div className="host-center-col flex flex-col gap-3 lg:gap-6 min-w-0 min-h-0">
 
           {/* Case scenario card (shown for 'case' type) */}
           {currentQuestion.type === 'case' && currentQuestion.scenarioText && (
