@@ -7,7 +7,9 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 // (public/lottie/confetti-cannons.json) is a single confetti burst; we mount it
 // TWICE — once clipped to the left half, once mirrored (scaleX(-1)) and clipped
 // to the right half — so the two bursts fire from the screen edges toward the
-// center, framing the podium without burying it.
+// center, framing the podium without burying it. Each cannon is scaled to 0.7
+// and the wrapper is capped to the bottom ~80% of the viewport, so the confetti
+// stays around the podium rather than climbing the whole screen.
 //
 // Asset: confetti.json from github.com/fedemartinm/react-award (MIT, © 2023
 // Fede Martin). Self-contained pure-vector precomps, no external asset URLs, so
@@ -61,7 +63,10 @@ function Cannon({ side, data, loop }: { side: 'left' | 'right'; data: object; lo
         style={{
           width: '100%',
           height: '100%',
-          transform: side === 'right' ? 'scaleX(-1)' : undefined,
+          // Mirror the right cannon so both fire inward. Combined scale(0.7)
+          // shrinks each burst to frame the podium instead of burying it.
+          transform: side === 'right' ? 'scaleX(-1) scale(0.7)' : 'scale(0.7)',
+          transformOrigin: side === 'left' ? 'bottom right' : 'bottom left',
         }}
       />
     </div>
@@ -92,7 +97,13 @@ export function DualCannonLottie() {
       aria-hidden
       style={{
         position: 'fixed',
-        inset: 0,
+        // Anchor the cannon layer to the bottom ~80% of the viewport so the
+        // confetti hugs the podium area instead of climbing to the ceiling and
+        // burying the "Session Complete" heading. Left/right stay full-width.
+        left: 0,
+        right: 0,
+        bottom: 0,
+        top: '20%',
         overflow: 'hidden',
         pointerEvents: 'none',
         // Sits with the floating-gold particle layer (z-60) so it paints above
