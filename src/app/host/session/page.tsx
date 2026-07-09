@@ -2382,10 +2382,14 @@ export default function SessionPage() {
               keeping its ratio. */}
           <div
             ref={questionCardRef}
-            className={`host-question-card ${hostQuestionFit?.questionClass ?? 'host-question-fit-large'} w-full flex flex-col rounded-[28px] shadow-2xl border ${currentQuestion.type === 'wordcloud' ? 'p-4 md:p-5 host-question-card-compact' : 'p-5 md:p-7'} ${currentQuestion.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
+            className={`host-question-card ${hostQuestionFit?.questionClass ?? 'host-question-fit-large'} w-full flex flex-col rounded-[26px] border ${currentQuestion.type === 'wordcloud' ? 'host-question-card-compact' : ''} ${currentQuestion.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
             style={{
-              background: 'rgba(255,255,255,0.96)',
-              boxShadow: '0 24px 80px rgba(0,0,0,0.35)',
+              background: 'rgba(255,255,255,0.97)',
+              boxShadow: '0 30px 90px -20px rgba(0,0,0,0.5)',
+              // Atrium mockup .spotlight padding (line 96): a generous, viewport-
+              // scaled cushion so the question breathes. Wordcloud keeps its own
+              // compact padding override via the class below.
+              padding: currentQuestion.type === 'wordcloud' ? undefined : 'clamp(22px, 4.2vh, 50px) clamp(34px, 5vw, 72px)',
             }}
           >
             <p
@@ -2707,7 +2711,7 @@ export default function SessionPage() {
              the card, long ones shrink — left-aligned, never hyphenated, with
              the vote count + correct check as a corner badge that reserves no
              width while the question is live. */
-          <div className={`max-w-7xl mx-auto w-full flex-1 min-h-0 grid gap-2 sm:gap-3 md:gap-5 host-answer-stage host-options-stage ${hostQuestionFit?.optionClass ?? 'host-option-fit-large'}`}>
+          <div className={`host-answer-stage host-options-stage ${hostQuestionFit?.optionClass ?? 'host-option-fit-large'}`}>
             {getEffectiveOptions(currentQuestion)?.map((opt, i) => {
               const votes = optionCounts[i] ?? 0
               const pct = connectedCount > 0 ? (votes / connectedCount) * 100 : 0
@@ -2894,13 +2898,20 @@ export default function SessionPage() {
 
           {/* Control dock — slim, centered glass bar. Auto-hides to a sliver
               after 3s idle (any pointer move revives; pinned during reveal).
-              Same symmetric 3-zone logic + getPostQuestionAction as before. */}
+              Matches the atrium mockup .dock (lines 165-183): a single
+              3-zone grid (1fr | auto | 1fr) — [left cluster] [primary] [right
+              cluster] — no double-nested control bar. The 1fr spacers keep the
+              primary action truly centered regardless of cluster imbalance. */}
           <div className="sticky bottom-0 z-30 mt-auto w-full pt-2">
             <div className="flex justify-center">
             <div
-              className="host-dock flex flex-wrap items-center gap-2 sm:grid sm:grid-cols-[1fr_auto_1fr] mx-auto"
+              className="host-dock mx-auto items-center"
               style={{
                 width: 'min(680px, 92vw)',
+                display: 'grid',
+                gridTemplateColumns: '1fr auto 1fr',
+                alignItems: 'center',
+                gap: '10px',
                 background: 'rgba(15,27,61,0.74)',
                 border: '1px solid rgba(255,255,255,0.14)',
                 boxShadow: '0 18px 50px -16px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)',
@@ -2911,30 +2922,23 @@ export default function SessionPage() {
                 marginBottom: 14,
               }}
             >
-              {/* Symmetric 3-zone control bar: [left cluster] [CENTER primary]
-                  [right cluster]. grid-cols-[1fr_auto_1fr] keeps the primary
-                  action truly centered regardless of how many secondary buttons
-                  each side holds — the 1fr spacers absorb any imbalance.
-                  Below sm the 3 zones need ~530px, so the bar re-stacks into
-                  two rows instead: primary action full-width on top (order-1),
-                  the two icon clusters share the second row. */}
-              <div className="host-control-bar flex flex-wrap items-center gap-2 sm:grid sm:grid-cols-[1fr_auto_1fr]">
               {/* ── Left: secondary icon cluster ───────────────────────────
                   Music, Sound, Pause, and timer (+15s / restart) controls. */}
-              <div className="order-2 flex-1 sm:order-none sm:flex-initial sm:col-start-1 flex items-center gap-1 sm:gap-1.5 min-w-0 justify-start">
+              <div className="flex items-center justify-start min-w-0" style={{ gap: 7 }}>
                 <button
                   onClick={() => setMusicOn(m => !m)}
                   title={musicOn ? 'Background music is playing — click to mute' : 'Play low-volume background music during the quiz'}
                   aria-label={musicOn ? 'Mute background music' : 'Play background music'}
                   aria-pressed={musicOn}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl text-base transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
+                  className="host-dock-ib flex items-center justify-center transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
                   style={{
+                    height: 38, width: 38, borderRadius: 12,
                     background: musicOn ? 'rgba(251,209,59,0.22)' : 'rgba(255,255,255,0.08)',
                     color: musicOn ? '#FBD13B' : 'rgba(255,255,255,0.78)',
                     border: `1px solid ${musicOn ? 'rgba(251,209,59,0.5)' : 'rgba(255,255,255,0.14)'}`,
                   }}>
                   {/* music note */}
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[17px] h-[17px]" aria-hidden>
                     <path d="M9 18V5l12-2v13" />
                     <circle cx="6" cy="18" r="3" />
                     <circle cx="18" cy="16" r="3" />
@@ -2945,22 +2949,23 @@ export default function SessionPage() {
                   title={soundMuted ? 'Sound effects are muted — click to unmute' : 'Mute all sound effects (ticks, chimes, celebrations)'}
                   aria-label={soundMuted ? 'Unmute sound effects' : 'Mute sound effects'}
                   aria-pressed={!soundMuted}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl text-base transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
+                  className="host-dock-ib flex items-center justify-center transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
                   style={{
+                    height: 38, width: 38, borderRadius: 12,
                     background: soundMuted ? 'rgba(255,255,255,0.08)' : 'rgba(251,209,59,0.22)',
                     color: soundMuted ? 'rgba(255,255,255,0.5)' : '#FBD13B',
                     border: `1px solid ${soundMuted ? 'rgba(255,255,255,0.14)' : 'rgba(251,209,59,0.5)'}`,
                   }}>
                   {soundMuted ? (
                     // muted speaker
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[17px] h-[17px]" aria-hidden>
                       <path d="M11 5 6 9H2v6h4l5 4V5z" />
                       <line x1="23" y1="9" x2="17" y2="15" />
                       <line x1="17" y1="9" x2="23" y2="15" />
                     </svg>
                   ) : (
                     // speaker on
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[17px] h-[17px]" aria-hidden>
                       <path d="M11 5 6 9H2v6h4l5 4V5z" />
                       <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
                       <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
@@ -2980,16 +2985,17 @@ export default function SessionPage() {
                   title={paused ? 'Resume the quiz' : 'Pause the quiz'}
                   aria-label={paused ? 'Resume quiz' : 'Pause quiz'}
                   aria-pressed={paused}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
+                  className="host-dock-ib flex items-center justify-center transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
                   style={{
+                    height: 38, width: 38, borderRadius: 12,
                     background: paused ? 'rgba(34,197,94,0.18)' : 'rgba(255,255,255,0.08)',
                     color: paused ? '#4ADE80' : 'rgba(255,255,255,0.78)',
                     border: `1px solid ${paused ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.14)'}`,
                   }}>
                   {paused ? (
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden><path d="M8 5v14l11-7z" /></svg>
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-[17px] h-[17px]" aria-hidden><path d="M8 5v14l11-7z" /></svg>
                   ) : (
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-[17px] h-[17px]" aria-hidden><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
                   )}
                 </button>
                 {!questionEnded && (
@@ -2998,8 +3004,9 @@ export default function SessionPage() {
                       onClick={() => socketRef.current?.emit('adjust_timer', { gameCode, action: 'extend', seconds: 15 }, () => {})}
                       title="Add 15 seconds to the timer"
                       aria-label="Add 15 seconds"
-                      className="flex h-10 items-center justify-center rounded-xl px-2.5 text-[13px] font-black transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
+                      className="host-dock-ib flex items-center justify-center px-2.5 text-[13px] font-black transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
                       style={{
+                        height: 38, borderRadius: 12,
                         background: 'rgba(255,255,255,0.08)',
                         color: 'rgba(255,255,255,0.78)',
                         border: '1px solid rgba(255,255,255,0.14)',
@@ -3010,13 +3017,14 @@ export default function SessionPage() {
                       onClick={() => socketRef.current?.emit('adjust_timer', { gameCode, action: 'restart' }, () => {})}
                       title="Restart the timer at the question's full time"
                       aria-label="Restart timer"
-                      className="flex h-10 w-10 items-center justify-center rounded-xl transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
+                      className="host-dock-ib flex items-center justify-center transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
                       style={{
+                        height: 38, width: 38, borderRadius: 12,
                         background: 'rgba(255,255,255,0.08)',
                         color: 'rgba(255,255,255,0.78)',
                         border: '1px solid rgba(255,255,255,0.14)',
                       }}>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[17px] h-[17px]" aria-hidden>
                         <path d="M3 12a9 9 0 1 0 9-9" />
                         <path d="M3 4v5h5" />
                       </svg>
@@ -3029,8 +3037,11 @@ export default function SessionPage() {
 
               {/* ── Center: ONE primary action + a single cadence override ──
                   getPostQuestionAction drives label, colour, and onClick.
-                  Override is EITHER "Show standings" OR "Skip" — never both. */}
-              <div className="order-1 w-full sm:order-none sm:w-auto flex items-center justify-center gap-2 sm:col-start-2 min-w-0">
+                  Override is EITHER "Show standings" OR "Skip" — never both.
+                  Grid column 2 (auto) — the centered primary in the 3-zone
+                  dock. Matches the atrium mockup .primary (lines 179-184):
+                  46px tall, 14px radius, gold gradient, ⏎ keyboard hint. */}
+              <div className="flex items-center justify-center min-w-0">
               {(() => {
               const isLast = questionIndex + 1 >= quiz.questions.length
               const scoredQ = isScoredQuestion(currentQuestion)
@@ -3065,11 +3076,14 @@ export default function SessionPage() {
                         stopLiveQuestionTimer()
                       })
                     }}
-                    className="inline-flex h-11 w-full sm:w-auto items-center justify-center gap-2 px-5 rounded-full font-bold text-sm border-2 transition-all"
+                    className="inline-flex items-center justify-center gap-2 px-5 transition-all"
                     style={{
+                      height: 46, borderRadius: 14,
                       borderColor: armed ? '#DC2626' : 'rgba(255,255,255,0.2)',
+                      borderWidth: 2, borderStyle: 'solid',
                       color: armed ? '#FFFFFF' : 'rgba(255,255,255,0.6)',
                       background: armed ? '#DC2626' : 'transparent',
+                      fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap',
                     }}
                   >
                     {armed ? 'Tap again to confirm' : 'End Now'}
@@ -3103,7 +3117,7 @@ export default function SessionPage() {
                   ? (questionEnded ? nextQuestion : () => { void advanceAfterEndingCurrentQuestion() })
                   : null
               return (
-                <div className="flex items-center justify-center gap-2 w-full">
+                <div className="flex items-center justify-center gap-2">
                   {overrideLabel && overrideOnClick && (
                     <button
                       onClick={overrideOnClick}
@@ -3116,14 +3130,32 @@ export default function SessionPage() {
                   )}
                   <button
                     onClick={onClick}
-                    className="inline-flex h-11 flex-1 sm:flex-initial items-center justify-center gap-2 px-6 font-black text-sm rounded-full transition-colors shadow-md animate-pulse"
+                    className="inline-flex items-center justify-center gap-2 px-6 transition-all"
                     style={{
-                      background: action === 'reveal' ? '#16A34A' : action === 'standings' && standingsRecommended ? '#FBD13B' : '#FBBF24',
-                      color: action === 'reveal' ? '#FFFFFF' : '#0F1B3D',
+                      height: 46, borderRadius: 14, whiteSpace: 'nowrap',
+                      fontWeight: 800, fontSize: 15, color: '#0F1B3D',
+                      // The primary action always uses the mockup's gold
+                      // gradient — for reveal too. This is intentional: on
+                      // reveal the correct-answer tile blooms GREEN, so a green
+                      // button would compete with that signal. Keeping the dock
+                      // gold means green only ever means "correct answer."
+                      background: 'linear-gradient(180deg, #FBD13B 0%, #E0B528 100%)',
+                      boxShadow: '0 10px 24px -6px rgba(251,209,59,0.55), inset 0 1px 0 rgba(255,255,255,0.5)',
                     }}
                   >
                     {label}
                     <NavChevron direction="forward" className="w-4 h-4" />
+                    <span
+                      aria-hidden
+                      className="ml-1 hidden sm:inline-flex items-center"
+                      style={{
+                        fontSize: 9.5, fontWeight: 800, opacity: 0.5,
+                        border: '1px solid rgba(15,27,61,0.35)',
+                        padding: '1px 5px', borderRadius: 5,
+                      }}
+                    >
+                      ⏎
+                    </span>
                   </button>
                 </div>
               )
@@ -3131,21 +3163,23 @@ export default function SessionPage() {
               </div>
 
               {/* ── Right: secondary cluster ──────────────────────────────
-                  Standings peek (L), Expand stats (S), and Phone remote.
-                  Mirrors the left cluster so the centered primary stays balanced
-                  and the bar reads symmetrically on a projector. */}
-              <div className="order-3 sm:order-none flex items-center gap-1 sm:gap-1.5 justify-end sm:col-start-3">
+                  Standings peek (L), Expand stats (S), Roster. Mirrors the left
+                  cluster so the centered primary stays balanced and the bar
+                  reads symmetrically on a projector. The phone-remote QR moved
+                  to the lobby only — it crowded the bar here. */}
+              <div className="flex items-center justify-end" style={{ gap: 7 }}>
                 <button
                   onClick={() => setShowLeaderboardPopup(true)}
                   title="Peek at standings (press L)"
                   aria-label="Show standings"
-                  className="flex h-10 w-10 items-center justify-center rounded-xl transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
+                  className="host-dock-ib flex items-center justify-center transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
                   style={{
+                    height: 38, width: 38, borderRadius: 12,
                     background: 'rgba(255,255,255,0.08)',
                     color: 'rgba(255,255,255,0.78)',
                     border: '1px solid rgba(255,255,255,0.14)',
                   }}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[17px] h-[17px]" aria-hidden>
                     <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
                     <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
                     <path d="M4 22h16" />
@@ -3159,13 +3193,14 @@ export default function SessionPage() {
                   title="Full-screen stats (press S)"
                   aria-label="Toggle full-screen stats"
                   aria-pressed={showImmersiveStats}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
+                  className="host-dock-ib flex items-center justify-center transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
                   style={{
+                    height: 38, width: 38, borderRadius: 12,
                     background: showImmersiveStats ? 'rgba(251,209,59,0.22)' : 'rgba(255,255,255,0.08)',
                     color: showImmersiveStats ? '#FBD13B' : 'rgba(255,255,255,0.78)',
                     border: `1px solid ${showImmersiveStats ? 'rgba(251,209,59,0.5)' : 'rgba(255,255,255,0.14)'}`,
                   }}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[17px] h-[17px]" aria-hidden>
                     <path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" />
                   </svg>
                 </button>
@@ -3175,21 +3210,18 @@ export default function SessionPage() {
                   onClick={() => setRosterSheetOpen(true)}
                   title="View participants"
                   aria-label="View participants"
-                  className="flex h-10 w-10 items-center justify-center rounded-xl transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
+                  className="host-dock-ib flex items-center justify-center transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
                   style={{
+                    height: 38, width: 38, borderRadius: 12,
                     background: 'rgba(255,255,255,0.08)',
                     color: 'rgba(255,255,255,0.78)',
                     border: '1px solid rgba(255,255,255,0.14)',
                   }}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[17px] h-[17px]" aria-hidden>
                     <circle cx="9" cy="8" r="3.5" /><path d="M3 20a6 6 0 0 1 12 0M17 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-4-5.6" />
                   </svg>
                 </button>
-                {/* Phone remote — reachable during the live quiz, not just the
-                    lobby. Account-based, so the QR/link is safe to show here. */}
-                <PhoneRemoteButton variant="bar" />
               </div>
-              </div>{/* /3-zone grid */}
             </div>
             </div>{/* /dock centering wrapper */}
           </div>

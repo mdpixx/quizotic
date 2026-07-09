@@ -253,6 +253,29 @@ body {
   min-height: 0;
 }
 
+/* Atrium atmosphere: a soft indigo glow from the top and a bottom vignette so
+   the wide navy canvas isn't flat — matches the mockup's body::before (lines
+   42-45). Purely decorative, never intercepts pointer events. The stage is
+   positioned relative so the absolute ::before layers against it. */
+.host-question-stage {
+  position: relative;
+}
+.host-question-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(70% 50% at 50% -8%, rgba(45,42,102,0.40), transparent 62%),
+    radial-gradient(120% 80% at 50% 120%, rgba(7,17,38,0.7), transparent 70%);
+}
+/* Stage content sits above the atmosphere layer. */
+.host-question-stage > * {
+  position: relative;
+  z-index: 1;
+}
+
 /* Left navigator dot (vertical Q01…QNN list). Pure typography marginalia. */
 .host-navrail {
   display: flex;
@@ -413,16 +436,36 @@ body {
   container-type: inline-size;
 }
 
+/* The Atrium mockup centers the question-card + answer-grid block as a group
+   in the available stage height (justify-content: center on .center). The
+   options grid no longer stretches to fill — it's content-sized and capped —
+   so the block floats centered instead of being pinned to the top. Cap the
+   question card width to match the options grid (both min(1040px, 90vw)) so
+   the spotlight and the grid read as one aligned column. */
+.host-center-col {
+  justify-content: center;
+}
+.host-question-stage .host-question-card {
+  max-width: min(1040px, 100%);
+  margin-inline: auto;
+}
+
 .host-options-stage {
   /* Two equal columns — matches the atrium mockup: the wide center (rails are
      now only 64px + 92px, leaving ~830px+) has room for a 2×2 grid so four
      options read as a balanced block instead of four cramped full-width rows.
-     Equal-height rows (minmax(0,1fr), not bare 1fr — implicit 1fr rows are
-     minmax(auto,1fr) so differing content minimums made rows unequal) keep all
-     tiles identical regardless of text length; odd counts (5–6 options) just
-     add a partial row. Drops to one column on a genuinely narrow center
-     (phones, or a very tight window) via the container query below. */
-  grid-auto-rows: minmax(0, 1fr);
+     Tiles are CONTENT-SIZED (grid-auto-rows: auto) and capped by the per-tile
+     min-height in the rule below — they no longer stretch to fill all leftover
+     stage height. The block is centered as a group by .host-center-col
+     (justify-content: center), so a short question + short options leave
+     generous breathing room above and below, exactly like the mockup. Width is
+     capped to min(1040px, 90vw) so the grid reads as one aligned column under
+     the spotlight, not the full 1280px max-w-7xl. Drops to one column on a
+     genuinely narrow center (phones, or a very tight window) via the container
+     query below. */
+  width: min(1040px, 100%);
+  margin-inline: auto;
+  grid-auto-rows: auto;
   grid-template-columns: 1fr 1fr;
   gap: clamp(12px, 1.8vw, 22px);
 }
@@ -439,7 +482,11 @@ body {
 }
 
 .host-options-stage > div {
-  min-height: 0;
+  /* Each tile has a content floor and a viewport-scaled cap — tiles size to
+     their text (not stretched) but never collapse below a readable height, and
+     never balloon past ~120px on tall screens. Matches the atrium mockup
+     .tile { min-height: clamp(76px,12vh,120px) }. */
+  min-height: clamp(76px, 12vh, 120px);
   display: flex;
   flex-direction: column;
 }
@@ -568,15 +615,15 @@ body {
   gap: 0.32em 0.6em;
 }
 
-/* Phone-width control bar: 8 icon controls + "+15s" must share one row with
-   the clusters justified apart, so shave each 40px icon to 36px. Desktop and
-   tablet keep the full 40px touch targets. */
+/* Phone-width dock: the dock's 38px icon buttons need to shave to ~34px so the
+   left cluster (music/sound/pause/+15s) and right cluster fit one row with the
+   centered primary. Desktop and tablet keep the full 38px touch targets. The
+   .host-dock-ib class is the dock's shared icon-button marker (added alongside
+   the arbitrary h-[38px]/w-[38px] sizing in the JSX). */
 @media (max-width: 639px) {
-  .host-control-bar .h-10 {
-    height: 2.25rem;
-  }
-  .host-control-bar .w-10 {
-    width: 2.25rem;
+  .host-dock-ib {
+    height: 2.125rem !important;
+    width: 2.125rem !important;
   }
 }
 
@@ -589,17 +636,18 @@ body {
 }
 
 @media (min-width: 1024px) and (min-height: 800px) {
-  /* Floor keeps the options readable when the question is short, but stays
-     low enough that a 3-line question + the always-mounted reveal footer
-     still fit inside the fixed-height stage. The old 44vh floor forced the
-     question card to clip (or pushed the footer off-screen) whenever the
-     question wrapped past one line. */
+  /* No min-height floor on the answer stage — tiles are now content-sized and
+     capped (see .host-options-stage > div), and the block is centered as a
+     group by .host-center-col. A fixed floor here used to inflate the grid to
+     240px+ and make every tile stretch to fill it. min-height: 0 lets the
+     grid take exactly the height its content needs. */
   .host-question-stage .host-answer-stage {
-    min-height: 240px;
+    min-height: 0;
   }
 
   .host-question-card-compact {
     max-height: 18vh;
+    padding: 1rem 1.25rem;
   }
 }
 
@@ -615,10 +663,11 @@ body {
     gap: 0.875rem;
   }
 
-  /* Short viewports (720p laptops / windowed projectors): guarantee the answer
-     options a readable floor and cap the question card harder without scroll. */
+  /* Short viewports (720p laptops / windowed projectors): the answer stage
+     takes only the height its content needs (no forced floor) — tiles cap at
+     clamp(76px,12vh,120px) which is already short-viewport friendly. */
   .host-question-stage .host-answer-stage {
-    min-height: 248px;
+    min-height: 0;
   }
 
   /* Card is nested in the 3-col center column now — use descendant selector.
