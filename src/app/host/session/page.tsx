@@ -3134,14 +3134,13 @@ export default function SessionPage() {
                     style={{
                       height: 46, borderRadius: 14, whiteSpace: 'nowrap',
                       fontWeight: 800, fontSize: 15, color: '#0F1B3D',
-                      // Reveal stays green (the "go" semantic). Everything else
-                      // uses the mockup's gold gradient.
-                      background: action === 'reveal'
-                        ? 'linear-gradient(180deg, #22C55E 0%, #16A34A 100%)'
-                        : 'linear-gradient(180deg, #FBD13B 0%, #E0B528 100%)',
-                      boxShadow: action === 'reveal'
-                        ? '0 10px 24px -6px rgba(34,197,94,0.55), inset 0 1px 0 rgba(255,255,255,0.4)'
-                        : '0 10px 24px -6px rgba(251,209,59,0.55), inset 0 1px 0 rgba(255,255,255,0.5)',
+                      // The primary action always uses the mockup's gold
+                      // gradient — for reveal too. This is intentional: on
+                      // reveal the correct-answer tile blooms GREEN, so a green
+                      // button would compete with that signal. Keeping the dock
+                      // gold means green only ever means "correct answer."
+                      background: 'linear-gradient(180deg, #FBD13B 0%, #E0B528 100%)',
+                      boxShadow: '0 10px 24px -6px rgba(251,209,59,0.55), inset 0 1px 0 rgba(255,255,255,0.5)',
                     }}
                   >
                     {label}
