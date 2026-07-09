@@ -81,7 +81,10 @@ test('mobile host flow visual audit', async ({ page, context }) => {
 
   // ── Start quiz → Q1 live ──
   await page.getByRole('button', { name: /Start Quiz/ }).click()
-  await expect(page.getByText('Live Question')).toBeVisible({ timeout: 25_000 })
+  // The atrium host stage loads when the eyebrow shows "Question NN / NN".
+  // (Previously this waited for a "Live Question" stage-label chip, which the
+  // atrium redesign replaced with a text-only masthead.)
+  await expect(page.getByText(/Question\s+\d+\s*\/\s*\d+/)).toBeVisible({ timeout: 25_000 })
   await page.screenshot({ path: `${SHOTS}/03-q1-live.png`, fullPage: true })
 
   // Both bots answer → question auto-ends → reveal state.
