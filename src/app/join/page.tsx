@@ -149,27 +149,22 @@ function CountdownNumber({ targetTime }: { targetTime: number }) {
   prevVal.current = val
   return (
     <div className="relative">
+      {/* Gold gradient numerals shared with the host overlay (.countdown-num).
+          The countdownPop keyframe now lives in globals.css; reduced-motion is
+          handled by the app-wide guard there. */}
       <div
         key={changed ? val : undefined}
-        className="font-display"
+        className="font-display countdown-num"
         style={{
           fontSize: 120,
           lineHeight: 1,
-          color: '#FBD13B',
           fontWeight: 900,
-          animation: changed ? 'countdownPop 0.9s ease-out forwards' : undefined,
+          fontVariantNumeric: 'tabular-nums',
+          animation: changed ? 'countdownPop 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) forwards' : undefined,
         }}
       >
         {val > 0 ? val : ''}
       </div>
-      <style>{`
-        @keyframes countdownPop {
-          0%   { transform: scale(1.4); opacity: 0.6; }
-          30%  { transform: scale(1.0); opacity: 1; }
-          80%  { transform: scale(1.0); opacity: 1; }
-          100% { transform: scale(0.7); opacity: 0; }
-        }
-      `}</style>
     </div>
   )
 }
