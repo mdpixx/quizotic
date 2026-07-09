@@ -34,6 +34,7 @@ import { HostWordCloud } from '@/components/host/HostWordCloud'
 import { LiveRosterPanel } from '@/components/host/LiveRosterPanel'
 import { QuestionNavigator } from '@/components/host/QuestionNavigator'
 import { HostOptionTile } from '@/components/host/HostOptionTile'
+import { CircularTimer } from '@/components/CircularTimer'
 import { type OptionStat as StatsOptionStat } from '@/components/host/HostStatsRail'
 import { ImmersiveStatsOverlay, type ImmersiveOptionStat } from '@/components/host/ImmersiveStatsOverlay'
 import { getQuizTheme } from '@/lib/quiz-themes'
@@ -2206,33 +2207,45 @@ export default function SessionPage() {
             color: '#FFFFFF',
           }}
         >
-          {/* 3-2-1 Countdown overlay */}
+          {/* 3-2-1 "Get ready" overlay — Atrium-native. A fixed layer (never
+              reflows the question/answer grid beneath it) carrying the stage's
+              own atmosphere (indigo top glow + bottom vignette) over a glassy
+              blur, with gold gradient numerals and an editorial caption. The
+              pop is suppressed under prefers-reduced-motion — the digits still
+              swap, just without the scale/fade. Keyframe lives in globals.css
+              so it isn't re-injected on every render. */}
           {countdownValue !== null && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(15,27,61,0.92)' }}>
-              <div className="text-center">
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center"
+              style={{
+                background: 'linear-gradient(135deg, rgba(7,17,38,0.94) 0%, rgba(15,27,61,0.94) 55%, rgba(16,42,67,0.94) 100%)',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+              }}
+            >
+              <div
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  background:
+                    'radial-gradient(70% 50% at 50% -8%, rgba(45,42,102,0.45), transparent 62%), radial-gradient(120% 80% at 50% 120%, rgba(7,17,38,0.7), transparent 70%)',
+                }}
+              />
+              <div className="relative text-center">
                 <div
                   key={countdownValue}
-                  className="font-display text-white font-black"
+                  className="font-display font-black countdown-num"
                   style={{
-                    fontSize: 200,
+                    fontSize: 'clamp(120px, 24vh, 260px)',
                     lineHeight: 1,
                     fontFamily: 'var(--font-display)',
-                    color: '#FBD13B',
-                    animation: 'countdownPop 0.9s ease-out forwards',
+                    fontVariantNumeric: 'tabular-nums',
+                    animation: reduceStageMotion ? undefined : 'countdownPop 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
                   }}
                 >
                   {countdownValue}
                 </div>
-                <p className="text-2xl font-bold mt-4" style={{ color: 'rgba(255,255,255,0.7)' }}>Get ready!</p>
+                <p className="mt-4 text-sm font-bold uppercase" style={{ color: 'rgba(255,255,255,0.7)', letterSpacing: '0.3em' }}>Get ready!</p>
               </div>
-              <style>{`
-                @keyframes countdownPop {
-                  0%   { transform: scale(1.4); opacity: 0.6; }
-                  30%  { transform: scale(1.0); opacity: 1; }
-                  80%  { transform: scale(1.0); opacity: 1; }
-                  100% { transform: scale(0.7); opacity: 0; }
-                }
-              `}</style>
             </div>
           )}
 
@@ -2819,8 +2832,6 @@ export default function SessionPage() {
               const allIn = connectedCount > 0 && answered >= connectedCount
               const timerActive = currentQuestion.timerSeconds > 0 && !questionEnded
               const tsec = Math.max(0, Math.ceil(hostTimeLeft))
-              const urgent = tsec <= 5
-              const warn = tsec > 5 && tsec <= 10
               return (
                 <aside className={`hidden lg:flex host-gauge ${allIn && !correctRevealed ? 'is-allin' : ''}`} style={{ paddingTop: 4 }}>
                   <span className="text-[9px] font-bold uppercase tracking-[0.2em]" style={{ color: 'rgba(255,255,255,0.26)' }}>
@@ -2839,10 +2850,26 @@ export default function SessionPage() {
                   {(allIn && !correctRevealed) && (
                     <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.1em', color: '#0F1B3D', background: 'linear-gradient(180deg, #FBD13B, #E0B528)', padding: '3px 9px', borderRadius: 999, boxShadow: '0 4px 12px -2px rgba(251,209,59,0.6)' }}>All in</span>
                   )}
+                  {/* Per-question timer — promoted from a subtle text chip to a
+                      glanceable ring so a host reading the projected stage from
+                      across the room can track time at a glance (the chip was
+                      easy to miss). Same urgency ramp as the participant ring,
+                      themed dark so it reads on the navy stage. Pinned to the
+                      bottom of the gauge: count/bar answer "who's in", ring
+                      answers "how long left". */}
                   {currentQuestion.timerSeconds > 0 && (
-                    <div className="flex items-center gap-1.5 text-[13px] font-bold" style={{ color: !timerActive ? 'rgba(255,255,255,0.46)' : urgent ? '#DC2626' : warn ? '#F59E0B' : 'rgba(255,255,255,0.7)', fontVariantNumeric: 'tabular-nums', marginTop: 4, animation: urgent && timerActive ? 'tpulse 1s ease-in-out infinite' : undefined }}>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 15, height: 15 }}><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.8M9 2h6"/></svg>
-                      <span>{!timerActive ? (questionEnded ? 'done' : `${currentQuestion.timerSeconds}s`) : `${tsec}s`}</span>
+                    <div className="flex flex-col items-center gap-2" style={{ marginTop: 'auto' }}>
+                      <span className="text-[9px] font-bold uppercase tracking-[0.2em]" style={{ color: 'rgba(255,255,255,0.26)' }}>Time</span>
+                      {questionEnded ? (
+                        <span className="text-[13px] font-bold" style={{ color: 'rgba(255,255,255,0.46)', fontVariantNumeric: 'tabular-nums' }}>done</span>
+                      ) : (
+                        <CircularTimer
+                          timeLeft={timerActive ? tsec : currentQuestion.timerSeconds}
+                          total={currentQuestion.timerSeconds}
+                          size={60}
+                          variant="dark"
+                        />
+                      )}
                     </div>
                   )}
                 </aside>
