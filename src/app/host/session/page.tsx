@@ -39,7 +39,7 @@ import { CircularTimer } from '@/components/CircularTimer'
 import { type OptionStat as StatsOptionStat } from '@/components/host/HostStatsRail'
 import { ImmersiveStatsOverlay, type ImmersiveOptionStat } from '@/components/host/ImmersiveStatsOverlay'
 import { getQuizTheme } from '@/lib/quiz-themes'
-import { buildLeaderboardStageRows, getHostQuestionFit, getPostQuestionAction } from '@/lib/host-stage'
+import { buildLeaderboardStageRows, getHostQuestionFit, getHostTipText, getPostQuestionAction } from '@/lib/host-stage'
 import { useConfetti } from '@/hooks/useConfetti'
 import { startClockSync, getServerNow, resyncClock } from '@/lib/clock-sync'
 import { track } from '@/lib/analytics'
@@ -2778,45 +2778,51 @@ export default function SessionPage() {
           </div>
           )}
 
-          {/* Explanation line — a single quiet strip under the answer grid.
-              Pre-reveal: nothing (the right gauge carries the answered count).
-              Non-competitive + ended: the "Reveal Correct Answer" button. On
-              reveal (scored): the explanation with a gold left accent, matching
-              the atrium's calm editorial tone. No "% got it right" here — that
-              headline moved to the right room gauge (single home per datum). */}
-          {isScoredQuestion(currentQuestion) && (() => {
-            const showResults = questionEnded && correctRevealed
-            const showManualReveal = sessionMode !== 'competitive' && questionEnded && !correctRevealed
-            if (showResults) {
-              return (
-                <div className="w-full flex items-center justify-center">
-                  <div className="flex items-start gap-2.5 max-w-[780px] w-full" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', borderLeft: '3px solid #FBD13B', borderRadius: '0 12px 12px 0', padding: '11px 16px' }}>
+          {/* Tip slot — PERMANENTLY RESERVED (fixed height via .host-tip-slot,
+              rendered for EVERY question type). The center column is
+              justify-content:center, so anything that conditionally mounted
+              here used to re-center the whole column and jump the answer grid
+              on every reveal. The slot holds its space live and revealed,
+              question after question; content is gated inside it. An empty
+              slot is invisible held space — no authored tip means NO bar (the
+              old code rendered empty chrome + 💡 whenever participants
+              existed). No "% got it right" here — that headline lives in the
+              right room gauge (single home per datum). */}
+          <div className="host-tip-slot flex w-full flex-none items-center justify-center" aria-live="polite">
+            {(() => {
+              if (!isScoredQuestion(currentQuestion)) return null
+              const showResults = questionEnded && correctRevealed
+              const showManualReveal = sessionMode !== 'competitive' && questionEnded && !correctRevealed
+              const tipText = getHostTipText({ explanation, connectedCount })
+              if (showResults && tipText) {
+                return (
+                  <div className="host-tip-bar flex items-start gap-2.5 max-w-[780px] w-full" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', borderLeft: '3px solid #FBD13B', borderRadius: '0 12px 12px 0' }}>
                     <span style={{ color: '#FBD13B', flex: 'none', marginTop: 1 }}>💡</span>
-                    <p className="leading-snug text-sm m-0" style={{ color: 'rgba(255,255,255,0.78)' }}>
-                      {explanation ?? (connectedCount === 0 ? 'No participants answered this question.' : '')}
+                    <p className="host-tip-text leading-snug text-sm m-0" style={{ color: 'rgba(255,255,255,0.78)' }}>
+                      {tipText}
                     </p>
                   </div>
-                </div>
-              )
-            }
-            if (showManualReveal) {
-              return (
-                <div className="w-full flex items-center justify-center gap-3 flex-wrap">
-                  <button
-                    onClick={() => setCorrectRevealed(true)}
-                    className="inline-flex items-center gap-2 px-5 py-2 rounded-full font-black text-sm transition-all hover:scale-[1.02] flex-shrink-0"
-                    style={{ background: '#16A34A', color: '#fff' }}
-                  >
-                    Reveal Correct Answer
-                  </button>
-                  <p className="leading-snug font-semibold text-sm m-0" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                    Answers are in — reveal when the room is ready.
-                  </p>
-                </div>
-              )
-            }
-            return null
-          })()}
+                )
+              }
+              if (showManualReveal) {
+                return (
+                  <div className="flex items-center justify-center gap-3 flex-wrap">
+                    <button
+                      onClick={() => setCorrectRevealed(true)}
+                      className="inline-flex items-center gap-2 px-5 py-2 rounded-full font-black text-sm transition-all hover:scale-[1.02] flex-shrink-0"
+                      style={{ background: '#16A34A', color: '#fff' }}
+                    >
+                      Reveal Correct Answer
+                    </button>
+                    <p className="leading-snug font-semibold text-sm m-0" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                      Answers are in — reveal when the room is ready.
+                    </p>
+                  </div>
+                )
+              }
+              return null
+            })()}
+          </div>
 
           {/* Drawing gallery — P3.4 */}
           {currentQuestion.type === 'drawing' && (

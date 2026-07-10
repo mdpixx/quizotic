@@ -153,3 +153,24 @@ export function getHostQuestionFit({
     explanationClass: 'host-explanation-fit-roomy',
   }
 }
+
+/**
+ * What the reveal tip bar should display — or null for NO bar at all.
+ *
+ * The bar chrome must never render without text: a live classroom session
+ * (participants connected, host authored no tip) used to show an empty bar
+ * with a lone 💡 on every reveal. Whitespace-only tips count as empty. The
+ * "nobody answered" notice is real content, but only when the room is
+ * actually empty — with participants present, silence means "no tip".
+ */
+export function getHostTipText({
+  explanation,
+  connectedCount,
+}: {
+  explanation: string | null | undefined
+  connectedCount: number
+}): string | null {
+  const tip = explanation?.trim()
+  if (tip) return tip
+  return connectedCount === 0 ? 'No participants answered this question.' : null
+}
