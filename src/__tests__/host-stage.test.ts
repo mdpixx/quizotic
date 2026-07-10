@@ -3,7 +3,30 @@ import {
   buildLeaderboardStageRows,
   getPostQuestionAction,
   getHostQuestionFit,
+  getHostTipText,
 } from '../lib/host-stage'
+
+describe('getHostTipText', () => {
+  it('returns the trimmed tip when the host authored one', () => {
+    expect(getHostTipText({ explanation: '  LLMs predict tokens. ', connectedCount: 12 }))
+      .toBe('LLMs predict tokens.')
+  })
+
+  it('returns null (NO bar) when the tip is empty and participants answered', () => {
+    expect(getHostTipText({ explanation: null, connectedCount: 12 })).toBeNull()
+    expect(getHostTipText({ explanation: undefined, connectedCount: 3 })).toBeNull()
+  })
+
+  it('treats a whitespace-only tip as empty', () => {
+    expect(getHostTipText({ explanation: '   ', connectedCount: 5 })).toBeNull()
+  })
+
+  it('falls back to the nobody-answered notice only in an empty room', () => {
+    expect(getHostTipText({ explanation: null, connectedCount: 0 }))
+      .toBe('No participants answered this question.')
+    expect(getHostTipText({ explanation: 'Real tip', connectedCount: 0 })).toBe('Real tip')
+  })
+})
 
 describe('buildLeaderboardStageRows', () => {
   it('adds previous rank and score deltas for visible leaderboard rows', () => {

@@ -599,6 +599,41 @@ body {
   line-height: 1.2;
 }
 
+/* Tip slot: permanently reserved under the answer grid so revealing a tip
+   (or none) never re-centers the centered column — the answer grid holds one
+   Y position live and revealed, question after question. Height fits a
+   2-line clamped tip; the full text lives on the standings "Why?" card.
+   flex: none so column pressure can never compress the reservation (a
+   resize would also wake useFitText's ResizeObserver and re-wrap tiles). */
+.host-tip-slot {
+  height: 64px;
+  flex: none;
+}
+
+/* Bar padding lives HERE (not inline) so the short-viewport media query
+   below can shrink it without !important. Opacity-only entrance: the slot
+   is pre-reserved, so the bar must never move anything when it appears. */
+.host-tip-bar {
+  padding: 11px 16px;
+  max-height: 100%;
+  overflow: hidden;
+  animation: host-tip-in 0.25s ease-out;
+}
+
+@keyframes host-tip-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Long tips never grow the bar past the slot (same clamp pattern as
+   .host-reveal-footer above). */
+.host-tip-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
 .host-ranking-stage {
   display: flex;
   flex-direction: column;
@@ -683,6 +718,20 @@ body {
 @media (max-height: 800px) {
   .host-question-stage {
     gap: 0.5rem;
+  }
+
+  /* Short viewports: shrink the reserved tip slot (and the bar inside it)
+     so the ~514px height budget at 1024×576 holds. */
+  .host-tip-slot {
+    height: 52px;
+  }
+
+  .host-tip-bar {
+    padding: 7px 14px;
+  }
+
+  .host-tip-text {
+    font-size: 0.8125rem;
   }
 
   /* Short viewports (720p projectors): pull the spotlight/glass seam back from
