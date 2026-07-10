@@ -56,7 +56,9 @@ export function HostOptionTile({
 
   useFitText(contentRef, textRef, {
     min: 14,
-    max: 38,
+    // 30px cap (was 38): short answers no longer balloon far past their
+    // siblings, which kept re-shaping the grid question-to-question.
+    max: 30,
     cssVar: '--opt-fit-size',
     // Geometric containment, not scroll metrics: centered text paints upward
     // out of its min-h-0 parent when over-tall, and that upward overflow is
@@ -135,39 +137,46 @@ export function HostOptionTile({
         >
           {letter}
         </span>
-        <span ref={textRef} className="host-opt-text min-w-0 flex-1 break-words font-semibold text-white">
+        <span ref={textRef} className="host-opt-text min-w-0 flex-1 break-words font-medium text-white">
           {text}
         </span>
 
-        {/* Correct marker: a small green circle with a white tick. Fades in on
-            reveal for the correct option(s) only. No "Correct" wordmark. */}
-        <div
-          className={`absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full transition-all duration-300 md:h-8 md:w-8 ${
-            highlightCorrect
-              ? 'scale-100 opacity-100'
-              : 'pointer-events-none scale-50 opacity-0'
-          }`}
-          style={{
-            background: '#FFFFFF',
-            boxShadow: '0 4px 12px -2px rgba(0,0,0,0.35), 0 0 0 3px rgba(34,197,94,0.35)',
-          }}
-          aria-hidden={!highlightCorrect}
-          aria-label={highlightCorrect ? 'Correct answer' : undefined}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 md:h-5 md:w-5">
-            <path d="M20 6 9 17l-5-5" />
-          </svg>
-        </div>
-
-        {/* Vote % — fades in top-right on reveal (sits left of the tick). Live → hidden. */}
-        <span
-          className={`absolute right-12 top-3 font-black tabular-nums text-white transition-all duration-300 md:right-14 ${
-            showVotes ? 'translate-x-0 opacity-100' : 'pointer-events-none translate-x-2 opacity-0'
-          }`}
-          style={{ fontSize: 'clamp(0.9rem, 1.6vw, 1.25rem)', textShadow: '0 1px 6px rgba(0,0,0,0.35)' }}
-          aria-hidden={!showVotes}
-        >
-          {Math.round(votePct)}<span className="text-[0.6em] font-bold opacity-80">%</span>
+        {/* Reveal slot — IN FLOW after the text and always reserving width, so
+            revealing never reflows the answer text and a full-width line can
+            never paint under the badges (the old absolute-positioned pair did
+            exactly that). Width is reserved on wrong tiles too so every
+            tile's % sits on the same column. Must stay flex-none/fixed-width
+            and inside contentRef so useFitText measures the reduced text box. */}
+        <span className="flex flex-none items-center justify-end gap-1.5 w-[76px] md:w-[86px]">
+          {/* Vote % — fades in on reveal. Live → invisible but space kept. */}
+          <span
+            className={`font-black tabular-nums text-white transition-opacity duration-300 ${
+              showVotes ? 'opacity-100' : 'pointer-events-none opacity-0'
+            }`}
+            style={{ fontSize: 'clamp(0.9rem, 1.6vw, 1.25rem)', textShadow: '0 1px 6px rgba(0,0,0,0.35)' }}
+            aria-hidden={!showVotes}
+          >
+            {Math.round(votePct)}<span className="text-[0.6em] font-bold opacity-80">%</span>
+          </span>
+          {/* Correct marker: a small green circle with a white tick. Fades in
+              on reveal for the correct option(s) only. No "Correct" wordmark. */}
+          <span
+            className={`flex h-7 w-7 flex-none items-center justify-center rounded-full transition-all duration-300 md:h-8 md:w-8 ${
+              highlightCorrect
+                ? 'scale-100 opacity-100'
+                : 'pointer-events-none scale-50 opacity-0'
+            }`}
+            style={{
+              background: '#FFFFFF',
+              boxShadow: '0 4px 12px -2px rgba(0,0,0,0.35), 0 0 0 3px rgba(34,197,94,0.35)',
+            }}
+            aria-hidden={!highlightCorrect}
+            aria-label={highlightCorrect ? 'Correct answer' : undefined}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 md:h-5 md:w-5">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+          </span>
         </span>
       </div>
     </div>

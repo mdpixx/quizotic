@@ -30,6 +30,7 @@ import { JoinPill } from '@/components/host/JoinPill'
 import { PhoneRemoteButton } from '@/components/host/PhoneRemoteButton'
 import { NavChevron } from '@/components/ui/NavButton'
 import { EndQuizConfirmModal } from '@/components/host/EndQuizConfirmModal'
+import { JoinQrModal } from '@/components/host/JoinQrModal'
 import { HostWordCloud } from '@/components/host/HostWordCloud'
 import { LiveRosterPanel } from '@/components/host/LiveRosterPanel'
 import { QuestionNavigator } from '@/components/host/QuestionNavigator'
@@ -349,6 +350,7 @@ export default function SessionPage() {
   const [teamLeaderboard, setTeamLeaderboard] = useState<{ name: string; color: string; score: number; members: number }[] | null>(null)
   const [showOverflowMenu, setShowOverflowMenu] = useState(false)
   const [showEndQuizConfirm, setShowEndQuizConfirm] = useState(false)
+  const [showJoinQr, setShowJoinQr] = useState(false)
   const [followups, setFollowups] = useState<{ label: string; code: string }[]>([])
   const [followupLoading, setFollowupLoading] = useState(false)
   const [followupError, setFollowupError] = useState('')
@@ -1352,10 +1354,14 @@ export default function SessionPage() {
       } else if (e.key === 's' || e.key === 'S') {
         e.preventDefault()
         setShowImmersiveStats(s => !s)
+      } else if (e.key === 'q' || e.key === 'Q') {
+        e.preventDefault()
+        setShowJoinQr(s => !s)
       } else if (e.key === 'Escape') {
         setShowLeaderboardPopup(false)
         setShowImmersiveStats(false)
         setRosterSheetOpen(false)
+        setShowJoinQr(false)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -2254,7 +2260,9 @@ export default function SessionPage() {
               pairs with the answered count there — one glance right answers
               "wait or move on?"). The header now reads as a calm editorial
               masthead, nothing competing for attention. */}
-          <div className="flex items-center gap-3 lg:gap-4 flex-wrap">
+          {/* pr clears the fixed ⋯ button (right-3 + w-10 ≈ 52px from the
+              viewport edge) so the PIN pill / join pill never slide under it. */}
+          <div className="flex items-center gap-3 lg:gap-4 flex-wrap pr-12 lg:pr-8">
             {/* Mobile: compact navigator inline (no left rail on phones). */}
             <div className="lg:hidden">
               <QuestionNavigator
@@ -2279,6 +2287,23 @@ export default function SessionPage() {
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 3v18"/></svg>
                 PIN <b style={{ letterSpacing: '0.14em', color: '#fff' }}>{gameCode}</b>
               </span>
+              {/* Join-QR trigger — latecomers scan instead of typing the PIN.
+                  Below sm the pill row is hidden; the ⋯ menu covers phones. */}
+              <button
+                type="button"
+                onClick={() => setShowJoinQr(true)}
+                aria-label="Show join QR code"
+                title="Show join QR code (Q)"
+                className="hidden sm:inline-flex items-center justify-center rounded-[10px] px-2.5 py-1.5 transition-transform hover:scale-105"
+                style={{ color: 'rgba(255,255,255,0.7)', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.14)' }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <rect x="3" y="3" width="7" height="7" rx="1" />
+                  <rect x="14" y="3" width="7" height="7" rx="1" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" />
+                  <path d="M14 14h3v3h-3zM21 14v.01M14 21v.01M21 21v.01M17.5 17.5v.01" />
+                </svg>
+              </button>
               <div className="lg:hidden">
                 <JoinPill gameCode={gameCode} variant="compact" />
               </div>
@@ -3120,7 +3145,7 @@ export default function SessionPage() {
               const label = action === 'reveal'
                 ? 'Reveal Answer'
                 : action === 'standings'
-                  ? (standingsRecommended ? 'View Standings (recommended)' : 'View Standings')
+                  ? 'View Standings'
                   : action === 'end'
                     ? 'End Quiz'
                     : 'Next Question'
@@ -3157,6 +3182,10 @@ export default function SessionPage() {
                   )}
                   <button
                     onClick={onClick}
+                    // "(recommended)" used to be appended to the label, but the
+                    // wider button overlapped the left cluster — the signal now
+                    // lives at zero width in the tooltip.
+                    title={action === 'standings' && standingsRecommended ? 'Recommended — the standings just changed' : undefined}
                     className="inline-flex items-center justify-center gap-2 px-6 transition-all"
                     style={{
                       height: 46, borderRadius: 14, whiteSpace: 'nowrap',
@@ -3919,6 +3948,23 @@ export default function SessionPage() {
                 <button
                   type="button"
                   role="menuitem"
+                  onClick={() => { setShowOverflowMenu(false); setShowJoinQr(true) }}
+                  className="w-full text-left px-4 py-3 font-bold text-sm flex items-center gap-2 transition-colors"
+                  style={{ color: '#0F1B3D', background: '#FFFFFF' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#F4F6FB')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '#FFFFFF')}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4" aria-hidden>
+                    <rect x="3" y="3" width="7" height="7" rx="1" />
+                    <rect x="14" y="3" width="7" height="7" rx="1" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" />
+                    <path d="M14 14h3v3h-3zM21 14v.01M14 21v.01M21 21v.01M17.5 17.5v.01" />
+                  </svg>
+                  Show join QR
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
                   onClick={() => { setShowOverflowMenu(false); setShowEndQuizConfirm(true) }}
                   className="w-full text-left px-4 py-3 font-bold text-sm flex items-center gap-2 transition-colors"
                   style={{ color: '#DC2626', background: '#FFFFFF' }}
@@ -3935,6 +3981,12 @@ export default function SessionPage() {
           )}
         </div>
       )}
+
+      <JoinQrModal
+        open={showJoinQr}
+        onClose={() => setShowJoinQr(false)}
+        gameCode={gameCode}
+      />
 
       <EndQuizConfirmModal
         open={showEndQuizConfirm}
