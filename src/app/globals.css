@@ -488,19 +488,22 @@ body {
      display: grid lives HERE (the JSX adds no `grid` utility) — without it
      every grid-* property below is inert and the tiles regress to full-width
      stacked blocks with no gap.
-     Tiles are CONTENT-SIZED (grid-auto-rows: auto) and capped by the per-tile
-     min-height in the rule below — they no longer stretch to fill all leftover
-     stage height. The block is centered as a group by .host-center-col
-     (justify-content: center), so a short question + short options leave
-     generous breathing room above and below, exactly like the mockup. Width is
-     capped to min(1040px, 90vw) so the grid reads as one aligned column under
-     the spotlight, not the full 1280px max-w-7xl. Drops to one column on a
+     Rows are UNIFORM (grid-auto-rows: 1fr): on an auto-height grid every 1fr
+     row resolves to the tallest row's content, so all four tiles share one
+     height within a question, and — because typical content sits below the
+     per-tile min-height floor in the rule below — that height is identical
+     question-to-question. (Content-sized rows made the grid re-shape on every
+     question, a visual disconnect.) An unusually long option still grows ALL
+     rows together, preserving the no-clip guarantee. The block is centered as
+     a group by .host-center-col (justify-content: center). Width is capped to
+     min(1040px, 90vw) so the grid reads as one aligned column under the
+     spotlight, not the full 1280px max-w-7xl. Drops to one column on a
      genuinely narrow center (phones, or a very tight window) via the container
      query below. */
   display: grid;
   width: min(1040px, 100%);
   margin-inline: auto;
-  grid-auto-rows: auto;
+  grid-auto-rows: 1fr;
   grid-template-columns: 1fr 1fr;
   gap: clamp(12px, 1.8vw, 22px);
 }
@@ -517,11 +520,11 @@ body {
 }
 
 .host-options-stage > div {
-  /* Each tile has a content floor and a viewport-scaled cap — tiles size to
-     their text (not stretched) but never collapse below a readable height, and
-     never balloon past ~120px on tall screens. Matches the atrium mockup
-     .tile { min-height: clamp(76px,12vh,120px) }. */
-  min-height: clamp(76px, 12vh, 120px);
+  /* Each tile has a content floor and a viewport-scaled cap — never collapses
+     below a readable height, never balloons on tall screens. Slightly shorter
+     than the original atrium clamp(76px,12vh,120px) for a tighter block, and
+     paired with grid-auto-rows: 1fr above so all tiles share the height. */
+  min-height: clamp(72px, 10.5vh, 104px);
   display: flex;
   flex-direction: column;
 }
@@ -538,7 +541,7 @@ body {
    Light text pairs with the dark-glass tile surface (the question card is the
    solid-white "spotlight" above; the option tiles are translucent glass). */
 .host-opt-text {
-  font-size: var(--opt-fit-size, clamp(1.05rem, 0.7rem + 1.3vw, 1.75rem));
+  font-size: var(--opt-fit-size, clamp(0.95rem, 0.6rem + 1.15vw, 1.5rem));
   line-height: 1.14;
   text-align: left;
   overflow-wrap: anywhere;
@@ -565,15 +568,6 @@ body {
   height: 2.35rem;
   border-radius: 0.65rem;
   font-size: 1.1rem;
-}
-
-/* Reveal badge: a small corner pill (vote count + ✓) positioned absolutely
-   inside the tile content. Out of flow, it reserves no width while the
-   question is live — the answer text owns the full tile — and simply fades in
-   on reveal. Stays above the text so a full-width line can't paint over it. */
-.host-opt-badge {
-  z-index: 1;
-  letter-spacing: 0.01em;
 }
 
 .host-explanation-fit-roomy {

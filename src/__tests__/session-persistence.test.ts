@@ -13,8 +13,24 @@ import {
 
 type AnySession = Record<string, unknown>
 
+// One shape for both fixture participants — without it the Map constructor
+// rejects the union of p1 (has attendeeId/team) and p2 (no attendeeId,
+// team: null, answers inferred as never[]).
+interface TestParticipant {
+  participantId: string
+  socketId: string
+  name: string
+  realName: string
+  archetype: string
+  score: number
+  answers: { index: number; correct: boolean }[]
+  team: { index: number; name: string; color: string } | null
+  joinedAt: Date
+  attendeeId?: string
+}
+
 function makeLiveSession(): AnySession {
-  const p1 = {
+  const p1: TestParticipant = {
     participantId: 'pid-1',
     socketId: 'sock-1',
     name: 'Fox',
@@ -26,7 +42,7 @@ function makeLiveSession(): AnySession {
     joinedAt: new Date('2026-07-06T10:00:00.000Z'),
     attendeeId: 'att-1',
   }
-  const p2 = {
+  const p2: TestParticipant = {
     participantId: 'pid-2',
     socketId: 'sock-2',
     name: 'Owl',
@@ -86,7 +102,7 @@ describe('serializeSession / deserializeSession', () => {
 
   it('round-trips core game state losslessly', () => {
     const s = makeLiveSession()
-    const restored = deserializeSession(JSON.parse(JSON.stringify(serializeSession(s)))) as AnySession
+    const restored = deserializeSession(JSON.parse(JSON.stringify(serializeSession(s)))) as unknown as AnySession
 
     expect(restored.status).toBe('active')
     expect(restored.currentQuestionIndex).toBe(1)
@@ -98,7 +114,7 @@ describe('serializeSession / deserializeSession', () => {
 
   it('rebuilds Maps and Sets', () => {
     const s = makeLiveSession()
-    const restored = deserializeSession(JSON.parse(JSON.stringify(serializeSession(s)))) as AnySession
+    const restored = deserializeSession(JSON.parse(JSON.stringify(serializeSession(s)))) as unknown as AnySession
 
     expect(restored.participants).toBeInstanceOf(Map)
     expect(restored.participantsById).toBeInstanceOf(Map)
@@ -113,7 +129,7 @@ describe('serializeSession / deserializeSession', () => {
 
   it('preserves participants and their scores/answers, keyed by old socket id', () => {
     const s = makeLiveSession()
-    const restored = deserializeSession(JSON.parse(JSON.stringify(serializeSession(s)))) as AnySession
+    const restored = deserializeSession(JSON.parse(JSON.stringify(serializeSession(s)))) as unknown as AnySession
     const participants = restored.participants as Map<string, { score: number; answers: unknown[] }>
     const byId = restored.participantsById as Map<string, { score: number }>
 
@@ -127,7 +143,7 @@ describe('serializeSession / deserializeSession', () => {
 
   it('shares the same object between participants and participantsById', () => {
     const s = makeLiveSession()
-    const restored = deserializeSession(JSON.parse(JSON.stringify(serializeSession(s)))) as AnySession
+    const restored = deserializeSession(JSON.parse(JSON.stringify(serializeSession(s)))) as unknown as AnySession
     const bySocket = (restored.participants as Map<string, object>).get('sock-1')
     const byId = (restored.participantsById as Map<string, object>).get('pid-1')
     // Reconnect logic mutates one and expects the other to see it.
@@ -136,7 +152,7 @@ describe('serializeSession / deserializeSession', () => {
 
   it('marks real participants offline until they reconnect', () => {
     const s = makeLiveSession()
-    const restored = deserializeSession(JSON.parse(JSON.stringify(serializeSession(s)))) as AnySession
+    const restored = deserializeSession(JSON.parse(JSON.stringify(serializeSession(s)))) as unknown as AnySession
     const participants = restored.participants as Map<string, { disconnectedAt?: number }>
     // Old sockets died with the previous process — everyone is offline until a
     // participantId reconnect clears the flag (getConnectedCount honours this).
@@ -146,7 +162,7 @@ describe('serializeSession / deserializeSession', () => {
 
   it('resets ephemeral host bindings and timers', () => {
     const s = makeLiveSession()
-    const restored = deserializeSession(JSON.parse(JSON.stringify(serializeSession(s)))) as AnySession
+    const restored = deserializeSession(JSON.parse(JSON.stringify(serializeSession(s)))) as unknown as AnySession
     expect(restored.hostSocketId).toBeNull()
     expect(restored.hostSocketIds).toBeInstanceOf(Set)
     expect((restored.hostSocketIds as Set<string>).size).toBe(0)
@@ -162,7 +178,7 @@ describe('serializeSession / deserializeSession', () => {
       quizData: { id: 'q', title: 't', questions: [] },
       participants: new Map<string, object>([['ghost::0', ghost]]),
     }
-    const restored = deserializeSession(JSON.parse(JSON.stringify(serializeSession(s)))) as AnySession
+    const restored = deserializeSession(JSON.parse(JSON.stringify(serializeSession(s)))) as unknown as AnySession
     const participants = restored.participants as Map<string, { disconnectedAt?: number }>
     expect(participants.has('ghost::0')).toBe(true)
     expect(participants.get('ghost::0')?.disconnectedAt).toBeUndefined()
@@ -176,7 +192,7 @@ describe('serializeSession / deserializeSession', () => {
   it('handles null/empty inputs safely', () => {
     expect(serializeSession(null)).toBeNull()
     expect(deserializeSession(null)).toBeNull()
-    const empty = deserializeSession(serializeSession({ status: 'lobby', participants: new Map() })) as AnySession
+    const empty = deserializeSession(serializeSession({ status: 'lobby', participants: new Map() })) as unknown as AnySession
     expect((empty.participants as Map<string, unknown>).size).toBe(0)
   })
 })
