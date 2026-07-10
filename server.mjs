@@ -2308,9 +2308,10 @@ app.prepare().then(async () => {
       // Participant limit check — re-query with TTL so cancellations take effect mid-session.
       // Skipped above because reconnects (matched participantId) don't add to the headcount.
       const hostPlan = await getSessionHostPlan(session)
-      const maxParticipants = hostPlan === 'pro' ? Infinity : 50
+      // Mirrors PLAN_LIMITS.free.maxParticipants in src/lib/limits.ts (Early Supporter boost).
+      const maxParticipants = hostPlan === 'pro' ? Infinity : 100
       if (session.participants.size >= maxParticipants) {
-        callback({ success: false, error: 'This session is full (max 50 participants on Free plan). The host can upgrade to Pro for unlimited participants.' })
+        callback({ success: false, error: `This session is full (max ${maxParticipants} participants on the Free plan). The host can upgrade to Pro for unlimited participants.` })
         return
       }
 

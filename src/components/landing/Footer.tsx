@@ -168,7 +168,7 @@ export function Footer() {
 
         {/* Copyright */}
         <p style={{ fontFamily: 'var(--font-body, "DM Sans", sans-serif)', fontSize: 13, color: 'rgba(255,255,255,0.25)' }}>
-          © 2025 Quizotic · quizotic.live
+          © 2026 Quizotic · quizotic.live
         </p>
       </div>
     </footer>

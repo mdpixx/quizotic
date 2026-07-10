@@ -1,18 +1,41 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs'
+import { JsonLd } from '@/components/seo/JsonLd'
 import { StickyNav } from '@/components/landing/StickyNav'
+import { BRAND, FOUNDER } from '@/content/brand'
 
 export const metadata: Metadata = {
   title: 'About Quizotic',
   description:
-    'Quizotic is a live quiz and interactive presentation platform built on learning science. Free to use, no app install required. Made for teachers, trainers, and educators.',
+    'Quizotic is a live quiz and interactive presentation platform built on learning science, founded by Mahesh Dhiman — an L&D professional who runs training for 12,000+ employees. Free to use, no app install required.',
   alternates: { canonical: '/about' },
+}
+
+const founderLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Person',
+  '@id': `${BRAND.url}/about#founder`,
+  name: FOUNDER.name,
+  jobTitle: FOUNDER.title,
+  description: FOUNDER.bio,
+  image: FOUNDER.image,
+  url: `${BRAND.url}/about`,
+  sameAs: [FOUNDER.url],
+  knowsAbout: [
+    'learning and development',
+    'corporate training',
+    'learning science',
+    'live quiz platforms',
+    'interactive presentations',
+  ],
+  worksFor: { '@id': `${BRAND.url}/#organization` },
 }
 
 export default function AboutPage() {
   return (
     <>
+      <JsonLd data={founderLd} />
       <StickyNav />
       <div className="min-h-screen" style={{ background: '#FFFFFF' }}>
         <div
@@ -106,7 +129,7 @@ export default function AboutPage() {
           <section>
             <h2 className="text-xl font-bold mb-3" style={{ color: '#0F1B3D' }}>Built for every classroom</h2>
             <ul className="list-disc pl-6 space-y-2">
-              <li>Free to start — paid plans (coming soon) priced in USD</li>
+              <li>Free today — paid plans come later, and the free plan stays genuinely useful</li>
               <li>Designed for 1–2 Mbps connections — works in real, low-bandwidth classrooms</li>
               <li>No app install — participants join via any browser on their phone</li>
               <li>Multi-language support in the participant interface</li>
@@ -114,17 +137,40 @@ export default function AboutPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3" style={{ color: '#0F1B3D' }}>Our story</h2>
-            <p className="mb-3">
-              Quizotic is built by a small, independent team. We&apos;re not a startup with VC
-              funding or a growth target. We&apos;re educators and builders who got frustrated
-              with the tools available today and decided to make something better.
-            </p>
-            <p className="mb-3">
-              The platform is free right now — not as a lead magnet, but as a genuine commitment
-              to making learning tools accessible. We believe the best way to build a product
-              people love is to put it in their hands first.
-            </p>
+            <h2 className="text-xl font-bold mb-3" style={{ color: '#0F1B3D' }}>Who&apos;s behind Quizotic</h2>
+            <div className="flex flex-col sm:flex-row gap-6 items-start mb-4">
+              <img
+                src="/founder/mahesh-dhiman.jpg"
+                alt="Mahesh Dhiman, founder of Quizotic"
+                width={140}
+                height={140}
+                className="rounded-xl flex-shrink-0"
+                style={{ border: '2px solid #0D0D0D', boxShadow: '4px 4px 0 #0D0D0D', objectFit: 'cover' }}
+              />
+              <div>
+                <p className="mb-3">
+                  Quizotic is built by <strong>Mahesh Dhiman</strong>, a learning &amp;
+                  development professional who designs and runs training for 12,000+ employees
+                  at one of India&apos;s largest energy companies. Years of standing in front of
+                  real classrooms and training halls — not a growth team, not VC funding.
+                </p>
+                <p className="mb-3">
+                  He built Quizotic because the engagement tools he used in those rooms
+                  optimised for entertainment, not retention. A session should leave something
+                  behind — Quizotic is built around the learning science that makes that happen.
+                </p>
+                <p className="text-sm">
+                  <a
+                    href={FOUNDER.url}
+                    rel="me noopener"
+                    target="_blank"
+                    style={{ color: '#0F1B3D', fontWeight: 600 }}
+                  >
+                    Connect with Mahesh on LinkedIn →
+                  </a>
+                </p>
+              </div>
+            </div>
             <p>
               We read every piece of feedback. Every single one. If you&apos;ve run a session on
               Quizotic and have something to say — good or bad — we want to hear it.
