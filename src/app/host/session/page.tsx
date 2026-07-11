@@ -10,7 +10,6 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { Avatar } from '@/components/Avatar'
 import { Podium } from '@/components/Podium'
 import { PostSessionHeader } from '@/components/PostSessionHeader'
-import { DualCannonLottie } from '@/components/DualCannonLottie'
 import { CelebrationConfetti } from '@/components/CelebrationConfetti'
 import { SessionReport } from '@/components/SessionReport'
 import { LeaderboardView } from '@/components/LeaderboardView'
@@ -3559,11 +3558,12 @@ export default function SessionPage() {
             The ranked Podium below still needs finishers, but the celebration
             itself must not depend on that. Firecracker/fanfare play from the
             mode-independent phase===ended effect.
-            NB: the older full-viewport <LottieConfetti/> was removed — when the
-            dual-cannon Lottie was added (#55) it was meant to *replace* that
-            bury-everything layer, but both were left mounted and together they
-            buried the podium. The dual cannons now carry the confetti alone. */}
-        <DualCannonLottie />
+            NB: the <DualCannonLottie/> overlay was removed — its two cannons
+            are clipped to each half and fire from the inner edge (screen
+            center) inward, so the bursts piled up directly over the winner
+            podium and dominated the frame. The canvas side-cannons (fired from
+            the true screen edges via useConfetti) + the floating gold particles
+            below now carry the confetti alone, keeping the podium visible. */}
         <CelebrationConfetti active />
         <PostSessionHeader
           title={quiz?.title}
