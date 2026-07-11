@@ -8,7 +8,7 @@ import { TEMPLATES } from '@/content/templates'
 const SITE = 'https://www.quizotic.live'
 
 // Bump this date when static page copy changes.
-const STATIC_LAST_MODIFIED = '2026-05-15'
+const STATIC_LAST_MODIFIED = '2026-07-11'
 
 // India-education pages that get priority boosts (exact path match).
 const INDIA_EDU_PRIORITY_BOOST: Record<string, number> = {

@@ -23,6 +23,17 @@ export const BRAND = {
   ],
 }
 
+// Founder identity — single source for the About page Person schema, the
+// homepage Organization.founder property, and the homepage founder card.
+// Personal profile links live here, NOT in BRAND_PROFILES (org-level sameAs).
+export const FOUNDER = {
+  name: 'Mahesh Dhiman',
+  title: 'Founder',
+  bio: 'Learning & development professional who designs and runs training for 12,000+ employees at one of India’s largest energy companies.',
+  url: 'https://www.linkedin.com/in/mdpixx',
+  image: 'https://www.quizotic.live/founder/mahesh-dhiman.jpg',
+}
+
 // Fill in URLs below as profiles are created (Product Hunt, Crunchbase, LinkedIn, etc.)
 // Empty strings are filtered out of sameAs automatically.
 export const BRAND_PROFILES = {

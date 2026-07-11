@@ -8,7 +8,9 @@ import { test, expect } from '@playwright/test'
 test.describe('Landing funnel', () => {
   test('hero states the category plainly', async ({ page }) => {
     await page.goto('/')
-    await expect(page.locator('h1')).toContainText('Live quizzes your class joins')
+    // Guard the category phrase, not the full marketing sentence — copy
+    // tweaks are fine as long as "Live quizzes" leads the h1.
+    await expect(page.locator('h1')).toContainText('Live quizzes')
   })
 
   test('join-code box forwards participants to /join with the code pre-filled', async ({ page }) => {

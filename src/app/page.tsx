@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { JsonLd } from '@/components/seo/JsonLd'
-import { BRAND, BRAND_SAME_AS } from '@/content/brand'
+import { BRAND, BRAND_SAME_AS, FOUNDER } from '@/content/brand'
 import { StickyNav } from '@/components/landing/StickyNav'
 import { Hero } from '@/components/landing/Hero'
 import { QuizVsPresentation } from '@/components/landing/QuizVsPresentation'
@@ -44,6 +44,13 @@ const organizationLd = {
   slogan: BRAND.slogan,
   foundingDate: BRAND.foundingDate,
   foundingLocation: BRAND.foundingLocation,
+  founder: {
+    '@type': 'Person',
+    '@id': `${BRAND.url}/about#founder`,
+    name: FOUNDER.name,
+    url: `${BRAND.url}/about`,
+    sameAs: [FOUNDER.url],
+  },
   knowsAbout: BRAND.knowsAbout,
   sameAs: BRAND_SAME_AS,
 }

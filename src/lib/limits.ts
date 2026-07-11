@@ -1,6 +1,10 @@
 export const PLAN_LIMITS = {
   free: {
-    maxParticipants: 50,
+    // 100 is the declared "Early Supporter" boost (standard free plan: 50).
+    // Accounts created before paid plans launch keep 100 for life — enforce
+    // the 50 cap for post-launch signups via User.createdAt when that day comes.
+    // Mirrored in server.mjs join gating (search: maxParticipants).
+    maxParticipants: 100,
     maxAiQuestions: 30,      // AI-generated questions per month (proportional)
     maxQuestionsPerGeneration: 10,
     maxSavedQuizzes: 20,
