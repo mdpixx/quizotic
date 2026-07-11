@@ -146,6 +146,75 @@ export function validateQuizQuestions(questions: Question[]): QuizValidationIssu
       }
     }
 
+    if (type === 'ranking') {
+      const items = options.filter(text => text.trim())
+      if (items.length < 2) {
+        issues.push({
+          questionIndex,
+          field: 'options',
+          message: 'Ranking questions need at least two items.',
+          severity: 'error',
+        })
+      }
+      if (options.some(text => !text.trim())) {
+        issues.push({
+          questionIndex,
+          field: 'options',
+          message: 'All ranking items must have text.',
+          severity: 'error',
+        })
+      }
+      // Scored sequence: correctOrder must be a full permutation of the item
+      // indices — a length mismatch makes the question unwinnable at runtime
+      // (scoreRanking's all-positions check fails every submission).
+      if (Array.isArray(q.correctOrder) && q.correctOrder.length > 0) {
+        const valid = q.correctOrder.length === optionCount
+          && q.correctOrder.every(v => isValidOptionIndex(v, optionCount))
+          && new Set(q.correctOrder.map(String)).size === optionCount
+        if (!valid) {
+          issues.push({
+            questionIndex,
+            field: 'correctOrder',
+            message: 'Scored ranking order must cover every item exactly once.',
+            severity: 'error',
+          })
+        }
+      }
+    }
+
+    if (type === 'rating') {
+      const scale = q.options?.length ?? 5
+      if (q.options !== undefined && (scale < 2 || scale > 10)) {
+        issues.push({
+          questionIndex,
+          field: 'options',
+          message: 'Rating questions need a scale of 2–10 points.',
+          severity: 'error',
+        })
+      }
+    }
+
+    // Timer/points are TS unions but nothing enforces them at runtime — AI
+    // imports and raw API payloads can carry arbitrary values. The live server
+    // clamps the timer defensively (clampTimerSeconds) but points flow into
+    // scoring unchecked, so reject out-of-range values at save time.
+    if (q.timerSeconds !== undefined && (typeof q.timerSeconds !== 'number' || q.timerSeconds < 5 || q.timerSeconds > 120)) {
+      issues.push({
+        questionIndex,
+        field: 'timerSeconds',
+        message: 'Timer must be between 5 and 120 seconds.',
+        severity: 'error',
+      })
+    }
+    if (q.points !== undefined && (typeof q.points !== 'number' || q.points < 0 || q.points > 5000)) {
+      issues.push({
+        questionIndex,
+        field: 'points',
+        message: 'Points must be between 0 and 5000.',
+        severity: 'error',
+      })
+    }
+
     if ((type === 'mcq' || type === 'multiselect' || type === 'poll' || type === 'case') && q.options?.some(opt => getOptionText(opt).length > 150)) {
       issues.push({
         questionIndex,

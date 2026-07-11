@@ -65,9 +65,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'AI returned unexpected format' }, { status: 502 })
     }
 
+    // Sanitize before the client merges this straight into the question:
+    // cap at the builder's 6-option limit, drop non-strings/blanks, and only
+    // pass correct-answer indices that point at a surviving option.
+    const raw = result as { options?: unknown; correctAnswer?: unknown; correctAnswers?: unknown }
+    const options = (Array.isArray(raw.options) ? raw.options : [])
+      .filter((o): o is string => typeof o === 'string')
+      .map(o => o.trim().slice(0, 150))
+      .filter(o => o !== '')
+      .slice(0, 6)
+    if (options.length < 2) {
+      return NextResponse.json({ error: 'AI returned unexpected format' }, { status: 502 })
+    }
+    const isIndex = (v: unknown) => {
+      const n = Number(v)
+      return Number.isInteger(n) && n >= 0 && n < options.length
+    }
+    const payload: { options: string[]; correctAnswer?: string; correctAnswers?: string[] } = { options }
+    if (isIndex(raw.correctAnswer)) payload.correctAnswer = String(Number(raw.correctAnswer))
+    if (Array.isArray(raw.correctAnswers)) {
+      const cas = [...new Set(raw.correctAnswers.filter(isIndex).map(v => String(Number(v))))].sort()
+      if (cas.length > 0) payload.correctAnswers = cas
+    }
+
     await logAiUsage(user.id, 'ai_generate', { questionCount: 1, plan: quota.plan })
 
-    return NextResponse.json(result)
+    return NextResponse.json(payload)
   } catch (err) {
     console.error('[generate-options] AI error:', err)
     return NextResponse.json({ error: 'Generation failed. Please try again.' }, { status: 502 })

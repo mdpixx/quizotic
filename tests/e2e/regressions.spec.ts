@@ -365,11 +365,8 @@ test.describe('Regressions — quiz', () => {
       await new Promise(r => setTimeout(r, 4_000))
 
       const confirmed = waitFor<{
-        isCorrect: boolean
-        points: number
+        received?: boolean
         isNonScored: boolean
-        correctPositions?: number
-        totalPositions?: number
       }>(participant, 'answer_confirmed')
       const answerReceived = waitFor<{ count: number }>(host, 'answer_received')
       const rankingSubmission = waitFor<{ ranking: string[] | number[] }>(host, 'ranking_submission')
@@ -387,12 +384,16 @@ test.describe('Regressions — quiz', () => {
       expect((await answerReceived).count).toBe(1)
       expect((await rankingSubmission).ranking.map(String)).toEqual(correctOrder)
 
+      // Scored ranking gets the same NEUTRAL receipt as every other scored
+      // type (2026-07 fix): correctness/points must NOT leak on submit — a
+      // neighbour could copy the order before the reveal. The real result is
+      // asserted below via personal_result.
       const result = await confirmed
       expect(result.isNonScored).toBe(false)
-      expect(result.isCorrect).toBe(true)
-      expect(result.points).toBeGreaterThan(0)
-      expect(result.correctPositions).toBe(correctOrder.length)
-      expect(result.totalPositions).toBe(correctOrder.length)
+      expect(result.received).toBe(true)
+      expect(result).not.toHaveProperty('isCorrect')
+      expect(result).not.toHaveProperty('points')
+      expect(result).not.toHaveProperty('correctPositions')
 
       const ended = waitFor<{ isNonScored: boolean; correctAnswer: unknown; correctOrder?: string[] }>(host, 'question_ended')
       const leaderboard = waitFor<{ totalPlayers: number; questionIndex: number; standingsRecommended: boolean; top: Array<{ score: number }> }>(host, 'leaderboard_update')

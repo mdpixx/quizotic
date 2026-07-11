@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { SubmitAnswerSchema, JoinSessionSchema, safeParseSocket } from '../lib/socket-schemas'
+// Import the .mjs directly — it is the ONLY schema module (server.mjs runtime
+// + these tests). The old socket-schemas.ts mirror drifted out of sync and
+// was removed 2026-07.
+import { SubmitAnswerSchema, JoinSessionSchema, safeParseSocket } from '../lib/socket-schemas.mjs'
 
 describe('JoinSessionSchema', () => {
   it('accepts valid join payload', () => {
@@ -61,6 +64,29 @@ describe('SubmitAnswerSchema', () => {
 
   it('rejects excessively long answer string', () => {
     const r = SubmitAnswerSchema.safeParse({ gameCode: 'ABCD12', answer: 'x'.repeat(3000), timeMs: 0 })
+    expect(r.success).toBe(false)
+  })
+
+  // questionIndex is optional (old clients omit it) but when present it must
+  // be a small non-negative integer — the server uses it to reject answers
+  // that arrive after the host has advanced past the question.
+  it('accepts payload with questionIndex', () => {
+    const r = SubmitAnswerSchema.safeParse({ gameCode: 'ABCD12', answer: '1', timeMs: 4000, questionIndex: 0 })
+    expect(r.success).toBe(true)
+  })
+
+  it('accepts payload without questionIndex (old clients)', () => {
+    const r = SubmitAnswerSchema.safeParse({ gameCode: 'ABCD12', answer: '1', timeMs: 4000 })
+    expect(r.success).toBe(true)
+  })
+
+  it('rejects negative questionIndex', () => {
+    const r = SubmitAnswerSchema.safeParse({ gameCode: 'ABCD12', answer: '1', timeMs: 4000, questionIndex: -1 })
+    expect(r.success).toBe(false)
+  })
+
+  it('rejects non-integer questionIndex', () => {
+    const r = SubmitAnswerSchema.safeParse({ gameCode: 'ABCD12', answer: '1', timeMs: 4000, questionIndex: 1.5 })
     expect(r.success).toBe(false)
   })
 })

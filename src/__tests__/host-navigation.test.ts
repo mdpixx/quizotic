@@ -7,7 +7,7 @@ import {
 describe('safeHostReturnPath', () => {
   it('accepts internal host paths', () => {
     expect(safeHostReturnPath('/host/studio')).toBe('/host/studio')
-    expect(safeHostReturnPath('/host/create?start=aitopic')).toBe('/host/create?start=aitopic')
+    expect(safeHostReturnPath('/host/build?start=aitopic')).toBe('/host/build?start=aitopic')
   })
 
   it('rejects external and non-host return targets', () => {

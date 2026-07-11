@@ -1,4 +1,6 @@
-// SYNC: keep in sync with socket-schemas.ts
+// The ONLY socket schema module — used by server.mjs (runtime) and the
+// vitest suite. (A hand-synced .ts mirror existed until 2026-07; it drifted
+// and was removed — do not recreate it.)
 // Pure ESM JS — imported by server.mjs (cannot import TypeScript).
 import { z } from 'zod'
 
@@ -37,6 +39,11 @@ export const SubmitAnswerSchema = z.object({
   // offsetMs is a fractional average from clock-sync, so the value is
   // naturally a float. Requiring int silently rejected every submission.
   serverSubmittedAt: z.number().positive().optional(),
+  // Which question the participant answered. Optional for back-compat with
+  // clients that predate the field; when present, the server rejects a
+  // mismatch (stale_question) instead of booking the answer against the
+  // current question.
+  questionIndex: z.number().int().min(0).max(999).optional(),
 })
 
 export const SubmitDrawingSchema = z.object({
