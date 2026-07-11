@@ -202,43 +202,36 @@ function fireWinner(
   shapes: { rect: Shape; ribbon: Shape; curl: Shape; star: Shape; circle: Shape },
   factor: number,
 ) {
-  // The finale now leads with the dual-cannon Lottie overlay, so the canvas
-  // layer plays a SUPPORTING role — directional side cannons + a center
-  // fountain + gentle drift rain, at roughly half the old density. The former
-  // gold-crown burst and gold star streamers were what read as "over-done";
-  // both are gone. Stars are dropped from the shapes entirely. Particle counts
-  // were trimmed a further ~25% so the supporting canvas layer no longer
-  // competes with (and overshadows) the podium and the Lottie cannons.
+  // The finale leads with the dual-cannon Lottie overlay, so the canvas layer
+  // plays a SUPPORTING role — directional side cannons + gentle drift rain.
+  // The former center fountain (a plume fired straight up from the bottom-
+  // middle over the winner) was removed: it dominated the whole frame and
+  // buried the podium. The side cannons are now punched up a bit so the
+  // celebration still lands without anything emanating from screen-center.
   // Phase 1 (t=0): two side cannons firing inward and upward.
   confetti(scale({
-    ...base, origin: { x: 0.02, y: 0.85 }, angle: 75, spread: 50,
-    particleCount: 36, startVelocity: 80, ticks: 350, scalar: 1.1, shapes: mixedShapes,
+    ...base, origin: { x: 0.02, y: 0.85 }, angle: 75, spread: 55,
+    particleCount: 48, startVelocity: 85, ticks: 380, scalar: 1.15, shapes: mixedShapes,
   }, factor))
   confetti(scale({
-    ...base, origin: { x: 0.98, y: 0.85 }, angle: 105, spread: 50,
-    particleCount: 36, startVelocity: 80, ticks: 350, scalar: 1.1, shapes: mixedShapes,
+    ...base, origin: { x: 0.98, y: 0.85 }, angle: 105, spread: 55,
+    particleCount: 48, startVelocity: 85, ticks: 380, scalar: 1.15, shapes: mixedShapes,
   }, factor))
 
-  // Phase 2 (t=300): center fountain.
-  setTimeout(() => confetti(scale({
-    ...base, origin: { x: 0.5, y: 0.9 }, angle: 90, spread: 70,
-    particleCount: 44, startVelocity: 65, ticks: 320, scalar: 1.0, shapes: mixedShapes,
-  }, factor)), 300)
-
-  // Phase 3 (t=900): side cannons reload — heavier on ribbons for streamer feel.
+  // Phase 2 (t=900): side cannons reload — heavier on ribbons for streamer feel.
   setTimeout(() => {
     const ribbonHeavy = [shapes.ribbon, shapes.ribbon, shapes.curl, shapes.curl, shapes.rect, shapes.circle]
     confetti(scale({
-      ...base, origin: { x: 0.02, y: 0.85 }, angle: 75, spread: 50,
-      particleCount: 22, startVelocity: 70, ticks: 400, scalar: 1.15, shapes: ribbonHeavy,
+      ...base, origin: { x: 0.02, y: 0.85 }, angle: 75, spread: 55,
+      particleCount: 30, startVelocity: 75, ticks: 420, scalar: 1.2, shapes: ribbonHeavy,
     }, factor))
     confetti(scale({
-      ...base, origin: { x: 0.98, y: 0.85 }, angle: 105, spread: 50,
-      particleCount: 22, startVelocity: 70, ticks: 400, scalar: 1.15, shapes: ribbonHeavy,
+      ...base, origin: { x: 0.98, y: 0.85 }, angle: 105, spread: 55,
+      particleCount: 30, startVelocity: 75, ticks: 420, scalar: 1.2, shapes: ribbonHeavy,
     }, factor))
   }, 900)
 
-  // Phase 4 (t=1800): drift rain — the falling layer comes from the top with
+  // Phase 3 (t=1800): drift rain — the falling layer comes from the top with
   // very low initial velocity so gravity is doing all the work.
   setTimeout(() => confetti(scale({
     ...base, origin: { x: 0.5, y: -0.05 }, angle: 270, spread: 180,
