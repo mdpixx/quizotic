@@ -65,11 +65,9 @@ type ShareChannel = 'native' | 'whatsapp' | 'email' | 'copy'
 
 function ReferralShareCard({ code, bonusEarned }: { code: string; bonusEarned: number }) {
   const [copied, setCopied] = useState(false)
-  const [canNativeShare, setCanNativeShare] = useState(false)
-
-  useEffect(() => {
-    setCanNativeShare(typeof navigator !== 'undefined' && 'share' in navigator)
-  }, [])
+  // Card only mounts client-side (after the referral-code fetch resolves),
+  // so reading navigator during render can't cause a hydration mismatch.
+  const canNativeShare = typeof navigator !== 'undefined' && 'share' in navigator
 
   const link = `https://www.quizotic.live/r/${code}`
   const message =
