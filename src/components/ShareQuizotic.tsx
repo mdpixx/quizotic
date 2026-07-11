@@ -36,12 +36,12 @@ const BLURBS: Record<Context, string> = {
 
 const MESSAGES: Record<Context, string> = {
   pricing:
-    'Try Quizotic — free live quiz and interactive presentation platform with INR billing, UPI, AI question generation and 11 question types.',
+    'Try Quizotic — free live quiz and interactive presentation platform with AI question generation and 11 question types.',
   join: 'Try Quizotic — free live quiz and presentation platform. Run a quiz in under 10 minutes.',
   dashboard:
-    'I use Quizotic to run live quizzes — free, AI-generated, INR billing. Might be useful for you:',
+    'I use Quizotic to run live quizzes — free, AI-generated, no app install for participants. Might be useful for you:',
   'host-ended':
-    'Just ran a live quiz on Quizotic — 11 question types, AI generation, INR/UPI billing. Highly recommend:',
+    'Just ran a live quiz on Quizotic — 11 question types, AI generation, nothing for participants to install. Highly recommend:',
   'participant-ended': 'Tried Quizotic today — smooth live quiz tool. Worth a look:',
 }
 
