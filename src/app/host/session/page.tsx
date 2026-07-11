@@ -297,6 +297,10 @@ export default function SessionPage() {
   const [quiz, setQuiz] = useState<Quiz | null>(initialQuiz)
   const quizRef = useRef<Quiz | null>(null)
   const questionIndexRef = useRef<number>(0)
+  // One-shot guard for the end-of-session sound cue. The cue effect depends on
+  // sessionMode/leaderboard (to decide whether the finale Podium will own the
+  // celebration), so those updating mustn't re-fire the firecracker/fanfare.
+  const endedCueFiredRef = useRef(false)
   const [gameCode, setGameCode] = useState('')
   // key = participantId (preferred) or `name:<displayName>` for legacy events.
   // Storing connection state here lets us render a single list with offline
@@ -663,17 +667,27 @@ export default function SessionPage() {
     if (phase === 'standings') {
       try { playLeaderboardJingle() } catch {}
     } else if (phase === 'ended') {
+      if (endedCueFiredRef.current) return
+      endedCueFiredRef.current = true
       // Stop any lingering countdown drumroll before celebration overlaps.
       try { stopDrumroll() } catch {}
       try { preloadCelebrationSounds() } catch {}
       // Firecracker pop fires once, timed to the confetti launch on this screen.
       try { playFirecracker() } catch {}
-      try { playBassBoom() } catch {}
-      try { playCelebration() } catch {}
+      // When the finale Podium renders (competitive mode with players), IT owns
+      // the dramatic drumroll→winner sting sequence ~4s later. Firing the sting
+      // + fanfare here too pre-empts and drowns that build, so skip them and let
+      // the reveal land. Non-podium finales (reflection/accuracy/empty) still
+      // get the immediate fanfare.
+      const podiumWillCelebrate = sessionMode === 'competitive' && leaderboard.length > 0
+      if (!podiumWillCelebrate) {
+        try { playBassBoom() } catch {}
+        try { playCelebration() } catch {}
+      }
       // Session is over — fade the background loop out.
       stopBackgroundMusic()
     }
-  }, [phase])
+  }, [phase, sessionMode, leaderboard])
 
   // Hydrate session prefs from the host's last setup. Without this, every
   // session resets to the hardcoded defaults and a host who always runs

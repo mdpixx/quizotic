@@ -6,7 +6,7 @@ import {
   playBassBoom,
   playCelebration,
   playCheer,
-  playCheerLoop,
+  playCheerTimes,
   playCorrect,
   playDrumroll,
   preloadCelebrationSounds,
@@ -192,7 +192,7 @@ export function Podium({
       // handles the ongoing sprinkle; cleanup stops the applause on unmount.
       if (isFinale) {
         playBassBoom()
-        playCheerLoop()
+        playCheerTimes(2)
         fireConfetti('winner')
         return () => stopCheer()
       }
@@ -213,9 +213,10 @@ export function Podium({
       firedWinnerEffects.current = true
       stopDrumroll()
       playBassBoom()
-      // Finale loops applause through the whole podium moment; other podiums
-      // (between-question standings) keep the single celebratory cheer.
-      if (isFinale) playCheerLoop()
+      // Finale gives a short burst of applause (2 plays) so the celebration
+      // lands without droning on; other podiums (between-question standings)
+      // keep the single celebratory cheer.
+      if (isFinale) playCheerTimes(2)
       else playCheer()
       playCelebration()
       // Fire the dramatic multi-phase confetti fireworks at the winner reveal.
