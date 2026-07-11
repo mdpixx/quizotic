@@ -200,25 +200,63 @@ export function playStreak() {
 export function playCheer(): Promise<void> {
   return playMp3('/sounds/cheer.mp3', 0.85)
 }
-// Continuous crowd applause for the winner podium finale — loops the cheer clip
-// until stopCheer() is called (podium unmount / host leaves the finale). Keeps
-// the celebration energy up for the whole podium moment instead of one clap.
-export function playCheerLoop(volume = 0.8): Promise<void> {
-  const el = getMp3('/sounds/cheer.mp3', volume)
-  if (!el) return Promise.resolve()
-  try {
-    el.loop = true
-    el.volume = volume
-    el.currentTime = 0
-    const p = el.play()
-    return p instanceof Promise ? p.catch(() => {}) : Promise.resolve()
-  } catch {
-    return Promise.resolve()
-  }
+
+// Minimal audio surface the capped-replay scheduler needs — lets the pure
+// scheduling logic below be unit-tested without a real HTMLAudioElement (the
+// vitest env is node, no DOM/Audio).
+export interface CheerAudioLike {
+  currentTime: number
+  play: () => unknown
+  addEventListener: (type: 'ended', handler: () => void) => void
+  removeEventListener: (type: 'ended', handler: () => void) => void
 }
+
+// Pure scheduler: wire an `ended` handler that replays the clip until it has
+// played `count` times total (the caller triggers play #1), then detaches
+// itself. Returns the handler so the caller can detach it early (stopCheer).
+// HTMLAudioElement.loop never fires `ended`, so counted replays must be driven
+// off the `ended` event like this. Exported for unit testing.
+export function armCappedReplay(el: CheerAudioLike, count: number): () => void {
+  let plays = 1 // the caller starts playback #1; each `ended` marks one done
+  const onEnded = () => {
+    if (plays < count) {
+      plays++
+      try { el.currentTime = 0; void el.play() } catch { /* autoplay blocked — give up quietly */ }
+    } else {
+      el.removeEventListener('ended', onEnded)
+    }
+  }
+  el.addEventListener('ended', onEnded)
+  return onEnded
+}
+
+// Tracks the current capped-replay listener so repeat calls / stopCheer() can
+// detach it (the cheer element is a shared cache singleton — re-adding without
+// removing would stack listeners and multiply the replays).
+let cheerEndedHandler: (() => void) | null = null
+function detachCheerHandler(el: HTMLAudioElement | null) {
+  if (el && cheerEndedHandler) el.removeEventListener('ended', cheerEndedHandler)
+  cheerEndedHandler = null
+}
+
+// Play the cheer clip a fixed number of times (default 2), then stop — the
+// winner podium finale wants a burst of applause, NOT the endless loop that
+// used to run for the entire time the podium was on screen (read as annoying).
+export function playCheerTimes(count = 2, volume = 0.8): void {
+  const el = getMp3('/sounds/cheer.mp3', volume)
+  if (!el) return
+  detachCheerHandler(el)
+  el.loop = false
+  el.volume = volume
+  cheerEndedHandler = armCappedReplay(el, count)
+  try { el.currentTime = 0; const p = el.play(); if (p instanceof Promise) p.catch(() => {}) } catch { /* ignore */ }
+}
+
 export function stopCheer(): void {
-  // Reset loop so a later one-shot playCheer() doesn't inherit looping.
-  const el = mp3Cache.get('/sounds/cheer.mp3')
+  const el = mp3Cache.get('/sounds/cheer.mp3') ?? null
+  // Detach the capped-replay listener so a stopped cheer never rearms, and
+  // reset loop so a later one-shot playCheer() doesn't inherit looping.
+  detachCheerHandler(el)
   if (el) { try { el.loop = false } catch { /* ignore */ } }
   stopMp3('/sounds/cheer.mp3')
 }

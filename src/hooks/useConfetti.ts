@@ -296,13 +296,11 @@ export function startConfettiLoop(force = false): () => void {
     const disableRM = !force
     const burst = (o: ConfettiOptions) => confetti({ ...o, disableForReducedMotion: disableRM })
 
-    // Welcome burst — the same physics as `winner` Phase 1+2 so the loop
-    // begins with momentum instead of trickling in.
-    burst({
-      colors: BRAND_COLORS, decay: 0.92, gravity: 1.0,
-      origin: { x: 0.5, y: 0.6 }, angle: 90, spread: 110,
-      particleCount: 80, startVelocity: 55, scalar: 1.15, ticks: 320, shapes: mixed,
-    })
+    // Welcome burst — side cannons only, for opening momentum. A former
+    // center-origin burst ({ x: 0.5, y: 0.6 }) fired from dead screen-center
+    // the instant the podium settled; it read as a stray, too-prominent blob
+    // over the winner and was removed. The edge cannons match the DualCannon
+    // Lottie framing without emanating from the middle of the screen.
     setTimeout(() => {
       if (stopped) return
       burst({
