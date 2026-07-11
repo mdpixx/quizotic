@@ -15,7 +15,7 @@ import { CelebrationConfetti } from '@/components/CelebrationConfetti'
 import { SessionReport } from '@/components/SessionReport'
 import { LeaderboardView } from '@/components/LeaderboardView'
 import { useFeedback } from '@/components/FeedbackProvider'
-import { playLeaderboardJingle, playTick, playBackgroundMusic, stopBackgroundMusic, playBassBoom, playCelebration, playFirecracker, preloadCelebrationSounds, playDrumroll, stopDrumroll, isMuted, toggleMuted } from '@/lib/sounds'
+import { playLeaderboardJingle, playTick, playBackgroundMusic, stopBackgroundMusic, playBassBoom, playCelebration, preloadCelebrationSounds, isMuted, toggleMuted } from '@/lib/sounds'
 import { getActiveSession, setActiveSession, clearActiveSession, consumeStartIntent } from '@/lib/quiz-storage'
 import type { Quiz, QuestionStat, SessionMode } from '@/lib/quiz-types'
 import { ReflectionInsights } from '@/components/ReflectionInsights'
@@ -669,16 +669,13 @@ export default function SessionPage() {
     } else if (phase === 'ended') {
       if (endedCueFiredRef.current) return
       endedCueFiredRef.current = true
-      // Stop any lingering countdown drumroll before celebration overlaps.
-      try { stopDrumroll() } catch {}
       try { preloadCelebrationSounds() } catch {}
-      // Firecracker pop fires once, timed to the confetti launch on this screen.
-      try { playFirecracker() } catch {}
       // When the finale Podium renders (competitive mode with players), IT owns
-      // the dramatic drumroll→winner sting sequence ~4s later. Firing the sting
-      // + fanfare here too pre-empts and drowns that build, so skip them and let
-      // the reveal land. Non-podium finales (reflection/accuracy/empty) still
-      // get the immediate fanfare.
+      // the full reveal sequence: looping firecracker bed + victory drum roll
+      // → winner sting. Firing a fanfare (or the old synth firecracker pop)
+      // here pre-empts and drowns that build, so skip them and let the reveal
+      // land. Non-podium finales (reflection/accuracy/empty) still get the
+      // immediate fanfare.
       const podiumWillCelebrate = sessionMode === 'competitive' && leaderboard.length > 0
       if (!podiumWillCelebrate) {
         try { playBassBoom() } catch {}
@@ -1017,21 +1014,15 @@ export default function SessionPage() {
               countdownTimerRef.current = null
             }
             setCountdownValue(null)
-            // Countdown is over — kill the '3' drumroll so it never bleeds
-            // into the question timer or a later celebration cue.
-            try { stopDrumroll() } catch {}
             startHostTimer(timerSeconds, effectiveStart)
             return
           }
           if (value !== lastShown) {
             lastShown = value
             setCountdownValue(value)
-            if (value === 3) {
-              // Rising tension on '3'; ticks carry 2 and 1. Stopped above.
-              try { playDrumroll() } catch {}
-            } else {
-              playTick()
-            }
+            // All three countdown numbers (3, 2, 1) tick uniformly — the old
+            // rising drumroll on '3' was removed when drumroll.mp3 was retired.
+            playTick()
           }
         }
         updateCountdown()

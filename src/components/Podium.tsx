@@ -8,10 +8,12 @@ import {
   playCheer,
   playCheerTimes,
   playCorrect,
-  playDrumroll,
+  playFirecrackerLoop,
+  playVictoryDrumroll,
   preloadCelebrationSounds,
   stopCheer,
-  stopDrumroll,
+  stopFirecrackerLoop,
+  stopVictoryDrumroll,
 } from '@/lib/sounds'
 import { startConfettiLoop, useConfetti } from '@/hooks/useConfetti'
 
@@ -37,14 +39,14 @@ interface PodiumProps {
   variant?: 'standard' | 'finale'
 }
 
-type Phase = 'idle' | 'third' | 'second' | 'drumroll' | 'winner' | 'rest'
+type Phase = 'idle' | 'third' | 'second' | 'anticipation' | 'winner' | 'rest'
 
 const PHASE_TIMINGS: Array<{ at: number; next: Phase }> = [
-  { at: 400, next: 'third' },
-  { at: 1500, next: 'second' },
-  { at: 2800, next: 'drumroll' },
-  { at: 4300, next: 'winner' },
-  { at: 6300, next: 'rest' },
+  { at: 600, next: 'third' },
+  { at: 2800, next: 'second' },
+  { at: 5200, next: 'anticipation' },
+  { at: 7800, next: 'winner' },
+  { at: 11200, next: 'rest' },
 ]
 
 // Olympic-style podium: proper tier heights + rich metallic gradients.
@@ -165,10 +167,21 @@ export function Podium({
     preloadCelebrationSounds()
   }, [])
 
+  // Celebratory firecracker bed — looped for the whole finale. Only the host
+  // presenter uses variant="finale", so this is host-only (participant devices
+  // stay quiet, avoiding out-of-sync overlap in a live room). Starts the moment
+  // the finale podium mounts and stops on unmount — i.e. when the host leaves
+  // the finale screen (Back to Library navigates away and unmounts this).
+  useEffect(() => {
+    if (!isFinale) return
+    playFirecrackerLoop(0.5)
+    return () => stopFirecrackerLoop()
+  }, [isFinale])
+
   // Looping celebration confetti — starts immediately when the podium is
   // shown statically (skipIntro), or waits for the dramatic reveal to
   // complete (phase === 'rest') so the welcome burst doesn't step on the
-  // drumroll/winnerSlam moment. Cleanup stops all timers on unmount.
+  // victory-drum-roll/winnerSlam moment. Cleanup stops all timers on unmount.
   const shouldLoop = loopConfetti && (skipIntro || phase === 'rest')
   useEffect(() => {
     if (!shouldLoop) return
@@ -180,7 +193,7 @@ export function Podium({
   }, [shouldLoop])
 
   // Schedule the reveal sequence. Reduced motion skips straight to rest and
-  // plays a single fanfare — no drumroll, cheer, or shake. When skipIntro is
+  // plays a single fanfare — no victory drum roll, cheer, or shake. When skipIntro is
   // set we render directly in rest state with no sounds (already played
   // upstream, e.g. in CelebrationOverlay).
   useEffect(() => {
@@ -207,11 +220,13 @@ export function Podium({
     // Phase-aligned sound cues
     timers.push(setTimeout(() => playCorrect(), PHASE_TIMINGS[0].at)) // 3rd reveal chime
     timers.push(setTimeout(() => playCorrect(), PHASE_TIMINGS[1].at)) // 2nd reveal chime
-    timers.push(setTimeout(() => playDrumroll(), PHASE_TIMINGS[2].at)) // drumroll starts
+    // Single dramatic victory drum roll as the anticipation phase begins —
+    // it plays through once just before the 1st-place bar starts rising.
+    timers.push(setTimeout(() => playVictoryDrumroll(), PHASE_TIMINGS[2].at))
     timers.push(setTimeout(() => {
       if (firedWinnerEffects.current) return
       firedWinnerEffects.current = true
-      stopDrumroll()
+      stopVictoryDrumroll()
       playBassBoom()
       // Finale gives a short burst of applause (2 plays) so the celebration
       // lands without droning on; other podiums (between-question standings)
@@ -229,13 +244,13 @@ export function Podium({
 
     return () => {
       timers.forEach(clearTimeout)
-      stopDrumroll()
+      stopVictoryDrumroll()
       stopCheer()
     }
   }, [reduced, skipIntro, isFinale, fireConfetti])
 
   const skip = () => {
-    stopDrumroll()
+    stopVictoryDrumroll()
     stopCheer()
     if (!firedWinnerEffects.current && !reduced) {
       firedWinnerEffects.current = true
@@ -263,7 +278,7 @@ export function Podium({
   // Which places have been revealed yet?
   const placeIsVisible = (place: number): boolean => {
     if (phase === 'rest' || phase === 'winner') return true
-    if (phase === 'drumroll' || phase === 'second') return place === 2 || place === 3
+    if (phase === 'anticipation' || phase === 'second') return place === 2 || place === 3
     if (phase === 'third') return place === 3
     return false
   }
@@ -312,7 +327,7 @@ export function Podium({
           const isHighlighted = highlightName && entry.name === highlightName
           const visible = placeIsVisible(cfg.place)
           const winnerRevealed = isWinner && (phase === 'winner' || phase === 'rest')
-          const winnerPending = isWinner && phase === 'drumroll'
+          const winnerPending = isWinner && phase === 'anticipation'
 
           return (
             <div
@@ -320,7 +335,7 @@ export function Podium({
               className={`flex flex-col items-center gap-2 relative ${top3.length === 1 ? (isFinale ? 'w-60' : 'w-44') : isFinale ? 'flex-1 min-w-0 max-w-[190px]' : 'flex-1 min-w-0 max-w-[140px]'}`}
             >
               {/* Spotlight halo behind winner — compact + softer so it doesn't spill outward */}
-              {isWinner && !reduced && (phase === 'drumroll' || phase === 'winner' || phase === 'rest') && (
+              {isWinner && !reduced && (phase === 'anticipation' || phase === 'winner' || phase === 'rest') && (
                 <div
                   aria-hidden
                   className="absolute left-1/2 -translate-x-1/2 pointer-events-none rounded-full"
@@ -457,7 +472,12 @@ export function Podium({
                     ? reduced ? 'scaleY(1)' : undefined
                     : 'scaleY(0)',
                   background: cfg.gradient,
-                  animation: visible && !reduced ? 'growBarScale 1.4s cubic-bezier(0.22, 0.61, 0.36, 1) forwards' : undefined,
+                  // Slow, lazy rises to build anticipation — the winner (1st)
+                  // climbs slower than 2nd/3rd. Timed so each bar is still
+                  // settling as the next reveal begins.
+                  animation: visible && !reduced
+                    ? `growBarScale ${isWinner ? 2.8 : 2.2}s cubic-bezier(0.22, 0.61, 0.36, 1) forwards`
+                    : undefined,
                   boxShadow: isWinner
                     ? '0 -3px 12px rgba(255,179,0,0.22), inset 0 -6px 12px rgba(0,0,0,0.18)'
                     : 'inset 0 -4px 10px rgba(0,0,0,0.15)',

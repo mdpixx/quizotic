@@ -98,7 +98,7 @@ function stopMp3(path: string) {
 // there's no audible latency on the winner reveal.
 export function preloadCelebrationSounds(): void {
   getMp3('/sounds/cheer.mp3')
-  getMp3('/sounds/drumroll.mp3')
+  getMp3(VICTORY_DRUMROLL_PATH)
 }
 
 // Continuous background music for live quiz sessions. Host-only — plays in the
@@ -261,13 +261,35 @@ export function stopCheer(): void {
   stopMp3('/sounds/cheer.mp3')
 }
 
-// Rising snare drumroll MP3. Looped naturally by its own tail; stop when the
-// winner is revealed.
-export function playDrumroll(): Promise<void> {
-  return playMp3('/sounds/drumroll.mp3', 0.8)
+// Victory drum-roll MP3 — a single dramatic roll played once on the host's
+// winner podium, just before the 1st-place bar begins its slow rise. One-shot:
+// plays through to its end and stops (no loop).
+const VICTORY_DRUMROLL_PATH = '/sounds/victory%20drum%20roll.mp3'
+export function playVictoryDrumroll(): Promise<void> {
+  return playMp3(VICTORY_DRUMROLL_PATH, 0.85)
 }
-export function stopDrumroll(): void {
-  stopMp3('/sounds/drumroll.mp3')
+export function stopVictoryDrumroll(): void {
+  stopMp3(VICTORY_DRUMROLL_PATH)
+}
+
+// Celebratory firecracker bed — a real firecracker recording looped for the
+// duration of the host winner podium. Plays continuously behind the 3rd/2nd/
+// 1st reveals until the host leaves the finale screen (stop on unmount).
+const FIRECRACKER_PATH = '/sounds/Firecracker.mp3'
+export function playFirecrackerLoop(volume = 0.5): void {
+  const el = getMp3(FIRECRACKER_PATH, volume)
+  if (!el) return
+  try {
+    el.loop = true
+    el.volume = volume
+    const p = el.play()
+    if (p instanceof Promise) p.catch(() => {})
+  } catch { /* ignore */ }
+}
+export function stopFirecrackerLoop(): void {
+  const el = mp3Cache.get(FIRECRACKER_PATH)
+  if (!el) return
+  try { el.loop = false; el.pause(); el.currentTime = 0 } catch {}
 }
 
 // Celebratory winner sting — pairs with the winner slam-in. Replaces the
