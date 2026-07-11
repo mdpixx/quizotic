@@ -106,6 +106,20 @@ export function reconnectFromDisconnected(session, { key, entry, newSocketId, pa
   return recovered
 }
 
+// Display-true remaining time for pause/resume broadcasts. The server's
+// internal remaining (questionEndsAt - now) includes the +500ms paint-grace
+// from scheduleQuestionAutoEnd and, when paused during the 3-2-1 get-ready
+// window, leftover intro time. Clients never display either — sending the
+// raw value inflated every timer by up to a digit per pause/resume cycle.
+// Strips the grace and clamps to the question timer (+ any host-granted
+// extension, which can legitimately push remaining past the base timer).
+// Returns null when no snapshot is available.
+export function displayRemainingMs(rawMs, timerSeconds, extensionMs = 0) {
+  if (typeof rawMs !== 'number' || !Number.isFinite(rawMs)) return null
+  const capMs = Math.max(0, (Number(timerSeconds) || 0) * 1000) + Math.max(0, Number(extensionMs) || 0)
+  return Math.min(capMs, Math.max(0, rawMs - 500))
+}
+
 // Answer-window precondition for submit_answer. Returns a reason string, or
 // null when the submission window is fully open:
 //   - 'stale_question'  REJECT: the client stamped a different questionIndex

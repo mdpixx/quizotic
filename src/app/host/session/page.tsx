@@ -1030,25 +1030,43 @@ export default function SessionPage() {
     // Keep the host display timer honest across pause/resume. Without these,
     // the wall-clock-anchored countdown kept running through a pause and the
     // host screen hit 0 while the server (and participants) still had time.
-    socket.on('quiz_paused', () => {
+    socket.on('quiz_paused', (payload?: { remainingMs?: number }) => {
       setPaused(true)
       if (hostTimerRef.current) { clearInterval(hostTimerRef.current); hostTimerRef.current = null }
+      // Snap to the server's pause snapshot — the optimistic click-freeze can
+      // be a digit off from what participants see; the snapshot is the value
+      // every screen converges on.
+      if (typeof payload?.remainingMs === 'number') {
+        setHostTimeLeft(Math.max(0, Math.ceil(payload.remainingMs / 1000)))
+      }
     })
 
-    socket.on('quiz_resumed', ({ remainingMs }: { remainingMs?: number }) => {
+    socket.on('quiz_resumed', ({ remainingMs, endsAt }: { remainingMs?: number; endsAt?: number }) => {
       setPaused(false)
-      if (typeof remainingMs !== 'number' || remainingMs <= 0) return
-      setHostTimeLeft(Math.max(0, Math.ceil(remainingMs / 1000)))
-      runHostCountdown(getServerNow() + remainingMs)
+      // Prefer the server's ABSOLUTE deadline (translated via clock-sync) —
+      // anchoring to "arrival + remainingMs" shifted the deadline by this
+      // client's delivery delay and drifted host/participant apart on every
+      // pause/resume cycle.
+      const target = typeof endsAt === 'number'
+        ? endsAt
+        : (typeof remainingMs === 'number' && remainingMs > 0 ? getServerNow() + remainingMs : null)
+      if (target === null || target <= getServerNow()) return
+      setHostTimeLeft(Math.max(0, Math.ceil((target - getServerNow()) / 1000)))
+      runHostCountdown(target)
     })
 
     // Host extended or restarted the timer mid-question — same re-anchor
     // contract as quiz_resumed. While paused only the display updates; the
     // countdown restarts on resume.
-    socket.on('timer_adjusted', ({ remainingMs, paused: stillPaused }: { remainingMs?: number; action?: 'extend' | 'restart'; paused?: boolean }) => {
+    socket.on('timer_adjusted', ({ remainingMs, endsAt, paused: stillPaused }: { remainingMs?: number; action?: 'extend' | 'restart'; endsAt?: number; paused?: boolean }) => {
       if (typeof remainingMs !== 'number' || remainingMs < 0) return
-      setHostTimeLeft(Math.max(0, Math.ceil(remainingMs / 1000)))
-      if (!stillPaused) runHostCountdown(getServerNow() + remainingMs)
+      if (stillPaused) {
+        setHostTimeLeft(Math.max(0, Math.ceil(remainingMs / 1000)))
+        return
+      }
+      const target = typeof endsAt === 'number' ? endsAt : getServerNow() + remainingMs
+      setHostTimeLeft(Math.max(0, Math.ceil((target - getServerNow()) / 1000)))
+      runHostCountdown(target)
     })
 
     socket.on('ranking_submission', ({ ranking }: { ranking: number[] }) => {
