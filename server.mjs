@@ -51,6 +51,7 @@ import {
   buildSessionStateSnapshot as _buildSessionStateSnapshot,
   flushPendingPersist as _flushPendingPersist,
   answerWindowRejection,
+  displayRemainingMs,
 } from './src/lib/session-state.mjs'
 import {
   initSessionStore,
@@ -1189,8 +1190,15 @@ app.prepare().then(async () => {
       session.pauseRemainingMs = typeof session.questionEndsAt === 'number'
         ? Math.max(0, session.questionEndsAt - Date.now())
         : null
-      io.to(`session:${gameCode}`).emit('quiz_paused')
-      console.log(`[session] paused: ${gameCode}`)
+      // Broadcast the frozen remaining (display-true: grace/intro stripped)
+      // so every screen snaps to the SAME digit — without it, each client
+      // froze at whatever its local tick showed when the event arrived, and
+      // a slow network left the participant seconds behind the host.
+      const pq = session.quizData?.questions?.[session.currentQuestionIndex]
+      const pqTimer = clampTimerSeconds(pq?.timerSeconds, pq?.id ?? '(no-id)')
+      const frozenMs = displayRemainingMs(session.pauseRemainingMs, pqTimer, session.timerExtensionMs || 0)
+      io.to(`session:${gameCode}`).emit('quiz_paused', frozenMs !== null ? { remainingMs: frozenMs } : {})
+      console.log(`[session] paused: ${gameCode} remaining=${frozenMs ?? 'n/a'}ms`)
     })
 
     socket.on('resume_quiz', (rawPayload) => {
@@ -1202,22 +1210,31 @@ app.prepare().then(async () => {
       session.paused = false
       const timer = session.quizData?.questions[session.currentQuestionIndex]?.timerSeconds || 20
       // Re-anchor the question's wall-clock end time to "now + remaining".
-      // Re-broadcast remainingMs to clients so their visual timers re-sync.
       const pausedRemainingMs = typeof session.pauseRemainingMs === 'number'
         ? session.pauseRemainingMs
         : null
-      const remainingMs = pausedRemainingMs ?? (() => {
-        const elapsed = session.questionStartedAt ? Date.now() - session.questionStartedAt : 0
-        return Math.max(0, timer * 1000 - elapsed)
-      })()
+      // Display-true remaining (grace/intro stripped). Falls back to elapsed
+      // math for the degenerate resume-without-pause path.
+      const remainingMs = pausedRemainingMs !== null
+        ? (displayRemainingMs(pausedRemainingMs, timer, session.timerExtensionMs || 0) ?? 0)
+        : (() => {
+            const elapsed = session.questionStartedAt ? Date.now() - session.questionStartedAt : 0
+            return Math.max(0, timer * 1000 - elapsed)
+          })()
       session.pauseRemainingMs = null
       // Restart the auto-end timer only if there's actually time left and the
       // question wasn't already ended while paused (e.g. by host advancing).
       if (!session.questionEnded && pausedRemainingMs !== null && pausedRemainingMs > 0) {
         scheduleQuestionAutoEnd(io, gameCode, session, pausedRemainingMs)
       }
-      io.to(`session:${gameCode}`).emit('quiz_resumed', { remainingMs })
-      console.log(`[session] resumed: ${gameCode}`)
+      // endsAt is the ABSOLUTE display deadline in server wall-clock (same
+      // clock as question_show's startAt). Clients anchor to it through their
+      // clock-sync offset, so host and participants converge on the identical
+      // deadline no matter when the event reaches each of them — anchoring to
+      // "arrival time + remainingMs" made every pause/resume cycle drift the
+      // screens apart by the delivery gap.
+      io.to(`session:${gameCode}`).emit('quiz_resumed', { remainingMs, endsAt: Date.now() + remainingMs })
+      console.log(`[session] resumed: ${gameCode} remaining=${remainingMs}ms`)
     })
 
     // Mid-question timer control: 'extend' adds seconds to the countdown,
@@ -1263,14 +1280,19 @@ app.prepare().then(async () => {
       }
       session.timerExtensionMs += delta
 
+      // Broadcast display-true values: strip the +500ms paint-grace baked
+      // into newRemaining (no timer clamp here — extensions legitimately push
+      // remaining past the base duration). endsAt is the absolute display
+      // deadline in server wall-clock, same anchor contract as quiz_resumed.
+      const displayMs = Math.max(0, newRemaining - 500)
       if (session.paused) {
         session.pauseRemainingMs = newRemaining
         // Participants' timers are frozen — only the host display updates now;
         // quiz_resumed carries the increased remaining on resume.
-        io.to(`host:${gameCode}`).emit('timer_adjusted', { remainingMs: newRemaining, action, paused: true })
+        io.to(`host:${gameCode}`).emit('timer_adjusted', { remainingMs: displayMs, action, paused: true })
       } else {
         scheduleQuestionAutoEnd(io, gameCode, session, newRemaining)
-        io.to(`session:${gameCode}`).emit('timer_adjusted', { remainingMs: newRemaining, action })
+        io.to(`session:${gameCode}`).emit('timer_adjusted', { remainingMs: displayMs, action, endsAt: Date.now() + displayMs })
       }
       if (typeof callback === 'function') callback({ success: true, remainingMs: newRemaining })
       console.log(`[session] timer ${action}: ${gameCode} remaining=${newRemaining}ms extension=${session.timerExtensionMs}ms`)

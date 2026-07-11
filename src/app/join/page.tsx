@@ -1144,20 +1144,35 @@ function JoinPageInner() {
       outboxRef.current.clear()
     })
 
-    socket.on('quiz_paused', () => {
+    socket.on('quiz_paused', (payload?: { remainingMs?: number }) => {
       if (timerRef.current) clearInterval(timerRef.current)
       setPaused(true)
+      // Snap the frozen digits to the server's pause snapshot. Without it we
+      // froze at whatever the local tick showed when the event arrived — on a
+      // slow network that left this screen seconds behind the host's.
+      if (typeof payload?.remainingMs === 'number') {
+        const secs = Math.max(0, Math.ceil(payload.remainingMs / 1000))
+        setTimeLeft(secs)
+        timeLeftRef.current = secs
+      }
     })
 
     // Wall-clock anchored re-anchor shared by quiz_resumed and timer_adjusted.
-    // The old decrement-per-second interval drifted from the host (and the
-    // server auto-end) by up to a second after every pause/resume cycle.
-    const restartCountdown = (remainingMs?: number) => {
-      const remMs = remainingMs !== undefined ? remainingMs : timeLeftRef.current * 1000
-      const endAt = getServerNow() + remMs
+    // Prefers the server's ABSOLUTE endsAt (translated via clock-sync) — the
+    // old "arrival time + remainingMs" anchor shifted the deadline by each
+    // client's delivery delay, so host and participants drifted apart on
+    // every pause/resume cycle.
+    const restartCountdown = (remainingMs?: number, endsAt?: number) => {
+      const endAt = typeof endsAt === 'number'
+        ? endsAt
+        : getServerNow() + (remainingMs !== undefined ? remainingMs : timeLeftRef.current * 1000)
+      const remMs = Math.max(0, endAt - getServerNow())
       const secs = Math.max(0, Math.ceil(remMs / 1000))
       setTimeLeft(secs)
       timeLeftRef.current = secs
+      // Resuming means the question is live — clear a get-ready overlay left
+      // behind by a pause during the 3-2-1 intro window.
+      setGetReadyVisible(false)
       if (timerRef.current) clearInterval(timerRef.current)
       if (remMs > 0) {
         timerRef.current = setInterval(() => {
@@ -1172,19 +1187,19 @@ function JoinPageInner() {
       }
     }
 
-    socket.on('quiz_resumed', ({ remainingMs }: { remainingMs?: number }) => {
+    socket.on('quiz_resumed', ({ remainingMs, endsAt }: { remainingMs?: number; endsAt?: number }) => {
       setPaused(false)
       if (phaseRef.current !== 'question') return
-      restartCountdown(remainingMs)
+      restartCountdown(remainingMs, endsAt)
     })
 
     // Host extended or restarted the timer mid-question. Already-answered
     // players (phase 'answered') ignore it — their locked-in screen has no
     // countdown to move.
-    socket.on('timer_adjusted', ({ remainingMs }: { remainingMs?: number; action?: 'extend' | 'restart' }) => {
+    socket.on('timer_adjusted', ({ remainingMs, endsAt }: { remainingMs?: number; action?: 'extend' | 'restart'; endsAt?: number }) => {
       if (phaseRef.current !== 'question') return
       if (typeof remainingMs !== 'number' || remainingMs < 0) return
-      restartCountdown(remainingMs)
+      restartCountdown(remainingMs, endsAt)
     })
 
     socket.on('host_disconnected', () => {
