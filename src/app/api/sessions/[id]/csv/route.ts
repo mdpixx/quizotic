@@ -60,10 +60,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       for (const stat of questionStats) {
         const idx = ((stat.index as number) ?? 0) + 1
         const text = escapeCsv((stat.text as string) || '')
-        const correctPct = (stat.correctPct as number) ?? 0
+        // correctPct is null for non-scored types (poll, word cloud, …) —
+        // export N/A instead of a misleading 0%.
+        const rawPct = stat.correctPct as number | null | undefined
+        const correctPct = typeof rawPct === 'number' ? `${rawPct}%` : 'N/A'
         const blooms = (stat.bloomsLevel as string) || ''
         const explanation = escapeCsv((stat.explanation as string) || '')
-        lines.push(`${idx},${text},${correctPct}%,${blooms},${explanation}`)
+        lines.push(`${idx},${text},${correctPct},${blooms},${explanation}`)
       }
       lines.push('')
     }

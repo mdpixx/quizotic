@@ -9,7 +9,7 @@
  * SVG icons live in quiz-type-icons.tsx (separate file to keep this pure .ts).
  */
 
-import type { Question, QuestionType } from './quiz-types'
+import { isSequenceRanking, type Question, type QuestionType } from './quiz-types'
 
 // Re-export answer colors so the new builder doesn't need a separate import.
 export { ANSWER_COLORS } from './answer-colors'
@@ -103,6 +103,52 @@ export function optionsForType(type: QuestionType): string[] | undefined {
   if (type === 'poll') return ['', '', '', '']
   if (type === 'ranking') return ['', '', '']
   return undefined
+}
+
+/**
+ * Add one blank option (cap 6). For a scored-sequence ranking, correctOrder
+ * is extended to stay length-matched with options — scoreRanking's
+ * all-positions check makes a shorter correctOrder unwinnable.
+ * Returns null when the cap is reached (caller should no-op).
+ */
+export function addOptionPatch(question: Question): Partial<Question> | null {
+  const opts = question.options ?? []
+  if (opts.length >= 6) return null
+  const next = [...opts, '']
+  if (isSequenceRanking(question)) {
+    return { options: next, correctOrder: next.map((_, i) => String(i)) }
+  }
+  return { options: next }
+}
+
+/**
+ * Remove option `i` (floor 2) and remap the index-based answer keys:
+ * correctAnswer / correctAnswers store option positions, so every index above
+ * the removed slot shifts down by one, and a key pointing at the removed
+ * option is dropped. For scored-sequence ranking, correctOrder is rebuilt to
+ * the new physical order (the builder treats the visible order as the key).
+ * Returns null when at the 2-option floor (caller should no-op).
+ */
+export function removeOptionPatch(question: Question, i: number): Partial<Question> | null {
+  const opts = question.options ?? []
+  if (opts.length <= 2) return null
+  const next = opts.filter((_, idx) => idx !== i)
+  const patch: Partial<Question> = { options: next }
+  if (question.correctAnswer !== undefined) {
+    const ci = Number(question.correctAnswer)
+    if (ci === i) patch.correctAnswer = undefined
+    else if (ci > i) patch.correctAnswer = String(ci - 1)
+  }
+  if (question.correctAnswers !== undefined) {
+    patch.correctAnswers = question.correctAnswers
+      .filter(a => Number(a) !== i)
+      .map(a => (Number(a) > i ? String(Number(a) - 1) : a))
+      .sort()
+  }
+  if (isSequenceRanking(question)) {
+    patch.correctOrder = next.map((_, ni) => String(ni))
+  }
+  return patch
 }
 
 export function makeQuestion(overrides?: Partial<Question>): Question {
@@ -229,25 +275,38 @@ export function distributeTypeMix(weights: Partial<TypeMix>, count: number): Typ
 
 // ── Generated-question hydration ─────────────────────────────────────────────
 
+// Snap an untrusted numeric value onto the nearest allowed preset. AI output
+// and CSV imports routinely carry values outside the TS unions (timerSeconds
+// 25, points 750) — snapping keeps the builder's dropdowns and save-time
+// validation consistent without rejecting the whole import.
+function snapToNearest(value: unknown, allowed: readonly number[], fallback: number): number {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return fallback
+  return allowed.reduce((best, cur) => (Math.abs(cur - n) < Math.abs(best - n) ? cur : best))
+}
+
 /**
  * Takes a raw array returned by the AI API and ensures every question has a
- * fresh UUID and options backfilled for types the AI might legitimately omit.
+ * fresh UUID, options backfilled for types the AI might legitimately omit,
+ * timer/points snapped onto the allowed presets, and per-type array caps
+ * enforced (6 options, 6 blank answers, 8 match pairs — the builder's caps).
  * Safe to call outside of React — no side-effects.
  */
 export function hydrateGeneratedQuestions(raw: Partial<Question>[]): Question[] {
   return raw.map(q => {
+    const options = q.options?.slice(0, 6)
     const base: Question = {
       id: crypto.randomUUID(),
       type: (q.type as QuestionType) || 'mcq',
       text: q.text ?? '',
-      timerSeconds: q.timerSeconds ?? 20,
-      points: q.points ?? 1000,
-      options: q.options,
+      timerSeconds: snapToNearest(q.timerSeconds, TIMER_OPTIONS, 20) as Question['timerSeconds'],
+      points: snapToNearest(q.points, POINTS_OPTIONS, 1000) as Question['points'],
+      options,
       correctAnswer: q.correctAnswer,
       correctAnswers: q.correctAnswers,
-      correctOrder: q.correctOrder,
-      blankAnswers: q.blankAnswers,
-      matchPairs: q.matchPairs,
+      correctOrder: q.correctOrder?.slice(0, 6),
+      blankAnswers: q.blankAnswers?.slice(0, 6),
+      matchPairs: q.matchPairs?.slice(0, 8),
       imageUrl: q.imageUrl,
       explanation: q.explanation,
       bloomsLevel: q.bloomsLevel,

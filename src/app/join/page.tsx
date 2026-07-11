@@ -17,9 +17,6 @@ import { ResultBeat, type PersonalResult } from '@/components/ResultBeat'
 import { startClockSync, getServerNow, resyncClock } from '@/lib/clock-sync'
 import { PRESENTATION_SEQUENCE } from '@/lib/sequence-theme'
 import { useI18n } from '@/lib/use-i18n'
-import { DndContext, closestCenter, MouseSensor, TouchSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
-import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 import { isContentSlideType, isInteractiveSlideType } from '@/lib/presentation-types'
 import { isScoredType, getEffectiveOptions } from '@/lib/quiz-types'
 import type { Question as QuizQuestion, QuestionType } from '@/lib/quiz-types'
@@ -48,6 +45,9 @@ const LeaderboardView = dynamic(() => import('@/components/LeaderboardView').the
 const DrawingCanvas = dynamic(() => import('@/components/DrawingCanvas').then(m => m.DrawingCanvas), { ssr: false })
 const Podium = dynamic(() => import('@/components/Podium').then(m => m.Podium), { ssr: false })
 const ReflectionMoment = dynamic(() => import('@/components/ReflectionMoment').then(m => m.ReflectionMoment), { ssr: false })
+// Carries the whole @dnd-kit dependency (core + sortable + utilities) — most
+// quizzes have no ranking question, so it must stay out of the initial bundle.
+const SortableRankingBoard = dynamic(() => import('@/components/join/SortableRankingBoard').then(m => m.SortableRankingBoard), { ssr: false })
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Phase = 'form' | 'connecting' | 'lobby' | 'question' | 'answered' | 'standings' | 'ended' | 'selfpaced' | 'selfpaced-done'
@@ -339,38 +339,6 @@ function Grid2x2Input({ xMin, xMax, yMin, yMax, onSubmit }: {
   )
 }
 
-// ─── Sortable Ranking Item ───────────────────────────────────────────────────
-// Whole-bar drag: listeners are on the bar div so the participant can grab
-// anywhere. TouchSensor delay:200ms lets quick swipes still scroll the page
-// (fixes the earlier sideways-slide regression on touch devices).
-function SortableRankingItem({ id, index, label, color }: { id: string; index: number; label: string; color: string }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
-  const base = CSS.Transform.toString(transform)
-  const style: React.CSSProperties = {
-    transform: isDragging && base ? `${base} scale(1.03)` : base,
-    transition,
-    background: color,
-    opacity: isDragging ? 0.95 : 1,
-    touchAction: 'manipulation',
-    zIndex: isDragging ? 50 : undefined,
-    boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.35)' : undefined,
-    cursor: isDragging ? 'grabbing' : 'grab',
-  }
-  return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}
-      className="w-full py-4 rounded-2xl text-left px-5 text-base font-bold text-white flex items-center gap-3 select-none">
-      <span className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-sm font-black"
-        style={{ background: 'rgba(255,255,255,0.2)' }}>{index + 1}</span>
-      <span className="flex-1">{label}</span>
-      <span
-        aria-hidden="true"
-        className="opacity-80 text-xl leading-none px-2 py-1 -mr-2 rounded-md"
-        style={{ background: 'rgba(255,255,255,0.1)' }}
-      >⋮⋮</span>
-    </div>
-  )
-}
-
 // ─── Inner Component (uses useSearchParams — requires Suspense) ───────────────
 // Outbox payload — buffered answer submissions that retry on reconnect.
 // `confidence` may be a number (multi-question level) on the wire; the server
@@ -382,6 +350,7 @@ type SubmitAnswerPayload = {
   timeMs: number
   confidence: 'sure' | 'unsure' | null
   serverSubmittedAt?: number
+  questionIndex?: number
 }
 type OutboxItem = {
   id: string
@@ -546,11 +515,6 @@ function JoinPageInner() {
   const [rankingOrder, setRankingOrder] = useState<number[]>([])
   // Matching: participant's chosen right-column value per left item (by index).
   const [matchChoices, setMatchChoices] = useState<string[]>([])
-  const rankingSensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  )
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [showEmailInput, setShowEmailInput] = useState(false)
@@ -625,6 +589,14 @@ function JoinPageInner() {
   // fillblank has no option index — the server sends the best accepted answer
   // as text (correctAnswerText) instead. Shown in the reveal card.
   const [correctAnswerText, setCorrectAnswerText] = useState<string | null>(null)
+  // multiselect reveal: the server sends correctAnswers as an ARRAY of option
+  // indices — kept separate from the single-index state above.
+  const [correctAnswersReveal, setCorrectAnswersReveal] = useState<string[] | null>(null)
+  // Sequence-ranking reveal: option texts in the correct order (participants
+  // hold shuffled options, so indices are useless to them).
+  const [correctOrderTexts, setCorrectOrderTexts] = useState<string[] | null>(null)
+  // Matching reveal: the aligned left→right answer key.
+  const [matchPairsReveal, setMatchPairsReveal] = useState<{ left: string; right: string }[] | null>(null)
 
   // Streak + reactions
   const [streak, setStreak] = useState(0)
@@ -750,6 +722,10 @@ function JoinPageInner() {
       // a float. Sending the float used to slip past dev but get silently
       // rejected by the (now relaxed) server schema in production.
       serverSubmittedAt: Math.floor(getServerNow()),
+      // Stamp which question this answer belongs to — the server rejects a
+      // mismatch (stale_question) instead of booking a delayed outbox flush
+      // against whatever question is current by the time it arrives.
+      ...(questionIndex >= 0 ? { questionIndex } : {}),
       ...(participantIdRef.current ? { participantId: participantIdRef.current } : {}),
     }
     const item: OutboxItem = { id, questionIndex, payload: enriched, ts: Date.now() }
@@ -852,9 +828,9 @@ function JoinPageInner() {
     // `unknown_participant` — it means our socket.id is no longer in the
     // server's participant Map (typical after a long lobby idle on mobile).
     // We force a clean re-join, then re-flush the outbox so the answer lands.
-    socket.on('answer_rejected', ({ reason, gameCode: rcvGameCode }: { reason: string; gameCode?: string }) => {
+    socket.on('answer_rejected', ({ reason, gameCode: rcvGameCode, questionIndex: rejectedIndex }: { reason: string; gameCode?: string; questionIndex?: number }) => {
       if (process.env.NODE_ENV !== 'production') {
-        console.warn('[answer_rejected]', reason, rcvGameCode)
+        console.warn('[answer_rejected]', reason, rcvGameCode, rejectedIndex)
       }
       if (reason === 'duplicate') {
         // Server already has this answer; drop the matching outbox entry.
@@ -888,15 +864,33 @@ function JoinPageInner() {
         }
         return
       }
-      if (reason === 'not_active' || reason === 'no_question') {
-        // Question moved on. Don't keep retrying a stale answer.
-        if (question?.index !== undefined) {
+      if (reason === 'not_active' || reason === 'no_question' || reason === 'question_ended' || reason === 'stale_question') {
+        // Question moved on (or the reveal already fired). Don't keep
+        // retrying a stale answer — drop the buffered entry so a later
+        // reconnect flush can't resubmit it.
+        const dropIndex = rejectedIndex ?? question?.index
+        if (dropIndex !== undefined) {
           for (const [id, item] of outboxRef.current.entries()) {
-            if (item.questionIndex === question.index) outboxRef.current.delete(id)
+            if (item.questionIndex === dropIndex) outboxRef.current.delete(id)
           }
         }
         setError('Question already closed.')
         setAnswerToast('Question already closed — your answer was not counted.')
+        return
+      }
+      if (reason === 'not_started') {
+        // Rare clock-skew edge: the tap reached the server before the 3-2-1
+        // countdown finished. Clear the selection and the buffered entry so
+        // the player can answer again once the question is live.
+        const dropIndex = rejectedIndex ?? question?.index
+        if (dropIndex !== undefined) {
+          for (const [id, item] of outboxRef.current.entries()) {
+            if (item.questionIndex === dropIndex) outboxRef.current.delete(id)
+          }
+        }
+        setSelectedAnswer(null)
+        setPendingAnswer(null)
+        setAnswerToast('Hang on — answers open when the countdown ends.')
         return
       }
       // Fallback: surface a retry hint without trapping the user.
@@ -935,6 +929,9 @@ function JoinPageInner() {
       setExplanation(null)
       setCorrectAnswerIndex(null)
       setCorrectAnswerText(null)
+      setCorrectAnswersReveal(null)
+      setCorrectOrderTexts(null)
+      setMatchPairsReveal(null)
       setSelectedAnswer(null)
       setIsCorrect(false)
       setAnsweredIsScored(false)
@@ -1040,10 +1037,15 @@ function JoinPageInner() {
       }
     })
 
-    socket.on('question_ended', ({ explanation: exp, correctAnswer: ca, correctAnswerText: cat }: { correctAnswer: string; correctAnswerText?: string | null; explanation: string | null }) => {
+    socket.on('question_ended', ({ explanation: exp, correctAnswer: ca, correctAnswerText: cat, correctOrderTexts: cot, matchPairs: mp }: { correctAnswer: string | string[] | null; correctAnswerText?: string | null; correctOrderTexts?: string[] | null; matchPairs?: { left: string; right: string }[] | null; explanation: string | null }) => {
       setExplanation(exp)
-      if (ca !== undefined && ca !== null) setCorrectAnswerIndex(ca)
+      // correctAnswer is a single index string for mcq/truefalse but an ARRAY
+      // of index strings for multiselect — never Number() an array (NaN).
+      if (Array.isArray(ca)) setCorrectAnswersReveal(ca.map(String))
+      else if (ca !== undefined && ca !== null) setCorrectAnswerIndex(String(ca))
       if (typeof cat === 'string' && cat.trim()) setCorrectAnswerText(cat)
+      if (Array.isArray(cot) && cot.length > 0) setCorrectOrderTexts(cot)
+      if (Array.isArray(mp) && mp.length > 0) setMatchPairsReveal(mp)
       // Once a question has ended, "paused" is meaningless — clear it so the
       // review screen never blocks a later answer if the next question's
       // question_show raced with a paused state.
@@ -1629,6 +1631,10 @@ function JoinPageInner() {
     setConfidence(null)
     setExplanation(null)
     setCorrectAnswerIndex(null)
+    setCorrectAnswerText(null)
+    setCorrectAnswersReveal(null)
+    setCorrectOrderTexts(null)
+    setMatchPairsReveal(null)
     setIsCorrect(false)
     setPointsEarned(0)
     setTotalScore(0)
@@ -2008,6 +2014,12 @@ function JoinPageInner() {
             )}
           </div>
         ) : TEXT_INPUT_TYPES.includes(question.type) ? (
+          (() => {
+            // Mirror the server's truncation limits (scoring.ts) so nothing is
+            // silently cut after submit; word cloud gets a tight cap so one
+            // giant "word" can't blow out the host's cloud layout.
+            const textMax = question.type === 'fillblank' ? 200 : question.type === 'wordcloud' ? 100 : 2000
+            return (
           <div className="flex flex-col gap-3 flex-1">
             <textarea
               className={`w-full rounded-2xl border-2 p-4 text-lg resize-none focus:outline-none transition-colors min-h-[140px] ${
@@ -2016,8 +2028,12 @@ function JoinPageInner() {
               placeholder={question.type === 'qa' ? 'Type your question…' : 'Type your answer…'}
               value={textAnswer}
               onChange={e => setTextAnswer(e.target.value)}
+              maxLength={textMax}
               disabled={selectedAnswer !== null}
             />
+            {textAnswer.length >= textMax * 0.8 && (
+              <p className="text-xs text-right text-gray-400 -mt-2">{textAnswer.length}/{textMax}</p>
+            )}
             <button
               onClick={submitTextAnswer}
               disabled={selectedAnswer !== null || !textAnswer.trim()}
@@ -2027,37 +2043,46 @@ function JoinPageInner() {
               {selectedAnswer !== null ? 'Submitted ✓' : 'Submit →'}
             </button>
           </div>
+            )
+          })()
         ) : question.type === 'rating' ? (
-          <div className="flex flex-col gap-4 flex-1 items-center justify-center py-4">
-            <p className="text-sm text-gray-500 font-semibold">Tap a star to rate</p>
-            <div className="flex gap-2">
-              {[1, 2, 3, 4, 5].map(n => {
-                const idx = n - 1
-                const isSelected = selectedAnswer === String(idx)
-                const isActive = selectedAnswer !== null && Number(selectedAnswer) + 1 >= n
-                const isDisabled = selectedAnswer !== null || timeLeft <= 0
-                return (
-                  <button
-                    key={n}
-                    onClick={() => submitAnswerRaw(String(idx), String(idx))}
-                    disabled={isDisabled}
-                    aria-label={`Rate ${n} star${n !== 1 ? 's' : ''}`}
-                    aria-pressed={isSelected}
-                    className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center text-4xl transition-all focus-visible:outline focus-visible:outline-4 focus-visible:outline-amber-300 ${
-                      isActive ? 'bg-amber-100 scale-105' : 'bg-white border-2 border-gray-200 hover:border-amber-300 active:scale-95'
-                    } ${isDisabled && !isActive ? 'opacity-50' : ''}`}
-                  >
-                    <span style={{ color: isActive ? '#F59E0B' : '#D1D5DB', lineHeight: 1 }}>★</span>
-                  </button>
-                )
-              })}
-            </div>
-            {selectedAnswer !== null && (
-              <p className="font-black text-2xl" style={{ color: '#F59E0B' }}>
-                {Number(selectedAnswer) + 1} / 5 submitted ✓
-              </p>
-            )}
-          </div>
+          (() => {
+            // Scale length comes from the question's options (5/7/10-point) —
+            // hardcoding 5 made higher scales un-answerable past star 5.
+            const ratingMax = question.options?.length || 5
+            return (
+              <div className="flex flex-col gap-4 flex-1 items-center justify-center py-4">
+                <p className="text-sm text-gray-500 font-semibold">Tap a star to rate</p>
+                <div className="flex gap-2 flex-wrap justify-center">
+                  {Array.from({ length: ratingMax }, (_, i) => i + 1).map(n => {
+                    const idx = n - 1
+                    const isSelected = selectedAnswer === String(idx)
+                    const isActive = selectedAnswer !== null && Number(selectedAnswer) + 1 >= n
+                    const isDisabled = selectedAnswer !== null || timeLeft <= 0
+                    return (
+                      <button
+                        key={n}
+                        onClick={() => submitAnswerRaw(String(idx), String(idx))}
+                        disabled={isDisabled}
+                        aria-label={`Rate ${n} star${n !== 1 ? 's' : ''}`}
+                        aria-pressed={isSelected}
+                        className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center text-4xl transition-all focus-visible:outline focus-visible:outline-4 focus-visible:outline-amber-300 ${
+                          isActive ? 'bg-amber-100 scale-105' : 'bg-white border-2 border-gray-200 hover:border-amber-300 active:scale-95'
+                        } ${isDisabled && !isActive ? 'opacity-50' : ''}`}
+                      >
+                        <span style={{ color: isActive ? '#F59E0B' : '#D1D5DB', lineHeight: 1 }}>★</span>
+                      </button>
+                    )
+                  })}
+                </div>
+                {selectedAnswer !== null && (
+                  <p className="font-black text-2xl" style={{ color: '#F59E0B' }}>
+                    {Number(selectedAnswer) + 1} / {ratingMax} submitted ✓
+                  </p>
+                )}
+              </div>
+            )
+          })()
         ) : question.type === 'ranking' ? (
           (() => {
             const rankOpts = (question.options ?? []) as QuizQuestion['options']
@@ -2065,37 +2090,18 @@ function JoinPageInner() {
             const order = rankingOrder.length === rankOptCount && rankOptCount > 0
               ? rankingOrder
               : Array.from({ length: rankOptCount }, (_, i) => i)
-            const ids = order.map(i => `quiz-rank-${i}`)
             const isSubmitted = selectedAnswer !== null
             return (
               <div className="flex flex-col gap-3 flex-1">
                 <p className="text-sm text-center font-semibold text-gray-500">Drag to rank your order, then submit</p>
-                <DndContext sensors={rankingSensors} collisionDetection={closestCenter} onDragEnd={(e: DragEndEvent) => {
-                  if (isSubmitted) return
-                  const { active, over } = e
-                  if (!over || active.id === over.id) return
-                  const oldIndex = ids.indexOf(String(active.id))
-                  const newIndex = ids.indexOf(String(over.id))
-                  if (oldIndex < 0 || newIndex < 0) return
-                  setRankingOrder(arrayMove(order, oldIndex, newIndex))
-                }}>
-                  <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-2">
-                      {order.map((origIdx, pos) => {
-                        const label = getOptText(rankOpts?.[origIdx] ?? '') || `Option ${origIdx + 1}`
-                        return (
-                          <SortableRankingItem
-                            key={`quiz-rank-${origIdx}`}
-                            id={`quiz-rank-${origIdx}`}
-                            index={pos}
-                            label={label}
-                            color={OPTION_COLORS[origIdx % OPTION_COLORS.length]}
-                          />
-                        )
-                      })}
-                    </div>
-                  </SortableContext>
-                </DndContext>
+                <SortableRankingBoard
+                  order={order}
+                  labels={(rankOpts ?? []).map(o => getOptText(o))}
+                  colors={OPTION_COLORS}
+                  idPrefix="quiz-rank"
+                  disabled={isSubmitted}
+                  onReorder={setRankingOrder}
+                />
                 <button
                   onClick={() => submitAnswerRaw(order, 'ranked')}
                   disabled={isSubmitted || timeLeft <= 0}
@@ -2153,9 +2159,7 @@ function JoinPageInner() {
           const effectiveOpts = getEffectiveOptions(question as unknown as QuizQuestion)
           return (
           <div className={`gap-2.5 pb-4 ${
-            question.type === 'rating' && effectiveOpts?.length === 5
-              ? 'grid grid-cols-5'
-              : effectiveOpts?.length === 2
+            effectiveOpts?.length === 2
               ? 'grid grid-cols-1'
               : 'grid grid-cols-2'
           }`}>
@@ -2190,9 +2194,9 @@ function JoinPageInner() {
                   <span className={`rounded-full bg-white/25 flex items-center justify-center font-black flex-shrink-0
                     ${sharedScreenSimple ? 'w-16 h-16 text-3xl mx-auto' : isTwoOption ? 'w-10 h-10 text-lg' : 'w-10 h-10 mb-2 mx-auto text-lg'}`}
                   >
-                    {question.type === 'rating' ? optText : OPTION_LABELS[idx]}
+                    {OPTION_LABELS[idx]}
                   </span>
-                  {question.type !== 'rating' && !sharedScreenSimple && (
+                  {!sharedScreenSimple && (
                     <span className="w-full min-w-0 break-words text-base sm:text-lg font-medium leading-snug text-justify [hyphens:auto]" style={{ overflowWrap: 'anywhere' }}>{optText}</span>
                   )}
                 </button>
@@ -2367,6 +2371,65 @@ function JoinPageInner() {
               <p className="participant-correct-answer-text font-black text-green-800">
                 {getOptText(correctOption)}
               </p>
+            </div>
+          </div>
+        )}
+        {/* Multiselect reveal — every correct option (server sends the
+            correctAnswers index array; options are never shuffled for
+            multiselect, so index lookup is safe). */}
+        {correctAnswersReveal && correctAnswersReveal.length > 0 && (
+          <div className={`w-full max-w-full rounded-2xl p-4 flex items-start gap-3 text-left ${isCorrect ? 'bg-green-50 border border-green-200' : 'bg-green-50 border-2 border-green-300'}`}>
+            <span className="font-display w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white font-black text-base flex-shrink-0" aria-label="Correct options">
+              ✓
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-green-600 mb-1">
+                {correctAnswersReveal.length > 1 ? 'Correct answers' : 'Correct answer'}
+              </p>
+              {correctAnswersReveal.map(idxStr => {
+                const oi = Number(idxStr)
+                const opt = question?.options?.[oi]
+                return (
+                  <p key={idxStr} className="participant-correct-answer-text font-black text-green-800 break-words">
+                    {ANSWER_LETTERS[oi] ?? String(oi + 1)}. {opt !== undefined ? getOptText(opt) : ''}
+                  </p>
+                )
+              })}
+            </div>
+          </div>
+        )}
+        {/* Sequence-ranking reveal — the correct order as texts (participants
+            hold shuffled options, so the server resolves indices for us). */}
+        {correctOrderTexts && correctOrderTexts.length > 0 && (
+          <div className={`w-full max-w-full rounded-2xl p-4 flex items-start gap-3 text-left ${isCorrect ? 'bg-green-50 border border-green-200' : 'bg-green-50 border-2 border-green-300'}`}>
+            <span className="font-display w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white font-black text-base flex-shrink-0" aria-label="Correct order">
+              ✓
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-green-600 mb-1">Correct order</p>
+              <ol className="space-y-0.5">
+                {correctOrderTexts.map((t, i) => (
+                  <li key={i} className="participant-correct-answer-text font-black text-green-800 break-words">
+                    {i + 1}. {t}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        )}
+        {/* Matching reveal — the aligned left→right answer key. */}
+        {matchPairsReveal && matchPairsReveal.length > 0 && (
+          <div className={`w-full max-w-full rounded-2xl p-4 flex items-start gap-3 text-left ${isCorrect ? 'bg-green-50 border border-green-200' : 'bg-green-50 border-2 border-green-300'}`}>
+            <span className="font-display w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white font-black text-base flex-shrink-0" aria-label="Correct matches">
+              ✓
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-green-600 mb-1">Correct matches</p>
+              {matchPairsReveal.map((p, i) => (
+                <p key={i} className="participant-correct-answer-text font-black text-green-800 break-words">
+                  {p.left} → {p.right}
+                </p>
+              ))}
             </div>
           </div>
         )}
@@ -2966,32 +3029,17 @@ function JoinPageInner() {
             const order = rankingOrder.length === rankOpts.length && rankingOrder.length > 0
               ? rankingOrder
               : rankOpts.map((_, i) => i)
-            const ids = order.map(i => `rank-${i}`)
             return (
               <div className="space-y-3 overflow-x-hidden">
                 <p className="text-sm text-center" style={{ color: 'rgba(255,255,255,0.5)' }}>Drag to rank your order</p>
-                <DndContext sensors={rankingSensors} collisionDetection={closestCenter} onDragEnd={(e: DragEndEvent) => {
-                  const { active, over } = e
-                  if (!over || active.id === over.id) return
-                  const oldIndex = ids.indexOf(String(active.id))
-                  const newIndex = ids.indexOf(String(over.id))
-                  if (oldIndex < 0 || newIndex < 0) return
-                  setRankingOrder(arrayMove(order, oldIndex, newIndex))
-                }}>
-                  <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-3">
-                      {order.map((origIdx, pos) => (
-                        <SortableRankingItem
-                          key={`rank-${origIdx}`}
-                          id={`rank-${origIdx}`}
-                          index={pos}
-                          label={rankOpts[origIdx] || `Option ${origIdx + 1}`}
-                          color={OPTION_COLORS_P[origIdx % OPTION_COLORS_P.length]}
-                        />
-                      ))}
-                    </div>
-                  </SortableContext>
-                </DndContext>
+                <SortableRankingBoard
+                  order={order}
+                  labels={rankOpts}
+                  colors={OPTION_COLORS_P}
+                  idPrefix="rank"
+                  onReorder={setRankingOrder}
+                  itemSpacing="space-y-3"
+                />
                 <button
                   onClick={() => submitVote(order)}
                   className="w-full py-5 rounded-2xl text-xl font-black"

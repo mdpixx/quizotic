@@ -106,6 +106,32 @@ export function reconnectFromDisconnected(session, { key, entry, newSocketId, pa
   return recovered
 }
 
+// Answer-window precondition for submit_answer. Returns a reason string, or
+// null when the submission window is fully open:
+//   - 'stale_question'  REJECT: the client stamped a different questionIndex
+//                       than the one currently live — a delayed/outbox-flushed
+//                       packet must not be booked (and scored) against the
+//                       wrong question. Old clients omit the field → no check.
+//   - 'not_started'     REJECT: the packet arrived before the 3-2-1 countdown
+//                       finished — the client disables input until startAt,
+//                       so an earlier packet is a crafted client that would
+//                       otherwise score at serverTimeMs=0 (max speed bonus).
+//   - 'question_ended'  FORCE-LATE, not reject: the reveal already fired
+//                       (timer, all-answered, or manual end), so the answer
+//                       must not move the standings — the caller records it
+//                       through the late path (0 points, no streak,
+//                       isCorrect=false). Rejecting outright would silently
+//                       drop honest low-connectivity stragglers and desync
+//                       the host's answered counter (the 2026-05 bug class).
+export function answerWindowRejection(session, { clientQuestionIndex, receivedAt }) {
+  if (typeof clientQuestionIndex === 'number' && clientQuestionIndex !== session.currentQuestionIndex) {
+    return 'stale_question'
+  }
+  if (session.questionEnded) return 'question_ended'
+  if (session.questionStartedAt && receivedAt < session.questionStartedAt) return 'not_started'
+  return null
+}
+
 // Flush any answers that arrived before the session DB row landed. Caller
 // passes the insertFn so this stays decoupled from pg / network code.
 export function flushPendingPersist(session, sessionDbId, insertFn) {

@@ -27,6 +27,8 @@ interface AnswerFeedback {
   correctAnswer: string | null
   correctAnswers: string[] | null
   correctOrder: string[] | null
+  blankAnswers: string[] | null   // fillblank — accepted answers ([0] is the primary)
+  matchPairs: { left: string; right: string }[] | null // matching — aligned answer key
   explanation: string | null
   nextQuestion: QuizQuestion | null
 }
@@ -851,6 +853,15 @@ function describeAnswer(question: QuizQuestion, value: AnswerValue | string | nu
   }
 
   if (Array.isArray(value)) {
+    // Matching answers are the chosen right-column TEXTS in left order, not
+    // option indices — pair them with the left prompts.
+    if (question.type === 'matching') {
+      const lefts = question.matchLefts ?? []
+      const parts = value
+        .map((v, i) => (String(v).trim() === '' ? null : lefts[i] ? `${lefts[i]} → ${String(v)}` : String(v)))
+        .filter((s): s is string => s !== null)
+      return parts.length > 0 ? parts.join('  ·  ') : '—'
+    }
     const idxs = value.map(v => Number(v)).filter(n => Number.isInteger(n))
     if (idxs.length === 0) return '—'
     if (question.type === 'ranking') {
@@ -879,14 +890,34 @@ function FeedbackPanel({
 }) {
   const correct = feedback.isCorrect === true
 
-  // The correct value lives in a different field per question type.
-  const correctValue =
-    question.type === 'multiselect' ? feedback.correctAnswers
-    : question.type === 'ranking' ? feedback.correctOrder
-    : feedback.correctAnswer
+  // The correct value lives in a different field per question type. Resolve
+  // it to a display string here — fillblank/matching aren't option-indexed,
+  // so describeAnswer can't render them.
+  const correctDisplay = (() => {
+    if (question.type === 'multiselect') {
+      return feedback.correctAnswers ? describeAnswer(question, feedback.correctAnswers) : null
+    }
+    if (question.type === 'ranking') {
+      return feedback.correctOrder ? describeAnswer(question, feedback.correctOrder) : null
+    }
+    if (question.type === 'fillblank') {
+      const accepted = (feedback.blankAnswers ?? []).filter(a => typeof a === 'string' && a.trim() !== '')
+      if (accepted.length === 0) return null
+      return accepted.length > 1
+        ? `${accepted[0]}  (also accepted: ${accepted.slice(1).join(', ')})`
+        : accepted[0]
+    }
+    if (question.type === 'matching') {
+      const pairs = feedback.matchPairs ?? []
+      if (pairs.length === 0) return null
+      return pairs.map(p => `${p.left} → ${p.right}`).join('  ·  ')
+    }
+    return feedback.correctAnswer != null ? describeAnswer(question, feedback.correctAnswer) : null
+  })()
   const correctLabel =
     question.type === 'ranking' ? 'Correct order'
     : question.type === 'multiselect' ? 'Correct answers'
+    : question.type === 'matching' ? 'Correct matches'
     : 'Correct answer'
 
   return (
@@ -901,11 +932,11 @@ function FeedbackPanel({
       </div>
 
       {/* Correct answer — always revealed so self-paced learners get feedback */}
-      {correctValue != null && (
+      {correctDisplay != null && (
         <div className="rounded-xl p-4 text-sm"
           style={{ background: 'rgba(22,163,74,0.12)', border: '1px solid rgba(22,163,74,0.3)' }}>
           <span className="font-bold uppercase tracking-wide text-xs" style={{ color: '#4ADE80' }}>{correctLabel} </span>
-          <span className="font-semibold" style={{ color: '#fff' }}>{describeAnswer(question, correctValue)}</span>
+          <span className="font-semibold" style={{ color: '#fff' }}>{correctDisplay}</span>
         </div>
       )}
 

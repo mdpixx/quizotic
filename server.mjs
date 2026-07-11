@@ -50,6 +50,7 @@ import {
   getConnectedCount as _getConnectedCount,
   buildSessionStateSnapshot as _buildSessionStateSnapshot,
   flushPendingPersist as _flushPendingPersist,
+  answerWindowRejection,
 } from './src/lib/session-state.mjs'
 import {
   initSessionStore,
@@ -2460,7 +2461,7 @@ app.prepare().then(async () => {
     socket.on('submit_answer', (rawPayload, ackCallback) => {
       const parsed = validateSocketPayload(socket, SubmitAnswerSchema, rawPayload, undefined, 'submit_answer')
       if (!parsed) return
-      const { gameCode, participantId: incomingPid, answer, timeMs: clientReportedTimeMs, confidence, serverSubmittedAt } = parsed
+      const { gameCode, participantId: incomingPid, answer, timeMs: clientReportedTimeMs, confidence, serverSubmittedAt, questionIndex: clientQuestionIndex } = parsed
       const receivedAt = Date.now()
       const session = sessions.get(gameCode)
       const ack = typeof ackCallback === 'function' ? ackCallback : null
@@ -2534,6 +2535,14 @@ app.prepare().then(async () => {
       }
 
       const qi = session.currentQuestionIndex
+      // Submission-window guards (stale question index / pre-countdown packet /
+      // reveal already fired). Pure helper — rules documented in
+      // src/lib/session-state.mjs where they are unit-tested.
+      const windowReason = answerWindowRejection(session, { clientQuestionIndex, receivedAt })
+      if (windowReason === 'stale_question') {
+        return reject('stale_question', { questionIndex: clientQuestionIndex, currentIndex: qi })
+      }
+      if (windowReason === 'not_started') return reject('not_started', { questionIndex: qi })
       const question = session.quizData.questions[qi]
       if (!question) return reject('no_question', { questionIndex: qi })
       // Leaderboard slides aren't answerable — ignore hostile/stale submissions.
@@ -2566,7 +2575,11 @@ app.prepare().then(async () => {
       // answer, leaving the host stuck at "0 answered" forever.
       // timerExtensionMs widens the window when the host extended/restarted the
       // timer — otherwise every answer in the extended window is marked late.
-      const isLate = !!(session.questionStartedAt && rawElapsed > timerMs + (session.timerExtensionMs || 0) + 2000)
+      // 'question_ended' also forces late: after the reveal (timer,
+      // all-answered, or manual end) an answer may still be recorded, but it
+      // must never score — personal_result already went out to everyone.
+      const isLate = windowReason === 'question_ended'
+        || !!(session.questionStartedAt && rawElapsed > timerMs + (session.timerExtensionMs || 0) + 2000)
       if (isLate) {
         console.warn(`[submit_answer:late-but-recorded] code=${gameCode} q=${qi} sid=${socket.id} pid=${participant.participantId} rawElapsed=${rawElapsed}ms deadline=${timerMs + 2000}ms`)
       }
@@ -2593,7 +2606,10 @@ app.prepare().then(async () => {
           correctPositions = result.correctPositions
           totalPositions = result.totalPositions
           basePoints = result.basePoints
-          isCorrect = result.isCorrect
+          // Late (incl. after-reveal) submissions must not read as correct in
+          // the audit trail — mirrors the isLate handling of the other scored
+          // types below.
+          isCorrect = isLate ? false : result.isCorrect
         } else {
           // Non-scored ranking: accept and emit for consensus view
           isCorrect = null
@@ -2631,15 +2647,14 @@ app.prepare().then(async () => {
           confidence: confidence ?? 'unsure',
         })
 
+        // Scored sequence ranking gets the same NEUTRAL receipt as every other
+        // scored type — revealing isCorrect/points/correctPositions on submit
+        // lets a neighbour copy the order. The per-player reveal arrives via
+        // personal_result (which carries correctPositions/totalPositions) when
+        // the question ends. Non-scored ranking has nothing to leak.
         socket.emit('answer_confirmed', {
-          isCorrect,
-          points,
-          basePoints,
-          streakBonus,
-          streakCount: participant.streakCount || 0,
-          totalScore: participant.score,
+          received: true,
           isNonScored: !isSequence,
-          ...(isSequence && totalPositions > 0 ? { correctPositions, totalPositions } : {}),
           ...(isLate ? { late: true } : {}),
         })
 
@@ -3048,8 +3063,17 @@ function sendCurrentQuestionToSocket(socket, session) {
   // skipped (or painted with an already-expired timer).
   const endsAt = (questionStartedAt || 0) + safeTimer * 1000 + (session.timerExtensionMs || 0)
   if (Date.now() > endsAt - 1500) return
+  let question = sanitizeQuestion(q)
+  // Sequence ranking: replay the SAME shuffled order the room saw at
+  // presentQuestion. Scoring translates display slots through
+  // currentRankingShuffleMap, so a catch-up payload in original order would
+  // mis-score every reconnecting/late-joining player.
+  if (isSequenceRanking(q) && Array.isArray(session.currentRankingShuffleMap)) {
+    const opts = question.options || []
+    question = { ...question, options: session.currentRankingShuffleMap.map(oi => opts[oi]) }
+  }
   socket.emit('question_show', {
-    question: sanitizeQuestion(q),
+    question,
     index: currentQuestionIndex,
     total: quizData.questions.length,
     serverTimestamp: questionStartedAt,
@@ -3452,10 +3476,24 @@ function emitQuestionEnded(io, gameCode, session, questionIndex) {
     }
   }
 
+  // Sequence ranking: participants hold SHUFFLED options and correctOrder is
+  // in original-index space, so they can't resolve the sequence locally.
+  // Send the correct order as display texts (≤6 short strings).
+  const correctOrderTexts = isSequenceRankingQ
+    ? (q.correctOrder ?? []).map(i => {
+        const o = q.options?.[Number(i)]
+        return typeof o === 'string' ? o : (o?.text ?? '')
+      })
+    : null
+
   io.to(`session:${gameCode}`).emit('question_ended', {
     correctAnswer,
     correctAnswerText,
     correctOrder: isSequenceRankingQ ? q.correctOrder ?? null : null,
+    correctOrderTexts,
+    // Matching reveal: the aligned pairs ARE the answer key — safe to expose
+    // now that the question has ended (≤8 short pairs).
+    matchPairs: q.type === 'matching' && Array.isArray(q.matchPairs) ? q.matchPairs : null,
     explanation: q.explanation ?? null,
     isNonScored,
     correctCount: revealCorrectCount,
@@ -3487,8 +3525,8 @@ function emitQuestionEnded(io, gameCode, session, questionIndex) {
   // screen between questions. We still skip the standings/leaderboard logic
   // below — non-scored questions don't move ranks.
   if (isNonScored) {
-    const allStats = buildQuestionStats(session)
-    const stat = allStats[questionIndex]
+    const ps = Array.from(session.participants.values())
+    const stat = buildSingleQuestionStat(ps, q, questionIndex)
     if (stat) {
       io.to(`host:${gameCode}`).emit('question_reveal', {
         questionIndex,
@@ -3632,6 +3670,19 @@ function emitLiveResponses(io, gameCode, session, qi) {
   const ps = Array.from(session.participants.values())
   const answered = ps.filter(p => p.answers[qi] !== undefined)
   const aggregate = computeNonScoredAggregate(q, answered, qi)
+  // This event fires on EVERY accepted answer, so it must stay small (project
+  // rule: socket events < 1KB). The live view only needs the tail of the
+  // response stream and the biggest cloud words — the FULL aggregate is
+  // rebuilt once at reveal (question_reveal via buildQuestionStats) and
+  // replaces this state on the host. totalResponses carries the true count.
+  if (Array.isArray(aggregate.textResponses) && aggregate.textResponses.length > 20) {
+    aggregate.textResponses = aggregate.textResponses.slice(-20)
+  }
+  if (aggregate.wordFrequencies && Object.keys(aggregate.wordFrequencies).length > 50) {
+    aggregate.wordFrequencies = Object.fromEntries(
+      Object.entries(aggregate.wordFrequencies).sort((a, b) => b[1] - a[1]).slice(0, 50)
+    )
+  }
   io.to(`host:${gameCode}`).emit('live_responses', {
     questionIndex: qi,
     type: q.type,
@@ -3649,7 +3700,14 @@ function emitLiveResponses(io, gameCode, session, qi) {
 // share a single QuestionResultsView dispatcher on the client.
 function buildQuestionStats(session) {
   const ps = Array.from(session.participants.values())
-  return session.quizData.questions.map((q, i) => {
+  return session.quizData.questions.map((q, i) => buildSingleQuestionStat(ps, q, i))
+}
+
+// Stat for ONE question. Split out of buildQuestionStats so the per-question
+// reveal (emitQuestionEnded) doesn't recompute every question in the quiz
+// just to read one index — that was ~O(Q²·P) across a session.
+function buildSingleQuestionStat(ps, q, i) {
+  {
     // Leaderboard flow slides aren't questions. Keep the array index-aligned
     // (consumers do questionStats[index]) but tag it so report UIs skip it.
     if (isLeaderboardSlide(q)) {
@@ -3724,7 +3782,7 @@ function buildQuestionStats(session) {
       isNonScored: false, totalResponses: total, optionDistribution: null,
       ...extra,
     }
-  })
+  }
 }
 
 // Tokenize a wordcloud submission into 1+ tokens (some clients send "red blue

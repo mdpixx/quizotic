@@ -1,4 +1,6 @@
-// SYNC: keep in sync with archetypes.ts
+// The ONLY archetypes module — server.mjs and any client code import this.
+// (A duplicate archetypes.ts existed until 2026-07; it had zero importers
+// and was removed — do not recreate it.)
 // Pure ESM JS — imported by server.mjs (cannot import TypeScript)
 
 const ELEMENTS = [

@@ -43,6 +43,8 @@ import {
   needsCorrectAnswer,
   questionTextSizeClass,
   getTypePill,
+  addOptionPatch,
+  removeOptionPatch,
 } from '@/lib/quiz-builder-logic'
 import { getTypeIcon, getTypeIllustration } from '@/lib/quiz-type-icons'
 import { QuestionSettingsPopover } from './QuestionSettingsPopover'
@@ -338,15 +340,17 @@ export function QuestionCanvas({
     onChange({ options: next })
   }
 
+  // Add/remove go through the pure patch helpers so the index remapping of
+  // correctAnswer/correctAnswers/correctOrder stays unit-tested — removing an
+  // option without remapping silently moved the correct answer to a neighbour.
   function handleAddOption() {
-    if (opts.length >= 6) return
-    onChange({ options: [...opts, ''] })
+    const patch = addOptionPatch(question)
+    if (patch) onChange(patch)
   }
 
   function handleRemoveOption(i: number) {
-    if (opts.length <= 2) return
-    const next = opts.filter((_, idx) => idx !== i)
-    onChange({ options: next })
+    const patch = removeOptionPatch(question, i)
+    if (patch) onChange(patch)
   }
 
   function handleCorrectToggle(i: number) {
@@ -390,10 +394,8 @@ export function QuestionCanvas({
   }
 
   function handleRankItemRemove(i: number) {
-    if (opts.length <= 2) return
-    const next = opts.filter((_, idx) => idx !== i)
-    const newCorrectOrder = next.map((_, ni) => String(ni))
-    onChange({ options: next, correctOrder: isSequenceRanking(question) ? newCorrectOrder : undefined })
+    const patch = removeOptionPatch(question, i)
+    if (patch) onChange(patch)
   }
 
   // ── Fill-in-the-blank handlers ───────────────────────────────────────────
@@ -686,16 +688,27 @@ export function QuestionCanvas({
                   >
                     <CharCount value={optText} limit={OPTION_CHAR_LIMIT} />
                     <div className="flex items-center gap-3 px-3 py-3 w-full">
-                      {/* Correct-answer toggle */}
-                      <button
-                        type="button"
-                        onClick={() => handleCorrectToggle(i)}
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-black text-white flex-shrink-0 transition-all hover:scale-110"
-                        style={{ background: 'rgba(255,255,255,0.25)', border: isCorrect ? '2px solid #FDE047' : '2px solid transparent' }}
-                        title={needsCorrectAnswer(question.type) ? 'Mark correct' : undefined}
-                      >
-                        {isCorrect ? '✓' : c.letter}
-                      </button>
+                      {/* Correct-answer toggle — poll/case have no correct
+                          answer, so they get a plain letter chip instead of a
+                          button that would silently do nothing. */}
+                      {needsCorrectAnswer(question.type) ? (
+                        <button
+                          type="button"
+                          onClick={() => handleCorrectToggle(i)}
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-black text-white flex-shrink-0 transition-all hover:scale-110"
+                          style={{ background: 'rgba(255,255,255,0.25)', border: isCorrect ? '2px solid #FDE047' : '2px solid transparent' }}
+                          title="Mark correct"
+                        >
+                          {isCorrect ? '✓' : c.letter}
+                        </button>
+                      ) : (
+                        <span
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-black text-white flex-shrink-0"
+                          style={{ background: 'rgba(255,255,255,0.25)' }}
+                        >
+                          {c.letter}
+                        </span>
+                      )}
                       {/* Option text */}
                       <AutoGrowTextarea
                         value={optText}

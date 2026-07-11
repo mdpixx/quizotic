@@ -51,22 +51,16 @@ describe('quiz builder language options', () => {
     expect(values.slice(1)).toEqual([...values.slice(1)].sort((a, b) => a.localeCompare(b)))
   })
 
-  it('uses the canonical list in both quiz creation interfaces', () => {
+  // The legacy /host/create builder (the second creation interface) was
+  // removed 2026-07 — only the /host/build AI form remains to check.
+  it('uses the canonical list in the quiz creation interface', () => {
     const sharedForm = readFileSync(
       join(ROOT, 'src/components/host/builder/AIGenerateForm.tsx'),
       'utf8',
     )
-    const creationStudio = readFileSync(
-      join(ROOT, 'src/app/host/create/page.tsx'),
-      'utf8',
-    )
 
-    for (const source of [sharedForm, creationStudio]) {
-      expect(source).toContain("import { QUIZ_LANGUAGES } from '@/lib/languages'")
-      expect(source).toContain('QUIZ_LANGUAGES.map')
-    }
-
+    expect(sharedForm).toContain("import { QUIZ_LANGUAGES } from '@/lib/languages'")
+    expect(sharedForm).toContain('QUIZ_LANGUAGES.map')
     expect(sharedForm).not.toContain('const LANGUAGES =')
-    expect(creationStudio).not.toContain('const GLOBAL_LANGUAGES')
   })
 })

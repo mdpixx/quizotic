@@ -19,8 +19,8 @@
  * automatically when ?start=aitopic/aidoc/aiurl/csv/templates is present.
  * A plain /host/build (or ?start=manual) always lands on the blank canvas.
  *
- * Used by /host/build — the flagged parallel route.
- * The legacy /host/create builder is untouched until flip.
+ * Used by /host/build — the canonical builder route.
+ * (The legacy /host/create builder was removed 2026-07 after the flip.)
  */
 
 import React, { useState } from 'react'
