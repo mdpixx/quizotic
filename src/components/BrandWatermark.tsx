@@ -6,7 +6,7 @@ interface Props {
   placement: 'host' | 'participant'
 }
 
-const HREF = 'https://quizotic.live/?utm_source=brand_watermark'
+const HREF = 'https://www.quizotic.live/?utm_source=brand_watermark'
 
 export function BrandWatermark({ placement }: Props) {
   const isHost = placement === 'host'

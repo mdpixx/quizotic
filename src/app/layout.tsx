@@ -50,8 +50,10 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: 'Quizotic' }],
   creator: 'Quizotic',
+  // No default `alternates.canonical` here: it would be inherited verbatim by
+  // every page that doesn't set its own, silently canonicalizing them to the
+  // homepage and telling Google not to index them. Each page declares its own.
   metadataBase: new URL('https://www.quizotic.live'),
-  alternates: { canonical: '/' },
   openGraph: {
     type: 'website',
     locale: 'en_US',

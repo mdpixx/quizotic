@@ -91,7 +91,7 @@ function ShareLinks({
   const [copied, setCopied] = useState(false)
   const joinUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/join?code=${gameCode}`
-    : `https://quizotic.live/join?code=${gameCode}`
+    : `https://www.quizotic.live/join?code=${gameCode}`
 
   function copyLink() {
     navigator.clipboard.writeText(joinUrl).then(() => {

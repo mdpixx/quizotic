@@ -16,7 +16,7 @@ export function JoinPill({ gameCode, variant = 'fixed' }: JoinPillProps) {
 
   const origin = typeof window !== 'undefined'
     ? window.location.origin
-    : (process.env.NEXT_PUBLIC_APP_URL ?? 'https://quizotic.live')
+    : (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.quizotic.live')
   const joinUrl = `${origin}/join?code=${gameCode}`
 
   if (variant === 'compact') {

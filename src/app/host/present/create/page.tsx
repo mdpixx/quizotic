@@ -700,7 +700,7 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
       {slide.showQrCode && (
         <div className="absolute bottom-3 right-3 rounded-lg p-1.5 shadow-lg"
           style={{ background: '#fff' }}>
-          <QRCode value="https://quizotic.live/join" size={56} level="L" />
+          <QRCode value="https://www.quizotic.live/join" size={56} level="L" />
           <p className="text-[6px] font-bold text-center mt-0.5" style={{ color: '#64748B' }}>Scan to join</p>
         </div>
       )}

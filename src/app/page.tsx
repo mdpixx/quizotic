@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { JsonLd } from '@/components/seo/JsonLd'
@@ -15,6 +16,10 @@ import { TopicClusters } from '@/components/landing/TopicClusters'
 import { HomepageFAQ } from '@/components/landing/HomepageFAQ'
 import { SocialProofSlot } from '@/components/landing/SocialProofSlot'
 import { ScrollProgress } from '@/components/landing/ScrollProgress'
+
+export const metadata: Metadata = {
+  alternates: { canonical: '/' },
+}
 
 const jsonLd = {
   '@context': 'https://schema.org',

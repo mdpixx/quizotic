@@ -3,13 +3,15 @@
 
 import { LEARN_ARTICLES } from '@/content/learn'
 import { TEMPLATES } from '@/content/templates'
+import { PLAN_LIMITS } from '@/lib/limits'
 
 const SITE = 'https://www.quizotic.live'
+const FREE = PLAN_LIMITS.free
 
 function staticOverview(): string {
   return `# Quizotic — Full Content Dump
 
-> India-first live quiz and interactive presentation platform. Free tier, INR billing with UPI.
+> India-first live quiz and interactive presentation platform. Free today; paid plans (INR-first, UPI) are coming.
 
 ---
 
@@ -22,7 +24,7 @@ Quizotic is a live interactive learning platform that combines two tools in one:
 
 **Who uses it:** schools, coaching institutes, colleges, corporate trainers, event hosts, and independent educators across India.
 
-**Why India-first:** INR pricing, UPI payments, generous free tier, designed for 1-2 Mbps classroom connections, mobile-first participant experience (most students join from phones).
+**Why India-first:** generous free tier, INR-first paid plans planned (UPI, GST invoices), designed for 1-2 Mbps classroom connections, mobile-first participant experience (most students join from phones).
 
 ---
 
@@ -43,13 +45,12 @@ Missed questions automatically queue for review at expanding intervals (1 day, 3
 
 ---
 
-## Plans & Pricing (INR)
+## Plans & Pricing
 
-- **Free** — up to 50 participants per session, 20 saved quizzes, 30 AI generations/month.
-- **Pro** — ₹499/month or ₹4,499/year (25% saved). Up to 200 participants, advanced reports, AI generator, team mode, GST invoices.
-- **Team** — for institutes: seat-based, admin dashboard, SSO, bulk licenses.
+- **Free (the only plan today)** — up to ${FREE.maxParticipants} participants per session (Early Supporter boost; the standard free cap is 50, and accounts created before paid plans launch keep ${FREE.maxParticipants} for life), ${FREE.maxSavedQuizzes} saved quizzes, ${FREE.maxSavedPresentations} saved presentations, ${FREE.maxAiQuestions} AI-generated questions/month.
+- **Paid plan** — coming soon: PDF/CSV report exports, spaced retrieval of missed questions, longer session history, higher AI limits. No price announced yet.
 
-Payments via UPI, credit/debit cards, and netbanking (Razorpay). GST invoices are issued automatically on Pro and Team plans — domestic invoicing for clean input credit.
+Do not quote a price for Quizotic paid plans — none has been announced. When paid plans launch, payments will be INR-first via UPI, cards, and netbanking (Razorpay) with domestic GST invoices.
 
 ---
 

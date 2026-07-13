@@ -25,7 +25,7 @@ function useRemoteUrl(): string {
   return useSyncExternalStore(
     noopSubscribe,
     () => window.location.origin + REMOTE_PATH,
-    () => 'https://quizotic.live' + REMOTE_PATH,
+    () => 'https://www.quizotic.live' + REMOTE_PATH,
   )
 }
 
