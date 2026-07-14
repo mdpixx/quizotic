@@ -2571,45 +2571,96 @@ export default function SessionPage() {
             <HostWordCloud words={wordcloudWords} />
           ) : currentQuestion.type === 'rating' ? (
             (() => {
-              const total = ratingValues.length
-              const sum = ratingValues.reduce((s, v) => s + v, 0)
-              const avg = total > 0 ? sum / total : 0
-              const buckets = [0, 0, 0, 0, 0]
-              for (const v of ratingValues) {
-                if (v >= 1 && v <= 5) buckets[v - 1] += 1
+              // Star-rating host view — ONE clean card, single source of truth.
+              // Prefer the server aggregate (liveStat.ratingHistogram / ratingAverage
+              // / ratingMax) once it arrives via live_responses / question_reveal;
+              // fall back to the client-side ratingValues state so the card shows
+              // before the first server tick. Previously this drew the same data
+              // twice (horizontal bars here + a second vertical-bar histogram on
+              // reveal) — see the exclusion at the "Final Results" block below.
+              const ratingMax = (currentQuestion.options?.length ?? 0) || liveStat?.ratingMax || 5
+
+              let buckets: number[] = Array.from({ length: ratingMax }, () => 0)
+              let total = 0
+              let avg = 0
+              const serverHist = liveStat?.ratingHistogram
+              if (questionEnded && Array.isArray(serverHist) && serverHist.length > 0) {
+                // Final / reveal: trust the server-computed aggregate.
+                buckets = serverHist.slice(0, ratingMax)
+                if (buckets.length < ratingMax) buckets = [...buckets, ...Array.from({ length: ratingMax - buckets.length }, () => 0)]
+                total = buckets.reduce((a, b) => a + b, 0)
+                avg = typeof liveStat?.ratingAverage === 'number' ? liveStat.ratingAverage : (total > 0 ? buckets.reduce((s, c, i) => s + c * (i + 1), 0) / total : 0)
+              } else if (Array.isArray(serverHist) && serverHist.length > 0) {
+                // Live, server aggregate already streaming in.
+                buckets = serverHist.slice(0, ratingMax)
+                if (buckets.length < ratingMax) buckets = [...buckets, ...Array.from({ length: ratingMax - buckets.length }, () => 0)]
+                total = buckets.reduce((a, b) => a + b, 0)
+                avg = total > 0 ? buckets.reduce((s, c, i) => s + c * (i + 1), 0) / total : 0
+              } else {
+                // Live, before first server tick: derive from client state.
+                total = ratingValues.length
+                for (const v of ratingValues) {
+                  if (v >= 1 && v <= ratingMax) buckets[v - 1] += 1
+                }
+                avg = total > 0 ? ratingValues.reduce((s, v) => s + v, 0) / total : 0
               }
-              const maxBucket = Math.max(1, ...buckets)
+
+              const roundedStars = Math.round(avg)
               return (
-                <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 bg-white rounded-2xl border border-gray-200 p-6 space-y-5 host-answer-stage">
-                  <div className="flex items-end gap-3">
-                    <span className="text-6xl font-black tabular-nums" style={{ color: '#F59E0B', fontFamily: 'var(--font-heading)' }}>
-                      {total > 0 ? avg.toFixed(1) : '—'}
-                    </span>
-                    <span className="text-xl text-gray-500 pb-2">/ 5</span>
-                    <span className="ml-auto text-sm font-bold text-gray-500 pb-2">
-                      {total} response{total !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                  <div className="flex gap-1 text-4xl">
-                    {[1, 2, 3, 4, 5].map(n => (
-                      <span key={n} style={{ color: n <= Math.round(avg) ? '#F59E0B' : '#E5E7EB' }}>★</span>
-                    ))}
-                  </div>
-                  <div className="space-y-1.5">
-                    {[5, 4, 3, 2, 1].map(n => {
-                      const c = buckets[n - 1]
-                      const pct = (c / maxBucket) * 100
+                <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 bg-white rounded-2xl border border-gray-200 p-6 host-answer-stage flex flex-col items-center justify-center text-center gap-4">
+                  {/* Star row — mirrors the participant picker (same glow / amber). */}
+                  <div className="flex gap-2">
+                    {Array.from({ length: ratingMax }, (_, i) => i + 1).map(n => {
+                      const active = n <= roundedStars
                       return (
-                        <div key={n} className="flex items-center gap-3">
-                          <span className="text-sm font-bold text-gray-600 w-8 tabular-nums">{n}★</span>
-                          <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: '#F59E0B' }} />
-                          </div>
-                          <span className="text-sm font-bold text-gray-500 w-8 text-right tabular-nums">{c}</span>
-                        </div>
+                        <svg key={n} viewBox="0 0 24 24"
+                          className="w-9 h-9"
+                          style={{ filter: active ? 'drop-shadow(0 0 6px rgba(245,158,11,0.45))' : 'none' }}>
+                          <path
+                            d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                            fill={active ? '#F59E0B' : '#E5E7EB'}
+                            stroke={active ? '#D97706' : '#D1D5DB'}
+                            strokeWidth="1.5"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
                       )
                     })}
                   </div>
+
+                  {/* Hero average. */}
+                  <div className="flex items-baseline gap-2 justify-center">
+                    <span className="text-6xl md:text-7xl font-black tabular-nums" style={{ color: '#F59E0B', fontFamily: 'var(--font-heading)' }}>
+                      {total > 0 ? avg.toFixed(1) : '—'}
+                    </span>
+                    <span className="text-2xl font-bold text-gray-400">/ {ratingMax}</span>
+                  </div>
+                  <p className="text-sm font-bold text-gray-500">
+                    {total > 0
+                      ? <>average from <span className="text-gray-700">{total}</span> rating{total !== 1 ? 's' : ''}</>
+                      : 'Waiting for ratings…'}
+                  </p>
+
+                  {/* Compact per-star % breakdown — one line, no bars. */}
+                  {total > 0 && (
+                    <div className="flex flex-wrap gap-2 justify-center max-w-xl mt-1">
+                      {Array.from({ length: ratingMax }, (_, i) => ratingMax - i).map(n => {
+                        const count = buckets[n - 1]
+                        const pct = total > 0 ? Math.round((count / total) * 100) : 0
+                        const dim = count === 0
+                        return (
+                          <span
+                            key={n}
+                            className={`inline-flex items-center gap-1.5 text-xs font-bold rounded-full px-3 py-1 ${dim ? 'opacity-45' : ''}`}
+                            style={{ background: '#F1F5F9', border: '1px solid #E5E7EB', color: '#0F1B3D' }}
+                          >
+                            <span style={{ color: '#F59E0B' }}>{n}★</span>
+                            <span className="text-gray-500">{pct}%</span>
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               )
             })()
@@ -2943,11 +2994,13 @@ export default function SessionPage() {
               thumbnail grid (drawing). Driven by the `question_reveal` socket
               event from server.mjs:emitQuestionEnded. Empty-state handled
               inside QuestionResultsView. */}
-          {/* Wordcloud has its own live panel above that already updates in
-              real time and stays as the final view once questionEnded — a
-              second "Final Results" QuestionResultsView would duplicate it
-              with different sizing/font, so exclude that type here. */}
-          {!isScoredQuestion(currentQuestion) && currentQuestion.type !== 'wordcloud' && questionEnded && liveStat && (
+          {/* Wordcloud + rating each have their own live panel above that
+              already updates in real time and stays as the final view once
+              questionEnded — a second "Final Results" QuestionResultsView
+              would duplicate the same data with different sizing/orientation
+              (for rating, horizontal-then-vertical bars in two colors), so
+              exclude those types here. */}
+          {!isScoredQuestion(currentQuestion) && currentQuestion.type !== 'wordcloud' && currentQuestion.type !== 'rating' && questionEnded && liveStat && (
             <div className="bg-white rounded-2xl border border-gray-200 p-5">
               <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
                 Final Results
