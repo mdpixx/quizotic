@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { type NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth-helpers'
+import { nudgeAsyncSweep } from '@/lib/sweep-nudge'
 
 // GET /api/scheduled — the host's async (self-paced) sessions for the
 // Scheduled dashboard page: upcoming, open now, and recently closed.
@@ -92,7 +93,7 @@ export async function GET() {
 // DELETE /api/scheduled?sessionId=...  — end an async session by its own id.
 // Keyed on sessionId (not quizId) so orphaned sessions whose quiz was deleted
 // — or any legacy session with a null quizId — are still closeable from the
-// Scheduled dashboard. The 60s sweep then finalizes scores and writes results.
+// Scheduled dashboard. The nudged sweep then finalizes scores and writes results.
 export async function DELETE(req: NextRequest) {
   try {
     const user = await getCurrentUser()
@@ -109,6 +110,7 @@ export async function DELETE(req: NextRequest) {
     if (result.count === 0) {
       return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
     }
+    nudgeAsyncSweep()
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error('[scheduled:DELETE]', err instanceof Error ? err.message : err)

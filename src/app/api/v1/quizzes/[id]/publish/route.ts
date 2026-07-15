@@ -10,6 +10,7 @@ import { PLAN_LIMITS } from '@/lib/limits'
 import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 import { hasQuizValidationErrors, validateQuizQuestions } from '@/lib/quiz-validation'
 import { apiError, normalizeQuestions, unauthorizedApiKey } from '@/lib/public-api'
+import { nudgeAsyncSweep } from '@/lib/sweep-nudge'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -121,6 +122,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         data: { allowRetries, closesAt, timeLimitMinutes },
       })
     }
+    nudgeAsyncSweep()
     return NextResponse.json({
       data: {
         sessionId: existing.id,
@@ -173,6 +175,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       timeLimitMinutes,
     },
   })
+  nudgeAsyncSweep()
 
   return NextResponse.json({
     data: {
