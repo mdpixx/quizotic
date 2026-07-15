@@ -185,11 +185,20 @@ async function reapOrphanedGameSessions() {
 // Neon's compute awake (it can never scale-to-zero) and burned the entire
 // monthly compute allowance doing nothing during idle periods.
 //
-// Now: sweep often only while there is pending async work (open scheduled
-// quizzes, or ended-but-unfinalized sessions), and back off hard when idle so
-// the database can suspend between checks.
-const ASYNC_SWEEP_ACTIVE_MS = 60_000      // pending async work — stay responsive
-const ASYNC_SWEEP_IDLE_MS = 15 * 60_000   // nothing pending — let Neon scale-to-zero
+// The previous "active while pending" backoff still pinned the DB awake:
+// a single published self-paced quiz (status 'open', often with closesAt NULL,
+// legitimately open for weeks) counted as "pending", so the loop ran at the
+// 60s active cadence around the clock even though there was nothing due.
+//
+// Now the sweep computes WHEN the next piece of work is actually due — the
+// earliest attendee deadlineAt or session closesAt — and sleeps until exactly
+// then (clamped below by the active cadence, above by a safety-net pass).
+// New work created by the API routes wakes it immediately via
+// globalThis.__quizoticNudgeAsyncSweep, so long sleeps never delay anything.
+// When nothing is scheduled at all, the DB sees a handful of queries per day
+// and is free to scale to zero the rest of the time.
+const ASYNC_SWEEP_ACTIVE_MS = 60_000            // unfinalized work in flight — stay responsive
+const ASYNC_SWEEP_MAX_SLEEP_MS = 6 * 3600_000   // safety-net pass when nothing is due
 
 // Sum recorded answer points into Attendee.finalScore for in-progress
 // attendees matching extraWhere. Returns affected sessionIds.
@@ -311,11 +320,13 @@ async function buildAsyncResults(sessionId) {
   }
 }
 
-// Returns true if there is pending async work (open scheduled sessions, or
-// ended sessions still missing their finalized results) — the caller uses this
-// to decide whether to sweep again soon or back off and let the DB suspend.
+// Returns { hasUnfinalized, nextDueMs }: whether ended sessions still need
+// their results finalized (keep sweeping at the active cadence), and how many
+// ms until the next scheduled piece of work (earliest attendee deadline or
+// session close) — the caller sleeps until then instead of polling, so an
+// idle database is free to suspend.
 async function sweepAsyncSessions() {
-  if (!dbPool) return false
+  if (!dbPool) return { hasUnfinalized: false, nextDueMs: null }
   try {
     // 1. Per-participant deadlines (open sessions only — ended ones are
     //    handled in step 3 anyway).
@@ -363,25 +374,37 @@ async function sweepAsyncSessions() {
       }
     }
 
-    // 4. Decide whether to keep sweeping at the active cadence. There is still
-    //    pending work if any async session is open (will eventually need
-    //    closing) or any ended session is still missing results. One cheap,
-    //    fully-indexed existence check — cost is dominated by the round trip,
-    //    not the scan. When this returns false the loop backs off to the idle
-    //    cadence and the DB is free to suspend.
+    // 4. Work out when this loop actually needs to run next. "Open session
+    //    exists" is NOT pending work — a self-paced quiz can legitimately sit
+    //    open for weeks (closesAt NULL) and polling it every minute pinned the
+    //    DB awake 24/7. The only time-triggered work is: an attendee deadline
+    //    expiring, or a session close time passing (+30s answer grace, matching
+    //    step 2). Compute the earliest of those and sleep until then. Ended
+    //    sessions still missing results DO warrant the active cadence — step 3
+    //    processes them in batches of 20.
     const { rows: [pending] } = await dbPool.query(
       `SELECT
-         EXISTS(SELECT 1 FROM "GameSession" WHERE mode = 'async' AND status = 'open') AS has_open,
          EXISTS(SELECT 1 FROM "GameSession"
                 WHERE mode = 'async' AND status = 'ended' AND results IS NULL
-                  AND "endedAt" > now() - interval '7 days') AS has_unfinalized`,
+                  AND "endedAt" > now() - interval '7 days') AS has_unfinalized,
+         LEAST(
+           (SELECT MIN(a."deadlineAt") FROM "Attendee" a
+            WHERE a."leftAt" IS NULL AND a."deadlineAt" IS NOT NULL
+              AND a."sessionId" IN (SELECT id FROM "GameSession" WHERE mode = 'async' AND status = 'open')),
+           (SELECT MIN("closesAt") + interval '30 seconds' FROM "GameSession"
+            WHERE mode = 'async' AND status = 'open' AND "closesAt" IS NOT NULL)
+         ) AS next_due`,
     )
-    return Boolean(pending?.has_open || pending?.has_unfinalized)
+    const nextDue = pending?.next_due ? new Date(pending.next_due).getTime() : null
+    return {
+      hasUnfinalized: Boolean(pending?.has_unfinalized),
+      nextDueMs: nextDue != null ? Math.max(0, nextDue - Date.now()) : null,
+    }
   } catch (err) {
     console.warn('[async-sweep] pass failed:', err.message)
-    // On error, treat as "no pending work" so a persistently failing DB doesn't
-    // hammer at the active cadence — the idle cadence still retries periodically.
-    return false
+    // On error, report nothing due so a persistently failing DB doesn't get
+    // hammered at the active cadence — the safety-net pass still retries.
+    return { hasUnfinalized: false, nextDueMs: null }
   }
 }
 
@@ -789,23 +812,48 @@ app.prepare().then(async () => {
   // Fire-and-forget: closing out orphaned rows must not delay boot.
   reapOrphanedGameSessions()
   // Robot invigilator for scheduled/self-paced quizzes: first pass shortly
-  // after boot (catch up on anything due while we were down), then on an
-  // adaptive cadence (active while work is pending, idle otherwise).
-  // Self-rescheduling sweep loop. Runs soon after boot to catch up on anything
-  // due while we were down, then reschedules itself: a short delay while async
-  // work is pending, a long idle delay otherwise. Using a chained setTimeout
-  // (not setInterval) also guarantees passes never overlap if one runs long.
+  // after boot (catch up on anything due while we were down), then it sleeps
+  // until the next attendee deadline / session close actually falls due.
+  // Chained setTimeout (not setInterval) guarantees passes never overlap.
+  // API routes that create or reschedule async work wake it immediately via
+  // globalThis.__quizoticNudgeAsyncSweep — see the nudge below.
+  let asyncSweepTimer = null
+  let asyncSweepRunning = false
+  let asyncSweepNudged = false
+  function scheduleAsyncSweep(delayMs) {
+    clearTimeout(asyncSweepTimer)
+    asyncSweepTimer = setTimeout(runAsyncSweepLoop, delayMs)
+    asyncSweepTimer.unref?.()
+  }
   async function runAsyncSweepLoop() {
-    let pending = false
+    asyncSweepRunning = true
+    asyncSweepNudged = false
+    let delay = ASYNC_SWEEP_MAX_SLEEP_MS
     try {
-      pending = await sweepAsyncSessions()
+      const { hasUnfinalized, nextDueMs } = await sweepAsyncSessions()
+      if (hasUnfinalized) delay = ASYNC_SWEEP_ACTIVE_MS
+      else if (nextDueMs != null) {
+        delay = Math.min(Math.max(nextDueMs, ASYNC_SWEEP_ACTIVE_MS), ASYNC_SWEEP_MAX_SLEEP_MS)
+      }
     } catch (err) {
       console.warn('[async-sweep] loop error:', err.message)
     }
-    const delay = pending ? ASYNC_SWEEP_ACTIVE_MS : ASYNC_SWEEP_IDLE_MS
-    setTimeout(runAsyncSweepLoop, delay).unref?.()
+    asyncSweepRunning = false
+    // Work arrived while this pass was running — go again right away rather
+    // than sleeping through it.
+    if (asyncSweepNudged) delay = 1_000
+    scheduleAsyncSweep(delay)
   }
-  setTimeout(runAsyncSweepLoop, 5_000).unref?.()
+  // Wake the sweeper when a route creates/reschedules async work (publish,
+  // attempt start, close-now). Deliberately on globalThis: Next.js route
+  // handlers run in this same process but are bundled separately, so a plain
+  // module export isn't reachable from them. Routes call it via optional
+  // chaining and work fine if it's absent (the safety-net pass still runs).
+  globalThis.__quizoticNudgeAsyncSweep = () => {
+    if (asyncSweepRunning) { asyncSweepNudged = true; return }
+    scheduleAsyncSweep(1_000)
+  }
+  scheduleAsyncSweep(5_000)
 
   const httpServer = createServer((req, res) => {
     // Short-circuit: session lookup API (no auth, reads in-memory sessions Map)

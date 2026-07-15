@@ -8,6 +8,7 @@ import { getCurrentUser } from '@/lib/auth-helpers'
 import { getUserPlan } from '@/lib/billing'
 import { PLAN_LIMITS } from '@/lib/limits'
 import { hasQuizValidationErrors, validateQuizQuestions } from '@/lib/quiz-validation'
+import { nudgeAsyncSweep } from '@/lib/sweep-nudge'
 import type { Question } from '@/lib/quiz-types'
 
 type Params = { params: Promise<{ id: string }> }
@@ -244,6 +245,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         closesAt: schedule.closesAt ?? null,
       },
     })
+    nudgeAsyncSweep()
 
     return NextResponse.json({
       success: true,
@@ -294,6 +296,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     }
 
     const updated = await prisma.gameSession.update({ where: { id: session.id }, data: update })
+    nudgeAsyncSweep()
 
     return NextResponse.json({
       success: true,
@@ -315,6 +318,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     if (!session) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
 
     await prisma.gameSession.update({ where: { id: session.id }, data: { status: 'ended', endedAt: new Date() } })
+    nudgeAsyncSweep()
 
     return NextResponse.json({ success: true })
   } catch {

@@ -7,6 +7,7 @@ import { getUserPlan } from '@/lib/billing'
 import { PLAN_LIMITS } from '@/lib/limits'
 import { toPublicQuestion, type Question } from '@/lib/scoring'
 import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
+import { nudgeAsyncSweep } from '@/lib/sweep-nudge'
 
 type Params = { params: Promise<{ slug: string }> }
 
@@ -81,6 +82,8 @@ export async function POST(req: NextRequest, { params }: Params) {
     const attendee = await prisma.attendee.create({
       data: { sessionId: session.id, nickname: name, realName: name, deadlineAt },
     })
+    // A fresh attempt deadline may be the sweeper's next wake-up point.
+    if (deadlineAt) nudgeAsyncSweep()
 
     const participantId = randomUUID()
     const questions = (session.quizVersion?.snapshot as Question[] | null) ?? []
