@@ -135,6 +135,7 @@ interface QuizListRowProps {
   startingId: string | null
   onStart: (id: string) => void
   onAssign: (id: string, title: string) => void
+  onShare: (id: string, title: string) => void
   onViewResults: (id: string) => void
   onDuplicate: (id: string) => void
   onDelete: (id: string) => void
@@ -146,6 +147,7 @@ export function QuizListRow({
   startingId,
   onStart,
   onAssign,
+  onShare,
   onViewResults,
   onDuplicate,
   onDelete,
@@ -188,6 +190,19 @@ export function QuizListRow({
         </svg>
       ),
     }] : []),
+    {
+      label: 'Share a copy',
+      title: 'Give a colleague their own copy of this quiz',
+      onClick: () => onShare(quiz.id, quiz.title),
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4">
+          <circle cx="18" cy="5" r="3" />
+          <circle cx="6" cy="12" r="3" />
+          <circle cx="18" cy="19" r="3" />
+          <path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" strokeLinecap="round" />
+        </svg>
+      ),
+    },
     {
       label: 'Duplicate',
       onClick: () => onDuplicate(quiz.id),

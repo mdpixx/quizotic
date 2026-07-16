@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
 import { QuizListRow } from '@/components/host/QuizListRow'
 import { AssignQuizModal, type QuizPatch } from '@/components/host/AssignQuizModal'
+import { ShareQuizModal } from '@/components/host/ShareQuizModal'
 import { track } from '@/lib/analytics'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -142,6 +143,7 @@ export default function QuizzesPage() {
   const [activeSubject, setActiveSubject] = useState<string>('All')
   const [view, setView] = useState<'grid' | 'list'>('list')
   const [assignQuiz, setAssignQuiz] = useState<{ id: string; title: string } | null>(null)
+  const [shareQuiz, setShareQuiz] = useState<{ id: string; title: string } | null>(null)
 
   const fetchQuizzes = useCallback(async () => {
     setLoading(true)
@@ -188,15 +190,23 @@ export default function QuizzesPage() {
   async function handleDuplicate(id: string) {
     try {
       const res = await fetch(`/api/quizzes/${id}`)
-      if (!res.ok) return
+      if (!res.ok) { setError('Could not duplicate quiz.'); return }
       const json = await res.json()
       const quiz: Quiz = json.data
-      const duped = { ...quiz, id: undefined, title: `${quiz.title} (Copy)` }
-      await fetch('/api/quizzes', {
+      // POST /api/quizzes requires a client-supplied id; fresh ids for the
+      // quiz and every question, matching the template-instantiation pattern.
+      const duped = {
+        ...quiz,
+        id: crypto.randomUUID(),
+        title: `${quiz.title} (Copy)`,
+        questions: quiz.questions.map(q => ({ ...q, id: crypto.randomUUID() })),
+      }
+      const saveRes = await fetch('/api/quizzes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(duped),
       })
+      if (!saveRes.ok) { setError('Could not duplicate quiz.'); return }
       fetchQuizzes()
     } catch {
       setError('Could not duplicate quiz.')
@@ -481,6 +491,12 @@ export default function QuizzesPage() {
                                 icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><path d="M3 3v18h18M9 17V9M14 17V5M19 17v-6" strokeLinecap="round" strokeLinejoin="round"/></svg>,
                               }] : []),
                               {
+                                label: 'Share a copy',
+                                title: 'Give a colleague their own copy of this quiz',
+                                onClick: () => setShareQuiz({ id: quiz.id, title: quiz.title }),
+                                icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" strokeLinecap="round"/></svg>,
+                              },
+                              {
                                 label: 'Duplicate',
                                 onClick: () => handleDuplicate(quiz.id),
                                 icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>,
@@ -524,6 +540,7 @@ export default function QuizzesPage() {
                     startingId={startingId}
                     onStart={handleStart}
                     onAssign={handleAssign}
+                    onShare={(id, title) => setShareQuiz({ id, title })}
                     onViewResults={id => { window.location.href = `/host/quizzes/${id}/report` }}
                     onDuplicate={handleDuplicate}
                     onDelete={id => setConfirmDelete(id)}
@@ -544,6 +561,17 @@ export default function QuizzesPage() {
             hasExistingShare={!!quizzes.find(q => q.id === assignQuiz.id)?.asyncShareSlug}
             onClose={() => setAssignQuiz(null)}
             onChanged={handleQuizPatched}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Share-a-copy modal — link that clones this quiz into a colleague's library */}
+      <AnimatePresence>
+        {shareQuiz && (
+          <ShareQuizModal
+            quizId={shareQuiz.id}
+            quizTitle={shareQuiz.title}
+            onClose={() => setShareQuiz(null)}
           />
         )}
       </AnimatePresence>

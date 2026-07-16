@@ -231,6 +231,19 @@ const CRITICAL_TABLES = [
      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
      CONSTRAINT "Feedback_pkey" PRIMARY KEY ("id")
    )`,
+  // Quiz sharing — "share a copy" tokens; mirrored from
+  // prisma/migrations/20260716_quiz_share_link/migration.sql
+  `CREATE TABLE IF NOT EXISTS "QuizShareLink" (
+     "id" TEXT NOT NULL,
+     "token" TEXT NOT NULL,
+     "quizId" TEXT NOT NULL,
+     "revokedAt" TIMESTAMP(3),
+     "importCount" INTEGER NOT NULL DEFAULT 0,
+     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     "updatedAt" TIMESTAMP(3) NOT NULL,
+     CONSTRAINT "QuizShareLink_pkey" PRIMARY KEY ("id"),
+     CONSTRAINT "QuizShareLink_quizId_fkey" FOREIGN KEY ("quizId") REFERENCES "Quiz"("id") ON DELETE CASCADE ON UPDATE CASCADE
+   )`,
 ]
 
 const CRITICAL_INDEXES = [
@@ -272,6 +285,9 @@ const CRITICAL_INDEXES = [
   // Phase 2 — feedback triage
   `CREATE INDEX IF NOT EXISTS "Feedback_createdAt_idx" ON "Feedback" ("createdAt")`,
   `CREATE INDEX IF NOT EXISTS "Feedback_status_idx" ON "Feedback" ("status")`,
+  // Quiz sharing — share-a-copy tokens
+  `CREATE UNIQUE INDEX IF NOT EXISTS "QuizShareLink_token_key" ON "QuizShareLink" ("token")`,
+  `CREATE INDEX IF NOT EXISTS "QuizShareLink_quizId_idx" ON "QuizShareLink" ("quizId")`,
 ]
 
 // Idempotent data backfills. Each one reconciles a typed column with the

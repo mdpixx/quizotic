@@ -73,6 +73,10 @@ export type ProductEvent =
   | 'participant_finished'
   | 'selfpaced_started'
   | 'selfpaced_completed'
+  // Quiz sharing (share-a-copy links between teachers)
+  | 'quiz_share_link_created'
+  | 'quiz_share_link_revoked'
+  | 'quiz_imported'
 
 export function track(event: ProductEvent, props?: Record<string, string | number | boolean | null>): void {
   captureRaw(event, props)

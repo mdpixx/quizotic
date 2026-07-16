@@ -184,11 +184,31 @@ model Quiz {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user     User?         @relation(fields: [userId], references: [id])
-  sessions GameSession[]
-  versions QuizVersion[]
+  user       User?           @relation(fields: [userId], references: [id])
+  sessions   GameSession[]
+  versions   QuizVersion[]
+  shareLinks QuizShareLink[]
 
   @@index([userId])
+}
+
+// QuizShareLink: multi-use, revocable token that lets another signed-in
+// user clone this quiz into their own library ("share a copy"). Distinct
+// from GameSession.shareSlug, which is a play link for participants.
+// importCount counts imports, not unique people — the same user importing
+// twice gets two copies and counts twice (v1 trade-off).
+model QuizShareLink {
+  id          String    @id @default(cuid())
+  token       String    @unique
+  quizId      String
+  revokedAt   DateTime? // null = active; one active link per quiz, enforced in code
+  importCount Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  quiz Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@index([quizId])
 }
 
 // QuizVersion: immutable snapshot of a quiz's content at session-start
