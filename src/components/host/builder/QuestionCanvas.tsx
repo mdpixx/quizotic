@@ -695,7 +695,7 @@ export function QuestionCanvas({
           regardless of type or text length. The font scales down with length
           (questionTextSizeClass) so the full text fits without scrolling. */}
       <div
-        className="flex-shrink-0 relative px-6 py-4 flex items-stretch gap-4 sm:gap-5"
+        className="flex-shrink-0 relative px-3 md:px-6 py-4 flex items-stretch gap-3 md:gap-5 min-w-0 max-w-full"
         style={{ background: '#FAFAF8', borderBottom: '1px solid #EDE8E0', height: 'clamp(132px, 24vh, 208px)' }}
       >
         <CharCount value={question.text} limit={QUESTION_CHAR_LIMIT} />
@@ -704,11 +704,22 @@ export function QuestionCanvas({
             height, so attaching an image never pushes the answers down. */}
         {question.imageUrl && (
           <div
-            className="relative group flex-shrink-0 rounded-xl overflow-hidden flex items-center justify-center"
-            style={{ width: 'clamp(110px, 30%, 300px)', background: '#F5F6F8', boxShadow: 'inset 0 0 0 1px rgba(15,27,61,0.06)' }}
+            className="relative group flex-shrink-0 rounded-xl overflow-hidden flex items-center justify-center w-[clamp(80px,34%,150px)] md:w-[clamp(110px,30%,300px)]"
+            style={{ background: '#F5F6F8', boxShadow: 'inset 0 0 0 1px rgba(15,27,61,0.06)' }}
           >
             <img src={question.imageUrl} alt="" className="max-w-full max-h-full object-contain" />
-            <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              type="button"
+              onClick={() => onChange({ imageUrl: undefined })}
+              className="md:hidden absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-black/55 hover:bg-black/75 text-white flex items-center justify-center shadow-md backdrop-blur-sm transition-colors"
+              aria-label="Remove image"
+              title="Remove image"
+            >
+              <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" />
+              </svg>
+            </button>
+            <div className="absolute top-1.5 right-1.5 hidden md:flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 type="button"
                 onClick={() => setImageChipOpen(true)}
@@ -797,7 +808,7 @@ export function QuestionCanvas({
       {/* ── Options / type body ───────────────────────────────────────────── */}
       {/* Top-aligned (no justify-center) so answers start at the same y on
           every slide instead of floating with the leftover space. */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 flex flex-col gap-3">
+      <div className="flex-1 overflow-y-auto px-3 md:px-6 py-4 flex flex-col gap-3 min-w-0">
 
         {/* MCQ / multi-select / T-F / Poll / Case — coloured option tiles */}
         {(question.type === 'mcq' || question.type === 'multiselect' || question.type === 'truefalse' || question.type === 'poll' || question.type === 'case') && opts.length > 0 && (
