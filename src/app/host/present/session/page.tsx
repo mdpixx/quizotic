@@ -16,6 +16,8 @@ import { track } from '@/lib/analytics'
 import { PostSessionHeader } from '@/components/PostSessionHeader'
 import { PresentationSummary } from '@/components/PresentationSummary'
 import { SpinWheel } from '@/components/presentation/SpinWheel'
+import { PinMap, pinColor } from '@/components/presentation/PinMap'
+import { SlideShell } from '@/components/presentation/SlideShell'
 import { useConfetti } from '@/hooks/useConfetti'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 
@@ -871,13 +873,13 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
             )}
             {showResults && pins.map((pin, i) => (
               <div key={i} className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/60 transition-all"
-                style={{ left: `${pin.x}%`, top: `${pin.y}%`, background: VOTER_COLORS[i % VOTER_COLORS.length], opacity: 0.85 }} />
+                style={{ left: `${pin.x}%`, top: `${pin.y}%`, background: pinColor(pin), opacity: 0.85 }} />
             ))}
           </div>
           <div className="flex-shrink-0 text-center">
             {showResults ? (
               <p className="text-sm" style={{ color: textColor, opacity: 0.6 }}>
-                <span className="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style={{ background: VOTER_COLORS[0] }} />
+                <span className="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style={{ background: '#6366F1' }} />
                 {pins.length} pin{pins.length !== 1 ? 's' : ''} placed
               </p>
             ) : slide.imageUrl ? (
@@ -889,39 +891,35 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
     }
 
     case 'grid_2x2': {
-      const pins = aggregate.pins ?? []
+      const pins = showResults ? (aggregate.pins ?? []) : []
       return (
-        <div className="space-y-3">
-          <h2 className="text-2xl" style={headingStyle}>{slide.question}</h2>
-          <div className="relative flex">
-            {/* Y-axis label */}
-            <div className="flex flex-col justify-between items-center py-2 mr-2" style={{ width: 24 }}>
-              <span className="text-[10px] font-bold" style={{ color: textColor, opacity: 0.6 }}>{slide.yMax || 'High'}</span>
-              <span className="text-[10px] font-bold rotate-180" style={{ color: textColor, opacity: 0.6, writingMode: 'vertical-lr' }}>{slide.yLabel}</span>
-              <span className="text-[10px] font-bold" style={{ color: textColor, opacity: 0.6 }}>{slide.yMin || 'Low'}</span>
-            </div>
-            <div className="flex-1">
-              {/* Grid area */}
-              <div className="relative rounded-xl overflow-hidden border" style={{ aspectRatio: '1', background: '#FAFAFE', borderColor: '#DBEAFE' }}>
-                {/* Grid lines */}
-                <div className="absolute left-1/2 top-0 bottom-0 w-px" style={{ background: '#E5E7EB' }} />
-                <div className="absolute top-1/2 left-0 right-0 h-px" style={{ background: '#E5E7EB' }} />
-                {/* Dots */}
-                {showResults && pins.map((pin, i) => (
-                  <div key={i} className="absolute w-3.5 h-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/80 transition-all"
-                    style={{ left: `${pin.x}%`, top: `${pin.y}%`, background: VOTER_COLORS[i % VOTER_COLORS.length], opacity: 0.85 }} />
-                ))}
-              </div>
-              {/* X-axis labels */}
-              <div className="flex justify-between mt-1">
-                <span className="text-[10px] font-bold" style={{ color: textColor, opacity: 0.6 }}>{slide.xMin || 'Low'}</span>
-                <span className="text-[10px] font-bold" style={{ color: textColor, opacity: 0.6 }}>{slide.xLabel}</span>
-                <span className="text-[10px] font-bold" style={{ color: textColor, opacity: 0.6 }}>{slide.xMax || 'High'}</span>
-              </div>
+        <SlideShell
+          slide={slide}
+          prompt={
+            showResults
+              ? `${pins.length} response${pins.length !== 1 ? 's' : ''} placed`
+              : 'Participants are placing themselves on the grid…'
+          }
+        >
+          <div className="h-full flex items-center justify-center">
+            {/* Cap width so the square grid stays large but never overflows the
+                16:9 frame on wide projector screens. */}
+            <div style={{ width: '100%', maxWidth: 'min(100%, 56cqh)' }}>
+              <PinMap
+                pins={pins}
+                variant="grid"
+                xLabel={slide.xLabel}
+                yLabel={slide.yLabel}
+                xMin={slide.xMin}
+                xMax={slide.xMax}
+                yMin={slide.yMin}
+                yMax={slide.yMax}
+                labelColor={textColor}
+                size="lg"
+              />
             </div>
           </div>
-          {showResults && <p className="text-sm text-center" style={{ color: textColor, opacity: 0.6 }}>{pins.length} response{pins.length !== 1 ? 's' : ''}</p>}
-        </div>
+        </SlideShell>
       )
     }
 

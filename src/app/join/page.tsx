@@ -22,6 +22,7 @@ import { isScoredType, getEffectiveOptions } from '@/lib/quiz-types'
 import type { Question as QuizQuestion, QuestionType } from '@/lib/quiz-types'
 import { SlideImage } from '@/components/SlideImage'
 import { SpinWheel } from '@/components/presentation/SpinWheel'
+import { PinMap } from '@/components/presentation/PinMap'
 import { ANSWER_COLORS, ANSWER_LETTERS } from '@/lib/answer-colors'
 import { useConfetti } from '@/hooks/useConfetti'
 import { useWakeLock } from '@/hooks/useWakeLock'
@@ -284,7 +285,8 @@ function PinpointInput({ imageUrl, onSubmit }: {
 }
 
 // ─── Grid 2x2 Component ─────────────────────────────────────────────────────
-function Grid2x2Input({ xMin, xMax, yMin, yMax, onSubmit }: {
+function Grid2x2Input({ xLabel, yLabel, xMin, xMax, yMin, yMax, onSubmit }: {
+  xLabel?: string; yLabel?: string
   xMin?: string; xMax?: string; yMin?: string; yMax?: string
   onSubmit: (value: { x: number; y: number }) => void
 }) {
@@ -301,11 +303,20 @@ function Grid2x2Input({ xMin, xMax, yMin, yMax, onSubmit }: {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-center opacity-50" style={{ color: 'white' }}>Tap to place yourself on the grid</p>
+      <div className="flex items-center justify-center gap-2 py-2 px-3 rounded-xl"
+        style={{ background: 'rgba(34,211,238,0.12)', border: '1px solid rgba(34,211,238,0.35)' }}>
+        <span className="text-base">📍</span>
+        <p className="text-sm font-bold" style={{ color: PRESENTATION_SEQUENCE.accentOnDark }}>
+          {pin ? 'Tap again to move your spot' : 'Tap anywhere on the grid to place yourself'}
+        </p>
+      </div>
       <div className="relative">
-        {/* Y-axis label */}
-        <div className="absolute -left-1 top-0 bottom-0 flex flex-col justify-between items-center py-1 z-10" style={{ width: 20 }}>
+        {/* Y-axis label column */}
+        <div className="absolute -left-1 top-0 bottom-0 flex flex-col justify-between items-center py-1 z-10" style={{ width: 22 }}>
           <span className="text-[10px] font-bold" style={{ color: PRESENTATION_SEQUENCE.accentOnDark }}>{yMax || 'High'}</span>
+          {yLabel ? (
+            <span className="text-[10px] font-bold rotate-180" style={{ color: PRESENTATION_SEQUENCE.accentOnDark, writingMode: 'vertical-rl' as const }}>{yLabel}</span>
+          ) : <span />}
           <span className="text-[10px] font-bold" style={{ color: PRESENTATION_SEQUENCE.accentOnDark }}>{yMin || 'Low'}</span>
         </div>
         <div className="ml-6">
@@ -314,21 +325,29 @@ function Grid2x2Input({ xMin, xMax, yMin, yMax, onSubmit }: {
             className="relative rounded-xl overflow-hidden"
             style={{
               aspectRatio: '1', cursor: 'crosshair',
-              background: 'rgba(255,255,255,0.05)',
-              border: '1.5px solid rgba(255,255,255,0.15)',
+              background: 'rgba(255,255,255,0.06)',
+              border: '1.5px solid rgba(255,255,255,0.2)',
             }}>
-            {/* Grid lines */}
-            <div className="absolute left-1/2 top-0 bottom-0 w-px" style={{ background: 'rgba(255,255,255,0.15)' }} />
-            <div className="absolute top-1/2 left-0 right-0 h-px" style={{ background: 'rgba(255,255,255,0.15)' }} />
+            {/* Quadrant tints + crosshair (mirror the host/projector look). */}
+            <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 pointer-events-none">
+              <div style={{ background: 'rgba(99,102,241,0.07)' }} />
+              <div style={{ background: 'rgba(236,72,153,0.07)' }} />
+              <div style={{ background: 'rgba(16,185,129,0.07)' }} />
+              <div style={{ background: 'rgba(245,158,11,0.07)' }} />
+            </div>
+            <div className="absolute left-1/2 top-0 bottom-0" style={{ width: 1.5, transform: 'translateX(-50%)', background: 'rgba(255,255,255,0.22)' }} />
+            <div className="absolute top-1/2 left-0 right-0" style={{ height: 1.5, transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.22)' }} />
+            <div className="absolute left-1/2 top-1/2 w-1.5 h-1.5 rounded-full -translate-x-1/2 -translate-y-1/2" style={{ background: 'rgba(255,255,255,0.4)' }} />
             {/* Pin */}
             {pin && (
               <div className="absolute w-5 h-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white"
-                style={{ left: `${pin.x}%`, top: `${pin.y}%`, background: '#8B5CF6', boxShadow: '0 0 8px rgba(139,92,246,0.6)' }} />
+                style={{ left: `${pin.x}%`, top: `${pin.y}%`, background: '#8B5CF6', boxShadow: '0 0 10px rgba(139,92,246,0.7)' }} />
             )}
           </div>
           {/* X-axis labels */}
-          <div className="flex justify-between mt-1">
+          <div className="flex justify-between items-center mt-1">
             <span className="text-[10px] font-bold" style={{ color: PRESENTATION_SEQUENCE.accentOnDark }}>{xMin || 'Low'}</span>
+            {xLabel ? <span className="text-[10px] font-bold" style={{ color: PRESENTATION_SEQUENCE.accentOnDark }}>{xLabel}</span> : <span />}
             <span className="text-[10px] font-bold" style={{ color: PRESENTATION_SEQUENCE.accentOnDark }}>{xMax || 'High'}</span>
           </div>
         </div>
@@ -3264,7 +3283,7 @@ function JoinPageInner() {
           )}
 
           {slide.type === 'grid_2x2' && (
-            <Grid2x2Input xMin={slide.xMin} xMax={slide.xMax} yMin={slide.yMin} yMax={slide.yMax} onSubmit={submitVote} />
+            <Grid2x2Input xLabel={slide.xLabel} yLabel={slide.yLabel} xMin={slide.xMin} xMax={slide.xMax} yMin={slide.yMin} yMax={slide.yMax} onSubmit={submitVote} />
           )}
         </div>
       </div>
@@ -3561,14 +3580,40 @@ function JoinPageInner() {
         )
       }
 
-      // Pinpoint / grid_2x2 — just show count on mobile
-      if (slideType === 'pinpoint' || slideType === 'grid_2x2') {
-        const pinCount = agg.pins?.length ?? 0
+      // grid_2x2 — render the live dot-map (matches the host projector), not
+      // just a count. Pins arrive via presenter_aggregate_updated.
+      if (slideType === 'grid_2x2') {
+        const pins = (agg.pins ?? []) as { x: number; y: number }[]
         return (
-          <div className="text-center w-full space-y-2">
-            <p className="text-5xl font-black" style={{ color: '#FBD13B', fontFamily: 'var(--font-heading)' }}>{pinCount}</p>
-            <p className="text-base" style={{ color: 'rgba(255,255,255,0.5)' }}>
-              response{pinCount !== 1 ? 's' : ''} placed
+          <div className="w-full space-y-2">
+            <PinMap
+              pins={pins}
+              variant="grid"
+              xLabel={slide.xLabel as string | undefined}
+              yLabel={slide.yLabel as string | undefined}
+              xMin={slide.xMin as string | undefined}
+              xMax={slide.xMax as string | undefined}
+              yMin={slide.yMin as string | undefined}
+              yMax={slide.yMax as string | undefined}
+              labelColor="#E5E7EB"
+              size="sm"
+            />
+            <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              {pins.length} response{pins.length !== 1 ? 's' : ''} placed
+            </p>
+          </div>
+        )
+      }
+
+      // Pinpoint — show the image with all pins overlaid.
+      if (slideType === 'pinpoint') {
+        const pins = (agg.pins ?? []) as { x: number; y: number }[]
+        const imageUrl = typeof slide.imageUrl === 'string' ? slide.imageUrl : undefined
+        return (
+          <div className="w-full space-y-2">
+            <PinMap pins={pins} variant="image" imageUrl={imageUrl} size="sm" />
+            <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              {pins.length} pin{pins.length !== 1 ? 's' : ''} placed
             </p>
           </div>
         )
