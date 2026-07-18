@@ -335,12 +335,31 @@ function TitleBandChip({
         {isSet ? setLabel : idleLabel}
       </button>
       {open && (
-        <div
-          className="absolute right-0 top-full mt-1.5 z-50 rounded-xl bg-white p-3 text-left"
-          style={{ width: 280, border: '1px solid #E8EAED', boxShadow: '0 1px 2px rgba(15,27,61,0.04), 0 16px 40px rgba(15,27,61,0.14)' }}
-        >
-          {children}
-        </div>
+        <>
+          {/* Mobile: viewport-level overlay so the card can never overflow
+              either screen edge (the chip sits in the bottom-right corner,
+              so a right-anchored popover ran off the left edge on phones).
+              Desktop keeps the original anchored popover, unchanged. */}
+          <div
+            className="md:hidden fixed inset-0 z-[60] flex items-end justify-center p-3"
+            style={{ background: 'rgba(15,27,61,0.25)' }}
+            onClick={() => onOpenChange(false)}
+          >
+            <div
+              className="w-[calc(100vw-1.5rem)] max-w-[360px] rounded-xl bg-white p-3 text-left"
+              style={{ border: '1px solid #E8EAED', boxShadow: '0 1px 2px rgba(15,27,61,0.04), 0 16px 40px rgba(15,27,61,0.14)' }}
+              onClick={e => e.stopPropagation()}
+            >
+              {children}
+            </div>
+          </div>
+          <div
+            className="hidden md:block absolute right-0 top-full mt-1.5 z-50 rounded-xl bg-white p-3 text-left"
+            style={{ width: 280, border: '1px solid #E8EAED', boxShadow: '0 1px 2px rgba(15,27,61,0.04), 0 16px 40px rgba(15,27,61,0.14)' }}
+          >
+            {children}
+          </div>
+        </>
       )}
     </div>
   )
