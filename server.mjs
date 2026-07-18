@@ -750,6 +750,26 @@ function socketIp(socket) {
   return socket.handshake.address || 'unknown'
 }
 
+// Join-flood policy. The per-IP bucket used to be a single global 100/min,
+// which walled out real venues: a school/office NAT or Indian carrier CGNAT
+// fronts hundreds of players with ONE IP, so joins 101+ were rejected inside
+// the first minute (verified: scripts/load-test-session.mjs --shared-ip put
+// exactly 100 of 500 into the room). Split by outcome instead:
+//   - attempts against UNKNOWN codes stay on a global per-IP bucket — misses
+//     are the signature of code enumeration, the attack the old limit was for;
+//   - joins to a REAL session are counted per IP *per game code* and scaled by
+//     the host's plan, so one venue filling a Pro session neither trips the
+//     guard nor starves other games, while a flood aimed at a single free
+//     session stays bounded at today's level.
+// The per-socket 10/min cap remains the second line of defence in both cases.
+// Accepted trade-off: an IP holding SEVERAL valid codes gets a budget per code
+// rather than one shared 100/min — that's the same NAT reality (one school
+// running parallel classes), joins are non-destructive (hosts can kick), and
+// each free session stays individually bounded at today's level.
+const JOIN_MISS_PER_IP_PER_MIN = 100 // unknown-code attempts (enumeration guard)
+const JOIN_PER_IP_PER_MIN_FREE = 100 // one IP into one free session
+const JOIN_PER_IP_PER_MIN_PRO = 600  // one IP into one Pro session (500-player venue joins in <1 min)
+
 
 // Follow-up quiz store — keyed by unique 8-char code
 // { questions, quizTitle, label, createdAt }
@@ -2099,13 +2119,20 @@ app.prepare().then(async () => {
       const parsed = validateSocketPayload(socket, JoinSessionSchema, rawPayload, callback, 'join_presenter_session')
       if (!parsed) return
       const { gameCode, displayName, email, participantId: incomingPid } = parsed
-      if (!allowRate(`${socketIp(socket)}:join`, 100) || !allowRate(`${socket.id}:join`, 10)) {
-        callback({ success: false, error: 'Too many join attempts. Wait a minute and try again.' })
-        return
-      }
       const session = sessions.get(gameCode)
       if (!session || session.type !== 'presenter') {
+        // Same outcome-split rate policy as join_session (see above socketIp).
+        if (!allowRate(`${socketIp(socket)}:join-miss`, JOIN_MISS_PER_IP_PER_MIN) || !allowRate(`${socket.id}:join`, 10)) {
+          callback({ success: false, error: 'Too many join attempts. Wait a minute and try again.' })
+          return
+        }
         callback({ success: false, error: 'Presenter session not found.' })
+        return
+      }
+      const presenterPlan = await getSessionHostPlan(session)
+      const presenterIpCap = presenterPlan === 'pro' ? JOIN_PER_IP_PER_MIN_PRO : JOIN_PER_IP_PER_MIN_FREE
+      if (!allowRate(`${socketIp(socket)}:join:${gameCode}`, presenterIpCap) || !allowRate(`${socket.id}:join`, 10)) {
+        callback({ success: false, error: 'Too many join attempts. Wait a minute and try again.' })
         return
       }
       if (session.status === 'ended') {
@@ -2151,8 +2178,8 @@ app.prepare().then(async () => {
         }
       }
 
-      // Participant limit check for presenter sessions
-      const presenterPlan = await getSessionHostPlan(session)
+      // Participant limit check for presenter sessions — presenterPlan fetched
+      // above with a 60s TTL, so mid-session cancellations still take effect.
       const presenterMaxP = presenterPlan === 'pro' ? Infinity : 50
       if (getConnectedCount(session) >= presenterMaxP) {
         callback({ success: false, error: 'This session is full (max 50 participants on Free plan). The host can upgrade to Pro for unlimited participants.' })
@@ -2300,18 +2327,29 @@ app.prepare().then(async () => {
       const parsed = validateSocketPayload(socket, JoinSessionSchema, normalised, callback, 'join_session')
       if (!parsed) return
       const { gameCode, displayName, email, participantId: incomingPid } = parsed
-      // Per-IP first (catches code-enumeration across many sockets), then
-      // per-socket. Generous enough for classroom NAT where one IP fronts
-      // a whole lab, since legit rejoins carry participantId and succeed
-      // on the first try.
-      if (!allowRate(`${socketIp(socket)}:join`, 100) || !allowRate(`${socket.id}:join`, 10)) {
-        callback({ success: false, error: 'Too many join attempts. Wait a minute and try again.' })
-        return
-      }
       const session = sessions.get(gameCode)
 
       if (!session) {
+        // Unknown code: throttle on the global per-IP miss bucket (see the
+        // join-flood policy above socketIp) so code enumeration stays as
+        // expensive as it was before the per-session split. The per-socket cap
+        // is consumed here too so a single connection can't burn the IP budget.
+        if (!allowRate(`${socketIp(socket)}:join-miss`, JOIN_MISS_PER_IP_PER_MIN) || !allowRate(`${socket.id}:join`, 10)) {
+          callback({ success: false, error: 'Too many join attempts. Wait a minute and try again.' })
+          return
+        }
         callback({ success: false, error: 'Game not found. Check the code and try again.' })
+        return
+      }
+
+      // Venue-aware flood cap: per IP per game code, scaled by host plan.
+      // hostPlan is TTL-cached on the session (getSessionHostPlan), so this
+      // await costs at most one DB query per minute per session; the value is
+      // reused by the participant-limit check further down.
+      const hostPlan = await getSessionHostPlan(session)
+      const perIpJoinCap = hostPlan === 'pro' ? JOIN_PER_IP_PER_MIN_PRO : JOIN_PER_IP_PER_MIN_FREE
+      if (!allowRate(`${socketIp(socket)}:join:${gameCode}`, perIpJoinCap) || !allowRate(`${socket.id}:join`, 10)) {
+        callback({ success: false, error: 'Too many join attempts. Wait a minute and try again.' })
         return
       }
       if (session.status === 'ended') {
@@ -2376,9 +2414,9 @@ app.prepare().then(async () => {
         }
       }
 
-      // Participant limit check — re-query with TTL so cancellations take effect mid-session.
-      // Skipped above because reconnects (matched participantId) don't add to the headcount.
-      const hostPlan = await getSessionHostPlan(session)
+      // Participant limit check — hostPlan fetched above with a 60s TTL, so
+      // mid-session cancellations still take effect. Reconnects (matched
+      // participantId) returned before this point and skip the headcount.
       // Mirrors PLAN_LIMITS.free.maxParticipants in src/lib/limits.ts (Early Supporter boost).
       const maxParticipants = hostPlan === 'pro' ? Infinity : 100
       if (session.participants.size >= maxParticipants) {
