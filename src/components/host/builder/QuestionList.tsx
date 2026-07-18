@@ -84,53 +84,51 @@ function QuestionCard({
           stop pointer-down so a press on them never starts a drag. */}
       <div
         onClick={selectMode ? onToggleSelected : onSelect}
-        className={`relative group flex flex-col items-center justify-center gap-1.5 px-2 pt-3 pb-2.5 rounded-xl cursor-grab active:cursor-grabbing transition-all select-none ${
-          highlighted ? '' : 'hover:bg-gray-50'
-        } ${isDragging ? 'shadow-xl' : ''}`}
-        style={
+        className={`relative group flex flex-col justify-center gap-1 px-3 py-2.5 min-h-[76px] rounded-[10px] border cursor-grab active:cursor-grabbing select-none transition-[background-color,border-color] duration-150 ${
           highlighted
-            ? { background: '#EEF2FF', border: '1.5px solid #6366F1' }
-            : { border: '1.5px solid #EEF0F4' }
-        }
+            ? 'bg-[#F7F8FC] border-[#D5D9E6]'
+            : 'bg-white border-[#E8EAED] hover:border-[#D8DCE2] hover:bg-[#FAFBFC]'
+        } ${isDragging ? 'shadow-xl' : ''}`}
         {...attributes}
         {...listeners}
       >
-        {/* Index number — top-left */}
-        <span className="absolute top-1.5 left-2 text-[10px] font-bold leading-none text-gray-400">
-          {index + 1}
-        </span>
-
-        {/* Validation warning dot — top-right (hidden while ··· hover-menu shows) */}
-        {invalid && !selectMode && (
-          <span
-            className="absolute top-1.5 right-2 w-2 h-2 rounded-full group-hover:opacity-0 transition-opacity"
-            style={{ background: '#F59E0B' }}
-            title="This slide is incomplete"
-            aria-label="Slide incomplete"
-          />
+        {/* Active accent pill — absolute so every state shares identical box metrics */}
+        {highlighted && (
+          <span aria-hidden className="absolute left-0 top-2.5 bottom-2.5 w-[3px] rounded-full bg-[#6366F1]" />
         )}
+
+        {/* Meta row: number · type icon · type label · incomplete dot */}
+        <div className={`flex items-center gap-1.5 w-full ${selectMode ? 'pr-6' : ''}`}>
+          <span className="text-[10px] font-semibold leading-none text-gray-400 tabular-nums">{index + 1}</span>
+          <span className="flex items-center flex-shrink-0 [&>svg]:w-3.5 [&>svg]:h-3.5">{getTypeIcon(question.type)}</span>
+          <span className="text-[10px] font-semibold tracking-wide uppercase text-gray-500 truncate">{pill.label}</span>
+          {/* Validation warning dot (hidden while ··· hover-menu shows) */}
+          {invalid && !selectMode && (
+            <span
+              className="ml-auto w-1.5 h-1.5 rounded-full flex-shrink-0 group-hover:opacity-0 transition-opacity"
+              style={{ background: '#F59E0B' }}
+              title="This slide is incomplete"
+              aria-label="Slide incomplete"
+            />
+          )}
+        </div>
+
+        {/* Question text preview */}
+        <p className={`w-full text-left text-xs leading-snug line-clamp-2 ${question.text.trim() ? 'font-medium text-gray-800' : 'italic text-gray-400'}`}>
+          {question.text.trim() || 'Untitled question'}
+        </p>
 
         {/* Select-mode checkbox — top-right */}
         {selectMode && (
           <span
             aria-hidden
             onPointerDown={e => e.stopPropagation()}
-            className="absolute top-1.5 right-1.5 w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-extrabold"
+            className="absolute top-2 right-2 w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-extrabold"
             style={selected ? { background: '#6366F1', color: '#fff' } : { background: '#E5E7EB', color: '#9CA3AF' }}
           >
             {selected ? '✓' : ''}
           </span>
         )}
-
-        {/* Centered content-type icon */}
-        <div className="[&>svg]:w-7 [&>svg]:h-7 flex items-center justify-center">
-          {getTypeIcon(question.type)}
-        </div>
-
-        {/* Type label */}
-        <span className="text-[11px] font-semibold leading-tight text-center" style={{ color: '#374151' }}>
-          {pill.label}
-        </span>
 
         {/* ··· context menu trigger — top-right on hover */}
         {!selectMode && (
@@ -149,8 +147,8 @@ function QuestionCard({
               {/* backdrop */}
               <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
               <div
-                className="absolute right-0 top-full mt-0.5 z-50 rounded-xl shadow-xl border bg-white py-1 overflow-hidden"
-                style={{ width: 140, borderColor: '#E5E7EB' }}
+                className="absolute right-0 top-full mt-0.5 z-50 rounded-[10px] border bg-white py-1 overflow-hidden"
+                style={{ width: 140, borderColor: '#E8EAED', boxShadow: '0 1px 2px rgba(15,27,61,0.04), 0 8px 24px rgba(15,27,61,0.06)' }}
               >
                 <button
                   type="button"
@@ -336,10 +334,11 @@ export function QuestionList({
         <button
           type="button"
           onClick={() => setPickerOpen(true)}
-          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all hover:brightness-95"
-          style={{ background: '#0F1B3D', color: '#FBD13B' }}
+          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-bold transition-[filter,transform] duration-150 hover:brightness-110 active:scale-[0.99]"
+          style={{ background: '#0F1B3D', color: '#FBD13B', boxShadow: '0 1px 2px rgba(15,27,61,0.25)' }}
         >
-          <span className="text-base leading-none">+</span> Add
+          <svg viewBox="0 0 14 14" fill="none" className="w-3.5 h-3.5"><path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+          Add
         </button>
       </div>
 

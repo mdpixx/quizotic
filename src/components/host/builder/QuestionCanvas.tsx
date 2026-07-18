@@ -49,6 +49,7 @@ import {
 import { getTypeIcon, getTypeIllustration } from '@/lib/quiz-type-icons'
 import { QuestionSettingsPopover } from './QuestionSettingsPopover'
 import { SparkleIcon } from './SparkleIcon'
+import { ImageUpload } from '@/components/ImageUpload'
 
 // ── AutoGrowTextarea ─────────────────────────────────────────────────────────
 
@@ -188,8 +189,8 @@ function TypeDropdown({ type, onChange }: { type: QuestionType; onChange: (t: Qu
       </button>
       {open && (
         <div
-          className="absolute top-full left-0 mt-1 z-50 rounded-xl shadow-xl border bg-white overflow-y-auto overscroll-contain"
-          style={{ width: 260, maxHeight: 'min(60vh, 360px)', borderColor: '#E5E7EB' }}
+          className="absolute top-full left-0 mt-1 z-50 rounded-xl border bg-white overflow-y-auto overscroll-contain"
+          style={{ width: 260, maxHeight: 'min(60vh, 360px)', borderColor: '#E8EAED', boxShadow: '0 1px 2px rgba(15,27,61,0.04), 0 16px 40px rgba(15,27,61,0.14)' }}
         >
           {QUESTION_TYPE_GROUPS.map(group => (
             <div key={group.label}>
@@ -248,7 +249,7 @@ function ChipPicker<T extends number>({
         {formatter(value)}
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 rounded-xl shadow-xl border bg-white py-1.5" style={{ minWidth: 110, borderColor: '#E5E7EB' }}>
+        <div className="absolute top-full left-0 mt-1 z-50 rounded-xl border bg-white py-1.5" style={{ minWidth: 110, borderColor: '#E8EAED', boxShadow: '0 1px 2px rgba(15,27,61,0.04), 0 16px 40px rgba(15,27,61,0.14)' }}>
           {options.map(opt => (
             <button
               key={opt}
@@ -288,6 +289,63 @@ function SparkleButton({ label, onClick, loading = false }: { label: string; onC
   )
 }
 
+// ── Title-band detail chip (Add image / Add explanation) ─────────────────────
+
+// Quiet, always-visible entry points for the per-question details that used to
+// hide behind the settings icon. `open` is controlled so the media region's
+// "Replace" pill can reopen the image popover from outside the chip.
+function TitleBandChip({
+  open,
+  onOpenChange,
+  isSet,
+  idleLabel,
+  setLabel,
+  icon,
+  children,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  isSet: boolean
+  idleLabel: string
+  setLabel: string
+  icon: React.ReactNode
+  children: React.ReactNode
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    function close(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onOpenChange(false)
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [open, onOpenChange])
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => onOpenChange(!open)}
+        className={`flex items-center gap-1.5 text-[11px] font-semibold rounded-full px-2.5 py-1 border backdrop-blur-sm transition-[opacity,border-color,color,transform] duration-150 active:scale-[0.97] ${
+          isSet
+            ? 'text-green-700 bg-green-50/90 border-green-200'
+            : 'text-gray-500 bg-white/70 border-[#E3E5E9] opacity-75 hover:opacity-100 hover:text-gray-900'
+        }`}
+      >
+        {icon}
+        {isSet ? setLabel : idleLabel}
+      </button>
+      {open && (
+        <div
+          className="absolute right-0 top-full mt-1.5 z-50 rounded-xl bg-white p-3 text-left"
+          style={{ width: 280, border: '1px solid #E8EAED', boxShadow: '0 1px 2px rgba(15,27,61,0.04), 0 16px 40px rgba(15,27,61,0.14)' }}
+        >
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main QuestionCanvas component ─────────────────────────────────────────────
 
 export interface QuestionCanvasProps {
@@ -315,7 +373,15 @@ export function QuestionCanvas({
   const scored = isScoredQuestion(question)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [aiOptionsLoading, setAiOptionsLoading] = useState(false)
+  const [imageChipOpen, setImageChipOpen] = useState(false)
+  const [explanationChipOpen, setExplanationChipOpen] = useState(false)
   const settingsRef = useRef<HTMLDivElement>(null)
+
+  // Status row state — always mounted (fixed height) so marking a correct
+  // answer flips the row's colors in place instead of collapsing it, which
+  // used to shift the option grid up by ~40px.
+  const needsAnswer = needsCorrectAnswer(question.type)
+  const answerMarked = hasCorrectAnswer(question.type, question)
 
   const rankingSensors = useSensors(
     useSensor(PointerSensor),
@@ -453,7 +519,7 @@ export function QuestionCanvas({
   if (question.type === 'leaderboard') {
     const topN = question.topN ?? 5
     return (
-      <div className="flex flex-col h-full bg-white rounded-2xl" style={{ boxShadow: '0 4px 32px rgba(15,27,61,0.08)', border: '1px solid #E5E7EB' }}>
+      <div className="flex flex-col h-full bg-white rounded-2xl" style={{ boxShadow: '0 1px 2px rgba(15,27,61,0.04), 0 8px 24px rgba(15,27,61,0.06)', border: '1px solid #E8EAED' }}>
         {/* Header: type dropdown + actions */}
         <div className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 border-b sm:gap-2 sm:px-4 rounded-t-2xl" style={{ borderColor: '#F3F4F6', background: '#FAFAFA' }}>
           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
@@ -466,19 +532,19 @@ export function QuestionCanvas({
             <button
               type="button"
               onClick={onDuplicate}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-[10px] text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
               title="Duplicate slide"
             >
-              <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><rect x="6" y="6" width="9" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.5"/><path d="M4 14V5a1 1 0 011-1h9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4 sm:w-[18px] sm:h-[18px]"><rect x="6" y="6" width="9" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.5"/><path d="M4 14V5a1 1 0 011-1h9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
             </button>
             {total > 1 && (
               <button
                 type="button"
                 onClick={onDelete}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 active:scale-95 transition-all"
+                className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-[10px] text-gray-500 hover:text-red-600 hover:bg-red-50 active:scale-95 transition-all"
                 title="Delete slide"
               >
-                <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><path d="M7 8v7m3-7v7m3-7v7M4 5h12M8 5V4h4v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4 sm:w-[18px] sm:h-[18px]"><path d="M7 8v7m3-7v7m3-7v7M4 5h12M8 5V4h4v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
               </button>
             )}
           </div>
@@ -541,7 +607,7 @@ export function QuestionCanvas({
   }
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-2xl" style={{ boxShadow: '0 4px 32px rgba(15,27,61,0.08)', border: '1px solid #E5E7EB' }}>
+    <div className="flex flex-col h-full bg-white rounded-2xl" style={{ boxShadow: '0 1px 2px rgba(15,27,61,0.04), 0 8px 24px rgba(15,27,61,0.06)', border: '1px solid #E8EAED' }}>
 
       {/* ── Canvas header: type + timer + points + gear + actions ─────────── */}
       <div className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 border-b sm:gap-2 sm:px-4 rounded-t-2xl" style={{ borderColor: '#F3F4F6', background: '#FAFAFA' }}>
@@ -584,10 +650,10 @@ export function QuestionCanvas({
         <button
           type="button"
           onClick={onDuplicate}
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+          className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-[10px] text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
           title="Duplicate question"
         >
-          <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><rect x="6" y="6" width="9" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.5"/><path d="M4 14V5a1 1 0 011-1h9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+          <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4 sm:w-[18px] sm:h-[18px]"><rect x="6" y="6" width="9" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.5"/><path d="M4 14V5a1 1 0 011-1h9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
         </button>
 
         {/* Delete */}
@@ -595,23 +661,23 @@ export function QuestionCanvas({
           <button
             type="button"
             onClick={onDelete}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 active:scale-95 transition-all"
+            className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-[10px] text-gray-500 hover:text-red-600 hover:bg-red-50 active:scale-95 transition-all"
             title="Delete question"
           >
-            <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><path d="M7 8v7m3-7v7m3-7v7M4 5h12M8 5V4h4v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4 sm:w-[18px] sm:h-[18px]"><path d="M7 8v7m3-7v7m3-7v7M4 5h12M8 5V4h4v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
           </button>
         )}
 
-        {/* Gear → settings popover */}
+        {/* Sliders → question details popover */}
         <div ref={settingsRef} className="relative">
           <button
             type="button"
             onClick={() => setSettingsOpen(o => !o)}
-            className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
-            style={{ color: settingsOpen ? '#7C3AED' : '#9CA3AF' }}
-            title="Question settings"
+            className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-[10px] transition-colors hover:bg-gray-100"
+            style={{ color: settingsOpen ? '#7C3AED' : '#6B7280' }}
+            title="Question details"
           >
-            <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><circle cx="10" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.5"/><path d="M10 2.5v1m0 13v1M2.5 10h1m13 0h1M4.1 4.1l.7.7m10.1 10.1.7.7M4.1 15.9l.7-.7M14.9 5.1l.7-.7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4 sm:w-[18px] sm:h-[18px]"><path d="M3 6h14M3 10h14M3 14h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><circle cx="7.5" cy="6" r="2.1" fill="#FAFAFA" stroke="currentColor" strokeWidth="1.5"/><circle cx="13" cy="10" r="2.1" fill="#FAFAFA" stroke="currentColor" strokeWidth="1.5"/><circle cx="9" cy="14" r="2.1" fill="#FAFAFA" stroke="currentColor" strokeWidth="1.5"/></svg>
           </button>
           {settingsOpen && (
             <QuestionSettingsPopover
@@ -643,12 +709,85 @@ export function QuestionCanvas({
           className={`w-full font-bold text-center bg-transparent outline-none resize-none border border-transparent hover:border-blue-200 hover:bg-blue-50/40 focus:border-transparent focus:ring-2 focus:ring-blue-100 rounded-lg transition-all leading-snug cursor-text ${questionTextSizeClass(question.text)}`}
           style={{ color: '#0F1B3D' }}
         />
+
+        {/* Detail chips — bottom-right, absolute so they consume no band height */}
+        <div className="absolute bottom-2 right-3 flex gap-1.5 z-10">
+          <TitleBandChip
+            open={imageChipOpen}
+            onOpenChange={setImageChipOpen}
+            isSet={!!question.imageUrl}
+            idleLabel="Add image"
+            setLabel="Image ✓"
+            icon={
+              <svg viewBox="0 0 14 14" fill="none" className="w-3 h-3 flex-shrink-0"><rect x="1" y="2" width="12" height="10" rx="2" stroke="currentColor" strokeWidth="1.3"/><circle cx="4.8" cy="5.5" r="1.2" stroke="currentColor" strokeWidth="1.1"/><path d="M1.5 10.5l3-3 2.5 2.5 2.5-3 3 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            }
+          >
+            <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: '#9CA3AF' }}>Image</p>
+            <ImageUpload
+              imageUrl={question.imageUrl}
+              onUpload={url => { onChange({ imageUrl: url }); setImageChipOpen(false) }}
+              onRemove={() => onChange({ imageUrl: undefined })}
+              variant="question"
+            />
+          </TitleBandChip>
+          <TitleBandChip
+            open={explanationChipOpen}
+            onOpenChange={setExplanationChipOpen}
+            isSet={!!question.explanation?.trim()}
+            idleLabel={question.type === 'case' ? 'Add debrief' : 'Add explanation'}
+            setLabel={question.type === 'case' ? 'Debrief ✓' : 'Explanation ✓'}
+            icon={
+              <svg viewBox="0 0 14 14" fill="none" className="w-3 h-3 flex-shrink-0"><path d="M3 1.5h6.5L12 4v8.5a1 1 0 01-1 1H3a1 1 0 01-1-1v-10a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><path d="M4.5 6.5h5M4.5 9h5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+            }
+          >
+            <p className="text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color: '#9CA3AF' }}>
+              {question.type === 'case' ? 'Debrief' : 'Explanation'}
+            </p>
+            <p className="text-[11px] text-gray-400 mb-2">Shown after participants answer.</p>
+            <textarea
+              value={question.explanation ?? ''}
+              onChange={e => onChange({ explanation: e.target.value || undefined })}
+              placeholder={
+                question.type === 'case'
+                  ? "Expert reasoning — what's the right call and why?"
+                  : 'Why is this the correct answer?'
+              }
+              rows={3}
+              maxLength={500}
+              autoFocus
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+            />
+          </TitleBandChip>
+        </div>
       </div>
 
       {/* ── Image preview (if set) ──────────────────────────────────────── */}
       {question.imageUrl && (
-        <div className="flex-shrink-0 flex items-center justify-center bg-gray-50 border-b" style={{ height: 'clamp(120px, 26vh, 320px)', borderColor: '#E5E7EB' }}>
-          <img src={question.imageUrl} alt="" className="max-w-full max-h-full object-contain" />
+        <div className="flex-shrink-0 px-6 pt-4">
+          <div
+            className="relative group rounded-xl flex items-center justify-center overflow-hidden"
+            style={{ height: 'clamp(180px, 28vh, 320px)', background: '#F5F6F8', boxShadow: 'inset 0 0 0 1px rgba(15,27,61,0.06)' }}
+          >
+            <img src={question.imageUrl} alt="" className="max-w-full max-h-full object-contain" />
+            <div className="absolute top-2.5 right-2.5 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                type="button"
+                onClick={() => setImageChipOpen(true)}
+                className="text-[11px] font-semibold text-gray-700 hover:text-gray-900 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-sm transition-colors"
+                style={{ border: '1px solid #E3E5E9' }}
+              >
+                Replace
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange({ imageUrl: undefined })}
+                className="text-[11px] font-semibold text-gray-700 hover:text-red-600 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-sm transition-colors hover:border-red-200"
+                style={{ border: '1px solid #E3E5E9' }}
+              >
+                Remove
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -660,12 +799,34 @@ export function QuestionCanvas({
         {/* MCQ / multi-select / T-F / Poll / Case — coloured option tiles */}
         {(question.type === 'mcq' || question.type === 'multiselect' || question.type === 'truefalse' || question.type === 'poll' || question.type === 'case') && opts.length > 0 && (
           <>
-            {needsCorrectAnswer(question.type) && !hasCorrectAnswer(question.type, question) && (
-              <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium" style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}>
-                <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0" style={{ background: '#F59E0B', color: '#fff' }}>!</span>
-                {question.type === 'multiselect'
-                  ? 'Mark every correct option using the check buttons.'
-                  : 'Mark the one correct answer using the check button.'}
+            {/* Always mounted with a fixed height: marking a correct answer
+                flips the colors in place — the option grid never moves. */}
+            {needsAnswer && (
+              <div
+                className="flex-shrink-0 flex items-center gap-2 rounded-[10px] px-3 text-xs font-medium overflow-hidden"
+                style={{
+                  height: 38,
+                  background: answerMarked ? '#F0FDF4' : '#FFFBEB',
+                  border: `1px solid ${answerMarked ? '#BBF7D0' : '#FDE68A'}`,
+                  color: answerMarked ? '#166534' : '#92400E',
+                  transition: 'background-color .18s ease, border-color .18s ease, color .18s ease',
+                }}
+              >
+                <span
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0"
+                  style={{ background: answerMarked ? '#22C55E' : '#F59E0B', color: '#fff', transition: 'background-color .18s ease' }}
+                >
+                  {answerMarked ? '✓' : '!'}
+                </span>
+                <span className="truncate">
+                  {answerMarked
+                    ? (question.type === 'multiselect'
+                        ? `${(question.correctAnswers ?? []).length} correct marked`
+                        : 'Correct answer set')
+                    : (question.type === 'multiselect'
+                        ? 'Mark every correct option below.'
+                        : 'Mark the correct answer with the check button.')}
+                </span>
               </div>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -678,16 +839,17 @@ export function QuestionCanvas({
                 return (
                   <div
                     key={i}
-                    className="relative overflow-hidden rounded-xl min-h-[clamp(64px,11vh,88px)] flex"
+                    className="relative overflow-hidden rounded-xl min-h-[clamp(72px,12vh,96px)] flex"
                     style={{
                       background: c.hex,
                       boxShadow: isCorrect
                         ? `0 0 0 3px #FDE047, 0 2px 0 ${c.hexDark}`
                         : `0 2px 0 ${c.hexDark}`,
+                      transition: 'box-shadow .18s ease',
                     }}
                   >
                     <CharCount value={optText} limit={OPTION_CHAR_LIMIT} />
-                    <div className="flex items-center gap-3 px-3 py-3 w-full">
+                    <div className="flex items-stretch gap-3 px-3 py-2 w-full">
                       {/* Correct-answer toggle — poll/case have no correct
                           answer, so they get a plain letter chip instead of a
                           button that would silently do nothing. */}
@@ -695,7 +857,7 @@ export function QuestionCanvas({
                         <button
                           type="button"
                           onClick={() => handleCorrectToggle(i)}
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-black text-white flex-shrink-0 transition-all hover:scale-110"
+                          className="self-center w-8 h-8 rounded-full flex items-center justify-center text-sm font-black text-white flex-shrink-0 transition-all hover:scale-110"
                           style={{ background: 'rgba(255,255,255,0.25)', border: isCorrect ? '2px solid #FDE047' : '2px solid transparent' }}
                           title="Mark correct"
                         >
@@ -703,30 +865,41 @@ export function QuestionCanvas({
                         </button>
                       ) : (
                         <span
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-black text-white flex-shrink-0"
+                          className="self-center w-8 h-8 rounded-full flex items-center justify-center text-sm font-black text-white flex-shrink-0"
                           style={{ background: 'rgba(255,255,255,0.25)' }}
                         >
                           {c.letter}
                         </span>
                       )}
-                      {/* Option text */}
-                      <AutoGrowTextarea
-                        value={optText}
-                        onChange={e => handleOptionChange(i, e.target.value.replace(/\n/g, ''))}
-                        onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
-                        placeholder={`Option ${c.letter}`}
-                        disabled={question.type === 'truefalse'}
-                        maxLength={100}
-                        wrapperClassName="flex-1 min-w-0"
-                        className="w-full text-sm font-bold bg-transparent outline-none border border-transparent hover:border-white/40 hover:bg-white/10 focus:border-white/40 focus:bg-white/10 text-white placeholder:text-white/60 disabled:opacity-70 resize-none leading-snug rounded transition-all cursor-text"
-                        style={{ textShadow: '0 1px 2px rgba(0,0,0,0.15)' }}
-                      />
+                      {/* Option text — the hover/focus cue lives on this full-height
+                          wrapper so the whole area reads (and works) as a text field,
+                          while the textarea inside stays vertically centered. */}
+                      <div
+                        onClick={e => e.currentTarget.querySelector('textarea')?.focus()}
+                        className={`flex-1 min-w-0 self-stretch flex items-center rounded-lg border border-transparent px-2 py-1.5 ${
+                          question.type === 'truefalse'
+                            ? ''
+                            : 'cursor-text transition-[background-color,border-color] duration-150 hover:border-white/45 hover:bg-white/[0.14] focus-within:border-white/45 focus-within:bg-white/[0.14]'
+                        }`}
+                      >
+                        <AutoGrowTextarea
+                          value={optText}
+                          onChange={e => handleOptionChange(i, e.target.value.replace(/\n/g, ''))}
+                          onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
+                          placeholder={`Option ${c.letter}`}
+                          disabled={question.type === 'truefalse'}
+                          maxLength={100}
+                          wrapperClassName="w-full min-w-0"
+                          className="w-full text-sm font-bold bg-transparent outline-none border-0 text-white placeholder:text-white/60 disabled:opacity-70 resize-none leading-snug cursor-text"
+                          style={{ textShadow: '0 1px 2px rgba(0,0,0,0.15)' }}
+                        />
+                      </div>
                       {/* Remove option button (not for truefalse, min 2 options) */}
                       {question.type !== 'truefalse' && opts.length > 2 && (
                         <button
                           type="button"
                           onClick={() => handleRemoveOption(i)}
-                          className="text-white/50 hover:text-white transition-colors text-lg leading-none flex-shrink-0"
+                          className="self-center text-white/50 hover:text-white transition-colors text-lg leading-none flex-shrink-0"
                           title="Remove option"
                         >
                           &times;
@@ -811,7 +984,7 @@ export function QuestionCanvas({
         {/* Open-ended placeholder */}
         {question.type === 'openended' && (
           <div className="py-6 px-4">
-            <div className="rounded-xl p-5 text-center" style={{ border: '1.5px dashed #D1D5DB' }}>
+            <div className="rounded-xl p-5 text-center" style={{ border: '1px dashed #D3D7DD' }}>
               <p className="text-sm text-gray-300">Free-text responses appear here during the session</p>
             </div>
           </div>
@@ -860,7 +1033,7 @@ export function QuestionCanvas({
                 type="button"
                 onClick={handleBlankAdd}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors"
-                style={{ background: '#F3F4F6', color: '#374151', border: '1px dashed #D1D5DB' }}
+                style={{ background: '#F9FAFB', color: '#374151', border: '1px dashed #D3D7DD' }}
               >
                 <span className="text-sm leading-none">+</span> Add accepted answer
               </button>
@@ -908,7 +1081,7 @@ export function QuestionCanvas({
                 type="button"
                 onClick={handlePairAdd}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors"
-                style={{ background: '#F3F4F6', color: '#374151', border: '1px dashed #D1D5DB' }}
+                style={{ background: '#F9FAFB', color: '#374151', border: '1px dashed #D3D7DD' }}
               >
                 <span className="text-sm leading-none">+</span> Add pair
               </button>
@@ -923,7 +1096,7 @@ export function QuestionCanvas({
               type="button"
               onClick={handleAddOption}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors"
-              style={{ background: '#F3F4F6', color: '#374151', border: '1px dashed #D1D5DB' }}
+              style={{ background: '#F9FAFB', color: '#374151', border: '1px dashed #D3D7DD' }}
             >
               <span className="text-sm leading-none">+</span> Add option
             </button>

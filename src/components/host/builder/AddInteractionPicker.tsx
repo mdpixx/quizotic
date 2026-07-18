@@ -13,7 +13,7 @@
 import React from 'react'
 import type { QuestionType } from '@/lib/quiz-types'
 import { TYPE_PILLS, QUESTION_TYPE_GROUPS } from '@/lib/quiz-builder-logic'
-import { getTypeIllustration } from '@/lib/quiz-type-icons'
+import { getTypeIcon, getTypeIllustration } from '@/lib/quiz-type-icons'
 import { SparkleIcon } from './SparkleIcon'
 
 export interface AddInteractionPickerProps {
@@ -26,18 +26,19 @@ export function AddInteractionPicker({ onAdd, onGenerateAI, onClose }: AddIntera
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[3px]" onClick={onClose} />
 
       {/* Panel — wider to fit the larger illustrated cards */}
       <div
-        className="fixed z-50 rounded-2xl shadow-2xl border bg-white overflow-y-auto"
+        className="fixed z-50 rounded-[20px] border bg-white overflow-y-auto"
         style={{
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          width: 'min(620px, 95vw)',
+          width: 'min(680px, 94vw)',
           maxHeight: '82vh',
-          borderColor: '#E5E7EB',
+          borderColor: '#E8EAED',
+          boxShadow: '0 24px 64px rgba(15,27,61,0.22)',
         }}
       >
         {/* Header */}
@@ -60,10 +61,10 @@ export function AddInteractionPicker({ onAdd, onGenerateAI, onClose }: AddIntera
           <button
             type="button"
             onClick={onGenerateAI}
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all hover:brightness-97"
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[14px] text-left transition-shadow duration-150 hover:shadow-[0_8px_24px_rgba(124,58,237,0.12)]"
             style={{
               background: 'linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%)',
-              border: '1.5px solid #DDD6FE',
+              border: '1px solid #E4DEFA',
             }}
           >
             <span className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#7C3AED', color: '#fff' }}>
@@ -89,19 +90,22 @@ export function AddInteractionPicker({ onAdd, onGenerateAI, onClose }: AddIntera
                       key={type}
                       type="button"
                       onClick={() => onAdd(type)}
-                      className="flex flex-col rounded-2xl overflow-hidden text-left transition-all hover:-translate-y-0.5 hover:shadow-lg"
-                      style={{ border: `1.5px solid ${p.color}22` }}
+                      className="flex flex-col rounded-[14px] overflow-hidden text-left border border-[#E8EAED] transition-[border-color,box-shadow,transform] duration-150 hover:border-[#D5D9E0] hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(15,27,61,0.10)]"
                     >
                       {/* Illustration */}
                       <div
                         className="w-full flex items-center justify-center overflow-hidden"
-                        style={{ background: p.bg, height: 120 }}
+                        style={{ background: p.bg, height: 108 }}
                       >
                         {getTypeIllustration(type)}
                       </div>
-                      {/* Label + description */}
-                      <div className="px-3.5 py-3 bg-white border-t" style={{ borderColor: `${p.color}18` }}>
-                        <p className="text-sm font-black leading-tight" style={{ color: p.color }}>{p.label}</p>
+                      {/* Label + description — neutral title; the accent lives in
+                          the icon and illustration */}
+                      <div className="px-3.5 py-3 bg-white border-t" style={{ borderColor: '#F1F2F4' }}>
+                        <p className="flex items-center gap-1.5 text-sm font-bold leading-tight" style={{ color: '#111827' }}>
+                          <span className="flex-shrink-0 [&>svg]:w-4 [&>svg]:h-4">{getTypeIcon(type)}</span>
+                          {p.label}
+                        </p>
                         <p className="text-[11px] mt-1 leading-snug" style={{ color: '#64748B' }}>{p.tooltip}</p>
                       </div>
                     </button>
