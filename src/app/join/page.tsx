@@ -21,6 +21,9 @@ import { isContentSlideType, isInteractiveSlideType } from '@/lib/presentation-t
 import { isScoredType, getEffectiveOptions } from '@/lib/quiz-types'
 import type { Question as QuizQuestion, QuestionType } from '@/lib/quiz-types'
 import { SlideImage } from '@/components/SlideImage'
+import { SpinWheel } from '@/components/presentation/SpinWheel'
+import { PinMap } from '@/components/presentation/PinMap'
+import { getVideoEmbedUrl } from '@/lib/video'
 import { ANSWER_COLORS, ANSWER_LETTERS } from '@/lib/answer-colors'
 import { useConfetti } from '@/hooks/useConfetti'
 import { useWakeLock } from '@/hooks/useWakeLock'
@@ -30,9 +33,12 @@ import { track } from '@/lib/analytics'
 function phaseForPresenterSlide(
   slideType: string | undefined,
   mirrorOn: boolean,
-): 'presenter-voting' | 'presenter-content' | 'presenter-waiting' | 'presenter-lobby' {
+): 'presenter-voting' | 'presenter-content' | 'presenter-waiting' | 'presenter-lobby' | 'presenter-mirror' {
   // Interactive slides always wake the participant phone — they have an input.
   if (isInteractiveSlideType(slideType)) return 'presenter-voting'
+  // Wheel of Names: no audience input, but everyone must see the wheel + the
+  // server-authoritative winner live. Mirror to every participant phone.
+  if (slideType === 'wheel') return 'presenter-mirror'
   // Content slides mirror ONLY when the host has explicitly turned mirror on;
   // otherwise participants sit on a passive "waiting" screen so they aren't
   // pulled into their phones during lecture content.
@@ -52,7 +58,7 @@ const SortableRankingBoard = dynamic(() => import('@/components/join/SortableRan
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Phase = 'form' | 'connecting' | 'lobby' | 'question' | 'answered' | 'standings' | 'ended' | 'selfpaced' | 'selfpaced-done'
   | 'presenter-lobby' | 'presenter-content' | 'presenter-voting' | 'presenter-voted' | 'presenter-results'
-  | 'presenter-waiting'
+  | 'presenter-waiting' | 'presenter-mirror'
 
 interface PresenterAggregateData {
   total: number
@@ -280,7 +286,8 @@ function PinpointInput({ imageUrl, onSubmit }: {
 }
 
 // ─── Grid 2x2 Component ─────────────────────────────────────────────────────
-function Grid2x2Input({ xMin, xMax, yMin, yMax, onSubmit }: {
+function Grid2x2Input({ xLabel, yLabel, xMin, xMax, yMin, yMax, onSubmit }: {
+  xLabel?: string; yLabel?: string
   xMin?: string; xMax?: string; yMin?: string; yMax?: string
   onSubmit: (value: { x: number; y: number }) => void
 }) {
@@ -297,11 +304,20 @@ function Grid2x2Input({ xMin, xMax, yMin, yMax, onSubmit }: {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-center opacity-50" style={{ color: 'white' }}>Tap to place yourself on the grid</p>
+      <div className="flex items-center justify-center gap-2 py-2 px-3 rounded-xl"
+        style={{ background: 'rgba(34,211,238,0.12)', border: '1px solid rgba(34,211,238,0.35)' }}>
+        <span className="text-base">📍</span>
+        <p className="text-sm font-bold" style={{ color: PRESENTATION_SEQUENCE.accentOnDark }}>
+          {pin ? 'Tap again to move your spot' : 'Tap anywhere on the grid to place yourself'}
+        </p>
+      </div>
       <div className="relative">
-        {/* Y-axis label */}
-        <div className="absolute -left-1 top-0 bottom-0 flex flex-col justify-between items-center py-1 z-10" style={{ width: 20 }}>
+        {/* Y-axis label column */}
+        <div className="absolute -left-1 top-0 bottom-0 flex flex-col justify-between items-center py-1 z-10" style={{ width: 22 }}>
           <span className="text-[10px] font-bold" style={{ color: PRESENTATION_SEQUENCE.accentOnDark }}>{yMax || 'High'}</span>
+          {yLabel ? (
+            <span className="text-[10px] font-bold rotate-180" style={{ color: PRESENTATION_SEQUENCE.accentOnDark, writingMode: 'vertical-rl' as const }}>{yLabel}</span>
+          ) : <span />}
           <span className="text-[10px] font-bold" style={{ color: PRESENTATION_SEQUENCE.accentOnDark }}>{yMin || 'Low'}</span>
         </div>
         <div className="ml-6">
@@ -310,21 +326,29 @@ function Grid2x2Input({ xMin, xMax, yMin, yMax, onSubmit }: {
             className="relative rounded-xl overflow-hidden"
             style={{
               aspectRatio: '1', cursor: 'crosshair',
-              background: 'rgba(255,255,255,0.05)',
-              border: '1.5px solid rgba(255,255,255,0.15)',
+              background: 'rgba(255,255,255,0.06)',
+              border: '1.5px solid rgba(255,255,255,0.2)',
             }}>
-            {/* Grid lines */}
-            <div className="absolute left-1/2 top-0 bottom-0 w-px" style={{ background: 'rgba(255,255,255,0.15)' }} />
-            <div className="absolute top-1/2 left-0 right-0 h-px" style={{ background: 'rgba(255,255,255,0.15)' }} />
+            {/* Quadrant tints + crosshair (mirror the host/projector look). */}
+            <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 pointer-events-none">
+              <div style={{ background: 'rgba(99,102,241,0.07)' }} />
+              <div style={{ background: 'rgba(236,72,153,0.07)' }} />
+              <div style={{ background: 'rgba(16,185,129,0.07)' }} />
+              <div style={{ background: 'rgba(245,158,11,0.07)' }} />
+            </div>
+            <div className="absolute left-1/2 top-0 bottom-0" style={{ width: 1.5, transform: 'translateX(-50%)', background: 'rgba(255,255,255,0.22)' }} />
+            <div className="absolute top-1/2 left-0 right-0" style={{ height: 1.5, transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.22)' }} />
+            <div className="absolute left-1/2 top-1/2 w-1.5 h-1.5 rounded-full -translate-x-1/2 -translate-y-1/2" style={{ background: 'rgba(255,255,255,0.4)' }} />
             {/* Pin */}
             {pin && (
               <div className="absolute w-5 h-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white"
-                style={{ left: `${pin.x}%`, top: `${pin.y}%`, background: '#8B5CF6', boxShadow: '0 0 8px rgba(139,92,246,0.6)' }} />
+                style={{ left: `${pin.x}%`, top: `${pin.y}%`, background: '#8B5CF6', boxShadow: '0 0 10px rgba(139,92,246,0.7)' }} />
             )}
           </div>
           {/* X-axis labels */}
-          <div className="flex justify-between mt-1">
+          <div className="flex justify-between items-center mt-1">
             <span className="text-[10px] font-bold" style={{ color: PRESENTATION_SEQUENCE.accentOnDark }}>{xMin || 'Low'}</span>
+            {xLabel ? <span className="text-[10px] font-bold" style={{ color: PRESENTATION_SEQUENCE.accentOnDark }}>{xLabel}</span> : <span />}
             <span className="text-[10px] font-bold" style={{ color: PRESENTATION_SEQUENCE.accentOnDark }}>{xMax || 'High'}</span>
           </div>
         </div>
@@ -335,6 +359,85 @@ function Grid2x2Input({ xMin, xMax, yMin, yMax, onSubmit }: {
         style={{ background: PRESENTATION_SEQUENCE.accent, color: PRESENTATION_SEQUENCE.accentText, border: '2px solid rgba(255,255,255,0.25)' }}>
         {pin ? 'Submit' : 'Tap the grid first'}
       </button>
+    </div>
+  )
+}
+
+// ─── Participant Wheel Mirror (Wheel of Names — passive viewer) ──────────────
+// Participants don't spin; they watch the host's spin live. The server is
+// authoritative for the winner + target rotation, broadcast via
+// `presenter_wheel_result`. This component animates `<SpinWheel>` to that
+// rotation identically to the host projector so every phone reveals the same
+// winner at the same time.
+function ParticipantWheelMirror({
+  title,
+  names,
+  result,
+  deckTitle,
+  slideIndex,
+  totalSlides,
+}: {
+  title: string
+  names: string[]
+  result: { winnerIndex: number; winnerName: string; names: string[]; targetRotation: number; durationMs: number; at: number } | null
+  deckTitle: string
+  slideIndex: number
+  totalSlides: number
+}) {
+  // Rotation derived from the latest server result (parent clears it on slide
+  // change). The winner reveal flips state from inside a timeout (async
+  // setState is allowed by react-hooks/set-state-in-effect).
+  const rotation = result?.targetRotation ?? 0
+  const [revealed, setRevealed] = useState<{ name: string; idx: number } | null>(null)
+
+  useEffect(() => {
+    if (!result) return
+    const t = setTimeout(() => {
+      setRevealed({ name: result.winnerName, idx: result.winnerIndex })
+    }, result.durationMs + 120)
+    return () => clearTimeout(t)
+  }, [result])
+
+  const spinning = !!result && !revealed
+  const winner = result ? (revealed?.name ?? null) : null
+  const highlightIdx = result ? revealed?.idx : undefined
+
+  return (
+    <div className="min-h-screen flex flex-col" style={{ background: '#0F1B3D' }}>
+      <div className="px-4 pt-4 pb-2 flex items-center justify-between text-xs" style={{ color: '#94A3B8' }}>
+        <span className="font-semibold truncate">{deckTitle}</span>
+        <span>{slideIndex + 1} / {totalSlides}</span>
+      </div>
+      <div className="flex-1 flex flex-col items-center justify-center px-5 py-4 gap-5">
+        <h2 className="font-display text-2xl font-black text-center" style={{ color: '#fff' }}>{title}</h2>
+        {names.length === 0 ? (
+          <p className="text-base" style={{ color: '#94A3B8' }}>The wheel is empty.</p>
+        ) : (
+          <div className="w-full max-w-sm">
+            <SpinWheel
+              names={names}
+              rotation={rotation}
+              winnerIndex={highlightIdx}
+              spinDurationMs={result?.durationMs ?? 5200}
+            />
+          </div>
+        )}
+        <div className="h-16 flex items-center justify-center text-center">
+          {winner ? (
+            <div className="space-y-1">
+              <p className="text-sm font-bold uppercase tracking-widest" style={{ color: '#94A3B8' }}>Winner</p>
+              <p className="text-4xl font-black" style={{ color: '#FBD13B', fontFamily: 'var(--font-heading)' }}>{winner}</p>
+            </div>
+          ) : spinning ? (
+            <p className="text-lg font-semibold animate-pulse" style={{ color: '#94A3B8' }}>Spinning…</p>
+          ) : (
+            <p className="text-sm text-center" style={{ color: '#94A3B8' }}>
+              Eyes on the screen — the host is about to spin 🎡
+            </p>
+          )}
+        </div>
+      </div>
+      <BrandWatermark placement="participant" />
     </div>
   )
 }
@@ -510,6 +613,16 @@ function JoinPageInner() {
   const [quickFireLeft, setQuickFireLeft] = useState<number | null>(null)
   const quickFireTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [presenterAggregate, setPresenterAggregate] = useState<PresenterAggregateData>({ total: 0 })
+  // Wheel of Names: server-authoritative result mirrored live so the participant
+  // sees the same spin + winner as the host projector.
+  const [presenterWheelResult, setPresenterWheelResult] = useState<{
+    winnerIndex: number
+    winnerName: string
+    names: string[]
+    targetRotation: number
+    durationMs: number
+    at: number
+  } | null>(null)
   // Brainstorm: ids of ideas this participant has upvoted (disables the button).
   const [upvotedIdeas, setUpvotedIdeas] = useState<Set<string>>(new Set())
   const [rankingOrder, setRankingOrder] = useState<number[]>([])
@@ -1231,6 +1344,8 @@ function JoinPageInner() {
       presenterVotedRef.current = false
       setPresenterAggregate({ total: 0 })
       setUpvotedIdeas(new Set())
+      // Clear any prior wheel result when the slide changes.
+      setPresenterWheelResult(null)
       // Reset ranking order based on new slide's options
       {
         const slideRec = slide as Record<string, unknown> | undefined
@@ -1267,6 +1382,12 @@ function JoinPageInner() {
       } else {
         setPhase('presenter-voted')
       }
+    })
+
+    // Wheel of Names: mirror the server-authoritative spin + winner live.
+    socket.on('presenter_wheel_result', (data: { winnerIndex: number; winnerName: string; names: string[]; targetRotation: number; durationMs: number; at: number }) => {
+      if (!data || typeof data.winnerIndex !== 'number') return
+      setPresenterWheelResult(data)
     })
 
     // Receive live aggregate updates (instant mode broadcasts to everyone)
@@ -2870,6 +2991,25 @@ function JoinPageInner() {
     )
   }
 
+  // ─── Presenter Mirror (Wheel of Names — watch the host's spin live) ─────────
+  // The wheel is server-authoritative: only the host spins, but every
+  // participant phone mirrors the same spin + winner reveal in realtime.
+  if (phase === 'presenter-mirror' && presenterCurrentSlide) {
+    const slide = presenterCurrentSlide as { type?: string; title?: string; names?: string[] }
+    const names = (slide.names ?? []).map(n => String(n).trim()).filter(Boolean)
+    const title = typeof slide.title === 'string' && slide.title ? slide.title : 'Wheel of Names'
+    return (
+      <ParticipantWheelMirror
+        title={title}
+        names={names}
+        result={presenterWheelResult}
+        deckTitle={presenterTitle}
+        slideIndex={presenterSlideIndex}
+        totalSlides={presenterTotalSlides}
+      />
+    )
+  }
+
   // ─── Presenter Content (imported/text slides — follow along) ───────────────
   if (phase === 'presenter-content' && presenterCurrentSlide) {
     const slide = presenterCurrentSlide as Record<string, unknown>
@@ -2881,6 +3021,7 @@ function JoinPageInner() {
     const quote = typeof slide.quote === 'string' ? slide.quote : ''
     const attribution = typeof slide.attribution === 'string' ? slide.attribution : ''
     const videoUrl = typeof slide.url === 'string' ? slide.url : ''
+    const videoCaption = typeof slide.caption === 'string' ? slide.caption : ''
 
     return (
       <div className="min-h-screen flex flex-col" style={{ background: '#0F1B3D' }}>
@@ -2924,7 +3065,18 @@ function JoinPageInner() {
             </div>
           )}
           {sType === 'video' && videoUrl && (
-            <p className="text-sm text-center" style={{ color: '#94A3B8' }}>Video playing on the host screen.</p>
+            <div className="w-full max-w-md space-y-2">
+              <div className="aspect-video rounded-xl overflow-hidden bg-black">
+                <iframe
+                  src={getVideoEmbedUrl(videoUrl)}
+                  className="w-full h-full"
+                  title="Presentation video"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+              {videoCaption && <p className="text-sm text-center" style={{ color: '#94A3B8' }}>{videoCaption}</p>}
+            </div>
           )}
         </div>
         <div className="px-4 py-2 flex items-center justify-center gap-2" style={{ color: '#94A3B8' }}>
@@ -3144,7 +3296,7 @@ function JoinPageInner() {
           )}
 
           {slide.type === 'grid_2x2' && (
-            <Grid2x2Input xMin={slide.xMin} xMax={slide.xMax} yMin={slide.yMin} yMax={slide.yMax} onSubmit={submitVote} />
+            <Grid2x2Input xLabel={slide.xLabel} yLabel={slide.yLabel} xMin={slide.xMin} xMax={slide.xMax} yMin={slide.yMin} yMax={slide.yMax} onSubmit={submitVote} />
           )}
         </div>
       </div>
@@ -3441,14 +3593,40 @@ function JoinPageInner() {
         )
       }
 
-      // Pinpoint / grid_2x2 — just show count on mobile
-      if (slideType === 'pinpoint' || slideType === 'grid_2x2') {
-        const pinCount = agg.pins?.length ?? 0
+      // grid_2x2 — render the live dot-map (matches the host projector), not
+      // just a count. Pins arrive via presenter_aggregate_updated.
+      if (slideType === 'grid_2x2') {
+        const pins = (agg.pins ?? []) as { x: number; y: number }[]
         return (
-          <div className="text-center w-full space-y-2">
-            <p className="text-5xl font-black" style={{ color: '#FBD13B', fontFamily: 'var(--font-heading)' }}>{pinCount}</p>
-            <p className="text-base" style={{ color: 'rgba(255,255,255,0.5)' }}>
-              response{pinCount !== 1 ? 's' : ''} placed
+          <div className="w-full space-y-2">
+            <PinMap
+              pins={pins}
+              variant="grid"
+              xLabel={slide.xLabel as string | undefined}
+              yLabel={slide.yLabel as string | undefined}
+              xMin={slide.xMin as string | undefined}
+              xMax={slide.xMax as string | undefined}
+              yMin={slide.yMin as string | undefined}
+              yMax={slide.yMax as string | undefined}
+              labelColor="#E5E7EB"
+              size="sm"
+            />
+            <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              {pins.length} response{pins.length !== 1 ? 's' : ''} placed
+            </p>
+          </div>
+        )
+      }
+
+      // Pinpoint — show the image with all pins overlaid.
+      if (slideType === 'pinpoint') {
+        const pins = (agg.pins ?? []) as { x: number; y: number }[]
+        const imageUrl = typeof slide.imageUrl === 'string' ? slide.imageUrl : undefined
+        return (
+          <div className="w-full space-y-2">
+            <PinMap pins={pins} variant="image" imageUrl={imageUrl} size="sm" />
+            <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              {pins.length} pin{pins.length !== 1 ? 's' : ''} placed
             </p>
           </div>
         )

@@ -9,6 +9,7 @@
 
 import React from 'react'
 import { ANSWER_LETTERS } from '@/lib/answer-colors'
+import { SpinWheel } from '@/components/presentation/SpinWheel'
 
 // ─── Sample data ──────────────────────────────────────────────────────────────
 
@@ -298,25 +299,12 @@ function HostView({ s }: { s: SlideSample }) {
       return (
         <div className="space-y-4">
           <h2 className="text-2xl" style={h}>{s.title}</h2>
-          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(s.names.length, 4)}, 1fr)` }}>
-            {s.names.map((name, i) => (
-              <div key={i} className="px-4 py-3 rounded-xl text-center font-bold text-sm"
-                style={{
-                  background: i === 2 ? '#FACC15' : '#F3F4F6',
-                  color: i === 2 ? '#fff' : '#1E1B4B',
-                  transform: i === 2 ? 'scale(1.08)' : 'scale(1)',
-                  boxShadow: i === 2 ? '0 4px 16px rgba(0,0,0,0.15)' : 'none',
-                }}>
-                {name}
-              </div>
-            ))}
-          </div>
-          <div className="text-center py-2">
-            <p className="text-4xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#FACC15' }}>{s.names[2]}</p>
+          <div className="flex justify-center">
+            <SpinWheel names={s.names} rotation={0} noTransition size={220} />
           </div>
           <button className="w-full py-4 rounded-xl text-lg font-bold"
             style={{ background: '#FBD13B', color: '#0D0D0D', fontFamily: 'var(--font-heading)' }}>
-            Spin Again
+            Spin!
           </button>
         </div>
       )
@@ -495,10 +483,13 @@ function ParticipantView({ s }: { s: SlideSample }) {
         )}
 
         {s.type === 'wheel' && (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-center opacity-60" style={{ color: textLight }}>
-              Watch the host&apos;s screen — no input needed
+          <div className="space-y-3">
+            <p className="text-sm text-center" style={{ color: textLight, opacity: 0.7 }}>
+              Eyes on the screen — the host spins 🎡
             </p>
+            <div className="flex justify-center">
+              <SpinWheel names={s.names} rotation={0} noTransition size={200} />
+            </div>
           </div>
         )}
       </div>

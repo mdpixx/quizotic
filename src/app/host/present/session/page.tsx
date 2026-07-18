@@ -13,8 +13,12 @@ import { SlideImageFrame } from '@/components/SlideImageFrame'
 import { ANSWER_COLORS } from '@/lib/answer-colors'
 import { PRESENTATION_SEQUENCE } from '@/lib/sequence-theme'
 import { track } from '@/lib/analytics'
+import { getVideoEmbedUrl } from '@/lib/video'
 import { PostSessionHeader } from '@/components/PostSessionHeader'
 import { PresentationSummary } from '@/components/PresentationSummary'
+import { SpinWheel } from '@/components/presentation/SpinWheel'
+import { PinMap, pinColor } from '@/components/presentation/PinMap'
+import { SlideShell } from '@/components/presentation/SlideShell'
 import { useConfetti } from '@/hooks/useConfetti'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 
@@ -408,76 +412,94 @@ function ResultChart({
 }
 
 // ─── Wheel Spinner Component ─────────────────────────────────────────────────
+//
+// Wheel of Names. The host is the only one who spins; the SERVER is
+// authoritative for the winner and target rotation, broadcasting
+// `presenter_wheel_result` so every participant phone reveals the same name.
+// This component receives the latest result via props and animates the SVG
+// `<SpinWheel>` to `result.targetRotation`. No client-side `Math.random`.
 
-function WheelSpinner({ names, headingStyle, title }: { names: string[]; headingStyle: React.CSSProperties; title: string }) {
-  const [spinning, setSpinning] = useState(false)
-  const [winner, setWinner] = useState<string | null>(null)
-  const [highlightIdx, setHighlightIdx] = useState(-1)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+export interface WheelResult {
+  slideIndex: number
+  winnerIndex: number
+  winnerName: string
+  names: string[]
+  targetRotation: number
+  durationMs: number
+  at: number
+}
 
-  function spin() {
-    if (spinning || names.length === 0) return
-    setSpinning(true)
-    setWinner(null)
+function WheelSpinner({
+  names,
+  headingStyle,
+  title,
+  result,
+  spinning,
+  onSpin,
+  slideId,
+}: {
+  names: string[]
+  headingStyle: React.CSSProperties
+  title: string
+  result: WheelResult | null
+  spinning: boolean
+  onSpin: () => void
+  slideId: string
+}) {
+  // Rotation is derived directly from the latest server result — no effect
+  // needed to set it. The parent clears `result` when the slide changes, so
+  // navigating away/back resets the wheel to 0 naturally.
+  const rotation = result?.targetRotation ?? 0
+  // Winner highlight is revealed only after the spin animation settles. We
+  // stash the pending result in a ref and flip state from inside the timeout
+  // (async setState is allowed by react-hooks/set-state-in-effect).
+  const [revealed, setRevealed] = useState<{ name: string; idx: number } | null>(null)
 
-    let tick = 0
-    const totalTicks = 20 + Math.floor(Math.random() * 15)
-    const winnerIdx = Math.floor(Math.random() * names.length)
+  useEffect(() => {
+    if (!result) return
+    const t = setTimeout(() => {
+      setRevealed({ name: result.winnerName, idx: result.winnerIndex })
+    }, result.durationMs + 120)
+    return () => clearTimeout(t)
+  }, [result])
 
-    intervalRef.current = setInterval(() => {
-      setHighlightIdx(tick % names.length)
-      tick++
-      if (tick >= totalTicks) {
-        if (intervalRef.current) clearInterval(intervalRef.current)
-        setHighlightIdx(winnerIdx)
-        setWinner(names[winnerIdx])
-        setSpinning(false)
-      }
-    }, 60 + tick * 8) // decelerating
-
-    // Fallback: force stop after 4s
-    setTimeout(() => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-      setHighlightIdx(winnerIdx)
-      setWinner(names[winnerIdx])
-      setSpinning(false)
-    }, 4000)
-  }
+  const winnerName = result ? (revealed?.name ?? null) : null
+  const highlightIdx = result ? revealed?.idx : undefined
+  // slideId is part of the parent's reset contract (clears result on change).
+  void slideId
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl" style={headingStyle}>{title || 'Wheel of Names'}</h2>
+    <div className="flex flex-col h-full min-h-0 gap-4">
+      <h2 className="leading-tight flex-shrink-0 break-words" style={{ ...headingStyle, fontSize: 'clamp(20px, 3cqw, 40px)' }}>
+        {title || 'Wheel of Names'}
+      </h2>
       {names.length === 0 ? (
         <p className="text-sm text-center" style={{ color: '#9CA3AF' }}>No names added to this wheel.</p>
       ) : (
         <>
-          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(names.length, 4)}, 1fr)` }}>
-            {names.map((name, i) => (
-              <div key={i}
-                className="px-4 py-3 rounded-xl text-center font-bold text-sm transition-all"
-                style={{
-                  background: highlightIdx === i
-                    ? winner ? '#FACC15' : VOTER_COLORS[i % VOTER_COLORS.length]
-                    : '#F3F4F6',
-                  color: highlightIdx === i ? '#fff' : '#1E1B4B',
-                  transform: highlightIdx === i ? 'scale(1.08)' : 'scale(1)',
-                  boxShadow: highlightIdx === i ? '0 4px 16px rgba(0,0,0,0.15)' : 'none',
-                }}>
-                {name}
-              </div>
-            ))}
+          <div className="flex-1 min-h-0 flex items-center justify-center">
+            <SpinWheel
+              names={names}
+              rotation={rotation}
+              winnerIndex={highlightIdx}
+              spinDurationMs={result?.durationMs ?? 5200}
+              style={{ height: '100%', maxWidth: 'min(100%, 52cqw)' }}
+            />
           </div>
-          {winner && (
-            <div className="text-center py-4">
+          {winnerName && (
+            <div className="text-center flex-shrink-0">
+              <p className="text-2xl font-black" style={{ fontFamily: 'var(--font-heading)', color: headingStyle.color }}>
+                Winner
+              </p>
               <p className="text-4xl font-black" style={{ fontFamily: 'var(--font-heading)', color: '#FACC15' }}>
-                {winner}
+                {winnerName}
               </p>
             </div>
           )}
-          <button onClick={spin} disabled={spinning}
-            className="w-full py-4 rounded-xl text-lg font-bold transition-all hover:scale-[1.02] disabled:opacity-50"
+          <button onClick={onSpin} disabled={spinning || names.length === 0}
+            className="w-full py-4 rounded-xl text-lg font-bold transition-all hover:scale-[1.02] disabled:opacity-50 flex-shrink-0"
             style={{ background: PRESENTATION_SEQUENCE.accent, color: PRESENTATION_SEQUENCE.accentText, fontFamily: 'var(--font-heading)' }}>
-            {spinning ? 'Spinning...' : winner ? 'Spin Again' : 'Spin!'}
+            {spinning ? 'Spinning…' : winnerName ? 'Spin Again' : 'Spin!'}
           </button>
         </>
       )}
@@ -485,21 +507,9 @@ function WheelSpinner({ names, headingStyle, title }: { names: string[]; heading
   )
 }
 
-function getVideoEmbedUrl(url: string): string {
-  try {
-    const u = new URL(url)
-    const ytId = u.searchParams.get('v')
-      || (u.hostname === 'youtu.be' ? u.pathname.slice(1) : null)
-      || (u.pathname.includes('/shorts/') ? u.pathname.split('/shorts/')[1] : null)
-    if (ytId) return `https://www.youtube.com/embed/${ytId.split('?')[0]}`
-    if (u.hostname.includes('vimeo.com')) return `https://player.vimeo.com/video${u.pathname}`
-    return url.replace('watch?v=', 'embed/')
-  } catch { return url }
-}
-
 // ─── Slide content renderer ───────────────────────────────────────────────────
 
-function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVariant = 'bar', chartMetric = 'count' }: { slide: Slide; aggregate: AggregateData; showResults: boolean; correctRevealed: boolean; chartVariant?: ChartVariant; chartMetric?: ChartMetric }) {
+function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVariant = 'bar', chartMetric = 'count', wheelResult, wheelSpinning, onWheelSpin }: { slide: Slide; aggregate: AggregateData; showResults: boolean; correctRevealed: boolean; chartVariant?: ChartVariant; chartMetric?: ChartMetric; wheelResult?: WheelResult | null; wheelSpinning?: boolean; onWheelSpin?: () => void }) {
   const textColor = getSlideTextColor(slide)
   const headingStyle: React.CSSProperties = { fontFamily: 'var(--font-heading)', color: textColor, fontWeight: 900 }
 
@@ -852,13 +862,13 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
             )}
             {showResults && pins.map((pin, i) => (
               <div key={i} className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/60 transition-all"
-                style={{ left: `${pin.x}%`, top: `${pin.y}%`, background: VOTER_COLORS[i % VOTER_COLORS.length], opacity: 0.85 }} />
+                style={{ left: `${pin.x}%`, top: `${pin.y}%`, background: pinColor(pin), opacity: 0.85 }} />
             ))}
           </div>
           <div className="flex-shrink-0 text-center">
             {showResults ? (
               <p className="text-sm" style={{ color: textColor, opacity: 0.6 }}>
-                <span className="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style={{ background: VOTER_COLORS[0] }} />
+                <span className="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style={{ background: '#6366F1' }} />
                 {pins.length} pin{pins.length !== 1 ? 's' : ''} placed
               </p>
             ) : slide.imageUrl ? (
@@ -870,45 +880,49 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
     }
 
     case 'grid_2x2': {
-      const pins = aggregate.pins ?? []
+      const pins = showResults ? (aggregate.pins ?? []) : []
       return (
-        <div className="space-y-3">
-          <h2 className="text-2xl" style={headingStyle}>{slide.question}</h2>
-          <div className="relative flex">
-            {/* Y-axis label */}
-            <div className="flex flex-col justify-between items-center py-2 mr-2" style={{ width: 24 }}>
-              <span className="text-[10px] font-bold" style={{ color: textColor, opacity: 0.6 }}>{slide.yMax || 'High'}</span>
-              <span className="text-[10px] font-bold rotate-180" style={{ color: textColor, opacity: 0.6, writingMode: 'vertical-lr' }}>{slide.yLabel}</span>
-              <span className="text-[10px] font-bold" style={{ color: textColor, opacity: 0.6 }}>{slide.yMin || 'Low'}</span>
-            </div>
-            <div className="flex-1">
-              {/* Grid area */}
-              <div className="relative rounded-xl overflow-hidden border" style={{ aspectRatio: '1', background: '#FAFAFE', borderColor: '#DBEAFE' }}>
-                {/* Grid lines */}
-                <div className="absolute left-1/2 top-0 bottom-0 w-px" style={{ background: '#E5E7EB' }} />
-                <div className="absolute top-1/2 left-0 right-0 h-px" style={{ background: '#E5E7EB' }} />
-                {/* Dots */}
-                {showResults && pins.map((pin, i) => (
-                  <div key={i} className="absolute w-3.5 h-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/80 transition-all"
-                    style={{ left: `${pin.x}%`, top: `${pin.y}%`, background: VOTER_COLORS[i % VOTER_COLORS.length], opacity: 0.85 }} />
-                ))}
-              </div>
-              {/* X-axis labels */}
-              <div className="flex justify-between mt-1">
-                <span className="text-[10px] font-bold" style={{ color: textColor, opacity: 0.6 }}>{slide.xMin || 'Low'}</span>
-                <span className="text-[10px] font-bold" style={{ color: textColor, opacity: 0.6 }}>{slide.xLabel}</span>
-                <span className="text-[10px] font-bold" style={{ color: textColor, opacity: 0.6 }}>{slide.xMax || 'High'}</span>
-              </div>
+        <SlideShell
+          slide={slide}
+          prompt={
+            showResults
+              ? `${pins.length} response${pins.length !== 1 ? 's' : ''} placed`
+              : 'Participants are placing themselves on the grid…'
+          }
+        >
+          <div className="h-full flex items-center justify-center">
+            {/* Cap width so the square grid stays large but never overflows the
+                16:9 frame on wide projector screens. */}
+            <div style={{ width: '100%', maxWidth: 'min(100%, 56cqh)' }}>
+              <PinMap
+                pins={pins}
+                variant="grid"
+                xLabel={slide.xLabel}
+                yLabel={slide.yLabel}
+                xMin={slide.xMin}
+                xMax={slide.xMax}
+                yMin={slide.yMin}
+                yMax={slide.yMax}
+                labelColor={textColor}
+                size="lg"
+              />
             </div>
           </div>
-          {showResults && <p className="text-sm text-center" style={{ color: textColor, opacity: 0.6 }}>{pins.length} response{pins.length !== 1 ? 's' : ''}</p>}
-        </div>
+        </SlideShell>
       )
     }
 
     case 'wheel': {
       const names = (slide.names ?? []).map(n => n.trim()).filter(Boolean)
-      return <WheelSpinner names={names} headingStyle={headingStyle} title={slide.title} />
+      return <WheelSpinner
+        names={names}
+        headingStyle={headingStyle}
+        title={slide.title}
+        result={wheelResult ?? null}
+        spinning={!!wheelSpinning}
+        onSpin={() => onWheelSpin?.()}
+        slideId={slide.id}
+      />
     }
 
     case 'image_choice': {
@@ -1058,6 +1072,12 @@ export default function PresentSessionPage() {
   const [showResults, setShowResults] = useState(false)
   const [revealed, setRevealed] = useState(false)
   const [correctRevealed, setCorrectRevealed] = useState(false)
+  // Wheel of Names: authoritative winner comes from the server
+  // (`presenter_wheel_result`) so the host projector and every participant phone
+  // reveal the same name. `wheelSpinning` gates the Spin button.
+  const [wheelResult, setWheelResult] = useState<WheelResult | null>(null)
+  const [wheelSpinning, setWheelSpinning] = useState(false)
+  const wheelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [soundOn, setSoundOn] = useState(true)
   const [floatingVoters, setFloatingVoters] = useState<FloatingVoter[]>([])
   const [toasts, setToasts] = useState<Toast[]>([])
@@ -1138,6 +1158,15 @@ export default function PresentSessionPage() {
       setShowResults(true)
       setRevealed(true)
       setCorrectRevealed(true)
+    })
+
+    // Wheel of Names result (authoritative, server-computed).
+    socket.on('presenter_wheel_result', (data: WheelResult) => {
+      if (!data || typeof data.winnerIndex !== 'number') return
+      setWheelResult(data)
+      setWheelSpinning(true)
+      if (wheelTimerRef.current) clearTimeout(wheelTimerRef.current)
+      wheelTimerRef.current = setTimeout(() => setWheelSpinning(false), (data.durationMs ?? 5200) + 200)
     })
 
     socket.on('presenter_aggregate_updated', (data: AggregateData) => {
@@ -1338,6 +1367,10 @@ export default function PresentSessionPage() {
     waveTriggeredRef.current = false
     reachedMilestonesRef.current.clear()
     voteHistoryRef.current = Array(20).fill(0)
+    // Reset any prior wheel result when leaving a wheel slide.
+    setWheelResult(null)
+    setWheelSpinning(false)
+    if (wheelTimerRef.current) { clearTimeout(wheelTimerRef.current); wheelTimerRef.current = null }
     socketRef.current?.emit('presenter_next_slide', { gameCode, slideIndex: newIndex })
   }
 
@@ -1359,6 +1392,9 @@ export default function PresentSessionPage() {
     setShowWave(false)
     waveTriggeredRef.current = false
     reachedMilestonesRef.current.clear()
+    setWheelResult(null)
+    setWheelSpinning(false)
+    if (wheelTimerRef.current) { clearTimeout(wheelTimerRef.current); wheelTimerRef.current = null }
     socketRef.current?.emit('presenter_prev_slide', { gameCode, slideIndex: newIndex })
   }
 
@@ -1730,7 +1766,16 @@ export default function PresentSessionPage() {
                 {showIntro ? (
                   <IntroSlide title={presentation?.title || 'Presentation'} gameCode={gameCode} />
                 ) : (
-                  <SlideContent slide={currentSlide} aggregate={aggregate} showResults={showResults} correctRevealed={correctRevealed} chartVariant={chartVariant} chartMetric={chartMetric} />
+                  <SlideContent slide={currentSlide} aggregate={aggregate} showResults={showResults} correctRevealed={correctRevealed} chartVariant={chartVariant} chartMetric={chartMetric}
+                    wheelResult={currentSlide?.type === 'wheel' ? wheelResult : null}
+                    wheelSpinning={currentSlide?.type === 'wheel' ? wheelSpinning : false}
+                    onWheelSpin={() => {
+                      if (!gameCode || wheelSpinning) return
+                      // Reset winner while the wheel spins.
+                      setWheelSpinning(true)
+                      socketRef.current?.emit('presenter_spin_wheel', { gameCode, slideIndex, durationMs: 5200 })
+                    }}
+                  />
                 )}
               </motion.div>
             </AnimatePresence>

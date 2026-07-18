@@ -14,6 +14,7 @@ import { EnhanceWithAI } from '@/components/EnhanceWithAI'
 import { ImageUpload } from '@/components/ImageUpload'
 import { SlideBgPicker } from '@/components/SlideBgPicker'
 import { SlideImage } from '@/components/SlideImage'
+import { SpinWheel } from '@/components/presentation/SpinWheel'
 import { draftKey, readDraft, writeDraft, clearDraft, formatDraftAge } from '@/lib/draft-storage'
 import { useAutosave } from '@/lib/use-autosave'
 import { resolveHostBackNavigation } from '@/lib/host-navigation'
@@ -427,33 +428,15 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
       }
 
       case 'wheel': {
-        const names = (slide as { names: string[] }).names
-        const colors = ['#3B82F6', '#F59E0B', '#EF4444', '#10B981', '#8B5CF6']
+        const names = ((slide as { names?: string[] }).names ?? []).map(n => String(n).trim()).filter(Boolean)
         return (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2">
             <div className="relative flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden">
-              {/* Height-driven sizing keeps the wheel a circle that fits inside
-                  the card — width-driven sizing overflowed tall on wide cards. */}
-              <div className="relative" style={{ height: '92%', maxWidth: '100%', aspectRatio: '1' }}>
-                <div className="w-full h-full rounded-full overflow-hidden shadow-lg" style={{
-                  background: `conic-gradient(${names.map((_, i) => `${colors[i % 5]} ${(i / names.length) * 100}% ${((i + 1) / names.length) * 100}%`).join(', ')})`,
-                }} />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-6 h-6 rounded-full bg-white shadow-md" />
-                </div>
-                {/* Spin pointer */}
-                <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-0 h-0"
-                  style={{ borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '14px solid #fff', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))' }} />
+              {/* Use the same <SpinWheel> the live host/participant views use,
+                  so authoring matches runtime (names drawn ON the slices). */}
+              <div style={{ height: '92%', maxWidth: '100%' }}>
+                <SpinWheel names={names} rotation={0} noTransition size={180} />
               </div>
-            </div>
-            {/* Name labels */}
-            <div className="flex flex-wrap justify-center gap-1.5 w-full flex-shrink-0">
-              {names.filter(n => n.trim()).map((name, i) => (
-                <span key={i} className="text-[10px] font-bold px-2.5 py-0.5 rounded-full"
-                  style={{ background: `${colors[i % 5]}20`, color: colors[i % 5] }}>
-                  {name}
-                </span>
-              ))}
             </div>
           </div>
         )
