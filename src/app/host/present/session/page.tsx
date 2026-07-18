@@ -528,12 +528,8 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
       const typedSlide = slide as { question?: string; showCorrect?: boolean; correctIndex?: number }
 
       return (
-        <div className="flex flex-col h-full gap-4">
-          <h2 className="leading-snug flex-shrink-0 break-words" style={{ ...headingStyle, fontSize: 'clamp(20px, 3cqw, 40px)' }}>
-            {typedSlide.question || <span className="opacity-30">Question text...</span>}
-          </h2>
-          <SlideImageFrame url={slide.contentImageUrl} />
-          <div className="flex-1 min-h-0 flex flex-col justify-end">
+        <SlideShell slide={slide} headingPlaceholder="Question text...">
+          <div className="h-full min-h-0 flex flex-col justify-end">
             <ResultChart
               options={options}
               counts={counts}
@@ -545,7 +541,7 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
               metric={chartMetric}
             />
           </div>
-        </div>
+        </SlideShell>
       )
     }
 
@@ -558,12 +554,8 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
       const palette = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4']
       const visible = responses.slice(-30) // last 30 fit comfortably; older scroll off
       return (
-        <div className="flex flex-col h-full gap-4">
-          <h2 className="leading-snug flex-shrink-0 break-words" style={{ ...headingStyle, fontSize: 'clamp(22px, 3.4cqw, 44px)' }}>
-            {slide.question || <span className="opacity-30">Question text...</span>}
-          </h2>
-          <SlideImageFrame url={slide.contentImageUrl} />
-          <div className="flex-1 flex items-start justify-center overflow-hidden p-2">
+        <SlideShell slide={slide} headingPlaceholder="Question text...">
+          <div className="h-full flex items-start justify-center overflow-hidden p-2">
             {showResults && visible.length > 0 ? (
               <div className="flex flex-wrap gap-3 content-start justify-center max-h-full overflow-auto">
                 {visible.map((text, i) => {
@@ -585,7 +577,7 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
               )
             )}
           </div>
-        </div>
+        </SlideShell>
       )
     }
 
@@ -595,12 +587,8 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
       const maxVotes = ideas.reduce((m, it) => Math.max(m, it.votes), 0)
       const palette = ['#7C3AED', '#3B82F6', '#10B981', '#F59E0B', '#EC4899', '#06B6D4']
       return (
-        <div className="flex flex-col h-full gap-4">
-          <h2 className="leading-snug flex-shrink-0 break-words" style={{ ...headingStyle, fontSize: 'clamp(22px, 3.4cqw, 44px)' }}>
-            {slide.question || <span className="opacity-30">Brainstorm prompt...</span>}
-          </h2>
-          <SlideImageFrame url={slide.contentImageUrl} />
-          <div className="flex-1 flex items-start justify-center overflow-hidden p-2">
+        <SlideShell slide={slide} headingPlaceholder="Brainstorm prompt...">
+          <div className="h-full flex items-start justify-center overflow-hidden p-2">
             {showResults && ideas.length > 0 ? (
               <div className="flex flex-wrap gap-3 content-start justify-center max-h-full overflow-auto">
                 {ideas.map((idea, i) => {
@@ -628,55 +616,45 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
               )
             )}
           </div>
-        </div>
+        </SlideShell>
       )
     }
 
     case 'word_cloud':
       return (
-        <div className="flex flex-col h-full gap-4">
-          <h2 className="leading-snug flex-shrink-0 break-words" style={{ ...headingStyle, fontSize: 'clamp(22px, 3.4cqw, 44px)' }}>
-            {slide.question || <span className="opacity-30">Question text...</span>}
-          </h2>
-          <SlideImageFrame url={slide.contentImageUrl} />
-          <div className="flex-1 flex items-center justify-center">
+        <SlideShell slide={slide} headingPlaceholder="Question text...">
+          <div className="h-full flex items-center justify-center">
             {showResults && aggregate.words && <WordCloud words={aggregate.words} />}
           </div>
-        </div>
+        </SlideShell>
       )
 
     case 'rating_scale':
       return (
-        <div className="flex flex-col h-full gap-5">
-          <h2 className="leading-snug flex-shrink-0 break-words" style={{ ...headingStyle, fontSize: 'clamp(22px, 3.4cqw, 44px)' }}>
-            {slide.question || <span className="opacity-30">Question text...</span>}
-          </h2>
-          <SlideImageFrame url={slide.contentImageUrl} />
-          <div className="flex items-center justify-between text-xl font-semibold flex-shrink-0" style={{ color: textColor, opacity: 0.6 }}>
-            <span>{slide.minLabel}</span>
-            <span>{slide.maxLabel}</span>
+        <SlideShell slide={slide} headingPlaceholder="Question text...">
+          <div className="h-full flex flex-col gap-3">
+            <div className="flex items-center justify-between text-xl font-semibold flex-shrink-0" style={{ color: textColor, opacity: 0.6 }}>
+              <span>{slide.minLabel}</span>
+              <span>{slide.maxLabel}</span>
+            </div>
+            <div className="flex-1 flex items-center justify-center">
+              {showResults && aggregate.scores && aggregate.scores.length > 0 && (
+                <div className="text-center">
+                  <p className="text-7xl font-black" style={{ color: textColor, fontFamily: 'var(--font-heading)' }}>
+                    {(aggregate.scores.reduce((a, b) => a + b, 0) / aggregate.scores.length).toFixed(1)}
+                  </p>
+                  <p className="text-xl mt-2" style={{ color: textColor, opacity: 0.6 }}>average rating · {aggregate.total} responses</p>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="flex-1 flex items-center justify-center">
-            {showResults && aggregate.scores && aggregate.scores.length > 0 && (
-              <div className="text-center">
-                <p className="text-7xl font-black" style={{ color: textColor, fontFamily: 'var(--font-heading)' }}>
-                  {(aggregate.scores.reduce((a, b) => a + b, 0) / aggregate.scores.length).toFixed(1)}
-                </p>
-                <p className="text-xl mt-2" style={{ color: textColor, opacity: 0.6 }}>average rating · {aggregate.total} responses</p>
-              </div>
-            )}
-          </div>
-        </div>
+        </SlideShell>
       )
 
     case 'emoji_pulse':
       return (
-        <div className="flex flex-col h-full gap-5">
-          <h2 className="leading-snug flex-shrink-0 break-words" style={{ ...headingStyle, fontSize: 'clamp(22px, 3.4cqw, 44px)' }}>
-            {slide.question || <span className="opacity-30">Prompt text...</span>}
-          </h2>
-          <SlideImageFrame url={slide.contentImageUrl} />
-          <div className="flex-1 flex items-center justify-center">
+        <SlideShell slide={slide} headingPlaceholder="Prompt text...">
+          <div className="h-full flex items-center justify-center">
             {showResults && aggregate.emojis && (
               <div className="flex flex-wrap gap-8 justify-center">
                 {slide.emojis.map(em => (
@@ -690,7 +668,7 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
               </div>
             )}
           </div>
-        </div>
+        </SlideShell>
       )
 
     case 'ranking': {
@@ -714,12 +692,8 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
         .sort((a, b) => b.score - a.score)
       const maxScore = Math.max(1, ...scoreByItem)
       return (
-        <div className="flex flex-col h-full gap-4">
-          <h2 className="leading-snug flex-shrink-0 break-words" style={{ ...headingStyle, fontSize: 'clamp(22px, 3.4cqw, 44px)' }}>
-            {slide.question || <span className="opacity-30">Question text...</span>}
-          </h2>
-          <SlideImageFrame url={slide.contentImageUrl} />
-          <div className="flex-1 flex flex-col justify-center">
+        <SlideShell slide={slide} headingPlaceholder="Question text...">
+          <div className="h-full flex flex-col justify-center">
             {showResults && rankings.length > 0 ? (
               <div className="space-y-3">
                 {ranked.map((item, displayPos) => (
@@ -739,32 +713,30 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
               showResults && <p className="text-2xl opacity-40 text-center">Waiting for rankings…</p>
             )}
           </div>
-        </div>
+        </SlideShell>
       )
     }
 
     case 'scale_100':
       return (
-        <div className="flex flex-col h-full gap-5">
-          <h2 className="leading-snug flex-shrink-0 break-words" style={{ ...headingStyle, fontSize: 'clamp(22px, 3.4cqw, 44px)' }}>
-            {slide.question || <span className="opacity-30">Question text...</span>}
-          </h2>
-          <SlideImageFrame url={slide.contentImageUrl} />
-          <div className="flex items-center justify-between text-xl font-semibold flex-shrink-0" style={{ color: textColor, opacity: 0.6 }}>
-            <span>0 · {slide.minLabel}</span>
-            <span>{slide.maxLabel} · 100</span>
+        <SlideShell slide={slide} headingPlaceholder="Question text...">
+          <div className="h-full flex flex-col gap-3">
+            <div className="flex items-center justify-between text-xl font-semibold flex-shrink-0" style={{ color: textColor, opacity: 0.6 }}>
+              <span>0 · {slide.minLabel}</span>
+              <span>{slide.maxLabel} · 100</span>
+            </div>
+            <div className="flex-1 flex items-center justify-center">
+              {showResults && aggregate.scores && aggregate.scores.length > 0 && (
+                <div className="text-center">
+                  <p className="text-7xl font-black" style={{ color: textColor, fontFamily: 'var(--font-heading)' }}>
+                    {Math.round(aggregate.scores.reduce((a, b) => a + b, 0) / aggregate.scores.length)}
+                  </p>
+                  <p className="text-xl mt-2" style={{ color: textColor, opacity: 0.6 }}>average · {aggregate.total} responses</p>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="flex-1 flex items-center justify-center">
-            {showResults && aggregate.scores && aggregate.scores.length > 0 && (
-              <div className="text-center">
-                <p className="text-7xl font-black" style={{ color: textColor, fontFamily: 'var(--font-heading)' }}>
-                  {Math.round(aggregate.scores.reduce((a, b) => a + b, 0) / aggregate.scores.length)}
-                </p>
-                <p className="text-xl mt-2" style={{ color: textColor, opacity: 0.6 }}>average · {aggregate.total} responses</p>
-              </div>
-            )}
-          </div>
-        </div>
+        </SlideShell>
       )
 
     case 'title':
@@ -931,11 +903,8 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
       const counts = aggregate.counts ?? new Array(options.length).fill(0)
       const colors = OPTION_HEX
       return (
-        <div className="flex flex-col h-full gap-4">
-          <h2 className="leading-snug flex-shrink-0 break-words" style={{ ...headingStyle, fontSize: 'clamp(20px, 3cqw, 40px)' }}>
-            {slide.question || <span className="opacity-30">Question text...</span>}
-          </h2>
-          <div className="flex-1 min-h-0 grid gap-4" style={{ gridTemplateColumns: `repeat(${Math.max(options.length, 1)}, minmax(0, 1fr))`, gridAutoRows: '1fr', alignItems: 'stretch' }}>
+        <SlideShell slide={slide} headingPlaceholder="Question text...">
+          <div className="h-full min-h-0 grid gap-4" style={{ gridTemplateColumns: `repeat(${Math.max(options.length, 1)}, minmax(0, 1fr))`, gridAutoRows: '1fr', alignItems: 'stretch' }}>
             {options.map((opt, i) => {
               const count = counts[i] ?? 0
               const pct = aggregate.total > 0 ? Math.round((count / aggregate.total) * 100) : 0
@@ -970,7 +939,7 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
               )
             })}
           </div>
-        </div>
+        </SlideShell>
       )
     }
 
