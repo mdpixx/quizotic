@@ -28,6 +28,7 @@ import {
   AdjustTimerSchema,
   CreateSessionSchema,
   BrainstormUpvoteSchema,
+  PresenterSpinWheelSchema,
   CreatePresenterSessionSchema,
   GameCodeOnlySchema,
   GotoQuestionSchema,
@@ -2040,6 +2041,50 @@ app.prepare().then(async () => {
       const responseMode = session.presentationData.slides[slideIndex]?.responseMode || 'instant'
       const room = responseMode === 'instant' ? `session:${gameCode}` : `host:${gameCode}`
       io.to(room).emit('presenter_aggregate_updated', agg)
+    })
+
+    // Host spins the Wheel of Names. Server is authoritative for the winner so
+    // every screen (host projector + all participant phones) reveals the same
+    // name. The server computes the target rotation that lands the top pointer
+    // on the winning slice and broadcasts it; clients animate identically.
+    // (AhaSlides model: only the host spins, everyone sees it live.)
+    socket.on('presenter_spin_wheel', (rawPayload) => {
+      const parsed = validateSocketPayload(socket, PresenterSpinWheelSchema, rawPayload, undefined, 'presenter_spin_wheel')
+      if (!parsed) return
+      const { gameCode, slideIndex, durationMs } = parsed
+      const session = sessions.get(gameCode)
+      if (!session || !isHostSocket(session, socket) || session.type !== 'presenter') return
+      if (!allowRate(`${socket.id}:spin_wheel`, 20)) return
+
+      const slide = session.presentationData.slides[slideIndex]
+      if (!slide || slide.type !== 'wheel') return
+      const names = Array.isArray(slide.names)
+        ? slide.names.map(n => String(n).trim()).filter(Boolean)
+        : []
+      if (names.length === 0) return
+
+      // Authoritative winner + target rotation. Slice i occupies
+      // [i*slice, (i+1)*slice) clockwise from the top at rotation 0, so its
+      // midpoint is (i+0.5)*slice. Rotating clockwise by
+      // fullTurns*360 + (360 - mid) brings that midpoint under the top pointer.
+      const winnerIndex = Math.floor(Math.random() * names.length)
+      const sliceAngle = 360 / names.length
+      const mid = (winnerIndex + 0.5) * sliceAngle
+      const jitter = (Math.random() - 0.5) * sliceAngle * 0.7
+      const fullTurns = 6
+      const targetRotation = fullTurns * 360 + (((360 - (mid + jitter)) % 360) + 360) % 360
+      const spinMs = typeof durationMs === 'number' ? durationMs : 5200
+
+      console.log(`[presenter] ${gameCode} wheel spin → "${names[winnerIndex]}" (idx ${winnerIndex})`)
+      io.to(`session:${gameCode}`).emit('presenter_wheel_result', {
+        slideIndex,
+        winnerIndex,
+        winnerName: names[winnerIndex],
+        names,
+        targetRotation,
+        durationMs: spinMs,
+        at: Date.now(),
+      })
     })
 
     // Host reveals results to participants (on_click mode)

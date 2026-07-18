@@ -107,6 +107,15 @@ export const BrainstormUpvoteSchema = z.object({
   participantId: z.string().uuid().optional(),
 })
 
+// Host spins the Wheel of Names. The server is authoritative for the winner
+// (never the client) so every participant phone reveals the same result.
+// `durationMs` is honored so the spin duration is consistent across screens.
+export const PresenterSpinWheelSchema = z.object({
+  gameCode: z.string().min(4).max(10),
+  slideIndex: z.number().int().min(0).max(500),
+  durationMs: z.number().int().min(800).max(12000).optional(),
+})
+
 export const CreatePresenterSessionSchema = z.object({
   presentationData: z.object({
     id: z.string().optional(),

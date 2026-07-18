@@ -21,6 +21,7 @@ import { isContentSlideType, isInteractiveSlideType } from '@/lib/presentation-t
 import { isScoredType, getEffectiveOptions } from '@/lib/quiz-types'
 import type { Question as QuizQuestion, QuestionType } from '@/lib/quiz-types'
 import { SlideImage } from '@/components/SlideImage'
+import { SpinWheel } from '@/components/presentation/SpinWheel'
 import { ANSWER_COLORS, ANSWER_LETTERS } from '@/lib/answer-colors'
 import { useConfetti } from '@/hooks/useConfetti'
 import { useWakeLock } from '@/hooks/useWakeLock'
@@ -30,9 +31,12 @@ import { track } from '@/lib/analytics'
 function phaseForPresenterSlide(
   slideType: string | undefined,
   mirrorOn: boolean,
-): 'presenter-voting' | 'presenter-content' | 'presenter-waiting' | 'presenter-lobby' {
+): 'presenter-voting' | 'presenter-content' | 'presenter-waiting' | 'presenter-lobby' | 'presenter-mirror' {
   // Interactive slides always wake the participant phone — they have an input.
   if (isInteractiveSlideType(slideType)) return 'presenter-voting'
+  // Wheel of Names: no audience input, but everyone must see the wheel + the
+  // server-authoritative winner live. Mirror to every participant phone.
+  if (slideType === 'wheel') return 'presenter-mirror'
   // Content slides mirror ONLY when the host has explicitly turned mirror on;
   // otherwise participants sit on a passive "waiting" screen so they aren't
   // pulled into their phones during lecture content.
@@ -52,7 +56,7 @@ const SortableRankingBoard = dynamic(() => import('@/components/join/SortableRan
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Phase = 'form' | 'connecting' | 'lobby' | 'question' | 'answered' | 'standings' | 'ended' | 'selfpaced' | 'selfpaced-done'
   | 'presenter-lobby' | 'presenter-content' | 'presenter-voting' | 'presenter-voted' | 'presenter-results'
-  | 'presenter-waiting'
+  | 'presenter-waiting' | 'presenter-mirror'
 
 interface PresenterAggregateData {
   total: number
@@ -339,6 +343,85 @@ function Grid2x2Input({ xMin, xMax, yMin, yMax, onSubmit }: {
   )
 }
 
+// ─── Participant Wheel Mirror (Wheel of Names — passive viewer) ──────────────
+// Participants don't spin; they watch the host's spin live. The server is
+// authoritative for the winner + target rotation, broadcast via
+// `presenter_wheel_result`. This component animates `<SpinWheel>` to that
+// rotation identically to the host projector so every phone reveals the same
+// winner at the same time.
+function ParticipantWheelMirror({
+  title,
+  names,
+  result,
+  deckTitle,
+  slideIndex,
+  totalSlides,
+}: {
+  title: string
+  names: string[]
+  result: { winnerIndex: number; winnerName: string; names: string[]; targetRotation: number; durationMs: number; at: number } | null
+  deckTitle: string
+  slideIndex: number
+  totalSlides: number
+}) {
+  // Rotation derived from the latest server result (parent clears it on slide
+  // change). The winner reveal flips state from inside a timeout (async
+  // setState is allowed by react-hooks/set-state-in-effect).
+  const rotation = result?.targetRotation ?? 0
+  const [revealed, setRevealed] = useState<{ name: string; idx: number } | null>(null)
+
+  useEffect(() => {
+    if (!result) return
+    const t = setTimeout(() => {
+      setRevealed({ name: result.winnerName, idx: result.winnerIndex })
+    }, result.durationMs + 120)
+    return () => clearTimeout(t)
+  }, [result])
+
+  const spinning = !!result && !revealed
+  const winner = result ? (revealed?.name ?? null) : null
+  const highlightIdx = result ? revealed?.idx : undefined
+
+  return (
+    <div className="min-h-screen flex flex-col" style={{ background: '#0F1B3D' }}>
+      <div className="px-4 pt-4 pb-2 flex items-center justify-between text-xs" style={{ color: '#94A3B8' }}>
+        <span className="font-semibold truncate">{deckTitle}</span>
+        <span>{slideIndex + 1} / {totalSlides}</span>
+      </div>
+      <div className="flex-1 flex flex-col items-center justify-center px-5 py-4 gap-5">
+        <h2 className="font-display text-2xl font-black text-center" style={{ color: '#fff' }}>{title}</h2>
+        {names.length === 0 ? (
+          <p className="text-base" style={{ color: '#94A3B8' }}>The wheel is empty.</p>
+        ) : (
+          <div className="w-full max-w-sm">
+            <SpinWheel
+              names={names}
+              rotation={rotation}
+              winnerIndex={highlightIdx}
+              spinDurationMs={result?.durationMs ?? 5200}
+            />
+          </div>
+        )}
+        <div className="h-16 flex items-center justify-center text-center">
+          {winner ? (
+            <div className="space-y-1">
+              <p className="text-sm font-bold uppercase tracking-widest" style={{ color: '#94A3B8' }}>Winner</p>
+              <p className="text-4xl font-black" style={{ color: '#FBD13B', fontFamily: 'var(--font-heading)' }}>{winner}</p>
+            </div>
+          ) : spinning ? (
+            <p className="text-lg font-semibold animate-pulse" style={{ color: '#94A3B8' }}>Spinning…</p>
+          ) : (
+            <p className="text-sm text-center" style={{ color: '#94A3B8' }}>
+              Eyes on the screen — the host is about to spin 🎡
+            </p>
+          )}
+        </div>
+      </div>
+      <BrandWatermark placement="participant" />
+    </div>
+  )
+}
+
 // ─── Inner Component (uses useSearchParams — requires Suspense) ───────────────
 // Outbox payload — buffered answer submissions that retry on reconnect.
 // `confidence` may be a number (multi-question level) on the wire; the server
@@ -510,6 +593,16 @@ function JoinPageInner() {
   const [quickFireLeft, setQuickFireLeft] = useState<number | null>(null)
   const quickFireTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [presenterAggregate, setPresenterAggregate] = useState<PresenterAggregateData>({ total: 0 })
+  // Wheel of Names: server-authoritative result mirrored live so the participant
+  // sees the same spin + winner as the host projector.
+  const [presenterWheelResult, setPresenterWheelResult] = useState<{
+    winnerIndex: number
+    winnerName: string
+    names: string[]
+    targetRotation: number
+    durationMs: number
+    at: number
+  } | null>(null)
   // Brainstorm: ids of ideas this participant has upvoted (disables the button).
   const [upvotedIdeas, setUpvotedIdeas] = useState<Set<string>>(new Set())
   const [rankingOrder, setRankingOrder] = useState<number[]>([])
@@ -1231,6 +1324,8 @@ function JoinPageInner() {
       presenterVotedRef.current = false
       setPresenterAggregate({ total: 0 })
       setUpvotedIdeas(new Set())
+      // Clear any prior wheel result when the slide changes.
+      setPresenterWheelResult(null)
       // Reset ranking order based on new slide's options
       {
         const slideRec = slide as Record<string, unknown> | undefined
@@ -1267,6 +1362,12 @@ function JoinPageInner() {
       } else {
         setPhase('presenter-voted')
       }
+    })
+
+    // Wheel of Names: mirror the server-authoritative spin + winner live.
+    socket.on('presenter_wheel_result', (data: { winnerIndex: number; winnerName: string; names: string[]; targetRotation: number; durationMs: number; at: number }) => {
+      if (!data || typeof data.winnerIndex !== 'number') return
+      setPresenterWheelResult(data)
     })
 
     // Receive live aggregate updates (instant mode broadcasts to everyone)
@@ -2867,6 +2968,25 @@ function JoinPageInner() {
           <span className="text-lg font-semibold" style={{ color: '#16A34A' }}>Connected</span>
         </div>
       </div>
+    )
+  }
+
+  // ─── Presenter Mirror (Wheel of Names — watch the host's spin live) ─────────
+  // The wheel is server-authoritative: only the host spins, but every
+  // participant phone mirrors the same spin + winner reveal in realtime.
+  if (phase === 'presenter-mirror' && presenterCurrentSlide) {
+    const slide = presenterCurrentSlide as { type?: string; title?: string; names?: string[] }
+    const names = (slide.names ?? []).map(n => String(n).trim()).filter(Boolean)
+    const title = typeof slide.title === 'string' && slide.title ? slide.title : 'Wheel of Names'
+    return (
+      <ParticipantWheelMirror
+        title={title}
+        names={names}
+        result={presenterWheelResult}
+        deckTitle={presenterTitle}
+        slideIndex={presenterSlideIndex}
+        totalSlides={presenterTotalSlides}
+      />
     )
   }
 
