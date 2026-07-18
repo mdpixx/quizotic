@@ -54,6 +54,16 @@ interface SpinWheelProps {
   noTransition?: boolean
   /** Size in px of the square wheel. Defaults to fill the parent via 100%. */
   size?: number
+  /** Central hub spin button. When `onSpin` is provided, a round "SPIN" button
+   *  renders on the hub (above the rotating wheel so it stays still). Omit for
+   *  read-only surfaces (participant mirror, editor/dev previews). */
+  onSpin?: () => void
+  /** While true, the hub button shows "SPINNING…" and is disabled. */
+  spinning?: boolean
+  /** Disable the hub button (e.g. fewer than 2 names). */
+  canSpin?: boolean
+  /** Override the hub button label (default "SPIN"). */
+  spinLabel?: string
 }
 
 function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
@@ -79,6 +89,10 @@ export function SpinWheel({
   spinDurationMs = 5200,
   noTransition = false,
   size,
+  onSpin,
+  spinning = false,
+  canSpin = true,
+  spinLabel = 'SPIN',
 }: SpinWheelProps) {
   const n = Math.max(names.length, 1)
   const sliceAngle = 360 / n
@@ -91,6 +105,8 @@ export function SpinWheel({
   const transition = noTransition
     ? 'none'
     : `transform ${spinDurationMs}ms cubic-bezier(0.17, 0.67, 0.12, 0.99)`
+
+  const isEmpty = names.length === 0
 
   return (
     <div
@@ -125,53 +141,75 @@ export function SpinWheel({
         viewBox={`0 0 ${viewBox} ${viewBox}`}
         style={{ width: '100%', height: '100%', display: 'block', overflow: 'visible' }}
       >
-        {/* Rotating group. Caller bumps `rotation`; CSS transition animates it. */}
-        <g
-          style={{
-            transform: `rotate(${rotation}deg)`,
-            transformOrigin: `${cx}px ${cy}px`,
-            transition,
-          }}
-        >
-          {names.map((name, i) => {
-            const start = i * sliceAngle
-            const end = (i + 1) * sliceAngle
-            const color = WHEEL_PALETTE[i % WHEEL_PALETTE.length]
-            const isWinner = winnerIndex === i
-            // Label oriented along the radius through the slice midpoint.
-            const midAngle = start + sliceAngle / 2
-            const labelPos = polarToCartesian(cx, cy, labelR, midAngle)
-            return (
-              <g key={`${name}-${i}`}>
-                <path
-                  d={arcPath(cx, cy, r, start, end)}
-                  fill={color}
-                  stroke="#fff"
-                  strokeWidth={isWinner ? 2.5 : 1.25}
-                  style={isWinner ? { filter: 'url(#wheelWinnerGlow)' } : undefined}
-                />
-                <text
-                  x={labelPos.x}
-                  y={labelPos.y}
-                  fill="#fff"
-                  fontSize={Math.max(7, Math.min(13, 90 / Math.max(n, 4)))}
-                  fontWeight={700}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  transform={`rotate(${midAngle} ${labelPos.x} ${labelPos.y})`}
-                  style={{ textShadow: '0 1px 2px rgba(0,0,0,0.35)', pointerEvents: 'none' }}
-                >
-                  {truncate(name, n)}
-                </text>
-              </g>
-            )
-          })}
+        {/* Empty state: a single greyed disc with a hint, instead of a blank
+            colored slice with no label. Defends against callers briefly hitting
+            0 names while typing (the editor filters blanks). */}
+        {isEmpty ? (
+          <>
+            <circle cx={cx} cy={cy} r={r} fill="#E5E7EB" stroke="#fff" strokeWidth={2} />
+            <text
+              x={cx} y={cy} fill="#64748B" fontSize={11} fontWeight={700}
+              textAnchor="middle" dominantBaseline="middle"
+              style={{ pointerEvents: 'none' }}
+            >
+              Add 2+ names
+            </text>
+          </>
+        ) : (
+          /* Rotating group. Caller bumps `rotation`; CSS transition animates it. */
+          <g
+            style={{
+              transform: `rotate(${rotation}deg)`,
+              transformOrigin: `${cx}px ${cy}px`,
+              transition,
+            }}
+          >
+            {names.map((name, i) => {
+              const start = i * sliceAngle
+              const end = (i + 1) * sliceAngle
+              const color = WHEEL_PALETTE[i % WHEEL_PALETTE.length]
+              const isWinner = winnerIndex === i
+              // Label oriented along the radius through the slice midpoint.
+              const midAngle = start + sliceAngle / 2
+              const labelPos = polarToCartesian(cx, cy, labelR, midAngle)
+              return (
+                <g key={`${name}-${i}`}>
+                  <path
+                    d={arcPath(cx, cy, r, start, end)}
+                    fill={color}
+                    stroke="#fff"
+                    strokeWidth={isWinner ? 2.5 : 1.25}
+                    style={isWinner ? { filter: 'url(#wheelWinnerGlow)' } : undefined}
+                  />
+                  <text
+                    x={labelPos.x}
+                    y={labelPos.y}
+                    fill="#fff"
+                    fontSize={Math.max(7, Math.min(13, 90 / Math.max(n, 4)))}
+                    fontWeight={700}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    transform={`rotate(${midAngle} ${labelPos.x} ${labelPos.y})`}
+                    style={{ textShadow: '0 1px 2px rgba(0,0,0,0.35)', pointerEvents: 'none' }}
+                  >
+                    {truncate(name, n)}
+                  </text>
+                </g>
+              )
+            })}
 
-          {/* Outer ring + hub. */}
-          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#fff" strokeWidth={2.5} />
-          <circle cx={cx} cy={cy} r={14} fill="#fff" stroke="rgba(15,27,61,0.15)" strokeWidth={1} />
-          <circle cx={cx} cy={cy} r={5} fill="#0F1B3D" />
-        </g>
+            {/* Outer ring + hub base. The clickable hub button (when onSpin is
+                provided) is rendered as an HTML overlay above this so it stays
+                still while the wheel rotates. */}
+            <circle cx={cx} cy={cy} r={r} fill="none" stroke="#fff" strokeWidth={2.5} />
+            {!onSpin && (
+              <>
+                <circle cx={cx} cy={cy} r={14} fill="#fff" stroke="rgba(15,27,61,0.15)" strokeWidth={1} />
+                <circle cx={cx} cy={cy} r={5} fill="#0F1B3D" />
+              </>
+            )}
+          </g>
+        )}
 
         {/* Glow filter for the winning slice. */}
         <defs>
@@ -184,6 +222,61 @@ export function SpinWheel({
           </filter>
         </defs>
       </svg>
+
+      {/* Central hub spin button — only on the live host stage (onSpin given).
+          Rendered as an HTML overlay centered on the hub, above the rotating
+          SVG group, so it stays still while the wheel spins. 3D effect via
+          layered box-shadow + active translateY. Hidden in empty state. */}
+      {onSpin && !isEmpty && (
+        <button
+          type="button"
+          onClick={onSpin}
+          disabled={spinning || !canSpin}
+          aria-label={spinning ? 'Spinning' : spinLabel}
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: '22%',
+            aspectRatio: '1',
+            borderRadius: '9999px',
+            border: 'none',
+            cursor: spinning || !canSpin ? 'default' : 'pointer',
+            zIndex: 4,
+            background: 'radial-gradient(circle at 35% 30%, #fff 0%, #FBD13B 55%, #D9A300 100%)',
+            color: '#0F1B3D',
+            fontFamily: 'var(--font-heading)',
+            fontWeight: 900,
+            fontSize: 'clamp(11px, 1.4cqw, 18px)',
+            letterSpacing: '0.04em',
+            boxShadow: [
+              '0 2px 0 #9C7400',           // bottom edge — 3D depth
+              '0 6px 14px rgba(0,0,0,0.35)', // drop shadow
+              'inset 0 2px 3px rgba(255,255,255,0.7)', // top highlight
+            ].join(', '),
+            transition: 'transform 80ms ease, box-shadow 80ms ease',
+            opacity: spinning || !canSpin ? 0.6 : 1,
+          }}
+          onMouseDown={(e) => {
+            const el = e.currentTarget
+            el.style.transform = 'translate(-50%, -50%) translateY(2px)'
+            el.style.boxShadow = '0 0 0 #9C7400, 0 2px 6px rgba(0,0,0,0.35), inset 0 2px 3px rgba(255,255,255,0.7)'
+          }}
+          onMouseUp={(e) => {
+            const el = e.currentTarget
+            el.style.transform = 'translate(-50%, -50%)'
+            el.style.boxShadow = '0 2px 0 #9C7400, 0 6px 14px rgba(0,0,0,0.35), inset 0 2px 3px rgba(255,255,255,0.7)'
+          }}
+          onMouseLeave={(e) => {
+            const el = e.currentTarget
+            el.style.transform = 'translate(-50%, -50%)'
+            el.style.boxShadow = '0 2px 0 #9C7400, 0 6px 14px rgba(0,0,0,0.35), inset 0 2px 3px rgba(255,255,255,0.7)'
+          }}
+        >
+          {spinning ? '…' : spinLabel}
+        </button>
+      )}
     </div>
   )
 }
