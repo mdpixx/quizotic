@@ -11,7 +11,8 @@ export type QuizQuestion = {
   supportingDetail?: string
   matchLefts?: string[]   // matching — left prompts (ordered)
   matchRights?: string[]  // matching — right options (shuffled)
-  index: number
+  index: number   // raw snapshot index — the answer-submission key
+  ordinal?: number // 1-based display position among answerable questions
   total: number
 }
 

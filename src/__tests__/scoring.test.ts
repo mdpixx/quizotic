@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { checkAnswer, calcPoints, applyStreak, validateAnswer, scoreRanking, isAsyncScoredQuestion, toPublicQuestion } from '../lib/scoring'
+import { checkAnswer, calcPoints, applyStreak, validateAnswer, scoreRanking, isAsyncScoredQuestion, toPublicQuestion, nextAnswerableIndex, answerableCount, toServedQuestion } from '../lib/scoring'
 
 // ─── checkAnswer ─────────────────────────────────────────────────────────────
 
@@ -450,5 +450,44 @@ describe('validateAnswer — drawing', () => {
     const r = validateAnswer(drawQ, big)
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.code).toBe('answer_too_large')
+  })
+})
+
+// ─── Leaderboard slides — never answerable, never served async ───────────────
+
+describe('validateAnswer — leaderboard slide', () => {
+  it('rejects any submit aimed at a leaderboard slide', () => {
+    const r = validateAnswer({ type: 'leaderboard', timerSeconds: 20, points: 1000 }, '0')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.code).toBe('invalid_answer')
+  })
+})
+
+describe('async serving helpers — leaderboard skipping', () => {
+  const snapshot = [
+    { id: 'lb0', type: 'leaderboard', timerSeconds: 20, points: 1000 },
+    { id: 'q1', type: 'mcq', options: ['A', 'B'], correctAnswer: '0', timerSeconds: 20, points: 1000 },
+    { id: 'lb2', type: 'leaderboard', timerSeconds: 20, points: 1000 },
+    { id: 'p3', type: 'poll', options: ['X', 'Y'], timerSeconds: 20, points: 0 },
+    { id: 'lb4', type: 'leaderboard', timerSeconds: 20, points: 1000 },
+  ]
+
+  it('nextAnswerableIndex skips slides from any starting point', () => {
+    expect(nextAnswerableIndex(snapshot, 0)).toBe(1)
+    expect(nextAnswerableIndex(snapshot, 2)).toBe(3)
+    expect(nextAnswerableIndex(snapshot, 4)).toBe(-1)
+  })
+
+  it('answerableCount excludes slides', () => {
+    expect(answerableCount(snapshot)).toBe(2)
+    expect(answerableCount([])).toBe(0)
+  })
+
+  it('toServedQuestion keeps the raw index but numbers ordinal/total among answerable', () => {
+    const first = toServedQuestion(snapshot, 1)
+    const second = toServedQuestion(snapshot, 3)
+    expect(first).toMatchObject({ index: 1, ordinal: 1, total: 2 })
+    expect(second).toMatchObject({ index: 3, ordinal: 2, total: 2 })
+    expect(second).not.toHaveProperty('correctAnswer')
   })
 })

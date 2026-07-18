@@ -1,6 +1,8 @@
 // Pure scoring utilities — canonical implementations used by async routes and tests.
 // server.mjs mirrors these functions for live sessions; keep them in sync.
 
+import { isLeaderboardSlide } from './quiz-types'
+
 export interface Question {
   type: string
   correctAnswer?: string | string[]
@@ -113,6 +115,27 @@ export function toPublicQuestion(q: Question): PublicQuestion {
     ? safe.options
     : q.type === 'truefalse' ? ['True', 'False'] : safe.options
   return withMatchingColumns({ ...safe, options }, matchPairs)
+}
+
+// ─── Self-paced serving ──────────────────────────────────────────────────────
+// Leaderboard flow slides are live-session markers and must never be served
+// to the async player (it has no renderer for them — serving one wedges the
+// attempt). Snapshot indices stay raw because Answer rows key on questionIndex;
+// ordinal/total give the client display numbering among answerable questions.
+
+export function nextAnswerableIndex(questions: Question[], from: number): number {
+  return questions.findIndex((q, i) => i >= from && !isLeaderboardSlide(q))
+}
+
+export function answerableCount(questions: Question[]): number {
+  return questions.filter(q => !isLeaderboardSlide(q)).length
+}
+
+export type ServedQuestion = PublicQuestion & { index: number; ordinal: number; total: number }
+
+export function toServedQuestion(questions: Question[], index: number): ServedQuestion {
+  const ordinal = answerableCount(questions.slice(0, index)) + 1
+  return { ...toPublicQuestion(questions[index]!), index, ordinal, total: answerableCount(questions) }
 }
 
 // Returns the effective options array for a question, with type-appropriate defaults.

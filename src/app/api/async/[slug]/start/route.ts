@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto'
 import { prisma } from '@/lib/prisma'
 import { getUserPlan } from '@/lib/billing'
 import { PLAN_LIMITS } from '@/lib/limits'
-import { toPublicQuestion, type Question } from '@/lib/scoring'
+import { answerableCount, nextAnswerableIndex, toServedQuestion, type Question } from '@/lib/scoring'
 import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 import { nudgeAsyncSweep } from '@/lib/sweep-nudge'
 
@@ -87,16 +87,18 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     const participantId = randomUUID()
     const questions = (session.quizVersion?.snapshot as Question[] | null) ?? []
-    const firstQ = questions[0] ? toPublicQuestion(questions[0]) : null
+    // First ANSWERABLE question — leaderboard flow slides are never served
+    // async (the player has no renderer for them; serving one wedges the attempt).
+    const firstIdx = nextAnswerableIndex(questions, 0)
 
     return NextResponse.json({
       success: true,
       data: {
         attendeeId: attendee.id,
         participantId,
-        total: questions.length,
+        total: answerableCount(questions),
         deadlineAt,
-        question: firstQ ? { ...firstQ, index: 0, total: questions.length } : null,
+        question: firstIdx >= 0 ? toServedQuestion(questions, firstIdx) : null,
       },
     })
   } catch (err) {

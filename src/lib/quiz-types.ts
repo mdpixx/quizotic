@@ -40,7 +40,9 @@ export function isScoredQuestion(q: Pick<Question, 'type' | 'correctOrder'>): bo
 // Leaderboard "flow" slides live in the same questions[] array so they drag,
 // reorder, and delete like any slide — but they are not answerable and never
 // scored. Everywhere that iterates questions as answerable must skip these.
-export function isLeaderboardSlide(q: Pick<Question, 'type'>): boolean {
+// Structurally typed (not Pick<Question, 'type'>) so callers holding
+// scoring.ts's string-typed Question shape can use it without casts.
+export function isLeaderboardSlide(q: { type: string }): boolean {
   return q.type === 'leaderboard'
 }
 

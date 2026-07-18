@@ -590,6 +590,7 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
           quizId={assignQuizId}
           quizTitle={builder.title || 'Untitled quiz'}
           hasExistingShare={false}
+          hasLeaderboardSlides={builder.questions.some(q => q.type === 'leaderboard')}
           onClose={() => setAssignQuizId(null)}
           onChanged={() => { /* builder doesn't track share state; modal self-manages */ }}
         />
