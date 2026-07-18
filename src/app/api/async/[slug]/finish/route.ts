@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { type NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
-import { isAsyncScoredType, ASYNC_PARTICIPATION_TYPES, type Question } from '@/lib/scoring'
+import { answerableCount, isAsyncScoredType, ASYNC_PARTICIPATION_TYPES, type Question } from '@/lib/scoring'
 
 type Params = { params: Promise<{ slug: string }> }
 
@@ -50,7 +50,10 @@ export async function POST(req: NextRequest, { params }: Params) {
     const correctCount = answers.filter(a => a.isCorrect === true).length
     const answeredCount = answers.length
     const snapshot = (session.quizVersion?.snapshot as Question[] | null) ?? []
-    const questionCount = session.quizVersion?.questionCount ?? answeredCount
+    // Excludes leaderboard flow slides — they are never served async.
+    const questionCount = snapshot.length > 0
+      ? answerableCount(snapshot)
+      : (session.quizVersion?.questionCount ?? answeredCount)
     const scoredQuestionCount = snapshot.filter(q => isAsyncScoredType(q.type)).length
     const answeredIndexSet = new Set(answers.map(a => a.questionIndex))
     const participationAnsweredCount = snapshot.filter(

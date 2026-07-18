@@ -9,7 +9,7 @@ import { getUserPlan } from '@/lib/billing'
 import { PLAN_LIMITS } from '@/lib/limits'
 import { hasQuizValidationErrors, validateQuizQuestions } from '@/lib/quiz-validation'
 import { nudgeAsyncSweep } from '@/lib/sweep-nudge'
-import type { Question } from '@/lib/quiz-types'
+import { isLeaderboardSlide, type Question } from '@/lib/quiz-types'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -118,6 +118,9 @@ export async function POST(req: NextRequest, { params }: Params) {
     if (!quiz) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
 
     const snapshot = getSnapshotQuestions(quiz.questions)
+    // Surfaced so the Assign modal can tell hosts these slides are skipped in
+    // self-paced play (they are live-session flow markers, not questions).
+    const hasLeaderboardSlides = snapshot.some(isLeaderboardSlide)
     if (snapshot.length === 0) {
       return NextResponse.json({
         success: false,
@@ -181,6 +184,7 @@ export async function POST(req: NextRequest, { params }: Params) {
             needsRepublish: false,
             republished: true,
             timeLimitMinutes: existing.timeLimitMinutes ?? null,
+            hasLeaderboardSlides,
           },
         })
       }
@@ -198,6 +202,7 @@ export async function POST(req: NextRequest, { params }: Params) {
           needsRepublish: false,
           republished: false,
           timeLimitMinutes: existing.timeLimitMinutes ?? null,
+          hasLeaderboardSlides,
         },
       })
     }
@@ -261,6 +266,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         publishedAt: version.createdAt,
         needsRepublish: false,
         republished: false,
+        hasLeaderboardSlides,
       },
     })
   } catch (err) {

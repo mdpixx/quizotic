@@ -2,9 +2,30 @@ export const dynamic = 'force-dynamic'
 
 import { type NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { toPublicQuestion, type Question } from '@/lib/scoring'
+import { answerableCount, toServedQuestion, type Question } from '@/lib/scoring'
+import { isLeaderboardSlide } from '@/lib/quiz-types'
 
 type Params = { params: Promise<{ slug: string }> }
+
+type AnswerRow = { questionIndex: number; points: number; isCorrect: boolean | null }
+
+// Marks the attempt finished exactly once (leftAt guard) and bumps the
+// session participant count only for the request that won the race.
+async function finalizeAttempt(sessionId: string, attendeeId: string, answers: AnswerRow[]) {
+  const finalScore = answers.reduce((s, a) => s + a.points, 0)
+  const finalized = await prisma.attendee.updateMany({
+    where: { id: attendeeId, sessionId, leftAt: null },
+    data: { leftAt: new Date(), finalScore },
+  })
+  if (finalized.count > 0) {
+    await prisma.gameSession.update({ where: { id: sessionId }, data: { participantCount: { increment: 1 } } })
+  }
+  return {
+    finalScore,
+    correctCount: answers.filter(a => a.isCorrect === true).length,
+    answeredCount: answers.length,
+  }
+}
 
 // POST /api/async/[slug]/state
 // Body: { participantId, attendeeId }
@@ -46,7 +67,11 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
 
     const questions = (session.quizVersion?.snapshot as Question[] | null) ?? []
-    const questionCount = session.quizVersion?.questionCount ?? questions.length
+    // Leaderboard flow slides are never served async, so every count the
+    // player sees must exclude them.
+    const questionCount = questions.length > 0
+      ? answerableCount(questions)
+      : (session.quizVersion?.questionCount ?? 0)
 
     // Already finished — return result regardless of session state
     if (attendee.leftAt) {
@@ -73,27 +98,12 @@ export async function POST(req: NextRequest, { params }: Params) {
     if (attendee.deadlineAt && new Date() > attendee.deadlineAt) {
       const answers = await prisma.answer.findMany({
         where: { sessionId: session.id, participantId },
-        select: { points: true, isCorrect: true },
+        select: { questionIndex: true, points: true, isCorrect: true },
       })
-      const finalScore = answers.reduce((s, a) => s + a.points, 0)
-      const finalized = await prisma.attendee.updateMany({
-        where: { id: attendeeId, sessionId: session.id, leftAt: null },
-        data: { leftAt: new Date(), finalScore },
-      })
-      if (finalized.count > 0) {
-        await prisma.gameSession.update({ where: { id: session.id }, data: { participantCount: { increment: 1 } } })
-      }
+      const result = await finalizeAttempt(session.id, attendeeId, answers)
       return NextResponse.json({
         success: true,
-        data: {
-          status: 'time_up',
-          result: {
-            finalScore,
-            correctCount: answers.filter(a => a.isCorrect === true).length,
-            answeredCount: answers.length,
-            questionCount,
-          },
-        },
+        data: { status: 'time_up', result: { ...result, questionCount } },
       })
     }
 
@@ -102,16 +112,25 @@ export async function POST(req: NextRequest, { params }: Params) {
       return NextResponse.json({ success: true, data: { status: 'closed' } })
     }
 
-    // In progress — find next unanswered question
+    // In progress — find next unanswered answerable question (never a slide)
     const answers = await prisma.answer.findMany({
       where: { sessionId: session.id, participantId },
-      select: { questionIndex: true },
+      select: { questionIndex: true, points: true, isCorrect: true },
     })
     const answeredIndices = new Set(answers.map(a => a.questionIndex))
-    const nextIndex = questions.findIndex((_, i) => !answeredIndices.has(i))
-    const nextQuestion = nextIndex >= 0
-      ? { ...toPublicQuestion(questions[nextIndex]), index: nextIndex, total: questionCount }
-      : null
+    const nextIndex = questions.findIndex((q, i) => !answeredIndices.has(i) && !isLeaderboardSlide(q))
+
+    // Every answerable question answered (only slides remain, e.g. a trailing
+    // auto-leaderboard): finalize here. Returning in_progress with a null
+    // nextQuestion would send the client back to the entry form and let it
+    // create a duplicate attempt.
+    if (nextIndex === -1) {
+      const result = await finalizeAttempt(session.id, attendeeId, answers)
+      return NextResponse.json({
+        success: true,
+        data: { status: 'finished', result: { ...result, questionCount } },
+      })
+    }
 
     return NextResponse.json({
       success: true,
@@ -120,7 +139,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         deadlineAt: attendee.deadlineAt,
         answeredCount: answeredIndices.size,
         total: questionCount,
-        nextQuestion,
+        nextQuestion: toServedQuestion(questions, nextIndex),
         result: null,
       },
     })

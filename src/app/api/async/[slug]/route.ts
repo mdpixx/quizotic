@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { type NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { answerableCount, type Question } from '@/lib/scoring'
 
 type Params = { params: Promise<{ slug: string }> }
 
@@ -54,9 +55,12 @@ export async function GET(_req: NextRequest, { params }: Params) {
       })
     }
 
-    const questions = Array.isArray(session.quizVersion?.snapshot)
-      ? (session.quizVersion?.snapshot as Array<{ timerSeconds?: number; points?: number }>)
-      : []
+    // Leaderboard flow slides are never served async — exclude them from the
+    // count and the time/score estimates (builder slides carry default
+    // timer/points that would inflate both).
+    const raw = (session.quizVersion?.snapshot as Question[] | null) ?? []
+    const snapshot = Array.isArray(raw) ? raw : []
+    const questions = snapshot.filter(q => q.type !== 'leaderboard')
     const estimatedSeconds = questions.reduce((sum, q) => sum + (typeof q.timerSeconds === 'number' ? q.timerSeconds : 20), 0)
     const maxBaseScore = questions.reduce((sum, q) => sum + (typeof q.points === 'number' ? q.points : 1000), 0)
 
@@ -66,7 +70,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
         state: 'open',
         title: session.quizVersion?.title ?? 'Quiz',
         subject: session.quizVersion?.subject ?? null,
-        questionCount: session.quizVersion?.questionCount ?? 0,
+        questionCount: snapshot.length > 0 ? answerableCount(snapshot) : (session.quizVersion?.questionCount ?? 0),
         allowRetries: session.allowRetries,
         opensAt: session.opensAt,
         closesAt: session.closesAt,

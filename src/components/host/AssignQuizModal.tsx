@@ -23,6 +23,9 @@ interface AssignQuizModalProps {
   // must NOT publish on open — merely looking at the Assign dialog should
   // never make a quiz publicly joinable.
   hasExistingShare: boolean
+  // Known pre-publish only by callers that hold the questions (the builder);
+  // elsewhere the flag arrives with the publish response.
+  hasLeaderboardSlides?: boolean
   onClose: () => void
   onChanged: (quizId: string, patch: QuizPatch) => void
 }
@@ -49,6 +52,7 @@ interface PublishData {
   publishedAt: string | null
   needsRepublish: boolean
   timeLimitMinutes: number | null
+  hasLeaderboardSlides: boolean
 }
 
 type Tab = 'now' | 'schedule'
@@ -162,7 +166,7 @@ function localTzLabel(): string {
   }
 }
 
-export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, onClose, onChanged }: AssignQuizModalProps) {
+export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, hasLeaderboardSlides, onClose, onChanged }: AssignQuizModalProps) {
   const [tab, setTab] = useState<Tab>('now')
   const [loading, setLoading] = useState(hasExistingShare)
   const [saving, setSaving] = useState(false)
@@ -295,6 +299,7 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, onClose, 
       publishedAt: (raw.publishedAt as string | null) ?? null,
       needsRepublish: !!raw.needsRepublish,
       timeLimitMinutes: (raw.timeLimitMinutes as number | null) ?? null,
+      hasLeaderboardSlides: !!raw.hasLeaderboardSlides,
     }
   }
 
@@ -537,6 +542,12 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, onClose, 
             {data?.needsRepublish && (
               <div className="mb-4 px-3 py-2.5 rounded-xl text-xs font-medium" style={{ background: '#FFFBEB', color: '#92400E', border: '1px solid #FDE68A' }}>
                 This quiz changed since it was shared. Re-save the schedule or toggle a setting to republish the latest version.
+              </div>
+            )}
+
+            {(hasLeaderboardSlides || data?.hasLeaderboardSlides) && (
+              <div className="mb-4 px-3 py-2.5 rounded-xl text-xs font-medium" style={{ background: '#F0F5FF', color: '#3B5BDB', border: '1px solid #DBE4FF' }}>
+                Leaderboard slides don&apos;t apply to self-paced quizzes — participants skip past them.
               </div>
             )}
 

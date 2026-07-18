@@ -525,7 +525,10 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
     const isFeedback = phase === 'feedback'
     const isRecording = phase === 'recording'
     const isDisabled = isFeedback || isRecording
-    const progressPct = ((q.index + 1) / q.total) * 100
+    // ordinal numbers among answerable questions (leaderboard slides are
+    // skipped server-side); index+1 fallback covers pre-ordinal payloads.
+    const qNum = q.ordinal ?? q.index + 1
+    const progressPct = (qNum / q.total) * 100
 
     const fb = feedback
 
@@ -541,7 +544,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
             />
           </div>
           <span className="text-xs font-bold tabular-nums" style={{ color: '#94A3B8' }}>
-            {q.index + 1}/{q.total}
+            {qNum}/{q.total}
           </span>
           <span className="text-xs font-bold px-2.5 py-1 rounded-full tabular-nums"
             style={{ background: 'rgba(251,209,59,0.15)', color: '#FBD13B' }}>
@@ -558,7 +561,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
           <div className="rounded-3xl p-6 sm:p-8 lg:p-10 shadow-sm flex flex-col justify-center"
             style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}>
             <p className="text-xs font-black uppercase tracking-[0.22em] mb-4" style={{ color: '#FBD13B' }}>
-              Question {q.index + 1} of {q.total}
+              Question {qNum} of {q.total}
             </p>
             <p className="font-black leading-tight" style={{
               color: '#fff',

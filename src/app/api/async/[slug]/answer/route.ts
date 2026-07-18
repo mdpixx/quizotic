@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { type NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { checkAnswer, calcPoints, computeStreakBonus, isAsyncScoredQuestion, scoreRanking, toPublicQuestion, validateAnswer, type Question } from '@/lib/scoring'
+import { checkAnswer, calcPoints, computeStreakBonus, isAsyncScoredQuestion, nextAnswerableIndex, scoreRanking, toServedQuestion, validateAnswer, type Question } from '@/lib/scoring'
 import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 import type { Prisma } from '@prisma/client'
 
@@ -72,6 +72,12 @@ export async function POST(req: NextRequest, { params }: Params) {
       return NextResponse.json({ success: false, error: 'Time is up for this attempt.', code: 'time_up' }, { status: 410 })
     }
 
+    // Next question to serve — computed once so the cached-idempotent branch
+    // and the main branch can't diverge. Skips leaderboard flow slides (the
+    // async player has no renderer for them; serving one wedges the attempt).
+    const nextIdx = nextAnswerableIndex(questions, questionIndex + 1)
+    const nextQ = nextIdx >= 0 ? toServedQuestion(questions, nextIdx) : null
+
     // Idempotency: if answer already recorded, return cached result
     const existing = await prisma.answer.findFirst({
       where: { sessionId: session.id, participantId, questionIndex },
@@ -79,7 +85,6 @@ export async function POST(req: NextRequest, { params }: Params) {
     if (existing) {
       const isScored = isAsyncScoredQuestion(question)
       const isRankingScored = isScored && question.type === 'ranking'
-      const nextQ = questions[questionIndex + 1] ? { ...toPublicQuestion(questions[questionIndex + 1]), index: questionIndex + 1, total: questions.length } : null
       return NextResponse.json({
         success: true,
         data: {
@@ -140,10 +145,6 @@ export async function POST(req: NextRequest, { params }: Params) {
         confidence,
       },
     })
-
-    const nextQ = questions[questionIndex + 1]
-      ? { ...toPublicQuestion(questions[questionIndex + 1]), index: questionIndex + 1, total: questions.length }
-      : null
 
     return NextResponse.json({
       success: true,
