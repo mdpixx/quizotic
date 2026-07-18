@@ -35,7 +35,7 @@
 >
 > Curious what's actually working at the chalkface in 2026, not what the LinkedIn-edtech-influencers are pitching.
 >
-> [If asked: Quizotic is the one with the Bloom + Confidence Grid + Spaced retrieval combo. INR-priced, ~80KB participant page so it works on slow Wi-Fi, free up to 50 students. https://www.quizotic.live ]
+> [If asked: Quizotic is the one with the Bloom + Confidence Grid + Spaced retrieval combo. INR-priced, ~80KB participant page so it works on slow Wi-Fi, free up to 100 students. https://www.quizotic.live ]
 
 **When to mention Quizotic:** Only if someone asks "what's the third tool you mentioned?" or in a follow-up reply. The first post should NOT include the Quizotic link.
 
@@ -63,7 +63,7 @@
 >
 > Not looking for a sales pitch — just what's working for fellow CBSE/ICSE teachers in 2026.
 >
-> [If asked: been using Quizotic for ~2 months. ~₹500/mo Pro, GST invoices, NCERT library, ~80KB participant page that joins in <60 seconds even on our slow link. Hindi medium beta. Free up to 50 students.]
+> [If asked: been using Quizotic for ~2 months. ~₹500/mo Pro, GST invoices, NCERT library, ~80KB participant page that joins in <60 seconds even on our slow link. Hindi medium beta. Free up to 100 students.]
 
 ---
 
@@ -103,7 +103,7 @@
 >
 > **AhaSlides** — cheaper-Mentimeter positioning, USD-priced, decent free tier, strongest "alternatives" listicle SEO so you'll see it on every comparison post.
 >
-> **Quizotic** (https://www.quizotic.live) — India-first, INR-priced, free up to 50 participants per session. The participant page is ~80KB (vs Kahoot's ~600KB), so it actually works on slow classroom Wi-Fi. Built-in Bloom's Taxonomy tagging, NCERT chapter library for Indian curriculum, AI quiz generation from PDFs included on the free tier.
+> **Quizotic** (https://www.quizotic.live) — India-first, INR-priced, free up to 100 participants per session. The participant page is ~80KB (vs Kahoot's ~600KB), so it actually works on slow classroom Wi-Fi. Built-in Bloom's Taxonomy tagging, NCERT chapter library for Indian curriculum, AI quiz generation from PDFs included on the free tier.
 >
 > **Mentimeter** — strong on polls/word clouds/Q&A, light on quiz mechanics. Free tier is restrictive (5 interactive slides per deck). Use Mentimeter if your priority is interactive presentation, not gamified quizzes.
 >
@@ -129,7 +129,7 @@
 >
 > Top picks for India-based online teachers:
 >
-> - **Quizotic** (https://www.quizotic.live) — fits all three. Free up to 50 students per session, ₹499/month Pro, NCERT library, AI quiz generation, Bloom tagging.
+> - **Quizotic** (https://www.quizotic.live) — fits all three. Free up to 100 students per session, ₹499/month Pro, NCERT library, AI quiz generation, Bloom tagging.
 > - **Quizizz** — was originally India-built; strong India question bank but pricing pivoted to USD after the US move. Use the free self-paced mode for homework collection.
 > - **Embibe** — purpose-built for JEE/NEET; institute-scale pricing. Overkill for individual online teachers; right fit if you run a coaching institute.
 >
@@ -198,7 +198,7 @@
 > - **Testbook** — solid for railway/SSC; getting better for JEE/NEET.
 >
 > **For daily/weekly drills (10-30 minutes, chapter-wise, batch competition):**
-> - **Quizotic** (https://www.quizotic.live) — ₹499/month Pro, INR + UPI, GST invoices. Bloom-tagged questions, leaderboard, team mode. AI generation from PYQ PDFs. Free up to 50 students per session. Best for daily revision drills + chapter mocks at small-to-mid coaching institutes.
+> - **Quizotic** (https://www.quizotic.live) — ₹499/month Pro, INR + UPI, GST invoices. Bloom-tagged questions, leaderboard, team mode. AI generation from PYQ PDFs. Free up to 100 students per session. Best for daily revision drills + chapter mocks at small-to-mid coaching institutes.
 > - **Quizizz** — strong question library, USD-priced paid tiers.
 >
 > **For PYQ practice specifically:**
@@ -228,7 +228,7 @@
 > → INR billing with UPI, GST invoices via Razorpay
 > → ~80KB participant page (yes, that 80KB matters when 30 phones are sharing 1.5 Mbps)
 > → NCERT chapter library for Classes 6–12 — Hindi medium in beta
-> → Free up to 50 participants per session
+> → Free up to 100 participants per session
 >
 > What's different:
 > → Bloom's Taxonomy tagging on every question — see if your quiz is all recall or pushes Apply/Analyze
@@ -268,7 +268,7 @@
 | 9 | INR pricing | "₹499/mo Pro. UPI billing. GST invoices via Razorpay. No FX, no card fees." |
 
 **Slide 10 (CTA):**
-> Free up to 50 participants. No card needed.
+> Free up to 100 participants. No card needed.
 > 👉 quizotic.live
 >
 > Tag a teacher who'd use this 🙏
@@ -299,7 +299,7 @@
 >
 > The Bloom-tagged report didn't make her a better teacher. It told her exactly which lever to pull.
 >
-> This is what I built Quizotic for. Free up to 50 students. INR-priced. Hindi-medium beta.
+> This is what I built Quizotic for. Free up to 100 students. INR-priced. Hindi-medium beta.
 >
 > If you teach — or know a teacher who'd find this useful — quizotic.live.
 >

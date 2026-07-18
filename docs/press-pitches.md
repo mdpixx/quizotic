@@ -167,7 +167,7 @@
 >
 > A KVS Delhi science teacher I work with started using Quizotic in February 2026 for weekly chapter revision quizzes. Her Class 9 section's Monday-morning engagement went from "below 30% participation" to "above 90%." Same students, same teacher, same syllabus. The change was the medium — turning a printed worksheet into a live multiplayer quiz with a leaderboard, reports for parent-teacher meetings, and a 6-digit PIN students join from their phones.
 >
-> Quizotic is free up to 50 students per session. Hindi-medium NCERT chapters are in beta. The tool is built for the slowest classroom Wi-Fi.
+> Quizotic is free up to 100 students per session. Hindi-medium NCERT chapters are in beta. The tool is built for the slowest classroom Wi-Fi.
 >
 > Happy to set up an interview with the teacher (with her permission), share screenshots, or get on a call.
 >

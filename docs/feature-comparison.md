@@ -120,7 +120,7 @@
 
 | Tier | Kahoot | Mentimeter | Quizotic |
 |---|---|---|---|
-| Free limits | 10 saved quizzes, all features limited | 2 question slides per presentation | 10 players/session, 5 saved quizzes |
+| Free limits | 10 saved quizzes, all features limited | 2 question slides per presentation | 100 participants/session, 5 saved quizzes |
 | Basic/Pro monthly | $5-17/month (~₹420-1,430) | $8-16/month (~₹670-1,350) | **₹299/month** |
 | Annual plan | $48-204/year (~₹4,000-17,200) | $96-192/year (~₹8,100-16,200) | **₹2,499/year** |
 | Institute/Business | $25+/month/user | Custom | **₹999/month (10 teachers)** |

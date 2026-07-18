@@ -42,7 +42,7 @@ Copy-paste ready. Use the variant that matches each directory's character limit.
 > • No app install — participants join via browser on any device
 > • INR pricing via Razorpay (UPI, cards, netbanking)
 > • PDF/CSV export of results
-> • Free tier with 50 participants per session; Pro for unlimited
+> • Free tier with 100 participants per session; Pro for unlimited
 >
 > Built for the Indian classroom reality — low bandwidth, mixed devices, rupee pricing, regional language support.
 
