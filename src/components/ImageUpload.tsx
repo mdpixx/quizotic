@@ -97,7 +97,9 @@ export function ImageUpload({ imageUrl, onUpload, onRemove, variant = 'question'
         <button
           type="button"
           onClick={onRemove}
-          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs font-bold flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+          aria-label="Remove image"
+          title="Remove image"
         >
           x
         </button>
