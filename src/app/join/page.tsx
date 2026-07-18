@@ -23,6 +23,7 @@ import type { Question as QuizQuestion, QuestionType } from '@/lib/quiz-types'
 import { SlideImage } from '@/components/SlideImage'
 import { SpinWheel } from '@/components/presentation/SpinWheel'
 import { PinMap } from '@/components/presentation/PinMap'
+import { getVideoEmbedUrl } from '@/lib/video'
 import { ANSWER_COLORS, ANSWER_LETTERS } from '@/lib/answer-colors'
 import { useConfetti } from '@/hooks/useConfetti'
 import { useWakeLock } from '@/hooks/useWakeLock'
@@ -3020,6 +3021,7 @@ function JoinPageInner() {
     const quote = typeof slide.quote === 'string' ? slide.quote : ''
     const attribution = typeof slide.attribution === 'string' ? slide.attribution : ''
     const videoUrl = typeof slide.url === 'string' ? slide.url : ''
+    const videoCaption = typeof slide.caption === 'string' ? slide.caption : ''
 
     return (
       <div className="min-h-screen flex flex-col" style={{ background: '#0F1B3D' }}>
@@ -3063,7 +3065,18 @@ function JoinPageInner() {
             </div>
           )}
           {sType === 'video' && videoUrl && (
-            <p className="text-sm text-center" style={{ color: '#94A3B8' }}>Video playing on the host screen.</p>
+            <div className="w-full max-w-md space-y-2">
+              <div className="aspect-video rounded-xl overflow-hidden bg-black">
+                <iframe
+                  src={getVideoEmbedUrl(videoUrl)}
+                  className="w-full h-full"
+                  title="Presentation video"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+              {videoCaption && <p className="text-sm text-center" style={{ color: '#94A3B8' }}>{videoCaption}</p>}
+            </div>
           )}
         </div>
         <div className="px-4 py-2 flex items-center justify-center gap-2" style={{ color: '#94A3B8' }}>

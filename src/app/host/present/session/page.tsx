@@ -13,6 +13,7 @@ import { SlideImageFrame } from '@/components/SlideImageFrame'
 import { ANSWER_COLORS } from '@/lib/answer-colors'
 import { PRESENTATION_SEQUENCE } from '@/lib/sequence-theme'
 import { track } from '@/lib/analytics'
+import { getVideoEmbedUrl } from '@/lib/video'
 import { PostSessionHeader } from '@/components/PostSessionHeader'
 import { PresentationSummary } from '@/components/PresentationSummary'
 import { SpinWheel } from '@/components/presentation/SpinWheel'
@@ -504,18 +505,6 @@ function WheelSpinner({
       )}
     </div>
   )
-}
-
-function getVideoEmbedUrl(url: string): string {
-  try {
-    const u = new URL(url)
-    const ytId = u.searchParams.get('v')
-      || (u.hostname === 'youtu.be' ? u.pathname.slice(1) : null)
-      || (u.pathname.includes('/shorts/') ? u.pathname.split('/shorts/')[1] : null)
-    if (ytId) return `https://www.youtube.com/embed/${ytId.split('?')[0]}`
-    if (u.hostname.includes('vimeo.com')) return `https://player.vimeo.com/video${u.pathname}`
-    return url.replace('watch?v=', 'embed/')
-  } catch { return url }
 }
 
 // ─── Slide content renderer ───────────────────────────────────────────────────
