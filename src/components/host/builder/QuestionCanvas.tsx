@@ -695,20 +695,53 @@ export function QuestionCanvas({
           regardless of type or text length. The font scales down with length
           (questionTextSizeClass) so the full text fits without scrolling. */}
       <div
-        className="flex-shrink-0 relative px-6 py-4 text-center flex flex-col justify-center"
+        className="flex-shrink-0 relative px-6 py-4 flex items-stretch gap-4 sm:gap-5"
         style={{ background: '#FAFAF8', borderBottom: '1px solid #EDE8E0', height: 'clamp(132px, 24vh, 208px)' }}
       >
         <CharCount value={question.text} limit={QUESTION_CHAR_LIMIT} />
-        <AutoGrowTextarea
-          value={question.text}
-          onChange={e => onChange({ text: e.target.value })}
-          placeholder="What would you like to ask?"
-          minRows={1}
-          maxLength={160}
-          wrapperClassName="w-full max-h-full overflow-hidden"
-          className={`w-full font-bold text-center bg-transparent outline-none resize-none border border-transparent hover:border-blue-200 hover:bg-blue-50/40 focus:border-transparent focus:ring-2 focus:ring-blue-100 rounded-lg transition-all leading-snug cursor-text ${questionTextSizeClass(question.text)}`}
-          style={{ color: '#0F1B3D' }}
-        />
+
+        {/* Inline image — left third of the band. The band keeps its fixed
+            height, so attaching an image never pushes the answers down. */}
+        {question.imageUrl && (
+          <div
+            className="relative group flex-shrink-0 rounded-xl overflow-hidden flex items-center justify-center"
+            style={{ width: 'clamp(110px, 30%, 300px)', background: '#F5F6F8', boxShadow: 'inset 0 0 0 1px rgba(15,27,61,0.06)' }}
+          >
+            <img src={question.imageUrl} alt="" className="max-w-full max-h-full object-contain" />
+            <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                type="button"
+                onClick={() => setImageChipOpen(true)}
+                className="text-[10px] font-semibold text-gray-700 hover:text-gray-900 bg-white/90 backdrop-blur-sm rounded-full px-2 py-0.5 shadow-sm transition-colors"
+                style={{ border: '1px solid #E3E5E9' }}
+              >
+                Replace
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange({ imageUrl: undefined })}
+                className="text-[10px] font-semibold text-gray-700 hover:text-red-600 bg-white/90 backdrop-blur-sm rounded-full px-2 py-0.5 shadow-sm transition-colors"
+                style={{ border: '1px solid #E3E5E9' }}
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Question text — full width without an image, right two-thirds with one */}
+        <div className="flex-1 min-w-0 max-h-full flex flex-col justify-center text-center">
+          <AutoGrowTextarea
+            value={question.text}
+            onChange={e => onChange({ text: e.target.value })}
+            placeholder="What would you like to ask?"
+            minRows={1}
+            maxLength={160}
+            wrapperClassName="w-full max-h-full overflow-hidden"
+            className={`w-full font-bold text-center bg-transparent outline-none resize-none border border-transparent hover:border-blue-200 hover:bg-blue-50/40 focus:border-transparent focus:ring-2 focus:ring-blue-100 rounded-lg transition-all leading-snug cursor-text ${questionTextSizeClass(question.text)}`}
+            style={{ color: '#0F1B3D' }}
+          />
+        </div>
 
         {/* Detail chips — bottom-right, absolute so they consume no band height */}
         <div className="absolute bottom-2 right-3 flex gap-1.5 z-10">
@@ -760,36 +793,6 @@ export function QuestionCanvas({
           </TitleBandChip>
         </div>
       </div>
-
-      {/* ── Image preview (if set) ──────────────────────────────────────── */}
-      {question.imageUrl && (
-        <div className="flex-shrink-0 px-6 pt-4">
-          <div
-            className="relative group rounded-xl flex items-center justify-center overflow-hidden"
-            style={{ height: 'clamp(180px, 28vh, 320px)', background: '#F5F6F8', boxShadow: 'inset 0 0 0 1px rgba(15,27,61,0.06)' }}
-          >
-            <img src={question.imageUrl} alt="" className="max-w-full max-h-full object-contain" />
-            <div className="absolute top-2.5 right-2.5 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button
-                type="button"
-                onClick={() => setImageChipOpen(true)}
-                className="text-[11px] font-semibold text-gray-700 hover:text-gray-900 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-sm transition-colors"
-                style={{ border: '1px solid #E3E5E9' }}
-              >
-                Replace
-              </button>
-              <button
-                type="button"
-                onClick={() => onChange({ imageUrl: undefined })}
-                className="text-[11px] font-semibold text-gray-700 hover:text-red-600 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-sm transition-colors hover:border-red-200"
-                style={{ border: '1px solid #E3E5E9' }}
-              >
-                Remove
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── Options / type body ───────────────────────────────────────────── */}
       {/* Top-aligned (no justify-center) so answers start at the same y on
