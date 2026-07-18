@@ -35,7 +35,7 @@ Copy-paste ready. Each section has the exact fields each platform asks for. Orde
 **Topics (pick 4):** Education, Productivity, SaaS, India
 
 **Description (260 chars max):**
-> Live quizzes + interactive presentations in one tool. 11 question types, AI quiz generation from any PDF, INR billing with UPI, NCERT chapter library, ~80KB participant page that runs on classroom Wi-Fi. Free up to 50 participants.
+> Live quizzes + interactive presentations in one tool. 11 question types, AI quiz generation from any PDF, INR billing with UPI, NCERT chapter library, ~80KB participant page that runs on classroom Wi-Fi. Free up to 100 participants.
 
 **Gallery captions (one per screenshot):**
 1. Live quiz in progress — leaderboard, speed bonus, real-time scoring
@@ -49,7 +49,7 @@ Copy-paste ready. Each section has the exact fields each platform asks for. Orde
 >
 > I built this after watching every Kahoot/Mentimeter alternative either price in dollars (painful at FX + card fees in India) or treat the Indian classroom market like an afterthought. So Quizotic is INR-first: ₹499/mo Pro, UPI billing, GST invoices via Razorpay, NCERT chapter library for Classes 6–12, and a participant page that's ~80KB on first load (vs Kahoot's ~600KB) so it actually works on 1–2 Mbps classroom Wi-Fi.
 >
-> Free tier: 50 participants per session, 5 saved quizzes, 30 AI generations/month.
+> Free tier: 100 participants per session, 5 saved quizzes, 30 AI generations/month.
 >
 > The unique stuff: Bloom's Taxonomy tagging on every question, Confidence Grid (surfaces "hubris" — confident but wrong students — and "imposter" — correct but unsure), and a spaced-retrieval queue that re-tests missed questions automatically.
 >
@@ -87,7 +87,7 @@ Copy-paste ready. Each section has the exact fields each platform asks for. Orde
 >
 > India-specific: INR pricing (₹499/month Pro vs Kahoot ~$24), UPI payments, GST invoices, ~80KB participant page that runs on 1–2 Mbps classroom Wi-Fi, Hindi-medium NCERT chapters in beta, Tamil/Telugu/Marathi on the 2026 roadmap.
 >
-> Pricing: Free (50 participants per session, 5 saved quizzes, 30 AI generations/month). Pro ₹499/month or ₹4,499/year (200 participants, advanced reports, AI generation, team mode). Team plan custom-priced for institutes with admin dashboard and SSO.
+> Pricing: Free (100 participants per session, 5 saved quizzes, 30 AI generations/month). Pro ₹499/month or ₹4,499/year (unlimited participants, advanced reports, AI generation, team mode). Team plan custom-priced for institutes with admin dashboard and SSO.
 >
 > Live at https://www.quizotic.live since 2026. Founded by Mahesh Dhiman (LinkedIn @mdpixx).
 
@@ -161,7 +161,7 @@ Copy-paste ready. Each section has the exact fields each platform asks for. Orde
 8. **Blooket** → https://alternativeto.net/software/blooket/
 
 **Description (use same for all 8):**
-> Quizotic is an India-first live quiz + interactive presentation platform. Combines Kahoot-style competitive quizzes (11 question types, leaderboard, speed bonus) with Mentimeter-style polls, word clouds, and Q&A. Built for slow classroom Wi-Fi (~80KB participant page). INR billing with UPI, GST invoices, NCERT chapter library, AI quiz generation from PDFs, Bloom's Taxonomy tagging. Free up to 50 participants per session.
+> Quizotic is an India-first live quiz + interactive presentation platform. Combines Kahoot-style competitive quizzes (11 question types, leaderboard, speed bonus) with Mentimeter-style polls, word clouds, and Q&A. Built for slow classroom Wi-Fi (~80KB participant page). INR billing with UPI, GST invoices, NCERT chapter library, AI quiz generation from PDFs, Bloom's Taxonomy tagging. Free up to 100 participants per session.
 
 **License:** Freemium
 

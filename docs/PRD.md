@@ -525,7 +525,7 @@ Server → Host:
 ## 10. Monetization & Pricing
 
 ### Free Tier
-- Up to 10 participants per session
+- Up to 100 participants per session (Early Supporter boost; standard free plan: 50)
 - Up to 5 saved quizzes
 - All question types available
 - Basic session report (no export)
