@@ -55,8 +55,8 @@ export function QuestionSettingsPopover({ question, onChange, onClose }: Questio
         Desktop: classic absolute dropdown below the gear button
       */}
       <div
-        className="fixed left-2 right-2 bottom-20 z-50 rounded-2xl shadow-2xl border bg-white overflow-y-auto md:absolute md:left-auto md:right-0 md:bottom-auto md:top-full md:mt-1 md:w-80"
-        style={{ maxHeight: 'calc(100vh - 140px)', borderColor: '#E5E7EB' }}
+        className="fixed left-2 right-2 bottom-20 z-50 rounded-2xl border bg-white overflow-y-auto md:absolute md:left-auto md:right-0 md:bottom-auto md:top-full md:mt-1 md:w-80"
+        style={{ maxHeight: 'calc(100vh - 140px)', borderColor: '#E8EAED', boxShadow: '0 1px 2px rgba(15,27,61,0.04), 0 16px 40px rgba(15,27,61,0.14)' }}
       >
         {/* Drag handle — mobile only */}
         <div className="flex justify-center pt-2 pb-1 md:hidden">
@@ -168,8 +168,8 @@ export function QuestionSettingsPopover({ question, onChange, onClose }: Questio
                   className="px-2 py-1 rounded-lg text-[10px] font-bold transition-all"
                   style={
                     active
-                      ? { background: b.color, color: '#fff', border: `1.5px solid ${b.color}` }
-                      : { background: '#fff', color: b.color, border: `1.5px solid ${b.color}40` }
+                      ? { background: b.color, color: '#fff', border: `1px solid ${b.color}` }
+                      : { background: '#fff', color: b.color, border: `1px solid ${b.color}40` }
                   }
                 >
                   {b.label}
