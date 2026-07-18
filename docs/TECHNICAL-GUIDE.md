@@ -439,8 +439,32 @@ This is a custom Node.js server that runs both:
 
 Active quiz sessions are stored in server memory, NOT in the database. This means:
 - **Max 500 concurrent sessions** (configurable)
-- If Railway restarts the server, all active sessions are lost
+- If Railway restarts the server, sessions are rehydrated from Redis when
+  `REDIS_URL` is set (participants reconnect via their stored participantId);
+  without Redis, active sessions are lost
 - Completed session results ARE saved to the database permanently
+
+### Tested Capacity Per Session (July 2026)
+
+Measured with `scripts/load-test-session.mjs` (real Socket.io clients against a
+spawned server + the production Postgres):
+
+| Players in one quiz | Result | Reveal fan-out p95 | Event-loop probe p95 | End-session DB burst |
+|---|---|---|---|---|
+| 500 | Clean pass | 20ms | 2ms | 2.3s |
+| 750 | Clean pass | 32ms | 2ms | 3.2s |
+
+- **500 participants in one Pro session is verified working**, including all
+  500 joining within 60 seconds from a single venue IP (school/office NAT).
+  750 also passed; beyond that is untested, not known-broken.
+- Join flood policy (server.mjs, `JOIN_*` constants): unknown-code attempts are
+  throttled globally per IP (code-enumeration guard, 100/min); joins to a real
+  session are counted per IP **per game code** — 100/min for free sessions,
+  600/min for Pro, so a large venue behind one NAT IP can fill a Pro room.
+- Re-run before raising declared limits:
+  `ulimit -n 16384 && node scripts/load-test-session.mjs --players=500 --shared-ip`
+  (see the script header for flags; `--bench-serialize` measures the Redis
+  snapshot cost, `--enum-check` verifies the enumeration guard).
 
 ---
 
@@ -448,7 +472,8 @@ Active quiz sessions are stored in server memory, NOT in the database. This mean
 
 | Feature | Free Plan | Pro Plan |
 |---------|-----------|----------|
-| Participants per session | 50 | Unlimited |
+| Participants per quiz session | 100 (Early Supporter boost; standard 50) | Unlimited (500 load-tested) |
+| Participants per presenter session | 50 | Unlimited |
 | AI questions per month | 30 | 750 |
 | Questions per AI generation | 10 | 25 |
 | Saved quizzes | 5 | Unlimited |
