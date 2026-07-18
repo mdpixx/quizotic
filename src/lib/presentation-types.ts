@@ -331,7 +331,7 @@ export function makeSlide(type: SlideType): Slide {
     case 'brainstorm':      return { id, type, question: '', maxChars: 120 }
     case 'pinpoint':        return { id, type, question: '' }
     case 'grid_2x2':        return { id, type, question: '', xLabel: 'X Axis', yLabel: 'Y Axis', xMin: 'Low', xMax: 'High', yMin: 'Low', yMax: 'High' }
-    case 'wheel':           return { id, type, title: 'Pick a winner', names: ['', '', ''] }
+    case 'wheel':           return { id, type, title: 'Pick a winner', names: ['Option 1', 'Option 2'] }
     case 'word_duel':       return { id, type, question: '', optionA: '', optionB: '' }
     case 'live_race':       return { id, type, question: '', options: ['', '', ''] }
     case 'emoji_pulse':     return { id, type, question: '', emojis: ['❤️', '😂', '🔥', '😮'] }

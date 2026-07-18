@@ -1805,6 +1805,8 @@ app.prepare().then(async () => {
       if (!session.aggregates[slideIndex]) {
         session.aggregates[slideIndex] = { total: 0, counts: [], words: {}, scores: [], emojis: {}, pins: [] }
       }
+      // Reset cumulative wheel rotation for this slide so a fresh wheel starts at 0.
+      if (session.wheelRotation) delete session.wheelRotation[slideIndex]
 
       const currentSlide = session.presentationData.slides[slideIndex]
       io.to(`session:${gameCode}`).emit('presenter_slide_changed', {
@@ -1827,6 +1829,8 @@ app.prepare().then(async () => {
       session.currentSlideIndex = slideIndex
       // Reset aggregate so fresh votes can come in
       session.aggregates[slideIndex] = { total: 0, counts: [], words: {}, scores: [], emojis: {}, pins: [] }
+      // Reset cumulative wheel rotation for this slide.
+      if (session.wheelRotation) delete session.wheelRotation[slideIndex]
       // Re-open voting for this slide for all participants
       for (const p of session.participants.values()) {
         if (p.votedSlides) delete p.votedSlides[slideIndex]
@@ -2065,17 +2069,29 @@ app.prepare().then(async () => {
 
       // Authoritative winner + target rotation. Slice i occupies
       // [i*slice, (i+1)*slice) clockwise from the top at rotation 0, so its
-      // midpoint is (i+0.5)*slice. Rotating clockwise by
-      // fullTurns*360 + (360 - mid) brings that midpoint under the top pointer.
+      // midpoint is (i+0.5)*slice. To bring that midpoint under the top pointer
+      // the wheel must rotate clockwise to land at absolute angle `landAngle`.
+      //
+      // CUMULATIVE rotation: every spin must produce a target GREATER than the
+      // last, otherwise the CSS transition sees a near-zero delta on spin #2+
+      // and the wheel barely moves. We carry `session.wheelRotation[slideIndex]`
+      // forward, add 5–7 full turns, then top up so the final angle equals
+      // landAngle. Result: spin #1 ≈ +2160°, spin #2 ≈ +1800° more, … always
+      // forward, always ≥5 turns of delta. Reset to 0 on slide change.
+      if (!session.wheelRotation) session.wheelRotation = {}
+      const current = session.wheelRotation[slideIndex] ?? 0
       const winnerIndex = Math.floor(Math.random() * names.length)
       const sliceAngle = 360 / names.length
       const mid = (winnerIndex + 0.5) * sliceAngle
       const jitter = (Math.random() - 0.5) * sliceAngle * 0.7
-      const fullTurns = 6
-      const targetRotation = fullTurns * 360 + (((360 - (mid + jitter)) % 360) + 360) % 360
+      const landAngle = (((360 - (mid + jitter)) % 360) + 360) % 360
+      const extraTurns = 5 + Math.floor(Math.random() * 3) // 5–7 full turns
+      const deltaToLand = ((landAngle - (current % 360)) + 360) % 360
+      const targetRotation = current + extraTurns * 360 + deltaToLand
+      session.wheelRotation[slideIndex] = targetRotation
       const spinMs = typeof durationMs === 'number' ? durationMs : 5200
 
-      console.log(`[presenter] ${gameCode} wheel spin → "${names[winnerIndex]}" (idx ${winnerIndex})`)
+      console.log(`[presenter] ${gameCode} wheel spin → "${names[winnerIndex]}" (idx ${winnerIndex}) rot ${Math.round(targetRotation)}°`)
       io.to(`session:${gameCode}`).emit('presenter_wheel_result', {
         slideIndex,
         winnerIndex,

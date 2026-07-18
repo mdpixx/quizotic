@@ -484,6 +484,10 @@ function WheelSpinner({
               winnerIndex={highlightIdx}
               spinDurationMs={result?.durationMs ?? 5200}
               style={{ height: '100%', maxWidth: 'min(100%, 52cqw)' }}
+              onSpin={onSpin}
+              spinning={spinning}
+              canSpin={names.length >= 2}
+              spinLabel={winnerName ? 'AGAIN' : 'SPIN'}
             />
           </div>
           {winnerName && (
@@ -496,11 +500,6 @@ function WheelSpinner({
               </p>
             </div>
           )}
-          <button onClick={onSpin} disabled={spinning || names.length === 0}
-            className="w-full py-4 rounded-xl text-lg font-bold transition-all hover:scale-[1.02] disabled:opacity-50 flex-shrink-0"
-            style={{ background: PRESENTATION_SEQUENCE.accent, color: PRESENTATION_SEQUENCE.accentText, fontFamily: 'var(--font-heading)' }}>
-            {spinning ? 'Spinning…' : winnerName ? 'Spin Again' : 'Spin!'}
-          </button>
         </>
       )}
     </div>

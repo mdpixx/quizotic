@@ -433,9 +433,11 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
           <div className="w-full h-full flex flex-col items-center justify-center gap-2">
             <div className="relative flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden">
               {/* Use the same <SpinWheel> the live host/participant views use,
-                  so authoring matches runtime (names drawn ON the slices). */}
-              <div style={{ height: '92%', maxWidth: '100%' }}>
-                <SpinWheel names={names} rotation={0} noTransition size={180} />
+                  so authoring matches runtime (names drawn ON the slices).
+                  Height-driven sizing keeps the wheel a circle that fills the
+                  preview card — the old fixed size={180} looked tiny. */}
+              <div style={{ height: '100%', maxWidth: '100%', aspectRatio: '1' }}>
+                <SpinWheel names={names} rotation={0} noTransition style={{ height: '100%' }} />
               </div>
             </div>
           </div>
