@@ -52,13 +52,20 @@ interface Props {
   className?: string
   markSize?: number
   showMark?: boolean
+  /** Playful per-letter bounce (Baloo 2, each letter rotated, coral accent on
+   * "z"). Used on the participant join screen. Renders the same "Quizotic"
+   * wordmark with aria-label, just with a bouncy branding treatment. */
+  playful?: boolean
 }
+
+const QUIZOTIC = 'Quizotic'
 
 export function QuizoticLogo({
   variant = 'onDark',
   className = '',
   markSize = 32,
-  showMark = false, // wordmark-only by default; the Q mark read as "Q Quizotic"
+  showMark = false, // wordmark-only by default; the Qmark read as "Q Quizotic"
+  playful = false,
 }: Props) {
   const isLight = variant === 'onLight'
   return (
@@ -66,13 +73,35 @@ export function QuizoticLogo({
       className={`inline-flex items-center font-black tracking-tight ${className}`}
       style={{
         color: isLight ? '#0F1B3D' : '#FFFFFF',
-        fontFamily: 'var(--font-heading)',
+        fontFamily: playful ? 'var(--font-baloo), var(--font-heading)' : 'var(--font-heading)',
         gap: showMark ? Math.max(6, Math.round(markSize * 0.25)) : 0,
       }}
       aria-label="Quizotic"
     >
       {showMark && <QuizoticMark size={markSize} decorative />}
-      <span aria-hidden="true">Quizotic</span>
+      {playful ? (
+        // Bouncy branding variant: each letter is its own span, rotated slightly
+        // alternating direction, with a coral accent on "z" (4th letter). The
+        // outer span carries the aria-label so screen readers hear "Quizotic".
+        <span aria-hidden="true" className="inline-flex items-baseline" style={{ letterSpacing: '-0.01em' }}>
+          {QUIZOTIC.split('').map((ch, i) => (
+            <span key={i} style={{
+              display: 'inline-block',
+              transformOrigin: '50% 80%',
+              transform:
+                i === 0 ? 'rotate(-4deg)'
+                : i === 3 ? 'rotate(3deg)' // the "z" — also gets the accent color below
+                : i % 2 === 1 ? 'rotate(2deg)'
+                : 'rotate(-2deg)',
+              color: i === 3 ? '#E07A5F' : undefined,
+            }}>
+              {ch}
+            </span>
+          ))}
+        </span>
+      ) : (
+        <span aria-hidden="true">{QUIZOTIC}</span>
+      )}
     </span>
   )
 }
