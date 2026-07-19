@@ -29,3 +29,11 @@ export function optText(o: unknown): string {
   if (o && typeof o === 'object' && 'text' in o) return String((o as { text: string }).text)
   return String(o)
 }
+
+export function optImage(o: unknown): string | undefined {
+  if (o && typeof o === 'object' && 'imageUrl' in o) {
+    const url = (o as { imageUrl?: unknown }).imageUrl
+    return typeof url === 'string' && url ? url : undefined
+  }
+  return undefined
+}

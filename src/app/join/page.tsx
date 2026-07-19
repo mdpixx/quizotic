@@ -2294,10 +2294,10 @@ function JoinPageInner() {
         ) : (() => {
           const effectiveOpts = getEffectiveOptions(question as unknown as QuizQuestion)
           return (
-          <div className={`gap-2.5 pb-4 ${
-            effectiveOpts?.length === 2
-              ? 'grid grid-cols-1'
-              : 'grid grid-cols-2'
+          <div className={`pb-4 ${
+            sharedScreenSimple
+              ? `grid gap-2.5 ${effectiveOpts?.length === 2 ? 'grid-cols-1' : 'grid-cols-2'}`
+              : 'flex flex-col gap-2.5'
           }`}>
             {effectiveOpts?.map((opt, idx) => {
               const isSelected = question.type === 'multiselect'
@@ -2314,26 +2314,30 @@ function JoinPageInner() {
                   disabled={isDisabled}
                   aria-label={`Option ${OPTION_LABELS[idx]}: ${optText}`}
                   aria-pressed={isSelected}
-                  className={`${OPTION_GRADIENTS[idx]} rounded-xl p-3.5 text-white text-left transition-all focus-visible:outline focus-visible:outline-4 focus-visible:outline-white
-                    ${isTwoOption ? 'flex items-center gap-4 py-4' : 'min-h-[116px] h-auto flex flex-col items-center justify-center'}
+                  className={`${OPTION_GRADIENTS[idx]} rounded-xl text-white text-left transition-all focus-visible:outline focus-visible:outline-4 focus-visible:outline-white
+                    ${sharedScreenSimple
+                      ? `p-3.5 ${isTwoOption ? 'flex items-center gap-4 py-4' : 'min-h-[116px] h-auto flex flex-col items-center justify-center'}`
+                      : 'flex items-center gap-3 px-4 py-3 min-h-[60px]'}
                     ${isSelected ? 'ring-4 ring-white scale-[0.97]' : 'motion-safe:hover:scale-[1.02] motion-safe:hover:brightness-110 motion-safe:active:scale-95'}
                     ${isDisabled && !isSelected ? 'opacity-50 pointer-events-none' : ''}
                   `}
                   style={{ background: OPTION_COLORS[idx] ?? '#0F1B3D' }}
                 >
-                  {/* Hide images + option text in shared-screen mode for
-                      MCQ-like types. The host's display carries the content;
-                      the phone is just a coloured tap zone. */}
+                  {/* Horizontal bar: optional image thumbnail (left) → letter
+                      badge → answer text (fills the remaining width, wraps for
+                      long answers). In shared-screen mode the phone is just a
+                      coloured tap zone, so the image + text are hidden and only
+                      the big centred letter shows. */}
                   {optImage && !sharedScreenSimple && (
-                    <img src={optImage} alt="" className="w-full h-20 object-cover rounded-xl mb-2" loading="lazy" />
+                    <img src={optImage} alt="" className="h-14 w-14 shrink-0 object-cover rounded-lg" loading="lazy" />
                   )}
                   <span className={`rounded-full bg-white/25 flex items-center justify-center font-black flex-shrink-0
-                    ${sharedScreenSimple ? 'w-16 h-16 text-3xl mx-auto' : isTwoOption ? 'w-10 h-10 text-lg' : 'w-10 h-10 mb-2 mx-auto text-lg'}`}
+                    ${sharedScreenSimple ? 'w-16 h-16 text-3xl mx-auto' : 'w-10 h-10 text-lg'}`}
                   >
                     {OPTION_LABELS[idx]}
                   </span>
                   {!sharedScreenSimple && (
-                    <span className="w-full min-w-0 break-words text-base sm:text-lg font-medium leading-snug text-justify [hyphens:auto]" style={{ overflowWrap: 'anywhere' }}>{optText}</span>
+                    <span className="flex-1 min-w-0 break-words text-base sm:text-lg font-medium leading-snug [hyphens:auto]" style={{ overflowWrap: 'anywhere' }}>{optText}</span>
                   )}
                 </button>
               )
@@ -2847,8 +2851,8 @@ function JoinPageInner() {
           )}
         </div>
 
-        {/* Options */}
-        <div className="grid grid-cols-2 gap-3 mb-4">
+        {/* Options — horizontal bars (thumbnail → letter badge → text) */}
+        <div className="flex flex-col gap-3 mb-4">
           {q.options?.map((opt, idx) => {
             const isSelected = spSelected === String(idx)
             const isCorrectOpt = spShowAnswer && String(idx) === String(q.correctAnswer)
@@ -2866,19 +2870,19 @@ function JoinPageInner() {
                 key={idx}
                 onClick={() => handleSpAnswer(idx)}
                 disabled={spSelected !== null}
-                className={`${bg} rounded-2xl p-5 text-white text-left transition-all
+                className={`${bg} rounded-xl px-4 py-3 min-h-[60px] flex items-center gap-3 text-white text-left transition-all
                   ${isSelected ? 'ring-4 ring-white scale-[0.97]' : ''}
                   ${spSelected !== null && !isSelected && !isCorrectOpt ? 'opacity-50' : ''}
                 `}
                 style={spShowAnswer && !isCorrectOpt && !isWrongOpt ? { color: '#6B7280' } : {}}
               >
                 {optImage && (
-                  <img src={optImage} alt="" className="w-full h-16 object-cover rounded-xl mb-2" loading="lazy" />
+                  <img src={optImage} alt="" className="h-14 w-14 shrink-0 object-cover rounded-lg" loading="lazy" />
                 )}
-                <span className="w-10 h-10 rounded-full bg-white/25 flex items-center justify-center font-black text-lg mb-2 flex-shrink-0">
+                <span className="w-10 h-10 rounded-full bg-white/25 flex items-center justify-center font-black text-lg flex-shrink-0">
                   {OPTION_LABELS[idx]}
                 </span>
-                <span className="break-words text-lg font-semibold leading-snug">{optText}</span>
+                <span className="flex-1 min-w-0 break-words text-lg font-semibold leading-snug">{optText}</span>
               </button>
             )
           })}
