@@ -3284,6 +3284,13 @@ function sendCurrentQuestionToSocket(socket, session) {
     total: quizData.questions.length,
     serverTimestamp: questionStartedAt,
     startAt: questionStartedAt,
+    // Send the absolute deadline + duration so a reconnecting client converges
+    // on the SAME countdown as the room instead of deriving startAt + duration
+    // locally. `endsAt` already folds in any host-granted timerExtensionMs
+    // (computed above), so a mid-extension reconnect picks up the extended
+    // deadline rather than the original one.
+    endAt: endsAt,
+    timerSeconds: safeTimer,
   })
 }
 
