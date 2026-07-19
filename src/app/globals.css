@@ -92,6 +92,11 @@ html, body {
      that next/font never registers, so the display font silently fell back to
      the body font — now wired to the actual loaded variable.) */
   --font-display: var(--font-display-loaded, 'Poppins'), var(--font-inter-loaded, 'Poppins'), system-ui, sans-serif;
+  /* Playful branding faces — Baloo 2 (chunky wordmark) and Fredoka (friendly UI).
+     Only used on the participant join screen; fall back to the body voice so a
+     missed load never breaks layout. Opt in via .font-baloo / .font-fredoka. */
+  --font-baloo: var(--font-baloo-loaded, 'Baloo 2'), var(--font-heading);
+  --font-fredoka: var(--font-fredoka-loaded, 'Fredoka'), var(--font-heading);
 
   /* ── Additive type scale (redesign Stage 1) ──────────────────────
      Fluid clamp() steps for display headings. Additive only — existing
@@ -905,6 +910,12 @@ h1, h2, h3, h4, h5, h6 {
    Use alongside --text-display-* sizing tokens. */
 .font-display {
   font-family: var(--font-display);
+}
+.font-baloo {
+  font-family: var(--font-baloo);
+}
+.font-fredoka {
+  font-family: var(--font-fredoka);
 }
 
 @media print {

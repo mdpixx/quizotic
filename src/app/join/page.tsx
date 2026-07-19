@@ -1778,174 +1778,243 @@ function JoinPageInner() {
   }
 
   // ─── Form Phase ────────────────────────────────────────────────────────────
+  // Playful redesign (peach canvas + hero emoji + Baloo wordmark). All existing
+  // logic preserved: phase machine, handleJoin, i18n keys, prefilled-code chip,
+  // 6-digit autofocus, disabled-while-connecting, aria-labels (E2E-pinned).
   if (phase === 'form' || phase === 'connecting') {
-    const STARS = [
-      { top: '8%',  left: '12%', s: 2.5, o: 0.7,  amber: true  },
-      { top: '14%', left: '78%', s: 3,   o: 0.5,  amber: false },
-      { top: '28%', left: '6%',  s: 2,   o: 0.4,  amber: false },
-      { top: '38%', left: '88%', s: 2,   o: 0.6,  amber: true  },
-      { top: '52%', left: '92%', s: 1.5, o: 0.35, amber: false },
-      { top: '65%', left: '8%',  s: 3,   o: 0.45, amber: false },
-      { top: '72%', left: '68%', s: 2,   o: 0.5,  amber: true  },
-      { top: '82%', left: '35%', s: 1.5, o: 0.3,  amber: false },
-      { top: '90%', left: '82%', s: 2.5, o: 0.4,  amber: false },
-      { top: '20%', left: '48%', s: 1.5, o: 0.25, amber: true  },
-      { top: '48%', left: '22%', s: 2,   o: 0.35, amber: false },
-      { top: '60%', left: '55%', s: 1.5, o: 0.3,  amber: false },
-    ]
+    const isReady = code.length === 6 && name.trim().length >= 2
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
-        style={{ background: '#0F1B3D' }}>
-
-        {/* Background glow + stars */}
-        <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-          <div style={{
-            position: 'absolute', top: '30%', left: '50%', transform: 'translateX(-50%)',
-            width: 500, height: 500,
-            background: 'radial-gradient(circle, rgba(251,209,59,0.08) 0%, transparent 68%)',
-          }} />
-          {STARS.map((star, i) => (
-            <div key={i} style={{
-              position: 'absolute', top: star.top, left: star.left,
-              width: star.s, height: star.s, borderRadius: '50%',
-              background: star.amber ? '#FBD13B' : 'rgba(255,255,255,0.6)',
-              opacity: star.o,
-            }} />
-          ))}
-        </div>
+      <div
+        className="join-form-root min-h-screen w-full flex flex-col items-center justify-center px-5 py-6 relative"
+        style={{
+          background:
+            'radial-gradient(circle at 14% 16%, rgba(255,255,255,0.7) 0%, transparent 20%),' +
+            'radial-gradient(circle at 86% 84%, rgba(224,122,95,0.28) 0%, transparent 24%),' +
+            'linear-gradient(160deg, #FFE8D6 0%, #FFF4E6 55%, #FFDCC4 100%)',
+          backgroundAttachment: 'fixed',
+        }}
+      >
+        {/* Scoped styles for the playful form (animations killed globally under
+            prefers-reduced-motion — see globals.css — so no duplicate rule here). */}
+        <style>{`
+          .join-form-root { color: #0F1B3D; font-family: var(--font-fredoka), var(--font-heading); }
+          .jchar { position: relative; width: 108px; height: 108px; display: grid; place-items: center; animation: jbob 3.4s ease-in-out infinite; }
+          @keyframes jbob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+          .jchar::before { content:""; position:absolute; inset:4px; border-radius:50%;
+            background: radial-gradient(circle, #fff 0%, rgba(255,255,255,0) 70%);
+            box-shadow: 0 12px 24px -10px rgba(15,27,61,0.22); }
+          .jface { position: relative; width: 92px; height: 92px; transition: opacity .25s ease, transform .35s cubic-bezier(.34,1.56,.64,1); }
+          .jface.swap { opacity: 0; transform: scale(.7); }
+          .jface img { width: 92px; height: 92px; display: block; }
+          .jcard { background: #fff; border: 4px solid #0F1B3D; border-radius: 24px; padding: 22px 18px 18px; box-shadow: 0 14px 0 #0F1B3D; position: relative; }
+          .jfield { background: #FFFDF5; border: 4px solid #0F1B3D; border-radius: 18px; padding: 8px 16px 12px; position: relative; transition: transform .2s cubic-bezier(.34,1.56,.64,1); }
+          .jfield + .jfield { margin-top: 14px; }
+          .jfield.first { margin-top: 18px; }
+          .jfield input { width: 100%; background: transparent; border: 0; outline: 0; font-family: var(--font-fredoka), var(--font-heading); font-weight: 700; color: #0F1B3D; padding: 4px 0 2px; }
+          .jfield input::placeholder { color: rgba(15,27,61,0.32); }
+          /* iPhone SE / short viewports: tighten so the whole form — incl. the
+             optional email field, once expanded — fits without scrolling. */
+          @media (max-height: 720px) {
+            .join-form-root { padding: 12px 16px 14px; }
+            .join-wm :where(span) { font-size: 26px; }
+            .jchar { width: 80px; height: 80px; }
+            .jface, .jface img { width: 68px; height: 68px; }
+            .jcard { padding: 14px 14px 12px; border-width: 3.5px; border-radius: 20px; box-shadow: 0 10px 0 #0F1B3D; }
+            .jfield { padding: 5px 12px 7px; border-radius: 14px; }
+            .jfield + .jfield { margin-top: 8px; }
+            .jfield.first { margin-top: 12px; }
+            .jcta { margin-top: 12px !important; padding: 14px !important; font-size: 18px !important; border-radius: 18px !important; box-shadow: 0 7px 0 #050A1A !important; }
+          }
+        `}</style>
 
         <div className="w-full max-w-md relative" style={{ zIndex: 10 }}>
-          {/* Logo */}
-          <div className="text-center mb-8">
-            <QuizoticLogo
-              variant="onDark"
-              className="text-5xl justify-center"
-              markSize={56}
-            />
-            <p className="text-lg mt-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
-              {t('join.title')}
-            </p>
-            {/* Direct-link arrival: show what they're joining the moment the
-                lookup resolves, instead of the generic "Join a live quiz" CTA. */}
+          {/* Top wordmark + url lockup (logo mark removed; high-contrast navy on peach). */}
+          <div className="join-wm text-center mb-1.5">
+            <QuizoticLogo playful variant="onLight" className="justify-center text-[32px] leading-none" />
             {hasPrefilledCode && quizTitle ? (
-              <p className="text-base font-bold mt-3 font-display" style={{ color: '#FBD13B' }}>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] mt-1.5 font-display" style={{ color: '#E07A5F' }}>
                 Joining {quizTitle}
               </p>
             ) : (
-              <p className="text-xs font-bold uppercase tracking-[0.14em] mt-2 font-display" style={{ color: '#FBD13B' }}>
-                Join a live quiz with code
+              <p className="text-[10px] font-semibold uppercase tracking-[0.26em] mt-1.5" style={{ color: '#E07A5F' }}>
+                Live Quiz
               </p>
             )}
+            <a
+              href="https://www.quizotic.live"
+              className="inline-flex items-center gap-1.5 mt-2 text-[11px] font-medium no-underline"
+              style={{ color: 'rgba(15,27,61,0.55)' }}
+            >
+              <span style={{ color: '#E07A5F', fontSize: 9 }}>✦</span>
+              <span>Play &amp; host at <b style={{ color: '#0F1B3D', fontWeight: 700 }}>quizotic.live</b></span>
+            </a>
           </div>
 
-          <form onSubmit={handleJoin} className="space-y-4">
-            {hasPrefilledCode ? (
-              // Direct-link summary chip. Showing an editable field here invites
-              // typos on a code the host already shared, and the visitor can
-              // always change it via the "Use a different code" affordance below.
-              <div
-                className="flex items-center justify-between rounded-xl px-5 py-3"
-                style={{
-                  background: 'rgba(34,197,94,0.10)',
-                  border: '1.5px solid rgba(34,197,94,0.45)',
-                }}
-              >
-                <span className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                  Session code
-                </span>
-                <span className="text-xl font-black tracking-[0.3em] text-white font-display">
-                  {code}
-                </span>
+          {/* Hero emoji: 😄 smiling by default, 🤩 star-struck when both fields valid. */}
+          <div className="flex flex-col items-center mt-1 mb-4">
+            <div className="jchar">
+              <div className={'jface' + (isReady ? '' : '')}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- static local asset */}
+                <img
+                  src={isReady ? '/emoji/1f929.svg' : '/emoji/1f604.svg'}
+                  alt={isReady ? 'Excited face' : 'Smiling face'}
+                  width={92}
+                  height={92}
+                />
               </div>
-            ) : (
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]{6}"
-                placeholder={t('join.codePlaceholder')}
-                aria-label={t('join.codePlaceholder')}
-                autoComplete="one-time-code"
-                value={code}
-                onChange={e => {
-                  // Strip non-digits, cap at 6. When the 6th digit lands, jump
-                  // focus to the name field so the user flows straight into it.
-                  const digits = e.target.value.replace(/\D/g, '').slice(0, 6)
-                  setCode(digits)
-                  if (digits.length === 6 && code.length < 6) {
-                    nameInputRef.current?.focus()
-                  }
-                }}
-                disabled={phase === 'connecting'}
-                className="w-full rounded-xl px-5 py-4 text-2xl font-bold tracking-[0.3em] text-center outline-none transition-all placeholder:text-white/30 focus:ring-2 font-display"
-                style={{
-                  background: 'rgba(255,255,255,0.07)',
-                  border: code.length === 6
-                    ? '1.5px solid rgba(34,197,94,0.9)' // valid → green border
-                    : '1.5px solid rgba(255,255,255,0.12)',
-                  color: 'white',
-                  '--tw-ring-color': 'rgba(251,209,59,0.4)',
-                } as React.CSSProperties}
-                maxLength={6}
-              />
-            )}
-            <input
-              ref={nameInputRef}
-              type="text"
-              placeholder={t('join.namePlaceholder')}
-              aria-label={t('join.namePlaceholder')}
-              autoComplete="nickname"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              disabled={phase === 'connecting'}
-              className="w-full rounded-xl px-5 py-4 text-xl outline-none transition-all placeholder:text-white/30 focus:ring-2"
-              style={{
-                background: 'rgba(255,255,255,0.07)',
-                border: '1.5px solid rgba(255,255,255,0.12)',
-                color: 'white',
-                '--tw-ring-color': 'rgba(251,209,59,0.4)',
-              } as React.CSSProperties}
-              maxLength={24}
-            />
-            {!showEmailInput ? (
-              <button
-                type="button"
-                onClick={() => setShowEmailInput(true)}
-                className="text-sm underline"
-                style={{ color: 'rgba(255,255,255,0.45)' }}
-              >
-                {t('join.addEmail')}
-              </button>
-            ) : (
-              <input
-                type="email"
-                placeholder={t('join.emailPlaceholder')}
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                disabled={phase === 'connecting'}
-                className="w-full rounded-xl px-5 py-3 text-base outline-none transition-all placeholder:text-white/30 focus:ring-2"
-                style={{
-                  background: 'rgba(255,255,255,0.07)',
-                  border: '1.5px solid rgba(255,255,255,0.12)',
-                  color: 'white',
-                  '--tw-ring-color': 'rgba(251,209,59,0.4)',
-                } as React.CSSProperties}
-                maxLength={120}
-              />
-            )}
-            {error && <p className="text-red-400 text-lg text-center">{error}</p>}
-            <button
-              type="submit"
-              disabled={phase === 'connecting'}
-              className="w-full font-black rounded-full py-5 text-xl transition-all disabled:opacity-50 hover:opacity-90 font-display"
-              style={{ background: '#FBD13B', color: '#0D0D0D', border: '3px solid #0D0D0D', boxShadow: '4px 4px 0 #0D0D0D' }}
-            >
-              {phase === 'connecting' ? t('join.joining') : t('join.submitBtn')}
-            </button>
-          </form>
+            </div>
+            <div className="mt-2 flex flex-col items-center gap-0.5 min-h-[34px]">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: '#E07A5F' }}>
+                Ready when you are
+              </span>
+              <span className="text-base font-bold text-center min-h-[20px]" style={{ color: '#0F1B3D' }}>
+                {name.trim()
+                  ? <>{'See you in the game, '}<strong style={{ color: '#E07A5F' }}>{name.trim()}</strong>!</>
+                  : <span style={{ color: 'rgba(15,27,61,0.32)', fontWeight: 600 }}>type your name to join the fun</span>}
+              </span>
+            </div>
+          </div>
 
-          <p className="text-center text-base mt-5" style={{ color: 'rgba(255,255,255,0.28)' }}>
-            You&apos;ll get a unique character when you join
-          </p>
+          {/* The bright white play card */}
+          <div className="jcard">
+            <span className="absolute font-bold text-[12px] px-3 py-1 rounded-full flex items-center gap-1.5 uppercase"
+              style={{ top: -14, left: 20, background: '#fff', color: '#0F1B3D', border: '3px solid #0F1B3D', letterSpacing: '0.05em' }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#16A34A' }} />
+              Live
+            </span>
+
+            <form onSubmit={handleJoin} className="block">
+              {hasPrefilledCode ? (
+                // Direct-link summary chip — same prefilled-code UX as before,
+                // restyled to match the playful card (green-on-white).
+                <div
+                  className="jfield first flex items-center justify-between"
+                  style={{
+                    background: 'rgba(22,163,74,0.08)',
+                    borderColor: 'rgba(22,163,74,0.5)',
+                  }}
+                >
+                  <span className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'rgba(15,27,61,0.6)' }}>
+                    Session code
+                  </span>
+                  <span className="text-xl font-black tracking-[0.3em] font-display" style={{ color: '#16A34A' }}>
+                    {code}
+                  </span>
+                </div>
+              ) : (
+                <div
+                  className="jfield first"
+                  style={code.length === 6 ? { borderColor: '#16A34A', background: '#E9F9EC' } : undefined}
+                >
+                  <div className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.04em] mt-1" style={{ color: 'rgba(15,27,61,0.7)' }}>
+                    <span style={{ width: 14, height: 14, borderRadius: 5, border: '2px solid #0F1B3D', background: '#5BC0EB' }} />
+                    {t('join.codePlaceholder')}
+                  </div>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]{6}"
+                    placeholder={t('join.codePlaceholder')}
+                    aria-label={t('join.codePlaceholder')}
+                    autoComplete="one-time-code"
+                    value={code}
+                    onChange={e => {
+                      // Strip non-digits, cap at 6. When the 6th digit lands, jump
+                      // focus to the name field so the user flows straight into it.
+                      const digits = e.target.value.replace(/\D/g, '').slice(0, 6)
+                      setCode(digits)
+                      if (digits.length === 6 && code.length < 6) {
+                        nameInputRef.current?.focus()
+                      }
+                    }}
+                    disabled={phase === 'connecting'}
+                    className="text-center text-3xl tracking-[0.16em]"
+                    style={{ '--tw-ring-color': 'rgba(251,209,59,0.4)' } as React.CSSProperties}
+                    maxLength={6}
+                  />
+                </div>
+              )}
+
+              <div
+                className={'jfield' + (hasPrefilledCode ? ' first' : '')}
+                style={name.trim().length >= 2 ? { borderColor: '#16A34A', background: '#E9F9EC' } : undefined}
+              >
+                <div className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.04em] mt-1" style={{ color: 'rgba(15,27,61,0.7)' }}>
+                  <span style={{ width: 14, height: 14, borderRadius: 5, border: '2px solid #0F1B3D', background: '#FF8A47' }} />
+                  {t('join.namePlaceholder')}
+                </div>
+                <input
+                  ref={nameInputRef}
+                  type="text"
+                  placeholder={t('join.namePlaceholder')}
+                  aria-label={t('join.namePlaceholder')}
+                  autoComplete="nickname"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  disabled={phase === 'connecting'}
+                  className="text-xl"
+                  style={{ '--tw-ring-color': 'rgba(251,209,59,0.4)' } as React.CSSProperties}
+                  maxLength={24}
+                />
+              </div>
+
+              {!showEmailInput ? (
+                <button
+                  type="button"
+                  onClick={() => setShowEmailInput(true)}
+                  className="mt-3.5 text-center w-full text-[12px] font-bold py-1.5 rounded-2xl"
+                  style={{ background: '#fff', border: '3px solid #0F1B3D', color: '#0F1B3D', boxShadow: '3px 3px 0 #0F1B3D' }}
+                >
+                  {t('join.addEmail')}
+                </button>
+              ) : (
+                <div className="jfield" style={{ marginTop: 14 }}>
+                  <div className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.04em] mt-1" style={{ color: 'rgba(15,27,61,0.7)' }}>
+                    <span style={{ width: 14, height: 14, borderRadius: 5, border: '2px solid #0F1B3D', background: '#FF6B9D' }} />
+                    Email
+                  </div>
+                  <input
+                    type="email"
+                    placeholder={t('join.emailPlaceholder')}
+                    aria-label={t('join.emailPlaceholder')}
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    disabled={phase === 'connecting'}
+                    className="text-base"
+                    style={{ '--tw-ring-color': 'rgba(251,209,59,0.4)' } as React.CSSProperties}
+                    maxLength={120}
+                  />
+                </div>
+              )}
+
+              {error && (
+                <p className="text-center text-[13px] font-semibold mt-2.5 py-2 px-3 rounded-2xl"
+                  style={{ background: '#FFD9D9', border: '3px solid #0F1B3D', color: '#C92020' }}>
+                  {error}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={phase === 'connecting'}
+                className="jcta w-full font-bold rounded-[22px] py-5 text-xl flex items-center justify-center gap-2.5 transition-transform"
+                style={{
+                  marginTop: 18,
+                  background: isReady ? '#E07A5F' : '#0F1B3D',
+                  color: isReady ? '#fff' : '#FBD13B',
+                  border: '4px solid #0F1B3D',
+                  boxShadow: '0 10px 0 #050A1A',
+                  opacity: phase === 'connecting' ? 0.7 : 1,
+                }}
+              >
+                {phase === 'connecting' ? t('join.joining') : <>{t('join.enterGame')} <span aria-hidden="true">→</span></>}
+              </button>
+            </form>
+
+            <p className="text-center text-[11px] font-semibold mt-3" style={{ color: 'rgba(15,27,61,0.45)' }}>
+              You&apos;ll get a unique character when you join
+            </p>
+          </div>
         </div>
       </div>
     )

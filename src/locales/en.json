@@ -5,6 +5,7 @@
   "join.emailPlaceholder": "you@example.com (optional)",
   "join.addEmail": "Add email (optional, for attendance)",
   "join.submitBtn": "Join →",
+  "join.enterGame": "Enter the game",
   "join.joining": "Joining…",
   "join.waiting": "Waiting for host to start…",
   "join.getReady": "Get ready!",

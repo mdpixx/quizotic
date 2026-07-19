@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Poppins } from "next/font/google";
+import { Poppins, Baloo_2, Fredoka } from "next/font/google";
 import "./globals.css";
 import { Background } from "@/components/Background";
 
@@ -25,6 +25,24 @@ const displayFont = Poppins({
   subsets: ["latin"],
   weight: ["500", "600", "700", "800"],
   variable: "--font-display-loaded",
+  display: "swap",
+});
+
+// Playful display faces for the participant join-screen wordmark only.
+// Baloo 2 = chunky rounded branding face; Fredoka = friendly UI accents.
+// Loaded on every route (next/font resolves per-route) but only the glyphs
+// actually used are subset/inlined, so the cost to non-join routes is ~0.
+const balooFont = Baloo_2({
+  subsets: ["latin"],
+  weight: ["600", "700", "800"],
+  variable: "--font-baloo-loaded",
+  display: "swap",
+});
+
+const fredokaFont = Fredoka({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-fredoka-loaded",
   display: "swap",
 });
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -114,7 +132,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${bodyFont.variable} ${displayFont.variable} h-full antialiased`}
+      className={`${bodyFont.variable} ${displayFont.variable} ${balooFont.variable} ${fredokaFont.variable} h-full antialiased`}
     >
       <head>
         {/*
