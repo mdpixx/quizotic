@@ -89,7 +89,7 @@ https://github.com/mdpixx/claude-zector/tree/main/projects/Quizotic
 
 **Dashboard:** https://railway.app/dashboard
 
-Railway is where the website actually runs. It does NOT show you the code — it just runs it. When we run `railway up`, it takes the code from your MacBook, uploads it to Railway, builds it, and starts the server. Users visit quizotic.live → Railway serves the pages.
+Railway is where the website actually runs. It does NOT show you the code — it just runs it. Railway **auto-deploys from `mdpixx/quizotic` `main`** — every merge to `main` (after CI goes green) triggers Railway to pull that commit, build it, and start the server. `railway up` is retired (see `decisions.md` + `docs/RELEASING.md`): there is no local upload step, which prevents a dev's working directory (e.g. a stray `promo-video/` project) from ever reaching the builder. Users visit quizotic.live → Railway serves the pages.
 
 **In the Railway dashboard, you'll see two cards:**
 - **Postgres** — this is your database (stores user data, quizzes, sessions)
@@ -116,7 +116,7 @@ Your MacBook (Claude edits the code)
 GitHub (git push — saves a backup copy with history)
      |
      v
-Railway (railway up — makes the change live for all users)
+Railway (auto-deploy from `main` on green CI — makes the change live for all users)
 ```
 
 ---
@@ -725,17 +725,20 @@ git commit -m "description of what changed"
 git push
 ```
 
-### Step 3: Deploy to Railway (make it live)
-```bash
-cd "/Users/mahesh/Claude/CLAUDE ZECTOR/projects/Quizotic"
-railway up --detach
-```
+### Step 3: Deploy to Railway (automatic — make it live)
 
-This uploads the code to Railway, which then:
+There is **no manual deploy command** — `railway up` is retired (see
+`decisions.md` / `docs/RELEASING.md`). Merging the PR to `main` in Step 1
+already kicked off the deploy: once CI passes, Railway auto-pulls that
+`main` commit, then:
+
 1. Installs all dependencies
 2. Builds the website
 3. Starts the server
 4. Makes it live at quizotic.live
+
+If a deploy ever breaks prod, use Railway's one-click **Redeploy/Rollback**
+(Deployments → last-good) — it reverts in seconds without a rebuild.
 
 **Build time:** Usually 2-4 minutes.
 
@@ -875,7 +878,7 @@ Update the `ADMIN_EMAILS` environment variable in Railway → Variables tab. Com
 | **OpenRouter (AI)** | https://openrouter.ai |
 | **Cloudflare (DNS/CDN)** | https://dash.cloudflare.com |
 | **Secrets file** | `/Users/mahesh/Claude/CLAUDE ZECTOR/secrets/env/quizotic.env` |
-| **Deploy command** | `cd projects/Quizotic && railway up --detach` |
+| **Deploy command** | none — Railway auto-deploys from `main` on green CI (`railway up` is retired) |
 | **Run locally** | `cd projects/Quizotic && npm run dev` → localhost:4000 |
 
 ---
