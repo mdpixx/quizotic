@@ -106,4 +106,53 @@ describe('startBoundaryCountdown', () => {
       expect(values[0]).toBe(16)
     })
   })
+
+  describe('3-2-1 get-ready overlay (round:ceil, max:3)', () => {
+    // The 3-2-1 intro overlay uses ceil + max:3 so each digit owns a full second
+    // and the final "1"→0 transition lands exactly on startAt. These tests lock
+    // in the host↔participant alignment contract: both screens share the server
+    // startAt as endAt, so they must emit identical values at identical instants.
+    const START = 3500
+
+    it('emits 3 → 2 → 1 → 0 at whole-second boundaries, clamped to 3', () => {
+      const values: number[] = []
+      vi.setSystemTime(0)
+      const handle = startBoundaryCountdown(START, v => values.push(v), {
+        round: 'ceil',
+        max: 3,
+      })
+      // Advance well past startAt so the engine runs to completion.
+      vi.advanceTimersByTime(START + 500)
+      // Initial paint at t=0 is ceil(3.5)=4, clamped to 3. Because scheduling
+      // keys off the CLAMPED displayed value, the next wake is at the visible
+      // 3→2 boundary (1000ms), NOT the raw 4→3 boundary (500ms) — so there's no
+      // redundant duplicate-3 tick. Sequence: 3, 2, 1, then 0 at startAt=3500.
+      expect(values).toEqual([3, 2, 1, 0])
+      handle.stop()
+    })
+
+    it('host and participant (two clients, same startAt) flip at identical instants', () => {
+      // Mirrors the existing "two clients with the same endAt" test, but for the
+      // 3-2-1 overlay config. This is the core sync guarantee the fix delivers:
+      // both screens derive the same boundaries from the shared server startAt,
+      // so the digit flips are byte-identical in time and value — no drift.
+      const host: Array<{ t: number; v: number }> = []
+      const participant: Array<{ t: number; v: number }> = []
+      vi.setSystemTime(0)
+      startBoundaryCountdown(START, v => host.push({ t: Date.now(), v }), {
+        round: 'ceil',
+        max: 3,
+      })
+      startBoundaryCountdown(START, v => participant.push({ t: Date.now(), v }), {
+        round: 'ceil',
+        max: 3,
+      })
+      vi.advanceTimersByTime(START + 500)
+      // Identical value AND identical fire time for every step — no inter-screen
+      // drift, which is the whole point of routing the overlay through the engine.
+      expect(host).toEqual(participant)
+      // Sanity: both saw the full 3,2,1 cadence then a final 0.
+      expect(host.map(s => s.v)).toEqual([3, 2, 1, 0])
+    })
+  })
 })

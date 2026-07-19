@@ -127,47 +127,71 @@ const OPTION_COLORS = ANSWER_COLORS.map(c => c.hex)
 const OPTION_LABELS = ANSWER_LETTERS
 const TEXT_INPUT_TYPES = ['openended', 'wordcloud', 'qa', 'fillblank']
 
+// Initial paint value for the get-ready overlay: ceil-rounded, clamped to 3.
+// Matches the host's intro countdown and the engine's round:'ceil' mode so the
+// first render is byte-identical to the value the engine then carries.
+function clampIntroSeconds(targetTime: number): number {
+  return Math.max(0, Math.min(3, Math.ceil((targetTime - getServerNow()) / 1000)))
+}
+
 // ─── Countdown Number (for get-ready overlay) ────────────────────────────────
-// Wall-clock-anchored countdown shared with the host. Formula:
-//   Math.max(0, Math.min(3, Math.ceil((targetTime - now) / 1000)))
-// The min(3, ...) cap stops a stray "4" appearing briefly when the server's
-// startAt is +3.5s away. Polling at 100ms keeps the flip aligned with the
-// host's identical loop down to a render frame.
+// Server-anchored 3-2-1 countdown driven by the SAME boundary scheduler as the
+// host's get-ready overlay (src/lib/countdown.ts). The engine schedules each
+// digit flip to the exact server-time whole-second boundary and reads
+// getServerNow() (NTP-corrected) on every fire, so both screens flip at the
+// same real-world instant — replacing the old free-running setInterval(_, 100)
+// + raw Date.now() + Math.ceil loop that drifted by ~100ms of poll phase plus
+// whatever the device clock had skewed.
+//
+// round:'ceil' + max:3 mirrors the host: each digit owns a full second
+// (3:[3s,2s) 2:[2s,1s) 1:[1s,0s)) and the "1"→0 transition lands exactly on
+// targetTime (= the server's startAt), aligning with the live timer's onStart
+// gate so there's no blank gap before the overlay clears. targetTime is the
+// server-anchored effectiveStartAt (NOT Date.now()), so device clock skew no
+// longer leaks into the displayed digits.
 function CountdownNumber({ targetTime }: { targetTime: number }) {
-  const compute = () => Math.max(0, Math.min(3, Math.ceil((targetTime - Date.now()) / 1000)))
-  const [val, setVal] = useState(compute)
-  const prevVal = useRef(val)
+  const [val, setVal] = useState(() => clampIntroSeconds(targetTime))
+  // `pulseKey` bumps on every digit decrease to retrigger the countdownPop
+  // animation (React reuses the element otherwise). Kept in state (not a ref)
+  // so reading it during render is lint-clean — and the tick sound fires from
+  // inside the same engine callback that knows the decrease happened for
+  // certain, instead of from a render-time ref comparison.
+  const [pulseKey, setPulseKey] = useState(0)
   useEffect(() => {
-    const tick = setInterval(() => {
-      const remaining = compute()
-      setVal(remaining)
-      if (remaining <= 0) clearInterval(tick)
-    }, 100)
-    return () => clearInterval(tick)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Stop any prior engine before starting a fresh one for the new targetTime.
+    const handle = startBoundaryCountdown(
+      targetTime,
+      next => {
+        const clamped = Math.min(3, next)
+        setVal(prev => {
+          if (clamped < prev && clamped > 0) {
+            // Digit dropped — tick + animation pulse. Both host and participant
+            // derive the boundary from the same server startAt via the shared
+            // engine, so these fire in lockstep across both screens.
+            playTick()
+            setPulseKey(k => k + 1)
+          }
+          return clamped
+        })
+      },
+      { round: 'ceil' },
+    )
+    return () => handle.stop()
   }, [targetTime])
-  const changed = val !== prevVal.current
-  // Play a clock tick each time the number drops (3 → 2 → 1). The targetTime
-  // is derived from the server's startAt, so this fires in sync with the
-  // host's intro countdown ticks.
-  useEffect(() => {
-    if (changed && val > 0) playTick()
-  }, [changed, val])
-  prevVal.current = val
   return (
     <div className="relative">
       {/* Gold gradient numerals shared with the host overlay (.countdown-num).
           The countdownPop keyframe now lives in globals.css; reduced-motion is
           handled by the app-wide guard there. */}
       <div
-        key={changed ? val : undefined}
+        key={pulseKey}
         className="font-display countdown-num"
         style={{
           fontSize: 120,
           lineHeight: 1,
           fontWeight: 900,
           fontVariantNumeric: 'tabular-nums',
-          animation: changed ? 'countdownPop 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) forwards' : undefined,
+          animation: pulseKey > 0 ? 'countdownPop 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) forwards' : undefined,
         }}
       >
         {val > 0 ? val : ''}
