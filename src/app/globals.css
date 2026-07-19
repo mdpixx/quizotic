@@ -899,6 +899,75 @@ body {
   }
 }
 
+/* ── Participant desktop / tablet stage (≥1024px) ──────────────────────
+   Mobile is the source of truth and stays unchanged below 768px. From `lg`
+   the page swaps its single phone column for a 3-zone grid (left HUD ·
+   center stage · right rail), mirroring the host "Atrium" pattern. These
+   tokens/classes are inert below `lg` — they only apply when the page opts
+   in by adding `.participant-stage-grid`. */
+.participant-stage-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+@media (min-width: 1024px) {
+  .participant-stage-grid {
+    /* left rail 280px · center fluid · right rail 240px */
+    grid-template-columns: 280px minmax(0, 1fr) 240px;
+    gap: 2rem;
+    align-items: start;
+  }
+}
+@media (min-width: 1280px) {
+  .participant-stage-grid {
+    gap: 2.5rem;
+  }
+}
+
+/* Two-column variant for the standings + ended phases (no left HUD — those
+   phases are already centered around a leaderboard/podium). */
+.participant-stage-grid-2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+@media (min-width: 1024px) {
+  .participant-stage-grid-2 {
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 2.5rem;
+    align-items: start;
+  }
+}
+
+/* Rail surfaces — subtle paper panels so the HUD reads as a column without
+   fighting the flat white aesthetic. Rounded + thin border, no heavy shadow. */
+.participant-hud,
+.participant-rail {
+  position: sticky;
+  top: max(1rem, env(safe-area-inset-top, 0px));
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 1.25rem;
+  box-shadow: 0 1px 2px rgba(15, 27, 61, 0.04);
+}
+
+/* Fluid question text — replaces the JS length-bucket fontSize heuristic on
+   the question card. The clamp floor matches the largest mobile size so
+   phones render identically; desktop scales up smoothly with viewport width. */
+.participant-question-text {
+  font-size: clamp(1.25rem, 1.05rem + 0.7vw, 1.85rem);
+  line-height: 1.3;
+}
+/* Long questions stay readable instead of overrunning the card on wide
+   screens — the same buckets the old JS heuristic used, expressed as clamp
+   caps so the text never gets huge on a 4K monitor either. */
+.participant-question-text[data-len="lg"] {
+  font-size: clamp(1.1rem, 0.98rem + 0.5vw, 1.5rem);
+}
+.participant-question-text[data-len="xl"] {
+  font-size: clamp(0.95rem, 0.88rem + 0.4vw, 1.25rem);
+}
+
 /* ── Heading font utility ──────────────────────────────────────────── */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
