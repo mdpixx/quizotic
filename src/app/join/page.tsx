@@ -9,6 +9,7 @@ import { BrandWatermark } from '@/components/BrandWatermark'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
 import { NavChevron } from '@/components/ui/NavButton'
 import { CreateYourOwnCTA } from '@/components/CreateYourOwnCTA'
+import { PlayerHUD, StageRail, MobileTopBar } from '@/components/join/ParticipantChrome'
 import { playTick, playCorrect, playWrong, playStreak, isMuted, toggleMuted } from '@/lib/sounds'
 // LeaderboardView drags framer-motion (~180KB raw) into whatever bundle
 // imports it statically — lazy like the other mid-game views below; warmed
@@ -46,7 +47,6 @@ function phaseForPresenterSlide(
   return 'presenter-lobby'
 }
 
-const CircularTimer = dynamic(() => import('@/components/CircularTimer').then(m => m.CircularTimer), { ssr: false })
 const LeaderboardView = dynamic(() => import('@/components/LeaderboardView').then(m => m.LeaderboardView), { ssr: false })
 const DrawingCanvas = dynamic(() => import('@/components/DrawingCanvas').then(m => m.DrawingCanvas), { ssr: false })
 const Podium = dynamic(() => import('@/components/Podium').then(m => m.Podium), { ssr: false })
@@ -2078,7 +2078,7 @@ function JoinPageInner() {
     const sharedScreenEligible = ['mcq', 'multiselect', 'truefalse', 'image_choice', 'poll'].includes(question.type)
     const sharedScreenSimple = displayMode === 'shared-screen' && sharedScreenEligible
     return (
-      <div className="min-h-svh p-4 flex flex-col max-w-xl mx-auto overflow-x-hidden" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top, 0px))', paddingBottom: 'max(6rem, env(safe-area-inset-bottom, 0px))' }}>
+      <div className="min-h-svh p-4 lg:p-6 overflow-x-hidden" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top, 0px))', paddingBottom: 'max(6rem, env(safe-area-inset-bottom, 0px))' }}>
         <StatusBanner connectionState={connectionState} answerToast={answerToast} />
         {getReadyVisible && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ background: 'rgba(15,27,61,0.92)' }}>
@@ -2091,49 +2091,40 @@ function JoinPageInner() {
             </div>
           </div>
         )}
-        {/* Top bar — slim identity + score + streak + sound, timer prominent on the right */}
-        <div className="participant-topbar flex items-center justify-between gap-2 mb-3">
-          <div className="flex items-center gap-2 min-w-0">
-            {archetype && <Avatar archetype={archetype} size={36} />}
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-gray-600 text-sm font-semibold truncate max-w-[7rem]">{archetype}</span>
-              {team && (
-                <span className="text-white text-[11px] rounded-full px-2 py-0.5 font-bold flex-shrink-0" style={{ background: team.color }}>{team.name}</span>
-              )}
-              {/* Score chip — only meaningful once the player has points */}
-              {totalScore > 0 && (
-                <span className="font-display inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-black flex-shrink-0"
-                  style={{ background: '#0F1B3D', color: '#FBD13B' }}>
-                  {totalScore.toLocaleString()}
-                </span>
-              )}
-              {/* Streak chip — slim, does not push layout when absent */}
-              {streak >= 2 && (
-                <span className="font-display inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-black flex-shrink-0"
-                  style={{
-                    background: streak >= 5 ? 'linear-gradient(135deg,#FBD13B,#FF8A47)' : 'rgba(251,209,59,0.14)',
-                    color: streak >= 5 ? '#0D0D0D' : '#B45309',
-                  }}>
-                  🔥{streak}
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button
-              type="button"
-              onClick={() => setSoundMuted(toggleMuted())}
-              aria-label={soundMuted ? 'Unmute sounds' : 'Mute sounds'}
-              aria-pressed={soundMuted}
-              title={soundMuted ? 'Sounds are muted' : 'Mute sounds'}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-base transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-[#FBD13B]"
-              style={{ border: '1.5px solid #E5E7EB' }}
-            >
-              {soundMuted ? '🔇' : '🔊'}
-            </button>
-            <CircularTimer timeLeft={timeLeft} total={question.timerSeconds} />
-          </div>
-        </div>
+        {/* Desktop 3-zone stage: left HUD · center stage · right rail. The grid
+            is single-column below lg (mobile/tablet portrait use the center
+            column only; the rails are hidden lg:flex). Mobile identity/timer
+            stays in <MobileTopBar> inside the center column so phones are
+            byte-for-byte unchanged. */}
+        <div className="participant-stage-grid max-w-[1400px] mx-auto w-full">
+        <PlayerHUD
+          archetype={archetype}
+          displayName={displayNameRef.current}
+          team={team}
+          totalScore={totalScore}
+          streak={streak}
+          rank={intermediateRank}
+          rankDelta={typeof personalResult?.delta === 'number' ? personalResult.delta : null}
+          leaderboard={intermediateLeaderboard}
+          lockedIn={selectedAnswer !== null}
+        />
+        {/* Center stage — phone-width column that grows into the desktop grid's
+            middle track. max-w-xl preserves the original mobile reading width. */}
+        <div className="flex flex-col max-w-xl mx-auto w-full">
+        {/* Top bar — slim identity + score + streak + sound, timer prominent on the right.
+            Desktop replaces this with the persistent PlayerHUD (left) + StageRail
+            (right) rails; MobileTopBar is lg:hidden so phones keep their exact
+            original topbar. */}
+        <MobileTopBar
+          archetype={archetype}
+          team={team}
+          totalScore={totalScore}
+          streak={streak}
+          soundMuted={soundMuted}
+          onToggleSound={() => setSoundMuted(toggleMuted())}
+          timeLeft={timeLeft}
+          total={question.timerSeconds}
+        />
 
         {/* Progress bar */}
         <div className="h-2 rounded-full overflow-hidden mb-4" style={{ background: 'rgba(15,27,61,0.1)' }}>
@@ -2185,17 +2176,15 @@ function JoinPageInner() {
             )}
           </div>
           <p
-            className="font-medium leading-snug break-words text-justify [hyphens:auto]"
+            className="participant-question-text font-medium break-words text-justify [hyphens:auto]"
+            data-len={(() => {
+              const len = question.text.length
+              if (len > 200) return 'xl'
+              if (len > 140) return 'lg'
+              return 'default'
+            })()}
             style={{
               color: '#0F1B3D',
-              fontSize: (() => {
-                const len = question.text.length
-                if (len > 200) return '0.95rem'
-                if (len > 140) return '1.1rem'
-                if (len > 80) return '1.25rem'
-                return '1.5rem'
-              })(),
-              lineHeight: 1.3,
             }}
           >
             {question.text}
@@ -2366,7 +2355,13 @@ function JoinPageInner() {
           <div className={`pb-4 ${
             sharedScreenSimple
               ? `grid gap-2.5 ${effectiveOpts?.length === 2 ? 'grid-cols-1' : 'grid-cols-2'}`
-              : 'flex flex-col gap-2.5'
+              // Normal participant flow: single vertical stack on phones/tablets
+              // (the original behaviour). On desktop (lg+) MCQ-like questions with
+              // ≤4 options switch to a Kahoot-style 2×2 quadrant grid; longer
+              // option lists and all other question types stay vertical.
+              : (effectiveOpts && effectiveOpts.length > 2 && effectiveOpts.length <= 4
+                  ? 'flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:gap-3'
+                  : 'flex flex-col gap-2.5')
           }`}>
             {effectiveOpts?.map((opt, idx) => {
               const isSelected = question.type === 'multiselect'
@@ -2429,7 +2424,7 @@ function JoinPageInner() {
 
         {/* Confidence overlay */}
         {pendingAnswer !== null && confidence === null && (
-          <div className="fixed inset-0 bg-black/40 flex items-end justify-center z-50" style={{ padding: '1.5rem', paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 0px))' }}>
+          <div className="fixed inset-0 bg-black/40 flex items-end lg:items-center justify-center z-50" style={{ padding: '1.5rem', paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 0px))' }}>
             <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl text-center">
               <p className="font-black text-2xl mb-1" style={{ color: '#0F1B3D' }}>{t('join.confident')}</p>
               {/* Show the chosen option letter so the participant can confirm at a glance */}
@@ -2466,6 +2461,19 @@ function JoinPageInner() {
             </div>
           </div>
         )}
+        </div>{/* /center stage */}
+        <StageRail
+          timeLeft={timeLeft}
+          total={question.timerSeconds}
+          points={question.points}
+          questionNumber={answerableNumber}
+          questionTotal={answerableTotal}
+          isScored={question.isScored || isScoredType(question.type as QuestionType)}
+          soundMuted={soundMuted}
+          onToggleSound={() => setSoundMuted(toggleMuted())}
+          connectionState={connectionState}
+        />
+        </div>{/* /participant-stage-grid */}
       </div>
     )
   }
@@ -2482,19 +2490,31 @@ function JoinPageInner() {
       : null
     return (
       <div
-        className="min-h-svh w-full max-w-md mx-auto flex flex-col items-center justify-center px-4 py-5 text-center gap-5 relative overflow-x-hidden overflow-y-auto"
+        className="min-h-svh w-full overflow-x-hidden"
         style={{
           paddingTop: 'max(1.25rem, env(safe-area-inset-top, 0px))',
           paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 0px))',
-          // Reserve space for the post-reveal stat cards (score, correct-answer,
-          // ResultBeat) so the layout doesn't grow when personal_result arrives.
-          // This avoids the "stutter" where the centered icon/headline jumps as
-          // the cards mount. The region is taller than its pre-reveal contents,
-          // so reveal only fills reserved space instead of pushing layout.
           minHeight: '100svh',
         }}
       >
         <StatusBanner connectionState={connectionState} answerToast={answerToast} />
+        {/* Desktop: persistent PlayerHUD frames the reveal moment. Mobile: the
+            existing centered column is unchanged (rails are hidden lg:flex). */}
+        <div className="participant-stage-grid max-w-[1400px] mx-auto w-full items-start">
+        <PlayerHUD
+          archetype={archetype}
+          displayName={displayNameRef.current}
+          team={team}
+          totalScore={totalScore}
+          streak={streak}
+          rank={personalResult?.rank ?? intermediateRank}
+          rankDelta={typeof personalResult?.delta === 'number' ? personalResult.delta : null}
+          leaderboard={intermediateLeaderboard}
+          lockedIn
+        />
+        <div
+          className="w-full max-w-md mx-auto flex flex-col items-center justify-center px-4 py-5 text-center gap-5 relative overflow-y-auto"
+        >
         {/* Screen-reader live announcement for result */}
         <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
           {isNonScored ? 'Response recorded.' : !revealed ? 'Answer locked in. Waiting for results.' : isCorrect ? `Correct! You earned ${pointsEarned} points. Total score: ${totalScore}.` : `Incorrect. Total score: ${totalScore}.`}
@@ -2541,9 +2561,10 @@ function JoinPageInner() {
           </p>
         )}
 
-        {/* Streak badge */}
+        {/* Streak badge — shown in-column on mobile/tablet; on desktop it
+            moves into the right rail (see <aside className="participant-rail">). */}
         {isCorrect && streak >= 2 && (
-          <div className="font-display flex items-center gap-2 px-4 py-2 rounded-full" style={{
+          <div className="font-display lg:hidden flex items-center gap-2 px-4 py-2 rounded-full" style={{
             background: streak >= 5 ? 'linear-gradient(135deg, #FBD13B, #FF8A47)' : '#0F1B3D',
             animation: 'correctPop 0.4s ease-out',
           }}>
@@ -2661,7 +2682,10 @@ function JoinPageInner() {
         {/* Result Beat — kinetic personal feedback strip (points, rank delta,
             streak, fastest, top-5 flip). Replaces the old static "Waiting for
             next question…" line. Driven by the server's personal_result event;
-            falls back to the waiting line until the question ends. */}
+            falls back to the waiting line until the question ends.
+            On desktop this strip moves into the right rail (hidden lg:flex
+            below); the in-column copy is lg:hidden to avoid duplication. */}
+        <div className="lg:hidden contents">
         <ResultBeat
           result={personalResult}
           competitive={sessionMode === 'competitive'}
@@ -2670,6 +2694,7 @@ function JoinPageInner() {
         {personalResult && (
           <p className="text-gray-400 text-xs">Host is moving on…</p>
         )}
+        </div>{/* /lg:hidden ResultBeat group */}
 
         <style>{`
           @keyframes confettiBurst {
@@ -2702,14 +2727,145 @@ function JoinPageInner() {
             .score-fly-up { animation: none; opacity: 1; position: static; transform: none; display: block; }
           }
         `}</style>
+        </div>{/* /center reveal column */}
+        <aside className="participant-rail hidden lg:flex flex-col gap-4 p-5">
+          {/* Streak + ResultBeat sit beside the reveal on desktop (under it on
+              mobile, where they're rendered in the main column above). To avoid
+              double-rendering, the rail only shows them on lg+ via CSS — the
+              in-column copies below are lg:hidden. See the styled rail content. */}
+          {isCorrect && streak >= 2 && (
+            <div className="font-display flex items-center gap-2 px-4 py-2 rounded-full self-center" style={{
+              background: streak >= 5 ? 'linear-gradient(135deg, #FBD13B, #FF8A47)' : '#0F1B3D',
+            }}>
+              <span className="font-black text-xl" style={{ color: streak >= 5 ? '#0D0D0D' : '#FBD13B' }}>{t('join.streak', { n: streak })}</span>
+            </div>
+          )}
+          {personalResult && (
+            <div className="text-center">
+              <p className="text-[10px] uppercase tracking-[0.2em] font-bold" style={{ color: '#9CA3AF' }}>Your rank</p>
+              <p className="font-display text-3xl font-black tabular-nums" style={{ color: '#0F1B3D' }}>
+                {personalResult.rank !== null && personalResult.rank !== undefined ? `#${personalResult.rank}` : '—'}
+              </p>
+              {typeof personalResult.delta === 'number' && personalResult.delta !== 0 && (
+                <span className="font-display text-xs font-black px-2 py-0.5 rounded-full mt-1 inline-block"
+                  style={{
+                    color: personalResult.delta > 0 ? '#14532D' : '#7F1D1D',
+                    background: personalResult.delta > 0 ? '#BBF7D0' : '#FECACA',
+                  }}>
+                  {personalResult.delta > 0 ? `▲${personalResult.delta}` : `▼${Math.abs(personalResult.delta)}`}
+                </span>
+              )}
+            </div>
+          )}
+          <ResultBeat
+            result={personalResult}
+            competitive={sessionMode === 'competitive'}
+            fallback={<p className="text-gray-400 text-sm">Waiting for next question…</p>}
+          />
+        </aside>
+        </div>{/* /participant-stage-grid */}
       </div>
     )
   }
 
   // ─── Standings Phase (between questions, competitive only) ─────────────────
   if (phase === 'standings') {
+    // The rank card / Top Movers / Team / explanation render in two places:
+    // inline in the main column on mobile/tablet (lg:hidden, preserving the
+    // original mobile stacking order) and in the right rail on desktop
+    // (hidden lg:flex). Duplication is intentional — it's the only way to put
+    // these blocks beside the leaderboard on desktop without reordering them
+    // on mobile.
+    const rankCard = (
+      <div className="rounded-2xl p-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #0F1B3D 0%, #1B2A5E 100%)', color: '#fff' }}>
+        <div>
+          <p className="text-[10px] uppercase tracking-widest opacity-60 font-bold">Your rank</p>
+          <div className="flex items-baseline gap-2">
+            {/* Keyed on rank so a change re-mounts and pops — the player
+                literally sees their number move. */}
+            <p
+              key={intermediateRank}
+              className="font-display text-4xl font-black tabular-nums"
+              style={{ color: '#FBD13B', animation: 'correctPop 0.5s ease-out' }}
+            >
+              #{intermediateRank}
+            </p>
+            {typeof personalResult?.delta === 'number' && personalResult.delta !== 0 && (
+              <span
+                className="font-display text-sm font-black px-2 py-0.5 rounded-full"
+                style={{
+                  color: personalResult.delta > 0 ? '#14532D' : '#7F1D1D',
+                  background: personalResult.delta > 0 ? '#BBF7D0' : '#FECACA',
+                }}
+              >
+                {personalResult.delta > 0 ? `▲${personalResult.delta}` : `▼${Math.abs(personalResult.delta)}`}
+              </span>
+            )}
+          </div>
+          {typeof personalResult?.prevRank === 'number' && personalResult.prevRank !== intermediateRank && (
+            <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              was #{personalResult.prevRank}
+            </p>
+          )}
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] uppercase tracking-widest opacity-60 font-bold">Your score</p>
+          <p className="font-display text-2xl font-black tabular-nums">{totalScore.toLocaleString()}</p>
+        </div>
+      </div>
+    )
+    const topMoversCard = topMovers.length > 0 && (
+      <div className="rounded-2xl p-3 sm:p-4" style={{ background: '#FAFAF7', border: '1px solid #E5E7EB' }}>
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-2" style={{ color: '#6B7280' }}>
+          Top Movers
+        </p>
+        <div className="space-y-1.5">
+          {topMovers.map(m => (
+            <div key={m.name} className="flex items-center gap-2 rounded-xl p-2" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
+              <span className="font-display inline-flex items-center justify-center w-9 h-9 rounded-full text-xs font-black flex-shrink-0" style={{ background: '#DCFCE7', color: '#15803D' }}>
+                ↑{m.delta}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold truncate" style={{ color: '#0F1B3D' }}>{m.name}</p>
+                <p className="text-[11px]" style={{ color: '#6B7280' }}>#{m.fromRank} → #{m.toRank}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+    const teamCard = team && teamLeaderboard && teamLeaderboard.length > 0 && (
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+        <p className="text-xs font-bold mb-3 uppercase tracking-widest text-gray-400">Team Standings</p>
+        {teamLeaderboard.map((t, i) => {
+          const isMyTeam = t.name === team!.name
+          return (
+            <div key={t.name} className={`flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-0 ${isMyTeam ? 'bg-yellow-50 -mx-4 px-4' : ''}`}>
+              <span className="w-6 text-center font-black text-sm" style={{ color: '#0F1B3D' }}>{i + 1}</span>
+              <span className="text-white text-xs rounded-full px-2 py-0.5 font-bold" style={{ background: t.color }}>{t.name}</span>
+              {isMyTeam && <span className="text-xs text-gray-400 font-semibold">You</span>}
+              <span className="flex-1" />
+              <span className="font-black text-sm" style={{ color: '#0F1B3D' }}>{t.score}</span>
+            </div>
+          )
+        })}
+      </div>
+    )
+    const explanationCard = explanation && (
+      <div className={`rounded-xl p-4 text-sm ${question?.type === 'case' ? 'bg-blue-50 border border-blue-200 text-blue-900' : 'bg-blue-50 border border-blue-100 text-blue-800'}`}>
+        <p className="font-bold mb-1 text-[11px] uppercase tracking-wide text-blue-600">
+          {question?.type === 'case' ? 'Expert View' : 'Why?'}
+        </p>
+        <p>{explanation}</p>
+      </div>
+    )
     return (
-      <div className="min-h-screen px-2 py-4 sm:px-4 sm:py-6 max-w-xl mx-auto flex flex-col gap-4 overflow-x-hidden">
+      <div className="min-h-screen px-2 py-4 sm:px-4 sm:py-6 overflow-x-hidden" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top, 0px))' }}>
+        {/* Desktop: 2-col grid — leaderboard main, your-rank/movers/team/why rail.
+            Mobile: single column, original stacking order preserved below. */}
+        <div className="participant-stage-grid-2 max-w-[1200px] mx-auto w-full">
+        {/* Main column — heading + leaderboard, always visible */}
+        <div className="max-w-xl mx-auto w-full flex flex-col gap-4">
         <div className="text-center">
           <p className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: '#9CA3AF' }}>Standings</p>
           <h2 className="font-display text-2xl font-black mt-0.5" style={{ color: '#0F1B3D' }}>
@@ -2717,43 +2873,9 @@ function JoinPageInner() {
           </h2>
         </div>
 
+        {/* Mobile/tablet: rank card in its original position (above leaderboard) */}
         {intermediateRank !== null && (
-          <div className="rounded-2xl p-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #0F1B3D 0%, #1B2A5E 100%)', color: '#fff' }}>
-            <div>
-              <p className="text-[10px] uppercase tracking-widest opacity-60 font-bold">Your rank</p>
-              <div className="flex items-baseline gap-2">
-                {/* Keyed on rank so a change re-mounts and pops — the player
-                    literally sees their number move. */}
-                <p
-                  key={intermediateRank}
-                  className="font-display text-4xl font-black tabular-nums"
-                  style={{ color: '#FBD13B', animation: 'correctPop 0.5s ease-out' }}
-                >
-                  #{intermediateRank}
-                </p>
-                {typeof personalResult?.delta === 'number' && personalResult.delta !== 0 && (
-                  <span
-                    className="font-display text-sm font-black px-2 py-0.5 rounded-full"
-                    style={{
-                      color: personalResult.delta > 0 ? '#14532D' : '#7F1D1D',
-                      background: personalResult.delta > 0 ? '#BBF7D0' : '#FECACA',
-                    }}
-                  >
-                    {personalResult.delta > 0 ? `▲${personalResult.delta}` : `▼${Math.abs(personalResult.delta)}`}
-                  </span>
-                )}
-              </div>
-              {typeof personalResult?.prevRank === 'number' && personalResult.prevRank !== intermediateRank && (
-                <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                  was #{personalResult.prevRank}
-                </p>
-              )}
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] uppercase tracking-widest opacity-60 font-bold">Your score</p>
-              <p className="font-display text-2xl font-black tabular-nums">{totalScore.toLocaleString()}</p>
-            </div>
-          </div>
+          <div className="lg:hidden">{rankCard}</div>
         )}
         <style>{`
           @keyframes correctPop {
@@ -2780,68 +2902,104 @@ function JoinPageInner() {
           />
         )}
 
-        {/* Top Movers — surfaces the bottom 80% of the room when somebody
-            jumps several places, even if they're still mid-pack. */}
-        {topMovers.length > 0 && (
-          <div className="rounded-2xl p-3 sm:p-4" style={{ background: '#FAFAF7', border: '1px solid #E5E7EB' }}>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-2" style={{ color: '#6B7280' }}>
-              Top Movers
-            </p>
-            <div className="space-y-1.5">
-              {topMovers.map(m => (
-                <div key={m.name} className="flex items-center gap-2 rounded-xl p-2" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-                  <span className="font-display inline-flex items-center justify-center w-9 h-9 rounded-full text-xs font-black flex-shrink-0" style={{ background: '#DCFCE7', color: '#15803D' }}>
-                    ↑{m.delta}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold truncate" style={{ color: '#0F1B3D' }}>{m.name}</p>
-                    <p className="text-[11px]" style={{ color: '#6B7280' }}>#{m.fromRank} → #{m.toRank}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Mobile/tablet: movers / team / explanation below the leaderboard */}
+        <div className="lg:hidden flex flex-col gap-4">
+          {topMoversCard}
+          {teamCard}
+          {explanationCard}
+        </div>
 
-        {team && teamLeaderboard && teamLeaderboard.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-            <p className="text-xs font-bold mb-3 uppercase tracking-widest text-gray-400">Team Standings</p>
-            {teamLeaderboard.map((t, i) => {
-              const isMyTeam = t.name === team.name
-              return (
-                <div key={t.name} className={`flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-0 ${isMyTeam ? 'bg-yellow-50 -mx-4 px-4' : ''}`}>
-                  <span className="w-6 text-center font-black text-sm" style={{ color: '#0F1B3D' }}>{i + 1}</span>
-                  <span className="text-white text-xs rounded-full px-2 py-0.5 font-bold" style={{ background: t.color }}>{t.name}</span>
-                  {isMyTeam && <span className="text-xs text-gray-400 font-semibold">You</span>}
-                  <span className="flex-1" />
-                  <span className="font-black text-sm" style={{ color: '#0F1B3D' }}>{t.score}</span>
-                </div>
-              )
-            })}
-          </div>
-        )}
+        <p className="text-gray-400 text-center text-sm mt-auto lg:hidden">Waiting for host to continue…</p>
+        </div>{/* /main column */}
 
-        {explanation && (
-          <div className={`rounded-xl p-4 text-sm ${question?.type === 'case' ? 'bg-blue-50 border border-blue-200 text-blue-900' : 'bg-blue-50 border border-blue-100 text-blue-800'}`}>
-            <p className="font-bold mb-1 text-[11px] uppercase tracking-wide text-blue-600">
-              {question?.type === 'case' ? 'Expert View' : 'Why?'}
-            </p>
-            <p>{explanation}</p>
-          </div>
-        )}
-
-        <p className="text-gray-400 text-center text-sm mt-auto">Waiting for host to continue…</p>
+        {/* Desktop right rail — rank / movers / team / explanation stacked
+            beside the leaderboard so both are visible without scrolling. */}
+        <aside className="participant-rail hidden lg:flex flex-col gap-4 p-5">
+          {intermediateRank !== null && rankCard}
+          {topMoversCard}
+          {teamCard}
+          {explanationCard}
+          <p className="text-gray-400 text-center text-sm mt-auto">Waiting for host to continue…</p>
+        </aside>
+        </div>{/* /participant-stage-grid-2 */}
       </div>
     )
   }
 
   // ─── Ended Phase ───────────────────────────────────────────────────────────
   if (phase === 'ended') {
+    const isCompetitive = sessionMode === 'competitive' || sessionMode === 'accuracy'
+    // Full ranked leaderboard list for the desktop right rail (Podium only
+    // shows top-3; this shows everyone, with the player's row highlighted).
+    const fullLeaderboardRail = leaderboard.length > 0 && isCompetitive && (
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-2" style={{ color: '#6B7280' }}>
+          Final Standings
+        </p>
+        <ol className="space-y-1 max-h-[60vh] overflow-y-auto pr-1">
+          {leaderboard.map((entry, i) => {
+            const isSelf = entry.name === displayNameRef.current
+            return (
+              <li key={`${entry.name}-${i}`}
+                className="flex items-center gap-2 rounded-lg px-2.5 py-1.5"
+                style={{
+                  background: isSelf ? '#FFF8DB' : 'transparent',
+                  border: isSelf ? '1px solid #FBD13B' : '1px solid transparent',
+                }}>
+                <span className="font-display w-6 text-center text-sm font-black tabular-nums"
+                  style={{ color: isSelf ? '#0F1B3D' : i < 3 ? '#B45309' : '#9CA3AF' }}>
+                  {i === 0 ? '🏆' : i + 1}
+                </span>
+                {entry.archetype && <Avatar archetype={entry.archetype} size={24} />}
+                <span className="flex-1 min-w-0 truncate text-sm font-semibold"
+                  style={{ color: isSelf ? '#0F1B3D' : '#33405f' }}>{isSelf ? 'You' : entry.name}</span>
+                <span className="font-display text-sm font-black tabular-nums" style={{ color: '#0F1B3D' }}>
+                  {entry.score.toLocaleString()}
+                </span>
+              </li>
+            )
+          })}
+        </ol>
+      </div>
+    )
+    const teamStandingsCard = teamLeaderboard && teamLeaderboard.length > 0 && (
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-2" style={{ color: '#6B7280' }}>
+          Team Standings
+        </p>
+        <div className="space-y-1.5">
+          {teamLeaderboard.map((t, i) => {
+            const isMyTeam = team && t.name === team.name
+            return (
+              <div key={t.name} className={`flex items-center gap-2 rounded-xl p-2 ${isMyTeam ? 'ring-2' : ''}`}
+                style={{ background: '#fff', border: '1px solid #E5E7EB', ...(isMyTeam ? { '--tw-ring-color': '#FBD13B' } as React.CSSProperties : {}) }}>
+                <span className="text-sm font-black w-5 text-center" style={{ color: t.color }}>
+                  {i === 0 ? '🏆' : i + 1}
+                </span>
+                <div className="w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-[10px]" style={{ background: t.color }}>
+                  {t.name[0]}
+                </div>
+                <span className="flex-1 font-bold text-xs" style={{ color: '#1E1B4B' }}>Team {t.name}</span>
+                {isCompetitive && (
+                  <span className="text-xs font-black tabular-nums" style={{ color: t.color }}>{t.score.toLocaleString()}</span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
     return (
-      <div className="min-h-screen px-3 sm:px-4 pt-8 sm:pt-6 pb-4 max-w-md mx-auto relative overflow-x-hidden" style={{ paddingTop: 'max(2rem, env(safe-area-inset-top, 0px))' }}>
+      <div className="min-h-screen px-3 sm:px-4 pt-8 sm:pt-6 pb-4 overflow-x-hidden" style={{ paddingTop: 'max(2rem, env(safe-area-inset-top, 0px))' }}>
+        {/* Desktop: 2-col — Quiz Over!/Podium/Reflection/CTA main, full
+            leaderboard + team standings rail. Mobile: single column, original
+            order (team → podium → reflection → CTA) preserved. */}
+        <div className="participant-stage-grid-2 max-w-[1200px] mx-auto w-full">
+        <div className="max-w-md mx-auto w-full relative">
         <h2 className="font-display text-3xl sm:text-4xl font-black mb-5 text-center" style={{ color: '#0F1B3D' }}>Quiz Over!</h2>
 
-        {/* Team leaderboard */}
+        {/* Team leaderboard — in-column on mobile, moves to rail on desktop */}
+        <div className="lg:hidden">
         {teamLeaderboard && teamLeaderboard.length > 0 && (
           <div className="space-y-2 mb-6">
             <h3 className="text-lg font-black text-center" style={{ color: '#0F1B3D' }}>Team Standings</h3>
@@ -2865,6 +3023,7 @@ function JoinPageInner() {
             })}
           </div>
         )}
+        </div>
 
         <Podium leaderboard={leaderboard} sessionMode={sessionMode} highlightName={displayNameRef.current} />
 
@@ -2888,6 +3047,16 @@ function JoinPageInner() {
         <div className="text-center mt-4">
           <ShareQuizotic context="participant-ended" />
         </div>
+        </div>{/* /main column */}
+
+        {/* Desktop right rail — full ranked leaderboard + team standings.
+            Podium only shows top 3; this lets desktop players see the whole
+            room ranked without scrolling past the celebration. */}
+        <aside className="participant-rail hidden lg:flex flex-col gap-5 p-5">
+          {teamStandingsCard}
+          {fullLeaderboardRail}
+        </aside>
+        </div>{/* /participant-stage-grid-2 */}
       </div>
     )
   }
