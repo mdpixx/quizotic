@@ -2435,14 +2435,17 @@ export default function SessionPage() {
           )}
 
           {/* Question card — text auto-scales so long questions stay in view.
-              flex-col so the image (min-h-0 shrink, object-contain) is the
-              member that yields under the card's max-height cap: at projector
-              heights the image alone can exceed the cap, and no font size can
-              fix that — the text wins the space fight, the image shrinks
-              keeping its ratio. */}
+              With an image (non-wordcloud) the card is a horizontal ROW: the
+              image sits in a fixed-size panel on the LEFT and the text fills the
+              rest on the right — mirroring the builder (QuestionCanvas) so the
+              live stage matches what the author laid out. Without an image it
+              stays a centered text spotlight (flex-col). Wordcloud keeps the
+              legacy stacked image. The card's max-height cap still protects the
+              answer grid; the image panel height is clamped so it never starves
+              the options. */}
           <div
             ref={questionCardRef}
-            className={`host-question-card ${hostQuestionFit?.questionClass ?? 'host-question-fit-large'} w-full flex flex-col rounded-[26px] border ${currentQuestion.type === 'wordcloud' ? 'host-question-card-compact' : ''} ${currentQuestion.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
+            className={`host-question-card ${hostQuestionFit?.questionClass ?? 'host-question-fit-large'} w-full flex ${currentQuestion.imageUrl && currentQuestion.type !== 'wordcloud' ? 'flex-row items-center gap-[clamp(20px,3vw,44px)]' : 'flex-col'} rounded-[26px] border ${currentQuestion.type === 'wordcloud' ? 'host-question-card-compact' : ''} ${currentQuestion.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
             style={{
               background: 'rgba(255,255,255,0.97)',
               boxShadow: '0 30px 90px -20px rgba(0,0,0,0.5)',
@@ -2452,19 +2455,42 @@ export default function SessionPage() {
               padding: currentQuestion.type === 'wordcloud' ? undefined : 'clamp(22px, 4.2vh, 50px) clamp(34px, 5vw, 72px)',
             }}
           >
-            <p
-              ref={questionTextRef}
-              className="shrink-0 font-display font-medium leading-snug break-words"
-              style={{
-                color: '#0F1B3D',
-                lineHeight: 1.15,
-                fontFamily: 'var(--font-display)',
-              }}
-            >
-              {currentQuestion.text}
-            </p>
-            {currentQuestion.imageUrl && (
-              <img src={currentQuestion.imageUrl} alt={`Image for question ${questionIndex + 1}`} className="mt-3 rounded-xl w-full min-h-0 shrink object-contain" style={{ maxHeight: 'min(18vh, 200px)' }} loading="eager" />
+            {currentQuestion.imageUrl && currentQuestion.type !== 'wordcloud' ? (
+              <>
+                {/* Image panel — fixed-size, LEFT. object-contain fits any aspect
+                    ratio without cropping; the clamped height keeps the image
+                    clearly visible on projectors yet within the card cap. */}
+                <div
+                  className="flex-shrink-0 rounded-2xl overflow-hidden flex items-center justify-center w-[clamp(150px,30%,340px)]"
+                  style={{ height: 'clamp(120px, 22vh, 220px)', background: '#F5F6F8', boxShadow: 'inset 0 0 0 1px rgba(15,27,61,0.06)' }}
+                >
+                  <img src={currentQuestion.imageUrl} alt={`Image for question ${questionIndex + 1}`} className="max-w-full max-h-full object-contain" loading="eager" />
+                </div>
+                <p
+                  ref={questionTextRef}
+                  className="flex-1 min-w-0 font-display font-medium leading-snug break-words"
+                  style={{ color: '#0F1B3D', lineHeight: 1.15, fontFamily: 'var(--font-display)' }}
+                >
+                  {currentQuestion.text}
+                </p>
+              </>
+            ) : (
+              <>
+                <p
+                  ref={questionTextRef}
+                  className="shrink-0 font-display font-medium leading-snug break-words"
+                  style={{
+                    color: '#0F1B3D',
+                    lineHeight: 1.15,
+                    fontFamily: 'var(--font-display)',
+                  }}
+                >
+                  {currentQuestion.text}
+                </p>
+                {currentQuestion.imageUrl && (
+                  <img src={currentQuestion.imageUrl} alt={`Image for question ${questionIndex + 1}`} className="mt-3 rounded-xl w-full min-h-0 shrink object-contain" style={{ maxHeight: 'min(18vh, 200px)' }} loading="eager" />
+                )}
+              </>
             )}
           </div>
 
