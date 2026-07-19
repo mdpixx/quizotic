@@ -15,7 +15,7 @@ import { playTick, playCorrect, playWrong, playStreak, isMuted, toggleMuted } fr
 // imports it statically — lazy like the other mid-game views below; warmed
 // right after a successful join so the first standings render is instant.
 import { ResultBeat, type PersonalResult } from '@/components/ResultBeat'
-import { startClockSync, getServerNow, resyncClock } from '@/lib/clock-sync'
+import { startClockSync, getServerNow, getMeasuredRttMs, resyncClock } from '@/lib/clock-sync'
 import { PRESENTATION_SEQUENCE } from '@/lib/sequence-theme'
 import { useI18n } from '@/lib/use-i18n'
 import { isContentSlideType, isInteractiveSlideType } from '@/lib/presentation-types'
@@ -1029,7 +1029,7 @@ function JoinPageInner() {
       }
     })
 
-    socket.on('question_show', ({ question, index, total, startAt, answerableNumber: aNum, answerableTotal: aTot }: { question: Omit<Question, 'index' | 'total'>; index: number; total: number; startAt?: number; answerableNumber?: number; answerableTotal?: number }) => {
+    socket.on('question_show', ({ question, index, total, startAt, endAt: serverEndAt, timerSeconds: serverTimerSeconds, answerableNumber: aNum, answerableTotal: aTot }: { question: Omit<Question, 'index' | 'total'>; index: number; total: number; startAt?: number; endAt?: number; timerSeconds?: number; answerableNumber?: number; answerableTotal?: number }) => {
       shownQuestionsRef.current.push({ index, text: question.text })
       setAnswerableNumber(typeof aNum === 'number' ? aNum : index + 1)
       setAnswerableTotal(typeof aTot === 'number' ? aTot : total)
@@ -1070,13 +1070,24 @@ function JoinPageInner() {
 
       // Clamp incoming timer to [5,120] as a client-side belt-and-suspenders
       // alongside the server clamp in sanitizeQuestion.
-      const safeTimerSeconds = Math.max(5, Math.min(120, Number(question.timerSeconds) || 20))
+      const safeTimerSeconds = Math.max(5, Math.min(120, Number(serverTimerSeconds ?? question.timerSeconds) || 20))
       const effectiveStartAt = typeof startAt === 'number' ? startAt : getServerNow()
-      const endAt = effectiveStartAt + safeTimerSeconds * 1000
+      // Prefer the server's absolute display deadline so every client converges
+      // on the SAME endAt (clients deriving locally drift apart by their offset
+      // noise). Fall back to local derivation for older servers that don't send
+      // endAt. Apply a half-RTT correction so the participant's buzzer aligns
+      // with the host's — the scoring path already uses rtt/2, the display must
+      // too or a fast tap looks "late" on the participant's own screen.
+      const measuredRtt = getMeasuredRttMs()
+      const halfRtt = Number.isFinite(measuredRtt) && measuredRtt > 0 ? measuredRtt / 2 : 0
+      const rawEndAt = typeof serverEndAt === 'number' ? serverEndAt : effectiveStartAt + safeTimerSeconds * 1000
+      const endAt = rawEndAt - halfRtt
       // Compare against SERVER time (getServerNow), not raw client clock. Mixing
       // a server timestamp with a drifted client clock was the root cause of
-      // the "starts at 2s" red-zone bug.
-      const initialLeft = Math.max(0, Math.ceil((endAt - getServerNow()) / 1000))
+      // the "starts at 2s" red-zone bug. Math.round (not ceil) halves the
+      // worst-case visible rounding delta between host and participant whose
+      // ticks land near a second boundary.
+      const initialLeft = Math.max(0, Math.round((endAt - getServerNow()) / 1000))
       setTimeLeft(initialLeft)
       setGetReadyVisible(getServerNow() < effectiveStartAt)
       answerTimeRef.current = effectiveStartAt
@@ -1097,7 +1108,7 @@ function JoinPageInner() {
           setGetReadyVisible(false)
           answerTimeRef.current = Date.now()
         }
-        const left = Math.max(0, Math.ceil((endAt - now) / 1000))
+        const left = Math.max(0, Math.round((endAt - now) / 1000))
         setTimeLeft(prev => {
           if (left <= 0) { if (timerRef.current) clearInterval(timerRef.current); return 0 }
           if (left <= 6 && left > 0 && left < prev) playTick()
@@ -1112,7 +1123,7 @@ function JoinPageInner() {
       // mid-question reconnect doesn't flash a wrong number for a tick.
       resyncClock(() => {
         setGetReadyVisible(getServerNow() < effectiveStartAt)
-        setTimeLeft(Math.max(0, Math.ceil((endAt - getServerNow()) / 1000)))
+        setTimeLeft(Math.max(0, Math.round((endAt - getServerNow()) / 1000)))
       })
     })
 
@@ -1264,7 +1275,7 @@ function JoinPageInner() {
       // froze at whatever the local tick showed when the event arrived — on a
       // slow network that left this screen seconds behind the host's.
       if (typeof payload?.remainingMs === 'number') {
-        const secs = Math.max(0, Math.ceil(payload.remainingMs / 1000))
+        const secs = Math.max(0, Math.round(payload.remainingMs / 1000))
         setTimeLeft(secs)
         timeLeftRef.current = secs
       }
@@ -1276,11 +1287,13 @@ function JoinPageInner() {
     // client's delivery delay, so host and participants drifted apart on
     // every pause/resume cycle.
     const restartCountdown = (remainingMs?: number, endsAt?: number) => {
-      const endAt = typeof endsAt === 'number'
+      const measuredRtt = getMeasuredRttMs()
+      const halfRtt = Number.isFinite(measuredRtt) && measuredRtt > 0 ? measuredRtt / 2 : 0
+      const endAt = (typeof endsAt === 'number'
         ? endsAt
-        : getServerNow() + (remainingMs !== undefined ? remainingMs : timeLeftRef.current * 1000)
+        : getServerNow() + (remainingMs !== undefined ? remainingMs : timeLeftRef.current * 1000)) - halfRtt
       const remMs = Math.max(0, endAt - getServerNow())
-      const secs = Math.max(0, Math.ceil(remMs / 1000))
+      const secs = Math.max(0, Math.round(remMs / 1000))
       setTimeLeft(secs)
       timeLeftRef.current = secs
       // Resuming means the question is live — clear a get-ready overlay left
@@ -1290,7 +1303,7 @@ function JoinPageInner() {
       if (remMs > 0) {
         timerRef.current = setInterval(() => {
           if (pausedRef.current) return // frozen while the host has the quiz paused
-          const left = Math.max(0, Math.ceil((endAt - getServerNow()) / 1000))
+          const left = Math.max(0, Math.round((endAt - getServerNow()) / 1000))
           setTimeLeft(prev => {
             if (left <= 0) { if (timerRef.current) clearInterval(timerRef.current); return 0 }
             if (left <= 6 && left > 0 && left < prev) playTick()
@@ -1304,6 +1317,12 @@ function JoinPageInner() {
       setPaused(false)
       if (phaseRef.current !== 'question') return
       restartCountdown(remainingMs, endsAt)
+      // The clock offset goes stale during a pause (no steady-state pings land
+      // while frozen). Tighten it now so the resumed countdown doesn't drift.
+      resyncClock(() => {
+        if (phaseRef.current !== 'question') return
+        restartCountdown(remainingMs, endsAt)
+      })
     })
 
     // Host extended or restarted the timer mid-question. Already-answered
@@ -1313,6 +1332,12 @@ function JoinPageInner() {
       if (phaseRef.current !== 'question') return
       if (typeof remainingMs !== 'number' || remainingMs < 0) return
       restartCountdown(remainingMs, endsAt)
+      // Same reasoning as quiz_resumed — an extension can land after a long
+      // idle where the offset drifted. Tighten before the new window runs.
+      resyncClock(() => {
+        if (phaseRef.current !== 'question') return
+        restartCountdown(remainingMs, endsAt)
+      })
     })
 
     socket.on('host_disconnected', () => {
