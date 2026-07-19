@@ -53,6 +53,11 @@ import {
   flushPendingPersist as _flushPendingPersist,
   answerWindowRejection,
   displayRemainingMs,
+  ensureAnswerCounters,
+  resetAnswerCountersForQuestion,
+  bumpAnswerCounters,
+  getAnswerCount,
+  getAnswerOptionCounts,
 } from './src/lib/session-state.mjs'
 import {
   initSessionStore,
@@ -976,6 +981,11 @@ app.prepare().then(async () => {
     console.log('[socket.io] Running with in-memory adapter (single-instance, no session durability). Set REDIS_URL to enable it.')
   }
 
+  // ioRef lets scheduleAnswerReceivedEmit / flushAnswerReceivedNow (declared
+  // above as hoisted functions) reach the io instance without a TDZ
+  // forward-reference. Set once at boot.
+  ioRef = io
+
   // ─── BOOT REHYDRATION ──────────────────────────────────────────
   // Restore live sessions persisted by the previous process so a redeploy or
   // crash doesn't end games in progress. Ended sessions are skipped; each
@@ -1626,6 +1636,9 @@ app.prepare().then(async () => {
 
       const safeDataUrl = typeof dataUrl === 'string' ? dataUrl.slice(0, 102400) : ''
       participant.answers[qi] = { answer: 'drawing', dataUrl: safeDataUrl, timeMs: 0 }
+      // O(1) aggregation bump — drawing has no option buckets (numOptions=0
+      // just bumps the answered-count tally, no per-option array).
+      bumpAnswerCounters(session, qi, 'drawing', 0)
 
       // Relay to host for live gallery
       io.to(`host:${gameCode}`).emit('drawing_submitted', {
@@ -2575,24 +2588,14 @@ app.prepare().then(async () => {
       session.participantsById.set(newPid, participant)
       socket.join(`session:${gameCode}`)
 
-      // Persist attendee record (best-effort, don't block join on DB error).
-      const safeEmail = sanitizeEmail(email)
-      try {
-        const dbId = await ensureGameSessionRow(session, gameCode, 'quiz')
-        if (dbId) {
-          const attendeeId = await insertAttendee(dbId, {
-            nickname: displayStoredName,
-            realName: safeName,
-            email: safeEmail,
-            archetype,
-            socketId: socket.id,
-          })
-          if (attendeeId) participant.attendeeId = attendeeId
-        }
-      } catch (err) {
-        console.error('[db] attendee persist failed:', err)
-      }
-
+      // Ack the join IMMEDIATELY — the participant is live in the in-memory
+      // session map and joined to the Socket.IO room, so all realtime paths
+      // work regardless of the DB row. The attendee row is for the post-game
+      // report only; awaiting it under a 500-player join burst queues every
+      // join on the 20-connection pg pool and was the single biggest source
+      // of visible "Joining…" lag. Fire-and-forget mirrors persistAnswer.
+      // participant is captured by closure, so attendeeId backfills onto the
+      // live record when the write resolves (a moment later).
       callback({
         success: true,
         status: session.status,
@@ -2605,6 +2608,29 @@ app.prepare().then(async () => {
         participantId: newPid,
         displayMode: session.displayMode,
       })
+
+      // Persist attendee record (best-effort, never blocks join on DB error).
+      // The row is created out-of-band; participant.attendeeId is set when it
+      // resolves. If a late answer arrives before the row lands, persistAnswer
+      // queues it via the existing _pendingPersist mechanism.
+      const safeEmail = sanitizeEmail(email)
+      ;(async () => {
+        try {
+          const dbId = await ensureGameSessionRow(session, gameCode, 'quiz')
+          if (dbId) {
+            const attendeeId = await insertAttendee(dbId, {
+              nickname: displayStoredName,
+              realName: safeName,
+              email: safeEmail,
+              archetype,
+              socketId: socket.id,
+            })
+            if (attendeeId) participant.attendeeId = attendeeId
+          }
+        } catch (err) {
+          console.error('[db] attendee persist failed:', err)
+        }
+      })()
 
       // Late joiner during active session — send them the current question
       // so they don't land on a blank screen.
@@ -2787,6 +2813,7 @@ app.prepare().then(async () => {
 
         const streakBonus = 0  // Ranking doesn't use streak
         const points = basePoints
+        const numOptions = question.options?.length ?? 4
         participant.answers[qi] = {
           answer: storedOrder,
           isCorrect,
@@ -2800,6 +2827,10 @@ app.prepare().then(async () => {
           ...(isSequence ? { correctPositions, totalPositions } : {}),
         }
         participant.score += points
+        // O(1) aggregation bump — host emit reads this instead of scanning
+        // all participants. Late answers still count (host roster must match
+        // the audit trail); the duplicate guard above prevents double-bumps.
+        bumpAnswerCounters(session, qi, storedOrder, numOptions)
 
         persistAnswer({
           session,
@@ -2827,8 +2858,10 @@ app.prepare().then(async () => {
           ...(isLate ? { late: true } : {}),
         })
 
-        const numOptions = question.options?.length ?? 4
-        io.to(`host:${gameCode}`).emit('answer_received', {
+        // Coalesced: a burst of N answers collapses to ~1 host emit per 150ms.
+        // The flush on question advance/reveal guarantees the host sees the
+        // true final tally the instant it matters.
+        scheduleAnswerReceivedEmit(gameCode, session, {
           count: countAnswers(session, qi),
           total: getConnectedCount(session),
           connectedCount: getConnectedCount(session),
@@ -2870,6 +2903,10 @@ app.prepare().then(async () => {
         ...(isLate ? { late: true } : {}),
       }
       participant.score += points
+      // O(1) aggregation bump (ranking branch has its own above). Late answers
+      // still count — host roster must match the audit trail.
+      const numOptions = question.options?.length ?? 4
+      bumpAnswerCounters(session, qi, answer, numOptions)
 
       // Audit log: persist every accepted answer immediately so scores are
       // recoverable even if RAM state is lost (server restart, redeploy).
@@ -2900,8 +2937,8 @@ app.prepare().then(async () => {
       })
       if (ack) ack({ accepted: true, questionIndex: qi, ...(isLate ? { late: true } : {}) })
 
-      const numOptions = question.options?.length ?? 4
-      io.to(`host:${gameCode}`).emit('answer_received', {
+      // Coalesced (see ranking branch above for rationale).
+      scheduleAnswerReceivedEmit(gameCode, session, {
         count: countAnswers(session, qi),
         total: getConnectedCount(session),
         connectedCount: getConnectedCount(session),
@@ -3403,6 +3440,12 @@ function emitLeaderboardSlide(io, gameCode, session, index) {
 
 
 function countAnswers(session, questionIndex) {
+  // O(1) hot path: submit_answer bumps session.answerCounts[qi] on every
+  // accept. Fall back to the O(n) scan only if the counter is uninitialized
+  // (e.g. an old in-flight session from before this counter existed, or a
+  // question index we never reset for). Correctness over speed in that case.
+  const fast = getAnswerCount(session, questionIndex)
+  if (fast >= 0) return fast
   let count = 0
   for (const p of session.participants.values()) {
     if (p.answers[questionIndex] !== undefined) count++
@@ -3411,6 +3454,10 @@ function countAnswers(session, questionIndex) {
 }
 
 function countAnswersByOption(session, questionIndex, numOptions) {
+  // O(1) hot path (see countAnswers). Fallback scan preserves the historical
+  // bug fix below for sessions without the counter initialized.
+  const fast = getAnswerOptionCounts(session, questionIndex)
+  if (fast && fast.length === numOptions) return fast
   // Counts each participant's tap PER option, supporting both single-choice
   // (mcq/truefalse — answer is a string/number index) and multiselect
   // (answer is an array of indices). Historical bug: `Number(['0','2'])`
@@ -3478,6 +3525,51 @@ function stopSessionStateBroadcast(session) {
     clearInterval(session._stateBroadcastTimer)
     session._stateBroadcastTimer = null
   }
+  // Also drain any pending coalesced answer_received flush so a question
+  // reveal/end isn't left holding stale counts when the session tears down.
+  flushAnswerReceivedNow(session)
+}
+
+// ─── answer_received coalescing (Workstream C) ───────────────────────────────
+// Every submit_answer used to emit answer_received to the host immediately.
+// A 100-player burst in 2s = 100 discrete host re-renders. This helper
+// collapses a burst into a single emit per ~150ms window: the first call
+// schedules a flush; later calls in the same window just refresh the pending
+// payload (latest counts/optionCounts/participantId) without emitting.
+//
+// The host UI converges to the same final state either way — it just gets
+// there with one re-render per 150ms instead of N per answer. Question
+// advance (presentQuestion) and question end (emitQuestionEnded) call
+// flushAnswerReceivedNow so the reveal screen sees the true final tally
+// without waiting for the window to elapse.
+const ANSWER_RECEIVED_COALESCE_MS = 150
+
+// ioRef is set once at server boot (see bottom of file). Indirection lets the
+// helper read it without a forward-reference to the `io` const.
+let ioRef = null
+
+function scheduleAnswerReceivedEmit(gameCode, session, payload) {
+  if (!ioRef || !session) return
+  if (!session._answerReceivedPending) session._answerReceivedPending = { gameCode, payload }
+  else session._answerReceivedPending.payload = payload
+  if (session._answerReceivedTimer) return
+  session._answerReceivedTimer = setTimeout(() => {
+    const pending = session._answerReceivedPending
+    session._answerReceivedPending = null
+    session._answerReceivedTimer = null
+    if (!pending || !ioRef) return
+    ioRef.to(`host:${pending.gameCode}`).emit('answer_received', pending.payload)
+  }, ANSWER_RECEIVED_COALESCE_MS)
+}
+
+function flushAnswerReceivedNow(session) {
+  if (!session?._answerReceivedTimer) return
+  clearTimeout(session._answerReceivedTimer)
+  session._answerReceivedTimer = null
+  const pending = session._answerReceivedPending
+  session._answerReceivedPending = null
+  if (!pending || !ioRef) return
+  ioRef.to(`host:${pending.gameCode}`).emit('answer_received', pending.payload)
 }
 
 // Sum of max points across scoreable questions in a session.
@@ -3514,6 +3606,11 @@ function presentQuestion(io, gameCode, session, index) {
   if (!session.playedQuestionIndexes) session.playedQuestionIndexes = new Set()
   session.playedQuestionIndexes.add(index)
   const { quizData } = session
+  // Flush any pending coalesced answer_received so the host sees the true
+  // final tally of the previous question before the new one's countdown
+  // starts. Without this, a quick advance could leave the last burst of
+  // answers invisible until the 150ms timer fires mid-countdown.
+  flushAnswerReceivedNow(session)
 
   // Landing on a host-placed leaderboard slide: show standings, no question.
   if (isLeaderboardSlide(quizData.questions[index])) {
@@ -3533,6 +3630,10 @@ function presentQuestion(io, gameCode, session, index) {
   session.pauseRemainingMs = null
   if (session.endTimer) { clearTimeout(session.endTimer); session.endTimer = null }
   let question = sanitizeQuestion(quizData.questions[index])
+  // Reset O(1) answer aggregation counters for this question (Workstream A).
+  // submit_answer bumps these on accept so the host emit is O(1) instead of
+  // recomputing two full participant scans per answer.
+  resetAnswerCountersForQuestion(session, index, question?.options?.length ?? 0)
 
   // If sequence ranking: shuffle options and build a map from display slot → original index
   if (isSequenceRanking(quizData.questions[index])) {
@@ -3544,6 +3645,14 @@ function presentQuestion(io, gameCode, session, index) {
     session.currentRankingShuffleMap = null
   }
 
+  // Pre-compute the display deadline and broadcast it so every client
+  // converges on the SAME absolute endAt instead of each deriving
+  // (startAt + duration) locally and drifting apart by their offset noise.
+  // Clients then apply a half-RTT correction so the participant's buzzer
+  // aligns with the host's (the scoring path already uses rtt/2).
+  const timerSeconds = clampTimerSeconds(question.timerSeconds, question.id ?? '(no-id)')
+  const displayEndAt = startAt + timerSeconds * 1000
+
   io.to(`session:${gameCode}`).emit('question_show', {
     question,
     index,
@@ -3551,6 +3660,12 @@ function presentQuestion(io, gameCode, session, index) {
     ...answerableProgress(quizData.questions, index),
     serverTimestamp: session.questionStartedAt,
     startAt,
+    // Absolute display deadline (server clock). Clients prefer this over the
+    // locally-derived (startAt + duration). Excludes the server's +3.5s intro
+    // and +0.5s paint-grace — those are internal to scheduleQuestionAutoEnd
+    // and must NOT appear in the participant's visible countdown.
+    endAt: displayEndAt,
+    timerSeconds,
   })
 
   scheduleQuestionAutoEnd(io, gameCode, session)
@@ -3613,6 +3728,11 @@ function emitQuestionEnded(io, gameCode, session, questionIndex) {
   if (!q) return
   // Leaderboard flow slides aren't questions — nothing to reveal or score.
   if (isLeaderboardSlide(q)) return
+  // Flush any pending coalesced answer_received so the host's reveal screen
+  // shows the true final answered-count and option distribution the instant
+  // the reveal fires — the coalesced 150ms window must not hide the last
+  // answers from the reveal moment.
+  flushAnswerReceivedNow(session)
   const isSequenceRankingQ = isSequenceRanking(q)
   const isNonScored = !isScoredQuestion(q)
   const correctAnswer = isNonScored

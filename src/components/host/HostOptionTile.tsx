@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { memo, useRef } from 'react'
 import { useFitText } from '@/hooks/use-fit-text'
 import { colorForIndex } from '@/lib/answer-colors'
 
@@ -42,7 +42,7 @@ export interface HostOptionTileProps {
 // Each tile still runs its OWN closed-loop font fit (useFitText) — a short
 // answer grows to fill its card while a long one shrinks, instead of every
 // tile adopting the worst (longest) tile's size.
-export function HostOptionTile({
+export const HostOptionTile = memo(function HostOptionTile({
   letter,
   text,
   imageUrl,
@@ -184,4 +184,4 @@ export function HostOptionTile({
       </div>
     </div>
   )
-}
+})

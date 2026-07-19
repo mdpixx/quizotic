@@ -24,6 +24,81 @@ export function getConnectedCount(session) {
   return n
 }
 
+// ─── O(1) answer aggregation (Workstream A) ─────────────────────────────────
+// submit_answer used to recompute countAnswers + countAnswersByOption from
+// scratch on every accepted answer — O(N²) work across a burst of N answers.
+// These helpers maintain per-question counters that mutate in O(1) on accept
+// and read in O(1) on emit. The Map is keyed by questionIndex so a host
+// flipping back via goto_question still sees correct historical tallies.
+//
+// Semantics intentionally mirror countAnswers / countAnswersByOption exactly:
+//   - answerCounts[qi] = number of participants with an answer recorded for qi
+//     (includes late + disconnected-within-grace — the host counter must stay
+//     honest so the roster count matches the audit trail).
+//   - answerOptionCounts[qi] = per-option bucket counts for the host bar chart.
+
+// Lazily create the counter maps on a session. Idempotent — safe to call on
+// every join / question advance.
+export function ensureAnswerCounters(session) {
+  if (!session) return
+  if (!(session.answerCounts instanceof Map)) session.answerCounts = new Map()
+  if (!(session.answerOptionCounts instanceof Map)) session.answerOptionCounts = new Map()
+}
+
+// Reset the tallies for a single question. Call from presentQuestion so a
+// re-asked (goto_question) question starts from zero. `numOptions` lets us
+// pre-size the per-option bucket array; we grow it on accept if the answer
+// lands out of range (defensive — sanitizeQuestion normally fixes this first).
+export function resetAnswerCountersForQuestion(session, questionIndex, numOptions = 0) {
+  if (!session) return
+  ensureAnswerCounters(session)
+  session.answerCounts.set(questionIndex, 0)
+  const n = Math.max(0, Number(numOptions) || 0)
+  session.answerOptionCounts.set(questionIndex, Array.from({ length: n }, () => 0))
+}
+
+// Record one accepted answer against the counters. `answer` is the raw stored
+// answer (string/number index for single-choice, array for multiselect /
+// ranking). Mirrors the Number(v)/Array.isArray branch in countAnswersByOption
+// so bucket totals match exactly. No-op if counters aren't initialized for qi
+// (defensive — late answers for an already-advanced question are recorded on
+// the participant but don't inflate a live counter).
+export function bumpAnswerCounters(session, questionIndex, answer, numOptions = 0) {
+  if (!session) return 0
+  ensureAnswerCounters(session)
+  const cur = session.answerCounts.get(questionIndex) ?? 0
+  session.answerCounts.set(questionIndex, cur + 1)
+  let buckets = session.answerOptionCounts.get(questionIndex)
+  const need = Math.max(Number(numOptions) || 0, 0)
+  if (!buckets || buckets.length < need) {
+    const next = buckets ? [...buckets] : []
+    while (next.length < need) next.push(0)
+    buckets = next
+    session.answerOptionCounts.set(questionIndex, buckets)
+  }
+  if (!buckets.length) return cur + 1
+  const indices = Array.isArray(answer) ? answer : [answer]
+  for (const v of indices) {
+    const idx = Number(v)
+    if (Number.isInteger(idx) && idx >= 0 && idx < buckets.length) buckets[idx]++
+  }
+  return cur + 1
+}
+
+// O(1) read of how many participants answered qi. Falls back to -1 (sentinel
+// for "unknown") so callers can distinguish "0 answers" from "no counter yet".
+export function getAnswerCount(session, questionIndex) {
+  const n = session?.answerCounts?.get(questionIndex)
+  return typeof n === 'number' ? n : -1
+}
+
+// O(1) read of per-option bucket counts for qi. Returns null if no counter is
+// initialized (caller may fall back to the O(n) recompute or just emit zeros).
+export function getAnswerOptionCounts(session, questionIndex) {
+  const buckets = session?.answerOptionCounts?.get(questionIndex)
+  return Array.isArray(buckets) ? buckets : null
+}
+
 // Compact snapshot for the periodic `session_state` broadcast. Includes
 // disconnected participants (still inside grace) so the host UI can render
 // them as "offline" without losing identity.
@@ -178,6 +253,17 @@ const NON_PERSISTED_SESSION_FIELDS = new Set([
   'participants',
   'participantsById',
   'disconnectedParticipants',
+  // O(1) answer aggregation counters (Workstream A) and the coalesced
+  // answer_received flush state (Workstream C). Both are rebuilt lazily on
+  // the next mutation after rehydrate — persisting them would ship stale
+  // counts for a question that may have advanced during the redeploy. The
+  // server-side countAnswers/countAnswersByOption wrappers fall back to the
+  // O(n) scan (getAnswerCount returns -1) until the next resetAnswerCounters
+  // call, so correctness is preserved across reboots.
+  'answerCounts',
+  'answerOptionCounts',
+  '_answerReceivedPending',
+  '_answerReceivedTimer',
 ])
 
 function encodeValue(v) {

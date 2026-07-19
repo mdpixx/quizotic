@@ -11,6 +11,7 @@
 // have. Bar widths animate proportionally to the top score.
 
 import { motion, AnimatePresence } from 'framer-motion'
+import { memo } from 'react'
 import { Avatar } from './Avatar'
 
 export interface LeaderboardRow {
@@ -51,14 +52,18 @@ function pickGradient(rank: number, teamColor?: string): string {
   return DEFAULT_GRADIENT
 }
 
-export function LeaderboardView({
+export const LeaderboardView = memo(function LeaderboardView({
   rows,
   topN = 10,
   variant,
   highlightId,
   heading,
 }: LeaderboardViewProps) {
-  const sorted = [...rows].sort((a, b) => b.score - a.score).slice(0, topN)
+  // Callers (host-stage.ts buildLeaderboardStageRows, join page) already sort
+  // by score desc — re-sorting here was an O(n log n) per-render cost on every
+  // answer_received and every 100ms timer tick. Slice only; the input contract
+  // is "rows arrive pre-sorted by score desc".
+  const sorted = rows.slice(0, topN)
   const maxScore = sorted[0]?.score ?? 0
 
   if (sorted.length === 0) {
@@ -201,7 +206,7 @@ export function LeaderboardView({
       </div>
     </div>
   )
-}
+})
 
 // ─── Compact variant — "airport flip-board" style ────────────────────────────
 // Dark navy frame, metallic gold/silver/bronze tiles for top-3, avatars,
