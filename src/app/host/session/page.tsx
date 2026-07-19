@@ -40,7 +40,8 @@ import { ImmersiveStatsOverlay, type ImmersiveOptionStat } from '@/components/ho
 import { getQuizTheme } from '@/lib/quiz-themes'
 import { buildLeaderboardStageRows, getHostQuestionFit, getHostTipText, getPostQuestionAction } from '@/lib/host-stage'
 import { useConfetti } from '@/hooks/useConfetti'
-import { startClockSync, getServerNow, getMeasuredRttMs, resyncClock } from '@/lib/clock-sync'
+import { startClockSync, getServerNow, resyncClock } from '@/lib/clock-sync'
+import { startBoundaryCountdown, currentSecondsLeft, type CountdownHandle } from '@/lib/countdown'
 import { track } from '@/lib/analytics'
 
 type Phase = 'loading' | 'error' | 'idle' | 'lobby' | 'question' | 'standings' | 'ended'
@@ -366,7 +367,7 @@ export default function SessionPage() {
   const [soundMuted, setSoundMuted] = useState(false)
   useEffect(() => { setSoundMuted(isMuted()) }, [])
   const [hostTimeLeft, setHostTimeLeft] = useState(0)
-  const hostTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const hostTimerRef = useRef<CountdownHandle | null>(null)
   // Mirror `paused` into a ref so the long-lived countdown interval can freeze
   // the instant the host pauses — without depending on the server's quiz_paused
   // round-trip actually reaching this tab. This is the real fix for "the timer
@@ -1057,7 +1058,7 @@ export default function SessionPage() {
     // host screen hit 0 while the server (and participants) still had time.
     socket.on('quiz_paused', (payload?: { remainingMs?: number }) => {
       setPaused(true)
-      if (hostTimerRef.current) { clearInterval(hostTimerRef.current); hostTimerRef.current = null }
+      if (hostTimerRef.current) { hostTimerRef.current.stop(); hostTimerRef.current = null }
       // Snap to the server's pause snapshot — the optimistic click-freeze can
       // be a digit off from what participants see; the snapshot is the value
       // every screen converges on. Math.round matches the participant client.
@@ -1071,23 +1072,20 @@ export default function SessionPage() {
       // Prefer the server's ABSOLUTE deadline (translated via clock-sync) —
       // anchoring to "arrival + remainingMs" shifted the deadline by this
       // client's delivery delay and drifted host/participant apart on every
-      // pause/resume cycle. Apply half-RTT so the host's buzzer aligns with
-      // the participant's.
-      const measuredRtt = getMeasuredRttMs()
-      const halfRtt = Number.isFinite(measuredRtt) && measuredRtt > 0 ? measuredRtt / 2 : 0
+      // pause/resume cycle. Use the RAW deadline (no half-RTT) so the two
+      // screens show the identical countdown.
       const target = typeof endsAt === 'number'
-        ? endsAt - halfRtt
-        : (typeof remainingMs === 'number' && remainingMs > 0 ? getServerNow() + remainingMs - halfRtt : null)
+        ? endsAt
+        : (typeof remainingMs === 'number' && remainingMs > 0 ? getServerNow() + remainingMs : null)
       if (target === null || target <= getServerNow()) return
-      setHostTimeLeft(Math.max(0, Math.round((target - getServerNow()) / 1000)))
+      setHostTimeLeft(currentSecondsLeft(target))
       runHostCountdown(target)
       // Offset drifts during a pause — tighten before the resumed window runs.
       resyncClock(() => {
         if (pausedRef.current) return
-        const t = typeof endsAt === 'number' ? endsAt - halfRtt : target
-        if (typeof t === 'number' && t > getServerNow()) {
-          setHostTimeLeft(Math.max(0, Math.round((t - getServerNow()) / 1000)))
-          runHostCountdown(t)
+        if (target > getServerNow()) {
+          setHostTimeLeft(currentSecondsLeft(target))
+          runHostCountdown(target)
         }
       })
     })
@@ -1097,20 +1095,19 @@ export default function SessionPage() {
     // countdown restarts on resume.
     socket.on('timer_adjusted', ({ remainingMs, endsAt, paused: stillPaused }: { remainingMs?: number; action?: 'extend' | 'restart'; endsAt?: number; paused?: boolean }) => {
       if (typeof remainingMs !== 'number' || remainingMs < 0) return
-      const measuredRtt = getMeasuredRttMs()
-      const halfRtt = Number.isFinite(measuredRtt) && measuredRtt > 0 ? measuredRtt / 2 : 0
       if (stillPaused) {
         setHostTimeLeft(Math.max(0, Math.round(remainingMs / 1000)))
         return
       }
-      const target = (typeof endsAt === 'number' ? endsAt : getServerNow() + remainingMs) - halfRtt
-      setHostTimeLeft(Math.max(0, Math.round((target - getServerNow()) / 1000)))
+      // Raw deadline (no half-RTT) — identical countdown across screens.
+      const target = typeof endsAt === 'number' ? endsAt : getServerNow() + remainingMs
+      setHostTimeLeft(currentSecondsLeft(target))
       runHostCountdown(target)
       // An extension can land after a long idle where the offset drifted.
       resyncClock(() => {
         if (pausedRef.current) return
         if (target > getServerNow()) {
-          setHostTimeLeft(Math.max(0, Math.round((target - getServerNow()) / 1000)))
+          setHostTimeLeft(currentSecondsLeft(target))
           runHostCountdown(target)
         }
       })
@@ -1130,7 +1127,7 @@ export default function SessionPage() {
       // review/standings screen never renders a stuck paused state if the
       // question was ended mid-pause (e.g. auto-end timer racing pause).
       setPaused(false)
-      if (hostTimerRef.current) { clearInterval(hostTimerRef.current); hostTimerRef.current = null }
+      if (hostTimerRef.current) { hostTimerRef.current.stop(); hostTimerRef.current = null }
       setHostTimeLeft(0)
       // Stay on the question screen so the host can review who answered
       // right/wrong before advancing. The host clicks Next to move to the
@@ -1173,7 +1170,7 @@ export default function SessionPage() {
       setIntermediateLeaderboard(top ?? [])
       setDisplayedLeaderboard([])
       if (tlb) setTeamLeaderboard(tlb)
-      if (hostTimerRef.current) { clearInterval(hostTimerRef.current); hostTimerRef.current = null }
+      if (hostTimerRef.current) { hostTimerRef.current.stop(); hostTimerRef.current = null }
       setHostTimeLeft(0)
       setPhase('standings')
       try { playLeaderboardJingle() } catch {}
@@ -1468,34 +1465,25 @@ export default function SessionPage() {
     if (questionEnded && correctRevealed) setShowImmersiveStats(true)
   }, [autoStatsAfterReveal, phase, questionEnded, correctRevealed])
 
-  // End-anchored remaining-time math, the same shape and 100ms cadence as
-  // the participant timer in join/page.tsx — the two screens flip digits
-  // within one tick of each other. Reused by quiz_resumed, where the
-  // remaining window must not go through the [5,120] full-question clamp.
+  // Boundary-scheduled countdown shared with the participant via the same
+  // engine (src/lib/countdown.ts): it wakes at the exact server-time second
+  // boundary, so both screens flip digits at the same real-world instant
+  // instead of up to ~100ms apart on two free-running 100ms pollers. Reused by
+  // quiz_resumed, where the remaining window must not go through the [5,120]
+  // full-question clamp. Pause STOPS the handle (quiz_paused); resume starts a
+  // fresh one re-anchored on the new deadline — cleaner than the old
+  // "keep spinning but return while paused" hack.
   function runHostCountdown(endAt: number) {
-    if (hostTimerRef.current) clearInterval(hostTimerRef.current)
-    // Math.round (not ceil) — matches the participant client so the two screens
-    // flip digits together instead of up to 100ms apart at a second boundary.
-    let lastTickSecond = Math.round((endAt - getServerNow()) / 1000) + 1
-    hostTimerRef.current = setInterval(() => {
-      // Frozen while paused — the interval keeps spinning but the displayed
-      // countdown holds. quiz_resumed re-anchors endAt on resume, so the digits
-      // continue from where they stopped. Correct even if the interval outlives
-      // a dropped quiz_paused event.
-      if (pausedRef.current) return
-      const remaining = Math.max(0, Math.round((endAt - getServerNow()) / 1000))
+    hostTimerRef.current?.stop()
+    let prevSecond = currentSecondsLeft(endAt)
+    hostTimerRef.current = startBoundaryCountdown(endAt, remaining => {
       setHostTimeLeft(remaining)
       // Tick on host for the final 5 seconds — stays in sync with the
-      // participant ticks since both clocks are anchored on serverTimestamp.
-      if (remaining !== lastTickSecond && remaining > 0 && remaining <= 5) {
-        lastTickSecond = remaining
-        playTick()
-      }
-      if (remaining <= 0) {
-        clearInterval(hostTimerRef.current!)
-        hostTimerRef.current = null
-      }
-    }, 100)
+      // participant ticks since both are anchored on the same server endAt.
+      if (remaining !== prevSecond && remaining > 0 && remaining <= 5) playTick()
+      prevSecond = remaining
+      if (remaining <= 0) hostTimerRef.current = null
+    })
   }
 
   function startHostTimer(seconds: number, serverTimestamp?: number, serverEndAt?: number) {
@@ -1507,13 +1495,11 @@ export default function SessionPage() {
     // laptop's clock has drifted — this was the source of the red-zone bug.
     timerStartRef.current = serverTimestamp ?? getServerNow()
     setHostTimeLeft(safeSeconds)
-    // Prefer the server's absolute display deadline and apply a half-RTT
-    // correction so the host's buzzer aligns with the participant's. Falls
-    // back to local derivation for older servers without endAt in the payload.
-    const measuredRtt = getMeasuredRttMs()
-    const halfRtt = Number.isFinite(measuredRtt) && measuredRtt > 0 ? measuredRtt / 2 : 0
-    const rawEndAt = typeof serverEndAt === 'number' ? serverEndAt : timerStartRef.current + safeSeconds * 1000
-    runHostCountdown(rawEndAt - halfRtt)
+    // Use the RAW server deadline — NO per-device half-RTT — so the host and
+    // participant screens show the byte-identical countdown. Falls back to
+    // local derivation for older servers without endAt in the payload.
+    const endAt = typeof serverEndAt === 'number' ? serverEndAt : timerStartRef.current + safeSeconds * 1000
+    runHostCountdown(endAt)
   }
 
   function startQuiz() {
@@ -1543,7 +1529,7 @@ export default function SessionPage() {
     setExplanation(null)
     setQuestionEnded(false)
     setCorrectRevealed(false)
-    if (hostTimerRef.current) { clearInterval(hostTimerRef.current); hostTimerRef.current = null }
+    if (hostTimerRef.current) { hostTimerRef.current.stop(); hostTimerRef.current = null }
     const nextIndex = questionIndex + 1
     if (nextIndex >= quiz.questions.length) {
       socketRef.current?.emit('end_session', { gameCode })
@@ -1617,7 +1603,7 @@ export default function SessionPage() {
 
   function stopLiveQuestionTimer() {
     if (hostTimerRef.current) {
-      clearInterval(hostTimerRef.current)
+      hostTimerRef.current.stop()
       hostTimerRef.current = null
     }
     setHostTimeLeft(0)
@@ -1716,7 +1702,7 @@ export default function SessionPage() {
     setCorrectRevealed(true)
     setExplanation(currentQuestion?.explanation ?? null)
     setHostTimeLeft(0)
-    if (hostTimerRef.current) { clearInterval(hostTimerRef.current); hostTimerRef.current = null }
+    if (hostTimerRef.current) { hostTimerRef.current.stop(); hostTimerRef.current = null }
   }
 
   function showHostStagePreviewStandings() {

@@ -15,7 +15,8 @@ import { playTick, playCorrect, playWrong, playStreak, isMuted, toggleMuted } fr
 // imports it statically — lazy like the other mid-game views below; warmed
 // right after a successful join so the first standings render is instant.
 import { ResultBeat, type PersonalResult } from '@/components/ResultBeat'
-import { startClockSync, getServerNow, getMeasuredRttMs, resyncClock } from '@/lib/clock-sync'
+import { startClockSync, getServerNow, resyncClock } from '@/lib/clock-sync'
+import { startBoundaryCountdown, currentSecondsLeft, type CountdownHandle } from '@/lib/countdown'
 import { PRESENTATION_SEQUENCE } from '@/lib/sequence-theme'
 import { useI18n } from '@/lib/use-i18n'
 import { isContentSlideType, isInteractiveSlideType } from '@/lib/presentation-types'
@@ -529,7 +530,7 @@ function JoinPageInner() {
   const { t } = useI18n('en')
   const searchParams = useSearchParams()
   const socketRef = useRef<Socket | null>(null)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const timerRef = useRef<CountdownHandle | null>(null)
   const answerTimeRef = useRef<number>(0)
   // Outbox of unconfirmed answer submissions. Cleared on answer_confirmed,
   // re-flushed on socket reconnect or after a forced re-join. This is the
@@ -672,10 +673,6 @@ function JoinPageInner() {
   const [timeLeft, setTimeLeft] = useState(0)
   const [getReadyVisible, setGetReadyVisible] = useState(false)
   const timeLeftRef = useRef(0)
-  // Live pause state so the countdown tick freezes on quiz_paused even if the
-  // interval isn't torn down — keeps the participant clock in lockstep with the
-  // host and the paused server (which is already rejecting submissions).
-  const pausedRef = useRef(false)
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
 
   // Text answer (for open-ended, word cloud, Q&A)
@@ -747,7 +744,6 @@ function JoinPageInner() {
 
   useEffect(() => { phaseRef.current = phase }, [phase])
   useEffect(() => { timeLeftRef.current = timeLeft }, [timeLeft])
-  useEffect(() => { pausedRef.current = paused }, [paused])
 
   // Mobile lifecycle (Layer 2.7): when the tab regains visibility (user
   // unlocks phone, switches back from another app), force a liveness check
@@ -1075,60 +1071,57 @@ function JoinPageInner() {
       // Prefer the server's absolute display deadline so every client converges
       // on the SAME endAt (clients deriving locally drift apart by their offset
       // noise). Fall back to local derivation for older servers that don't send
-      // endAt. Apply a half-RTT correction so the participant's buzzer aligns
-      // with the host's — the scoring path already uses rtt/2, the display must
-      // too or a fast tap looks "late" on the participant's own screen.
-      const measuredRtt = getMeasuredRttMs()
-      const halfRtt = Number.isFinite(measuredRtt) && measuredRtt > 0 ? measuredRtt / 2 : 0
-      const rawEndAt = typeof serverEndAt === 'number' ? serverEndAt : effectiveStartAt + safeTimerSeconds * 1000
-      const endAt = rawEndAt - halfRtt
-      // Compare against SERVER time (getServerNow), not raw client clock. Mixing
-      // a server timestamp with a drifted client clock was the root cause of
-      // the "starts at 2s" red-zone bug. Math.round (not ceil) halves the
-      // worst-case visible rounding delta between host and participant whose
-      // ticks land near a second boundary.
-      const initialLeft = Math.max(0, Math.round((endAt - getServerNow()) / 1000))
-      setTimeLeft(initialLeft)
+      // endAt. Use the RAW server deadline — NO per-device half-RTT — so the
+      // host and participant screens show the byte-identical countdown. The
+      // half-RTT correction still governs answer SCORING (serverSubmittedAt
+      // below + the server's rtt/2), which is where fairness actually lives; it
+      // must NOT skew the visible digits or the two screens drift apart.
+      const endAt = typeof serverEndAt === 'number' ? serverEndAt : effectiveStartAt + safeTimerSeconds * 1000
+      // currentSecondsLeft compares against SERVER time (getServerNow), not the
+      // raw client clock — mixing a server timestamp with a drifted client clock
+      // was the root cause of the "starts at 2s" red-zone bug.
+      setTimeLeft(currentSecondsLeft(endAt))
       setGetReadyVisible(getServerNow() < effectiveStartAt)
       answerTimeRef.current = effectiveStartAt
 
-      // One interval drives both the get-ready window and the live countdown,
-      // re-reading getServerNow() every tick. That way clock-offset corrections
-      // (resync burst landing, tab foregrounding) shift the displayed time and
-      // the start moment automatically — no setTimeout pinned to a stale offset.
-      // 100ms cadence matches the host timer so both screens flip digits within
-      // one tick of each other.
-      if (timerRef.current) clearInterval(timerRef.current)
-      let started = getServerNow() >= effectiveStartAt
-      timerRef.current = setInterval(() => {
-        const now = getServerNow()
-        if (now < effectiveStartAt) return
-        if (!started) {
-          started = true
-          setGetReadyVisible(false)
-          answerTimeRef.current = Date.now()
-        }
-        const left = Math.max(0, Math.round((endAt - now) / 1000))
-        setTimeLeft(prev => {
-          if (left <= 0) { if (timerRef.current) clearInterval(timerRef.current); return 0 }
-          if (left <= 6 && left > 0 && left < prev) playTick()
-          return left
-        })
-      }, 100)
+      // Boundary-scheduled countdown shared with the host (src/lib/countdown.ts):
+      // it wakes at the exact server-time second boundary, so both screens flip
+      // the digit at the same real-world instant instead of up to ~100ms apart
+      // on two free-running 100ms pollers. Re-reads getServerNow() each fire, so
+      // a resync/tab-foreground offset correction self-corrects on the next
+      // boundary. The startAt gate handles the get-ready window; onStart hands
+      // off to the live phase exactly as the old single interval did.
+      timerRef.current?.stop()
+      let prevLeft = currentSecondsLeft(endAt)
+      timerRef.current = startBoundaryCountdown(
+        endAt,
+        left => {
+          if (left <= 6 && left > 0 && left < prevLeft) playTick()
+          prevLeft = left
+          setTimeLeft(left)
+        },
+        {
+          startAt: effectiveStartAt,
+          onStart: () => {
+            setGetReadyVisible(false)
+            answerTimeRef.current = Date.now()
+          },
+        },
+      )
 
       // Tighten the clock offset now that the timer is running. Without this,
       // a participant device whose local clock has drifted (15-20s is common
       // over a 10-minute session) renders the timer in the red zone from
-      // frame 1. Once the burst settles, snap the displayed values so a
+      // frame 1. Once the burst settles, snap the displayed value so a
       // mid-question reconnect doesn't flash a wrong number for a tick.
       resyncClock(() => {
         setGetReadyVisible(getServerNow() < effectiveStartAt)
-        setTimeLeft(Math.max(0, Math.round((endAt - getServerNow()) / 1000)))
+        setTimeLeft(currentSecondsLeft(endAt))
       })
     })
 
     socket.on('answer_confirmed', ({ late, isNonScored }: { received?: boolean; late?: boolean; isNonScored?: boolean }) => {
-      if (timerRef.current) clearInterval(timerRef.current)
+      timerRef.current?.stop()
       // Participant funnel: count this player as "engaged" on their first
       // accepted answer (once per session, not per question).
       if (!answeredTrackedRef.current) {
@@ -1269,7 +1262,7 @@ function JoinPageInner() {
     })
 
     socket.on('quiz_paused', (payload?: { remainingMs?: number }) => {
-      if (timerRef.current) clearInterval(timerRef.current)
+      timerRef.current?.stop()
       setPaused(true)
       // Snap the frozen digits to the server's pause snapshot. Without it we
       // froze at whatever the local tick showed when the event arrived — on a
@@ -1287,29 +1280,29 @@ function JoinPageInner() {
     // client's delivery delay, so host and participants drifted apart on
     // every pause/resume cycle.
     const restartCountdown = (remainingMs?: number, endsAt?: number) => {
-      const measuredRtt = getMeasuredRttMs()
-      const halfRtt = Number.isFinite(measuredRtt) && measuredRtt > 0 ? measuredRtt / 2 : 0
-      const endAt = (typeof endsAt === 'number'
+      // Raw server deadline (no per-device half-RTT) — same reasoning as the
+      // question_show handler. Prefer the absolute endsAt; fall back to
+      // now + remainingMs for older servers that don't send it.
+      const endAt = typeof endsAt === 'number'
         ? endsAt
-        : getServerNow() + (remainingMs !== undefined ? remainingMs : timeLeftRef.current * 1000)) - halfRtt
-      const remMs = Math.max(0, endAt - getServerNow())
-      const secs = Math.max(0, Math.round(remMs / 1000))
+        : getServerNow() + (remainingMs !== undefined ? remainingMs : timeLeftRef.current * 1000)
+      const secs = currentSecondsLeft(endAt)
       setTimeLeft(secs)
       timeLeftRef.current = secs
       // Resuming means the question is live — clear a get-ready overlay left
       // behind by a pause during the 3-2-1 intro window.
       setGetReadyVisible(false)
-      if (timerRef.current) clearInterval(timerRef.current)
-      if (remMs > 0) {
-        timerRef.current = setInterval(() => {
-          if (pausedRef.current) return // frozen while the host has the quiz paused
-          const left = Math.max(0, Math.round((endAt - getServerNow()) / 1000))
-          setTimeLeft(prev => {
-            if (left <= 0) { if (timerRef.current) clearInterval(timerRef.current); return 0 }
-            if (left <= 6 && left > 0 && left < prev) playTick()
-            return left
-          })
-        }, 100)
+      // Pause already stopped the previous handle; a fresh boundary countdown
+      // re-anchors on the resumed/adjusted deadline so digits stay in lockstep
+      // with the host, which re-anchors on the identical endsAt.
+      timerRef.current?.stop()
+      if (endAt > getServerNow()) {
+        let prevLeft = secs
+        timerRef.current = startBoundaryCountdown(endAt, left => {
+          if (left <= 6 && left > 0 && left < prevLeft) playTick()
+          prevLeft = left
+          setTimeLeft(left)
+        })
       }
     }
 
@@ -1351,7 +1344,7 @@ function JoinPageInner() {
       if (gameCodeRef.current) clearParticipantId(gameCodeRef.current)
       participantIdRef.current = ''
       outboxRef.current.clear()
-      if (timerRef.current) clearInterval(timerRef.current)
+      timerRef.current?.stop()
       setError('You were removed from the game by the host.')
       setPhase('form')
     })

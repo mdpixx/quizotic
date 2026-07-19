@@ -1,5 +1,7 @@
 'use client'
 
+import { useState } from 'react'
+
 // Urgency ramp: rest colour → amber at ≤10s → red + pulse at ≤5s. The pulse
 // uses Tailwind's motion-safe variant so prefers-reduced-motion users get the
 // colour change without the animation. `size` lets the host bar run a slimmer
@@ -31,6 +33,21 @@ export function CircularTimer({
   const isLow = timeLeft <= 5
   const isWarning = timeLeft <= 10 && !isLow
 
+  // Ease the ring over 1s for the ordinary per-second decrement (host and
+  // participant now step in lockstep, so their rings glide together), but SNAP
+  // instantly when the value jumps by more than one second — a clock-offset
+  // resync or a tab-wake can move it several seconds at once, and a 1s glide
+  // there reads as the ring lagging the number. Track the previous value in
+  // state (React's sanctioned "adjust state on prop change" pattern) so we
+  // never read a ref during render; `snap` persists into the committed render.
+  const [prevTimeLeft, setPrevTimeLeft] = useState(timeLeft)
+  const [snap, setSnap] = useState(false)
+  if (timeLeft !== prevTimeLeft) {
+    setSnap(Math.abs(timeLeft - prevTimeLeft) > 1)
+    setPrevTimeLeft(timeLeft)
+  }
+  const dashTransition = snap ? 'stroke-dashoffset 0s' : 'stroke-dashoffset 1s linear'
+
   const isDark = variant === 'dark'
   const trackColor = isDark ? 'rgba(255,255,255,0.14)' : 'rgba(15,27,61,0.15)'
   const restColor = isDark ? '#FFFFFF' : '#0F1B3D'
@@ -48,7 +65,7 @@ export function CircularTimer({
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           strokeLinecap="round"
-          style={{ transition: 'stroke-dashoffset 1s linear, stroke 0.3s, stroke-width 0.3s' }}
+          style={{ transition: `${dashTransition}, stroke 0.3s, stroke-width 0.3s` }}
         />
       </svg>
       <span className={`absolute inset-0 flex items-center justify-center font-black ${textColor}`}
