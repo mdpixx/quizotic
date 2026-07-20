@@ -41,6 +41,13 @@ export interface CountdownOptions {
   // Clamp the emitted value to at most this many seconds (unused by the live
   // countdown; available for a capped pre-roll).
   max?: number
+  // Rounding for the displayed whole-seconds value. The live question timer
+  // uses the default 'round' (flips at half-second boundaries, so a 20s timer
+  // reads "20" right away). The 3-2-1 get-ready overlay uses 'ceil' so each
+  // digit owns a FULL second — 3:[3s,2s) 2:[2s,1s) 1:[1s,0s) — and the "1"→0
+  // transition lands exactly on startAt, aligning with the live timer's
+  // onStart gate (no ~500ms blank gap before the overlay clears).
+  round?: 'round' | 'ceil'
 }
 
 // Remaining whole seconds until `endAt` in SERVER time. Shared by the live
@@ -50,13 +57,24 @@ export function currentSecondsLeft(endAt: number): number {
   return Math.max(0, Math.round((endAt - getServerNow()) / 1000))
 }
 
+// Apply the rounding mode (default 'round') to a raw seconds value. Exposed so
+// the engine and any caller can agree on rounding without duplicating the math.
+export function applyRoundMode(raw: number, mode?: 'round' | 'ceil'): number {
+  return mode === 'ceil' ? Math.ceil(raw) : Math.round(raw)
+}
+
 // The server-time instant at which the displayed integer will next change,
-// given the current `now`. Exposed for tests; the value `n` shown for
-// `now ∈ (endAt - (n + 0.5)·1000, endAt - (n - 0.5)·1000]` flips to `n - 1` at
-// `endAt - (n - 0.5)·1000`.
-export function nextBoundaryAt(endAt: number, now: number): number {
-  const n = Math.max(0, Math.round((endAt - now) / 1000))
-  return endAt - (n - 0.5) * 1000
+// given the current `now` and rounding mode. For the default 'round' mode the
+// value `n` shown for `now ∈ (endAt - (n + 0.5)·1000, endAt - (n - 0.5)·1000]`
+// flips to `n - 1` at `endAt - (n - 0.5)·1000`. For 'ceil' mode each digit owns
+// a full second — `n` shown for `now ∈ (endAt - n·1000, endAt - (n-1)·1000]`
+// flips at the whole-second boundary `endAt - (n - 1)·1000` — so the 3-2-1
+// get-ready overlay lands its final "1"→0 transition exactly on `startAt`.
+export function nextBoundaryAt(endAt: number, now: number, mode?: 'round' | 'ceil'): number {
+  const n = Math.max(0, applyRoundMode((endAt - now) / 1000, mode))
+  // Flip boundary: round → endAt - (n - 0.5)·1000 (half-second);
+  // ceil → endAt - (n - 1)·1000 (whole-second).
+  return mode === 'ceil' ? endAt - (n - 1) * 1000 : endAt - (n - 0.5) * 1000
 }
 
 export function startBoundaryCountdown(
@@ -70,6 +88,11 @@ export function startBoundaryCountdown(
 
   const clamp = (n: number): number =>
     typeof opts.max === 'number' ? Math.min(opts.max, n) : n
+  // Shared rounding: every internal site and the initial paint must agree, so a
+  // 'ceil' get-ready overlay flips at whole-second boundaries instead of the
+  // round mode's half-second boundaries.
+  const roundedLeft = (now: number): number =>
+    Math.max(0, applyRoundMode((endAt - now) / 1000, opts.round))
 
   function stop(): void {
     stopped = true
@@ -88,9 +111,16 @@ export function startBoundaryCountdown(
       timer = setTimeout(tick, opts.startAt - now + GUARD_MS)
       return
     }
-    const n = Math.max(0, Math.round((endAt - now) / 1000))
-    if (n <= 0) return // reached zero — nothing left to schedule
-    const boundary = endAt - (n - 0.5) * 1000
+    // Schedule to the boundary of the CLAMPED displayed value, not the raw
+    // value: when `max` is clamping (e.g. raw=4 shown as 3) the raw 4→3 flip is
+    // NOT a visible change, so waking there would emit a redundant duplicate
+    // tick ~500ms later. Deriving the wait from the displayed value skips
+    // straight to the next change the user actually sees.
+    const displayed = clamp(roundedLeft(now))
+    if (displayed <= 0) return // reached zero — nothing left to schedule
+    const boundary = opts.round === 'ceil'
+      ? endAt - (displayed - 1) * 1000
+      : endAt - (displayed - 0.5) * 1000
     timer = setTimeout(tick, Math.max(0, boundary - now) + GUARD_MS)
   }
 
@@ -106,7 +136,7 @@ export function startBoundaryCountdown(
       startFired = true
       opts.onStart?.()
     }
-    const left = Math.max(0, Math.round((endAt - now) / 1000))
+    const left = roundedLeft(now)
     onTick(clamp(left))
     if (left <= 0) {
       stop()
@@ -121,7 +151,7 @@ export function startBoundaryCountdown(
   if (!(opts.startAt !== undefined && now0 < opts.startAt)) {
     startFired = true
     opts.onStart?.()
-    onTick(clamp(Math.max(0, Math.round((endAt - now0) / 1000))))
+    onTick(clamp(roundedLeft(now0)))
   }
   scheduleNext()
 

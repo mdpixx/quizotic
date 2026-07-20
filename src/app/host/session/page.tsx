@@ -399,7 +399,7 @@ export default function SessionPage() {
   const [showLeaderboardPopup, setShowLeaderboardPopup] = useState(false)
   const { openFeedback } = useFeedback()
   const [countdownValue, setCountdownValue] = useState<number | null>(null)
-  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const countdownTimerRef = useRef<CountdownHandle | null>(null)
   const [endNowArmed, setEndNowArmed] = useState(false)
   const endNowArmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Full-screen immersive stats overlay — host opens it on demand (button in
@@ -1019,35 +1019,38 @@ export default function SessionPage() {
       const timerSeconds = Math.max(5, Math.min(120, Number(rawTimerSeconds) || 20))
 
       if (msUntilStart > 500) {
-        // Wall-clock-anchored 3-2-1 countdown. Both host and participant use
-        // the SAME formula — Math.min(3, Math.round((effectiveStart - now)/1000))
-        // — polled every 100ms, so the displayed number flips at the same
-        // moment on both screens regardless of when each one received the
-        // question_show event.
-        if (countdownTimerRef.current) clearInterval(countdownTimerRef.current)
-        let lastShown = 0
-        const updateCountdown = () => {
-          const remainingMs = effectiveStart - getServerNow()
-          const value = Math.max(0, Math.min(3, Math.round(remainingMs / 1000)))
-          if (value <= 0) {
-            if (countdownTimerRef.current) {
-              clearInterval(countdownTimerRef.current)
+        // Server-anchored 3-2-1 countdown driven by the SAME boundary scheduler
+        // as the participant's get-ready overlay (src/lib/countdown.ts). Both
+        // screens read getServerNow() (NTP-corrected) and flip at the exact
+        // whole-second boundary of the shared server `startAt`, so the digits
+        // change on the same real-world instant on host and participant — no
+        // more ~100ms poll-phase drift plus device clock skew from the old
+        // two-free-running-setInterval(_,100) setup.
+        //
+        // round:'ceil' + max:3 gives each digit a full second
+        // (3:[3s,2s) 2:[2s,1s) 1:[1s,0s)); when the engine emits 0 the get-ready
+        // window is over and we hand off to the live per-question timer.
+        countdownTimerRef.current?.stop()
+        let prevShown = -1
+        countdownTimerRef.current = startBoundaryCountdown(
+          effectiveStart,
+          value => {
+            if (value <= 0) {
               countdownTimerRef.current = null
+              setCountdownValue(null)
+              startHostTimer(timerSeconds, effectiveStart, serverEndAt)
+              return
             }
-            setCountdownValue(null)
-            startHostTimer(timerSeconds, effectiveStart, serverEndAt)
-            return
-          }
-          if (value !== lastShown) {
-            lastShown = value
-            setCountdownValue(value)
-            // All three countdown numbers (3, 2, 1) tick uniformly — the old
-            // rising drumroll on '3' was removed when drumroll.mp3 was retired.
-            playTick()
-          }
-        }
-        updateCountdown()
-        countdownTimerRef.current = setInterval(updateCountdown, 100)
+            if (value !== prevShown) {
+              prevShown = value
+              setCountdownValue(value)
+              // All three countdown numbers (3, 2, 1) tick uniformly — the old
+              // rising drumroll on '3' was removed when drumroll.mp3 was retired.
+              playTick()
+            }
+          },
+          { round: 'ceil', max: 3 },
+        )
       } else {
         startHostTimer(timerSeconds, effectiveStart, serverEndAt)
       }
