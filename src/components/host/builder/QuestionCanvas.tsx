@@ -952,7 +952,7 @@ export function QuestionCanvas({
             {[1, 2, 3, 4, 5].map(n => (
               <span key={n} className="text-4xl" style={{ color: '#EA580C' }}>&#9733;</span>
             ))}
-            <p className="ml-3 text-sm text-gray-400">Participants rate 1.0–5.0 in 0.5-star steps</p>
+            <p className="ml-3 text-sm text-gray-400">Participants rate 1–5 stars</p>
           </div>
         )}
 
