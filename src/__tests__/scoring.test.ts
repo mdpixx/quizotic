@@ -343,7 +343,7 @@ describe('validateAnswer — openended / wordcloud / qa', () => {
 describe('validateAnswer — rating', () => {
   it('accepts 0-based index string (legacy → 1-based)', () => {
     // Legacy submissions sent a 0-based option-index string. normalizeRatingValue
-    // converts "2" → rating value 3.0 so old sessions still aggregate correctly.
+    // converts "2" → rating value 3 so old sessions still aggregate correctly.
     const r = validateAnswer(ratingQ, '2')
     expect(r.ok).toBe(true)
     if (r.ok) expect(r.value).toBe('3')
@@ -353,16 +353,10 @@ describe('validateAnswer — rating', () => {
     expect(validateAnswer(ratingQ, '5').ok).toBe(false)
   })
 
-  it('accepts a half-star float value', () => {
-    const r = validateAnswer(ratingQ, 3.5)
+  it('accepts an integer value in range', () => {
+    const r = validateAnswer(ratingQ, 4)
     expect(r.ok).toBe(true)
-    if (r.ok) expect(r.value).toBe('3.5')
-  })
-
-  it('accepts a half-star float passed as a number', () => {
-    const r = validateAnswer(ratingQ, 1.5)
-    expect(r.ok).toBe(true)
-    if (r.ok) expect(r.value).toBe('1.5')
+    if (r.ok) expect(r.value).toBe('4')
   })
 
   it('accepts the max value', () => {
@@ -371,16 +365,17 @@ describe('validateAnswer — rating', () => {
     if (r.ok) expect(r.value).toBe('5')
   })
 
-  it('rejects a value not on the 0.5 step grid', () => {
+  it('rejects a non-integer value', () => {
+    expect(validateAnswer(ratingQ, 3.5).ok).toBe(false)
     expect(validateAnswer(ratingQ, 3.7).ok).toBe(false)
   })
 
   it('rejects a value below 1', () => {
-    expect(validateAnswer(ratingQ, 0.5).ok).toBe(false)
+    expect(validateAnswer(ratingQ, 0).ok).toBe(false)
   })
 
   it('rejects a value above max', () => {
-    expect(validateAnswer(ratingQ, 5.5).ok).toBe(false)
+    expect(validateAnswer(ratingQ, 6).ok).toBe(false)
   })
 })
 

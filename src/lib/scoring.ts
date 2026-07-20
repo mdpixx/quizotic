@@ -176,10 +176,9 @@ export function validateAnswer(
   }
 
   if (type === 'rating') {
-    // Half-star support: values are floats on a 0.5 step grid for ≤5-point
-    // scales (1.0, 1.5, … 5.0). Legacy 0-based integer-index strings ("0".."4")
-    // are converted to 1-based values so old sessions still aggregate. The
-    // shared helper is mirrored verbatim in server.mjs — keep them in sync.
+    // Integer stars only (1..ratingMax). Legacy 0-based option-index strings
+    // ("0".."N-1") are converted to 1-based values so old sessions still
+    // aggregate. The shared helper is mirrored verbatim in server.mjs.
     const ratingMax = opts.length || 5
     const value = normalizeRatingValue(raw, ratingMax)
     if (value === null)

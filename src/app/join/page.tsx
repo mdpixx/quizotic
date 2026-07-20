@@ -747,9 +747,10 @@ function JoinPageInner() {
   // Multiselect
   const [multiselectChosen, setMultiselectChosen] = useState<Set<number>>(new Set())
 
-  // Rating (half-star picker). `pendingRating` is the staged value the user is
-  // previewing; it only commits to the server on Submit. `hoverRating` is the
-  // live pointer/drag value (0 = not hovering). Both reset per question.
+  // Rating (integer stars). `pendingRating` is the staged value the user is
+  // previewing; it only commits to the server on Submit (NOT on tap — that was
+  // the original bug). `hoverRating` is the live hover-preview value
+  // (0 = not hovering). Both reset per question.
   const [pendingRating, setPendingRating] = useState(0)
   const [hoverRating, setHoverRating] = useState(0)
 
@@ -2291,105 +2292,67 @@ function JoinPageInner() {
           })()
         ) : question.type === 'rating' ? (
           (() => {
-            // Half-star rating picker with a preview + explicit Submit.
+            // Integer star rating with a preview + explicit Submit.
             //
-            // Two bugs this fixes from the old single-tap-to-submit star row:
-            //   1) A mistaken touch used to lock the answer instantly. Now a
-            //      tap only STAGES the value into pendingRating; nothing is
-            //      submitted until the Submit button is pressed. The user can
-            //      tap different stars to change their mind before submitting.
-            //   2) Only integer 1-5 values were possible. Now each star has a
-            //      left/right half → 9 positions on a 5-star scale
-            //      (1.0, 1.5, … 5.0). Pointer/touch X within the row maps to
-            //      the nearest 0.5 step.
+            // The original star row submitted on the first tap, so a mistaken
+            // touch locked the answer with no way to change it. Now a tap only
+            // STAGES the value into pendingRating; nothing commits until the
+            // Submit button is pressed. The participant can tap a different
+            // star any number of times before submitting.
             //
             // Scale length comes from the question's options (5/7/10-point) —
             // hardcoding 5 made higher scales un-answerable past star 5.
-            // Half-stars ship only for the default 5-point scale; 7/10-point
-            // scales keep integer steps (10+ half-buckets is too fine).
             const ratingMax = question.options?.length || 5
-            const step = ratingMax <= 5 ? 0.5 : 1
             const isSubmitted = selectedAnswer !== null
             const isDisabled = isSubmitted || timeLeft <= 0
-            const submittedValue = isSubmitted ? parseFloat(selectedAnswer as string) : 0
-            // What the star row currently shows: submitted value locks the
-            // display; else the live hover, else the staged pending value.
+            const submittedValue = isSubmitted ? parseInt(selectedAnswer as string, 10) : 0
+            // What the star row shows: locked value once submitted, else the
+            // live hover preview, else the staged pending value.
             const displayValue = isSubmitted ? submittedValue : (hoverRating || pendingRating)
-
-            // Map a pointer clientX to a rating value at the row's step grid.
-            const valueFromX = (clientX: number, rowEl: HTMLElement) => {
-              const rect = rowEl.getBoundingClientRect()
-              const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
-              const raw = ratio * ratingMax
-              // Snap to nearest step, clamped to [1, ratingMax].
-              const snapped = Math.max(1, Math.min(ratingMax, Math.round(raw / step) * step))
-              return Math.round(snapped * 100) / 100
-            }
 
             return (
               <div className="flex flex-col gap-4 flex-1 items-center justify-center py-4">
                 <p className="text-sm text-gray-500 font-semibold">
-                  {isSubmitted ? 'Your rating' : step === 0.5 ? 'Tap or drag to rate (half-stars allowed)' : 'Tap a star to rate'}
+                  {isSubmitted ? t('join.yourRating') : t('join.tapToRate')}
                 </p>
-                <div
-                  className={`flex gap-2 flex-wrap justify-center ${isSubmitted ? 'pointer-events-none' : ''}`}
-                  onPointerMove={e => {
-                    if (isDisabled) return
-                    setHoverRating(valueFromX(e.clientX, e.currentTarget))
-                  }}
-                  onPointerLeave={() => { if (!isDisabled) setHoverRating(0) }}
-                >
+                <div className={`flex gap-2 flex-wrap justify-center ${isSubmitted ? 'pointer-events-none' : ''}`}>
                   {Array.from({ length: ratingMax }, (_, i) => i + 1).map(n => {
-                    // Fill fraction for THIS star: 1 (full), 0.5 (half), 0 (empty).
-                    const fill = Math.max(0, Math.min(1, displayValue - (n - 1)))
-                    const starSize = ratingMax <= 5 ? 'w-14 h-14 sm:w-16 sm:h-16' : ratingMax <= 7 ? 'w-12 h-12 sm:w-14 sm:h-14' : 'w-10 h-10 sm:w-12 sm:h-12'
+                    const active = n <= displayValue
+                    const starSize = ratingMax <= 5 ? 'w-14 h-14 sm:w-16 sm:h-16 text-4xl' : ratingMax <= 7 ? 'w-12 h-12 sm:w-14 sm:h-14 text-3xl' : 'w-10 h-10 sm:w-12 sm:h-12 text-2xl'
                     return (
                       <button
                         key={n}
-                        // Use click + clientX so touch taps land on the half
-                        // under the finger, not just the whole star.
-                        onClick={e => {
+                        // Hover previews the rating; click stages it (does NOT
+                        // submit). Tapping a lower star than the current
+                        // pending value de-selects back down to it.
+                        onPointerEnter={() => { if (!isDisabled) setHoverRating(n) }}
+                        onPointerLeave={() => { if (!isDisabled) setHoverRating(0) }}
+                        onClick={() => {
                           if (isDisabled) return
-                          const v = valueFromX(e.clientX, e.currentTarget as HTMLElement)
-                          setPendingRating(v)
+                          setPendingRating(n)
                           setHoverRating(0)
                         }}
                         disabled={isDisabled}
                         aria-label={`Rate ${n} star${n !== 1 ? 's' : ''}`}
                         aria-pressed={pendingRating === n}
-                        className={`${starSize} relative flex items-center justify-center transition-all focus-visible:outline focus-visible:outline-4 focus-visible:outline-amber-300 ${
-                          fill > 0 ? 'scale-105' : 'active:scale-95'
-                        }`}
+                        className={`${starSize} rounded-2xl flex items-center justify-center transition-all focus-visible:outline focus-visible:outline-4 focus-visible:outline-amber-300 ${
+                          active ? 'bg-amber-100 scale-105' : 'bg-white border-2 border-gray-200 hover:border-amber-300 active:scale-95'
+                        } ${isDisabled && !active ? 'opacity-50' : ''}`}
                         style={{ lineHeight: 1 }}
                       >
-                        {/* Empty base star (gray) */}
-                        <span className="absolute inset-0 flex items-center justify-center text-4xl" style={{ color: '#D1D5DB' }}>★</span>
-                        {/* Amber overlay clipped to fill fraction (half = left half) */}
-                        {fill > 0 && (
-                          <span
-                            className="absolute inset-0 flex items-center justify-center overflow-hidden text-4xl"
-                            style={{ color: '#F59E0B', width: `${fill * 100}%` }}
-                          >
-                            {/* Inner span sized to the button so the star glyph
-                                doesn't squish when the clip width shrinks. */}
-                            <span
-                              className={starSize}
-                              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '100%' }}
-                            >★</span>
-                          </span>
-                        )}
+                        <span style={{ color: active ? '#F59E0B' : '#D1D5DB' }}>★</span>
                       </button>
                     )
                   })}
                 </div>
                 {/* Live readout — shows the value being previewed / submitted. */}
                 <p className="font-black text-2xl tabular-nums" style={{ color: displayValue > 0 ? '#F59E0B' : '#D1D5DB' }}>
-                  {displayValue > 0 ? `${displayValue.toFixed(step === 0.5 ? 1 : 0)} / ${ratingMax}` : `— / ${ratingMax}`}
+                  {displayValue > 0 ? `${displayValue} / ${ratingMax}` : `— / ${ratingMax}`}
                 </p>
                 {/* Submit confirmation once locked. */}
                 {isSubmitted && (
                   <p className="font-black text-2xl" style={{ color: '#F59E0B' }}>
-                    {submittedValue.toFixed(step === 0.5 ? 1 : 0)} / {ratingMax} submitted ✓
+                    {submittedValue} / {ratingMax} {t('join.submitted')} ✓
                   </p>
                 )}
                 {/* Submit button — the whole point: nothing commits until pressed. */}
@@ -2397,9 +2360,8 @@ function JoinPageInner() {
                   <button
                     onClick={() => {
                       if (pendingRating <= 0 || timeLeft <= 0) return
-                      // selectedMarker is the float stringified; answer is the
-                      // float number (new shape — server validates via
-                      // normalizeRatingValue, NOT the legacy 0-based index).
+                      // Answer is the integer value (new shape — server validates
+                      // via normalizeRatingValue, NOT the legacy 0-based index).
                       submitAnswerRaw(pendingRating, String(pendingRating))
                     }}
                     disabled={pendingRating <= 0 || timeLeft <= 0}

@@ -129,39 +129,26 @@ export function getOptionImage(opt: QuestionOption): string | undefined {
 }
 
 // ─── Rating helpers ──────────────────────────────────────────────────────────
-// Half-stars ship only for the default 5-point scale; 7/10-point scales keep
-// integer steps (10+ buckets of half-stars would be too fine to read). The
-// builder never lets authors configure step/min/max, so we derive it here.
-export function ratingStepFor(ratingMax: number): number {
-  return ratingMax <= 5 ? 0.5 : 1
-}
-
-// Normalizes a raw rating answer to a float value in [1, ratingMax].
+// Integer star ratings only (1..ratingMax). Half-stars were tried and reverted
+// — they added complexity at every layer (validation, histogram, host/results
+// rendering) for marginal value, and the hover math was fragile on touch.
 //
-// Legacy submissions sent a 0-based option-index STRING ("0".."N-1"); new
-// submissions send the real float value as a NUMBER (1.0, 1.5, …). The type
-// cleanly disambiguates the two — a string integer in index range is legacy
-// (value = idx + 1); anything else is treated as a real value that must land
-// on the rating's step grid within [1, ratingMax]. Returns null when the
-// value can't be coerced. scoring.ts and server.mjs share this logic.
+// Legacy data note: pre-#94 sessions stored a 0-based option-index STRING
+// ("0".."N-1"). normalizeRatingValue converts those to 1-based integer values
+// so old sessions still aggregate. New submissions send the integer value
+// directly as a NUMBER.
 export function normalizeRatingValue(raw: unknown, ratingMax: number): number | null {
-  const step = ratingStepFor(ratingMax)
-  // Legacy: a pure-integer STRING is a 0-based option index ("0".."N-1"). New
-  // submissions send a NUMBER, so the type cleanly disambiguates — if a string
-  // integer is outside the legacy index range it is rejected (no fall-through
-  // to the float path, which would otherwise accept "5" as the value 5.0 on a
-  // 5-point scale even though 5 was never a valid legacy index).
+  // Legacy: a pure-integer STRING is a 0-based option index ("0".."N-1") →
+  // convert to the 1-based rating value. New submissions send a NUMBER, so
+  // the type cleanly disambiguates a legacy string from a new value.
   if (typeof raw === 'string' && /^\d+$/.test(raw.trim())) {
     const idx = parseInt(raw, 10)
     return idx >= 0 && idx < ratingMax ? idx + 1 : null
   }
-  // New: real float value (number, or a stringified float like "3.5"),
-  // snapped to the step grid within [1, ratingMax].
-  const n = typeof raw === 'number' ? raw : typeof raw === 'string' ? parseFloat(raw) : NaN
-  if (!Number.isFinite(n) || n < 1 || n > ratingMax) return null
-  const snapped = 1 + Math.round((n - 1) / step) * step
-  if (Math.abs(snapped - n) > 1e-9) return null
-  return snapped
+  // New: integer value in [1, ratingMax].
+  const n = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : NaN
+  if (!Number.isInteger(n) || n < 1 || n > ratingMax) return null
+  return n
 }
 
 export interface Question {
@@ -250,10 +237,9 @@ export interface QuestionStat {
   // Text responses (openended, qa, wordcloud raw stream)
   textResponses?: TextResponse[]
   // Rating
-  ratingHistogram?: number[]              // one slot per step (1.0, 1.5, … when half-step)
+  ratingHistogram?: number[]              // index = rating - 1, value = count
   ratingAverage?: number | null
   ratingMax?: number                      // 5 / 7 / 10 etc
-  ratingStep?: number                     // 0.5 for ≤5-point scales (half-stars), else 1
   // Ranking
   rankingItems?: string[]                 // labels in original order
   rankingAverages?: number[]              // average position per item (1-based)
