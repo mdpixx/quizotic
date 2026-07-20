@@ -29,6 +29,42 @@ if (typeof setInterval !== 'undefined') {
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // Testimonial invitations are bearer credentials. Exchange a valid URL
+  // token for an HttpOnly cookie before the page (and analytics providers)
+  // load, then continue on a clean URL that is safe for history/referrers.
+  if (pathname === '/share-your-story') {
+    const invite = request.nextUrl.searchParams.get('invite') ?? ''
+    if (/^[A-Za-z0-9_-]{43}$/.test(invite)) {
+      const cleanUrl = request.nextUrl.clone()
+      cleanUrl.searchParams.delete('invite')
+      const response = NextResponse.redirect(cleanUrl)
+      const cookieOptions = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        // Lax survives a top-level click from Gmail/Outlook through this
+        // redirect, while still withholding the cookie on cross-site POSTs.
+        sameSite: 'lax' as const,
+        maxAge: 30 * 24 * 60 * 60,
+      }
+      response.cookies.set('quizotic_testimonial_page', invite, {
+        ...cookieOptions,
+        path: '/share-your-story',
+      })
+      response.cookies.set('quizotic_testimonial_submit', invite, {
+        ...cookieOptions,
+        path: '/api/testimonials',
+      })
+      response.headers.set('Cache-Control', 'private, no-store')
+      response.headers.set('Referrer-Policy', 'no-referrer')
+      return response
+    }
+
+    const response = NextResponse.next()
+    response.headers.set('Cache-Control', 'private, no-store')
+    response.headers.set('Referrer-Policy', 'no-referrer')
+    return response
+  }
+
   // Rate limit auth sign-in POST requests
   if (pathname.startsWith('/api/auth/signin') || pathname.startsWith('/api/auth/callback')) {
     if (request.method === 'POST') {

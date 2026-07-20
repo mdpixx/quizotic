@@ -882,6 +882,43 @@ app.prepare().then(async () => {
   scheduleAsyncSweep(5_000)
 
   const httpServer = createServer((req, res) => {
+    // The testimonial route accepts multipart photos. Cap the aggregate body
+    // before Next.js buffers it, including chunked requests without a declared
+    // Content-Length. The route repeats the header check for non-custom-server
+    // deployments; this stream guard is the authoritative local/Railway cap.
+    const testimonialUpload = req.method === 'POST' && req.url?.startsWith('/api/testimonials')
+    if (testimonialUpload) {
+      const maxBytes = 6 * 1024 * 1024
+      const declaredBytes = Number(req.headers['content-length'] || 0)
+      if (Number.isFinite(declaredBytes) && declaredBytes > maxBytes) {
+        res.statusCode = 413
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify({ error: 'The submission is too large.' }))
+        return
+      }
+
+      // Count at the stream's push boundary without adding a `data` listener;
+      // a listener would switch IncomingMessage into flowing mode before Next
+      // attaches its multipart parser and could drop early chunks.
+      let receivedBytes = 0
+      let rejected = false
+      const originalPush = req.push
+      req.push = function guardedPush(chunk, encoding) {
+        if (rejected) return true
+        if (chunk) receivedBytes += chunk.length
+        if (receivedBytes > maxBytes) {
+          rejected = true
+          if (!res.headersSent) {
+            res.statusCode = 413
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ error: 'The submission is too large.' }))
+          }
+          return originalPush.call(this, null)
+        }
+        return originalPush.call(this, chunk, encoding)
+      }
+    }
+
     // Short-circuit: session lookup API (no auth, reads in-memory sessions Map)
     if (req.method === 'GET' && req.url && req.url.startsWith('/api/session/lookup')) {
       try {

@@ -30,7 +30,8 @@ function isParticipantSurface(pathname: string): boolean {
     pathname === '/play' ||
     pathname.startsWith('/play/') ||
     pathname.startsWith('/q/') ||
-    pathname.startsWith('/r/')
+    pathname.startsWith('/r/') ||
+    pathname === '/share-your-story'
   )
 }
 

@@ -49,6 +49,8 @@ model User {
   deletionRequests  DataDeletionRequest[]
   moderationReports ModerationFlag[]   @relation("moderation_reports")
   flagAssignments   FeatureFlagAssignment[]
+  testimonialInvites TestimonialInvite[]
+  testimonials       Testimonial[]
 
   @@index([lastActiveAt])
   @@index([country])
@@ -339,6 +341,70 @@ model Feedback {
 
   @@index([createdAt])
   @@index([status])
+}
+
+// ─── Testimonials (invite-only customer stories) ─────────────────
+model TestimonialInvite {
+  id          String   @id @default(cuid())
+  tokenHash   String   @unique
+  userId      String
+  campaignKey String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  deliveryState      String    @default("claimed") // claimed | sent | retryable | unknown
+  deliveryAttemptedAt DateTime?
+  emailSentAt         DateTime?
+  lastDeliveryError   String?
+  createdAt   DateTime @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  testimonial Testimonial?
+
+  @@unique([userId, campaignKey])
+  @@index([expiresAt])
+}
+
+model Testimonial {
+  id                 String    @id @default(cuid())
+  inviteId           String?   @unique
+  userId             String?
+  emailSnapshot      String
+  name               String
+  designation        String
+  organization       String?
+  quote              String
+  displayQuote       String?
+  photoUrl           String?
+  photoKey           String?
+  publicationConsent Boolean   @default(false)
+  editingAllowed     Boolean   @default(false)
+  materialChange     Boolean   @default(false)
+  consentVersion     String
+  consentGrantedAt   DateTime
+  reconfirmedAt      DateTime?
+  reconfirmedQuote   String?
+  deletionPendingAt  DateTime?
+  status             String    @default("new") // 'new' | 'shortlisted' | 'published' | 'declined'
+  publishedAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  invite TestimonialInvite? @relation(fields: [inviteId], references: [id], onDelete: SetNull)
+  user   User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status, publishedAt])
+  @@index([createdAt])
+  @@index([userId])
+}
+
+// Durable research-email opt-outs and delivery suppressions. Email is stored
+// lowercased; the record intentionally survives User deletion.
+model EmailSuppression {
+  email     String   @id
+  reason    String
+  source    String   @default("manual")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ─── CreditGrant (admin-issued AI credit adjustments) ────────────
