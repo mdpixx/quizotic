@@ -747,6 +747,13 @@ function JoinPageInner() {
   // Multiselect
   const [multiselectChosen, setMultiselectChosen] = useState<Set<number>>(new Set())
 
+  // Rating (integer stars). `pendingRating` is the staged value the user is
+  // previewing; it only commits to the server on Submit (NOT on tap — that was
+  // the original bug). `hoverRating` is the live hover-preview value
+  // (0 = not hovering). Both reset per question.
+  const [pendingRating, setPendingRating] = useState(0)
+  const [hoverRating, setHoverRating] = useState(0)
+
   // Self-paced follow-up state
   const [spQuestions, setSpQuestions] = useState<Question[]>([])
   const [spIndex, setSpIndex] = useState(0)
@@ -1076,6 +1083,8 @@ function JoinPageInner() {
       setTextAnswer('')
       setShowRedFlash(false)
       setMultiselectChosen(new Set())
+      setPendingRating(0)
+      setHoverRating(0)
       setIntermediateRank(null)
       setPersonalResult(null)
       setMatchChoices(question.type === 'matching' ? (question.matchLefts ?? []).map(() => '') : [])
@@ -2283,38 +2292,84 @@ function JoinPageInner() {
           })()
         ) : question.type === 'rating' ? (
           (() => {
+            // Integer star rating with a preview + explicit Submit.
+            //
+            // The original star row submitted on the first tap, so a mistaken
+            // touch locked the answer with no way to change it. Now a tap only
+            // STAGES the value into pendingRating; nothing commits until the
+            // Submit button is pressed. The participant can tap a different
+            // star any number of times before submitting.
+            //
             // Scale length comes from the question's options (5/7/10-point) —
             // hardcoding 5 made higher scales un-answerable past star 5.
             const ratingMax = question.options?.length || 5
+            const isSubmitted = selectedAnswer !== null
+            const isDisabled = isSubmitted || timeLeft <= 0
+            const submittedValue = isSubmitted ? parseInt(selectedAnswer as string, 10) : 0
+            // What the star row shows: locked value once submitted, else the
+            // live hover preview, else the staged pending value.
+            const displayValue = isSubmitted ? submittedValue : (hoverRating || pendingRating)
+
             return (
               <div className="flex flex-col gap-4 flex-1 items-center justify-center py-4">
-                <p className="text-sm text-gray-500 font-semibold">Tap a star to rate</p>
-                <div className="flex gap-2 flex-wrap justify-center">
+                <p className="text-sm text-gray-500 font-semibold">
+                  {isSubmitted ? t('join.yourRating') : t('join.tapToRate')}
+                </p>
+                <div className={`flex gap-2 flex-wrap justify-center ${isSubmitted ? 'pointer-events-none' : ''}`}>
                   {Array.from({ length: ratingMax }, (_, i) => i + 1).map(n => {
-                    const idx = n - 1
-                    const isSelected = selectedAnswer === String(idx)
-                    const isActive = selectedAnswer !== null && Number(selectedAnswer) + 1 >= n
-                    const isDisabled = selectedAnswer !== null || timeLeft <= 0
+                    const active = n <= displayValue
+                    const starSize = ratingMax <= 5 ? 'w-14 h-14 sm:w-16 sm:h-16 text-4xl' : ratingMax <= 7 ? 'w-12 h-12 sm:w-14 sm:h-14 text-3xl' : 'w-10 h-10 sm:w-12 sm:h-12 text-2xl'
                     return (
                       <button
                         key={n}
-                        onClick={() => submitAnswerRaw(String(idx), String(idx))}
+                        // Hover previews the rating; click stages it (does NOT
+                        // submit). Tapping a lower star than the current
+                        // pending value de-selects back down to it.
+                        onPointerEnter={() => { if (!isDisabled) setHoverRating(n) }}
+                        onPointerLeave={() => { if (!isDisabled) setHoverRating(0) }}
+                        onClick={() => {
+                          if (isDisabled) return
+                          setPendingRating(n)
+                          setHoverRating(0)
+                        }}
                         disabled={isDisabled}
                         aria-label={`Rate ${n} star${n !== 1 ? 's' : ''}`}
-                        aria-pressed={isSelected}
-                        className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center text-4xl transition-all focus-visible:outline focus-visible:outline-4 focus-visible:outline-amber-300 ${
-                          isActive ? 'bg-amber-100 scale-105' : 'bg-white border-2 border-gray-200 hover:border-amber-300 active:scale-95'
-                        } ${isDisabled && !isActive ? 'opacity-50' : ''}`}
+                        aria-pressed={pendingRating === n}
+                        className={`${starSize} rounded-2xl flex items-center justify-center transition-all focus-visible:outline focus-visible:outline-4 focus-visible:outline-amber-300 ${
+                          active ? 'bg-amber-100 scale-105' : 'bg-white border-2 border-gray-200 hover:border-amber-300 active:scale-95'
+                        } ${isDisabled && !active ? 'opacity-50' : ''}`}
+                        style={{ lineHeight: 1 }}
                       >
-                        <span style={{ color: isActive ? '#F59E0B' : '#D1D5DB', lineHeight: 1 }}>★</span>
+                        <span style={{ color: active ? '#F59E0B' : '#D1D5DB' }}>★</span>
                       </button>
                     )
                   })}
                 </div>
-                {selectedAnswer !== null && (
+                {/* Live readout — shows the value being previewed / submitted. */}
+                <p className="font-black text-2xl tabular-nums" style={{ color: displayValue > 0 ? '#F59E0B' : '#D1D5DB' }}>
+                  {displayValue > 0 ? `${displayValue} / ${ratingMax}` : `— / ${ratingMax}`}
+                </p>
+                {/* Submit confirmation once locked. */}
+                {isSubmitted && (
                   <p className="font-black text-2xl" style={{ color: '#F59E0B' }}>
-                    {Number(selectedAnswer) + 1} / {ratingMax} submitted ✓
+                    {submittedValue} / {ratingMax} {t('join.submitted')} ✓
                   </p>
+                )}
+                {/* Submit button — the whole point: nothing commits until pressed. */}
+                {!isSubmitted && (
+                  <button
+                    onClick={() => {
+                      if (pendingRating <= 0 || timeLeft <= 0) return
+                      // Answer is the integer value (new shape — server validates
+                      // via normalizeRatingValue, NOT the legacy 0-based index).
+                      submitAnswerRaw(pendingRating, String(pendingRating))
+                    }}
+                    disabled={pendingRating <= 0 || timeLeft <= 0}
+                    className="w-full max-w-xs py-4 rounded-2xl font-black text-xl transition-all disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[#0F1B3D] focus-visible:ring-offset-2 motion-safe:active:scale-[0.98]"
+                    style={{ background: pendingRating > 0 ? '#FBD13B' : '#e5e7eb', color: '#0D0D0D', border: pendingRating > 0 ? '2px solid #0D0D0D' : 'none' }}
+                  >
+                    {pendingRating > 0 ? t('join.submitRating') : t('join.tapToRate')}
+                  </button>
                 )}
               </div>
             )
@@ -2393,7 +2448,23 @@ function JoinPageInner() {
           })()
         ) : (() => {
           const effectiveOpts = getEffectiveOptions(question as unknown as QuizQuestion)
+          const isMultiselect = question.type === 'multiselect'
           return (
+          <>
+          {/* Multi-select hint — without this the option tiles look identical
+              to single-choice MCQ, so participants don't know they can pick
+              more than one. Shown only on the full participant flow (not the
+              shared-screen "look at host" mode) and only before submit. */}
+          {isMultiselect && !sharedScreenSimple && selectedAnswer === null && (
+            <div className="flex items-center gap-2 mb-2.5 px-1">
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-md border-2 flex-shrink-0" style={{ borderColor: '#7C3AED', background: '#F5F3FF' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+              </span>
+              <span className="text-sm font-bold" style={{ color: '#7C3AED' }}>{t('join.selectAllApplies')}</span>
+            </div>
+          )}
           <div className={`pb-4 ${
             sharedScreenSimple
               ? `grid gap-2.5 ${effectiveOpts?.length === 2 ? 'grid-cols-1' : 'grid-cols-2'}`
@@ -2406,10 +2477,10 @@ function JoinPageInner() {
                   : 'flex flex-col gap-2.5')
           }`}>
             {effectiveOpts?.map((opt, idx) => {
-              const isSelected = question.type === 'multiselect'
+              const isSelected = isMultiselect
                 ? multiselectChosen.has(idx)
                 : selectedAnswer === String(idx)
-              const isDisabled = (question.type === 'multiselect' ? selectedAnswer !== null : (selectedAnswer !== null || pendingAnswer !== null)) || timeLeft <= 0
+              const isDisabled = (isMultiselect ? selectedAnswer !== null : (selectedAnswer !== null || pendingAnswer !== null)) || timeLeft <= 0
               const optText = getOptText(opt)
               const optImage = getOptImage(opt)
               const isTwoOption = (question.options?.length ?? 0) === 2
@@ -2429,19 +2500,43 @@ function JoinPageInner() {
                   `}
                   style={{ background: OPTION_COLORS[idx] ?? '#0F1B3D' }}
                 >
-                  {/* Horizontal bar: optional image thumbnail (left) → letter
+                  {/* Horizontal bar: optional image thumbnail (left) → glyph
                       badge → answer text (fills the remaining width, wraps for
                       long answers). In shared-screen mode the phone is just a
                       coloured tap zone, so the image + text are hidden and only
-                      the big centred letter shows. */}
+                      the big centred glyph shows.
+                      For multi-select the glyph is a CHECKBOX (empty ☐ → filled
+                      ☑) instead of a letter — the only visible cue that the
+                      question accepts multiple answers. MCQ/truefalse/poll keep
+                      the A/B/C/D letter badge. */}
                   {optImage && !sharedScreenSimple && (
                     <img src={optImage} alt="" className="h-14 w-14 shrink-0 object-cover rounded-lg" loading="lazy" />
                   )}
-                  <span className={`rounded-full bg-white/25 flex items-center justify-center font-black flex-shrink-0
-                    ${sharedScreenSimple ? 'w-16 h-16 text-3xl mx-auto' : 'w-10 h-10 text-lg'}`}
-                  >
-                    {OPTION_LABELS[idx]}
-                  </span>
+                  {isMultiselect && !sharedScreenSimple ? (
+                    <span
+                      aria-hidden
+                      className={`flex items-center justify-center flex-shrink-0 transition-all ${sharedScreenSimple ? 'w-16 h-16 mx-auto' : 'w-9 h-9'}`}
+                      style={{
+                        borderRadius: 8,
+                        borderWidth: 3,
+                        borderStyle: 'solid',
+                        borderColor: isSelected ? '#FFFFFF' : 'rgba(255,255,255,0.7)',
+                        background: isSelected ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.12)',
+                      }}
+                    >
+                      {isSelected && (
+                        <svg width={sharedScreenSimple ? 36 : 20} height={sharedScreenSimple ? 36 : 20} viewBox="0 0 24 24" fill="none" stroke="#0D0D0D" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M20 6 9 17l-5-5" />
+                        </svg>
+                      )}
+                    </span>
+                  ) : (
+                    <span className={`rounded-full bg-white/25 flex items-center justify-center font-black flex-shrink-0
+                      ${sharedScreenSimple ? 'w-16 h-16 text-3xl mx-auto' : 'w-10 h-10 text-lg'}`}
+                    >
+                      {OPTION_LABELS[idx]}
+                    </span>
+                  )}
                   {!sharedScreenSimple && (
                     <span className="flex-1 min-w-0 break-words text-base sm:text-lg font-medium leading-snug [hyphens:auto]" style={{ overflowWrap: 'anywhere' }}>{optText}</span>
                   )}
@@ -2449,6 +2544,7 @@ function JoinPageInner() {
               )
             })}
           </div>
+          </>
           )
         })()}
 

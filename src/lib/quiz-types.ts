@@ -128,6 +128,29 @@ export function getOptionImage(opt: QuestionOption): string | undefined {
   return typeof opt === 'string' ? undefined : opt.imageUrl
 }
 
+// ─── Rating helpers ──────────────────────────────────────────────────────────
+// Integer star ratings only (1..ratingMax). Half-stars were tried and reverted
+// — they added complexity at every layer (validation, histogram, host/results
+// rendering) for marginal value, and the hover math was fragile on touch.
+//
+// Legacy data note: pre-#94 sessions stored a 0-based option-index STRING
+// ("0".."N-1"). normalizeRatingValue converts those to 1-based integer values
+// so old sessions still aggregate. New submissions send the integer value
+// directly as a NUMBER.
+export function normalizeRatingValue(raw: unknown, ratingMax: number): number | null {
+  // Legacy: a pure-integer STRING is a 0-based option index ("0".."N-1") →
+  // convert to the 1-based rating value. New submissions send a NUMBER, so
+  // the type cleanly disambiguates a legacy string from a new value.
+  if (typeof raw === 'string' && /^\d+$/.test(raw.trim())) {
+    const idx = parseInt(raw, 10)
+    return idx >= 0 && idx < ratingMax ? idx + 1 : null
+  }
+  // New: integer value in [1, ratingMax].
+  const n = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : NaN
+  if (!Number.isInteger(n) || n < 1 || n > ratingMax) return null
+  return n
+}
+
 export interface Question {
   id: string
   type: QuestionType

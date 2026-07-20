@@ -3233,6 +3233,22 @@ function normalizeText(s) {
   return String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
+// ─── Rating helpers ──────────────────────────────────────────────────────────
+// Mirrors normalizeRatingValue in src/lib/quiz-types.ts. Keep in sync.
+// Integer star ratings only (1..ratingMax). Legacy 0-based option-index
+// strings ("0".."N-1") are converted to 1-based values.
+function normalizeRatingValue(raw, ratingMax) {
+  // Legacy: a pure-integer STRING is a 0-based option index. New submissions
+  // send a NUMBER, so the type cleanly disambiguates.
+  if (typeof raw === 'string' && /^\d+$/.test(raw.trim())) {
+    const idx = parseInt(raw, 10)
+    return idx >= 0 && idx < ratingMax ? idx + 1 : null
+  }
+  const n = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : NaN
+  if (!Number.isInteger(n) || n < 1 || n > ratingMax) return null
+  return n
+}
+
 function fisherYatesShuffle(array) {
   // Shuffle array in place using Fisher-Yates algorithm. Returns the shuffled array.
   const arr = [...array]
@@ -4185,11 +4201,12 @@ function computeNonScoredAggregate(q, answered, qi) {
     let sum = 0
     let count = 0
     for (const p of answered) {
-      // Stored answer is option-index string ("0".."N-1") → rating = idx + 1
-      const idx = Number(p.answers[qi].answer)
-      if (Number.isFinite(idx) && idx >= 0 && idx < ratingMax) {
-        ratingHistogram[idx]++
-        sum += idx + 1
+      // Stored answer is either a legacy 0-based option-index string or a new
+      // integer value; normalizeRatingValue handles both shapes.
+      const value = normalizeRatingValue(p.answers[qi].answer, ratingMax)
+      if (value !== null) {
+        ratingHistogram[value - 1]++
+        sum += value
         count++
       }
     }

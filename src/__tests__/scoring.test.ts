@@ -341,14 +341,41 @@ describe('validateAnswer — openended / wordcloud / qa', () => {
 })
 
 describe('validateAnswer — rating', () => {
-  it('accepts 0-based index string', () => {
+  it('accepts 0-based index string (legacy → 1-based)', () => {
+    // Legacy submissions sent a 0-based option-index string. normalizeRatingValue
+    // converts "2" → rating value 3 so old sessions still aggregate correctly.
     const r = validateAnswer(ratingQ, '2')
     expect(r.ok).toBe(true)
-    if (r.ok) expect(r.value).toBe('2')
+    if (r.ok) expect(r.value).toBe('3')
   })
 
-  it('rejects index >= max', () => {
-    expect(validateAnswer(ratingQ, 5).ok).toBe(false)
+  it('rejects legacy index >= max', () => {
+    expect(validateAnswer(ratingQ, '5').ok).toBe(false)
+  })
+
+  it('accepts an integer value in range', () => {
+    const r = validateAnswer(ratingQ, 4)
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.value).toBe('4')
+  })
+
+  it('accepts the max value', () => {
+    const r = validateAnswer(ratingQ, 5)
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.value).toBe('5')
+  })
+
+  it('rejects a non-integer value', () => {
+    expect(validateAnswer(ratingQ, 3.5).ok).toBe(false)
+    expect(validateAnswer(ratingQ, 3.7).ok).toBe(false)
+  })
+
+  it('rejects a value below 1', () => {
+    expect(validateAnswer(ratingQ, 0).ok).toBe(false)
+  })
+
+  it('rejects a value above max', () => {
+    expect(validateAnswer(ratingQ, 6).ok).toBe(false)
   })
 })
 

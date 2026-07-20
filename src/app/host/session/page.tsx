@@ -18,7 +18,7 @@ import { playLeaderboardJingle, playTick, playBackgroundMusic, stopBackgroundMus
 import { getActiveSession, setActiveSession, clearActiveSession, consumeStartIntent } from '@/lib/quiz-storage'
 import type { Quiz, QuestionStat, SessionMode } from '@/lib/quiz-types'
 import { ReflectionInsights } from '@/components/ReflectionInsights'
-import { getOptionText, getOptionImage, isScoredQuestion, getEffectiveOptions } from '@/lib/quiz-types'
+import { getOptionText, getOptionImage, isScoredQuestion, getEffectiveOptions, normalizeRatingValue } from '@/lib/quiz-types'
 import { ANSWER_COLORS, ANSWER_LETTERS } from '@/lib/answer-colors'
 import { QuestionResultsView } from '@/components/results/QuestionResultsView'
 import { QaModerationPanel, type QaModerationState, type QaStatus } from '@/components/host/QaModerationPanel'
@@ -1205,10 +1205,12 @@ export default function SessionPage() {
       } else if (entry.type === 'openended') {
         if (text) setOpenendedEntries(prev => [...prev, { name: entry.name, archetype: entry.archetype, text, at: entry.submittedAt }])
       } else if (entry.type === 'rating') {
-        // Rating submits a string option index (0..4) → convert to 1..5 scale.
-        const idx = typeof entry.answer === 'string' ? Number(entry.answer) : NaN
-        if (Number.isFinite(idx) && idx >= 0 && idx <= 4) {
-          setRatingValues(prev => [...prev, idx + 1])
+        // Rating now ships a float value (1.0, 1.5, … 5.0). Legacy submissions
+        // sent a 0-based option-index string; normalizeRatingValue handles both.
+        const ratingMax = quiz?.questions[questionIndex]?.options?.length || 5
+        const v = normalizeRatingValue(entry.answer, ratingMax)
+        if (v !== null) {
+          setRatingValues(prev => [...prev, v])
         }
       }
     })
@@ -2339,6 +2341,19 @@ export default function SessionPage() {
             <span className="text-[11px] font-bold uppercase tracking-[0.22em] whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.46)' }}>
               Question <b style={{ color: '#FBD13B', fontWeight: 800 }}>{answerableNumber > 0 ? String(answerableNumber).padStart(2, '0') : String(questionIndex + 1).padStart(2, '0')}</b> <span style={{ color: 'rgba(255,255,255,0.26)' }}>/ {answerableTotal || quiz.questions.length}</span>
             </span>
+            {/* Multi-select indicator — without it the host can't tell a
+                multi-select question from a single-choice MCQ: the option
+                tiles look identical until reveal. Pill matches the eyebrow's
+                existing amber chip styling. */}
+            {currentQuestion.type === 'multiselect' && (
+              <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.18em] rounded-[10px] px-2.5 py-1.5" style={{ color: '#FBD13B', background: 'rgba(251,209,59,0.12)', border: '1px solid rgba(251,209,59,0.35)' }} title="Participants can select more than one option">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" />
+                  <rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" />
+                </svg>
+                Multi-select
+              </span>
+            )}
             <span className="hidden lg:inline text-[11px]" style={{ color: 'rgba(255,255,255,0.26)' }}>·</span>
             <span className="hidden lg:inline text-[11px] font-bold uppercase tracking-[0.22em] truncate" style={{ color: 'rgba(255,255,255,0.46)' }} title={quiz.title}>
               {quiz.subject ?? quiz.title}
@@ -2638,12 +2653,10 @@ export default function SessionPage() {
           ) : currentQuestion.type === 'rating' ? (
             (() => {
               // Star-rating host view — ONE clean card, single source of truth.
-              // Prefer the server aggregate (liveStat.ratingHistogram / ratingAverage
-              // / ratingMax) once it arrives via live_responses / question_reveal;
-              // fall back to the client-side ratingValues state so the card shows
-              // before the first server tick. Previously this drew the same data
-              // twice (horizontal bars here + a second vertical-bar histogram on
-              // reveal) — see the exclusion at the "Final Results" block below.
+              // Prefer the server aggregate (liveStat.ratingHistogram /
+              // ratingAverage / ratingMax) once it arrives via live_responses /
+              // question_reveal; fall back to the client-side ratingValues state
+              // so the card shows before the first server tick.
               const ratingMax = (currentQuestion.options?.length ?? 0) || liveStat?.ratingMax || 5
 
               let buckets: number[] = Array.from({ length: ratingMax }, () => 0)
@@ -2664,6 +2677,7 @@ export default function SessionPage() {
                 avg = total > 0 ? buckets.reduce((s, c, i) => s + c * (i + 1), 0) / total : 0
               } else {
                 // Live, before first server tick: derive from client state.
+                // ratingValues are already normalized integers from text_submission.
                 total = ratingValues.length
                 for (const v of ratingValues) {
                   if (v >= 1 && v <= ratingMax) buckets[v - 1] += 1

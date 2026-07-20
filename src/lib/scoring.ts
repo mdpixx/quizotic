@@ -1,7 +1,7 @@
 // Pure scoring utilities — canonical implementations used by async routes and tests.
 // server.mjs mirrors these functions for live sessions; keep them in sync.
 
-import { isLeaderboardSlide } from './quiz-types'
+import { isLeaderboardSlide, normalizeRatingValue } from './quiz-types'
 
 export interface Question {
   type: string
@@ -176,10 +176,14 @@ export function validateAnswer(
   }
 
   if (type === 'rating') {
-    const n = typeof raw === 'number' ? raw : typeof raw === 'string' ? parseInt(raw, 10) : NaN
-    if (!Number.isInteger(n) || n < 0 || n >= opts.length)
-      return { ok: false, error: 'Answer must be a valid rating index', code: 'invalid_answer' }
-    return { ok: true, value: String(n) }
+    // Integer stars only (1..ratingMax). Legacy 0-based option-index strings
+    // ("0".."N-1") are converted to 1-based values so old sessions still
+    // aggregate. The shared helper is mirrored verbatim in server.mjs.
+    const ratingMax = opts.length || 5
+    const value = normalizeRatingValue(raw, ratingMax)
+    if (value === null)
+      return { ok: false, error: 'Answer must be a valid rating value', code: 'invalid_answer' }
+    return { ok: true, value: String(value) }
   }
 
   if (type === 'ranking') {
