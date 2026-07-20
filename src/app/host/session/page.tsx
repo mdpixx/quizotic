@@ -18,7 +18,7 @@ import { playLeaderboardJingle, playTick, playBackgroundMusic, stopBackgroundMus
 import { getActiveSession, setActiveSession, clearActiveSession, consumeStartIntent } from '@/lib/quiz-storage'
 import type { Quiz, QuestionStat, SessionMode } from '@/lib/quiz-types'
 import { ReflectionInsights } from '@/components/ReflectionInsights'
-import { getOptionText, getOptionImage, isScoredQuestion, getEffectiveOptions } from '@/lib/quiz-types'
+import { getOptionText, getOptionImage, isScoredQuestion, getEffectiveOptions, normalizeRatingValue, ratingStepFor } from '@/lib/quiz-types'
 import { ANSWER_COLORS, ANSWER_LETTERS } from '@/lib/answer-colors'
 import { QuestionResultsView } from '@/components/results/QuestionResultsView'
 import { QaModerationPanel, type QaModerationState, type QaStatus } from '@/components/host/QaModerationPanel'
@@ -1205,10 +1205,12 @@ export default function SessionPage() {
       } else if (entry.type === 'openended') {
         if (text) setOpenendedEntries(prev => [...prev, { name: entry.name, archetype: entry.archetype, text, at: entry.submittedAt }])
       } else if (entry.type === 'rating') {
-        // Rating submits a string option index (0..4) → convert to 1..5 scale.
-        const idx = typeof entry.answer === 'string' ? Number(entry.answer) : NaN
-        if (Number.isFinite(idx) && idx >= 0 && idx <= 4) {
-          setRatingValues(prev => [...prev, idx + 1])
+        // Rating now ships a float value (1.0, 1.5, … 5.0). Legacy submissions
+        // sent a 0-based option-index string; normalizeRatingValue handles both.
+        const ratingMax = quiz?.questions[questionIndex]?.options?.length || 5
+        const v = normalizeRatingValue(entry.answer, ratingMax)
+        if (v !== null) {
+          setRatingValues(prev => [...prev, v])
         }
       }
     })
@@ -2339,6 +2341,19 @@ export default function SessionPage() {
             <span className="text-[11px] font-bold uppercase tracking-[0.22em] whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.46)' }}>
               Question <b style={{ color: '#FBD13B', fontWeight: 800 }}>{answerableNumber > 0 ? String(answerableNumber).padStart(2, '0') : String(questionIndex + 1).padStart(2, '0')}</b> <span style={{ color: 'rgba(255,255,255,0.26)' }}>/ {answerableTotal || quiz.questions.length}</span>
             </span>
+            {/* Multi-select indicator — without it the host can't tell a
+                multi-select question from a single-choice MCQ: the option
+                tiles look identical until reveal. Pill matches the eyebrow's
+                existing amber chip styling. */}
+            {currentQuestion.type === 'multiselect' && (
+              <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.18em] rounded-[10px] px-2.5 py-1.5" style={{ color: '#FBD13B', background: 'rgba(251,209,59,0.12)', border: '1px solid rgba(251,209,59,0.35)' }} title="Participants can select more than one option">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" />
+                  <rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" />
+                </svg>
+                Multi-select
+              </span>
+            )}
             <span className="hidden lg:inline text-[11px]" style={{ color: 'rgba(255,255,255,0.26)' }}>·</span>
             <span className="hidden lg:inline text-[11px] font-bold uppercase tracking-[0.22em] truncate" style={{ color: 'rgba(255,255,255,0.46)' }} title={quiz.title}>
               {quiz.subject ?? quiz.title}
@@ -2639,57 +2654,85 @@ export default function SessionPage() {
             (() => {
               // Star-rating host view — ONE clean card, single source of truth.
               // Prefer the server aggregate (liveStat.ratingHistogram / ratingAverage
-              // / ratingMax) once it arrives via live_responses / question_reveal;
-              // fall back to the client-side ratingValues state so the card shows
-              // before the first server tick. Previously this drew the same data
-              // twice (horizontal bars here + a second vertical-bar histogram on
-              // reveal) — see the exclusion at the "Final Results" block below.
+              // / ratingMax / ratingStep) once it arrives via live_responses /
+              // question_reveal; fall back to the client-side ratingValues state so
+              // the card shows before the first server tick. Previously this drew
+              // the same data twice (horizontal bars here + a second vertical-bar
+              // histogram on reveal) — see the exclusion at the "Final Results"
+              // block below.
               const ratingMax = (currentQuestion.options?.length ?? 0) || liveStat?.ratingMax || 5
+              // Half-star step (0.5) for ≤5-point scales; integer (1) otherwise.
+              const ratingStep = liveStat?.ratingStep ?? ratingStepFor(ratingMax)
+              const bucketCount = ratingStep === 0.5 ? ratingMax * 2 : ratingMax
+              // Bucket index → rating value (1.0, 1.5, … or 1, 2, …).
+              const valueAt = (b: number) => 1 + b * ratingStep
 
-              let buckets: number[] = Array.from({ length: ratingMax }, () => 0)
+              let buckets: number[] = Array.from({ length: bucketCount }, () => 0)
               let total = 0
               let avg = 0
               const serverHist = liveStat?.ratingHistogram
               if (questionEnded && Array.isArray(serverHist) && serverHist.length > 0) {
                 // Final / reveal: trust the server-computed aggregate.
-                buckets = serverHist.slice(0, ratingMax)
-                if (buckets.length < ratingMax) buckets = [...buckets, ...Array.from({ length: ratingMax - buckets.length }, () => 0)]
+                buckets = serverHist.slice(0, bucketCount)
+                if (buckets.length < bucketCount) buckets = [...buckets, ...Array.from({ length: bucketCount - buckets.length }, () => 0)]
                 total = buckets.reduce((a, b) => a + b, 0)
-                avg = typeof liveStat?.ratingAverage === 'number' ? liveStat.ratingAverage : (total > 0 ? buckets.reduce((s, c, i) => s + c * (i + 1), 0) / total : 0)
+                avg = typeof liveStat?.ratingAverage === 'number' ? liveStat.ratingAverage : (total > 0 ? buckets.reduce((s, c, i) => s + c * valueAt(i), 0) / total : 0)
               } else if (Array.isArray(serverHist) && serverHist.length > 0) {
                 // Live, server aggregate already streaming in.
-                buckets = serverHist.slice(0, ratingMax)
-                if (buckets.length < ratingMax) buckets = [...buckets, ...Array.from({ length: ratingMax - buckets.length }, () => 0)]
+                buckets = serverHist.slice(0, bucketCount)
+                if (buckets.length < bucketCount) buckets = [...buckets, ...Array.from({ length: bucketCount - buckets.length }, () => 0)]
                 total = buckets.reduce((a, b) => a + b, 0)
-                avg = total > 0 ? buckets.reduce((s, c, i) => s + c * (i + 1), 0) / total : 0
+                avg = total > 0 ? buckets.reduce((s, c, i) => s + c * valueAt(i), 0) / total : 0
               } else {
                 // Live, before first server tick: derive from client state.
+                // ratingValues are already normalized floats from text_submission.
                 total = ratingValues.length
                 for (const v of ratingValues) {
-                  if (v >= 1 && v <= ratingMax) buckets[v - 1] += 1
+                  if (v >= 1 && v <= ratingMax) {
+                    const b = Math.round((v - 1) / ratingStep)
+                    if (b >= 0 && b < bucketCount) buckets[b] += 1
+                  }
                 }
                 avg = total > 0 ? ratingValues.reduce((s, v) => s + v, 0) / total : 0
               }
 
-              const roundedStars = Math.round(avg)
+              // Round to nearest half-star for the star-row fill.
+              const roundedStars = Math.round(avg * 2) / 2
               return (
                 <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 bg-white rounded-2xl border border-gray-200 p-6 host-answer-stage flex flex-col items-center justify-center text-center gap-4">
-                  {/* Star row — mirrors the participant picker (same glow / amber). */}
+                  {/* Star row — mirrors the participant picker (same glow / amber).
+                      Half-star support via clip overlay: each star renders an empty
+                      gray base + an amber copy clipped to the fill fraction. */}
                   <div className="flex gap-2">
                     {Array.from({ length: ratingMax }, (_, i) => i + 1).map(n => {
-                      const active = n <= roundedStars
+                      const fill = Math.max(0, Math.min(1, roundedStars - (n - 1)))
                       return (
-                        <svg key={n} viewBox="0 0 24 24"
-                          className="w-9 h-9"
-                          style={{ filter: active ? 'drop-shadow(0 0 6px rgba(245,158,11,0.45))' : 'none' }}>
-                          <path
-                            d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-                            fill={active ? '#F59E0B' : '#E5E7EB'}
-                            stroke={active ? '#D97706' : '#D1D5DB'}
-                            strokeWidth="1.5"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
+                        <div key={n} className="relative w-9 h-9" style={{ filter: fill > 0 ? 'drop-shadow(0 0 6px rgba(245,158,11,0.45))' : 'none' }}>
+                          {/* Empty base */}
+                          <svg viewBox="0 0 24 24" className="absolute inset-0 w-full h-full">
+                            <path
+                              d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                              fill="#E5E7EB"
+                              stroke="#D1D5DB"
+                              strokeWidth="1.5"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                          {/* Amber overlay clipped to fill fraction (half = left half) */}
+                          {fill > 0 && (
+                            <div className="absolute inset-0 overflow-hidden" style={{ width: `${fill * 100}%` }}>
+                              <svg viewBox="0 0 24 24" className="w-9 h-9" style={{ minWidth: 36 }}>
+                                <path
+                                  d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                                  fill="#F59E0B"
+                                  stroke="#D97706"
+                                  strokeWidth="1.5"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
                       )
                     })}
                   </div>
@@ -2707,20 +2750,24 @@ export default function SessionPage() {
                       : 'Waiting for ratings…'}
                   </p>
 
-                  {/* Compact per-star % breakdown — one line, no bars. */}
+                  {/* Compact per-rating % breakdown — one pill per step bucket,
+                      highest first. Labels show the float value (3.5★) when
+                      half-step, else the integer (3★). */}
                   {total > 0 && (
                     <div className="flex flex-wrap gap-2 justify-center max-w-xl mt-1">
-                      {Array.from({ length: ratingMax }, (_, i) => ratingMax - i).map(n => {
-                        const count = buckets[n - 1]
+                      {Array.from({ length: bucketCount }, (_, i) => bucketCount - 1 - i).map(b => {
+                        const count = buckets[b]
                         const pct = total > 0 ? Math.round((count / total) * 100) : 0
                         const dim = count === 0
+                        const val = valueAt(b)
+                        const label = ratingStep === 0.5 ? val.toFixed(1) : String(val)
                         return (
                           <span
-                            key={n}
+                            key={b}
                             className={`inline-flex items-center gap-1.5 text-xs font-bold rounded-full px-3 py-1 ${dim ? 'opacity-45' : ''}`}
                             style={{ background: '#F1F5F9', border: '1px solid #E5E7EB', color: '#0F1B3D' }}
                           >
-                            <span style={{ color: '#F59E0B' }}>{n}★</span>
+                            <span style={{ color: '#F59E0B' }}>{label}★</span>
                             <span className="text-gray-500">{pct}%</span>
                           </span>
                         )
