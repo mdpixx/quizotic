@@ -8,6 +8,7 @@ import type { Question } from '@/lib/quiz-types'
 import { getEffectiveOptions, getOptionText, getOptionImage, isScoredQuestion } from '@/lib/quiz-types'
 import { SLIDE_TYPE_META } from '@/lib/presentation-types'
 import { NavChevron } from '@/components/ui/NavButton'
+import { TestimonialsPanel } from '@/components/admin/TestimonialsPanel'
 
 type WowDelta = { thisWeek: number; lastWeek: number; pct: number | null }
 
@@ -39,10 +40,11 @@ interface Stats {
 }
 
 type AdminTab = 'overview' | 'content' | 'users' | 'tools'
-type ToolTab = 'feedback' | 'credits' | 'pro' | 'coupons' | 'moderation' | 'deletions' | 'flags'
+type ToolTab = 'feedback' | 'testimonials' | 'credits' | 'pro' | 'coupons' | 'moderation' | 'deletions' | 'flags'
 
 const TOOL_TABS: Array<{ key: ToolTab; label: string; hint: string }> = [
   { key: 'feedback', label: 'Feedback', hint: 'What users are saying' },
+  { key: 'testimonials', label: 'Testimonials', hint: 'Review and publish' },
   { key: 'credits', label: 'Credits', hint: 'AI credit adjustments' },
   { key: 'pro', label: 'Pro Grants', hint: 'Grant or revoke Pro' },
   { key: 'coupons', label: 'Coupons', hint: 'Promo codes' },
@@ -796,7 +798,7 @@ function ToolsPanel({ active, onChange }: { active: ToolTab; onChange: (tab: Too
             Runtime errors → Sentry ↗
           </a>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2">
           {TOOL_TABS.map(t => {
             const isActive = active === t.key
             return (
@@ -819,6 +821,7 @@ function ToolsPanel({ active, onChange }: { active: ToolTab; onChange: (tab: Too
       </div>
 
       {active === 'feedback' && <FeedbackPanel />}
+      {active === 'testimonials' && <TestimonialsPanel />}
       {active === 'credits' && <CreditsPanel />}
       {active === 'pro' && <ProGrantsPanel />}
       {active === 'coupons' && <CouponsPanel />}
