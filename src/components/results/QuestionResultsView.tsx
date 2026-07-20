@@ -183,6 +183,10 @@ function TextResponseList({ stat, className }: RendererProps) {
 function RatingHistogram({ stat, mode, className }: RendererProps) {
   const histogram = stat.ratingHistogram ?? []
   const ratingMax = stat.ratingMax ?? histogram.length ?? 5
+  // Half-star support: when ratingStep === 0.5 the histogram has ratingMax*2
+  // buckets (1.0, 1.5, … 5.0). Older records without ratingStep used integer
+  // buckets — fall back to 1 in that case.
+  const ratingStep = stat.ratingStep ?? (histogram.length > ratingMax ? 0.5 : 1)
   const total = histogram.reduce((a, b) => a + b, 0)
   if (total === 0) return <EmptyState label="No ratings yet" className={className} />
 
@@ -202,9 +206,10 @@ function RatingHistogram({ stat, mode, className }: RendererProps) {
         </p>
       </div>
       <div className="flex-1 flex items-end justify-around gap-1.5 h-32">
-        {Array.from({ length: ratingMax }).map((_, idx) => {
-          const count = histogram[idx] ?? 0
+        {histogram.map((count, idx) => {
           const heightPct = max > 0 ? Math.round((count / max) * 100) : 0
+          const value = 1 + idx * ratingStep
+          const label = ratingStep === 0.5 ? value.toFixed(1) : String(value)
           return (
             <div key={idx} className="flex-1 flex flex-col items-center gap-1.5">
               <div className="w-full flex-1 flex items-end">
@@ -218,7 +223,7 @@ function RatingHistogram({ stat, mode, className }: RendererProps) {
                   }}
                 />
               </div>
-              <p className="text-[11px] font-bold tabular-nums" style={{ color: '#0F1B3D' }}>{idx + 1}</p>
+              <p className="text-[11px] font-bold tabular-nums" style={{ color: '#0F1B3D' }}>{label}</p>
               <p className="text-[10px] tabular-nums" style={{ color: '#94A3B8' }}>{count}</p>
             </div>
           )

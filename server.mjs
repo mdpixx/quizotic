@@ -3196,6 +3196,32 @@ function normalizeText(s) {
   return String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
+// ─── Rating helpers ──────────────────────────────────────────────────────────
+// Mirrors ratingStepFor + normalizeRatingValue in src/lib/quiz-types.ts. Keep
+// in sync. Half-stars (0.5 step) ship only for the default 5-point scale;
+// 7/10-point scales stay integer.
+function ratingStepFor(ratingMax) {
+  return ratingMax <= 5 ? 0.5 : 1
+}
+// Legacy submissions sent a 0-based option-index STRING ("0".."N-1"); new
+// submissions send the real float value as a NUMBER (1.0, 1.5, …). Returns the
+// normalized 1-based float value, or null when the value can't be coerced.
+function normalizeRatingValue(raw, ratingMax) {
+  const step = ratingStepFor(ratingMax)
+  // Legacy: a pure-integer STRING is a 0-based option index ("0".."N-1"). New
+  // submissions send a NUMBER, so the type cleanly disambiguates. Mirrors
+  // normalizeRatingValue in src/lib/quiz-types.ts — keep in sync.
+  if (typeof raw === 'string' && /^\d+$/.test(raw.trim())) {
+    const idx = parseInt(raw, 10)
+    return idx >= 0 && idx < ratingMax ? idx + 1 : null
+  }
+  const n = typeof raw === 'number' ? raw : typeof raw === 'string' ? parseFloat(raw) : NaN
+  if (!Number.isFinite(n) || n < 1 || n > ratingMax) return null
+  const snapped = 1 + Math.round((n - 1) / step) * step
+  if (Math.abs(snapped - n) > 1e-9) return null
+  return snapped
+}
+
 function fisherYatesShuffle(array) {
   // Shuffle array in place using Fisher-Yates algorithm. Returns the shuffled array.
   const arr = [...array]
@@ -4144,20 +4170,28 @@ function computeNonScoredAggregate(q, answered, qi) {
 
   if (renderer === 'histogram') {
     const ratingMax = q.options?.length || 5
-    const ratingHistogram = Array(ratingMax).fill(0)
+    // Half-star buckets for ≤5-point scales (1.0, 1.5, … 5.0 → 10 slots);
+    // integer buckets otherwise. ratingStep tells renderers the bucket width.
+    const ratingStep = ratingStepFor(ratingMax)
+    const bucketCount = ratingStep === 0.5 ? ratingMax * 2 : ratingMax
+    const ratingHistogram = Array(bucketCount).fill(0)
     let sum = 0
     let count = 0
     for (const p of answered) {
-      // Stored answer is option-index string ("0".."N-1") → rating = idx + 1
-      const idx = Number(p.answers[qi].answer)
-      if (Number.isFinite(idx) && idx >= 0 && idx < ratingMax) {
-        ratingHistogram[idx]++
-        sum += idx + 1
-        count++
+      // Stored answer is either a legacy 0-based option-index string or a new
+      // float value; normalizeRatingValue handles both shapes.
+      const value = normalizeRatingValue(p.answers[qi].answer, ratingMax)
+      if (value !== null) {
+        const bucket = Math.round((value - 1) / ratingStep)
+        if (bucket >= 0 && bucket < bucketCount) {
+          ratingHistogram[bucket]++
+          sum += value
+          count++
+        }
       }
     }
     const ratingAverage = count > 0 ? Math.round((sum / count) * 100) / 100 : null
-    return { ratingHistogram, ratingAverage, ratingMax, optionDistribution: null }
+    return { ratingHistogram, ratingAverage, ratingMax, ratingStep, optionDistribution: null }
   }
 
   if (renderer === 'ordered') {
