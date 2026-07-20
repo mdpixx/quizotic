@@ -588,32 +588,38 @@ function JoinPageInner() {
   useWakeLock(phase !== 'form' && phase !== 'ended' && phase !== 'selfpaced-done')
 
   const [code, setCode] = useState(codeFromLink)
+  const [quizTitle, setQuizTitle] = useState('')
   const nameInputRef = useRef<HTMLInputElement>(null)
 
-  // When the participant lands with a valid ?code in the URL, pre-fetch the
-  // session title from the lookup endpoint so the form can render
-  // "Joining {title}" before the user submits — and so we can show an
-  // immediate error if the code is dead instead of waiting for the socket
-  // round-trip. Skipped for follow-up sessions (their title is fetched via
-  // the dedicated follow-up endpoint further down).
+  // Resolve the session title as soon as any valid 6-digit code is available.
+  // This covers QR/deep links and manual entry, letting the participant verify
+  // the quiz name before joining without coupling the form to the socket ack.
+  // Follow-up sessions use their dedicated lookup further down instead.
   useEffect(() => {
-    if (!hasPrefilledCode || followupParam) return
+    if (followupParam) return
+    if (!/^\d{6}$/.test(code)) {
+      setQuizTitle('')
+      return
+    }
+    setQuizTitle('')
     let cancelled = false
     ;(async () => {
       try {
-        const r = await fetch('/api/session/lookup?code=' + encodeURIComponent(codeFromLink))
+        const r = await fetch('/api/session/lookup?code=' + encodeURIComponent(code))
         if (!r.ok) return
         const data = await r.json().catch(() => null) as { ok?: boolean; exists?: boolean; title?: string } | null
         if (cancelled) return
         if (data?.exists && typeof data.title === 'string' && data.title) {
           setQuizTitle(data.title)
+        } else {
+          setQuizTitle('')
         }
       } catch {
         // Lookup failures are non-fatal — the user can still submit.
       }
     })()
     return () => { cancelled = true }
-  }, [hasPrefilledCode, codeFromLink, followupParam])
+  }, [code, followupParam])
 
   // With the code already filled, drop focus straight on the name field so a
   // direct-link visitor goes from arrival to typing their name in one step.
@@ -657,7 +663,6 @@ function JoinPageInner() {
   const [email, setEmail] = useState('')
   const [showEmailInput, setShowEmailInput] = useState(false)
   const [error, setError] = useState('')
-  const [quizTitle, setQuizTitle] = useState('')
   // Live socket health — drives the in-game "Reconnecting…" banner so the
   // user is never silently disconnected while the question screen is open.
   const [connectionState, setConnectionState] = useState<'connected' | 'reconnecting'>('connected')
@@ -1829,243 +1834,231 @@ function JoinPageInner() {
   }
 
   // ─── Form Phase ────────────────────────────────────────────────────────────
-  // Playful redesign (peach canvas + hero emoji + Baloo wordmark). All existing
-  // logic preserved: phase machine, handleJoin, i18n keys, prefilled-code chip,
-  // 6-digit autofocus, disabled-while-connecting, aria-labels (E2E-pinned).
+  // Premium, low-bandwidth participant entry. The manual code is intentionally
+  // the largest control; QR links skip it. The quiz title resolves separately,
+  // while the face changes only when both required fields are complete.
   if (phase === 'form' || phase === 'connecting') {
     const isReady = code.length === 6 && name.trim().length >= 2
+
     return (
-      <div
-        className="join-form-root min-h-screen w-full flex flex-col items-center justify-center px-5 py-6 relative"
-        style={{
-          background:
-            'radial-gradient(circle at 14% 16%, rgba(255,255,255,0.7) 0%, transparent 20%),' +
-            'radial-gradient(circle at 86% 84%, rgba(224,122,95,0.28) 0%, transparent 24%),' +
-            'linear-gradient(160deg, #FFE8D6 0%, #FFF4E6 55%, #FFDCC4 100%)',
-          backgroundAttachment: 'fixed',
-        }}
-      >
-        {/* Scoped styles for the playful form (animations killed globally under
-            prefers-reduced-motion — see globals.css — so no duplicate rule here). */}
+      <div className="join-premium-root min-h-svh w-full overflow-x-hidden">
         <style>{`
-          .join-form-root { color: #0F1B3D; font-family: var(--font-fredoka), var(--font-heading); }
-          .jchar { position: relative; width: 108px; height: 108px; display: grid; place-items: center; animation: jbob 3.4s ease-in-out infinite; }
-          @keyframes jbob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
-          .jchar::before { content:""; position:absolute; inset:4px; border-radius:50%;
-            background: radial-gradient(circle, #fff 0%, rgba(255,255,255,0) 70%);
-            box-shadow: 0 12px 24px -10px rgba(15,27,61,0.22); }
-          .jface { position: relative; width: 92px; height: 92px; transition: opacity .25s ease, transform .35s cubic-bezier(.34,1.56,.64,1); }
-          .jface.swap { opacity: 0; transform: scale(.7); }
-          .jface img { width: 92px; height: 92px; display: block; }
-          .jcard { background: #fff; border: 4px solid #0F1B3D; border-radius: 24px; padding: 22px 18px 18px; box-shadow: 0 14px 0 #0F1B3D; position: relative; }
-          .jfield { background: #FFFDF5; border: 4px solid #0F1B3D; border-radius: 18px; padding: 8px 16px 12px; position: relative; transition: transform .2s cubic-bezier(.34,1.56,.64,1); }
-          .jfield + .jfield { margin-top: 14px; }
-          .jfield.first { margin-top: 18px; }
-          .jfield input { width: 100%; background: transparent; border: 0; outline: 0; font-family: var(--font-fredoka), var(--font-heading); font-weight: 700; color: #0F1B3D; padding: 4px 0 2px; }
-          .jfield input::placeholder { color: rgba(15,27,61,0.32); }
-          /* iPhone SE / short viewports: tighten so the whole form — incl. the
-             optional email field, once expanded — fits without scrolling. */
-          @media (max-height: 720px) {
-            .join-form-root { padding: 12px 16px 14px; }
-            .join-wm :where(span) { font-size: 26px; }
-            .jchar { width: 80px; height: 80px; }
-            .jface, .jface img { width: 68px; height: 68px; }
-            .jcard { padding: 14px 14px 12px; border-width: 3.5px; border-radius: 20px; box-shadow: 0 10px 0 #0F1B3D; }
-            .jfield { padding: 5px 12px 7px; border-radius: 14px; }
-            .jfield + .jfield { margin-top: 8px; }
-            .jfield.first { margin-top: 12px; }
-            .jcta { margin-top: 12px !important; padding: 14px !important; font-size: 18px !important; border-radius: 18px !important; box-shadow: 0 7px 0 #050A1A !important; }
+          .join-premium-root {
+            position: relative; z-index: 0; color: #0F1B3D;
+            padding: max(10px, env(safe-area-inset-top)) max(17px, env(safe-area-inset-right)) max(17px, env(safe-area-inset-bottom)) max(17px, env(safe-area-inset-left));
+            background: radial-gradient(circle at 52% -18%, rgba(92,119,191,.7), transparent 32rem), radial-gradient(circle at 92% 74%, rgba(50,75,142,.3), transparent 24rem), linear-gradient(180deg, #172651 0%, #0F1B3D 100%);
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, "Segoe UI", system-ui, sans-serif;
+          }
+          .join-premium-root::before { content:""; position:fixed; top:-490px; left:50%; z-index:0; width:650px; height:650px; border:1px solid rgba(255,255,255,.1); border-radius:50%; box-shadow:0 0 0 72px rgba(255,255,255,.035),0 0 0 144px rgba(255,255,255,.025); transform:translateX(-50%); pointer-events:none; }
+          .join-premium-root::after { content:""; position:fixed; right:-180px; bottom:-210px; z-index:0; width:420px; height:420px; border-radius:50%; background:rgba(68,95,166,.2); filter:blur(56px); pointer-events:none; }
+          .jp-layout { position:relative; z-index:1; width:min(100%,480px); margin:0 auto; }
+          .jp-wordmark { display:flex; justify-content:center; width:fit-content; margin:0 auto 10px; color:#fff; font-size:34px; font-weight:800; line-height:1.08; letter-spacing:-.055em; text-decoration:none; text-shadow:0 5px 22px rgba(4,9,27,.34); }
+          .jp-card { position:relative; width:100%; padding:24px 25px 22px; overflow:hidden; background:linear-gradient(180deg,#fff 0%,#fbfcff 100%); border:1px solid rgba(255,255,255,.92); border-radius:27px; box-shadow:0 30px 80px rgba(3,8,24,.28),0 7px 20px rgba(3,8,24,.16),inset 0 1px 0 rgba(255,255,255,.95); }
+          .jp-card::before { content:""; position:absolute; top:0; left:18%; width:64%; height:2px; background:linear-gradient(90deg,transparent,rgba(38,56,111,.22),transparent); pointer-events:none; }
+          .jp-header { display:grid; grid-template-columns:minmax(0,1fr) 70px; align-items:center; gap:12px; margin-bottom:18px; }
+          .jp-status { display:flex; align-items:center; gap:8px; margin:0 0 6px; color:#596680; font-size:12px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+          .jp-status-dot { width:9px; height:9px; border-radius:50%; background:#168A45; box-shadow:0 0 0 5px #E9F7EE; }
+          .jp-title { margin:0; color:#0F1B3D; font-size:clamp(32px,8vw,38px); font-weight:800; line-height:1; letter-spacing:-.045em; }
+          .jp-cue { margin:6px 0 0; color:#596680; font-size:15px; font-weight:600; }
+          .jp-smiley { display:grid; place-items:center; width:70px; height:70px; overflow:hidden; border:2px solid #0F1B3D; border-radius:50%; background:#FBD13B; box-shadow:0 10px 22px rgba(15,27,61,.16),inset 0 1px 0 rgba(255,255,255,.55); }
+          .jp-smiley img { display:block; width:61px; height:61px; }
+          .jp-session { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:0 0 19px; padding:12px 14px; background:#EEF3FF; border:1px solid #C8D5F0; border-radius:14px; box-shadow:inset 0 1px 0 rgba(255,255,255,.72); }
+          .jp-session-label { display:block; margin-bottom:1px; color:#687596; font-size:11px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
+          .jp-session-title { display:block; overflow:hidden; color:#0F1B3D; font-size:18px; font-weight:800; text-overflow:ellipsis; white-space:nowrap; }
+          .jp-session-code { display:inline-flex; flex:0 0 auto; gap:.38em; color:#26386F; font-size:15px; font-weight:850; letter-spacing:.08em; white-space:nowrap; }
+          .jp-field { margin-top:18px; }
+          .jp-field:first-child { margin-top:0; }
+          .jp-label { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin:0 2px 8px; color:#0F1B3D; font-size:18px; font-weight:800; }
+          .jp-hint { color:#6D7991; font-size:14px; font-weight:600; }
+          .jp-control { width:100%; min-height:64px; padding:13px 16px; color:#0F1B3D; background:#F7F9FC; border:2px solid #CCD6E6; border-radius:15px; outline:none; font-size:22px !important; font-weight:700; box-shadow:inset 0 1px 2px rgba(15,27,61,.045); transition:background .15s ease,border-color .15s ease,box-shadow .15s ease; }
+          .jp-control::placeholder { color:#7C879B; opacity:1; }
+          .jp-control:hover { border-color:#AEBCD1; }
+          .jp-control:focus-visible { background:#fff; border-color:#26386F; box-shadow:0 0 0 4px rgba(251,209,59,.5); }
+          .jp-code { min-height:84px; padding:11px 12px 8px; color:#0F1B3D; background:#FFF9E5; border:3px solid #26386F; border-radius:17px; text-align:center; font-size:clamp(40px,12vw,48px) !important; font-weight:800; letter-spacing:.14em; font-variant-numeric:tabular-nums; line-height:1; box-shadow:inset 0 2px 4px rgba(15,27,61,.055),0 5px 15px rgba(15,27,61,.06); }
+          .jp-code::placeholder { color:#9CA4B3; }
+          .jp-code-help { margin:7px 2px 0; color:#596680; font-size:14px; font-weight:600; }
+          .jp-manual-session { margin-top:12px; margin-bottom:0; background:#E9F7EE; border-color:#B6DFC3; }
+          .jp-email-toggle { margin:14px 2px 0; padding:6px 0; color:#26386F; background:none; border:0; border-radius:5px; cursor:pointer; font-size:16px; font-weight:750; text-decoration:underline; text-decoration-color:#AAB5C7; text-underline-offset:3px; }
+          .jp-email-toggle:focus-visible { outline:3px solid #FBD13B; outline-offset:3px; }
+          .jp-error { margin:14px 0 0; padding:10px 12px; color:#B42318; background:#FFF0EE; border:1px solid #EFB8B1; border-radius:11px; font-size:15px; font-weight:700; }
+          .jp-submit { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-height:63px; margin-top:19px; padding:13px 18px; color:#0F1B3D; background:linear-gradient(180deg,#FFE36B 0%,#FBD13B 78%); border:1px solid #D8AE1F; border-radius:15px; box-shadow:0 10px 24px rgba(216,174,31,.25),0 3px 7px rgba(15,27,61,.11),inset 0 1px 0 rgba(255,255,255,.6); cursor:pointer; font-size:22px; font-weight:800; letter-spacing:-.015em; transition:filter .12s ease,transform .12s ease,box-shadow .12s ease; }
+          .jp-submit:hover:not(:disabled) { filter:brightness(1.03); transform:translateY(-1px); }
+          .jp-submit:active:not(:disabled) { transform:translateY(2px); box-shadow:0 5px 12px rgba(216,174,31,.2),inset 0 1px 0 rgba(255,255,255,.5); }
+          .jp-submit:focus-visible { outline:4px solid #26386F; outline-offset:3px; }
+          .jp-submit:disabled { cursor:wait; opacity:.7; }
+          .jp-privacy { margin:15px 0 0; color:#6D7890; font-size:13px; font-weight:600; text-align:center; }
+          .jp-footer { margin:13px 0 0; color:rgba(255,255,255,.64); font-size:12px; font-weight:600; text-align:center; }
+          .jp-footer strong { color:rgba(255,255,255,.9); }
+          @media (max-width:380px) {
+            .join-premium-root { padding-left:12px; padding-right:12px; }
+            .jp-wordmark { margin-bottom:8px; font-size:31px; }
+            .jp-card { padding:22px 18px 19px; border-radius:23px; }
+            .jp-header { grid-template-columns:minmax(0,1fr) 68px; gap:10px; margin-bottom:15px; }
+            .jp-smiley { width:68px; height:68px; }
+            .jp-smiley img { width:59px; height:59px; }
+            .jp-title { font-size:32px; }
+            .jp-label { font-size:17px; }
+            .jp-hint { font-size:12px; }
+            .jp-control { min-height:59px; font-size:20px !important; }
+            .jp-code { min-height:76px; font-size:40px !important; }
+            .jp-session-title { max-width:140px; }
+          }
+          @media (max-height:700px) and (max-width:600px) {
+            .join-premium-root { padding-top:max(7px,env(safe-area-inset-top)); padding-bottom:max(10px,env(safe-area-inset-bottom)); }
+            .jp-wordmark { margin-bottom:6px; font-size:28px; }
+            .jp-card { padding-top:18px; padding-bottom:15px; }
+            .jp-header { grid-template-columns:minmax(0,1fr) 59px; margin-bottom:11px; }
+            .jp-status { margin-bottom:3px; }
+            .jp-title { font-size:31px; }
+            .jp-cue { display:none; }
+            .jp-smiley { width:59px; height:59px; }
+            .jp-smiley img { width:51px; height:51px; }
+            .jp-session { margin-bottom:11px; padding:8px 11px; }
+            .jp-field { margin-top:10px; }
+            .jp-label { margin-bottom:5px; font-size:16px; }
+            .jp-control { min-height:50px; padding-top:8px; padding-bottom:8px; font-size:19px !important; }
+            .jp-code { min-height:62px; font-size:33px !important; }
+            .jp-code-help { margin-top:4px; font-size:12px; }
+            .jp-manual-session { margin-top:7px; }
+            .jp-email-toggle { margin-top:5px; padding:3px 0; font-size:14px; }
+            .jp-submit { min-height:50px; margin-top:10px; padding-top:7px; padding-bottom:7px; font-size:20px; }
+            .jp-privacy { margin-top:8px; font-size:11px; }
+            .jp-footer { margin-top:8px; }
+          }
+          @media (max-height:620px) and (max-width:380px) {
+            .jp-card { padding-top:14px; padding-bottom:11px; }
+            .jp-header { margin-bottom:8px; }
+            .jp-code-help,.jp-footer { display:none; }
+            .jp-session { padding-top:6px; padding-bottom:6px; }
+            .jp-manual-session { margin-top:5px; }
+            .jp-privacy { margin-top:5px; }
           }
         `}</style>
 
-        <div className="w-full max-w-md relative" style={{ zIndex: 10 }}>
-          {/* Top wordmark + url lockup (logo mark removed; high-contrast navy on peach). */}
-          <div className="join-wm text-center mb-1.5">
-            <QuizoticLogo playful variant="onLight" className="justify-center text-[32px] leading-none" />
-            {hasPrefilledCode && quizTitle ? (
-              <p className="text-xs font-bold uppercase tracking-[0.14em] mt-1.5 font-display" style={{ color: '#E07A5F' }}>
-                Joining {quizTitle}
-              </p>
-            ) : (
-              <p className="text-[10px] font-semibold uppercase tracking-[0.26em] mt-1.5" style={{ color: '#E07A5F' }}>
-                Live Quiz
-              </p>
-            )}
-            <a
-              href="https://www.quizotic.live"
-              className="inline-flex items-center gap-1.5 mt-2 text-[11px] font-medium no-underline"
-              style={{ color: 'rgba(15,27,61,0.55)' }}
-            >
-              <span style={{ color: '#E07A5F', fontSize: 9 }}>✦</span>
-              <span>Play &amp; host at <b style={{ color: '#0F1B3D', fontWeight: 700 }}>quizotic.live</b></span>
-            </a>
-          </div>
+        <div className="jp-layout">
+          <a href="https://www.quizotic.live" className="jp-wordmark" aria-label="Quizotic home">
+            <QuizoticLogo crisp variant="onDark" className="text-[34px] leading-none" />
+          </a>
 
-          {/* Hero emoji: 😄 smiling by default, 🤩 star-struck when both fields valid. */}
-          <div className="flex flex-col items-center mt-1 mb-4">
-            <div className="jchar">
-              <div className={'jface' + (isReady ? '' : '')}>
-                {/* eslint-disable-next-line @next/next/no-img-element -- static local asset */}
+          <section className="jp-card" aria-labelledby="join-title">
+            <header className="jp-header">
+              <div>
+                <p className="jp-status"><span className="jp-status-dot" aria-hidden="true" />Live session</p>
+                <h1 className="jp-title" id="join-title">Join the game</h1>
+                <p className="jp-cue">{isReady ? 'You’re ready to enter!' : 'Fill the details below to get started.'}</p>
+              </div>
+              <div className="jp-smiley">
+                {/* eslint-disable-next-line @next/next/no-img-element -- tiny static local SVG */}
                 <img
                   src={isReady ? '/emoji/1f929.svg' : '/emoji/1f604.svg'}
                   alt={isReady ? 'Excited face' : 'Smiling face'}
-                  width={92}
-                  height={92}
+                  width={61}
+                  height={61}
                 />
               </div>
-            </div>
-            <div className="mt-2 flex flex-col items-center gap-0.5 min-h-[34px]">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: '#E07A5F' }}>
-                Ready when you are
-              </span>
-              <span className="text-base font-bold text-center min-h-[20px]" style={{ color: '#0F1B3D' }}>
-                {name.trim()
-                  ? <>{'See you in the game, '}<strong style={{ color: '#E07A5F' }}>{name.trim()}</strong>!</>
-                  : <span style={{ color: 'rgba(15,27,61,0.32)', fontWeight: 600 }}>type your name to join the fun</span>}
-              </span>
-            </div>
-          </div>
+            </header>
 
-          {/* The bright white play card */}
-          <div className="jcard">
-            <span className="absolute font-bold text-[12px] px-3 py-1 rounded-full flex items-center gap-1.5 uppercase"
-              style={{ top: -14, left: 20, background: '#fff', color: '#0F1B3D', border: '3px solid #0F1B3D', letterSpacing: '0.05em' }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#16A34A' }} />
-              Live
-            </span>
+            {hasPrefilledCode && (
+              <div className="jp-session" data-testid="join-session-context">
+                <span className="min-w-0">
+                  <span className="jp-session-label">Joining quiz</span>
+                  <strong className="jp-session-title">{quizTitle || 'Session ready'}</strong>
+                </span>
+                <strong className="jp-session-code" aria-label={`Session code ${code}`}>
+                  <span>{code.slice(0, 3)}</span><span>{code.slice(3)}</span>
+                </strong>
+              </div>
+            )}
 
-            <form onSubmit={handleJoin} className="block">
-              {hasPrefilledCode ? (
-                // Direct-link summary chip — same prefilled-code UX as before,
-                // restyled to match the playful card (green-on-white).
-                <div
-                  className="jfield first flex items-center justify-between"
-                  style={{
-                    background: 'rgba(22,163,74,0.08)',
-                    borderColor: 'rgba(22,163,74,0.5)',
-                  }}
-                >
-                  <span className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'rgba(15,27,61,0.6)' }}>
-                    Session code
-                  </span>
-                  <span className="text-xl font-black tracking-[0.3em] font-display" style={{ color: '#16A34A' }}>
-                    {code}
-                  </span>
-                </div>
-              ) : (
-                <div
-                  className="jfield first"
-                  style={code.length === 6 ? { borderColor: '#16A34A', background: '#E9F9EC' } : undefined}
-                >
-                  <div className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.04em] mt-1" style={{ color: 'rgba(15,27,61,0.7)' }}>
-                    <span style={{ width: 14, height: 14, borderRadius: 5, border: '2px solid #0F1B3D', background: '#5BC0EB' }} />
-                    {t('join.codePlaceholder')}
-                  </div>
+            <form onSubmit={handleJoin} noValidate>
+              {!hasPrefilledCode && (
+                <div className="jp-field">
+                  <label className="jp-label" htmlFor="join-session-code">
+                    <span>Session code</span><span className="jp-hint">6 digits</span>
+                  </label>
                   <input
+                    id="join-session-code"
                     type="text"
                     inputMode="numeric"
                     pattern="[0-9]{6}"
-                    placeholder={t('join.codePlaceholder')}
-                    aria-label={t('join.codePlaceholder')}
+                    placeholder="000 000"
+                    aria-label="Session code"
+                    aria-describedby="join-code-help"
                     autoComplete="one-time-code"
                     value={code}
                     onChange={e => {
-                      // Strip non-digits, cap at 6. When the 6th digit lands, jump
-                      // focus to the name field so the user flows straight into it.
                       const digits = e.target.value.replace(/\D/g, '').slice(0, 6)
                       setCode(digits)
-                      if (digits.length === 6 && code.length < 6) {
-                        nameInputRef.current?.focus()
-                      }
+                      if (digits.length === 6 && code.length < 6) nameInputRef.current?.focus()
                     }}
                     disabled={phase === 'connecting'}
-                    className="text-center text-3xl tracking-[0.16em]"
-                    style={{ '--tw-ring-color': 'rgba(251,209,59,0.4)' } as React.CSSProperties}
+                    className="jp-control jp-code"
                     maxLength={6}
                   />
+                  <p className="jp-code-help" id="join-code-help">Enter the code shown on the host&apos;s screen.</p>
+                  {quizTitle && (
+                    <div className="jp-session jp-manual-session" data-testid="join-session-context">
+                      <span className="min-w-0">
+                        <span className="jp-session-label">Session found</span>
+                        <strong className="jp-session-title">{quizTitle}</strong>
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
 
-              <div
-                className={'jfield' + (hasPrefilledCode ? ' first' : '')}
-                style={name.trim().length >= 2 ? { borderColor: '#16A34A', background: '#E9F9EC' } : undefined}
-              >
-                <div className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.04em] mt-1" style={{ color: 'rgba(15,27,61,0.7)' }}>
-                  <span style={{ width: 14, height: 14, borderRadius: 5, border: '2px solid #0F1B3D', background: '#FF8A47' }} />
-                  {t('join.namePlaceholder')}
-                </div>
+              <div className="jp-field">
+                <label className="jp-label" htmlFor="join-player-name">
+                  <span>Your name</span><span className="jp-hint">Shown in the game</span>
+                </label>
                 <input
+                  id="join-player-name"
                   ref={nameInputRef}
                   type="text"
-                  placeholder={t('join.namePlaceholder')}
-                  aria-label={t('join.namePlaceholder')}
+                  placeholder="Type your name"
+                  aria-label="Your name"
                   autoComplete="nickname"
                   value={name}
                   onChange={e => setName(e.target.value)}
                   disabled={phase === 'connecting'}
-                  className="text-xl"
-                  style={{ '--tw-ring-color': 'rgba(251,209,59,0.4)' } as React.CSSProperties}
+                  className="jp-control"
                   maxLength={24}
                 />
               </div>
 
               {!showEmailInput ? (
-                <button
-                  type="button"
-                  onClick={() => setShowEmailInput(true)}
-                  className="mt-3.5 text-center w-full text-[12px] font-bold py-1.5 rounded-2xl"
-                  style={{ background: '#fff', border: '3px solid #0F1B3D', color: '#0F1B3D', boxShadow: '3px 3px 0 #0F1B3D' }}
-                >
-                  {t('join.addEmail')}
+                <button type="button" onClick={() => setShowEmailInput(true)} className="jp-email-toggle">
+                  ＋ Add email (optional)
                 </button>
               ) : (
-                <div className="jfield" style={{ marginTop: 14 }}>
-                  <div className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.04em] mt-1" style={{ color: 'rgba(15,27,61,0.7)' }}>
-                    <span style={{ width: 14, height: 14, borderRadius: 5, border: '2px solid #0F1B3D', background: '#FF6B9D' }} />
-                    Email
-                  </div>
+                <div className="jp-field">
+                  <label className="jp-label" htmlFor="join-player-email">
+                    <span>Email</span><span className="jp-hint">Optional</span>
+                  </label>
                   <input
+                    id="join-player-email"
                     type="email"
                     placeholder={t('join.emailPlaceholder')}
                     aria-label={t('join.emailPlaceholder')}
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     disabled={phase === 'connecting'}
-                    className="text-base"
-                    style={{ '--tw-ring-color': 'rgba(251,209,59,0.4)' } as React.CSSProperties}
+                    className="jp-control"
                     maxLength={120}
                   />
                 </div>
               )}
 
-              {error && (
-                <p className="text-center text-[13px] font-semibold mt-2.5 py-2 px-3 rounded-2xl"
-                  style={{ background: '#FFD9D9', border: '3px solid #0F1B3D', color: '#C92020' }}>
-                  {error}
-                </p>
-              )}
+              {error && <p className="jp-error" role="alert">{error}</p>}
 
-              <button
-                type="submit"
-                disabled={phase === 'connecting'}
-                className="jcta w-full font-bold rounded-[22px] py-5 text-xl flex items-center justify-center gap-2.5 transition-transform"
-                style={{
-                  marginTop: 18,
-                  background: isReady ? '#E07A5F' : '#0F1B3D',
-                  color: isReady ? '#fff' : '#FBD13B',
-                  border: '4px solid #0F1B3D',
-                  boxShadow: '0 10px 0 #050A1A',
-                  opacity: phase === 'connecting' ? 0.7 : 1,
-                }}
-              >
-                {phase === 'connecting' ? t('join.joining') : <>{t('join.enterGame')} <span aria-hidden="true">→</span></>}
+              <button type="submit" disabled={phase === 'connecting'} className="jp-submit">
+                {phase === 'connecting' ? t('join.joining') : <>Enter the game <span aria-hidden="true">→</span></>}
               </button>
+              <p className="jp-privacy">Your details are only shared with this session&apos;s host.</p>
             </form>
+          </section>
 
-            <p className="text-center text-[11px] font-semibold mt-3" style={{ color: 'rgba(15,27,61,0.45)' }}>
-              You&apos;ll get a unique character when you join
-            </p>
-          </div>
+          <p className="jp-footer">No app needed · <strong>quizotic.live</strong></p>
         </div>
       </div>
     )

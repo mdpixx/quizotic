@@ -56,6 +56,8 @@ interface Props {
    * "z"). Used on the participant join screen. Renders the same "Quizotic"
    * wordmark with aria-label, just with a bouncy branding treatment. */
   playful?: boolean
+  /** Native system typography for compact, high-legibility product surfaces. */
+  crisp?: boolean
 }
 
 const QUIZOTIC = 'Quizotic'
@@ -66,6 +68,7 @@ export function QuizoticLogo({
   markSize = 32,
   showMark = false, // wordmark-only by default; the Qmark read as "Q Quizotic"
   playful = false,
+  crisp = false,
 }: Props) {
   const isLight = variant === 'onLight'
   return (
@@ -73,7 +76,9 @@ export function QuizoticLogo({
       className={`inline-flex items-center font-black tracking-tight ${className}`}
       style={{
         color: isLight ? '#0F1B3D' : '#FFFFFF',
-        fontFamily: playful ? 'var(--font-baloo), var(--font-heading)' : 'var(--font-heading)',
+        fontFamily: crisp
+          ? '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, "Segoe UI", system-ui, sans-serif'
+          : playful ? 'var(--font-baloo), var(--font-heading)' : 'var(--font-heading)',
         gap: showMark ? Math.max(6, Math.round(markSize * 0.25)) : 0,
       }}
       aria-label="Quizotic"
