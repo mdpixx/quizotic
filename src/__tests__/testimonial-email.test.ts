@@ -158,7 +158,9 @@ describe('testimonial invitation email', () => {
   it('ships mobile-safe HTML with one primary CTA and reply consent fallback', () => {
     const template = readFileSync(join(process.cwd(), 'exports/testimonial-email.html'), 'utf8')
 
-    expect(template).toContain('Could we feature your Quizotic story?')
+    expect(template).toContain('Your Quizotic story could be featured')
+    expect(template).toContain('What did you enjoy most about using Quizotic?')
+    expect(template).toContain('select some of our favourite testimonials')
     expect(template).toContain('Share my Quizotic story')
     expect(template).toContain('{{story_url}}')
     expect(template).toContain('I give Quizotic permission to publish')

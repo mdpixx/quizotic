@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url'
 import { Pool } from 'pg'
 
 const CAMPAIGN_KEY = 'testimonial-2026-07'
-const SUBJECT = 'Could we feature your Quizotic story?'
+const SUBJECT = 'Your Quizotic story could be featured'
 const BASE_URL = 'https://www.quizotic.live'
 const GMAIL_REQUEST_TIMEOUT_MS = 15_000
 const __dir = dirname(fileURLToPath(import.meta.url))
@@ -123,17 +123,17 @@ export function renderEmailTemplate(template, { name, storyUrl }) {
 function textBody(name, storyUrl) {
   return `Hi ${name || 'there'},
 
-You have experienced Quizotic, and I would love to hear what changed for you.
+What did you enjoy most about using Quizotic?
 
-How has Quizotic made hosting or participating in quizzes better for you?
+Share a few honest lines about what Quizotic made easier, more engaging, or more enjoyable for you.
 
-A few honest lines are enough. We read every response and may select a few to feature with the contributor's name and designation — always with permission.
+We will select some of our favourite testimonials to feature on the Quizotic website—with the contributor's name, designation, and optional photograph.
 
 Share your Quizotic story: ${storyUrl}
 
-The form takes less than two minutes. Adding a photograph is optional.
+It takes less than two minutes, and nothing will be published without your permission.
 
-Prefer email? Reply with your testimonial, name, designation, and organisation, followed by: "I give Quizotic permission to publish this testimonial with my details."
+Prefer email? Reply with your testimonial, name, and designation, followed by: "I give Quizotic permission to publish this testimonial with my details."
 
 Thank you for being part of Quizotic.
 
