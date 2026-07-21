@@ -55,7 +55,53 @@ const nextConfig: NextConfig = {
     const connectSrc = isDev
       ? "connect-src 'self' ws: wss: https://api.razorpay.com https://lux-gateway.razorpay.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io https://www.google-analytics.com"
       : "connect-src 'self' wss: https://api.razorpay.com https://lux-gateway.razorpay.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io https://www.google-analytics.com"
+
+    // Office.js (loaded from Microsoft's CDN) drives the PowerPoint taskpane.
+    // Only these embed routes need it; the rest of the app stays locked down.
+    const embedScriptSrc = "script-src 'self' 'unsafe-inline' https://appsforoffice.microsoft.com/lib/1/hosted/office.js https://appsforoffice.microsoft.com/lib/1/hosted/office.debug.js https://cdnjs.cloudflare.com"
+
+    // Origins allowed to embed our /embed/* routes. In dev the Office
+    // taskpane runs from https://localhost:44300; in production it's hosted
+    // on Microsoft's officeapps.live.com or Google's docs.google.com /
+    // usercontent.google.com surfaces. We scope this to ONLY the embed
+    // routes — the rest of the app keeps `frame-ancestors 'none'`.
+    const embedOrigins = isDev
+      ? 'frame-ancestors https://localhost:44300 https://localhost:3000 http://localhost:3000 https://officeapps.live.com https://docs.google.com https://usercontent.google.com'
+      : 'frame-ancestors https://officeapps.live.com https://docs.google.com https://usercontent.google.com'
+
     return [
+      // ─── Embeddable routes (Office add-in taskpane + on-slide live view) ───
+      // These routes are designed to be iframed inside PowerPoint/Google Slides.
+      // frame-ancestors is scoped to Microsoft + Google origins ONLY; every
+      // other CSP directive mirrors the global policy so embed content can't
+      // exfiltrate or load arbitrary resources. X-Frame-Options is dropped
+      // (CSP frame-ancestors supersedes it in modern browsers anyway, but the
+      // explicit header makes intent clear).
+      {
+        source: '/embed/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          // No X-Frame-Options here — CSP frame-ancestors is the modern gate.
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              embedScriptSrc,
+              "style-src 'self' 'unsafe-inline' https://appsforoffice.microsoft.com",
+              "img-src 'self' data: https:",
+              "font-src 'self' https://fonts.gstatic.com",
+              connectSrc,
+              "frame-src https://api.razorpay.com https://checkout.razorpay.com",
+              embedOrigins,
+              "worker-src 'self' blob:",
+              "manifest-src 'self'",
+            ].join('; '),
+          },
+        ],
+      },
+      // ─── Global policy (everything else) ───
       {
         source: '/(.*)',
         headers: [

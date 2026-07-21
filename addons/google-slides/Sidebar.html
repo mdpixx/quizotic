@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 14px; color: #1a1a2e; font-size: 14px; background: #fafafa; }
+    h1 { font-size: 15px; display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding-bottom: 10px; border-bottom: 1px solid #e5e7eb; }
+    .mark { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; background: #FBD13B; color: #1a1a2e; font-weight: 800; font-size: 13px; }
+    .step-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280; margin: 0 0 6px; }
+    .help, .hint { font-size: 13px; color: #4b5563; line-height: 1.4; margin: 0 0 10px; }
+    a { color: #4f46e5; }
+    input, select { width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; font-family: inherit; background: #fff; box-sizing: border-box; margin-bottom: 8px; }
+    input:focus, select:focus { outline: 2px solid #4f46e5; border-color: transparent; }
+    select[size] { overflow: auto; }
+    button { width: 100%; padding: 9px 12px; border: 1px solid #d1d5db; background: #fff; color: #1a1a2e; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; margin-bottom: 6px; }
+    button:hover:not(:disabled) { background: #f3f4f6; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: #4338ca; }
+    .btn-danger { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+    .btn-ghost { background: transparent; }
+    .link { background: none; border: none; color: #6b7280; font-size: 12px; cursor: pointer; font-family: inherit; padding: 0; text-decoration: underline; width: auto; margin: 0; }
+    .link:hover { color: #4f46e5; }
+    .error { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; padding: 8px 10px; border-radius: 6px; font-size: 13px; margin-bottom: 10px; }
+    .session-card { display: flex; gap: 12px; align-items: center; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+    .session-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280; }
+    .session-code { font-size: 26px; font-weight: 800; letter-spacing: 0.1em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+    .session-url { font-size: 11px; color: #6b7280; word-break: break-all; }
+    .status { display: flex; align-items: center; justify-content: space-between; margin: 8px 0; font-size: 13px; }
+    .phase { font-weight: 600; }
+    .phase-lobby { color: #059669; } .phase-active { color: #4f46e5; } .phase-ended { color: #6b7280; } .phase-standings { color: #6b7280; } .phase-question { color: #4f46e5; }
+    .stats { display: flex; gap: 8px; margin: 6px 0 10px; }
+    .stats > div { flex: 1; background: #fff; border: 1px solid #e5e7eb; border-radius: 7px; padding: 8px; text-align: center; }
+    .stat-num { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .stat-label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.06em; }
+    .controls { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+    .loading { opacity: 0.6; pointer-events: none; }
+    #loading-overlay { display: none; text-align: center; padding: 20px; color: #6b7280; font-size: 13px; }
+    .qr-wrap { background: #fff; padding: 4px; border-radius: 6px; line-height: 0; }
+  </style>
+</head>
+<body>
+  <h1><span class="mark">Q</span> Quizotic</h1>
+  <div id="loading-overlay">Loading…</div>
+  <div id="content"></div>
+
+  <script>
+    // ─── State + rendering ────────────────────────────────────────────────
+    let apiKeyConnected = false
+    let quizzes = []
+    let activeGameCode = null
+    let snapshot = null
+    let pollTimer = null
+
+    function rpc(method, ...args) {
+      return new Promise(function (resolve, reject) {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(reject)
+          [method].apply(google.script.run, args)
+      })
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('content')
+      const existing = el.querySelector('.error')
+      if (existing) existing.remove()
+      if (!msg) return
+      const div = document.createElement('div')
+      div.className = 'error'
+      div.textContent = msg
+      el.prepend(div)
+    }
+
+    function clearError() { showError(null) }
+
+    function render() {
+      const el = document.getElementById('content')
+      el.innerHTML = ''
+      if (!apiKeyConnected) {
+        el.innerHTML = connectHtml()
+        bindConnect()
+        return
+      }
+      if (!activeGameCode) {
+        el.innerHTML = pickerHtml()
+        bindPicker()
+        return
+      }
+      el.innerHTML = sessionHtml()
+      bindSession()
+    }
+
+    // ─── Connect view ────────────────────────────────────────────────────
+    function connectHtml() {
+      return '' +
+        '<p class="step-label">Step 1 · Connect your account</p>' +
+        '<p class="help">Generate an API key at <a href="https://www.quizotic.live/host/settings" target="_blank">quizotic.live/host/settings</a> and paste it below.</p>' +
+        '<input id="key-input" type="password" placeholder="qz_…">' +
+        '<button id="connect-btn" class="btn-primary">Connect</button>'
+    }
+    function bindConnect() {
+      document.getElementById('connect-btn').onclick = async function () {
+        clearError()
+        const key = document.getElementById('key-input').value.trim()
+        if (!key) return showError('Paste your API key first.')
+        document.getElementById('content').className = 'loading'
+        try {
+          const res = await rpc('connectAccount', key)
+          if (!res.ok) return showError(res.error), (document.getElementById('content').className = ''), render()
+          apiKeyConnected = true
+          render()
+        } catch (e) { showError(e.message || 'Connection failed') } finally {
+          document.getElementById('content').className = ''
+        }
+      }
+    }
+
+    // ─── Quiz picker view ────────────────────────────────────────────────
+    function pickerHtml() {
+      if (quizzes.length === 0) {
+        return '' +
+          '<p class="step-label">Step 2 · Pick a quiz</p>' +
+          '<p class="hint">No quizzes yet. Create one at <a href="https://www.quizotic.live/host/build" target="_blank">quizotic.live/host/build</a>.</p>' +
+          '<button id="refresh-btn" class="btn-ghost">Refresh list</button>' +
+          '<hr style="margin:14px 0;border:none;border-top:1px solid #e5e7eb">' +
+          '<button id="disconnect-btn" class="link">Disconnect account</button>'
+      }
+      const opts = quizzes.map(function (q) { return '<option value="' + q.id + '">' + escapeHtml(q.title) + '</option>' }).join('')
+      return '' +
+        '<p class="step-label">Step 2 · Pick a quiz</p>' +
+        '<select id="quiz-select" size="6"><option value="" disabled selected>Select…</option>' + opts + '</select>' +
+        '<button id="start-btn" class="btn-primary" disabled>Start live session</button>' +
+        '<hr style="margin:14px 0;border:none;border-top:1px solid #e5e7eb">' +
+        '<button id="disconnect-btn" class="link">Disconnect account</button>'
+    }
+    function bindPicker() {
+      const sel = document.getElementById('quiz-select')
+      const startBtn = document.getElementById('start-btn')
+      if (sel) sel.onchange = function () { startBtn.disabled = !sel.value }
+      if (startBtn) startBtn.onclick = async function () {
+        clearError()
+        startBtn.disabled = true
+        try {
+          const res = await rpc('startSession', sel.value)
+          if (!res.ok) { showError(res.error); startBtn.disabled = false; return }
+          activeGameCode = res.gameCode
+          snapshot = res.snapshot || null
+          render()
+          startPolling()
+        } catch (e) { showError(e.message || 'Start failed'); startBtn.disabled = false }
+      }
+      const refreshBtn = document.getElementById('refresh-btn')
+      if (refreshBtn) refreshBtn.onclick = loadQuizzes
+      document.getElementById('disconnect-btn').onclick = async function () {
+        await rpc('disconnectAccount')
+        apiKeyConnected = false
+        quizzes = []
+        render()
+      }
+    }
+    async function loadQuizzes() {
+      try {
+        const res = await rpc('listQuizzes')
+        if (res.error) return showError(res.error)
+        quizzes = res.quizzes || []
+        render()
+      } catch (e) { showError(e.message || 'Failed to load quizzes') }
+    }
+
+    // ─── Active session view ────────────────────────────────────────────
+    function sessionHtml() {
+      const phase = (snapshot && snapshot.phase) || 'lobby'
+      const connected = (snapshot && snapshot.connectedCount) || 0
+      const answered = (snapshot && snapshot.answeredCount) || 0
+      const qi = snapshot ? snapshot.currentQuestionIndex : -1
+      const total = snapshot ? snapshot.totalQuestions : 0
+      let buttons = ''
+      if (phase === 'lobby') {
+        buttons += '<button id="ctrl-start" class="btn-primary">Start quiz</button>'
+      } else if (phase === 'active' || phase === 'question') {
+        buttons += '<button id="ctrl-end-question">Reveal answer</button>'
+        buttons += '<button id="ctrl-next" class="btn-primary">' + (qi + 1 >= total ? 'Finish' : 'Next question →') + '</button>'
+        buttons += '<button id="ctrl-standings" class="btn-ghost">Show standings</button>'
+      }
+      buttons += '<button id="ctrl-end" class="btn-danger">End session</button>'
+      const joinUrl = 'https://www.quizotic.live/join?code=' + activeGameCode
+      return '' +
+        '<div class="session-card">' +
+          '<div class="qr-wrap"><img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=' + encodeURIComponent(joinUrl) + '" width="80" height="80" alt="QR"></div>' +
+          '<div>' +
+            '<div class="session-label">Game code</div>' +
+            '<div class="session-code">' + activeGameCode + '</div>' +
+            '<div class="session-url">quizotic.live/join?code=' + activeGameCode + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="status">' +
+          '<span class="phase phase-' + phase + '">' + phaseLabel(phase) + '</span>' +
+          (total > 0 ? '<span>Q' + (qi + 1) + ' / ' + total + '</span>' : '') +
+        '</div>' +
+        ((phase === 'active' || phase === 'question' || phase === 'lobby') ?
+          '<div class="stats"><div><div class="stat-num">' + connected + '</div><div class="stat-label">live</div></div>' +
+          '<div><div class="stat-num">' + answered + '</div><div class="stat-label">answered</div></div></div>' : '') +
+        '<div class="controls">' + buttons + '</div>'
+    }
+    function phaseLabel(p) {
+      if (p === 'lobby') return '🟢 Lobby'
+      if (p === 'active' || p === 'question') return '▶ Live'
+      if (p === 'standings') return '📊 Standings'
+      if (p === 'ended') return '✓ Ended'
+      return p
+    }
+    function bindSession() {
+      const map = {
+        'ctrl-start': 'start',
+        'ctrl-next': 'next',
+        'ctrl-end-question': 'end_question',
+        'ctrl-standings': 'show_standings',
+        'ctrl-end': 'end',
+      }
+      Object.keys(map).forEach(function (id) {
+        const btn = document.getElementById(id)
+        if (!btn) return
+        btn.onclick = async function () {
+          clearError()
+          try {
+            const res = await rpc('controlSession', map[id])
+            if (!res.ok) return showError(res.error)
+            snapshot = res.snapshot || snapshot
+            if (map[id] === 'end') { stopPolling(); await rpc('clearActiveSession'); activeGameCode = null; snapshot = null; render(); return }
+            render()
+          } catch (e) { showError(e.message || 'Control failed') }
+        }
+      })
+    }
+
+    // ─── Polling (no Socket.IO in Apps Script) ──────────────────────────
+    function startPolling() {
+      stopPolling()
+      pollTimer = setInterval(async function () {
+        try {
+          const res = await rpc('getSnapshot')
+          const newSnap = res.snapshot
+          // Re-render only on phase or count change to avoid flicker.
+          const changed = !snapshot || !newSnap ||
+            snapshot.phase !== newSnap.phase ||
+            snapshot.answeredCount !== newSnap.answeredCount ||
+            snapshot.connectedCount !== newSnap.connectedCount ||
+            snapshot.currentQuestionIndex !== newSnap.currentQuestionIndex
+          snapshot = newSnap
+          if (changed) render()
+          if (newSnap && newSnap.phase === 'ended') stopPolling()
+        } catch (e) { /* swallow — transient poll failure */ }
+      }, 2000)
+    }
+    function stopPolling() { if (pollTimer) clearInterval(pollTimer); pollTimer = null }
+
+    // ─── Init ───────────────────────────────────────────────────────────
+    async function init() {
+      document.getElementById('loading-overlay').style.display = 'block'
+      try {
+        const state = await rpc('getConnectState')
+        apiKeyConnected = state.connected
+        if (apiKeyConnected) {
+          await loadQuizzes()
+          const snap = await rpc('getSnapshot')
+          if (snap.snapshot) {
+            snapshot = snap.snapshot
+            // The snapshot's gameCode is the source of truth for the active
+            // session; the server-side property mirrors it.
+            activeGameCode = snapshot.gameCode
+            startPolling()
+          }
+        }
+        render()
+      } catch (e) {
+        document.getElementById('content').innerHTML = '<div class="error">' + (e.message || 'Init failed') + '</div>'
+      } finally {
+        document.getElementById('loading-overlay').style.display = 'none'
+      }
+    }
+    function escapeHtml(s) {
+      return String(s || '').replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+      })
+    }
+    init()
+  </script>
+</body>
+</html>

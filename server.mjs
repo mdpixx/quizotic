@@ -726,21 +726,62 @@ async function verifyOwnership(table, id, userId) {
   }
 }
 
-// ─── Socket.io auth: verify NextAuth JWT from cookie ──────────
+// ─── Socket.io auth ─────────────────────────────────────────────
+// Two identity paths, tried in order:
+//   1. NextAuth JWT in the session cookie — same-origin host UI (projector +
+//      phone remote) carries this automatically.
+//   2. Bearer API key in socket.handshake.auth.bearer or the Authorization
+//      header — for the Office/Google Slides add-ins, which run in a
+//      cross-origin iframe and can't carry the NextAuth cookie. The key is the
+//      same User.apiKey the public REST API v1 and the MCP server accept.
+// Both paths resolve to a userId attached to socket.data, so every downstream
+// host gate (isHostSocket, ownership checks) works identically.
 async function getSocketUserId(socket) {
+  // Path 1: NextAuth JWT cookie.
   try {
     const secret = process.env.NEXTAUTH_SECRET
-    if (!secret) return null
-    const rawCookie = socket.handshake.headers.cookie
-    if (!rawCookie) return null
-    const cookies = parseCookie(rawCookie)
-    const secureCookie = cookies['__Secure-authjs.session-token']
-    const cookieName = secureCookie ? '__Secure-authjs.session-token' : 'authjs.session-token'
-    const token = cookies[cookieName]
-    if (!token) return null
-    const { decode } = await import('@auth/core/jwt')
-    const decoded = await decode({ token, secret, salt: cookieName })
-    return decoded?.userId || decoded?.sub || null
+    if (secret) {
+      const rawCookie = socket.handshake.headers.cookie
+      if (rawCookie) {
+        const cookies = parseCookie(rawCookie)
+        const secureCookie = cookies['__Secure-authjs.session-token']
+        const cookieName = secureCookie ? '__Secure-authjs.session-token' : 'authjs.session-token'
+        const token = cookies[cookieName]
+        if (token) {
+          const { decode } = await import('@auth/core/jwt')
+          const decoded = await decode({ token, secret, salt: cookieName })
+          const userId = decoded?.userId || decoded?.sub || null
+          if (userId) return userId
+        }
+      }
+    }
+  } catch { /* fall through to Bearer */ }
+
+  // Path 2: Bearer API key. socket.io-client supports io(url, { auth: { token } })
+  // and we accept both the structured auth object and the raw Authorization
+  // header for flexibility.
+  try {
+    const authObj = socket.handshake.auth
+    const header = socket.handshake.headers.authorization
+    let bearer = null
+    if (authObj && typeof authObj === 'object') {
+      // Accept auth.bearer (preferred) or auth.token (socket.io convention).
+      if (typeof authObj.bearer === 'string') bearer = authObj.bearer
+      else if (typeof authObj.token === 'string') bearer = authObj.token
+    }
+    if (!bearer && typeof header === 'string' && header.startsWith('Bearer ')) {
+      bearer = header.slice(7).trim()
+    }
+    if (!bearer) return null
+    // Look up the user by API key. Same lookup as src/lib/api-key-auth.ts —
+    // a plain compare on a unique column, no hashing. dbPool is the same
+    // connection the REST routes use.
+    if (!dbPool) return null
+    const { rows } = await dbPool.query(
+      'SELECT id FROM "User" WHERE "apiKey" = $1 LIMIT 1',
+      [bearer]
+    )
+    return rows[0]?.id || null
   } catch { return null }
 }
 
@@ -1023,6 +1064,29 @@ app.prepare().then(async () => {
   // forward-reference. Set once at boot.
   ioRef = io
 
+  // Expose the live-session control surface to Next.js route handlers. Routes
+  // run in this same process but are bundled separately, so a module export
+  // isn't importable from them — the established globalThis bridge pattern
+  // (see also __quizoticNudgeAsyncSweep) is the cleanest channel. Optional
+  // chaining in src/lib/live-control.ts keeps routes working as no-ops in
+  // tests and any context where the custom server isn't running.
+  globalThis.__quizoticLiveControl = {
+    // Auth + ownership are enforced by the route before calling these; the
+    // functions themselves trust their caller (mirroring how isHostSocket
+    // gates the socket handlers).
+    createLiveSession: createLiveSessionInternal,
+    controlLiveSession: controlLiveSessionInternal,
+    snapshotLiveSession: snapshotLiveSessionInternal,
+    // Public, unauthenticated snapshot — for the on-slide embed view. Strips
+    // PII; safe for any audience observer.
+    publicSnapshotLiveSession: publicSnapshotLiveSessionInternal,
+    // Resolve a 6-digit code to the owning userId (or null) so the routes can
+    // enforce ownership without a second DB hit. Returns null for unknown /
+    // expired sessions.
+    getSessionOwner: (gameCode) => sessions.get(gameCode)?.userId ?? null,
+    hasLiveSession: (gameCode) => sessions.has(gameCode),
+  }
+
   // ─── BOOT REHYDRATION ──────────────────────────────────────────
   // Restore live sessions persisted by the previous process so a redeploy or
   // crash doesn't end games in progress. Ended sessions are skipped; each
@@ -1050,6 +1114,409 @@ app.prepare().then(async () => {
     socket.data.userId = await getSocketUserId(socket)
     next()
   })
+
+  // ─── LIVE-SESSION CONTROL (shared by sockets + HTTP add-in API) ───────
+  // These three functions are the single source of truth for creating,
+  // driving, and snapshotting a live session. The socket handlers below
+  // (create_session, start_quiz, next_question, end_question, show_standings,
+  // end_session) and the HTTP control surface (src/app/api/v1/sessions/*)
+  // both call into them so there is no forked state machine.
+  //
+  // ioRef (the module-level mirror of `io`) is used here instead of `io`
+  // directly so these functions stay reachable from any caller, including
+  // the globalThis bridge the Next.js routes hit. It is set at boot before
+  // any of these are invoked.
+
+  // Create a live quiz session in the in-memory `sessions` Map and start its
+  // state-broadcast loop. `primaryHostSocketId` is optional — the socket
+  // create_session path passes the projector's socket so it becomes the
+  // primary host surface; the HTTP add-in path passes null (the add-in joins
+  // the host room over its own socket, like the phone remote). Returns
+  // { ok, gameCode, hostResumeToken } or { ok: false, error }.
+  async function createLiveSessionInternal({
+    userId,
+    quizData,
+    sessionMode,
+    anonymousMode,
+    teamMode,
+    teamCount,
+    ghostSessionId,
+    displayMode,
+    primaryHostSocketId = null,
+  }) {
+    if (!userId) return { ok: false, error: 'Sign in to host a session.' }
+    if (!quizData || !Array.isArray(quizData.questions) || quizData.questions.length === 0) {
+      return { ok: false, error: 'Quiz has no questions.' }
+    }
+    if (quizData.id) {
+      const ownership = await verifyOwnership('Quiz', quizData.id, userId)
+      if (ownership === 'foreign') return { ok: false, error: 'You do not own this quiz.' }
+    }
+    if (sessions.size >= MAX_CONCURRENT_SESSIONS && evictEndedSessions() === 0) {
+      return { ok: false, error: 'Server capacity reached. Try again in a few minutes.' }
+    }
+
+    let gameCode = generateGameCode()
+    while (sessions.has(gameCode)) gameCode = generateGameCode()
+
+    const teamNames = ['Red', 'Blue', 'Green', 'Yellow', 'Purple', 'Orange']
+    const teamColors = ['#EF4444', '#3B82F6', '#16A34A', '#EAB308', '#7C3AED', '#F97316']
+    const numTeams = Math.min(Math.max(teamCount ?? 2, 2), 6)
+
+    const hostName = await getHostName(userId)
+
+    // Ghost Mode — load top-3 finishers from a past session as synthetic
+    // leaderboard entries the live session competes against asynchronously.
+    let ghostPlayers = []
+    if (ghostSessionId && dbPool) {
+      try {
+        const { rows } = await dbPool.query(
+          'SELECT results FROM "GameSession" WHERE id = $1 AND "userId" = $2',
+          [ghostSessionId, userId]
+        )
+        if (rows[0]?.results) {
+          const pastResults = typeof rows[0].results === 'string'
+            ? JSON.parse(rows[0].results)
+            : rows[0].results
+          const pastLeaderboard = Array.isArray(pastResults.leaderboard) ? pastResults.leaderboard : []
+          const totalQ = quizData.questions.length || 1
+          ghostPlayers = pastLeaderboard.slice(0, 3).map((entry, i) => ({
+            ghostId: `ghost::${i}`,
+            name: `👻 ${entry.name || 'Ghost'}`,
+            finalScore: entry.score || 0,
+            perQuestionScore: Math.round((entry.score || 0) / totalQ),
+            archetype: entry.archetype || 'ghost',
+            score: 0,
+          }))
+        }
+      } catch (err) {
+        console.error('[ghost] failed to load ghost session:', err.message)
+      }
+    }
+
+    const hostResumeToken = randomUUID()
+    sessions.set(gameCode, {
+      hostSocketId: primaryHostSocketId,
+      hostSocketIds: new Set(primaryHostSocketId ? [primaryHostSocketId] : []),
+      hostResumeToken,
+      quizData,
+      currentQuestionIndex: -1,
+      participants: new Map(),
+      status: 'lobby',
+      sessionMode: sessionMode ?? 'competitive',
+      scoringFormula: sessionMode === 'accuracy' ? 'accuracy' : 'classic',
+      displayMode: displayMode ?? 'full-device',
+      anonymousMode: anonymousMode ?? false,
+      teamMode: teamMode ?? false,
+      teamCount: numTeams,
+      teamNames: teamNames.slice(0, numTeams),
+      teamColors: teamColors.slice(0, numTeams),
+      teamJoinCounter: 0,
+      userId,
+      hostName,
+      hostPlan: null,
+      startedAt: Date.now(),
+      ghostPlayers,
+      questionEnded: false,
+      endTimer: null,
+      standingsCadence: sessionMode === 'accuracy'
+        ? 999
+        : (Array.isArray(quizData?.questions) && quizData.questions.some(q => q?.type === 'leaderboard') ? 0 : 3),
+      scoredQuestionsSeen: 0,
+      previousTopThree: [],
+      previousRanks: new Map(),
+      lastStandingsShownAt: 0,
+    })
+
+    // Start the periodic state broadcast right away so the host UI can
+    // reconcile even before the first participant joins. Persist immediately
+    // so a redeploy in the first few seconds still survives.
+    startSessionStateBroadcast(ioRef, gameCode, sessions.get(gameCode))
+    saveSession(gameCode, sessions.get(gameCode))
+    return { ok: true, gameCode, hostResumeToken }
+  }
+
+  // Drive a live session from a host-authorised caller. `actor` is a label
+  // for logs (e.g. 'socket' or 'http:add-in'). Ownership is enforced by the
+  // caller before invoking — this function trusts its caller (the socket
+  // isHostSocket check or the HTTP route's Bearer-userId match).
+  // Returns { ok: true, ...eventDetails } or { ok: false, error }.
+  async function controlLiveSessionInternal({ action, gameCode, actor }) {
+    const session = sessions.get(gameCode)
+    if (!session) return { ok: false, error: 'Session not found.' }
+    const io = ioRef
+
+    if (action === 'start') {
+      if (session.status !== 'lobby') return { ok: false, error: 'Session already started.' }
+      session.status = 'active'
+      presentQuestion(io, gameCode, session, 0)
+      console.log(`[session:${actor}] started: ${gameCode}`)
+      return { ok: true, status: 'active', currentQuestionIndex: session.currentQuestionIndex }
+    }
+
+    if (action === 'next') {
+      const { currentQuestionIndex, quizData } = session
+      if (session.status === 'ended') return { ok: false, error: 'Session has ended.' }
+      if (currentQuestionIndex + 1 >= quizData.questions.length) {
+        // End-of-quiz path — delegate to end action so teardown is unified.
+        return controlLiveSessionInternal({ action: 'end', gameCode, actor })
+      }
+      session.currentQuestionIndex++
+      const prevIndex = currentQuestionIndex
+      if (!session.questionEnded && !isLeaderboardSlide(quizData.questions[prevIndex])) {
+        if (session.endTimer) { clearTimeout(session.endTimer); session.endTimer = null }
+        session.questionEnded = true
+        emitQuestionEnded(io, gameCode, session, prevIndex)
+      }
+      presentQuestion(io, gameCode, session, session.currentQuestionIndex)
+      return { ok: true, status: session.status, currentQuestionIndex: session.currentQuestionIndex }
+    }
+
+    if (action === 'end_question') {
+      if (session.questionEnded) {
+        return { ok: true, ended: false, questionIndex: session.currentQuestionIndex }
+      }
+      session.questionEnded = true
+      if (session.endTimer) { clearTimeout(session.endTimer); session.endTimer = null }
+      emitQuestionEnded(io, gameCode, session, session.currentQuestionIndex)
+      return { ok: true, ended: true, questionIndex: session.currentQuestionIndex }
+    }
+
+    if (action === 'show_standings') {
+      io.to(`session:${gameCode}`).emit('show_standings')
+      return { ok: true }
+    }
+
+    if (action === 'end') {
+      if (session.endTimer) { clearTimeout(session.endTimer); session.endTimer = null }
+      stopSessionStateBroadcast(session)
+      session.questionEnded = true
+      emitQuestionEnded(io, gameCode, session, session.currentQuestionIndex)
+
+      // Reconcile RAM scores against the Answer audit log — protects
+      // participants from a zero-score result on in-memory state loss.
+      const dbTotals = await recomputeScoresFromAnswers(session.dbId)
+      if (dbTotals && dbTotals.size > 0) {
+        for (const p of session.participants.values()) {
+          const dbScore = p.participantId ? dbTotals.get(p.participantId) : undefined
+          if (dbScore !== undefined && dbScore > (p.score || 0)) {
+            console.warn(`[recover:${actor}] code=${gameCode} pid=${p.participantId} ram=${p.score} db=${dbScore} -> using db`)
+            p.score = dbScore
+          }
+        }
+      }
+
+      const leaderboard = buildLeaderboard(session.participants)
+      const teamLeaderboard = buildTeamLeaderboard(session)
+      const questionStats = buildQuestionStats(session)
+      session.status = 'ended'
+      io.to(`session:${gameCode}`).emit('session_ended', {
+        leaderboard,
+        teamLeaderboard,
+        sessionMode: session.sessionMode,
+        // Participants already exclude questionStats; the host socket emits
+        // in the socket path get the fuller payload. The HTTP path sends the
+        // same shape to the room and lets each socket's listener decide.
+        questionStats,
+      })
+      console.log(`[session:${actor}] ended: ${gameCode}`)
+
+      if (session.dbId) {
+        const updates = []
+        for (const p of session.participants.values()) {
+          if (!p.attendeeId) continue
+          updates.push(finalizeAttendee(p.attendeeId, {
+            joinedAt: p.joinedAt,
+            finalScore: p.score || 0,
+            team: p.team?.name || null,
+          }).catch(console.error))
+        }
+        await Promise.all(updates)
+      }
+
+      persistGameSession({
+        code: gameCode,
+        type: 'quiz',
+        quizId: session.quizData.id || null,
+        presentationId: null,
+        userId: session.userId,
+        hostName: session.hostName || null,
+        status: 'ended',
+        participantCount: realParticipantCount(session.participants),
+        sessionId: session.dbId || null,
+        results: {
+          leaderboard,
+          teamLeaderboard,
+          questionStats,
+          quizTitle: session.quizData.title,
+          questionCount: session.quizData.questions.length,
+          maxScore: computeMaxScore(session),
+          duration: Math.round((Date.now() - (session.startedAt || Date.now())) / 1000),
+        },
+      })
+      scheduleEndedSessionCleanup(gameCode, session)
+      return { ok: true, status: 'ended' }
+    }
+
+    return { ok: false, error: `Unknown action: ${action}` }
+  }
+
+  // Build a public-safe snapshot for a live session. Contains no answers, no
+  // correct-answer keys, no participant PII beyond display names — the same
+  // surface the host projector already renders. Used by the Google Slides
+  // add-on (polling) and any HTTP observer.
+  function snapshotLiveSessionInternal(gameCode) {
+    const session = sessions.get(gameCode)
+    if (!session) return null
+    const qi = session.currentQuestionIndex ?? -1
+    const total = session.quizData?.questions?.length ?? 0
+    const questionRaw = qi >= 0 ? session.quizData.questions[qi] : null
+
+    // Strip correct-answer material from the live question — the snapshot
+    // is a read-only observer view, not a scoring surface. Mirrors what
+    // presentQuestion emits to participants (sanitizeQuestion + the public
+    // field set). For non-scored phases (lobby, standings), question is null.
+    let publicQuestion = null
+    if (questionRaw && !session.questionEnded && !isLeaderboardSlide(questionRaw)) {
+      const sanitized = sanitizeQuestion(questionRaw)
+      publicQuestion = {
+        id: sanitized.id,
+        type: sanitized.type,
+        text: sanitized.text,
+        imageUrl: sanitized.imageUrl ?? null,
+        timerSeconds: sanitized.timerSeconds ?? 20,
+        points: sanitized.points ?? 1000,
+        options: Array.isArray(sanitized.options)
+          ? sanitized.options.map((o) => ({
+              text: typeof o === 'string' ? o : (o?.text ?? ''),
+              imageUrl: typeof o === 'object' && o ? o.imageUrl ?? null : null,
+            }))
+          : [],
+        // Ranking questions shuffle the display order per session; expose the
+        // shuffled order so an observer renders the same layout participants see.
+        rankingShuffle: session.currentRankingShuffleMap ?? null,
+      }
+    }
+
+    // Per-option answer tallies + total answered — same O(1) counters the host
+    // bar chart reads. For lobby/standings phases these are null.
+    let optionCounts = null
+    let answeredCount = 0
+    if (publicQuestion && qi >= 0) {
+      const optCounts = getAnswerOptionCounts(session, qi)
+      const total = getAnswerCount(session, qi)
+      if (Array.isArray(optCounts)) optionCounts = optCounts
+      answeredCount = typeof total === 'number' && total >= 0 ? total : countAnswers(session, qi)
+    }
+
+    return {
+      gameCode,
+      phase: session.status, // 'lobby' | 'active' | 'ended'
+      questionEnded: !!session.questionEnded,
+      type: session.type || 'quiz',
+      title: String(session.quizData?.title || session.presentationData?.title || 'Untitled'),
+      currentQuestionIndex: qi,
+      totalQuestions: total,
+      question: publicQuestion,
+      optionCounts,
+      answeredCount,
+      connectedCount: getConnectedCount(session),
+      // Top-5 leaderboard preview — already public on the projector.
+      // buildLeaderboardSnapshot excludes participantId and answer payloads,
+      // so this is the same surface the room sees between questions.
+      leaderboard: buildLeaderboardSnapshot(session.participants, 5)
+        .map((e) => ({
+          rank: e.rank,
+          name: e.name,
+          archetype: e.archetype,
+          score: e.score,
+          team: e.team ?? null,
+        })),
+      teamLeaderboard: buildTeamLeaderboard(session),
+      serverTimestamp: Date.now(),
+      // Question window (absolute server clock) so a polling observer can
+      // render a countdown without a socket subscription.
+      questionEndsAt: session.questionEndsAt ?? null,
+      questionStartedAt: session.questionStartedAt ?? null,
+    }
+  }
+
+  // Public, unauthenticated snapshot for the on-slide embed view
+  // (/embed/session/:code). This is the audience-facing surface — it shows
+  // exactly what participants already see on their phones plus the join QR.
+  // Strips vs the owner snapshot: no leaderboard entries (only a count), no
+  // team leaderboard, no title beyond what session-exists already exposes.
+  // The question payload mirrors what presentQuestion emits to participants
+  // (sanitizeQuestion strips correct-answer material).
+  function publicSnapshotLiveSessionInternal(gameCode) {
+    const session = sessions.get(gameCode)
+    if (!session) return null
+    if (session.status === 'ended') {
+      return {
+        gameCode,
+        phase: 'ended',
+        title: String(session.quizData?.title || session.presentationData?.title || 'Quiz ended'),
+        connectedCount: 0,
+        totalParticipants: realParticipantCount(session.participants),
+        question: null,
+        optionCounts: null,
+        answeredCount: 0,
+        currentQuestionIndex: session.currentQuestionIndex ?? -1,
+        totalQuestions: session.quizData?.questions?.length ?? 0,
+        serverTimestamp: Date.now(),
+      }
+    }
+    const qi = session.currentQuestionIndex ?? -1
+    const total = session.quizData?.questions?.length ?? 0
+    const questionRaw = qi >= 0 ? session.quizData.questions[qi] : null
+    const isLobby = session.status === 'lobby'
+    const isStandings = !isLobby && (session.questionEnded || isLeaderboardSlide(questionRaw))
+
+    let publicQuestion = null
+    if (questionRaw && !isLobby && !isStandings) {
+      const sanitized = sanitizeQuestion(questionRaw)
+      publicQuestion = {
+        id: sanitized.id,
+        type: sanitized.type,
+        text: sanitized.text,
+        imageUrl: sanitized.imageUrl ?? null,
+        timerSeconds: sanitized.timerSeconds ?? 20,
+        points: sanitized.points ?? 1000,
+        options: Array.isArray(sanitized.options)
+          ? sanitized.options.map((o) => ({
+              text: typeof o === 'string' ? o : (o?.text ?? ''),
+              imageUrl: typeof o === 'object' && o ? o.imageUrl ?? null : null,
+            }))
+          : [],
+        rankingShuffle: session.currentRankingShuffleMap ?? null,
+      }
+    }
+
+    let optionCounts = null
+    let answeredCount = 0
+    if (publicQuestion && qi >= 0) {
+      const optCounts = getAnswerOptionCounts(session, qi)
+      const total = getAnswerCount(session, qi)
+      if (Array.isArray(optCounts)) optionCounts = optCounts
+      answeredCount = typeof total === 'number' && total >= 0 ? total : countAnswers(session, qi)
+    }
+
+    return {
+      gameCode,
+      phase: isLobby ? 'lobby' : (isStandings ? 'standings' : 'question'),
+      title: String(session.quizData?.title || session.presentationData?.title || 'Live quiz'),
+      connectedCount: getConnectedCount(session),
+      totalParticipants: realParticipantCount(session.participants),
+      question: publicQuestion,
+      optionCounts,
+      answeredCount,
+      currentQuestionIndex: qi,
+      totalQuestions: total,
+      questionEndsAt: session.questionEndsAt ?? null,
+      questionStartedAt: session.questionStartedAt ?? null,
+      serverTimestamp: Date.now(),
+    }
+  }
 
   io.on('connection', (socket) => {
     console.log(`[socket] connected: ${socket.id} (user: ${socket.data.userId ?? 'anonymous'})`)
@@ -1083,96 +1550,27 @@ app.prepare().then(async () => {
         callback({ success: false, error: 'Server capacity reached. Try again in a few minutes.' })
         return
       }
-      let gameCode = generateGameCode()
-      while (sessions.has(gameCode)) gameCode = generateGameCode()
-
-      const teamNames = ['Red', 'Blue', 'Green', 'Yellow', 'Purple', 'Orange']
-      const teamColors = ['#EF4444', '#3B82F6', '#16A34A', '#EAB308', '#7C3AED', '#F97316']
-      const numTeams = Math.min(Math.max(teamCount ?? 2, 2), 6)
-
-      const hostName = await getHostName(socket.data.userId)
-
-      // Load ghost players from a past session if requested (Ghost Mode).
-      let ghostPlayers = []
-      if (ghostSessionId && dbPool) {
-        try {
-          const { rows } = await dbPool.query(
-            'SELECT results FROM "GameSession" WHERE id = $1 AND "userId" = $2',
-            [ghostSessionId, socket.data.userId || null]
-          )
-          if (rows[0]?.results) {
-            const pastResults = typeof rows[0].results === 'string'
-              ? JSON.parse(rows[0].results)
-              : rows[0].results
-            const pastLeaderboard = Array.isArray(pastResults.leaderboard) ? pastResults.leaderboard : []
-            const totalQ = quizData.questions.length || 1
-            ghostPlayers = pastLeaderboard.slice(0, 3).map((entry, i) => ({
-              ghostId: `ghost::${i}`,
-              name: `👻 ${entry.name || 'Ghost'}`,
-              finalScore: entry.score || 0,
-              perQuestionScore: Math.round((entry.score || 0) / totalQ),
-              archetype: entry.archetype || 'ghost',
-              score: 0,
-            }))
-          }
-        } catch (err) {
-          console.error('[ghost] failed to load ghost session:', err.message)
-        }
-      }
-
-      const hostResumeToken = randomUUID()
-      sessions.set(gameCode, {
-        hostSocketId: socket.id,
-        hostSocketIds: new Set([socket.id]), // Two-screen host model (projector + remote)
-        hostResumeToken,         // Layer 3.3 — used by host_resume to reclaim session
+      const created = await createLiveSessionInternal({
+        userId: socket.data.userId,
         quizData,
-        currentQuestionIndex: -1,
-        participants: new Map(), // socketId → { name, archetype, score, answers, team }
-        status: 'lobby',
-        sessionMode: sessionMode ?? 'competitive',
-        // Accuracy mode = competitive flow but flat scoring (100 per correct,
-        // no speed bonus, no streak). Defaults to classic for everything else.
-        scoringFormula: sessionMode === 'accuracy' ? 'accuracy' : 'classic',
-        displayMode: displayMode ?? 'full-device',
-        anonymousMode: anonymousMode ?? false,
-        teamMode: teamMode ?? false,
-        teamCount: numTeams,
-        teamNames: teamNames.slice(0, numTeams),
-        teamColors: teamColors.slice(0, numTeams),
-        teamJoinCounter: 0,
-        userId: socket.data.userId || null,
-        hostName,
-        hostPlan: null,
-        startedAt: Date.now(),
-        ghostPlayers,            // Ghost Mode — synthetic leaderboard entries
-        // Auto-end bookkeeping — per the "lower of two" rule (timer expires
-        // OR all active participants answered). Reset on each question_show.
-        questionEnded: false,
-        endTimer: null,
-        // Standings-cadence + top-movers bookkeeping (Phase 1). scoringFormula
-        // is set above based on sessionMode (accuracy → 'accuracy', else
-        // 'classic') so we don't redeclare it here.
-        // Host-placed leaderboard slides drive standings → disable the auto every-Nth
-        // recommendation so the two don't double up.
-        standingsCadence: sessionMode === 'accuracy'
-          ? 999
-          : (Array.isArray(quizData?.questions) && quizData.questions.some(q => q?.type === 'leaderboard') ? 0 : 3),
-        scoredQuestionsSeen: 0,
-        previousTopThree: [],
-        previousRanks: new Map(),
-        lastStandingsShownAt: 0,
+        sessionMode,
+        anonymousMode,
+        teamMode,
+        teamCount,
+        ghostSessionId,
+        displayMode,
+        // Socket-created sessions are bound to the creating socket so the
+        // projector becomes the primary host surface (matches prior behaviour).
+        primaryHostSocketId: socket.id,
       })
-
+      if (!created.ok) {
+        callback({ success: false, error: created.error })
+        return
+      }
+      const { gameCode, hostResumeToken } = created
       socket.join(`session:${gameCode}`)
       socket.join(`host:${gameCode}`)
-      // Start the periodic state broadcast right away so the host UI can
-      // reconcile even before the first participant joins.
-      startSessionStateBroadcast(io, gameCode, sessions.get(gameCode))
-      // Persist immediately so a redeploy in the first few seconds (before the
-      // throttled broadcast snapshot) still survives. Best-effort — never block
-      // the host on Redis.
-      saveSession(gameCode, sessions.get(gameCode))
-      console.log(`[session] created: ${gameCode}${teamMode ? ` (teams: ${numTeams})` : ''}`)
+      console.log(`[session] created: ${gameCode}${teamMode ? ` (teams: ${teamCount ?? 2})` : ''}`)
       callback({ success: true, gameCode, hostResumeToken })
     })
 
