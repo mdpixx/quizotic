@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<OfficeApp
+  xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+  xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
+  xsi:type="TaskPaneApp">
+  <!--
+    Quizotic PowerPoint add-in manifest.
+
+    Points the taskpane at https://www.quizotic.live/embed/taskpane. The
+    taskpane is a Next.js page served by the same deployment — no separate
+    hosting. Office.js loads from Microsoft's CDN inside the taskpane iframe.
+
+    During slideshow, the taskpane writes the active gameCode onto the
+    document settings and the host (or an on-slide content control) swaps the
+    placeholder image for a live iframe at /embed/session/<code>.
+
+    Sideload this manifest for local testing with the Office manifest
+    validator / yeoman generator, or upload it to the org catalog / AppSource
+    for distribution. See docs/addin-office-deploy.md.
+  -->
+  <Id>8c7b3a2e-1f4d-4e6b-9c2a-7d5f3e8b1a04</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>Quizotic</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="Quizotic" />
+  <Description DefaultValue="Run live quizzes and polls inside your PowerPoint deck — no screen-switching." />
+  <IconUrl DefaultValue="https://www.quizotic.live/icons/icon-192.png" />
+  <HighResolutionIconUrl DefaultValue="https://www.quizotic.live/icons/icon-512.png" />
+  <SupportUrl DefaultValue="https://www.quizotic.live/help" />
+
+  <AppDomains>
+    <AppDomain>https://www.quizotic.live</AppDomain>
+  </AppDomains>
+
+  <Hosts>
+    <Host Name="Presentation" />
+  </Hosts>
+
+  <DefaultSettings>
+    <SourceLocation DefaultValue="https://www.quizotic.live/embed/taskpane" />
+  </DefaultSettings>
+
+  <Permissions>ReadWriteDocument</Permissions>
+
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Hosts>
+      <Host xsi:type="Presentation">
+        <DesktopFormFactor>
+          <GetStarted>
+            <Title resid="GetStarted.Title" />
+            <Description resid="GetStarted.Description" />
+            <LearnMoreUrl resid="GetStarted.LearnMoreUrl" />
+          </GetStarted>
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            <OfficeTab id="TabHome">
+              <Group id="Quizotic.Group">
+                <Label resid="GroupLabel" />
+                <Icon>
+                  <bt:Image size="16" resid="Icon.16x16" />
+                  <bt:Image size="32" resid="Icon.32x32" />
+                  <bt:Image size="80" resid="Icon.80x80" />
+                </Icon>
+                <Control xsi:type="Button" id="Quizotic.OpenTaskpane">
+                  <Label resid="TaskpaneButton.Label" />
+                  <Supertip>
+                    <Title resid="TaskpaneButton.Label" />
+                    <Description resid="TaskpaneButton.Tooltip" />
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16x16" />
+                    <bt:Image size="32" resid="Icon.32x32" />
+                    <bt:Image size="80" resid="Icon.80x80" />
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <TaskpaneId>Quizotic.Taskpane</TaskpaneId>
+                    <SourceLocation resid="Taskpane.Url" />
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+
+    <Resources>
+      <bt:Images>
+        <bt:Image id="Icon.16x16" DefaultValue="https://www.quizotic.live/icons/icon-192.png" />
+        <bt:Image id="Icon.32x32" DefaultValue="https://www.quizotic.live/icons/icon-192.png" />
+        <bt:Image id="Icon.80x80" DefaultValue="https://www.quizotic.live/icons/icon-512.png" />
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://www.quizotic.live/help" />
+        <bt:Url id="Taskpane.Url" DefaultValue="https://www.quizotic.live/embed/taskpane" />
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="GetStarted.Title" DefaultValue="Run live quizzes in PowerPoint" />
+        <bt:String id="GroupLabel" DefaultValue="Quizotic" />
+        <bt:String id="TaskpaneButton.Label" DefaultValue="Open Quizotic" />
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="GetStarted.Description" DefaultValue="Connect your Quizotic account, pick a quiz, and run it live — participants join from their phones, results stream back to your slide." />
+        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Open the Quizotic taskpane to start a live quiz on this slide." />
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>
