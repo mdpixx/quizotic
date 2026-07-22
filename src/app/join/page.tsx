@@ -1845,14 +1845,18 @@ function JoinPageInner() {
         <style>{`
           .join-premium-root {
             position: relative; z-index: 0; color: #0F1B3D;
-            padding: max(10px, env(safe-area-inset-top)) max(17px, env(safe-area-inset-right)) max(17px, env(safe-area-inset-bottom)) max(17px, env(safe-area-inset-left));
+            display:flex; align-items:center; justify-content:center;
+            padding: max(20px, env(safe-area-inset-top)) max(17px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(17px, env(safe-area-inset-left));
             background: radial-gradient(circle at 52% -18%, rgba(92,119,191,.7), transparent 32rem), radial-gradient(circle at 92% 74%, rgba(50,75,142,.3), transparent 24rem), linear-gradient(180deg, #172651 0%, #0F1B3D 100%);
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, "Segoe UI", system-ui, sans-serif;
           }
           .join-premium-root::before { content:""; position:fixed; top:-490px; left:50%; z-index:0; width:650px; height:650px; border:1px solid rgba(255,255,255,.1); border-radius:50%; box-shadow:0 0 0 72px rgba(255,255,255,.035),0 0 0 144px rgba(255,255,255,.025); transform:translateX(-50%); pointer-events:none; }
           .join-premium-root::after { content:""; position:fixed; right:-180px; bottom:-210px; z-index:0; width:420px; height:420px; border-radius:50%; background:rgba(68,95,166,.2); filter:blur(56px); pointer-events:none; }
-          .jp-layout { position:relative; z-index:1; width:min(100%,480px); margin:0 auto; }
-          .jp-wordmark { display:flex; justify-content:center; width:fit-content; margin:0 auto 12px; color:#fff; font-size:26px; font-weight:800; line-height:1.08; letter-spacing:-.055em; text-decoration:none; text-shadow:0 5px 22px rgba(4,9,27,.34); }
+          .jp-layout { position:relative; z-index:1; display:flex; flex-direction:column; width:min(100%,480px); margin:0 auto; }
+          .jp-wordmark { display:flex; justify-content:center; width:fit-content; margin:0 auto 20px; color:#fff; text-decoration:none; text-shadow:0 6px 26px rgba(4,9,27,.42); transition:transform .18s cubic-bezier(.2,.8,.2,1); }
+          .jp-wordmark:hover { transform:translateY(-1px) scale(1.015); }
+          .jp-wordmark:focus-visible { outline:3px solid #FBD13B; outline-offset:6px; border-radius:12px; }
+          .jp-wordmark-type { font-size:clamp(32px,9vw,38px); line-height:1; letter-spacing:-.01em; }
           .jp-card { position:relative; width:100%; padding:22px 22px 20px; overflow:hidden; background:linear-gradient(180deg,#fff 0%,#fbfcff 100%); border:1px solid rgba(255,255,255,.92); border-radius:24px; box-shadow:0 30px 80px rgba(3,8,24,.28),0 7px 20px rgba(3,8,24,.16),inset 0 1px 0 rgba(255,255,255,.95); }
           .jp-card::before { content:""; position:absolute; top:0; left:18%; width:64%; height:2px; background:linear-gradient(90deg,transparent,rgba(38,56,111,.22),transparent); pointer-events:none; }
           .jp-header { display:grid; grid-template-columns:minmax(0,1fr) 58px; align-items:center; gap:12px; margin-bottom:16px; }
@@ -1878,8 +1882,13 @@ function JoinPageInner() {
           .jp-code::placeholder { color:#9CA4B3; }
           .jp-code-help { margin:7px 2px 0; color:#596680; font-size:12px; font-weight:600; }
           .jp-manual-session { margin-top:12px; margin-bottom:0; background:#E9F7EE; border-color:#B6DFC3; }
-          .jp-email-toggle { margin:13px 2px 0; padding:6px 0; color:#26386F; background:none; border:0; border-radius:5px; cursor:pointer; font-size:14px; font-weight:750; text-decoration:underline; text-decoration-color:#AAB5C7; text-underline-offset:3px; }
+          .jp-email-toggle { display:inline-flex; align-items:center; gap:7px; margin:14px 0 0; padding:8px 13px; color:#26386F; background:#F2F5FB; border:1px solid #D8E1F2; border-radius:999px; cursor:pointer; font-size:13.5px; font-weight:700; letter-spacing:-.005em; transition:background .15s ease,border-color .15s ease; }
+          .jp-email-toggle:hover { background:#E9EFFA; border-color:#C2D0E9; }
           .jp-email-toggle:focus-visible { outline:3px solid #FBD13B; outline-offset:3px; }
+          .jp-email-toggle-icon { display:grid; place-items:center; width:16px; height:16px; color:#5A6A93; font-size:15px; font-weight:600; line-height:1; }
+          .jp-email-collapse { display:flex; align-items:center; gap:6px; margin:8px 0 0; padding:4px 2px; color:#7A85A0; background:none; border:0; cursor:pointer; font-size:12.5px; font-weight:650; }
+          .jp-email-collapse:hover { color:#26386F; }
+          .jp-email-collapse:focus-visible { outline:3px solid #FBD13B; outline-offset:2px; border-radius:6px; }
           .jp-error { margin:14px 0 0; padding:10px 12px; color:#B42318; background:#FFF0EE; border:1px solid #EFB8B1; border-radius:11px; font-size:14px; font-weight:700; }
           .jp-submit { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-height:50px; margin-top:18px; padding:12px 18px; color:#0F1B3D; background:linear-gradient(180deg,#FFE36B 0%,#FBD13B 78%); border:1px solid #D8AE1F; border-radius:12px; box-shadow:0 10px 24px rgba(216,174,31,.25),0 3px 7px rgba(15,27,61,.11),inset 0 1px 0 rgba(255,255,255,.6); cursor:pointer; font-size:16px; font-weight:800; letter-spacing:-.015em; transition:filter .12s ease,transform .12s ease,box-shadow .12s ease; }
           .jp-submit:hover:not(:disabled) { filter:brightness(1.03); transform:translateY(-1px); }
@@ -1887,11 +1896,14 @@ function JoinPageInner() {
           .jp-submit:focus-visible { outline:4px solid #26386F; outline-offset:3px; }
           .jp-submit:disabled { cursor:wait; opacity:.7; }
           .jp-privacy { margin:15px 0 0; color:#6D7890; font-size:13px; font-weight:600; text-align:center; }
-          .jp-footer { margin:13px 0 0; color:rgba(255,255,255,.64); font-size:12px; font-weight:600; text-align:center; }
-          .jp-footer strong { color:rgba(255,255,255,.9); }
+          .jp-footer { margin:16px 0 0; color:rgba(255,255,255,.6); font-size:12.5px; font-weight:600; text-align:center; }
+          .jp-footer-link { color:rgba(255,255,255,.92); font-weight:750; text-decoration:none; border-bottom:1px solid rgba(255,255,255,.28); padding-bottom:1px; transition:color .15s ease,border-color .15s ease; }
+          .jp-footer-link:hover { color:#FBD13B; border-color:rgba(251,209,59,.55); }
+          .jp-footer-link:focus-visible { outline:3px solid #FBD13B; outline-offset:3px; border-radius:4px; }
           @media (max-width:380px) {
             .join-premium-root { padding-left:12px; padding-right:12px; }
-            .jp-wordmark { margin-bottom:10px; font-size:24px; }
+            .jp-wordmark { margin-bottom:16px; }
+            .jp-wordmark-type { font-size:30px; }
             .jp-card { padding:20px 17px 18px; border-radius:22px; }
             .jp-header { grid-template-columns:minmax(0,1fr) 54px; gap:10px; margin-bottom:14px; }
             .jp-smiley { width:54px; height:54px; }
@@ -1905,7 +1917,8 @@ function JoinPageInner() {
           }
           @media (max-height:700px) and (max-width:600px) {
             .join-premium-root { padding-top:max(7px,env(safe-area-inset-top)); padding-bottom:max(10px,env(safe-area-inset-bottom)); }
-            .jp-wordmark { margin-bottom:8px; font-size:23px; }
+            .jp-wordmark { margin-bottom:12px; }
+            .jp-wordmark-type { font-size:28px; }
             .jp-card { padding-top:16px; padding-bottom:14px; }
             .jp-header { grid-template-columns:minmax(0,1fr) 50px; margin-bottom:10px; }
             .jp-status { margin-bottom:3px; }
@@ -1937,7 +1950,7 @@ function JoinPageInner() {
 
         <div className="jp-layout">
           <a href="https://www.quizotic.live" className="jp-wordmark" aria-label="Quizotic home">
-            <QuizoticLogo crisp variant="onDark" className="text-[26px] leading-none" />
+            <QuizoticLogo playful variant="onDark" className="jp-wordmark-type" />
           </a>
 
           <section className="jp-card" aria-labelledby="join-title">
@@ -2027,11 +2040,18 @@ function JoinPageInner() {
               </div>
 
               {!showEmailInput ? (
-                <button type="button" onClick={() => setShowEmailInput(true)} className="jp-email-toggle">
-                  ＋ Add email (optional)
+                <button
+                  type="button"
+                  onClick={() => setShowEmailInput(true)}
+                  className="jp-email-toggle"
+                  aria-expanded={false}
+                  aria-controls="join-email-field"
+                >
+                  <span className="jp-email-toggle-icon" aria-hidden="true">+</span>
+                  Add email <span style={{ color: '#7A85A0', fontWeight: 600 }}>(optional)</span>
                 </button>
               ) : (
-                <div className="jp-field">
+                <div className="jp-field" id="join-email-field">
                   <label className="jp-label" htmlFor="join-player-email">
                     <span>Email</span><span className="jp-hint">Optional</span>
                   </label>
@@ -2045,7 +2065,17 @@ function JoinPageInner() {
                     disabled={phase === 'connecting'}
                     className="jp-control"
                     maxLength={120}
+                    autoFocus
                   />
+                  <button
+                    type="button"
+                    onClick={() => { setEmail(''); setShowEmailInput(false) }}
+                    className="jp-email-collapse"
+                    aria-expanded
+                    aria-controls="join-email-field"
+                  >
+                    <span aria-hidden="true">×</span> Skip email
+                  </button>
                 </div>
               )}
 
@@ -2058,7 +2088,10 @@ function JoinPageInner() {
             </form>
           </section>
 
-          <p className="jp-footer">No app needed · <strong>quizotic.live</strong></p>
+          <p className="jp-footer">
+            No app needed ·{' '}
+            <a href="https://www.quizotic.live" className="jp-footer-link">Quizotic.live</a>
+          </p>
         </div>
       </div>
     )
