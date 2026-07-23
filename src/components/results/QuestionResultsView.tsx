@@ -119,8 +119,9 @@ function WordCloud({ stat, mode, className }: RendererProps) {
   if (entries.length === 0) return <EmptyState label="No words submitted yet" className={className} />
 
   const max = Math.max(...entries.map(([, n]) => n), 1)
-  // Light, Mentimeter-style palette — same set used by the live presentation cloud.
-  const palette = ['#7C82FF', '#FF8A8A', '#5DB6E5', '#F4A582', '#B19CD9', '#FFB088', '#94B3D1', '#F2A9C0']
+  // Mentimeter-style palette — same set used by the live presentation cloud
+  // (HostWordCloud.tsx). Keep the two in sync.
+  const palette = ['#4F46E5', '#EF5A4C', '#0E7490', '#D97706', '#7C3AED', '#059669', '#DB2777', '#2563EB']
   const isLive = mode === 'live'
 
   return (
