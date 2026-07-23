@@ -343,6 +343,27 @@ model Feedback {
   @@index([status])
 }
 
+// ─── SessionFeedback (post-session smiley rating) ────────────────
+// One-tap 1–5 smiley captured at the end of a live/self-paced session, from
+// both hosts and participants. Deliberately ANONYMOUS: no participantId / name
+// is stored — only role + (optional) session reference — so participant rows
+// stay clean under India's DPDP Act (under-18s need no consent for anonymous,
+// non-identifying sentiment). `email` is host-only and optional.
+model SessionFeedback {
+  id          String   @id @default(cuid())
+  sessionId   String?  // GameSession.id when resolvable from the room code
+  sessionCode String?  // room code as submitted by the client (fallback)
+  role        String   // 'host' | 'participant'
+  rating      Int      // 1..5 (1 = very unhappy, 5 = loved it)
+  reasons     String[] @default([]) // optional quick-reason chips
+  comment     String?  // optional free text (only shown after a tap)
+  email       String?  // host-only, optional reply address
+  createdAt   DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
 // ─── Testimonials (invite-only customer stories) ─────────────────
 model TestimonialInvite {
   id          String   @id @default(cuid())

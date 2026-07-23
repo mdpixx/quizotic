@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quizotic — Session Feedback Flow (mockup)</title>
+<style>
+  :root{
+    --yellow:#FBD13B; --yellow-dark:#E0A800; --navy:#0F1B3D; --ink:#0D0D0D;
+    --paper:#FFF9EC; --paper2:#FFFFFF; --muted:#6B7280; --faint:#9CA3AF;
+    --line:#E5E7EB; --green:#16A34A; --red:#DC2626;
+    --font:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:linear-gradient(160deg,#12224d,#0F1B3D 60%,#0a1330);
+    font-family:var(--font);color:var(--navy);min-height:100vh;
+    display:flex;flex-direction:column;align-items:center;padding:24px 12px 48px}
+  .head{color:#fff;text-align:center;max-width:560px;margin-bottom:18px}
+  .head h1{margin:0 0 6px;font-size:20px;letter-spacing:.2px}
+  .head p{margin:0;color:#c7d0e6;font-size:13px;line-height:1.5}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:14px 0 22px}
+  .toolbar button{font-family:var(--font);font-weight:800;font-size:12.5px;cursor:pointer;
+    border-radius:999px;padding:9px 15px;border:2px solid rgba(255,255,255,.25);
+    background:rgba(255,255,255,.06);color:#fff;transition:.15s}
+  .toolbar button:hover{background:rgba(255,255,255,.14)}
+  .toolbar button.active{background:var(--yellow);color:var(--ink);border-color:var(--ink)}
+
+  /* phone */
+  .phone{width:390px;max-width:96vw;background:var(--paper);border-radius:40px;
+    border:10px solid #05070f;box-shadow:0 30px 70px rgba(0,0,0,.5);overflow:hidden;position:relative}
+  .notch{height:26px;background:#05070f;border-radius:0 0 18px 18px;width:150px;margin:0 auto;position:relative;z-index:5}
+  .screen{padding:16px 16px 26px;min-height:660px;display:flex;flex-direction:column}
+  /* Quizotic wordmark IS the logo — no icon/mark. */
+  .brand{font-weight:900;font-size:17px;color:var(--navy);letter-spacing:-.4px;display:flex;align-items:baseline}
+  .brand .q{color:var(--ink)}
+  .brand .rest{color:var(--navy)}
+  .brand .tic{color:var(--yellow-dark)}
+
+  /* result / podium */
+  .result{text-align:center;margin-top:8px}
+  .eyebrow{font-size:10.5px;font-weight:900;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+  .result h2{font-size:26px;font-weight:900;color:var(--navy);margin:4px 0 2px}
+  .pts{font-size:17px;font-weight:900;color:var(--yellow-dark);margin:0}
+  .podium{display:flex;justify-content:center;align-items:flex-end;gap:8px;margin:16px 0 4px;height:118px}
+  .bar{width:66px;border-radius:12px 12px 0 0;border:2px solid var(--ink);display:flex;flex-direction:column;
+    align-items:center;justify-content:flex-start;padding-top:8px;position:relative}
+  .bar .medal{font-size:22px;position:absolute;top:-26px}
+  .bar .nm{font-size:11px;font-weight:800;color:var(--ink);margin-top:2px}
+  .bar.first{height:110px;background:var(--yellow)}
+  .bar.second{height:82px;background:#e9edf6}
+  .bar.third{height:64px;background:#f6d9b8}
+  .you{margin-top:12px;background:var(--paper2);border:1px solid var(--line);border-radius:16px;
+    padding:12px 14px;display:flex;align-items:center;justify-content:space-between}
+  .you .r{font-weight:900;color:var(--navy)}
+  .you .s{font-weight:900;color:var(--yellow-dark)}
+
+  /* generic card */
+  .card{background:var(--paper2);border:1px solid var(--line);border-radius:22px;padding:18px 16px;
+    box-shadow:0 1px 2px rgba(15,27,61,.05);margin-top:16px}
+  .card.enter{animation:slideup .5s cubic-bezier(.2,.8,.2,1) both}
+  @keyframes slideup{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+  .hide{display:none!important}
+
+  .fbTitle{text-align:center;font-weight:900;font-size:17px;color:var(--navy);margin:0 0 2px}
+  .fbSub{text-align:center;font-size:12.5px;color:var(--muted);margin:0 0 14px}
+
+  /* smiley strip */
+  .faces{display:flex;justify-content:space-between;gap:6px}
+  .face{flex:1;background:transparent;border:none;cursor:pointer;padding:6px 2px;border-radius:14px;
+    display:flex;flex-direction:column;align-items:center;gap:6px;transition:.16s}
+  .face svg{width:44px;height:44px;transition:transform .16s, filter .16s;filter:grayscale(.35) opacity(.9)}
+  .face .lbl{font-size:10.5px;font-weight:800;color:var(--faint);transition:.16s}
+  .face:hover svg{transform:translateY(-2px) scale(1.06)}
+  .face.sel svg{transform:scale(1.22);filter:none}
+  .face.sel .lbl{color:var(--navy)}
+  .face.dim{opacity:.4}
+
+  /* follow-up */
+  .followup{margin-top:16px}
+  .thanks{text-align:center;font-weight:900;color:var(--green);font-size:14px;margin:0 0 10px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:12px}
+  .chip{font-size:12px;font-weight:800;border:1.5px solid var(--line);background:#fff;border-radius:999px;
+    padding:7px 12px;cursor:pointer;color:var(--navy);transition:.14s}
+  .chip:hover{border-color:var(--navy)}
+  .chip.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+  textarea{width:100%;resize:none;border:1px solid var(--line);border-radius:12px;padding:11px;font-size:13px;
+    font-family:var(--font);margin-bottom:12px}
+  textarea:focus{outline:none;border-color:var(--navy)}
+  .btn{width:100%;border:2px solid var(--ink);background:var(--yellow);color:var(--ink);font-weight:900;
+    font-size:15px;border-radius:999px;padding:13px;cursor:pointer;font-family:var(--font);transition:.15s}
+  .btn:hover{filter:brightness(1.03)}
+  .btn.ghost{background:#fff;border-color:var(--line);color:var(--muted);margin-top:8px;font-size:13px;padding:10px}
+  .done{text-align:center;padding:8px 0}
+  .done .big{font-size:34px}
+  .done p{margin:6px 0 0;font-weight:800;color:var(--navy)}
+
+  /* conversion CTA */
+  .cta{margin-top:16px;background:#fff;border:1px solid var(--line);border-radius:22px;padding:20px 16px;text-align:center;
+    box-shadow:0 1px 2px rgba(15,27,61,.05)}
+  .cta.enter{animation:slideup .5s cubic-bezier(.2,.8,.2,1) both}
+  .cta h3{margin:0 0 3px;font-size:16px;font-weight:900;color:var(--navy)}
+  .cta p{margin:0 0 14px;font-size:13px;color:var(--muted)}
+  .cta .go{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:2px solid var(--ink);
+    background:var(--yellow);color:var(--ink);font-weight:900;font-size:15px;border-radius:999px;padding:13px;cursor:pointer;text-decoration:none}
+  .cta small{display:block;margin-top:9px;color:var(--faint);font-size:11.5px}
+  .cta .alt{margin-top:10px;font-size:12px;font-weight:800;color:var(--green);cursor:pointer}
+
+  /* host next-steps */
+  .stack{margin-top:16px}
+  .stack.enter{animation:slideup .5s cubic-bezier(.2,.8,.2,1) both}
+  .stack .primary{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:2px solid var(--ink);
+    background:var(--yellow);color:var(--ink);font-weight:900;font-size:15.5px;border-radius:16px;padding:15px;cursor:pointer;text-decoration:none}
+  .stack .hint{text-align:center;font-size:11px;color:var(--faint);margin:8px 0 0}
+  .stack .row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px}
+  .stack .act{background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:12px 6px;text-align:center;cursor:pointer;
+    font-weight:800;font-size:11px;color:var(--navy);line-height:1.3;transition:.14s}
+  .stack .act:hover{border-color:var(--navy)}
+  .stack .act .ic{font-size:19px;display:block;margin-bottom:5px}
+  .stack .ghosts{display:flex;justify-content:center;gap:18px;margin-top:14px}
+  .stack .ghosts span{font-size:12px;font-weight:800;color:var(--faint);cursor:pointer}
+
+  .stepnote{margin-top:14px;text-align:center;font-size:11px;color:var(--faint)}
+  .legend{color:#aeb8d4;font-size:11.5px;max-width:390px;text-align:center;margin-top:22px;line-height:1.6}
+  .legend b{color:#fff}
+</style>
+</head>
+<body>
+  <div class="head">
+    <h1>Quizotic — end-of-session feedback flow</h1>
+    <p>Interactive mockup of the participant screen. Celebrate → one-tap rate → (optional) tell us more → invite to become a host. Tap a face to see the flow.</p>
+  </div>
+
+  <div class="toolbar">
+    <button id="tabP" class="active" onclick="setRole('participant')">Participant view</button>
+    <button id="tabH" onclick="setRole('host')">Host view</button>
+    <button onclick="replay()">↻ Replay flow</button>
+  </div>
+
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="brand"><span class="q">Quizo</span><span class="tic">tic</span></div>
+
+      <!-- RESULT -->
+      <div class="result">
+        <p class="eyebrow" id="eyebrow">Session complete</p>
+        <h2 id="resultTitle">You came 2nd! 🎉</h2>
+        <p class="pts" id="resultPts">7,340 pts</p>
+        <div class="podium">
+          <div class="bar second"><span class="medal">🥈</span><span class="nm">You</span></div>
+          <div class="bar first"><span class="medal">🥇</span><span class="nm">Aarav</span></div>
+          <div class="bar third"><span class="medal">🥉</span><span class="nm">Diya</span></div>
+        </div>
+        <div class="you" id="youRow">
+          <span class="r">Your rank · #2 of 34</span>
+          <span class="s">85% correct</span>
+        </div>
+      </div>
+
+      <!-- FEEDBACK CARD -->
+      <div class="card hide" id="fbCard">
+        <p class="fbTitle" id="fbTitle">How was it?</p>
+        <p class="fbSub" id="fbSub">One tap — that's it</p>
+        <div class="faces" id="faces"></div>
+
+        <div class="followup hide" id="followup">
+          <p class="thanks" id="thanks">Thanks! 🙌</p>
+          <div class="chips hide" id="chips"></div>
+          <textarea id="txt" rows="2" placeholder="Anything else? (optional)"></textarea>
+          <button class="btn" onclick="submitFb()">Send</button>
+          <button class="btn ghost" onclick="skipFb()">Skip</button>
+        </div>
+      </div>
+
+      <!-- DONE flash -->
+      <div class="card hide" id="doneCard">
+        <div class="done"><div class="big">✅</div><p id="doneMsg">Thanks for the feedback!</p></div>
+      </div>
+
+      <!-- CONVERSION CTA (participant only) -->
+      <div class="cta hide" id="cta">
+        <h3>Liked this quiz?</h3>
+        <p>Make your own — free, no app needed.</p>
+        <a class="go" href="#" onclick="return false;">Create your own →</a>
+        <div class="alt">📲 Send me the link on WhatsApp</div>
+        <small>Free · ready in 10 minutes · no data collected here</small>
+      </div>
+
+      <!-- HOST NEXT-STEPS (host only) -->
+      <div class="stack hide" id="hostNext">
+        <a class="primary" href="#" onclick="return false;">📊 See this session’s report</a>
+        <p class="hint">Opens the report for <b>this</b> quiz — not the reports list</p>
+        <div class="row">
+          <div class="act"><span class="ic">📽️</span>Review with class</div>
+          <div class="act"><span class="ic">🔁</span>Play again</div>
+          <div class="act"><span class="ic">📝</span>Assign homework</div>
+        </div>
+        <div class="ghosts"><span>⤓ Export</span><span>← Back to library</span></div>
+      </div>
+
+      <div class="stepnote" id="stepnote">▸ Podium settles first (the peak). Feedback slides up after ~2.5s.</div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <b>Why this order:</b> celebrate → reflect (1 tap) → invite. The rating is anonymous (no login, no email required),
+    so it's clean under India's DPDP Act even for under-18 players. The host CTA appears <b>only after</b> feedback,
+    and only sends people to a signup they complete themselves.
+  </div>
+
+<script>
+  var FACES = [
+    {v:1,lbl:'Bad',   c:'#DC2626', d:'M8 17c1.5-2 6.5-2 8 0'},           // frown
+    {v:2,lbl:'Meh',   c:'#F97316', d:'M8 16.5c1.3-1.2 6.7-1.2 8 0'},
+    {v:3,lbl:'Okay',  c:'#EAB308', d:'M8.5 16h7'},                        // flat
+    {v:4,lbl:'Good',  c:'#65A30D', d:'M8 15c1.5 2 6.5 2 8 0'},
+    {v:5,lbl:'Loved', c:'#16A34A', d:'M7.5 14.5c1.7 2.6 7.3 2.6 9 0'}     // big smile
+  ];
+  var role='participant', selected=0;
+
+  function faceSVG(f){
+    return '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
+      +'<circle cx="12" cy="12" r="10.5" fill="'+f.c+'" opacity="0.16"/>'
+      +'<circle cx="12" cy="12" r="10.5" stroke="'+f.c+'" stroke-width="1.6"/>'
+      +'<circle cx="8.6" cy="9.6" r="1.25" fill="'+f.c+'"/>'
+      +'<circle cx="15.4" cy="9.6" r="1.25" fill="'+f.c+'"/>'
+      +'<path d="'+f.d+'" stroke="'+f.c+'" stroke-width="1.7" stroke-linecap="round"/></svg>';
+  }
+  function renderFaces(){
+    var el=document.getElementById('faces'); el.innerHTML='';
+    FACES.forEach(function(f){
+      var b=document.createElement('button');
+      b.className='face'; b.setAttribute('aria-label',f.lbl);
+      b.innerHTML=faceSVG(f)+'<span class="lbl">'+f.lbl+'</span>';
+      b.onclick=function(){ pickFace(f.v); };
+      el.appendChild(b);
+    });
+  }
+  var LOW_CHIPS=['Too fast','Confusing','Tech / lag','Boring','Other'];
+  var HIGH_CHIPS=['Fun','Learned a lot','Great questions','Good pace'];
+
+  function pickFace(v){
+    selected=v;
+    var faces=document.querySelectorAll('.face');
+    faces.forEach(function(el,i){
+      el.classList.toggle('sel', i===v-1);
+      el.classList.toggle('dim', i!==v-1);
+    });
+    var fu=document.getElementById('followup'); fu.classList.remove('hide');
+    var thanks=document.getElementById('thanks');
+    var chips=document.getElementById('chips');
+    var set = v<=2 ? LOW_CHIPS : (v>=4 ? HIGH_CHIPS : null);
+    if(v<=2){ thanks.textContent='Sorry it missed! What went wrong?'; thanks.style.color='#DC2626'; }
+    else if(v>=4){ thanks.textContent='Awesome! What did you love?'; thanks.style.color='#16A34A'; }
+    else { thanks.textContent='Thanks! Anything we could improve?'; thanks.style.color='#EAB308'; }
+    if(set){ chips.classList.remove('hide'); chips.innerHTML='';
+      set.forEach(function(c){ var s=document.createElement('span'); s.className='chip'; s.textContent=c;
+        s.onclick=function(){ s.classList.toggle('on'); }; chips.appendChild(s); });
+    } else { chips.classList.add('hide'); }
+    document.getElementById('stepnote').textContent='▸ Rating captured ('+v+'/5). Detail is optional — most people stop here.';
+  }
+  function finish(msg){
+    document.getElementById('fbCard').classList.add('hide');
+    var d=document.getElementById('doneCard'); d.classList.remove('hide'); d.classList.add('enter');
+    document.getElementById('doneMsg').textContent=msg;
+    document.getElementById('stepnote').textContent = role==='participant'
+      ? '▸ Feedback done → conversion invite appears (recency: last thing they see).'
+      : '▸ Host feedback logged → shown in the session report as team sentiment.';
+    setTimeout(function(){
+      d.classList.add('hide');
+      if(role==='participant'){ var c=document.getElementById('cta'); c.classList.remove('hide'); c.classList.add('enter'); }
+      else {
+        var h=document.getElementById('hostNext'); h.classList.remove('hide'); h.classList.add('enter');
+        document.getElementById('stepnote').textContent='▸ Primary = this session’s report (deep-linked). Follow-ups: review with class · replay · assign · export.';
+      }
+    },1100);
+  }
+  function submitFb(){ finish(selected>=4?'Thank you! 💛':'Got it — thanks for helping us fix it.'); }
+  function skipFb(){ finish('No worries — thanks for playing!'); }
+
+  function showFeedback(){
+    var card=document.getElementById('fbCard'); card.classList.remove('hide'); card.classList.add('enter');
+    document.getElementById('stepnote').textContent='▸ Feedback prompt (non-blocking, below the result). Tap a face.';
+  }
+
+  function reset(){
+    selected=0;
+    ['fbCard','doneCard','cta','hostNext','followup','chips'].forEach(function(id){ document.getElementById(id).classList.add('hide'); });
+    document.getElementById('hostNext').classList.remove('enter');
+    document.getElementById('fbCard').classList.remove('enter');
+    document.getElementById('txt').value='';
+    document.querySelectorAll('.face').forEach(function(el){ el.classList.remove('sel','dim'); });
+  }
+
+  function applyRole(){
+    var p = role==='participant';
+    document.getElementById('tabP').classList.toggle('active',p);
+    document.getElementById('tabH').classList.toggle('active',!p);
+    document.getElementById('eyebrow').textContent = p?'Session complete':'You just hosted';
+    document.getElementById('resultTitle').textContent = p?'You came 2nd! 🎉':'Session complete ✅';
+    document.getElementById('resultPts').textContent = p?'7,340 pts':'34 players · 12 questions';
+    document.getElementById('youRow').classList.toggle('hide',!p);
+    document.getElementById('fbTitle').textContent = p?'How was it?':'How did that session go?';
+    document.getElementById('fbSub').textContent = p?'One tap — that’s it':'Helps us improve the tool (bugs, ideas welcome)';
+  }
+  function setRole(r){ role=r; applyRole(); replay(); }
+
+  var timer;
+  function replay(){
+    clearTimeout(timer); reset();
+    document.getElementById('stepnote').textContent='▸ Podium settles first (the peak). Feedback slides up after ~2.5s.';
+    timer=setTimeout(showFeedback, 2500);
+  }
+
+  renderFaces(); applyRole(); replay();
+</script>
+</body>
+</html>

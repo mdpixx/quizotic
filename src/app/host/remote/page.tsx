@@ -315,6 +315,7 @@ function RemotePageInner() {
         teamLeaderboard={host.teamLeaderboard}
         busy={busy === 'end'}
         onEndSession={handleEndSession}
+        code={gameCode}
       />
     )
   }
