@@ -12,6 +12,7 @@ import { Podium } from '@/components/Podium'
 import { PostSessionHeader } from '@/components/PostSessionHeader'
 import { CelebrationConfetti } from '@/components/CelebrationConfetti'
 import { SessionReport } from '@/components/SessionReport'
+import { SessionFeedbackPrompt } from '@/components/SessionFeedbackPrompt'
 import { LeaderboardView } from '@/components/LeaderboardView'
 import { useFeedback } from '@/components/FeedbackProvider'
 import { playLeaderboardJingle, playTick, playBackgroundMusic, stopBackgroundMusic, playBassBoom, playCelebration, preloadCelebrationSounds, isMuted, toggleMuted } from '@/lib/sounds'
@@ -3777,11 +3778,17 @@ export default function SessionPage() {
                 style={{ background: '#0F1B3D', color: '#FFFFFF', boxShadow: '0 6px 18px rgba(15,27,61,0.28)', fontFamily: 'var(--font-heading)' }}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4" aria-hidden><path d="M3 3v18h18"/><path d="M7 12l4-4 4 4 5-5"/></svg>
-                View full session report
+                See this session&apos;s report
                 <span aria-hidden>→</span>
               </a>
             </div>
           )}
+
+          {/* Host's own product feedback — one tap, right after the report CTA.
+              Distinct from participant sentiment; helps flag bugs/ideas. */}
+          <div className="max-w-md mx-auto w-full">
+            <SessionFeedbackPrompt role="host" sessionCode={gameCode} className="mt-0" />
+          </div>
 
           {/* The rest of the field — everyone outside the top-3 podium, so any
               player can scroll down and find exactly where they finished. This

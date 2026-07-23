@@ -52,6 +52,9 @@ const LeaderboardView = dynamic(() => import('@/components/LeaderboardView').the
 const DrawingCanvas = dynamic(() => import('@/components/DrawingCanvas').then(m => m.DrawingCanvas), { ssr: false })
 const Podium = dynamic(() => import('@/components/Podium').then(m => m.Podium), { ssr: false })
 const ReflectionMoment = dynamic(() => import('@/components/ReflectionMoment').then(m => m.ReflectionMoment), { ssr: false })
+// One-tap end-of-session smiley. Lazy so it never lands in the sub-100KB /join
+// initial bundle — it only mounts on the terminal 'ended'/'selfpaced-done' screens.
+const SessionFeedbackPrompt = dynamic(() => import('@/components/SessionFeedbackPrompt').then(m => m.SessionFeedbackPrompt), { ssr: false })
 // Carries the whole @dnd-kit dependency (core + sortable + utilities) — most
 // quizzes have no ranking question, so it must stay out of the initial bundle.
 const SortableRankingBoard = dynamic(() => import('@/components/join/SortableRankingBoard').then(m => m.SortableRankingBoard), { ssr: false })
@@ -3199,6 +3202,10 @@ function JoinPageInner() {
           />
         )}
 
+        {/* Feedback before conversion: one-tap smiley sits above the "Create
+            your own" CTA, after the podium peak has landed. Anonymous — no PII. */}
+        <SessionFeedbackPrompt role="participant" sessionCode={gameCodeRef.current} />
+
         <CreateYourOwnCTA context="quiz-ended" />
 
         <button
@@ -3336,6 +3343,7 @@ function JoinPageInner() {
           <p className="font-bold text-xl" style={{ color: '#0F1B3D' }}>{quizTitle}</p>
           <p className="text-base text-gray-500 mt-1">{spQuestions.length} questions · spaced retrieval practice</p>
         </div>
+        <SessionFeedbackPrompt role="participant" sessionCode={gameCodeRef.current} className="w-full" />
         <CreateYourOwnCTA context="selfpaced-done" className="" />
         <button
           onClick={handlePlayAgain}

@@ -9,7 +9,7 @@
 
 import { LeaderboardView, type LeaderboardRow } from '@/components/LeaderboardView'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
-import { useFeedback } from '@/components/FeedbackProvider'
+import { SessionFeedbackPrompt } from '@/components/SessionFeedbackPrompt'
 
 interface TeamLeaderboardEntry {
   name: string
@@ -23,6 +23,8 @@ interface RemoteEndedProps {
   teamLeaderboard: TeamLeaderboardEntry[] | null
   busy: boolean
   onEndSession: () => void
+  /** Room code of the finished session — powers the report deep-link + feedback roll-up. */
+  code?: string
 }
 
 export function RemoteEnded({
@@ -30,8 +32,8 @@ export function RemoteEnded({
   teamLeaderboard,
   busy,
   onEndSession,
+  code,
 }: RemoteEndedProps) {
-  const { openFeedback } = useFeedback()
   const winner = rows[0]
   return (
     <div
@@ -108,18 +110,24 @@ export function RemoteEnded({
         )}
       </div>
 
-      <button
-        type="button"
-        onClick={() => openFeedback('post-session')}
-        className="mb-3 w-full rounded-2xl py-3 text-sm font-black font-display transition-all"
-        style={{
-          background: 'var(--color-paper-2)',
-          color: 'var(--color-primary)',
-          border: '2px dashed var(--color-line)',
-        }}
-      >
-        How did that go? Tell us
-      </button>
+      {code && (
+        <a
+          href={`/host/reports/${code}`}
+          className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-black font-display transition-all"
+          style={{
+            background: 'var(--color-primary)',
+            color: '#FFFFFF',
+            border: '2px solid var(--color-primary)',
+          }}
+        >
+          See this session&apos;s report →
+        </a>
+      )}
+
+      {/* One-tap host feedback (replaces the old text-only prompt). */}
+      <div className="mb-3">
+        <SessionFeedbackPrompt role="host" sessionCode={code} className="mt-0" />
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         <button
