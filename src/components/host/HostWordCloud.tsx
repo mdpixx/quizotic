@@ -6,29 +6,33 @@ interface HostWordCloudProps {
   words: string[]
 }
 
-// Curated brand palette — harmonized with the navy stage + yellow accent.
-// Ordered strongest-first so the most-mentioned words claim the boldest hues;
-// the long tail cycles the same palette via a stable per-word hash.
+// Mentimeter-style palette — soft, cohesive hues with enough weight to stay
+// legible as bold text on the white stage. Ordered strongest-first so the
+// most-mentioned words claim the lead hues; the long tail cycles the same
+// palette via a stable per-word hash. (Kept in sync with the report cloud in
+// QuestionResultsView.tsx.)
 const PALETTE = [
-  '#0F1B3D', // navy (primary)
+  '#4F46E5', // indigo
   '#EF5A4C', // coral
   '#0E7490', // teal
-  '#F59E0B', // amber
-  '#6D44C9', // violet
-  '#10B981', // emerald
-  '#E84A7F', // rose
-  '#3B5BA9', // slate-blue
+  '#D97706', // amber
+  '#7C3AED', // violet
+  '#059669', // emerald
+  '#DB2777', // pink
+  '#2563EB', // blue
 ] as const
 
 // Relative base sizes (in px). A single font-size multiplier (binary-searched
 // to fit) is applied on top, so these set the spread between rare and frequent
-// words — not the final size.
-const MIN_PX = 30
-const MAX_PX = 120
-// Multiplier bounds. >1 lets a sparse cloud grow; the low floor lets a very
-// crowded cloud shrink enough to stay unclipped.
+// words — not the final size. The spread is deliberately gentle (~3.6×) so the
+// biggest word reads as prominent, not overwhelming — matching Mentimeter.
+const MIN_PX = 22
+const MAX_PX = 80
+// Multiplier bounds. The low floor lets a very crowded cloud shrink enough to
+// stay unclipped; the ceiling is kept modest so a sparse cloud (one or two
+// words) grows to fill space without ballooning into an awkward giant.
 const MIN_MULT = 0.04
-const MAX_MULT = 2.4
+const MAX_MULT = 1.3
 // Breathing room so per-word jitter / line-height never clips at the edges.
 const H_SAFETY = 0.97
 const SEARCH_ITERS = 16
@@ -156,14 +160,18 @@ export function HostWordCloud({ words }: HostWordCloudProps) {
             {entries.map((entry, i) => {
               const ratio = Math.sqrt(entry.count / maxCount)
               const basePx = Math.round(MIN_PX + ratio * (MAX_PX - MIN_PX))
-              // Top words get the boldest palette hues by rank; the long tail
+              // Top words get the lead palette hues by rank; the long tail
               // cycles the same palette deterministically by word hash.
               const color =
                 i < PALETTE.length ? PALETTE[i] : PALETTE[hashString(entry.key) % PALETTE.length]
               const isTop = i < 3
+              // Frequency-driven depth: the most-mentioned words sit at full
+              // strength while the long tail recedes slightly, so the cloud
+              // reads with hierarchy instead of a flat wall of color.
+              const opacity = Number((0.62 + 0.38 * ratio).toFixed(3))
               // Subtle deterministic vertical jitter → organic layered cloud
-              // instead of rigid rows. ±0.05em, stable per word.
-              const jitter = ((hashString(entry.key + '·y') % 100) / 100 - 0.5) * 0.1
+              // instead of rigid rows. ±0.035em, stable per word.
+              const jitter = ((hashString(entry.key + '·y') % 100) / 100 - 0.5) * 0.07
               return (
                 <span
                   key={entry.key}
@@ -171,9 +179,9 @@ export function HostWordCloud({ words }: HostWordCloudProps) {
                   style={{
                     fontSize: `calc(${basePx}px * var(--wc-mult, 1))`,
                     color,
-                    fontWeight: isTop ? 900 : 800,
+                    opacity,
+                    fontWeight: isTop ? 800 : 700,
                     transform: `translateY(${jitter.toFixed(3)}em)`,
-                    borderBottom: i === 0 ? '0.06em solid #FBD13B' : undefined,
                   }}
                   title={`${entry.display} — ${entry.count}×`}
                 >
