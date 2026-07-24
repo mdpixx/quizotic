@@ -9,6 +9,7 @@ import { getEffectiveOptions, getOptionText, getOptionImage, isScoredQuestion } 
 import { SLIDE_TYPE_META } from '@/lib/presentation-types'
 import { NavChevron } from '@/components/ui/NavButton'
 import { TestimonialsPanel } from '@/components/admin/TestimonialsPanel'
+import { SESSION_FEEDBACK_FACES } from '@/lib/session-feedback'
 
 type WowDelta = { thisWeek: number; lastWeek: number; pct: number | null }
 
@@ -40,10 +41,11 @@ interface Stats {
 }
 
 type AdminTab = 'overview' | 'content' | 'users' | 'tools'
-type ToolTab = 'feedback' | 'testimonials' | 'credits' | 'pro' | 'coupons' | 'moderation' | 'deletions' | 'flags'
+type ToolTab = 'feedback' | 'ratings' | 'testimonials' | 'credits' | 'pro' | 'coupons' | 'moderation' | 'deletions' | 'flags'
 
 const TOOL_TABS: Array<{ key: ToolTab; label: string; hint: string }> = [
   { key: 'feedback', label: 'Feedback', hint: 'What users are saying' },
+  { key: 'ratings', label: 'Session ratings', hint: 'Post-session smileys' },
   { key: 'testimonials', label: 'Testimonials', hint: 'Review and publish' },
   { key: 'credits', label: 'Credits', hint: 'AI credit adjustments' },
   { key: 'pro', label: 'Pro Grants', hint: 'Grant or revoke Pro' },
@@ -821,6 +823,7 @@ function ToolsPanel({ active, onChange }: { active: ToolTab; onChange: (tab: Too
       </div>
 
       {active === 'feedback' && <FeedbackPanel />}
+      {active === 'ratings' && <SessionRatingsPanel />}
       {active === 'testimonials' && <TestimonialsPanel />}
       {active === 'credits' && <CreditsPanel />}
       {active === 'pro' && <ProGrantsPanel />}
@@ -828,6 +831,164 @@ function ToolsPanel({ active, onChange }: { active: ToolTab; onChange: (tab: Too
       {active === 'moderation' && <ModerationPanel />}
       {active === 'deletions' && <DeletionsPanel />}
       {active === 'flags' && <FeatureFlagsPanel />}
+    </div>
+  )
+}
+
+// ── Session ratings panel ─────────────────────────────────────────────────────
+// Aggregates the one-tap post-session smiley (1–5) from hosts and participants,
+// stored in SessionFeedback by /api/session-feedback. Read-only triage view:
+// average + distribution + recent comments, split by role.
+
+interface RatingBucket {
+  count: number
+  avg: number
+  distribution: Record<number, number>
+}
+interface RatingItem {
+  id: string
+  role: string
+  rating: number
+  reasons: string[]
+  comment: string | null
+  sessionCode: string | null
+  createdAt: string
+}
+
+const RATING_EMOJI = (r: number) => (SESSION_FEEDBACK_FACES[r] ?? '').split(' ')[0] || '•'
+
+function RatingStatCard({ label, bucket }: { label: string; bucket: RatingBucket | undefined }) {
+  const avg = bucket?.avg ?? 0
+  const count = bucket?.count ?? 0
+  return (
+    <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/70 p-4 flex-1 min-w-[120px]">
+      <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{label}</p>
+      <div className="flex items-baseline gap-2 mt-1">
+        <span className="text-2xl font-black text-gray-800 dark:text-gray-100">{avg ? avg.toFixed(2) : '—'}</span>
+        <span className="text-lg">{avg ? RATING_EMOJI(Math.round(avg)) : ''}</span>
+      </div>
+      <p className="text-[11px] text-gray-400 mt-0.5">{count} rating{count === 1 ? '' : 's'}</p>
+    </div>
+  )
+}
+
+function SessionRatingsPanel() {
+  const [summary, setSummary] = useState<Record<'all' | 'host' | 'participant', RatingBucket> | null>(null)
+  const [items, setItems] = useState<RatingItem[]>([])
+  const [roleFilter, setRoleFilter] = useState<'all' | 'host' | 'participant'>('all')
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/admin/session-feedback')
+      if (res.ok) {
+        const json = await res.json()
+        setSummary(json.summary ?? null)
+        setItems(json.items ?? [])
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const all = summary?.all
+  const shown = roleFilter === 'all' ? items : items.filter(i => i.role === roleFilter)
+
+  return (
+    <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/70 bg-white/80 dark:bg-gray-800/80 p-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">Session ratings</h3>
+          <p className="text-xs text-gray-400 mt-0.5">Post-session smiley feedback (1–5), anonymous for participants</p>
+        </div>
+        <div className="flex gap-1.5">
+          {(['all', 'host', 'participant'] as const).map(f => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setRoleFilter(f)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold border capitalize transition-colors ${
+                roleFilter === f
+                  ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-700'
+                  : 'border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700/50'
+              }`}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-gray-400 py-8 text-center">Loading…</p>
+      ) : !all || all.count === 0 ? (
+        <p className="text-sm text-gray-400 py-8 text-center">No ratings yet — they’ll appear here after sessions end.</p>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-3 mb-5">
+            <RatingStatCard label="All" bucket={summary?.all} />
+            <RatingStatCard label="Hosts" bucket={summary?.host} />
+            <RatingStatCard label="Participants" bucket={summary?.participant} />
+          </div>
+
+          {/* Distribution (overall) */}
+          <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/70 p-4 mb-5">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Distribution</p>
+            <div className="space-y-1.5">
+              {[5, 4, 3, 2, 1].map(r => {
+                const n = all.distribution[r] ?? 0
+                const pct = all.count ? Math.round((n / all.count) * 100) : 0
+                return (
+                  <div key={r} className="flex items-center gap-2">
+                    <span className="w-6 text-sm">{RATING_EMOJI(r)}</span>
+                    <div className="flex-1 h-3 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: r >= 4 ? '#16A34A' : r === 3 ? '#CA8A04' : '#DC2626' }} />
+                    </div>
+                    <span className="w-14 text-right text-[11px] text-gray-400 tabular-nums">{n} · {pct}%</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Recent items */}
+          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Recent</p>
+          {shown.length === 0 ? (
+            <p className="text-sm text-gray-400 py-6 text-center">No {roleFilter} ratings in the recent window.</p>
+          ) : (
+            <div className="space-y-2.5">
+              {shown.map(item => (
+                <div key={item.id} className="rounded-xl border border-gray-200/70 dark:border-gray-700/70 p-3.5">
+                  <div className="flex items-start gap-2.5">
+                    <span className="text-xl leading-none mt-0.5" title={`${item.rating}/5`}>{RATING_EMOJI(item.rating)}</span>
+                    <div className="min-w-0 flex-1">
+                      {item.comment ? (
+                        <p className="text-sm text-gray-800 dark:text-gray-100 whitespace-pre-wrap">{item.comment}</p>
+                      ) : (
+                        <p className="text-sm text-gray-400 italic">No comment</p>
+                      )}
+                      {item.reasons.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-1.5">
+                          {item.reasons.map(rs => (
+                            <span key={rs} className="text-[10px] font-bold rounded-full px-2 py-0.5 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">{rs}</span>
+                          ))}
+                        </div>
+                      )}
+                      <p className="text-[11px] text-gray-400 mt-1.5">
+                        {item.rating}/5 · {item.role}
+                        {item.sessionCode ? ` · ${item.sessionCode}` : ''} · {new Date(item.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }
