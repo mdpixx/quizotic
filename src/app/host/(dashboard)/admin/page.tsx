@@ -40,19 +40,37 @@ interface Stats {
   topUsers: Array<{ email: string | null; name: string | null; quizCount: number }>
 }
 
-type AdminTab = 'overview' | 'content' | 'users' | 'tools'
-type ToolTab = 'feedback' | 'ratings' | 'testimonials' | 'credits' | 'pro' | 'coupons' | 'moderation' | 'deletions' | 'flags'
+// Voice of customer is its own top-level tab rather than one of nine flat
+// entries under Tools. It is the thing worth checking daily; credits and
+// coupons are a monthly errand. Burying them together is why a zero-rating
+// pipeline went unnoticed for days.
+type AdminTab = 'overview' | 'content' | 'users' | 'voice' | 'tools'
+type VoiceTab = 'feedback' | 'ratings' | 'testimonials'
+type ToolTab = 'credits' | 'pro' | 'coupons' | 'moderation' | 'deletions' | 'flags'
 
-const TOOL_TABS: Array<{ key: ToolTab; label: string; hint: string }> = [
-  { key: 'feedback', label: 'Feedback', hint: 'What users are saying' },
+const VOICE_TABS: Array<{ key: VoiceTab; label: string; hint: string }> = [
   { key: 'ratings', label: 'Session ratings', hint: 'Post-session smileys' },
+  { key: 'feedback', label: 'Feedback', hint: 'What users are saying' },
   { key: 'testimonials', label: 'Testimonials', hint: 'Review and publish' },
-  { key: 'credits', label: 'Credits', hint: 'AI credit adjustments' },
-  { key: 'pro', label: 'Pro Grants', hint: 'Grant or revoke Pro' },
-  { key: 'coupons', label: 'Coupons', hint: 'Promo codes' },
-  { key: 'moderation', label: 'Moderation', hint: 'User reports' },
-  { key: 'deletions', label: 'Deletions', hint: 'Data requests' },
-  { key: 'flags', label: 'Feature Flags', hint: 'Rollouts' },
+]
+
+const TOOL_GROUPS: Array<{ label: string; tabs: Array<{ key: ToolTab; label: string; hint: string }> }> = [
+  {
+    label: 'Commerce',
+    tabs: [
+      { key: 'credits', label: 'Credits', hint: 'AI credit adjustments' },
+      { key: 'pro', label: 'Pro Grants', hint: 'Grant or revoke Pro' },
+      { key: 'coupons', label: 'Coupons', hint: 'Promo codes' },
+    ],
+  },
+  {
+    label: 'Governance',
+    tabs: [
+      { key: 'moderation', label: 'Moderation', hint: 'User reports' },
+      { key: 'deletions', label: 'Deletions', hint: 'Data requests' },
+      { key: 'flags', label: 'Feature Flags', hint: 'Rollouts' },
+    ],
+  },
 ]
 
 interface OpenRouterCredits {
@@ -102,6 +120,119 @@ function Badge({ text, color = 'gray' }: { text: string; color?: string }) {
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+// ─── Pipeline health ────────────────────────────────────────────────────────
+// "No ratings yet — they'll appear here after sessions end" reads exactly the
+// same whether the feature is thriving-but-new or completely disconnected.
+// That ambiguity is what let a zero-rating pipeline sit unnoticed. Every
+// collection panel now states three things instead: when the last row landed,
+// how many chances there were to collect one, and whether the write path is
+// throwing. A zero next to a large denominator is flagged, not narrated away.
+
+interface PipelineHealthProps {
+  collected: number
+  lastReceivedAt: string | null
+  denominator: number
+  denominatorLabel: string
+  windowLabel: string
+  /** Writes accepted but lost on persist. Any non-zero value is a live bug. */
+  failed?: number
+  lastError?: string | null
+  /** Below this many opportunities, a zero is simply "too early to tell". */
+  alertThreshold?: number
+}
+
+function PipelineHealth({
+  collected,
+  lastReceivedAt,
+  denominator,
+  denominatorLabel,
+  windowLabel,
+  failed = 0,
+  lastError = null,
+  alertThreshold = 20,
+}: PipelineHealthProps) {
+  const rate = denominator > 0 ? Math.round((collected / denominator) * 100) : null
+  const broken = failed > 0
+  const suspicious = !broken && collected === 0 && denominator >= alertThreshold
+  const tone = broken ? 'red' : suspicious ? 'amber' : 'plain'
+
+  const border = tone === 'red'
+    ? 'border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-800'
+    : tone === 'amber'
+      ? 'border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800'
+      : 'border-gray-200/70 dark:border-gray-700/70'
+
+  return (
+    <div className={`rounded-xl border p-3.5 mb-4 ${border}`}>
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[12px]">
+        <span className="font-bold uppercase tracking-wide text-gray-400">Pipeline</span>
+        <span className="text-gray-600 dark:text-gray-300">
+          last received <b className="text-gray-900 dark:text-white">{formatRelative(lastReceivedAt)}</b>
+        </span>
+        <span className="text-gray-600 dark:text-gray-300">
+          <b className="text-gray-900 dark:text-white">{collected}</b> of {denominator} {denominatorLabel} {windowLabel}
+          {rate !== null && <span className="text-gray-400"> · {rate}%</span>}
+        </span>
+        {failed > 0 && (
+          <span className="font-bold text-red-600 dark:text-red-400">{failed} failed to save</span>
+        )}
+      </div>
+
+      {broken && (
+        <p className="mt-2 text-[12px] font-medium text-red-700 dark:text-red-300">
+          ⚠ Submissions are being accepted but not persisted — ratings are being lost right now.
+          {lastError && <span className="block mt-1 font-mono text-[11px] font-normal opacity-80">{lastError}</span>}
+        </p>
+      )}
+      {suspicious && (
+        <p className="mt-2 text-[12px] font-medium text-amber-800 dark:text-amber-300">
+          ⚠ Nothing collected from {denominator} opportunities {windowLabel}. Check that the prompt is
+          rendering before concluding people aren’t responding.
+        </p>
+      )}
+    </div>
+  )
+}
+
+// Overview had four cards for volume and none for quality, so a silent
+// collection pipeline was invisible from the landing screen. This card makes a
+// zero impossible to miss without opening anything.
+function SentimentCard({ sentiment, onGoto }: {
+  sentiment: { avg: number; count: number; health: RatingHealth | null } | null
+  onGoto: () => void
+}) {
+  const count = sentiment?.count ?? 0
+  const avg = sentiment?.avg ?? 0
+  const h = sentiment?.health ?? null
+  const broken = (h?.persistFailed ?? 0) > 0
+  const starved = !broken && count === 0 && (h?.endedSessions ?? 0) >= 20
+  const alert = broken || starved
+
+  return (
+    <div className={`rounded-2xl p-5 shadow-sm border backdrop-blur-sm ${
+      alert
+        ? 'border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800'
+        : 'border-gray-200/50 dark:border-gray-700/50 bg-white/80 dark:bg-gray-800/80'
+    }`}>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Session sentiment</p>
+        <button onClick={onGoto} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">view →</button>
+      </div>
+      <p className="text-3xl font-bold text-gray-900 dark:text-white mt-1">
+        {count > 0 ? avg.toFixed(2) : '—'}
+        {count > 0 && <span className="text-2xl ml-1">{RATING_EMOJI(Math.round(avg))}</span>}
+      </p>
+      <p className={`text-xs mt-1 ${alert ? 'font-medium text-amber-700 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500'}`}>
+        {broken
+          ? `⚠ ${h?.persistFailed} rating(s) failed to save`
+          : starved
+            ? `⚠ 0 from ${h?.endedSessions} ended sessions`
+            : `${count} rating${count === 1 ? '' : 's'} all time`}
+      </p>
+    </div>
+  )
 }
 
 // ─── Overview: sparklines, trend cards, balance, funnel, attention ──────────
@@ -202,11 +333,23 @@ function ActivationFunnel({ funnel }: { funnel: Stats['funnel'] }) {
   )
 }
 
-function NeedsAttention({ attention, orLow, onGoto }: {
-  attention: Stats['attention']; orLow: boolean; onGoto: (tab: AdminTab) => void
+function NeedsAttention({ attention, orLow, sentiment, onGoto }: {
+  attention: Stats['attention']
+  orLow: boolean
+  sentiment: { avg: number; count: number; health: RatingHealth | null } | null
+  onGoto: (tab: AdminTab) => void
 }) {
   const items: Array<{ text: string; tone: 'red' | 'yellow'; tab?: AdminTab }> = []
   if (orLow) items.push({ text: 'OpenRouter balance is low — top up to keep AI generation working', tone: 'red' })
+
+  // A collection pipeline that returns nothing is a defect until proven
+  // otherwise — it should never sit quietly behind a tab.
+  const h = sentiment?.health ?? null
+  if (h && h.persistFailed > 0) {
+    items.push({ text: `${h.persistFailed} session rating(s) accepted but failed to save — ratings are being lost`, tone: 'red', tab: 'voice' })
+  } else if (h && sentiment?.count === 0 && h.endedSessions >= 20) {
+    items.push({ text: `0 ratings from ${h.endedSessions} ended sessions — verify the prompt is rendering`, tone: 'yellow', tab: 'voice' })
+  }
   if (attention.signedUpNeverCreated > 0) items.push({ text: `${attention.signedUpNeverCreated} users signed up but never created anything — onboarding drop-off`, tone: 'yellow', tab: 'users' })
   if (attention.stuckSessions > 0) items.push({ text: `${attention.stuckSessions} session(s) stuck "active" for >24h`, tone: 'yellow' })
   if (attention.openModeration > 0) items.push({ text: `${attention.openModeration} open moderation report(s) to review`, tone: 'red', tab: 'tools' })
@@ -591,8 +734,12 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<AdminTab>('overview')
   const [toolTab, setToolTab] = useState<ToolTab>('credits')
+  const [voiceTab, setVoiceTab] = useState<VoiceTab>('ratings')
   const [orCredits, setOrCredits] = useState<OpenRouterCredits | null>(null)
   const [orError, setOrError] = useState<string | null>(null)
+  // Sentiment is loaded at the dashboard level, not inside the ratings panel,
+  // so Overview can show it without the user having to go looking for it.
+  const [sentiment, setSentiment] = useState<{ avg: number; count: number; health: RatingHealth | null } | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -616,6 +763,15 @@ export default function AdminDashboard() {
       .then(r => r.json())
       .then(d => { if (d?.error) setOrError(d.error); else setOrCredits(d) })
       .catch(() => setOrError('Failed to load balance'))
+
+    // Session sentiment — independent and non-blocking, same as the balance.
+    fetch('/api/admin/session-feedback')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (!d) return
+        setSentiment({ avg: d.summary?.all?.avg ?? 0, count: d.summary?.all?.count ?? 0, health: d.health ?? null })
+      })
+      .catch(() => { /* Overview degrades to "—"; the panel reports the real error. */ })
   }, [status, router])
 
   if (status === 'loading' || loading) {
@@ -653,7 +809,7 @@ export default function AdminDashboard() {
 
         {/* Tab bar */}
         <div className="flex gap-1 mb-8 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
-          {([['overview', 'Overview'], ['content', 'Content'], ['users', 'Users'], ['tools', 'Tools']] as const).map(([key, label]) => (
+          {([['overview', 'Overview'], ['content', 'Content'], ['users', 'Users'], ['voice', 'Voice of customer'], ['tools', 'Tools']] as const).map(([key, label]) => (
             <button
               key={key}
               onClick={() => setTab(key)}
@@ -675,17 +831,18 @@ export default function AdminDashboard() {
             </div>
 
             {/* Secondary KPIs */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
               <StatCard label="Onboarded" value={stats.users.onboarded} sub={`${stats.users.total > 0 ? Math.round((stats.users.onboarded / stats.users.total) * 100) : 0}% rate`} />
               <StatCard label="Active Subs" value={stats.subscriptions.active} sub={stats.subscriptions.byPlan.map(p => `${p.plan}: ${p.count}`).join(', ') || 'none'} />
               <StatCard label="AI Generations" value={stats.aiUsage.total} sub={`${stats.aiUsage.thisMonth} this month`} />
               <StatCard label="Presentations" value={stats.presentations.total} sub={`${stats.presentations.thisMonth} this month`} />
+              <SentimentCard sentiment={sentiment} onGoto={() => setTab('voice')} />
             </div>
 
             {/* Funnel + attention */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <ActivationFunnel funnel={stats.funnel} />
-              <NeedsAttention attention={stats.attention} orLow={orCredits?.low ?? false} onGoto={setTab} />
+              <NeedsAttention attention={stats.attention} orLow={orCredits?.low ?? false} sentiment={sentiment} onGoto={setTab} />
             </div>
 
             {/* Recent Sessions */}
@@ -771,6 +928,8 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {tab === 'voice' && <VoicePanel active={voiceTab} onChange={setVoiceTab} />}
+
         {tab === 'tools' && (
           <ToolsPanel active={toolTab} onChange={setToolTab} />
         )}
@@ -780,6 +939,47 @@ export default function AdminDashboard() {
           Data pulled live from the database. For behavioral analytics (clicks, funnels, recordings), check PostHog.
         </p>
       </div>
+    </div>
+  )
+}
+
+function TabCard({ label, hint, isActive, onClick }: { label: string; hint: string; isActive: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`text-left rounded-xl px-3 py-2.5 border transition-colors ${
+        isActive
+          ? 'border-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 dark:border-indigo-700'
+          : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/50'
+      }`}
+    >
+      <span className={`block text-sm font-bold ${isActive ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-800 dark:text-gray-100'}`}>{label}</span>
+      <span className="block text-[11px] text-gray-400 mt-0.5">{hint}</span>
+    </button>
+  )
+}
+
+// Voice of customer — ratings, feedback and testimonials in one place, because
+// they answer the same question and are worth checking on the same cadence.
+function VoicePanel({ active, onChange }: { active: VoiceTab; onChange: (tab: VoiceTab) => void }) {
+  return (
+    <div className="space-y-5">
+      <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/70 bg-white/80 dark:bg-gray-800/80 p-3 shadow-sm">
+        <div className="flex items-center justify-between px-1 pb-2">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Voice of customer</span>
+          <span className="text-[11px] text-gray-400">Check daily</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {VOICE_TABS.map(t => (
+            <TabCard key={t.key} label={t.label} hint={t.hint} isActive={active === t.key} onClick={() => onChange(t.key)} />
+          ))}
+        </div>
+      </div>
+
+      {active === 'ratings' && <SessionRatingsPanel />}
+      {active === 'feedback' && <FeedbackPanel />}
+      {active === 'testimonials' && <TestimonialsPanel />}
     </div>
   )
 }
@@ -800,31 +1000,20 @@ function ToolsPanel({ active, onChange }: { active: ToolTab; onChange: (tab: Too
             Runtime errors → Sentry ↗
           </a>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2">
-          {TOOL_TABS.map(t => {
-            const isActive = active === t.key
-            return (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => onChange(t.key)}
-                className={`text-left rounded-xl px-3 py-2.5 border transition-colors ${
-                  isActive
-                    ? 'border-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 dark:border-indigo-700'
-                    : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                }`}
-              >
-                <span className={`block text-sm font-bold ${isActive ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-800 dark:text-gray-100'}`}>{t.label}</span>
-                <span className="block text-[11px] text-gray-400 mt-0.5">{t.hint}</span>
-              </button>
-            )
-          })}
+        <div className="space-y-3">
+          {TOOL_GROUPS.map(group => (
+            <div key={group.label}>
+              <span className="block px-1 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-300 dark:text-gray-600">{group.label}</span>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {group.tabs.map(t => (
+                  <TabCard key={t.key} label={t.label} hint={t.hint} isActive={active === t.key} onClick={() => onChange(t.key)} />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {active === 'feedback' && <FeedbackPanel />}
-      {active === 'ratings' && <SessionRatingsPanel />}
-      {active === 'testimonials' && <TestimonialsPanel />}
       {active === 'credits' && <CreditsPanel />}
       {active === 'pro' && <ProGrantsPanel />}
       {active === 'coupons' && <CouponsPanel />}
@@ -872,9 +1061,22 @@ function RatingStatCard({ label, bucket }: { label: string; bucket: RatingBucket
   )
 }
 
+interface RatingHealth {
+  windowDays: number
+  lastReceivedAt: string | null
+  endedSessions: number
+  ratingsInWindow: number
+  hostResponseRate: number | null
+  accepted: number
+  persistFailed: number
+  lastError: string | null
+  lastErrorAt: string | null
+}
+
 function SessionRatingsPanel() {
   const [summary, setSummary] = useState<Record<'all' | 'host' | 'participant', RatingBucket> | null>(null)
   const [items, setItems] = useState<RatingItem[]>([])
+  const [health, setHealth] = useState<RatingHealth | null>(null)
   const [roleFilter, setRoleFilter] = useState<'all' | 'host' | 'participant'>('all')
   const [loading, setLoading] = useState(true)
 
@@ -886,6 +1088,7 @@ function SessionRatingsPanel() {
         const json = await res.json()
         setSummary(json.summary ?? null)
         setItems(json.items ?? [])
+        setHealth(json.health ?? null)
       }
     } finally {
       setLoading(false)
@@ -922,10 +1125,25 @@ function SessionRatingsPanel() {
         </div>
       </div>
 
+      {health && (
+        <PipelineHealth
+          collected={health.ratingsInWindow}
+          lastReceivedAt={health.lastReceivedAt}
+          denominator={health.endedSessions}
+          denominatorLabel="ended sessions"
+          windowLabel={`in the last ${health.windowDays}d`}
+          failed={health.persistFailed}
+          lastError={health.lastError}
+        />
+      )}
+
       {loading ? (
         <p className="text-sm text-gray-400 py-8 text-center">Loading…</p>
       ) : !all || all.count === 0 ? (
-        <p className="text-sm text-gray-400 py-8 text-center">No ratings yet — they’ll appear here after sessions end.</p>
+        <p className="text-sm text-gray-400 py-8 text-center">
+          No ratings stored yet. The line above shows whether that’s because nothing was collected
+          or because the write path is failing.
+        </p>
       ) : (
         <>
           <div className="flex flex-wrap gap-3 mb-5">

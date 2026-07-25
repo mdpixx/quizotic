@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
 import { loadTestimonialInvite } from '@/lib/testimonial-invites'
 import { TestimonialForm } from './TestimonialForm'
+import { TestimonialPageView } from './TestimonialPageView'
 
 export const metadata: Metadata = {
   title: 'Share your Quizotic story',
@@ -29,6 +30,7 @@ export default async function ShareYourStoryPage() {
   return (
     <main className="min-h-screen bg-[#F4F7FB] px-4 py-6 text-[#0F1B3D] sm:px-6 sm:py-10" style={{ fontFamily: 'var(--font-story-body)' }}>
       <div className="mx-auto max-w-6xl">
+        <TestimonialPageView state={state.status} />
         <a href="https://www.quizotic.live" className="inline-flex rounded-lg p-1 outline-none focus:ring-4 focus:ring-[#FBD13B]" aria-label="Go to Quizotic">
           <QuizoticLogo variant="onLight" showMark markSize={38} className="text-2xl" />
         </a>

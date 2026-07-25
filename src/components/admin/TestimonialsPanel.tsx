@@ -172,10 +172,64 @@ function ReviewCard({ item, onChanged }: { item: TestimonialItem; onChanged: () 
   )
 }
 
+interface TestimonialHealth {
+  invitesSent: number
+  invitesUsed: number
+  lastInviteAt: string | null
+  lastReceivedAt: string | null
+  conversionRate: number | null
+}
+
+function ago(iso: string | null): string {
+  if (!iso) return 'never'
+  const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
+  if (d < 1) return 'today'
+  if (d === 1) return 'yesterday'
+  return `${d}d ago`
+}
+
+// An empty testimonial list means nothing on its own. Zero replies from zero
+// invites is a to-do; zero replies from forty invites is a broken funnel. The
+// page is invite-gated and unlinked, so the invite count is the only honest
+// denominator.
+function TestimonialPipeline({ health }: { health: TestimonialHealth }) {
+  const stalled = health.invitesSent >= 10 && health.invitesUsed === 0
+  const neverInvited = health.invitesSent === 0
+  return (
+    <div className={`mb-4 rounded-xl border p-3.5 ${stalled ? 'border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20' : 'border-gray-200/70 dark:border-gray-700/70'}`}>
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[12px]">
+        <span className="font-bold uppercase tracking-wide text-gray-400">Pipeline</span>
+        <span className="text-gray-600 dark:text-gray-300">
+          <b className="text-gray-900 dark:text-white">{health.invitesSent}</b> invited
+        </span>
+        <span className="text-gray-600 dark:text-gray-300">
+          <b className="text-gray-900 dark:text-white">{health.invitesUsed}</b> submitted
+          {health.conversionRate !== null && <span className="text-gray-400"> · {health.conversionRate}%</span>}
+        </span>
+        <span className="text-gray-600 dark:text-gray-300">last invite {ago(health.lastInviteAt)}</span>
+        <span className="text-gray-600 dark:text-gray-300">last story {ago(health.lastReceivedAt)}</span>
+      </div>
+      {neverInvited && (
+        <p className="mt-2 text-[12px] text-gray-500 dark:text-gray-400">
+          No invites have gone out. /share-your-story is invite-gated and unlinked, so there is no
+          organic way for anyone to submit.
+        </p>
+      )}
+      {stalled && (
+        <p className="mt-2 text-[12px] font-medium text-amber-800 dark:text-amber-300">
+          ⚠ {health.invitesSent} invited, none submitted. Check the funnel events
+          (testimonial_page_viewed → started → submitted) before sending more.
+        </p>
+      )}
+    </div>
+  )
+}
+
 export function TestimonialsPanel() {
   const [filter, setFilter] = useState<Filter>('open')
   const [items, setItems] = useState<TestimonialItem[]>([])
   const [counts, setCounts] = useState<Record<string, number>>({})
+  const [health, setHealth] = useState<TestimonialHealth | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const requestVersion = useRef(0)
@@ -192,6 +246,7 @@ export function TestimonialsPanel() {
       if (version !== requestVersion.current) return
       setItems(body.items ?? [])
       setCounts(body.counts ?? {})
+      setHealth(body.health ?? null)
     } catch (loadError) {
       if (version !== requestVersion.current) return
       setError(loadError instanceof Error ? loadError.message : 'Could not load testimonials')
@@ -218,11 +273,12 @@ export function TestimonialsPanel() {
             ))}
           </div>
         </div>
+        {health && <div className="mt-4"><TestimonialPipeline health={health} /></div>}
       </div>
 
       {error ? <p className="rounded-xl bg-red-50 p-4 text-sm font-medium text-red-700">{error}</p>
         : loading ? <p className="p-6 text-center text-sm text-gray-400">Loading testimonials…</p>
-        : items.length === 0 ? <p className="rounded-2xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-400 dark:border-gray-700">No testimonials in this view.</p>
+        : items.length === 0 ? <p className="rounded-2xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-400 dark:border-gray-700">No testimonials in this view. The pipeline line above shows whether anyone was asked.</p>
         : items.map(item => <ReviewCard key={item.id} item={item} onChanged={load} />)}
     </section>
   )

@@ -18,6 +18,7 @@ import {
   normalizeSessionFeedback,
   isActionable,
 } from '@/lib/session-feedback'
+import { recordAccepted, recordPersistFailure } from '@/lib/session-feedback-health'
 
 // Minimal in-memory rate limit — the persistent Node server (server.mjs) keeps
 // this module state alive, and the client already guards once-per-session via
@@ -81,6 +82,10 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // The write is still best-effort — a rating is not worth failing the request
+  // over — but the failure is now counted rather than swallowed, so a broken
+  // pipe shows up in the admin panel instead of looking like silence.
+  recordAccepted()
   try {
     await prisma.sessionFeedback.create({
       data: {
@@ -94,7 +99,8 @@ export async function POST(req: NextRequest) {
       },
     })
   } catch (err) {
-    console.warn('[session-feedback] db persist failed:', err instanceof Error ? err.message : err)
+    recordPersistFailure(err)
+    console.error('[session-feedback] db persist FAILED — rating lost:', err instanceof Error ? err.message : err)
   }
 
   console.log(
