@@ -13,7 +13,7 @@
 // facade) and lazy-loaded on the participant page so it stays outside the
 // sub-100KB /join initial bundle.
 
-import { useMemo, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { captureRaw } from '@/lib/analytics'
 
 // No-op subscribe: localStorage doesn't change under us within a session, so we
@@ -80,6 +80,17 @@ export function SessionFeedbackPrompt({ role, sessionCode, sessionId, onResolved
   const [reasons, setReasons] = useState<string[]>([])
   const [comment, setComment] = useState('')
   const [state, setState] = useState<'idle' | 'follow' | 'done'>('idle')
+
+  // Exposure event — the denominator for the whole rating funnel. Without it an
+  // empty admin panel is indistinguishable from a prompt that never rendered,
+  // which is exactly the ambiguity that hid a week of zero ratings. Fires once
+  // per mount, and only when the prompt is genuinely on screen.
+  const shownRef = useRef(false)
+  useEffect(() => {
+    if (alreadyDone || shownRef.current) return
+    shownRef.current = true
+    captureRaw('session_feedback_shown', { role, sessionCode: sessionCode ?? null })
+  }, [alreadyDone, role, sessionCode])
 
   const chips = useMemo(() => {
     if (rating === 0) return []

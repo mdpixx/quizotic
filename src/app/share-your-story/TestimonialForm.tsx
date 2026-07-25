@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { captureRaw } from '@/lib/analytics'
 
 interface Props {
   defaultName: string
@@ -29,6 +30,16 @@ export function TestimonialForm({ defaultName, defaultOrganization }: Props) {
     if (photoUrl) URL.revokeObjectURL(photoUrl)
   }, [photoUrl])
 
+  // Mid-funnel event: the visitor saw the form and began writing. Separates
+  // "never engaged" from "started and abandoned", which the submission count
+  // alone can't distinguish.
+  const startedRef = useRef(false)
+  useEffect(() => {
+    if (startedRef.current || quote.trim().length === 0) return
+    startedRef.current = true
+    captureRaw('testimonial_started')
+  }, [quote])
+
   function choosePhoto(file: File | undefined) {
     if (photoUrl) URL.revokeObjectURL(photoUrl)
     setPhotoUrl(file ? URL.createObjectURL(file) : null)
@@ -51,8 +62,14 @@ export function TestimonialForm({ defaultName, defaultOrganization }: Props) {
       })
       const body = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(body.error || 'Your story could not be saved. Please try again.')
+      captureRaw('testimonial_submitted', { hasPhoto: Boolean(photoUrl) })
       setSubmitted(true)
     } catch (submissionError) {
+      // A failed submit is the one drop-off worth alerting on — it means the
+      // person did the work and we lost it.
+      captureRaw('testimonial_submit_failed', {
+        reason: submissionError instanceof Error ? submissionError.message.slice(0, 120) : 'unknown',
+      })
       setError(submissionError instanceof Error ? submissionError.message : 'Your story could not be saved. Please try again.')
     } finally {
       setSubmitting(false)

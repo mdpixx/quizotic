@@ -26,13 +26,27 @@ export async function GET(req: NextRequest) {
       ? {}
       : { status: { in: ['new', 'shortlisted'] } }
 
-  const [items, counts] = await Promise.all([
+  // The invite counts are the denominator. An empty testimonial list means
+  // something different depending on whether nobody was ever invited, or 40
+  // people were invited and none replied — the panel can't tell without this.
+  const [items, counts, invitesSent, invitesUsed, lastInvite, lastReceived] = await Promise.all([
     prisma.testimonial.findMany({ where, orderBy: { createdAt: 'desc' }, take: 200 }),
     prisma.testimonial.groupBy({ by: ['status'], _count: { _all: true } }),
+    prisma.testimonialInvite.count(),
+    prisma.testimonialInvite.count({ where: { usedAt: { not: null } } }),
+    prisma.testimonialInvite.findFirst({ orderBy: { createdAt: 'desc' }, select: { createdAt: true } }),
+    prisma.testimonial.findFirst({ orderBy: { createdAt: 'desc' }, select: { createdAt: true } }),
   ])
   return NextResponse.json({
     items,
     counts: Object.fromEntries(counts.map(row => [row.status, row._count._all])),
+    health: {
+      invitesSent,
+      invitesUsed,
+      lastInviteAt: lastInvite?.createdAt ?? null,
+      lastReceivedAt: lastReceived?.createdAt ?? null,
+      conversionRate: invitesSent > 0 ? Math.round((invitesUsed / invitesSent) * 100) : null,
+    },
   })
 }
 
