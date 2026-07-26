@@ -39,6 +39,37 @@ describe('CircularTimer with no timer', () => {
   })
 })
 
+// The digits were `text-white` on both variants, so on the participant's white
+// card they rendered white-on-white (measured 1:1 contrast in the browser) and
+// were legible only through the drop shadow's blur.
+describe('CircularTimer digit legibility', () => {
+  const render = (variant: 'light' | 'dark', timeLeft: number) =>
+    renderToStaticMarkup(createElement(CircularTimer, { timeLeft, total: 30, variant }))
+
+  it('paints light-variant digits navy, not white, and drops the shadow', () => {
+    const html = render('light', 20)
+    expect(html).toContain('color:#0F1B3D')
+    expect(html).not.toContain('text-white')
+    expect(html).not.toContain('text-shadow')
+  })
+
+  it('keeps white digits and the shadow on the host stage', () => {
+    const html = render('dark', 20)
+    expect(html).toContain('color:#FFFFFF')
+    expect(html).toContain('text-shadow')
+  })
+
+  it('uses urgency hues that survive their own background', () => {
+    // amber-700 on white (4.9:1) rather than amber-500 (2.1:1, below the 3:1
+    // floor for large bold text).
+    expect(render('light', 8)).toContain('color:#B45309')
+    expect(render('light', 3)).toContain('color:#DC2626')
+    // Dark keeps the hues it already shipped — the host stage is unchanged.
+    expect(render('dark', 8)).toContain('color:#F59E0B')
+    expect(render('dark', 3)).toContain('color:#EF4444')
+  })
+})
+
 const railProps = {
   points: 1000,
   questionNumber: 1,
