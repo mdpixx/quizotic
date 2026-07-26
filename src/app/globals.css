@@ -1551,3 +1551,55 @@ button.chip:active:not(:disabled) {
   .tc-summary { display: none; }
   .tc-details > .tc-grid { display: grid !important; margin-top: 0 !important; }
 }
+
+/* ── Builder preview: pin viewport-relative sizes to the device frame ─────
+   The builder's preview modal renders the real host stage at 1440×810 and the
+   real phone screen at 390×844, then CSS-transform-scales each into its pane
+   (see src/components/host/builder/preview/DeviceFrame.tsx). A transform does
+   not create a new viewport, so every `vw`/`vh` clamp and width/height media
+   query in the rules above still resolves against the BROWSER window — on a
+   2560px monitor the projected question text picked up the ≥1920px type scale
+   and rendered ~1.5x too large for its own frame, and the tip slot / tile
+   floors drifted with the window height.
+   These pin the frame-scoped values to what a 1440×810 stage actually renders.
+   Geometrically fitted sizes need no pin: useFitText measures inside the frame
+   and converges on its own. */
+.qz-preview-stage .host-question-card p {
+  /* clamp(1.55rem, 2.8vw, 2.8rem) at 1440px wide. */
+  font-size: 40px;
+}
+.qz-preview-stage .host-question-card.host-question-fit-comfy p {
+  font-size: 32px;
+}
+.qz-preview-stage .host-question-card.host-question-fit-tight p {
+  font-size: 24px;
+}
+.qz-preview-stage .host-question-card {
+  /* Beats both `.host-question-stage .host-question-card` variants above by
+     appearing later at equal specificity. */
+  max-height: 34%;
+  min-height: 120px;
+}
+.qz-preview-stage .host-options-stage {
+  /* clamp(12px, 1.8vw, 22px) at 1440px wide. */
+  gap: 22px;
+}
+.qz-preview-stage .host-options-stage > div {
+  /* clamp(72px, 10.5vh, 104px) at 810px tall. */
+  min-height: 85px;
+}
+.qz-preview-stage .host-options-stage > div > div.flex-1 {
+  /* HostOptionTile sets this inline as clamp(16px, 2.4vh, 26px)
+     clamp(18px, 2.6vw, 32px); !important is the only way to reach an inline
+     style, and without it a tall window inflated the tiles past their floor.
+     Same selector the short-viewport rules above use for this element, so it
+     targets the content row and never the vote-fill layer. */
+  padding: 19px 32px !important;
+}
+.qz-preview-stage .host-tip-slot {
+  height: 64px;
+}
+.qz-preview-stage .host-gauge-bar {
+  /* 34vh at 810px tall. */
+  max-height: 275px;
+}
