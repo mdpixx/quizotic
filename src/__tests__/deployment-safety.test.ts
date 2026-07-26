@@ -24,20 +24,52 @@ describe('Railway deployment safety', () => {
 describe('production schema bootstrap', () => {
   const SHIM = 'scripts/ensure-critical-columns.mjs'
 
-  it('runs the idempotent schema shim on the path Railway actually boots', () => {
-    const railway = JSON.parse(read('railway.json')) as { deploy?: { startCommand?: string } }
-    const startCommand = railway.deploy?.startCommand ?? ''
+  const scripts = () =>
+    (JSON.parse(read('package.json')) as { scripts?: Record<string, string> }).scripts ?? {}
 
-    expect(startCommand).toContain(SHIM)
-    // The shim must precede the server, or the first queries race the DDL.
-    expect(startCommand.indexOf(SHIM)).toBeLessThan(startCommand.indexOf('start'))
+  const startCommand = () =>
+    (JSON.parse(read('railway.json')) as { deploy?: { startCommand?: string } }).deploy?.startCommand ?? ''
+
+  /**
+   * The command Railway runs, with `npm run <script>` expanded to completion —
+   * scripts chain into each other (start → repair-schema), so one pass is not
+   * enough. Bounded so a self-referential script can't spin.
+   */
+  const effectiveBootChain = (): string => {
+    const table = scripts()
+    let chain = startCommand()
+    for (let depth = 0; depth < 10 && /npm run [\w:-]+/.test(chain); depth++) {
+      chain = chain.replace(/npm run ([\w:-]+)/g, (whole, name: string) => table[name] ?? whole)
+    }
+    return chain
+  }
+
+  it('does not put shell operators in the Railway start command', () => {
+    // Railway does NOT run startCommand through a shell. A `&&` there is passed
+    // to the first binary as bare argv: `node shim.mjs && npm run start` ran the
+    // shim, ignored the rest, exited 0, and the container stopped — deploy
+    // FAILED with the shim's output as the last thing in the log and no npm
+    // banner at all. Chain steps inside an npm script instead; npm runs script
+    // bodies through sh, so operators work there.
+    expect(startCommand()).not.toMatch(/&&|\|\||[;|]|\$\(/)
   })
 
-  it('keeps the Dockerfile CMD in sync with that boot path', () => {
-    // Not itself the production path, but it is what a local `docker run` and
-    // any non-Railway host would use — it must not drift back into a state
-    // where the shim is skipped.
-    expect(read('Dockerfile')).toContain(SHIM)
+  it('runs the idempotent schema shim before the server on the real boot path', () => {
+    const chain = effectiveBootChain()
+
+    expect(chain).toContain(SHIM)
+    // The shim must precede the server, or the first queries race the DDL.
+    expect(chain.indexOf(SHIM)).toBeLessThan(chain.indexOf('server.mjs'))
+  })
+
+  it('boots the Dockerfile through the same npm script, so it cannot drift', () => {
+    // The image CMD is not the production path (Railway's startCommand replaces
+    // it), but a local `docker run` or any non-Railway host uses it. Both must
+    // delegate to package.json's `start` so there is one boot chain, not two
+    // that can silently diverge — which is how the shim came to be skipped in
+    // production in the first place.
+    expect(read('Dockerfile')).toMatch(/CMD \["npm", "run", "start"\]/)
+    expect(startCommand()).toBe('npm run start')
   })
 
   it('mirrors every migration-created table into the shim', () => {
