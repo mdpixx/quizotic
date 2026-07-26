@@ -40,19 +40,26 @@ RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npm run build
 
 EXPOSE 4000
 
-# ⚠️ THIS CMD DOES NOT RUN IN PRODUCTION. railway.json sets
-# `deploy.startCommand`, and a Railway start command REPLACES the image CMD
-# entirely. Assuming otherwise cost us the `SessionFeedback` table: the
-# migration existed and was committed, but neither the schema shim nor
-# `prisma migrate deploy` ever executed on a real boot, so the feedback endpoint
-# and the admin voice-of-customer panel 500ed in production for weeks while
-# every local check passed. The production boot path is railway.json's
-# startCommand — change schema bootstrapping THERE, and keep this in sync.
+# The boot chain lives in ONE place: package.json's `start` script
+# (`npm run repair-schema && node server.mjs`). Both this CMD and railway.json's
+# startCommand just call it, so they cannot drift apart.
 #
-# Note the live `_prisma_migrations` ledger has only a handful of rows against
-# ~30 migration directories: this database was built by the idempotent shim, not
-# by Prisma's ledger. Re-enabling `prisma migrate deploy` on boot would make it
-# attempt every unrecorded migration against populated tables, and with `&&` a
-# single failure means the server never starts. Baseline the ledger with
-# `prisma migrate resolve --applied <name>` first. See docs/RELEASING.md.
-CMD ["sh", "-c", "node scripts/ensure-critical-columns.mjs && node server.mjs"]
+# Two hard-won reasons it is arranged this way:
+#
+# 1. A Railway `deploy.startCommand` REPLACES this CMD entirely. When the schema
+#    shim lived only here, it never ran in production — which is how the
+#    `SessionFeedback` table stayed missing for weeks (migration committed, code
+#    shipped in #103/#104, endpoint 500ing on Prisma P2021) while every local
+#    check passed.
+# 2. Railway does NOT run startCommand through a shell. Putting `a && b` there
+#    passes `&&` to the first binary as bare argv: the shim ran, node exited 0,
+#    the container stopped, and the deploy FAILED with no npm banner in the log.
+#    npm runs script bodies through sh, so the chaining belongs in the script.
+#
+# `prisma migrate deploy` is deliberately NOT in the chain. The live
+# `_prisma_migrations` ledger holds a handful of rows against ~30 migration
+# directories — this database is built by the idempotent shim, not by Prisma's
+# ledger. Re-enabling migrate deploy would attempt every unrecorded migration
+# against populated tables, and one failure in the chain means the server never
+# starts. Baseline with `prisma migrate resolve --applied <name>` first.
+CMD ["npm", "run", "start"]
