@@ -52,7 +52,7 @@ export function buildSingleQuestionPrompt(type: QuestionType, context?: string):
 ${typeGuide}
 
 Rules:
-- "timerSeconds" must be one of: 10, 15, 20, 30, 60
+- "timerSeconds" is any whole number from 5 to 600, or 0 for no timer. Match it to the reading and working time the question actually needs: ~15-20 for a recall MCQ, 45-60 for multi-step reasoning, 120-300 for a passage or case scenario. Use 0 for open discussion prompts (qa, wordcloud).
 - "points" must be one of: 0, 500, 1000, 2000
 - Return a single JSON object, not an array
 - Never use placeholder text like "Option A"

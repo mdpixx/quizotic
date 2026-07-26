@@ -23,8 +23,44 @@ export {
 
 // ── Timer / Points options ────────────────────────────────────────────────────
 
-export const TIMER_OPTIONS = [10, 15, 20, 30, 60] as const
-export type TimerSeconds = (typeof TIMER_OPTIONS)[number]
+// Bounds and clamp/format helpers live in the dependency-free ./timer module so
+// the participant page can import them without dragging this file's type pills,
+// answer colors and validation into its <100KB budget.
+export { TIMER_NONE, TIMER_MIN_ACTIVE, TIMER_MAX, clampTimer, formatTimer } from './timer'
+import { TIMER_NONE, clampTimer } from './timer'
+
+/**
+ * Presets offered in the builder dropdown. Not an exhaustive list of legal
+ * values — hosts can type any number in the Custom field, so treat this as
+ * "common choices" and always run untrusted input through clampTimer().
+ *
+ * The long tail (90/120/180/300) exists because the old 60s ceiling was the
+ * tightest in the category (Kahoot 240s, AhaSlides 1200s, Quizizz 15min) and
+ * made our own `case` scenario type unanswerable in the time allowed.
+ */
+export const TIMER_OPTIONS = [5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300] as const
+export type TimerSeconds = number
+
+/**
+ * Sensible starting timer for a newly-added question of each type. Most hosts
+ * never touch the control, so the default matters more than its discoverability
+ * — a 20s default on a `case` scenario is unanswerable, and a timer on a Q&A
+ * or word cloud slide is usually just pressure with no purpose.
+ */
+export function defaultTimerForType(type: QuestionType): number {
+  switch (type) {
+    case 'case': return 180
+    case 'openended': return 90
+    case 'fillblank':
+    case 'matching':
+    case 'ranking': return 45
+    case 'qa':
+    case 'wordcloud':
+    case 'leaderboard': return TIMER_NONE
+    case 'truefalse': return 15
+    default: return 20
+  }
+}
 
 export const POINTS_OPTIONS = [500, 1000, 2000] as const
 export type PointsValue = (typeof POINTS_OPTIONS)[number]
@@ -159,7 +195,7 @@ export function makeQuestion(overrides?: Partial<Question>): Question {
       id: crypto.randomUUID(),
       type: 'leaderboard',
       text: '',
-      timerSeconds: 20,
+      timerSeconds: defaultTimerForType('leaderboard'),
       points: 1000,
       topN: 5,
       ...overrides,
@@ -171,7 +207,7 @@ export function makeQuestion(overrides?: Partial<Question>): Question {
     text: '',
     options: ['', '', '', ''],
     correctAnswer: undefined,
-    timerSeconds: 20,
+    timerSeconds: defaultTimerForType(overrides?.type ?? 'mcq'),
     points: 1000,
     ...overrides,
   }
@@ -182,9 +218,13 @@ export function makeQuestion(overrides?: Partial<Question>): Question {
  * Resets options, correctAnswer, correctAnswers, and correctOrder to defaults.
  */
 export function convertQuestionType(question: Question, type: QuestionType): Question {
+  // Only re-default the timer if the host never moved it off the old type's
+  // default. A hand-tuned 150s must survive an MCQ → Scenario switch.
+  const wasDefault = question.timerSeconds === defaultTimerForType(question.type)
   return {
     ...question,
     type,
+    timerSeconds: wasDefault ? defaultTimerForType(type) : clampTimer(question.timerSeconds),
     options: optionsForType(type),
     correctAnswer: undefined,
     correctAnswers: type === 'multiselect' ? [] : undefined,
@@ -299,7 +339,9 @@ export function hydrateGeneratedQuestions(raw: Partial<Question>[]): Question[] 
       id: crypto.randomUUID(),
       type: (q.type as QuestionType) || 'mcq',
       text: q.text ?? '',
-      timerSeconds: snapToNearest(q.timerSeconds, TIMER_OPTIONS, 20) as Question['timerSeconds'],
+      // Timers are free-range now, so clamp rather than snap — an AI-suggested
+      // 150s for a case study is a good answer, not a value to round away.
+      timerSeconds: clampTimer(q.timerSeconds, defaultTimerForType((q.type as QuestionType) || 'mcq')),
       points: snapToNearest(q.points, POINTS_OPTIONS, 1000) as Question['points'],
       options,
       correctAnswer: q.correctAnswer,

@@ -35,6 +35,7 @@ import { AddInteractionPicker } from './AddInteractionPicker'
 import { MobileQuestionStrip } from './MobileQuestionStrip'
 import { MobileQuestionPager } from './MobileQuestionPager'
 import { BuilderLauncher, type LauncherMode } from './BuilderLauncher'
+import { QuizPreviewModal } from './QuizPreviewModal'
 import { AIGenerateForm } from './AIGenerateForm'
 import { QuizSettingsPopover } from './QuizSettingsPopover'
 import { SparkleIcon } from './SparkleIcon'
@@ -237,6 +238,7 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
   const builder = useQuizBuilder({ editId, initialType })
   // Canvas is always shown. Source modal auto-opens for deep-link ?start= values.
   const [sourceModalOpen, setSourceModalOpen] = useState(() => !editId && isSourceStart(start))
+  const [previewOpen, setPreviewOpen] = useState(false)
   const [aiPanelOpen, setAiPanelOpen] = useState(false)
   const [titleError, setTitleError] = useState(false)
   // Mobile-only: controls the AddInteractionPicker opened from the bottom toolbar / strip
@@ -368,6 +370,21 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
         >
           <SparkleIcon className="w-3.5 h-3.5" />
           Generate / Import
+        </button>
+
+        {/* Preview — static host + participant split. No session, no DB write,
+            so hosts stop launching throwaway live sessions just to look at
+            their own slides. */}
+        <button
+          type="button"
+          onClick={() => setPreviewOpen(true)}
+          disabled={builder.questions.length === 0}
+          className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ background: '#FFFFFF', color: '#374151', border: '1px solid #DCDFE4' }}
+          title="See how this looks on the projector and on a participant's phone"
+        >
+          <svg viewBox="0 0 20 20" fill="none" className="w-3.5 h-3.5"><path d="M1.7 10S4.7 4.5 10 4.5 18.3 10 18.3 10 15.3 15.5 10 15.5 1.7 10 1.7 10z" stroke="currentColor" strokeWidth="1.5"/><circle cx="10" cy="10" r="2.3" stroke="currentColor" strokeWidth="1.5"/></svg>
+          Preview
         </button>
 
         {/* Quiz settings (self-paced, time limit, retries) */}
@@ -553,6 +570,15 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
           />
         )}
       </div>
+
+      {/* ── Preview modal (host + participant split) ──────────────────── */}
+      {previewOpen && (
+        <QuizPreviewModal
+          questions={builder.questions}
+          initialIndex={builder.activeIndex}
+          onClose={() => setPreviewOpen(false)}
+        />
+      )}
 
       {/* ── Source modal (Generate / Import) ──────────────────────────── */}
       {sourceModalOpen && (

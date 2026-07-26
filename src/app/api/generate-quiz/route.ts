@@ -268,7 +268,7 @@ Examples of each type:
 ${examples.join('\n')}
 
 Rules:
-- "timerSeconds" must be one of: 10, 15, 20, 30, 60
+- "timerSeconds" is any whole number from 5 to 600, or 0 for no timer. Match it to the reading and working time the question actually needs: ~15-20 for a recall MCQ, 45-60 for multi-step reasoning, 120-300 for a passage or case scenario. Use 0 for open discussion prompts (qa, wordcloud).
 - "points" must be one of: 0, 500, 1000, 2000 (use 0 for poll, wordcloud, qa, rating, and ranking types)
 - Each option must be a complete, meaningful answer — never blank, never a placeholder like "Option A"
 - Never reference the source material in questions. Don't say "according to the passage", "based on the content", "extracted from", "as mentioned in", "from the text", etc. Write each question as a standalone knowledge question.

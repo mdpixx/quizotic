@@ -44,6 +44,7 @@ import { useConfetti } from '@/hooks/useConfetti'
 import { startClockSync, getServerNow, resyncClock } from '@/lib/clock-sync'
 import { startBoundaryCountdown, currentSecondsLeft, type CountdownHandle } from '@/lib/countdown'
 import { track } from '@/lib/analytics'
+import { clampTimer } from '@/lib/timer'
 
 type Phase = 'loading' | 'error' | 'idle' | 'lobby' | 'question' | 'standings' | 'ended'
 
@@ -1017,7 +1018,10 @@ export default function SessionPage() {
 
       const msUntilStart = Math.max(0, effectiveStart - getServerNow())
       const rawTimerSeconds = serverTimerSeconds ?? quiz?.questions[index]?.timerSeconds ?? 20
-      const timerSeconds = Math.max(5, Math.min(120, Number(rawTimerSeconds) || 20))
+      // clampTimer mirrors the server's clampTimerSeconds: 0 passes through as
+      // "no timer", everything else lands in [5,600]. Do NOT use `|| 20` here —
+      // it would silently turn a legitimate 0 into a 20s countdown.
+      const timerSeconds = clampTimer(rawTimerSeconds, 20)
 
       if (msUntilStart > 500) {
         // Server-anchored 3-2-1 countdown driven by the SAME boundary scheduler

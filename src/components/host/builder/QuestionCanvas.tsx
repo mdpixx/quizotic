@@ -36,7 +36,11 @@ import {
   ANSWER_COLORS,
   QUESTION_TYPE_GROUPS,
   TIMER_OPTIONS,
+  TIMER_MIN_ACTIVE,
+  TIMER_MAX,
   POINTS_OPTIONS,
+  clampTimer,
+  formatTimer,
   QUESTION_CHAR_LIMIT,
   OPTION_CHAR_LIMIT,
   hasCorrectAnswer,
@@ -157,114 +161,270 @@ function SortableRankItem({
   )
 }
 
-// ── Type dropdown ─────────────────────────────────────────────────────────────
+// ── Settings segmented control ────────────────────────────────────────────────
 
-function TypeDropdown({ type, onChange }: { type: QuestionType; onChange: (t: QuestionType) => void }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  const pill = getTypePill(type)
+/*
+ * Type · timer · points used to be three separate controls: a tinted type pill
+ * with a caret, and two grey-filled chips with no caret at all. On the #FAFAFA
+ * header band the grey-on-grey chips read as read-only status labels, and
+ * hosts routinely never discovered they were editable.
+ *
+ * The fix is one segmented control with a hairline boundary, a caret on every
+ * segment, and hover feedback on the border rather than the fill. A segmented
+ * control is read as interactive on sight, and collapsing three objects into
+ * one is quieter than the old treatment, not louder — which also frees the
+ * horizontal room the Preview button needs on narrow screens.
+ *
+ * Note: the group must NOT use overflow:hidden — it would clip each segment's
+ * absolutely-positioned popover. Separation comes from per-segment borderRight.
+ */
 
-  useEffect(() => {
-    if (!open) return
-    function close(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
-  }, [open])
+const SEGMENT_BORDER = '#DCDFE4'
+const SEGMENT_DIVIDER = '#ECEEF1'
+const POPOVER_SHADOW = '0 1px 2px rgba(15,27,61,0.04), 0 16px 40px rgba(15,27,61,0.14)'
 
+function SegmentGroup({ children }: { children: React.ReactNode }) {
   return (
-    <div ref={ref} className="relative min-w-0">
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors hover:brightness-95 min-w-0 max-w-full"
-        style={{ background: pill.bg, color: pill.color, border: `1px solid ${pill.color}22` }}
-      >
-        <span className="flex-shrink-0 w-4 h-4">{getTypeIcon(type)}</span>
-        {/* Compact label on mobile so a long type name can't push the action icons off-screen */}
-        <span className="sm:hidden truncate">{pill.shortLabel ?? pill.label}</span>
-        <span className="hidden sm:inline truncate">{pill.label}</span>
-        <span className="text-[10px] opacity-60 flex-shrink-0">&#9660;</span>
-      </button>
-      {open && (
-        <div
-          className="absolute top-full left-0 mt-1 z-50 rounded-xl border bg-white overflow-y-auto overscroll-contain"
-          style={{ width: 260, maxHeight: 'min(60vh, 360px)', borderColor: '#E8EAED', boxShadow: '0 1px 2px rgba(15,27,61,0.04), 0 16px 40px rgba(15,27,61,0.14)' }}
-        >
-          {QUESTION_TYPE_GROUPS.map(group => (
-            <div key={group.label}>
-              <p className="px-3 pt-2.5 pb-1 text-[10px] font-black uppercase tracking-widest" style={{ color: '#9CA3AF' }}>{group.label}</p>
-              {group.types.map(t => {
-                const p = getTypePill(t)
-                return (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => { onChange(t); setOpen(false) }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold hover:bg-gray-50 transition-colors text-left"
-                    style={{ color: t === type ? p.color : '#374151', background: t === type ? p.bg : undefined }}
-                  >
-                    <span className="w-4 h-4 flex-shrink-0">{getTypeIcon(t)}</span>
-                    {p.label}
-                    {t === type && <span className="ml-auto text-[10px]">&#10003;</span>}
-                  </button>
-                )
-              })}
-            </div>
-          ))}
-        </div>
-      )}
+    <div
+      className="inline-flex items-stretch rounded-lg bg-white min-w-0"
+      style={{ border: `1px solid ${SEGMENT_BORDER}` }}
+    >
+      {children}
     </div>
   )
 }
 
-// ── Timer / Points chips ──────────────────────────────────────────────────────
-
-function ChipPicker<T extends number>({
-  value, options, onChange, icon, formatter,
+/**
+ * One segment of the group. `divider` draws the hairline separating it from the
+ * next segment (the last segment omits it). `accentColor` tints only the label,
+ * so the question type keeps its colour coding without reintroducing a fill.
+ */
+function Segment({
+  open, onToggle, icon, label, shortLabel, accentColor, divider = true, title, children,
 }: {
-  value: T; options: readonly T[]; onChange: (v: T) => void
-  icon: React.ReactNode; formatter: (v: T) => string
+  open: boolean
+  onToggle: () => void
+  icon: React.ReactNode
+  label: string
+  shortLabel?: string
+  accentColor?: string
+  divider?: boolean
+  title: string
+  children: React.ReactNode
 }) {
-  const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!open) return
     function close(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      if (ref.current && !ref.current.contains(e.target as Node)) onToggle()
+    }
+    function esc(e: KeyboardEvent) {
+      if (e.key === 'Escape') onToggle()
     }
     document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
-  }, [open])
+    document.addEventListener('keydown', esc)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', esc)
+    }
+  }, [open, onToggle])
+
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative min-w-0" style={divider ? { borderRight: `1px solid ${SEGMENT_DIVIDER}` } : undefined}>
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-bold transition-colors hover:bg-gray-100"
-        style={{ color: '#374151', background: '#F3F4F6' }}
+        onClick={onToggle}
+        title={title}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold transition-colors hover:bg-gray-50 min-w-0 max-w-full h-full first:rounded-l-lg last:rounded-r-lg"
+        style={{ color: accentColor ?? '#374151', background: open ? '#F5F6F8' : undefined }}
       >
-        {icon}
-        {formatter(value)}
+        <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center">{icon}</span>
+        {shortLabel ? (
+          <>
+            <span className="sm:hidden truncate">{shortLabel}</span>
+            <span className="hidden sm:inline truncate">{label}</span>
+          </>
+        ) : (
+          <span className="truncate">{label}</span>
+        )}
+        <span className="text-[9px] flex-shrink-0" style={{ color: '#9CA3AF' }}>&#9660;</span>
       </button>
-      {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 rounded-xl border bg-white py-1.5" style={{ minWidth: 110, borderColor: '#E8EAED', boxShadow: '0 1px 2px rgba(15,27,61,0.04), 0 16px 40px rgba(15,27,61,0.14)' }}>
-          {options.map(opt => (
+      {open && children}
+    </div>
+  )
+}
+
+function TypeSegment({ type, onChange, divider }: { type: QuestionType; onChange: (t: QuestionType) => void; divider?: boolean }) {
+  const [open, setOpen] = useState(false)
+  const pill = getTypePill(type)
+  return (
+    <Segment
+      open={open}
+      onToggle={() => setOpen(o => !o)}
+      icon={getTypeIcon(type)}
+      label={pill.label}
+      shortLabel={pill.shortLabel ?? pill.label}
+      accentColor={pill.color}
+      divider={divider}
+      title="Change question type"
+    >
+      <div
+        className="absolute top-full left-0 mt-1.5 z-50 rounded-xl border bg-white overflow-y-auto overscroll-contain"
+        style={{ width: 260, maxHeight: 'min(60vh, 360px)', borderColor: '#E8EAED', boxShadow: POPOVER_SHADOW }}
+      >
+        {QUESTION_TYPE_GROUPS.map(group => (
+          <div key={group.label}>
+            <p className="px-3 pt-2.5 pb-1 text-[10px] font-black uppercase tracking-widest" style={{ color: '#9CA3AF' }}>{group.label}</p>
+            {group.types.map(t => {
+              const p = getTypePill(t)
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => { onChange(t); setOpen(false) }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold hover:bg-gray-50 transition-colors text-left"
+                  style={{ color: t === type ? p.color : '#374151', background: t === type ? p.bg : undefined }}
+                >
+                  <span className="w-4 h-4 flex-shrink-0">{getTypeIcon(t)}</span>
+                  {p.label}
+                  {t === type && <span className="ml-auto text-[10px]">&#10003;</span>}
+                </button>
+              )
+            })}
+          </div>
+        ))}
+      </div>
+    </Segment>
+  )
+}
+
+/**
+ * Timer picker. Presets are a 3-column grid rather than a list so eleven of
+ * them stay scannable in the same vertical space the old five-item list used,
+ * and a Custom field below removes the ceiling entirely for the cases presets
+ * can't anticipate (a 4-minute numerical, a 7-minute passage).
+ */
+function TimerSegment({ value, onChange, divider }: { value: number; onChange: (v: number) => void; divider?: boolean }) {
+  const [open, setOpen] = useState(false)
+  const [custom, setCustom] = useState('')
+
+  function commitCustom() {
+    const raw = custom.trim()
+    if (raw === '') return
+    onChange(clampTimer(raw, value))
+    setCustom('')
+    setOpen(false)
+  }
+
+  return (
+    <Segment
+      open={open}
+      onToggle={() => setOpen(o => !o)}
+      icon={<span className="text-[12px] leading-none">&#9201;</span>}
+      label={formatTimer(value)}
+      divider={divider}
+      title="Time to answer"
+    >
+      <div
+        className="absolute top-full left-0 mt-1.5 z-50 rounded-xl border bg-white p-2"
+        style={{ width: 232, borderColor: '#E8EAED', boxShadow: POPOVER_SHADOW }}
+      >
+        <div className="grid grid-cols-3 gap-1">
+          {TIMER_OPTIONS.map(opt => (
             <button
               key={opt}
               type="button"
               onClick={() => { onChange(opt); setOpen(false) }}
-              className="w-full px-3 py-1.5 text-xs font-semibold text-left hover:bg-gray-50 transition-colors flex items-center justify-between"
-              style={{ color: opt === value ? '#2563EB' : '#374151' }}
+              className="rounded-lg py-1.5 text-xs font-semibold transition-colors hover:bg-gray-50"
+              style={
+                opt === value
+                  ? { color: '#2563EB', background: '#EFF6FF', border: '1px solid #BFDBFE' }
+                  : { color: '#374151', border: '1px solid #EDEFF2' }
+              }
             >
-              {formatter(opt)}
-              {opt === value && <span>&#10003;</span>}
+              {formatTimer(opt)}
             </button>
           ))}
         </div>
-      )}
-    </div>
+
+        <button
+          type="button"
+          onClick={() => { onChange(0); setOpen(false) }}
+          className="mt-1 w-full rounded-lg py-1.5 text-xs font-semibold transition-colors hover:bg-gray-50"
+          style={
+            value === 0
+              ? { color: '#2563EB', background: '#EFF6FF', border: '1px solid #BFDBFE' }
+              : { color: '#374151', border: '1px solid #EDEFF2' }
+          }
+        >
+          No timer &middot; advance manually
+        </button>
+
+        <div className="mt-2 pt-2 flex items-center gap-1.5" style={{ borderTop: '1px solid #F1F3F5' }}>
+          <label className="text-[10px] font-bold uppercase tracking-wider flex-shrink-0" style={{ color: '#9CA3AF' }} htmlFor="timer-custom">
+            Custom
+          </label>
+          <input
+            id="timer-custom"
+            type="number"
+            inputMode="numeric"
+            min={TIMER_MIN_ACTIVE}
+            max={TIMER_MAX}
+            value={custom}
+            placeholder="sec"
+            onChange={e => setCustom(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { e.preventDefault(); commitCustom() }
+            }}
+            className="min-w-0 flex-1 rounded-lg px-2 py-1 text-xs font-semibold outline-none focus:border-blue-400"
+            style={{ border: '1px solid #E3E5E9', color: '#374151' }}
+          />
+          <button
+            type="button"
+            onClick={commitCustom}
+            className="flex-shrink-0 rounded-lg px-2 py-1 text-xs font-semibold transition-colors hover:bg-gray-50"
+            style={{ border: '1px solid #E3E5E9', color: '#374151' }}
+          >
+            Set
+          </button>
+        </div>
+        <p className="mt-1 text-[10px]" style={{ color: '#9CA3AF' }}>{TIMER_MIN_ACTIVE}&ndash;{TIMER_MAX} seconds</p>
+      </div>
+    </Segment>
+  )
+}
+
+function PointsSegment({ value, onChange, divider }: { value: number; onChange: (v: number) => void; divider?: boolean }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <Segment
+      open={open}
+      onToggle={() => setOpen(o => !o)}
+      icon={<span className="text-[12px] leading-none">&#11088;</span>}
+      label={String(value)}
+      divider={divider}
+      title="Points for a correct answer"
+    >
+      <div
+        className="absolute top-full left-0 mt-1.5 z-50 rounded-xl border bg-white py-1.5"
+        style={{ minWidth: 120, borderColor: '#E8EAED', boxShadow: POPOVER_SHADOW }}
+      >
+        {POINTS_OPTIONS.map(opt => (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => { onChange(opt); setOpen(false) }}
+            className="w-full px-3 py-1.5 text-xs font-semibold text-left hover:bg-gray-50 transition-colors flex items-center justify-between"
+            style={{ color: opt === value ? '#2563EB' : '#374151' }}
+          >
+            {opt} pts
+            {opt === value && <span>&#10003;</span>}
+          </button>
+        ))}
+      </div>
+    </Segment>
   )
 }
 
@@ -542,7 +702,11 @@ export function QuestionCanvas({
         {/* Header: type dropdown + actions */}
         <div className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 border-b sm:gap-2 sm:px-4 rounded-t-2xl" style={{ borderColor: '#F3F4F6', background: '#FAFAFA' }}>
           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
-            <TypeDropdown type={question.type} onChange={onTypeChange} />
+            {/* Leaderboard slides carry no timer or points, so the group is a
+                single segment — hence divider={false}. */}
+            <SegmentGroup>
+              <TypeSegment type={question.type} onChange={onTypeChange} divider={false} />
+            </SegmentGroup>
           </div>
           <div className="flex items-center flex-shrink-0">
             <span className="text-xs text-gray-400 font-medium tabular-nums hidden sm:block mr-1">
@@ -633,29 +797,23 @@ export function QuestionCanvas({
         {/* Left cluster: type + timer + points. Shrinks (type label ellipsizes) so the
             action icons on the right are never pushed off-screen on narrow phones. */}
         <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
-        {/* Type dropdown */}
-        <TypeDropdown type={question.type} onChange={onTypeChange} />
-
-        {/* Timer chip */}
-        <ChipPicker
-          value={question.timerSeconds}
-          options={TIMER_OPTIONS}
-          onChange={v => onChange({ timerSeconds: v })}
-          formatter={v => `${v}s`}
-          icon={<span className="text-[12px]">&#9201;</span>}
-        />
-
-        {/* Points chip — only for scored types */}
-        {scored && (
-          <ChipPicker
-            value={question.points}
-            options={POINTS_OPTIONS}
-            onChange={v => onChange({ points: v })}
-            formatter={v => `${v} pts`}
-            icon={<span className="text-[12px]">&#11088;</span>}
+        <SegmentGroup>
+          <TypeSegment type={question.type} onChange={onTypeChange} />
+          <TimerSegment
+            value={question.timerSeconds}
+            onChange={v => onChange({ timerSeconds: v })}
+            /* Timer is the last segment on unscored types — drop its divider */
+            divider={scored}
           />
-        )}
-
+          {/* Points — scored types only, so it is also the last segment when present */}
+          {scored && (
+            <PointsSegment
+              value={question.points}
+              onChange={v => onChange({ points: v as Question['points'] })}
+              divider={false}
+            />
+          )}
+        </SegmentGroup>
         </div>
 
         {/* Action cluster: pinned to the right, never shrinks or clips */}
