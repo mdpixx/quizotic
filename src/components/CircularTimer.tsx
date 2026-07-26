@@ -48,6 +48,18 @@ export function CircularTimer({
   }
   const dashTransition = snap ? 'stroke-dashoffset 0s' : 'stroke-dashoffset 1s linear'
 
+  // A question with `timerSeconds: 0` has no deadline at all, so there is no
+  // countdown to draw. Rendering the ring anyway painted an empty track around a
+  // red, pulsing "0" — `timeLeft` of 0 trips the `isLow` urgency ramp — which
+  // read as "time is up" the instant the question opened. The participant's
+  // linear progress bar and the host's room gauge already omit themselves for
+  // no-timer questions; the ring now matches them instead of contradicting them.
+  //
+  // Placed AFTER the hooks on purpose: MobileTopBar keeps one instance mounted
+  // across questions, so a timed question following an untimed one would change
+  // the hook count if this returned earlier.
+  if (!(total > 0)) return null
+
   const isDark = variant === 'dark'
   const trackColor = isDark ? 'rgba(255,255,255,0.14)' : 'rgba(15,27,61,0.15)'
   const restColor = isDark ? '#FFFFFF' : '#0F1B3D'
