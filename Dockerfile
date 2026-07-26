@@ -40,8 +40,19 @@ RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npm run build
 
 EXPOSE 4000
 
-# Ensure critical columns exist (idempotent schema shim — see
-# scripts/ensure-critical-columns.mjs) BEFORE prisma migrate deploy, so drift
-# between _prisma_migrations and actual DDL can't strand users at the save path.
-# Then apply any pending Prisma migrations, then start the server.
-CMD ["sh", "-c", "node scripts/ensure-critical-columns.mjs && npx prisma migrate deploy && node server.mjs"]
+# ⚠️ THIS CMD DOES NOT RUN IN PRODUCTION. railway.json sets
+# `deploy.startCommand`, and a Railway start command REPLACES the image CMD
+# entirely. Assuming otherwise cost us the `SessionFeedback` table: the
+# migration existed and was committed, but neither the schema shim nor
+# `prisma migrate deploy` ever executed on a real boot, so the feedback endpoint
+# and the admin voice-of-customer panel 500ed in production for weeks while
+# every local check passed. The production boot path is railway.json's
+# startCommand — change schema bootstrapping THERE, and keep this in sync.
+#
+# Note the live `_prisma_migrations` ledger has only a handful of rows against
+# ~30 migration directories: this database was built by the idempotent shim, not
+# by Prisma's ledger. Re-enabling `prisma migrate deploy` on boot would make it
+# attempt every unrecorded migration against populated tables, and with `&&` a
+# single failure means the server never starts. Baseline the ledger with
+# `prisma migrate resolve --applied <name>` first. See docs/RELEASING.md.
+CMD ["sh", "-c", "node scripts/ensure-critical-columns.mjs && node server.mjs"]

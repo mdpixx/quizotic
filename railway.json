@@ -4,7 +4,7 @@
     "builder": "DOCKERFILE"
   },
   "deploy": {
-    "startCommand": "npm run start",
+    "startCommand": "node scripts/ensure-critical-columns.mjs && npm run start",
     "healthcheckPath": "/api/health/live",
     "healthcheckTimeout": 60,
     "restartPolicyType": "ON_FAILURE",

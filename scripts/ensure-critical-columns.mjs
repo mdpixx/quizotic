@@ -244,6 +244,106 @@ const CRITICAL_TABLES = [
      CONSTRAINT "QuizShareLink_pkey" PRIMARY KEY ("id"),
      CONSTRAINT "QuizShareLink_quizId_fkey" FOREIGN KEY ("quizId") REFERENCES "Quiz"("id") ON DELETE CASCADE ON UPDATE CASCADE
    )`,
+  // Post-session smiley feedback (1-5) from hosts and participants. Anonymous
+  // by design — no participant identity, only role + an optional session
+  // reference, which keeps participant rows DPDP-clean for under-18s. No FK on
+  // sessionId: the code resolves it best-effort from the room code and stores
+  // sessionCode as a fallback, so a missing GameSession must not reject the row.
+  // Mirrored from prisma/migrations/20260723_session_feedback/migration.sql.
+  //
+  // This table is why the mirror matters: it was live in the code from #103/#104
+  // but absent from production for weeks, 500ing the feedback endpoint and the
+  // admin voice-of-customer panel, because nothing on the real boot path ever
+  // created it (see railway.json — Railway's startCommand overrides the
+  // Dockerfile CMD, so `prisma migrate deploy` never ran).
+  `CREATE TABLE IF NOT EXISTS "SessionFeedback" (
+     "id" TEXT NOT NULL,
+     "sessionId" TEXT,
+     "sessionCode" TEXT,
+     "role" TEXT NOT NULL,
+     "rating" INTEGER NOT NULL,
+     "reasons" TEXT[] NOT NULL DEFAULT '{}',
+     "comment" TEXT,
+     "email" TEXT,
+     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     CONSTRAINT "SessionFeedback_pkey" PRIMARY KEY ("id")
+   )`,
+  // Admin-issued Pro for an email with no account yet; applied in NextAuth's
+  // events.createUser. Mirrored from
+  // prisma/migrations/20260602_pending_pro_grant/migration.sql.
+  `CREATE TABLE IF NOT EXISTS "PendingProGrant" (
+     "id" TEXT NOT NULL,
+     "email" TEXT NOT NULL,
+     "months" INTEGER NOT NULL DEFAULT 1,
+     "appliedAt" TIMESTAMP(3),
+     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     CONSTRAINT "PendingProGrant_pkey" PRIMARY KEY ("id")
+   )`,
+  // Invite-only customer stories. Mirrored from
+  // prisma/migrations/20260720_testimonials/migration.sql, with that
+  // migration's trailing ALTER TABLE … ADD CONSTRAINT foreign keys folded
+  // inline: Postgres has no ADD CONSTRAINT IF NOT EXISTS, so a separate ALTER
+  // would error on every boot after the first. Inline constraints ride along
+  // with CREATE TABLE IF NOT EXISTS and are skipped wholesale once the table
+  // exists. TestimonialInvite must precede Testimonial — these run in order and
+  // Testimonial references it.
+  `CREATE TABLE IF NOT EXISTS "TestimonialInvite" (
+     "id" TEXT NOT NULL,
+     "tokenHash" TEXT NOT NULL,
+     "userId" TEXT NOT NULL,
+     "campaignKey" TEXT NOT NULL,
+     "expiresAt" TIMESTAMP(3) NOT NULL,
+     "usedAt" TIMESTAMP(3),
+     "deliveryState" TEXT NOT NULL DEFAULT 'claimed',
+     "deliveryAttemptedAt" TIMESTAMP(3),
+     "emailSentAt" TIMESTAMP(3),
+     "lastDeliveryError" TEXT,
+     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     CONSTRAINT "TestimonialInvite_pkey" PRIMARY KEY ("id"),
+     CONSTRAINT "TestimonialInvite_delivery_state_check" CHECK ("deliveryState" IN ('claimed', 'sent', 'retryable', 'unknown')),
+     CONSTRAINT "TestimonialInvite_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE
+   )`,
+  `CREATE TABLE IF NOT EXISTS "Testimonial" (
+     "id" TEXT NOT NULL,
+     "inviteId" TEXT,
+     "userId" TEXT,
+     "emailSnapshot" TEXT NOT NULL,
+     "name" TEXT NOT NULL,
+     "designation" TEXT NOT NULL,
+     "organization" TEXT,
+     "quote" TEXT NOT NULL,
+     "displayQuote" TEXT,
+     "photoUrl" TEXT,
+     "photoKey" TEXT,
+     "publicationConsent" BOOLEAN NOT NULL DEFAULT false,
+     "editingAllowed" BOOLEAN NOT NULL DEFAULT false,
+     "materialChange" BOOLEAN NOT NULL DEFAULT false,
+     "consentVersion" TEXT NOT NULL,
+     "consentGrantedAt" TIMESTAMP(3) NOT NULL,
+     "reconfirmedAt" TIMESTAMP(3),
+     "reconfirmedQuote" TEXT,
+     "deletionPendingAt" TIMESTAMP(3),
+     "status" TEXT NOT NULL DEFAULT 'new',
+     "publishedAt" TIMESTAMP(3),
+     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     "updatedAt" TIMESTAMP(3) NOT NULL,
+     CONSTRAINT "Testimonial_pkey" PRIMARY KEY ("id"),
+     CONSTRAINT "Testimonial_status_check" CHECK ("status" IN ('new', 'shortlisted', 'published', 'declined')),
+     CONSTRAINT "Testimonial_publication_consent_check" CHECK ("status" <> 'published' OR "publicationConsent"),
+     CONSTRAINT "Testimonial_publication_timestamp_check" CHECK (("status" = 'published') = ("publishedAt" IS NOT NULL)),
+     CONSTRAINT "Testimonial_deletion_pending_check" CHECK ("deletionPendingAt" IS NULL OR ("status" = 'declined' AND "publishedAt" IS NULL)),
+     CONSTRAINT "Testimonial_inviteId_fkey" FOREIGN KEY ("inviteId") REFERENCES "TestimonialInvite"("id") ON DELETE SET NULL ON UPDATE CASCADE,
+     CONSTRAINT "Testimonial_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE
+   )`,
+  // Hard bounces / complaints — checked before any transactional send.
+  `CREATE TABLE IF NOT EXISTS "EmailSuppression" (
+     "email" TEXT NOT NULL,
+     "reason" TEXT NOT NULL,
+     "source" TEXT NOT NULL DEFAULT 'manual',
+     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     "updatedAt" TIMESTAMP(3) NOT NULL,
+     CONSTRAINT "EmailSuppression_pkey" PRIMARY KEY ("email")
+   )`,
 ]
 
 const CRITICAL_INDEXES = [
@@ -288,6 +388,20 @@ const CRITICAL_INDEXES = [
   // Quiz sharing — share-a-copy tokens
   `CREATE UNIQUE INDEX IF NOT EXISTS "QuizShareLink_token_key" ON "QuizShareLink" ("token")`,
   `CREATE INDEX IF NOT EXISTS "QuizShareLink_quizId_idx" ON "QuizShareLink" ("quizId")`,
+  // Post-session feedback — lookups are by session and by recency
+  `CREATE INDEX IF NOT EXISTS "SessionFeedback_sessionId_idx" ON "SessionFeedback" ("sessionId")`,
+  `CREATE INDEX IF NOT EXISTS "SessionFeedback_createdAt_idx" ON "SessionFeedback" ("createdAt")`,
+  // Admin-issued Pro for not-yet-registered emails — one grant per address
+  `CREATE UNIQUE INDEX IF NOT EXISTS "PendingProGrant_email_key" ON "PendingProGrant" ("email")`,
+  `CREATE INDEX IF NOT EXISTS "PendingProGrant_appliedAt_idx" ON "PendingProGrant" ("appliedAt")`,
+  // Testimonials — invite lookup by token hash, one invite per user+campaign
+  `CREATE UNIQUE INDEX IF NOT EXISTS "TestimonialInvite_tokenHash_key" ON "TestimonialInvite" ("tokenHash")`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "TestimonialInvite_userId_campaignKey_key" ON "TestimonialInvite" ("userId", "campaignKey")`,
+  `CREATE INDEX IF NOT EXISTS "TestimonialInvite_expiresAt_idx" ON "TestimonialInvite" ("expiresAt")`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "Testimonial_inviteId_key" ON "Testimonial" ("inviteId")`,
+  `CREATE INDEX IF NOT EXISTS "Testimonial_status_publishedAt_idx" ON "Testimonial" ("status", "publishedAt")`,
+  `CREATE INDEX IF NOT EXISTS "Testimonial_createdAt_idx" ON "Testimonial" ("createdAt")`,
+  `CREATE INDEX IF NOT EXISTS "Testimonial_userId_idx" ON "Testimonial" ("userId")`,
 ]
 
 // Idempotent data backfills. Each one reconciles a typed column with the
