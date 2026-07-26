@@ -39,7 +39,7 @@ ${mix}
 Return only a JSON array. Each item must include:
 - type: mcq, multiselect, truefalse, poll, openended, wordcloud, qa, rating, ranking, or case
 - text
-- timerSeconds: 10, 15, 20, 30, or 60
+- timerSeconds: any whole number from 5 to 600 (or 0 for no timer), matched to the time the question actually needs
 - points: 500, 1000, or 2000 for scored questions; 500 for unscored interactive questions
 - options and correctAnswer/correctAnswers when required
 - explanation when helpful

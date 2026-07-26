@@ -31,6 +31,7 @@ import { useConfetti } from '@/hooks/useConfetti'
 import { useWakeLock } from '@/hooks/useWakeLock'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
 import { track } from '@/lib/analytics'
+import { clampTimer } from '@/lib/timer'
 
 function phaseForPresenterSlide(
   slideType: string | undefined,
@@ -1105,9 +1106,10 @@ function JoinPageInner() {
       }
       setPhase('question')
 
-      // Clamp incoming timer to [5,120] as a client-side belt-and-suspenders
-      // alongside the server clamp in sanitizeQuestion.
-      const safeTimerSeconds = Math.max(5, Math.min(120, Number(serverTimerSeconds ?? question.timerSeconds) || 20))
+      // Clamp incoming timer as a client-side belt-and-suspenders alongside the
+      // server clamp in sanitizeQuestion. 0 survives the clamp as "no timer";
+      // `|| 20` would have swallowed it, so clampTimer handles the fallback.
+      const safeTimerSeconds = clampTimer(serverTimerSeconds ?? question.timerSeconds, 20)
       const effectiveStartAt = typeof startAt === 'number' ? startAt : getServerNow()
       // Prefer the server's absolute display deadline so every client converges
       // on the SAME endAt (clients deriving locally drift apart by their offset
@@ -2206,13 +2208,17 @@ function JoinPageInner() {
           total={question.timerSeconds}
         />
 
-        {/* Progress bar */}
-        <div className="h-2 rounded-full overflow-hidden mb-4" style={{ background: 'rgba(15,27,61,0.1)' }}>
-          <div
-            className="h-full rounded-full transition-all duration-1000"
-            style={{ width: `${(timeLeft / question.timerSeconds) * 100}%`, background: timeLeft <= 5 ? '#DC2626' : '#0F1B3D' }}
-          />
-        </div>
+        {/* Progress bar — omitted entirely on no-timer questions, where there is
+            no deadline to count down against (and timerSeconds 0 would make the
+            width NaN%). */}
+        {question.timerSeconds > 0 && (
+          <div className="h-2 rounded-full overflow-hidden mb-4" style={{ background: 'rgba(15,27,61,0.1)' }}>
+            <div
+              className="h-full rounded-full transition-all duration-1000"
+              style={{ width: `${(timeLeft / question.timerSeconds) * 100}%`, background: timeLeft <= 5 ? '#DC2626' : '#0F1B3D' }}
+            />
+          </div>
+        )}
 
         {/* Scenario card — shown for 'case' type questions */}
         {question.type === 'case' && question.scenarioText && (

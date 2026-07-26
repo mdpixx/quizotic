@@ -3683,16 +3683,31 @@ function sanitizeQuestion(q) {
 
 // Hard floor/ceiling on timerSeconds. Returns the clamped value and warns once
 // per offending question so we can clean the row later.
+//
+// 0 is a legal value meaning "no timer" — the host advances manually and
+// scheduleQuestionAutoEnd() skips its timeout. Everything else is pinned to
+// [5, 600]: below 5 the countdown opens in the red zone, and 600 (10 min) is
+// the builder's ceiling. Keep TIMER_MIN_ACTIVE / TIMER_MAX in
+// src/lib/quiz-builder-logic.ts in sync with these bounds.
+const TIMER_MIN_ACTIVE = 5
+const TIMER_MAX = 600
 const _clampWarned = new Set()
 function clampTimerSeconds(raw, qid) {
   const n = Number(raw)
-  if (!Number.isFinite(n) || n < 5 || n > 120) {
+  if (!Number.isFinite(n)) {
     if (!_clampWarned.has(qid)) {
       _clampWarned.add(qid)
-      console.warn(`[timer-clamp] question ${qid} has timerSeconds=${raw} — clamping to [5,120]`)
+      console.warn(`[timer-clamp] question ${qid} has timerSeconds=${raw} — defaulting to 20`)
     }
-    if (!Number.isFinite(n)) return 20
-    return Math.max(5, Math.min(120, n))
+    return 20
+  }
+  if (n <= 0) return 0
+  if (n < TIMER_MIN_ACTIVE || n > TIMER_MAX) {
+    if (!_clampWarned.has(qid)) {
+      _clampWarned.add(qid)
+      console.warn(`[timer-clamp] question ${qid} has timerSeconds=${raw} — clamping to [${TIMER_MIN_ACTIVE},${TIMER_MAX}]`)
+    }
+    return Math.max(TIMER_MIN_ACTIVE, Math.min(TIMER_MAX, n))
   }
   return n
 }
@@ -4109,7 +4124,9 @@ function presentQuestion(io, gameCode, session, index) {
   // Clients then apply a half-RTT correction so the participant's buzzer
   // aligns with the host's (the scoring path already uses rtt/2).
   const timerSeconds = clampTimerSeconds(question.timerSeconds, question.id ?? '(no-id)')
-  const displayEndAt = startAt + timerSeconds * 1000
+  // No timer → no deadline to converge on. Send null so clients render an
+  // open-ended question instead of deriving an endAt that has already passed.
+  const displayEndAt = timerSeconds > 0 ? startAt + timerSeconds * 1000 : null
 
   io.to(`session:${gameCode}`).emit('question_show', {
     question,
@@ -4147,6 +4164,13 @@ function scheduleQuestionAutoEnd(io, gameCode, session, overrideMs) {
   } else {
     const q = session.quizData?.questions?.[session.currentQuestionIndex]
     const timerSeconds = clampTimerSeconds(q?.timerSeconds, q?.id ?? '(no-id)')
+    // timerSeconds === 0 is "no timer": leave the question open indefinitely.
+    // It still ends via the host's manual advance or the all-answered check in
+    // submit_answer — we simply never arm the countdown.
+    if (timerSeconds === 0) {
+      session.questionEndsAt = null
+      return
+    }
     // 3.5s intro countdown + question timer + 0.5s grace so the client gets a
     // chance to paint the final "0" before we transition.
     totalMs = 3500 + timerSeconds * 1000 + 500

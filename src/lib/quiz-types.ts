@@ -162,7 +162,16 @@ export interface Question {
   correctOrder?: string[]   // ranking: array of option ids in the correct sequence (when set, ranking is scored)
   blankAnswers?: string[]   // fillblank: accepted answers (case-insensitive); stripped before broadcast
   matchPairs?: MatchPair[]  // matching: left↔right answer key; transformed/shuffled before broadcast
-  timerSeconds: 10 | 15 | 20 | 30 | 60
+  /**
+   * Seconds allowed to answer. `0` means "no timer" — the host advances
+   * manually (or the all-answered check fires). Any other value is clamped to
+   * [TIMER_MIN_ACTIVE, TIMER_MAX] by clampTimer() on write and by
+   * clampTimerSeconds() in server.mjs on broadcast, so an arbitrary number is
+   * safe here — it is deliberately NOT a literal union, because hosts can type
+   * a custom value (JEE numericals, RC passages and `case` scenarios routinely
+   * need more than the old 60s ceiling).
+   */
+  timerSeconds: number
   points: 500 | 1000 | 2000
   explanation?: string      // shown to host + participant after answer reveal; for 'case' type = debrief text
   bloomsLevel?: BloomsLevel // optional tag for session report Bloom's distribution
