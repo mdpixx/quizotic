@@ -197,13 +197,19 @@ export function StageRail({
 }) {
   return (
     <aside className={`participant-rail hidden lg:flex flex-col gap-4 p-5 ${className}`}>
-      {/* Timer — bigger than the 80px mobile circle */}
-      <div className="flex flex-col items-center">
-        <CircularTimer timeLeft={timeLeft} total={total} size={128} />
-        <p className="text-[10px] uppercase tracking-[0.2em] font-bold mt-2" style={{ color: '#9CA3AF' }}>
-          {timeLeft === 1 ? '1 second' : `${timeLeft} seconds`}
-        </p>
-      </div>
+      {/* Timer — bigger than the 80px mobile circle. Omitted entirely on
+          no-timer questions (`timerSeconds: 0`): there is no deadline to count
+          down against, and the caption would read "0 seconds" while the ring
+          sat at zero. <CircularTimer> guards itself too; the guard is repeated
+          here because the caption is ours, not the timer's. */}
+      {total > 0 && (
+        <div className="flex flex-col items-center">
+          <CircularTimer timeLeft={timeLeft} total={total} size={128} />
+          <p className="text-[10px] uppercase tracking-[0.2em] font-bold mt-2" style={{ color: '#9CA3AF' }}>
+            {timeLeft === 1 ? '1 second' : `${timeLeft} seconds`}
+          </p>
+        </div>
+      )}
 
       {/* Progress */}
       <div className="text-center">

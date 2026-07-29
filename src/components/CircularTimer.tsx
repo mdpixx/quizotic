@@ -48,11 +48,35 @@ export function CircularTimer({
   }
   const dashTransition = snap ? 'stroke-dashoffset 0s' : 'stroke-dashoffset 1s linear'
 
+  // A question with `timerSeconds: 0` has no deadline at all, so there is no
+  // countdown to draw. Rendering the ring anyway painted an empty track around a
+  // red, pulsing "0" — `timeLeft` of 0 trips the `isLow` urgency ramp — which
+  // read as "time is up" the instant the question opened. The participant's
+  // linear progress bar and the host's room gauge already omit themselves for
+  // no-timer questions; the ring now matches them instead of contradicting them.
+  //
+  // Placed AFTER the hooks on purpose: MobileTopBar keeps one instance mounted
+  // across questions, so a timed question following an untimed one would change
+  // the hook count if this returned earlier.
+  if (!(total > 0)) return null
+
   const isDark = variant === 'dark'
   const trackColor = isDark ? 'rgba(255,255,255,0.14)' : 'rgba(15,27,61,0.15)'
   const restColor = isDark ? '#FFFFFF' : '#0F1B3D'
   const ringColor = isLow ? '#DC2626' : isWarning ? '#F59E0B' : restColor
-  const textColor = isLow ? 'text-red-500' : isWarning ? 'text-amber-400' : 'text-white'
+
+  // The digits used to be `text-white` for BOTH variants, so on the participant's
+  // light surfaces they were white-on-white — measured 1:1 contrast, readable
+  // only through the drop shadow's blur. They now track the ring, so the number
+  // and its arc always read as one object.
+  //
+  // Light needs darker urgency hues than dark does: amber-500 on white is 2.1:1,
+  // under the 3:1 floor even for large bold text, so light steps down to
+  // amber-700. The dark variant keeps exactly the colours it renders today, so
+  // the host stage is visually unchanged.
+  const digitColor = isDark
+    ? (isLow ? '#EF4444' : isWarning ? '#F59E0B' : '#FFFFFF')
+    : (isLow ? '#DC2626' : isWarning ? '#B45309' : '#0F1B3D')
 
   return (
     <div className={`relative ${isLow ? 'motion-safe:animate-pulse' : ''}`} style={{ width: size, height: size }}>
@@ -68,8 +92,14 @@ export function CircularTimer({
           style={{ transition: `${dashTransition}, stroke 0.3s, stroke-width 0.3s` }}
         />
       </svg>
-      <span className={`absolute inset-0 flex items-center justify-center font-black ${textColor}`}
-        style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)', fontSize: size >= 76 ? '1.5rem' : '1.25rem' }}>
+      <span className="absolute inset-0 flex items-center justify-center font-black"
+        style={{
+          color: digitColor,
+          // The shadow exists to lift white digits off the host's busy navy
+          // stage. On the light card it only muddied dark digits.
+          textShadow: isDark ? '0 1px 4px rgba(0,0,0,0.5)' : undefined,
+          fontSize: size >= 76 ? '1.5rem' : '1.25rem',
+        }}>
         {timeLeft}
       </span>
     </div>

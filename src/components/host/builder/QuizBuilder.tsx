@@ -578,6 +578,7 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
         <QuizPreviewModal
           questions={builder.questions}
           initialIndex={builder.activeIndex}
+          title={builder.title}
           onClose={() => setPreviewOpen(false)}
         />
       )}

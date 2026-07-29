@@ -12,6 +12,10 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:4000'
 
 export default defineConfig({
   testDir: './tests/e2e',
+  // Deletes the @e2e.test accounts the suite creates. Without it every run
+  // leaves a batch of "E2E Host" users behind, and they had grown to dominate
+  // the admin Users list. Set KEEP_E2E_USERS=1 to skip.
+  globalTeardown: './tests/e2e/global-teardown.ts',
   // No parallel — we share one game session across host/participant contexts
   // and the server's session Map is keyed by 6-digit codes, so collisions
   // between concurrent runs would be loud.
