@@ -2,8 +2,9 @@
 
 /**
  * QuizSettingsPopover — gear-icon popover in the quiz builder top bar for
- * quiz-wide settings. Today: the self-paced preference (live hosting stays the
- * default) plus its time limit and retry options.
+ * quiz-wide settings. Today: auto-leaderboards, per-participant option
+ * shuffling, and the self-paced preference (live hosting stays the default)
+ * plus its time limit and retry options.
  *
  * Mirrors the QuestionSettingsPopover gear pattern. State lives in
  * use-quiz-builder and is persisted on save.
@@ -20,6 +21,8 @@ interface QuizSettingsPopoverProps {
   setAllowRetries: (v: boolean) => void
   autoLeaderboard: boolean
   setAutoLeaderboard: (v: boolean) => void
+  shuffleOptions: boolean
+  setShuffleOptions: (v: boolean) => void
 }
 
 function Toggle({ on, onChange, label, hint }: { on: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) {
@@ -50,7 +53,7 @@ function Toggle({ on, onChange, label, hint }: { on: boolean; onChange: (v: bool
 
 export function QuizSettingsPopover({
   selfPaced, setSelfPaced, timeLimitMinutes, setTimeLimitMinutes, allowRetries, setAllowRetries,
-  autoLeaderboard, setAutoLeaderboard,
+  autoLeaderboard, setAutoLeaderboard, shuffleOptions, setShuffleOptions,
 }: QuizSettingsPopoverProps) {
   const [open, setOpen] = useState(false)
   return (
@@ -83,6 +86,21 @@ export function QuizSettingsPopover({
               label="Auto leaderboards"
               hint="On = adding a scored question drops a leaderboard slide after it. You can still move, delete, or add more by hand."
             />
+
+            <Toggle
+              on={shuffleOptions}
+              onChange={setShuffleOptions}
+              label="Shuffle answer options"
+              hint="On = every participant sees multiple-choice options in their own random order, so nobody can copy a neighbour's pick. Your screen keeps the order you wrote."
+            />
+
+            {shuffleOptions && (
+              <p className="text-[11px] mt-1 mb-1 pl-1 border-l-2 pl-3" style={{ color: '#64748B', borderColor: '#EEF2FF' }}>
+                Applies to multiple-choice and multi-select questions. True/false
+                and polls keep their order. Automatically skipped in shared-screen
+                mode, where participants read the options off your display.
+              </p>
+            )}
 
             <Toggle
               on={selfPaced}

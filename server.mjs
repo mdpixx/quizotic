@@ -3757,6 +3757,12 @@ function sendCurrentQuestionToSocket(socket, session) {
     // deadline rather than the original one.
     endAt: endsAt,
     timerSeconds: safeTimer,
+    // Per-participant option jumbling is computed ON the participant device
+    // from a seed derived from its own participantId (see
+    // src/lib/option-shuffle.ts), so the catch-up payload carries the same
+    // authored order as the room broadcast and the reconnecting client
+    // re-derives the identical permutation it had before. Nothing to replay.
+    shuffleOptions: !!session.quizData?.shuffleOptions,
   })
 }
 
@@ -4141,6 +4147,12 @@ function presentQuestion(io, gameCode, session, index) {
     // and must NOT appear in the participant's visible countdown.
     endAt: displayEndAt,
     timerSeconds,
+    // One boolean, not N per-socket payloads. Each participant derives its own
+    // display permutation locally and translates back to original indices
+    // before submitting, so this broadcast stays a single room emit and the
+    // whole scoring/aggregation/report path below keeps working in
+    // original-index space. See src/lib/option-shuffle.ts for the rationale.
+    shuffleOptions: !!session.quizData?.shuffleOptions,
   })
 
   scheduleQuestionAutoEnd(io, gameCode, session)

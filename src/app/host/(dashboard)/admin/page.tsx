@@ -1222,31 +1222,54 @@ interface FeedbackItem {
   email: string | null
   url: string | null
   status: string
+  type?: string
   createdAt: string
+}
+
+// Feature requests are a roadmap input, bugs are a support queue, and general
+// notes are neither — they warrant separate reading sessions, so the panel
+// filters by kind as well as status.
+const TYPE_FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'feature', label: 'Feature requests' },
+  { key: 'bug', label: 'Bugs' },
+  { key: 'general', label: 'General' },
+] as const
+type TypeFilter = (typeof TYPE_FILTERS)[number]['key']
+
+const TYPE_BADGE: Record<string, { label: string; className: string }> = {
+  feature: { label: 'Feature request', className: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/30 dark:text-violet-300 dark:border-violet-800' },
+  bug: { label: 'Bug', className: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800' },
 }
 
 function FeedbackPanel() {
   const [items, setItems] = useState<FeedbackItem[]>([])
   const [counts, setCounts] = useState<Record<string, number>>({})
+  const [typeCounts, setTypeCounts] = useState<Record<string, number>>({})
   const [statusFilter, setStatusFilter] = useState<'open' | 'done'>('open')
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
   const [loading, setLoading] = useState(true)
 
-  const load = useCallback(async (filter: 'open' | 'done') => {
+  const load = useCallback(async (filter: 'open' | 'done', kind: TypeFilter) => {
     setLoading(true)
     try {
-      const qs = filter === 'done' ? '?status=done' : ''
+      const params = new URLSearchParams()
+      if (filter === 'done') params.set('status', 'done')
+      if (kind !== 'all') params.set('type', kind)
+      const qs = params.toString() ? `?${params}` : ''
       const res = await fetch(`/api/admin/feedback${qs}`)
       if (res.ok) {
         const json = await res.json()
         setItems(json.items ?? [])
         setCounts(json.counts ?? {})
+        setTypeCounts(json.typeCounts ?? {})
       }
     } finally {
       setLoading(false)
     }
   }, [])
 
-  useEffect(() => { load(statusFilter) }, [load, statusFilter])
+  useEffect(() => { load(statusFilter, typeFilter) }, [load, statusFilter, typeFilter])
 
   async function setStatus(id: string, status: 'seen' | 'done') {
     await fetch('/api/admin/feedback', {
@@ -1254,16 +1277,19 @@ function FeedbackPanel() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, status }),
     })
-    load(statusFilter)
+    load(statusFilter, typeFilter)
   }
 
   return (
     <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/70 bg-white/80 dark:bg-gray-800/80 p-5 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <div>
           <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">User feedback</h3>
           <p className="text-xs text-gray-400 mt-0.5">
             {counts.new ?? 0} new · {counts.seen ?? 0} seen · {counts.done ?? 0} done
+            {(typeCounts.feature ?? 0) > 0 && (
+              <span className="text-violet-600 dark:text-violet-400 font-semibold"> · {typeCounts.feature} open feature request{typeCounts.feature === 1 ? '' : 's'}</span>
+            )}
           </p>
         </div>
         <div className="flex gap-1.5">
@@ -1284,16 +1310,45 @@ function FeedbackPanel() {
         </div>
       </div>
 
+      {/* Kind filter — counts reflect the OPEN backlog regardless of the
+          status filter above, so the badge stays a stable "what's waiting". */}
+      <div className="flex flex-wrap gap-1.5 mb-4">
+        {TYPE_FILTERS.map(({ key, label }) => {
+          const n = key === 'all' ? undefined : typeCounts[key] ?? 0
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTypeFilter(key)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                typeFilter === key
+                  ? 'border-violet-300 bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 dark:border-violet-700'
+                  : 'border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700/50'
+              }`}
+            >
+              {label}{n !== undefined ? ` (${n})` : ''}
+            </button>
+          )
+        })}
+      </div>
+
       {loading ? (
         <p className="text-sm text-gray-400 py-8 text-center">Loading…</p>
       ) : items.length === 0 ? (
         <p className="text-sm text-gray-400 py-8 text-center">
-          {statusFilter === 'open' ? 'No open feedback — inbox zero.' : 'Nothing marked done yet.'}
+          {typeFilter === 'feature'
+            ? (statusFilter === 'open' ? 'No open feature requests yet.' : 'No feature requests marked done yet.')
+            : (statusFilter === 'open' ? 'No open feedback — inbox zero.' : 'Nothing marked done yet.')}
         </p>
       ) : (
         <div className="space-y-3">
           {items.map(item => (
             <div key={item.id} className="rounded-xl border border-gray-200/70 dark:border-gray-700/70 p-3.5">
+              {item.type && TYPE_BADGE[item.type] && (
+                <span className={`inline-block mb-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide border ${TYPE_BADGE[item.type].className}`}>
+                  {TYPE_BADGE[item.type].label}
+                </span>
+              )}
               <p className="text-sm text-gray-800 dark:text-gray-100 whitespace-pre-wrap">{item.message}</p>
               <div className="flex flex-wrap items-center justify-between gap-2 mt-2.5">
                 <p className="text-[11px] text-gray-400">

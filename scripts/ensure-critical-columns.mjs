@@ -36,6 +36,13 @@ const CRITICAL_COLUMNS = [
   { table: 'Quiz', column: 'allowRetries', type: 'BOOLEAN NOT NULL DEFAULT false' },
   // Scheduled self-paced quizzes — participants cannot start before opensAt
   { table: 'GameSession', column: 'opensAt', type: 'TIMESTAMP(3)' },
+  // Per-participant answer-option shuffling. The builder's save path writes
+  // this on every quiz save, so a missing column 500s the entire save flow —
+  // exactly the failure mode this script exists to prevent.
+  { table: 'Quiz', column: 'shuffleOptions', type: 'BOOLEAN NOT NULL DEFAULT false' },
+  // Feedback kind ('general' | 'feature' | 'bug'). /api/feedback writes it on
+  // every submission, including the dashboard's Request a feature button.
+  { table: 'Feedback', column: 'type', type: `TEXT NOT NULL DEFAULT 'general'` },
 ]
 
 // Tables introduced in Sessions 1, 3, 4, 5, 6, 7-8. Each block is a single
