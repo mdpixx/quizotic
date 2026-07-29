@@ -193,6 +193,8 @@ export interface Quiz {
   selfPaced?: boolean
   timeLimitMinutes?: number | null
   allowRetries?: boolean
+  // Per-participant answer-option jumbling. See src/lib/option-shuffle.ts.
+  shuffleOptions?: boolean
   // When true (default), adding a scored question auto-seeds a leaderboard slide
   // after it. Hosts can still move/delete those slides or add more manually.
   autoLeaderboard?: boolean

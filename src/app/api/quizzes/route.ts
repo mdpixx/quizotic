@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
     if (!rl.ok) return rateLimitResponse(rl)
 
     const body = await req.json()
-    const { id, title, subject, language, theme, questions, selfPaced, timeLimitMinutes, allowRetries } = body
+    const { id, title, subject, language, theme, questions, selfPaced, timeLimitMinutes, allowRetries, shuffleOptions } = body
     incomingId = typeof id === 'string' ? id : undefined
 
     if (!id || typeof id !== 'string') {
@@ -146,6 +146,7 @@ export async function POST(req: NextRequest) {
     // Self-paced preference — coerce/clamp; undefined means "leave unchanged" on update.
     const cleanSelfPaced = typeof selfPaced === 'boolean' ? selfPaced : undefined
     const cleanAllowRetries = typeof allowRetries === 'boolean' ? allowRetries : undefined
+    const cleanShuffleOptions = typeof shuffleOptions === 'boolean' ? shuffleOptions : undefined
     const cleanTimeLimit = timeLimitMinutes === null
       ? null
       : (Number.isFinite(timeLimitMinutes) && timeLimitMinutes > 0 ? Math.min(Math.round(timeLimitMinutes), 600) : undefined)
@@ -178,6 +179,7 @@ export async function POST(req: NextRequest) {
           ...(cleanSelfPaced !== undefined ? { selfPaced: cleanSelfPaced } : {}),
           ...(cleanTimeLimit !== undefined ? { timeLimitMinutes: cleanTimeLimit } : {}),
           ...(cleanAllowRetries !== undefined ? { allowRetries: cleanAllowRetries } : {}),
+          ...(cleanShuffleOptions !== undefined ? { shuffleOptions: cleanShuffleOptions } : {}),
         },
       })
       return NextResponse.json({ success: true, data: quiz })
@@ -190,6 +192,7 @@ export async function POST(req: NextRequest) {
         ...(cleanSelfPaced !== undefined ? { selfPaced: cleanSelfPaced } : {}),
         ...(cleanTimeLimit !== undefined ? { timeLimitMinutes: cleanTimeLimit } : {}),
         ...(cleanAllowRetries !== undefined ? { allowRetries: cleanAllowRetries } : {}),
+        ...(cleanShuffleOptions !== undefined ? { shuffleOptions: cleanShuffleOptions } : {}),
       },
     })
 

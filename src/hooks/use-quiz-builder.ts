@@ -59,6 +59,9 @@ export interface UseQuizBuilderReturn {
   setTimeLimitMinutes: (v: number | null) => void
   allowRetries: boolean
   setAllowRetries: (v: boolean) => void
+  // Per-participant answer-option jumbling (anti-copying). Persisted on the quiz.
+  shuffleOptions: boolean
+  setShuffleOptions: (v: boolean) => void
   // Auto-attach a leaderboard slide after each newly added scored question.
   autoLeaderboard: boolean
   setAutoLeaderboard: (v: boolean) => void
@@ -131,6 +134,9 @@ export function useQuizBuilder({
   const [selfPaced, setSelfPaced] = useState(false)
   const [timeLimitMinutes, setTimeLimitMinutes] = useState<number | null>(null)
   const [allowRetries, setAllowRetries] = useState(false)
+  // Off by default — jumbling is an opt-in exam-mode behaviour, not something
+  // to surprise a first-time host with.
+  const [shuffleOptions, setShuffleOptions] = useState(false)
   // On by default — adding a scored question seeds a leaderboard slide after it.
   // Builder-local preference (not persisted); the seeded slides live in questions[].
   const [autoLeaderboard, setAutoLeaderboard] = useState(true)
@@ -167,6 +173,7 @@ export function useQuizBuilder({
         setSelfPaced(!!quiz.selfPaced)
         setTimeLimitMinutes(typeof quiz.timeLimitMinutes === 'number' ? quiz.timeLimitMinutes : null)
         setAllowRetries(!!quiz.allowRetries)
+        setShuffleOptions(!!quiz.shuffleOptions)
         if (Array.isArray(quiz.questions) && quiz.questions.length > 0) {
           setQuestions(quiz.questions)
           historyResetRef.current?.(
@@ -265,7 +272,7 @@ export function useQuizBuilder({
       if (!title.trim() || questions.length === 0) return
       // Silent validation — autosave never surfaces errors mid-typing.
       if (hasQuizValidationErrors(validateQuizQuestions(questions))) return
-      const snapshot = JSON.stringify({ title: title.trim(), subject: subject.trim(), questions, selfPaced, timeLimitMinutes, allowRetries })
+      const snapshot = JSON.stringify({ title: title.trim(), subject: subject.trim(), questions, selfPaced, timeLimitMinutes, allowRetries, shuffleOptions })
       if (snapshot === lastSavedSnapshotRef.current) return
 
       cloudSaveInFlightRef.current = true
@@ -285,6 +292,7 @@ export function useQuizBuilder({
             selfPaced,
             timeLimitMinutes,
             allowRetries,
+            shuffleOptions,
           }),
         })
         if (res.ok) {
@@ -295,6 +303,7 @@ export function useQuizBuilder({
             selfPaced,
             timeLimitMinutes,
             allowRetries,
+            shuffleOptions,
           })
           setCloudSaveStatus('saved')
           setLastCloudSaveAt(Date.now())
@@ -309,18 +318,18 @@ export function useQuizBuilder({
     }, 30_000)
     return () => clearTimeout(t)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, subject, questions, theme, selfPaced, timeLimitMinutes, allowRetries])
+  }, [title, subject, questions, theme, selfPaced, timeLimitMinutes, allowRetries, shuffleOptions])
 
   // Warn on unsaved close
   const lastSavedSnapshotRef = useRef('')
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      const current = JSON.stringify({ title: title.trim(), subject: subject.trim() || '', questions, selfPaced, timeLimitMinutes, allowRetries })
+      const current = JSON.stringify({ title: title.trim(), subject: subject.trim() || '', questions, selfPaced, timeLimitMinutes, allowRetries, shuffleOptions })
       if (current !== lastSavedSnapshotRef.current) e.preventDefault()
     }
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
-  }, [title, subject, questions, selfPaced, timeLimitMinutes, allowRetries])
+  }, [title, subject, questions, selfPaced, timeLimitMinutes, allowRetries, shuffleOptions])
 
   // ── Questions CRUD ─────────────────────────────────────────────────────────
 
@@ -463,6 +472,7 @@ export function useQuizBuilder({
       selfPaced,
       timeLimitMinutes,
       allowRetries,
+      shuffleOptions,
     }
 
     saveQuiz(quizData)
@@ -484,6 +494,7 @@ export function useQuizBuilder({
           selfPaced: quizData.selfPaced,
           timeLimitMinutes: quizData.timeLimitMinutes,
           allowRetries: quizData.allowRetries,
+          shuffleOptions: quizData.shuffleOptions,
         }),
       })
       if (res.ok) {
@@ -522,6 +533,7 @@ export function useQuizBuilder({
       selfPaced,
       timeLimitMinutes,
       allowRetries,
+      shuffleOptions,
     })
 
     setSaving(false)
@@ -532,7 +544,7 @@ export function useQuizBuilder({
       track(existing ? 'quiz_saved' : 'quiz_created', { questionCount: questions.length, selfPaced })
     }
     return dbSaveFailed ? null : finalQuiz
-  }, [title, subject, questions, theme, editId, selfPaced, timeLimitMinutes, allowRetries])
+  }, [title, subject, questions, theme, editId, selfPaced, timeLimitMinutes, allowRetries, shuffleOptions])
 
   // Keep the Cmd/Ctrl+S shortcut pointing at the freshest save closure.
   useEffect(() => { handleSaveRef.current = handleSave }, [handleSave])
@@ -568,6 +580,8 @@ export function useQuizBuilder({
     setTimeLimitMinutes,
     allowRetries,
     setAllowRetries,
+    shuffleOptions,
+    setShuffleOptions,
     autoLeaderboard,
     setAutoLeaderboard,
     questions,

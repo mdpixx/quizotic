@@ -10,18 +10,70 @@
 //
 // `source` identifies where the modal was opened from ('account-menu', 'footer',
 // 'post-session', …). It is appended to the submitted message so ops can see the
-// origin in the triage email — no API schema change needed (/api/feedback still
-// only takes message / email / url / userAgent).
+// origin in the triage email.
+//
+// `type` switches the modal between general feedback and the dedicated feature
+// request flow opened from the host dashboard. It changes the copy (a host with
+// a product idea is in a different frame of mind from one reporting a bug) and
+// is persisted on the Feedback row so the admin Voice tab can triage roadmap
+// signal separately from support noise.
 
 import { useEffect, useState } from 'react'
+
+export type FeedbackType = 'general' | 'feature' | 'bug'
 
 interface FeedbackModalProps {
   open: boolean
   onClose: () => void
   source?: string
+  type?: FeedbackType
 }
 
-export function FeedbackModal({ open, onClose, source }: FeedbackModalProps) {
+// Copy is keyed off the type so the feature-request entry point doesn't ask a
+// host "What happened?" about an idea they haven't had yet.
+const COPY: Record<FeedbackType, {
+  title: string
+  intro: string
+  fieldLabel: string
+  placeholder: string
+  cta: string
+  sentTitle: string
+  sentBody: string
+  emptyError: string
+}> = {
+  general: {
+    title: 'Send feedback',
+    intro: 'Found a bug? Stuck? Have an idea? Tell us — we ship daily.',
+    fieldLabel: 'What happened?',
+    placeholder: 'Describe the issue or idea…',
+    cta: 'Send',
+    sentTitle: 'Thanks for the feedback',
+    sentBody: 'We read every message. If you left an email we\u2019ll follow up.',
+    emptyError: 'Please describe what happened',
+  },
+  bug: {
+    title: 'Report a problem',
+    intro: 'Tell us what went wrong and we\u2019ll dig in.',
+    fieldLabel: 'What happened?',
+    placeholder: 'Describe the issue…',
+    cta: 'Send',
+    sentTitle: 'Thanks — we\u2019re on it',
+    sentBody: 'We read every report. If you left an email we\u2019ll follow up.',
+    emptyError: 'Please describe what happened',
+  },
+  feature: {
+    title: 'Request a feature',
+    intro: 'What would make Quizotic better for your sessions? Every request is read and shapes what we build next.',
+    fieldLabel: 'What would you like us to build?',
+    placeholder: 'e.g. Let me import questions from a Google Form, or show a class-wise breakdown in reports…',
+    cta: 'Send request',
+    sentTitle: 'Request received',
+    sentBody: 'Thanks — this goes straight onto our roadmap board. If you left an email we\u2019ll tell you when it ships.',
+    emptyError: 'Please describe the feature you\u2019d like',
+  },
+}
+
+export function FeedbackModal({ open, onClose, source, type = 'general' }: FeedbackModalProps) {
   const [message, setMessage] = useState('')
   const [email, setEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -50,9 +102,11 @@ export function FeedbackModal({ open, onClose, source }: FeedbackModalProps) {
 
   if (!open) return null
 
+  const copy = COPY[type]
+
   const submit = async () => {
     if (!message.trim()) {
-      setError('Please describe what happened')
+      setError(copy.emptyError)
       return
     }
     setSubmitting(true)
@@ -64,6 +118,7 @@ export function FeedbackModal({ open, onClose, source }: FeedbackModalProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: body,
+          type,
           email: email.trim() || null,
           url: window.location.href,
           userAgent: navigator.userAgent.slice(0, 500),
@@ -87,7 +142,7 @@ export function FeedbackModal({ open, onClose, source }: FeedbackModalProps) {
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label="Feedback"
+      aria-label={copy.title}
     >
       <div
         className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
@@ -96,10 +151,8 @@ export function FeedbackModal({ open, onClose, source }: FeedbackModalProps) {
         {sent ? (
           <div className="text-center">
             <div className="mb-3 text-4xl">✓</div>
-            <h2 className="mb-2 text-xl font-bold text-[#0F1B3D]">Thanks for the feedback</h2>
-            <p className="mb-4 text-sm text-slate-600">
-              We read every message. If you left an email we&apos;ll follow up.
-            </p>
+            <h2 className="mb-2 text-xl font-bold text-[#0F1B3D]">{copy.sentTitle}</h2>
+            <p className="mb-4 text-sm text-slate-600">{copy.sentBody}</p>
             <button
               type="button"
               onClick={onClose}
@@ -110,12 +163,10 @@ export function FeedbackModal({ open, onClose, source }: FeedbackModalProps) {
           </div>
         ) : (
           <>
-            <h2 className="mb-1 text-xl font-bold text-[#0F1B3D]">Send feedback</h2>
-            <p className="mb-4 text-sm text-slate-600">
-              Found a bug? Stuck? Have an idea? Tell us — we ship daily.
-            </p>
+            <h2 className="mb-1 text-xl font-bold text-[#0F1B3D]">{copy.title}</h2>
+            <p className="mb-4 text-sm text-slate-600">{copy.intro}</p>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-              What happened?
+              {copy.fieldLabel}
             </label>
             <textarea
               autoFocus
@@ -123,7 +174,7 @@ export function FeedbackModal({ open, onClose, source }: FeedbackModalProps) {
               onChange={e => setMessage(e.target.value)}
               rows={4}
               maxLength={2000}
-              placeholder="Describe the issue or idea…"
+              placeholder={copy.placeholder}
               className="mb-3 w-full resize-none rounded-lg border border-slate-300 p-3 text-sm focus:border-[#0F1B3D] focus:outline-none"
             />
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -153,7 +204,7 @@ export function FeedbackModal({ open, onClose, source }: FeedbackModalProps) {
                 disabled={submitting || !message.trim()}
                 className="flex-1 rounded-xl border-2 border-[#0D0D0D] bg-[#FBD13B] py-3 font-bold text-[#0D0D0D] transition-transform hover:scale-[1.02] disabled:scale-100 disabled:opacity-60"
               >
-                {submitting ? 'Sending…' : 'Send'}
+                {submitting ? 'Sending…' : copy.cta}
               </button>
             </div>
           </>

@@ -397,6 +397,8 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
           setAllowRetries={builder.setAllowRetries}
           autoLeaderboard={builder.autoLeaderboard}
           setAutoLeaderboard={builder.setAutoLeaderboard}
+          shuffleOptions={builder.shuffleOptions}
+          setShuffleOptions={builder.setShuffleOptions}
         />
 
         {/* Save button */}

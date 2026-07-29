@@ -182,6 +182,13 @@ model Quiz {
   selfPaced        Boolean @default(false)
   timeLimitMinutes Int? // null = untimed
   allowRetries     Boolean @default(false)
+  // Anti-copying: when true, each participant sees MCQ/multiselect options in
+  // their own jumbled order. The shuffle is display-only and computed on the
+  // participant device from a seed derived from their participantId, so the
+  // server keeps scoring, aggregation and reports entirely in original-index
+  // space (see src/lib/option-shuffle.ts). Host screen always shows the
+  // authored order.
+  shuffleOptions   Boolean @default(false)
   userId    String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -337,10 +344,15 @@ model Feedback {
   url       String? // page the feedback was sent from
   userAgent String?
   status    String   @default("new") // 'new' | 'seen' | 'done'
+  // Separates the "I want X" roadmap signal from bug reports and general
+  // notes so the admin Voice tab can triage them apart. Defaults to
+  // 'general' so every pre-existing row keeps working unchanged.
+  type      String   @default("general") // 'general' | 'feature' | 'bug'
   createdAt DateTime @default(now())
 
   @@index([createdAt])
   @@index([status])
+  @@index([type])
 }
 
 // ─── SessionFeedback (post-session smiley rating) ────────────────

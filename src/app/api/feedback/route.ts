@@ -17,8 +17,15 @@ import { sendEmail } from '@/lib/email'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+// 'feature' is submitted by the dashboard's Request a feature button, 'bug'
+// and 'general' by the standard feedback modal. Unknown/absent values fall
+// back to 'general' rather than 400-ing — a feedback endpoint should never
+// reject a real message over a metadata field.
+const FEEDBACK_TYPES = ['general', 'feature', 'bug'] as const
+
 const FeedbackSchema = z.object({
   message: z.string().min(3).max(2000),
+  type: z.enum(FEEDBACK_TYPES).optional().default('general'),
   email: z.string().email().max(200).nullable().optional().or(z.literal('')),
   url: z.string().max(500).optional(),
   userAgent: z.string().max(500).optional(),
@@ -43,7 +50,7 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     )
   }
-  const { message, email, url, userAgent } = parsed.data
+  const { message, email, url, userAgent, type } = parsed.data
 
   // Best-effort: attach the signed-in user's email if available, even if
   // the form's optional email field was empty. Helpful for triage.
@@ -62,6 +69,7 @@ export async function POST(req: NextRequest) {
         email: submitter === 'anonymous' ? null : submitter,
         url: url || null,
         userAgent: userAgent || null,
+        type,
       },
     })
   } catch (err) {
@@ -73,8 +81,13 @@ export async function POST(req: NextRequest) {
   const safeUa = userAgent ? escapeHtml(userAgent) : '(not provided)'
   const safeSubmitter = escapeHtml(submitter)
 
+  // Feature requests get their own heading and subject prefix so they're
+  // filterable in the inbox without opening each mail.
+  const isFeature = type === 'feature'
+  const heading = isFeature ? 'Quizotic feature request' : 'Quizotic feedback'
+
   const html = `
-    <h2 style="font-family:sans-serif;color:#0F1B3D;">Quizotic feedback</h2>
+    <h2 style="font-family:sans-serif;color:#0F1B3D;">${heading}</h2>
     <p style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#1F2937;white-space:pre-wrap;">${safeMsg}</p>
     <hr style="border:none;border-top:1px solid #E5E7EB;margin:18px 0;">
     <table style="font-family:sans-serif;font-size:13px;color:#4B5563;">
@@ -83,15 +96,15 @@ export async function POST(req: NextRequest) {
       <tr><td style="padding-right:12px;"><b>UA:</b></td><td>${safeUa}</td></tr>
     </table>
   `
-  const text = `Quizotic feedback\n\n${message}\n\n---\nFrom: ${submitter}\nPage: ${url || '(not provided)'}\nUA:   ${userAgent || '(not provided)'}\n`
+  const text = `${heading}\n\n${message}\n\n---\nFrom: ${submitter}\nPage: ${url || '(not provided)'}\nUA:   ${userAgent || '(not provided)'}\n`
 
-  const subject = `[Quizotic feedback] ${message.slice(0, 60)}${message.length > 60 ? '…' : ''}`
+  const subject = `[Quizotic ${isFeature ? 'feature request' : 'feedback'}] ${message.slice(0, 60)}${message.length > 60 ? '…' : ''}`
 
   // Best-effort send. If Resend isn't configured (no RESEND_API_KEY) the
   // wrapper logs and returns ok:false; we still 200 to the client because
   // the user shouldn't see a failure for our deployment gap, AND we
   // log the full feedback to stdout so it lands in Railway logs as a backstop.
-  console.log(`[feedback] from=${submitter} url=${url ?? 'n/a'} message=${JSON.stringify(message.slice(0, 200))}`)
+  console.log(`[feedback] type=${type} from=${submitter} url=${url ?? 'n/a'} message=${JSON.stringify(message.slice(0, 200))}`)
 
   const result = await sendEmail({
     to: FEEDBACK_TO,
@@ -101,7 +114,7 @@ export async function POST(req: NextRequest) {
     replyTo,
     category: 'feedback',
     userId: session?.user?.id ?? null,
-    metadata: { url, userAgent, submitter },
+    metadata: { url, userAgent, submitter, type },
   })
 
   if (!result.ok) {

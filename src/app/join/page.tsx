@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useRef, useState, useCallback } from 'react'
+import { Suspense, useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import type { Socket } from 'socket.io-client'
 import dynamic from 'next/dynamic'
@@ -21,6 +21,7 @@ import { PRESENTATION_SEQUENCE } from '@/lib/sequence-theme'
 import { useI18n } from '@/lib/use-i18n'
 import { isContentSlideType, isInteractiveSlideType } from '@/lib/presentation-types'
 import { isScoredType, getEffectiveOptions } from '@/lib/quiz-types'
+import { buildDisplayOrder, invertDisplayOrder, toOriginalIndex, toDisplaySlot } from '@/lib/option-shuffle'
 import type { Question as QuizQuestion, QuestionType } from '@/lib/quiz-types'
 import { SlideImage } from '@/components/SlideImage'
 import { SpinWheel } from '@/components/presentation/SpinWheel'
@@ -703,6 +704,10 @@ function JoinPageInner() {
   const [personalResult, setPersonalResult] = useState<PersonalResult | null>(null)
   const [topMovers, setTopMovers] = useState<{ name: string; archetype?: string; fromRank: number; toRank: number; delta: number }[]>([])
   const [displayMode, setDisplayMode] = useState<'full-device' | 'shared-screen'>('full-device')
+  // Mirrored into a ref because the question_show handler is registered once
+  // inside the socket-init effect and would otherwise close over a stale value.
+  const displayModeRef = useRef<'full-device' | 'shared-screen'>('full-device')
+  useEffect(() => { displayModeRef.current = displayMode }, [displayMode])
   const [timeLeft, setTimeLeft] = useState(0)
   const [getReadyVisible, setGetReadyVisible] = useState(false)
   const timeLeftRef = useRef(0)
@@ -755,6 +760,21 @@ function JoinPageInner() {
 
   // Multiselect
   const [multiselectChosen, setMultiselectChosen] = useState<Set<number>>(new Set())
+
+  // ─── Per-participant option shuffle ────────────────────────────────────────
+  // displayOrder[displaySlot] = originalIndex. Computed once per question in
+  // the question_show handler (not during render) so the tiles cannot re-jumble
+  // on an unrelated re-render mid-question. Identity array when the host has
+  // the setting off or the type isn't shuffleable, so every consumer can use it
+  // unconditionally.
+  //
+  // EVERYTHING BELOW THE UI LAYER STAYS IN ORIGINAL-INDEX SPACE. The only two
+  // boundaries that translate are: (a) submit handlers, display slot →
+  // original, just before enqueueAnswer; (b) the reveal cards, original →
+  // display slot, so the highlighted letter matches the tile this participant
+  // is actually looking at. Miss either one and scoring silently corrupts.
+  const [displayOrder, setDisplayOrder] = useState<number[]>([])
+  const inverseOrder = useMemo(() => invertDisplayOrder(displayOrder), [displayOrder])
 
   // Rating (integer stars). `pendingRating` is the staged value the user is
   // previewing; it only commits to the server on Submit (NOT on tap — that was
@@ -1065,8 +1085,32 @@ function JoinPageInner() {
       }
     })
 
-    socket.on('question_show', ({ question, index, total, startAt, endAt: serverEndAt, timerSeconds: serverTimerSeconds, answerableNumber: aNum, answerableTotal: aTot }: { question: Omit<Question, 'index' | 'total'>; index: number; total: number; startAt?: number; endAt?: number; timerSeconds?: number; answerableNumber?: number; answerableTotal?: number }) => {
+    socket.on('question_show', ({ question, index, total, startAt, endAt: serverEndAt, timerSeconds: serverTimerSeconds, answerableNumber: aNum, answerableTotal: aTot, shuffleOptions: shuffleOn }: { question: Omit<Question, 'index' | 'total'>; index: number; total: number; startAt?: number; endAt?: number; timerSeconds?: number; answerableNumber?: number; answerableTotal?: number; shuffleOptions?: boolean }) => {
       shownQuestionsRef.current.push({ index, text: question.text })
+
+      // Derive THIS device's option order for THIS question. Seeded only by
+      // stable values, so a mid-question refresh or reconnect replays the
+      // identical layout rather than re-jumbling under the participant's
+      // finger. The server broadcast is the authored order for everyone —
+      // the divergence happens here, per device.
+      const shuffleOpts = getEffectiveOptions(question as unknown as QuizQuestion)
+      // HARD EXCLUSION — shared-screen mode. There the phone renders bare
+      // colour/letter tap zones and the participant reads the option TEXT off
+      // the host display, which always shows the authored order. Jumbling the
+      // zones would mean "tap the blue one" submits a different option than the
+      // blue one on the projector — every answer silently mis-scored, with
+      // nothing on screen to reveal it. The two features are fundamentally
+      // incompatible: shuffling assumes the participant reads options on their
+      // own device.
+      const sharedScreen = displayModeRef.current === 'shared-screen'
+      setDisplayOrder(buildDisplayOrder({
+        optionCount: shuffleOpts?.length ?? 0,
+        enabled: !!shuffleOn && !sharedScreen,
+        questionType: question.type,
+        participantId: participantIdRef.current,
+        questionId: question.id,
+        questionIndex: index,
+      }))
       setAnswerableNumber(typeof aNum === 'number' ? aNum : index + 1)
       setAnswerableTotal(typeof aTot === 'number' ? aTot : total)
       // Pause is per-question: a fresh question is always live. Without this
@@ -1727,7 +1771,15 @@ function JoinPageInner() {
     const timeMs = Math.max(0, Date.now() - answerTimeRef.current)
     enqueueAnswer({
       gameCode: gameCodeRef.current,
-      answer: Array.from(multiselectChosen).map(String),
+      // SHUFFLE BOUNDARY: multiselectChosen holds display slots (that's what
+      // the tiles are keyed by). The server compares against correctAnswers in
+      // original-index space, so translate before it leaves the device.
+      // Sorted so the emitted array is order-independent, matching the server's
+      // set-equality check.
+      answer: Array.from(multiselectChosen)
+        .map(slot => toOriginalIndex(displayOrder, slot))
+        .sort((a, b) => a - b)
+        .map(String),
       timeMs,
       confidence: null,
     }, question?.index ?? -1)
@@ -1746,7 +1798,10 @@ function JoinPageInner() {
     const timeMs = Math.max(0, Date.now() - answerTimeRef.current)
     enqueueAnswer({
       gameCode: gameCodeRef.current,
-      answer: pendingAnswer,
+      // SHUFFLE BOUNDARY: pendingAnswer is the display slot the participant
+      // tapped; checkAnswer on the server compares against correctAnswer in
+      // original-index space.
+      answer: toOriginalIndex(displayOrder, pendingAnswer),
       timeMs,
       confidence: level,
     }, question?.index ?? -1)
@@ -2482,7 +2537,15 @@ function JoinPageInner() {
             )
           })()
         ) : (() => {
-          const effectiveOpts = getEffectiveOptions(question as unknown as QuizQuestion)
+          const authoredOpts = getEffectiveOptions(question as unknown as QuizQuestion)
+          // Render in THIS participant's order. displayOrder is the identity
+          // array whenever shuffling is off, so this is a no-op reorder in the
+          // default case. Colours and letters stay bound to the tile position
+          // (index below), never to the option — that positional stability is
+          // exactly what makes "it's the blue one" useless to a copier.
+          const effectiveOpts = authoredOpts && displayOrder.length === authoredOpts.length
+            ? displayOrder.map(oi => authoredOpts[oi])
+            : authoredOpts
           const isMultiselect = question.type === 'multiselect'
           return (
           <>
@@ -2601,11 +2664,19 @@ function JoinPageInner() {
             <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl text-center">
               <p className="font-black text-2xl mb-1" style={{ color: '#0F1B3D' }}>{t('join.confident')}</p>
               {/* Show the chosen option letter so the participant can confirm at a glance */}
-              {question?.options?.[pendingAnswer] !== undefined && (
-                <p className="text-sm font-bold mb-1" style={{ color: '#6B7280' }}>
-                  Option {OPTION_LABELS[pendingAnswer]}: <span style={{ color: '#0F1B3D' }}>{String(getEffectiveOptions(question as unknown as QuizQuestion)?.[pendingAnswer] ? getOptText(getEffectiveOptions(question as unknown as QuizQuestion)![pendingAnswer]) : '')}</span>
-                </p>
-              )}
+              {/* pendingAnswer is a DISPLAY slot — resolve the option text
+                  through this participant's order so the confirmation names
+                  the tile they actually tapped, not the authored one. */}
+              {(() => {
+                const authored = getEffectiveOptions(question as unknown as QuizQuestion)
+                const chosen = authored?.[toOriginalIndex(displayOrder, pendingAnswer)]
+                if (chosen === undefined) return null
+                return (
+                  <p className="text-sm font-bold mb-1" style={{ color: '#6B7280' }}>
+                    Option {OPTION_LABELS[pendingAnswer]}: <span style={{ color: '#0F1B3D' }}>{getOptText(chosen)}</span>
+                  </p>
+                )
+              })()}
               <p className="text-gray-500 text-base mb-6">{t('join.confidenceSubtitle')}</p>
               <div className="flex gap-3">
                 <button
@@ -2654,12 +2725,21 @@ function JoinPageInner() {
   // ─── Answered Phase ────────────────────────────────────────────────────────
   if (phase === 'answered') {
     const isNonScored = !answeredIsScored
+    // The server reveals the correct answer as an ORIGINAL index. The option
+    // text is looked up in original space (correct as-is), but the LETTER must
+    // be translated to this participant's display slot — otherwise a shuffled
+    // player is told "the answer was B" while the matching text sits on their
+    // tile D, which reads as a scoring bug. When shuffling is off the inverse
+    // map is the identity and this is a no-op.
     const correctOptionIndex = correctAnswerIndex !== null ? Number(correctAnswerIndex) : null
     const correctOption = correctOptionIndex !== null && Number.isFinite(correctOptionIndex)
       ? question?.options?.[correctOptionIndex]
       : undefined
-    const correctOptionLetter = correctOptionIndex !== null && Number.isFinite(correctOptionIndex)
-      ? (ANSWER_LETTERS[correctOptionIndex] ?? String(correctOptionIndex + 1))
+    const correctOptionSlot = correctOptionIndex !== null && Number.isFinite(correctOptionIndex)
+      ? toDisplaySlot(inverseOrder, correctOptionIndex)
+      : null
+    const correctOptionLetter = correctOptionSlot !== null
+      ? (ANSWER_LETTERS[correctOptionSlot] ?? String(correctOptionSlot + 1))
       : null
     return (
       <div
@@ -2777,9 +2857,10 @@ function JoinPageInner() {
             </div>
           </div>
         )}
-        {/* Multiselect reveal — every correct option (server sends the
-            correctAnswers index array; options are never shuffled for
-            multiselect, so index lookup is safe). */}
+        {/* Multiselect reveal — every correct option. The server sends the
+            correctAnswers array in ORIGINAL index space; the option text is
+            looked up there, while the displayed letter is mapped through this
+            participant's shuffle so it names the tile they saw. */}
         {correctAnswersReveal && correctAnswersReveal.length > 0 && (
           <div className={`w-full max-w-full rounded-2xl p-4 flex items-start gap-3 text-left ${isCorrect ? 'bg-green-50 border border-green-200' : 'bg-green-50 border-2 border-green-300'}`}>
             <span className="font-display w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white font-black text-base flex-shrink-0" aria-label="Correct options">
@@ -2789,15 +2870,19 @@ function JoinPageInner() {
               <p className="text-[11px] font-bold uppercase tracking-wide text-green-600 mb-1">
                 {correctAnswersReveal.length > 1 ? 'Correct answers' : 'Correct answer'}
               </p>
-              {correctAnswersReveal.map(idxStr => {
-                const oi = Number(idxStr)
-                const opt = question?.options?.[oi]
-                return (
+              {correctAnswersReveal
+                .map(idxStr => {
+                  const oi = Number(idxStr)
+                  return { idxStr, oi, slot: toDisplaySlot(inverseOrder, oi), opt: question?.options?.[oi] }
+                })
+                // Listed in the participant's own tile order so the reveal
+                // reads top-to-bottom against the layout they just answered.
+                .sort((a, b) => a.slot - b.slot)
+                .map(({ idxStr, slot, opt }) => (
                   <p key={idxStr} className="participant-correct-answer-text font-black text-green-800 break-words">
-                    {ANSWER_LETTERS[oi] ?? String(oi + 1)}. {opt !== undefined ? getOptText(opt) : ''}
+                    {ANSWER_LETTERS[slot] ?? String(slot + 1)}. {opt !== undefined ? getOptText(opt) : ''}
                   </p>
-                )
-              })}
+                ))}
             </div>
           </div>
         )}

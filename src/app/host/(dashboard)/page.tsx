@@ -13,6 +13,7 @@ import { QUIZ_TEMPLATES } from '@/lib/quiz-templates'
 import { saveQuiz, setActiveSession } from '@/lib/quiz-storage'
 import type { Quiz } from '@/lib/quiz-types'
 import { track } from '@/lib/analytics'
+import { useFeedback } from '@/components/FeedbackProvider'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   RadarChart, PolarGrid, PolarAngleAxis, Radar,
@@ -122,10 +123,58 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
   )
 }
 
+// ── Request a feature ─────────────────────────────────────────────────────────
+// The dashboard is where every host lands, so it's the only surface guaranteed
+// to be seen by someone with a product opinion. The post-session smiley captures
+// how a session FELT; this captures what's missing — a different signal that was
+// previously only reachable through the account menu's generic "Send feedback",
+// where nobody thought to look for it.
+//
+// Rendered on both the empty state (a brand-new host's first impression of the
+// product often produces the sharpest requests) and the populated dashboard.
+function RequestFeatureBanner({ onOpen }: { onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="w-full flex items-center gap-3 rounded-2xl border p-4 text-left transition-all hover:shadow-md hover:-translate-y-0.5"
+      style={{ background: '#fff', borderColor: 'var(--color-line)' }}
+    >
+      <span
+        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+        style={{ background: '#F5F3FF', color: '#7C3AED' }}
+        aria-hidden
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z" />
+        </svg>
+      </span>
+      <span className="flex-1 min-w-0">
+        <span className="block text-sm font-black" style={{ color: 'var(--color-ink)' }}>
+          Missing something? Request a feature
+        </span>
+        <span className="block text-xs mt-0.5" style={{ color: 'var(--color-text-subtle)' }}>
+          Tell us what would make Quizotic work better for your sessions — we read every request.
+        </span>
+      </span>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#94A3B8" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0" aria-hidden>
+        <path d="M5 12h14M13 6l6 6-6 6" />
+      </svg>
+    </button>
+  )
+}
+
 // ── Main dashboard ────────────────────────────────────────────────────────────
 export default function HostDashboard() {
   const router = useRouter()
   const { data: session } = useSession()
+  const { openFeedback } = useFeedback()
+  // 'dashboard-feature-request' lands in the triage email body, so a request
+  // sent from here is distinguishable from one sent via the account menu.
+  const openFeatureRequest = useCallback(
+    () => openFeedback('dashboard-feature-request', 'feature'),
+    [openFeedback],
+  )
   const firstName = session?.user?.name?.split(' ')[0] ?? 'back'
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -295,6 +344,10 @@ export default function HostDashboard() {
               </div>
             ))}
           </div>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mx-auto max-w-2xl mt-5">
+          <RequestFeatureBanner onOpen={openFeatureRequest} />
         </motion.div>
 
         <p className="text-center text-xs mt-6" style={{ color: '#9CA3AF' }}>
@@ -1141,6 +1194,11 @@ export default function HostDashboard() {
             Browse templates
           </Link>
         </div>
+      </motion.div>
+
+      {/* ── Feature request ── */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55 }} className="mt-4">
+        <RequestFeatureBanner onOpen={openFeatureRequest} />
       </motion.div>
     </div>
     </div>
