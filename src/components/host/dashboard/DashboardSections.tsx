@@ -114,7 +114,7 @@ export function AttentionQueue({
   }]
 
   return (
-    <div className={styles.attentionGrid}>
+    <div className={styles.attentionGrid} data-dashboard-grid="attention">
       <article className={`${styles.card} ${styles.queue}`}>
         {signals.map(signal => (
           <div className={styles.queueRow} key={signal.title}>
@@ -160,7 +160,7 @@ export function RecentWork({
   content: DashboardRecentContent[]
 }) {
   return (
-    <div className={styles.recentGrid}>
+    <div className={styles.recentGrid} data-dashboard-grid="recent">
       <article className={`${styles.card} ${styles.tableCard}`} aria-label="Recent work" role="table">
         <div className={styles.tableHead} role="row">
           <span role="columnheader">Session</span><span role="columnheader">Date</span><span role="columnheader">Attendance</span><span role="columnheader">Accuracy</span><span role="columnheader">Action</span>
@@ -228,9 +228,9 @@ export function PerformanceTrend({ trend }: { trend: DashboardTrendPoint[] }) {
           <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={230}>
             <LineChart data={chartData} margin={{ top: 15, right: 8, left: -24, bottom: 0 }}>
               <CartesianGrid stroke="#E9EEF5" strokeDasharray="3 4" vertical={false} />
-              <XAxis dataKey="label" tick={{ fill: '#7B879E', fontSize: 8 }} axisLine={false} tickLine={false} minTickGap={24} />
-              <YAxis domain={[0, 100]} tick={{ fill: '#7B879E', fontSize: 8 }} axisLine={false} tickLine={false} ticks={[0, 25, 50, 75, 100]} />
-              <Tooltip contentStyle={{ border: '1px solid #D9E1ED', borderRadius: 10, fontSize: 10 }} formatter={(value, name) => [`${value ?? '—'}%`, name === 'avgScore' ? 'Accuracy' : 'Completion']} />
+              <XAxis dataKey="label" tick={{ fill: '#59657E', fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={24} />
+              <YAxis domain={[0, 100]} tick={{ fill: '#59657E', fontSize: 11 }} axisLine={false} tickLine={false} ticks={[0, 25, 50, 75, 100]} />
+              <Tooltip contentStyle={{ border: '1px solid #D9E1ED', borderRadius: 10, fontSize: 12 }} formatter={(value, name) => [`${value ?? '—'}%`, name === 'avgScore' ? 'Accuracy' : 'Completion']} />
               <Line type="monotone" dataKey="avgScore" stroke="#5B6CFF" strokeWidth={2.5} connectNulls dot={{ r: 2, fill: '#fff', strokeWidth: 2 }} activeDot={{ r: 4 }} />
               <Line type="monotone" dataKey="completionRate" stroke="#13A77B" strokeWidth={2} strokeDasharray="5 4" connectNulls dot={false} />
             </LineChart>

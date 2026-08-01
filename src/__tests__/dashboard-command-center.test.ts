@@ -3,7 +3,10 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
-import { DashboardHeader } from '@/components/host/dashboard/DashboardHeader'
+import {
+  CREATE_MENU_ITEMS,
+  DashboardHeader,
+} from '@/components/host/dashboard/DashboardHeader'
 import {
   AttentionQueue,
   RecentWork,
@@ -32,6 +35,19 @@ describe('DashboardHeader', () => {
     expect(markup).toContain('aria-label="Scheduled sessions, 2 active"')
     expect(markup).toContain('href="/host/scheduled"')
     expect(markup).not.toContain('Notifications')
+  })
+
+  it('offers only Quiz and Presentation in the Create menu', () => {
+    expect(CREATE_MENU_ITEMS.map(item => item.label)).toEqual(['Quiz', 'Presentation'])
+    expect(CREATE_MENU_ITEMS.map(item => item.href)).toEqual(['/host/build', '/host/present/create'])
+  })
+
+  it('exposes a dedicated top-bar feature request action', () => {
+    const markup = renderToStaticMarkup(createElement(DashboardHeader, { scheduleCount: 0 }))
+
+    expect(markup).toContain('Request feature')
+    expect(markup).toContain('aria-label="Request a feature"')
+    expect(markup).not.toContain('AI-assisted practice')
   })
 })
 
@@ -93,5 +109,14 @@ describe('dashboard page contract', () => {
 
     expect(source).toContain('useState<DashboardRange>(30)')
     expect(source).not.toContain('HostSidebar')
+  })
+
+  it('defines a readable dashboard type scale and one shared two-column grid', () => {
+    const styles = readFileSync('src/components/host/dashboard/DashboardCommandCenter.module.css', 'utf8')
+
+    expect(styles).toContain('--dash-font-body: 14px')
+    expect(styles).toContain('--dash-font-control: 12px')
+    expect(styles).toContain('--dash-font-compact: 11px')
+    expect(styles).toMatch(/\.attentionGrid,\s*\.recentGrid,\s*\.learningGrid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1\.6fr\)\s+minmax\(300px,\s*\.68fr\)/)
   })
 })
