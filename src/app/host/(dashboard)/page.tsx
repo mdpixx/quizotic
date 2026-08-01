@@ -128,7 +128,7 @@ export default function HostDashboard() {
         <RecentWork sessions={data.recentSessions} content={data.recentContent} />
 
         <SectionHeader title="Learning picture" description="Deeper patterns after the immediate work is handled" />
-        <div className={styles.learningGrid}>
+        <div className={styles.learningGrid} data-dashboard-grid="learning">
           <PerformanceTrend trend={data.trend} />
           <EngagementMasteryCarousel trend={data.trend} bloomsCoverage={data.bloomsCoverage} bloomsMastery={data.bloomsMastery} />
         </div>
