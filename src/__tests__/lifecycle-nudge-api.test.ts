@@ -15,6 +15,7 @@ import { NextRequest } from 'next/server'
 
 const prismaMock = vi.hoisted(() => ({
   nudge: { findFirst: vi.fn(), updateMany: vi.fn() },
+  user: { findUnique: vi.fn() },
 }))
 const authMock = vi.hoisted(() => ({ getCurrentUser: vi.fn() }))
 
@@ -42,6 +43,7 @@ beforeEach(() => {
   authMock.getCurrentUser.mockResolvedValue({ id: 'user-1' })
   prismaMock.nudge.findFirst.mockResolvedValue(OPEN_NUDGE)
   prismaMock.nudge.updateMany.mockResolvedValue({ count: 1 })
+  prismaMock.user.findUnique.mockResolvedValue({ role: null, orgType: null })
 })
 
 describe('GET', () => {

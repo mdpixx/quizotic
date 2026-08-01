@@ -216,10 +216,43 @@ Judged on activation, not on opens.
 
 ---
 
-## Open questions for Mahesh
+## Resolved decisions
 
-1. Confirm the reply-to address for the founder-style nudges — a real monitored
-   inbox, since the whole point is that people reply.
-2. Is `mail.quizotic.live` acceptable as the lifecycle subdomain?
-3. Should the Tier-1 nudge include an AI-generated starter quiz for the user's
-   `role` / `orgType`, or link to a static template gallery in Phase 1?
+_All three answered 2026-08-01. Kept here rather than deleted, because the
+reasoning on #3 constrains anything built on top of the tier model later._
+
+**1. Reply-to — `info@quizotic.live`.** Confirmed monitored by Mahesh
+personally, so the founder-voice copy is honest: every nudge ends with a real
+invitation to reply, and someone actually answers. Set in the vault and on
+Railway as `EMAIL_REPLY_TO`.
+
+**2. Lifecycle subdomain — `mail.quizotic.live`.** Accepted and live. SPF, DKIM
+and MX verified from public resolvers; root SPF/MX still point at Google, so the
+two sender reputations stay isolated.
+
+**3. Tier-1 starter quiz — a named template, NOT AI generation.**
+
+The decisive argument is correctness, not cost. Tier is derived from
+`quizCount` (§2). Generating a quiz into someone's library flips them Tier 1 →
+Tier 2 without them having done anything, and three things break at once:
+
+- the exit re-check (§5, guard 8) recomputes tier at send time and would block
+  the very email that created the quiz;
+- `activation.host_first_session` — the highest-priority nudge — would later
+  fire at someone who never built anything, telling them "your quiz is built";
+- activation, the metric this whole system is judged on (§9), would count a quiz
+  *we* made as intent *they* showed.
+
+Cost and latency point the same way (OpenRouter credits spent on people who
+never open, LLM calls blocking the hourly tick, a mediocre first artifact), but
+they are secondary. **Any future feature that pre-creates content on a user's
+behalf has to answer the tier-corruption problem first.**
+
+Implementation: `src/lib/lifecycle/starter-template.ts` picks one template from
+`role`/`orgType` and both the email and the in-app card name it, deep-linking to
+`/host/templates?start=<id>` — which preselects that audience and opens the
+template's preview, leaving the reader one click from a quiz in their library.
+Selection favours the lowest-friction template that fits (`Lesson Recap` for
+schools, `Icebreaker Trivia` for corporate) because the goal is a hosted session
+this week: a quiz that runs as-is beats a better content match that needs their
+material typed in first.

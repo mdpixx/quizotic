@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { QUIZ_TEMPLATES, type TemplateAudience } from '@/lib/quiz-templates'
 import { saveQuiz } from '@/lib/quiz-storage'
@@ -15,11 +15,33 @@ const AUDIENCE_COLORS: Record<TemplateAudience, { bg: string; text: string; bord
 
 const TYPE_FILTERS: Array<TemplateAudience | 'All'> = ['All', 'Schools', 'Corporate', 'Both']
 
-export default function TemplatesPage() {
+function TemplatesGallery() {
   const router = useRouter()
-  const [filter, setFilter] = useState<TemplateAudience | 'All'>('All')
   const [loading, setLoading] = useState<string | null>(null)
-  const [previewId, setPreviewId] = useState<string | null>(null)
+
+  // `?start=<templateId>` — the lifecycle activation email links here with one
+  // template already chosen for the reader's role/orgType, so the mail lands a
+  // click from a quiz in their library instead of on a wall of choices. An
+  // unknown id just falls through to the normal gallery, which is what a link
+  // from an old email should do after a template is retired.
+  //
+  // Derived during render rather than set from an effect: an effect would
+  // render the wrong filter first and then correct it, and hydrate from a
+  // different state than the server produced.
+  const searchParams = useSearchParams()
+  const startTemplate =
+    QUIZ_TEMPLATES.find(t => t.id === searchParams.get('start')) ?? null
+
+  // The deep link supplies the initial value; any interaction takes over from
+  // there, so a reader can browse away from the suggestion freely.
+  const [filterChoice, setFilterChoice] = useState<TemplateAudience | 'All' | null>(null)
+  const filter = filterChoice ?? startTemplate?.audience ?? 'All'
+  const setFilter = setFilterChoice
+
+  const [previewChoice, setPreviewChoice] = useState<string | null | undefined>(undefined)
+  const previewId = previewChoice === undefined ? (startTemplate?.id ?? null) : previewChoice
+  const setPreviewId = setPreviewChoice
+
   const previewTemplate = previewId ? QUIZ_TEMPLATES.find(t => t.id === previewId) : null
 
   const filtered = filter === 'All'
@@ -249,5 +271,16 @@ export default function TemplatesPage() {
         </div>
       )}
     </div>
+  )
+}
+
+// useSearchParams needs a Suspense boundary or the route cannot be prerendered.
+// The fallback matches the page background so the boundary is invisible rather
+// than a white flash.
+export default function TemplatesPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen" style={{ background: '#F8F9FA' }} />}>
+      <TemplatesGallery />
+    </Suspense>
   )
 }

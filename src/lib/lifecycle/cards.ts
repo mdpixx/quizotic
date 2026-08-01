@@ -7,6 +7,7 @@
 // feel like an ad.
 
 import type { CampaignKey } from './campaigns'
+import { pickStarterTemplate } from './starter-template'
 
 export interface NudgeCardCopy {
   title: string
@@ -22,11 +23,13 @@ export const NUDGE_CARDS: Record<CampaignKey, NudgeCardCopy> = {
     ctaLabel: 'Host it now',
     ctaHref: '/host/quizzes',
   },
+  // Personalised per user in the API route — see personaliseCard below. This
+  // is the fallback for someone with no role or orgType on record.
   'activation.create_first_quiz': {
-    title: 'Build your first quiz',
-    body: 'Pick a topic, let the AI draft the questions, edit what you do not like. About five minutes.',
-    ctaLabel: 'Start building',
-    ctaHref: '/host/build',
+    title: 'Start from a ready-made quiz',
+    body: 'Open one you can host as-is, change what you like, and see the room light up once. No blank page.',
+    ctaLabel: 'Browse starters',
+    ctaHref: '/host/templates',
   },
   'activation.last_touch': {
     title: 'Anything we can help with?',
@@ -34,4 +37,29 @@ export const NUDGE_CARDS: Record<CampaignKey, NudgeCardCopy> = {
     ctaLabel: 'Send feedback',
     ctaHref: '/host?feedback=1',
   },
+}
+
+/**
+ * Swaps in a named starter quiz for the Tier-1 card, mirroring what the email
+ * does. Same reasoning as starter-template.ts: pointing at one concrete quiz
+ * asks for a click, where "build your first quiz" asks for effort from someone
+ * who has already declined to make it once.
+ */
+export function personaliseCard(
+  campaignKey: string,
+  copy: NudgeCardCopy,
+  role?: string | null,
+  orgType?: string | null,
+): NudgeCardCopy {
+  if (campaignKey !== 'activation.create_first_quiz') return copy
+
+  const template = pickStarterTemplate(role, orgType)
+  if (!template) return copy
+
+  return {
+    title: `Try "${template.title}" — no setup`,
+    body: `${template.questionCount} ready-made questions on ${template.subject.toLowerCase()}. Open it, tweak anything, host it.`,
+    ctaLabel: `Open "${template.title}"`,
+    ctaHref: `/host/templates?start=${encodeURIComponent(template.id)}`,
+  }
 }

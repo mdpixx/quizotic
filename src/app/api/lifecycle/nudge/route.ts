@@ -16,7 +16,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { campaignFor } from '@/lib/lifecycle/campaigns'
-import { NUDGE_CARDS } from '@/lib/lifecycle/cards'
+import { NUDGE_CARDS, personaliseCard } from '@/lib/lifecycle/cards'
 
 const TRANSITIONS = {
   shown: 'shownAt',
@@ -47,8 +47,16 @@ export async function GET() {
     // render an empty card.
     if (!card || !campaignFor(nudge.campaignKey)) return NextResponse.json({ nudge: null })
 
+    // Same starter quiz the email would name, so the two surfaces agree if the
+    // user sees both.
+    const profile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, orgType: true },
+    })
+    const copy = personaliseCard(nudge.campaignKey, card, profile?.role, profile?.orgType)
+
     return NextResponse.json({
-      nudge: { id: nudge.id, campaignKey: nudge.campaignKey, seen: nudge.shownAt !== null, ...card },
+      nudge: { id: nudge.id, campaignKey: nudge.campaignKey, seen: nudge.shownAt !== null, ...copy },
     })
   } catch (err) {
     // The dashboard must render without this. A nudge is the least important
