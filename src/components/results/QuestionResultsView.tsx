@@ -2,6 +2,7 @@
 
 import type { QuestionStat, QuestionType, ResultsRenderer } from '@/lib/quiz-types'
 import { RESULTS_RENDERER } from '@/lib/quiz-types'
+import { RatingSummary } from './RatingSummary'
 
 export type ResultsMode = 'live' | 'final' | 'pdf'
 
@@ -179,7 +180,7 @@ function TextResponseList({ stat, className }: RendererProps) {
   )
 }
 
-// ─── Rating histogram (1..N + average) ───────────────────────────────────────
+// ─── Rating (live histogram; final reports use the shared star summary) ─────
 
 function RatingHistogram({ stat, mode, className }: RendererProps) {
   const histogram = stat.ratingHistogram ?? []
@@ -187,9 +188,19 @@ function RatingHistogram({ stat, mode, className }: RendererProps) {
   const total = histogram.reduce((a, b) => a + b, 0)
   if (total === 0) return <EmptyState label="No ratings yet" className={className} />
 
+  if (mode !== 'live') {
+    return (
+      <RatingSummary
+        histogram={histogram}
+        average={stat.ratingAverage}
+        ratingMax={ratingMax}
+        className={className}
+      />
+    )
+  }
+
   const avg = stat.ratingAverage ?? null
   const max = Math.max(...histogram, 1)
-  const isLive = mode === 'live'
 
   return (
     <div className={`flex items-end gap-4 ${className ?? ''}`}>
@@ -215,7 +226,7 @@ function RatingHistogram({ stat, mode, className }: RendererProps) {
                     height: `${heightPct}%`,
                     minHeight: count > 0 ? 4 : 0,
                     background: `linear-gradient(180deg,#A855F7,#7C3AED)`,
-                    transition: isLive ? 'height 500ms cubic-bezier(0.2,0.8,0.2,1)' : 'none',
+                    transition: 'height 500ms cubic-bezier(0.2,0.8,0.2,1)',
                   }}
                 />
               </div>

@@ -13,7 +13,7 @@ import { ParticipantMatrix } from '@/components/results/ParticipantMatrix'
 import { SessionReport } from '@/components/SessionReport'
 import { downloadFromUrl } from '@/lib/download'
 import type { QuestionStat } from '@/lib/quiz-types'
-import type { SessionMatrixData } from '@/lib/session-matrix'
+import { buildMisconceptionSummary, type SessionMatrixData } from '@/lib/session-matrix'
 
 interface AttendeeRecord {
   joinedAt: string
@@ -296,6 +296,7 @@ export default function SessionReportPage({ params }: { params: Promise<{ id: st
   const needsReview = scoredStats.filter(s => (s.correctPct ?? 0) < 50)
   const misconceptionCount = scoredStats.reduce((n, s) => n + (s.confidenceGrid?.sureWrong ?? 0), 0)
   const confidenceTotals = sumConfidence(scoredStats)
+  const misconceptionSummary = matrixData ? buildMisconceptionSummary(matrixData) : null
 
   return (
     <div className="paper-grain min-h-full" style={{ background: 'var(--color-paper)' }}>
@@ -403,8 +404,6 @@ export default function SessionReportPage({ params }: { params: Promise<{ id: st
               </div>
             )}
 
-            <ConfidentlyWrongPanel data={matrixData} loading={matrixLoading} error={matrixError} />
-
             {/* Visual analytics row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-6">
               {confidenceTotals && <AggregateConfidenceGrid grid={confidenceTotals} />}
@@ -416,6 +415,8 @@ export default function SessionReportPage({ params }: { params: Promise<{ id: st
                 <AccuracyScan stats={questionStats} />
               </div>
             )}
+
+            <ConfidentlyWrongPanel data={matrixData} loading={matrixLoading} error={matrixError} />
 
             {/* Full question-by-question report — per-question confidence grids,
                 Bloom's tags, poll/wordcloud/rating result views, explanations,
@@ -430,6 +431,7 @@ export default function SessionReportPage({ params }: { params: Promise<{ id: st
                   sessionDate={fmtDate(session.endedAt ?? session.createdAt)}
                   attendees={attendees}
                   plan={plan}
+                  misconceptionSummary={misconceptionSummary}
                 />
               </div>
             )}

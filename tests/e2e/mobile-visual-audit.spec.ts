@@ -212,12 +212,13 @@ test('report page renders insight visuals (mocked data)', async ({ page, context
   await mockReportApis(page, 'free')
   await page.goto('/host/reports/mock-session-1#misconceptions')
   await expect(page).toHaveURL(/#misconceptions$/)
-  await expect(page.getByRole('heading', { name: 'Confidently wrong' })).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByRole('heading', { name: 'Misconception overview' })).toBeVisible({ timeout: 20_000 })
   const misconceptionPanel = page.locator('#misconceptions')
   await expect(misconceptionPanel).toBeFocused()
   await expect(misconceptionPanel.getByRole('heading', { name: 'Which planet is closest to the Sun?' })).toBeVisible()
-  await expect(misconceptionPanel.getByText('Ravi', { exact: true }).first()).toBeVisible()
-  await expect(page.getByTitle('Confidently wrong').first()).toBeVisible()
+  await expect(misconceptionPanel.getByText('Ravi', { exact: true })).toHaveCount(0)
+  await expect(misconceptionPanel.getByText('Participant names are included in Download Report')).toBeVisible()
+  await expect(page.getByTitle('Confidently wrong')).toHaveCount(0)
   await expect(page.getByText('Confidence grid').first()).toBeVisible({ timeout: 20_000 })
   await expect(page.getByText('Misconception', { exact: false }).first()).toBeVisible()
   await expect(page.getByText('Score distribution')).toBeVisible()
@@ -225,7 +226,13 @@ test('report page renders insight visuals (mocked data)', async ({ page, context
   await expect(page.getByText('CSV · Pro')).toBeVisible() // free plan → locked pill
   await page.screenshot({ path: `${SHOTS}/09-report-mobile.png`, fullPage: true })
 
-  await page.setViewportSize({ width: 1280, height: 800 })
+  const confidenceTop = await page.getByText('Confidence grid').first().evaluate(el => el.getBoundingClientRect().top + window.scrollY)
+  const accuracyTop = await page.getByText('Accuracy by question').evaluate(el => el.getBoundingClientRect().top + window.scrollY)
+  const misconceptionTop = await misconceptionPanel.evaluate(el => el.getBoundingClientRect().top + window.scrollY)
+  expect(confidenceTop).toBeLessThan(misconceptionTop)
+  expect(accuracyTop).toBeLessThan(misconceptionTop)
+
+  await page.setViewportSize({ width: 1440, height: 900 })
   await page.waitForTimeout(500)
   await page.screenshot({ path: `${SHOTS}/10-report-desktop.png`, fullPage: true })
 
