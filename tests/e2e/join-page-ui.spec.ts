@@ -28,15 +28,37 @@ test.describe('Participant join form', () => {
     await expect(wordmark).toHaveCSS('color', 'rgb(255, 255, 255)')
     expect(await wordmark.evaluate(el => getComputedStyle(el).fontFamily)).toContain('-apple-system')
 
+    // Type scale. These floors were rebalanced in #99, which deliberately took
+    // the code from 48px to 30px so it stops competing with the title — the
+    // assertions below were written against the pre-#99 sizes and were left
+    // behind, which is why they are relative where they can be. The absolute
+    // numbers are the ones that mean something on a real phone; the relative
+    // ones survive the next rescale.
+    const fontPx = (loc: ReturnType<typeof page.getByRole>) =>
+      loc.evaluate(el => parseFloat(getComputedStyle(el).fontSize))
+
     const codeInput = page.getByRole('textbox', { name: 'Session code' })
     await expect(codeInput).toBeVisible()
-    expect(parseFloat(await codeInput.evaluate(el => getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(40)
+    const codePx = await fontPx(codeInput)
+    // Shipped: 30px, dropping to 26px on short/narrow phones.
+    expect(codePx, 'session code must stay large enough to read across a room').toBeGreaterThanOrEqual(24)
 
     const nameInput = page.getByRole('textbox', { name: 'Your name' })
-    expect(parseFloat(await nameInput.evaluate(el => getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(20)
+    const namePx = await fontPx(nameInput)
+    // 16px is not cosmetic: iOS Safari zooms the page when a focused input is
+    // below it, which throws a one-handed participant out of the layout
+    // mid-typing. Shipped value is exactly 16 at every breakpoint, so any
+    // reduction at all trips this.
+    expect(namePx, 'name input must not drop below the iOS no-zoom threshold').toBeGreaterThanOrEqual(16)
 
     const emailToggle = page.getByRole('button', { name: /Add email/i })
-    expect(parseFloat(await emailToggle.evaluate(el => getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16)
+    const togglePx = await fontPx(emailToggle)
+    expect(togglePx, 'email toggle must stay legible').toBeGreaterThanOrEqual(13)
+
+    // The point of the #99 rebalance: the code is the single focal point, and
+    // the optional email toggle stays subordinate to the fields you must fill.
+    expect(codePx, 'session code must dominate the form').toBeGreaterThan(namePx)
+    expect(togglePx, 'optional email must not outweigh the required fields').toBeLessThanOrEqual(namePx)
 
     await expect(page.getByRole('img', { name: 'Smiling face' })).toBeVisible()
     await expect(page.getByRole('img', { name: 'Excited face' })).toHaveCount(0)

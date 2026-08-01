@@ -2,7 +2,29 @@ import { describe, it, expect } from 'vitest'
 // Import the .mjs directly — it is the ONLY schema module (server.mjs runtime
 // + these tests). The old socket-schemas.ts mirror drifted out of sync and
 // was removed 2026-07.
-import { SubmitAnswerSchema, JoinSessionSchema, safeParseSocket } from '../lib/socket-schemas.mjs'
+import {
+  CreateSessionSchema,
+  SubmitAnswerSchema,
+  JoinSessionSchema,
+  safeParseSocket,
+} from '../lib/socket-schemas.mjs'
+
+function createSessionPayload(timerSeconds: unknown) {
+  return {
+    quizData: {
+      title: 'Timer contract regression',
+      questions: [{
+        id: 'q1',
+        type: 'mcq',
+        text: 'Which timer value should the socket accept?',
+        options: ['A', 'B', 'C', 'D'],
+        correctAnswer: '0',
+        timerSeconds,
+        points: 1000,
+      }],
+    },
+  }
+}
 
 describe('JoinSessionSchema', () => {
   it('accepts valid join payload', () => {
@@ -88,6 +110,46 @@ describe('SubmitAnswerSchema', () => {
   it('rejects non-integer questionIndex', () => {
     const r = SubmitAnswerSchema.safeParse({ gameCode: 'ABCD12', answer: '1', timeMs: 4000, questionIndex: 1.5 })
     expect(r.success).toBe(false)
+  })
+})
+
+describe('CreateSessionSchema timer contract', () => {
+  it('accepts a 600-second question followed by a no-timer leaderboard slide', () => {
+    const result = CreateSessionSchema.safeParse({
+      quizData: {
+        title: 'GE201 PRELIM EXAM',
+        questions: [
+          {
+            id: 'q1',
+            type: 'mcq',
+            text: "Who combined Plato's ideas with Christian teachings?",
+            options: ['A', 'B', 'C', 'D'],
+            correctAnswer: '3',
+            timerSeconds: 600,
+            points: 1000,
+          },
+          {
+            id: 'leaderboard-1',
+            type: 'leaderboard',
+            text: '',
+            timerSeconds: 0,
+            points: 1000,
+            topN: 5,
+          },
+        ],
+      },
+      sessionMode: 'accuracy',
+    })
+
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts the five-second active-timer lower bound', () => {
+    expect(CreateSessionSchema.safeParse(createSessionPayload(5)).success).toBe(true)
+  })
+
+  it.each([1, 4, 601, 1.5, '20'])('rejects unsupported timer value %j', timerSeconds => {
+    expect(CreateSessionSchema.safeParse(createSessionPayload(timerSeconds)).success).toBe(false)
   })
 })
 

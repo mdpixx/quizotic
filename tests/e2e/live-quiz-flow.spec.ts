@@ -36,8 +36,16 @@ const TEST_QUIZ = {
       text: 'E2E: pick option B',
       options: ['Option A', 'Option B', 'Option C', 'Option D'],
       correctAnswer: '1', // index 1 = Option B
-      timerSeconds: 20,
+      timerSeconds: 600,
       points: 1000,
+    },
+    {
+      id: 'leaderboard-1',
+      type: 'leaderboard',
+      text: '',
+      timerSeconds: 0,
+      points: 1000,
+      topN: 5,
     },
   ],
 }
