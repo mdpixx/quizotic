@@ -30,6 +30,8 @@ export interface MisconceptionQuestion {
   index: number
   label: string
   answerCount: number
+  respondentCount: number
+  affectedPct: number
   participants: Array<{ id: string; name: string }>
 }
 
@@ -51,15 +53,24 @@ export function buildMisconceptionSummary(data: SessionMatrixData): Misconceptio
 
   const questions = data.questions.flatMap((question, column) => {
     const participants: MisconceptionQuestion['participants'] = []
+    let respondentCount = 0
     for (const participant of data.participants) {
       const confidence = participant.confidences[column] ?? null
       if (confidence !== null) hasConfidenceData = true
+      if (participant.cells[column] !== null) respondentCount += 1
       if (participant.cells[column] !== 0 || confidence !== 'sure') continue
       participants.push({ id: participant.id, name: participant.name })
       affectedLearners.add(participant.id)
     }
     return participants.length > 0
-      ? [{ index: question.index, label: question.label, answerCount: participants.length, participants }]
+      ? [{
+          index: question.index,
+          label: question.label,
+          answerCount: participants.length,
+          respondentCount,
+          affectedPct: respondentCount > 0 ? Math.round((participants.length / respondentCount) * 100) : 0,
+          participants,
+        }]
       : []
   }).sort((a, b) => b.answerCount - a.answerCount || a.index - b.index)
 

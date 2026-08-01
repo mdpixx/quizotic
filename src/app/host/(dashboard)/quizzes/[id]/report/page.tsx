@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { RESULTS_RENDERER, type QuestionStat } from '@/lib/quiz-types'
 import { AssignQuizModal } from '@/components/host/AssignQuizModal'
 import { ParticipantMatrix } from '@/components/results/ParticipantMatrix'
+import { RatingSummary } from '@/components/results/RatingSummary'
 
 type LeaderboardEntry = {
   name: string
@@ -93,29 +94,6 @@ function BarChart({ dist, labels, total, correctIdx }: { dist: number[]; labels:
   )
 }
 
-function RatingBar({ histogram, average, ratingMax }: { histogram: number[]; average: number | null; ratingMax: number }) {
-  const max = Math.max(...histogram, 1)
-  const total = histogram.reduce((s, c) => s + c, 0)
-  return (
-    <div>
-      <div className="flex items-end gap-1 h-20">
-        {histogram.map((count, i) => {
-          const pct = count / max * 100
-          return (
-            <div key={i} className="flex-1 flex flex-col items-center gap-1">
-              <div className="w-full rounded-t" style={{ height: `${pct}%`, background: 'var(--color-secondary)' }} />
-              <span className="text-xs font-display" style={{ color: 'var(--color-text-muted)' }}>{i + 1}</span>
-            </div>
-          )
-        })}
-      </div>
-      {average !== null && (
-        <p className="mt-2 text-sm" style={{ color: 'var(--color-text-muted)' }}>Average: <span className="font-semibold font-display" style={{ color: 'var(--color-secondary-dark)' }}>{average.toFixed(1)} / {ratingMax}</span> · {total} response{total !== 1 ? 's' : ''}</p>
-      )}
-    </div>
-  )
-}
-
 function TextList({ responses }: { responses: { answer: string }[] }) {
   return (
     <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
@@ -173,7 +151,7 @@ function QuestionStatCard({ stat }: { stat: QuestionStat }) {
         <TextList responses={stat.textResponses} />
       )}
       {renderer === 'histogram' && stat.ratingHistogram && (
-        <RatingBar histogram={stat.ratingHistogram} average={stat.ratingAverage ?? null} ratingMax={stat.ratingMax ?? 5} />
+        <RatingSummary histogram={stat.ratingHistogram} average={stat.ratingAverage} ratingMax={stat.ratingMax} />
       )}
       {renderer === 'ordered' && stat.rankingItems && stat.rankingAverages && (
         <div className="space-y-1">

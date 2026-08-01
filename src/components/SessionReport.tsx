@@ -1,4 +1,6 @@
 import type { QuestionStat, BloomsLevel, QuestionType } from '@/lib/quiz-types'
+import type { MisconceptionSummary } from '@/lib/session-matrix'
+import { getRatingMetrics } from '@/lib/rating-summary'
 import { QuizoticLogo } from './QuizoticLogo'
 import { QuestionResultsView } from './results/QuestionResultsView'
 
@@ -165,28 +167,21 @@ function renderResultsHtml(stat: QuestionStat): string {
     return wrap(`<div>${items}${more}</div>`)
   }
 
-  // Rating histogram ──────────────────────────────────────────────────────
+  // Rating summary ────────────────────────────────────────────────────────
   if (type === 'rating') {
     const histogram = stat.ratingHistogram ?? []
-    const ratingMax = stat.ratingMax ?? histogram.length ?? 5
-    const total = histogram.reduce((a, b) => a + b, 0)
-    if (total === 0) return empty('No ratings yet')
-    const max = Math.max(...histogram, 1)
-    const avg = stat.ratingAverage ?? null
-    const bars = Array.from({ length: ratingMax }).map((_, idx) => {
-      const count = histogram[idx] ?? 0
-      const pct = total > 0 ? Math.round((count / total) * 100) : 0
-      const widthPct = max > 0 ? Math.round((count / max) * 100) : 0
-      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:12px;">
-        <span style="color:#475569;font-weight:700;width:30px;text-align:center">${idx + 1}</span>
-        <div style="flex:1;height:12px;background:#f3f4f6;border-radius:99px;overflow:hidden"><div style="height:100%;width:${widthPct}%;background:linear-gradient(90deg,#A855F7,#7C3AED);border-radius:99px"></div></div>
-        <span style="color:#374151;font-weight:600;width:60px;text-align:right">${pct}% (${count})</span>
-      </div>`
+    const metrics = getRatingMetrics(histogram, stat.ratingAverage, stat.ratingMax)
+    if (!metrics) return empty('No ratings yet')
+    const ratingLabel = metrics.total === 1 ? 'rating' : 'ratings'
+    const accessibleLabel = `Average rating ${metrics.average.toFixed(2)} out of ${metrics.ratingMax} from ${metrics.total} ${ratingLabel}`
+    const stars = Array.from({ length: metrics.ratingMax }).map((_, index) => {
+      const fill = Math.round(Math.min(1, Math.max(0, metrics.average - index)) * 100)
+      return `<span style="position:relative;display:inline-block;font-size:26px;line-height:1;color:#cbd5e1;margin-right:2px">★<span style="position:absolute;inset:0;overflow:hidden;width:${fill}%;color:#FBD13B">★</span></span>`
     }).join('')
-    const avgLabel = avg !== null
-      ? `<p style="margin:0 0 8px;font-size:13px;color:#0F1B3D"><strong>Average:</strong> ${avg.toFixed(2)} / ${ratingMax} · ${total} ratings</p>`
-      : ''
-    return wrap(`<div>${avgLabel}${bars}</div>`)
+    return wrap(`<div role="img" aria-label="${accessibleLabel}" style="background:#fffdf3;border:1px solid #f4e5a1;border-radius:10px;padding:12px 14px">
+      <div aria-hidden="true" style="display:flex;align-items:center">${stars}</div>
+      <p style="margin:7px 0 0;font-size:13px;color:#64748b"><strong style="font-size:18px;color:#0F1B3D">${metrics.average.toFixed(2)} / ${metrics.ratingMax}</strong> · ${metrics.total} ${ratingLabel}</p>
+    </div>`)
   }
 
   // Ranking results ───────────────────────────────────────────────────────
@@ -241,6 +236,7 @@ interface SessionReportProps {
   plan?: 'free' | 'pro'
   sessionId?: string
   attendees?: AttendeeSummary[]
+  misconceptionSummary?: MisconceptionSummary | null
 }
 
 function formatDuration(totalSec: number): string {
@@ -298,7 +294,7 @@ function AttendanceSummary({ attendees }: { attendees: AttendeeSummary[] }) {
   )
 }
 
-export function SessionReport({ questionStats, quizTitle, participantCount, sessionDate, plan = 'free', sessionId, attendees }: SessionReportProps) {
+export function SessionReport({ questionStats, quizTitle, participantCount, sessionDate, plan = 'free', sessionId, attendees, misconceptionSummary }: SessionReportProps) {
   if (!questionStats || questionStats.length === 0) return null
 
   const scoredStats = questionStats.filter(q => !q.isNonScored && q.correctPct != null)
@@ -327,13 +323,6 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
         <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#c2410c;text-transform:uppercase;letter-spacing:0.06em">⚠ Needs Re-teaching</p>
         <p style="margin:0;font-size:13px;color:#9a3412;line-height:1.5">${needsReview.map(s => `Q${s.index + 1}: ${escapeHtml(s.text.length > 60 ? s.text.slice(0, 60) + '…' : s.text)}`).join('<br>')}</p>
         <p style="margin:8px 0 0;font-size:12px;color:#c2410c">Revisit these topics in the next session before moving forward.</p>
-      </div>` : ''
-
-    const misconceptionBox = misconceptions.length > 0 ? `
-      <div style="background:#fdf4ff;border:1.5px solid #e9d5ff;border-radius:10px;padding:14px 18px;margin-bottom:20px;">
-        <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#7e22ce;text-transform:uppercase;letter-spacing:0.06em">🎯 Misconceptions Detected</p>
-        <p style="margin:0;font-size:13px;color:#6b21a8;line-height:1.5">${misconceptions.map(s => `Q${s.index + 1}: ${s.confidenceGrid!.sureWrong} student${s.confidenceGrid!.sureWrong > 1 ? 's were' : ' was'} confident but answered incorrectly`).join('<br>')}</p>
-        <p style="margin:8px 0 0;font-size:12px;color:#7e22ce">These students may hold incorrect prior knowledge — targeted correction needed.</p>
       </div>` : ''
 
     const rows = questionStats.filter(s => !s.isLeaderboard).map((stat, i) => {
@@ -387,8 +376,6 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
             ${quadCell('Gap', grid.unsureWrong, '#f9fafb', '#e5e7eb', '#6b7280')}
           </tr>
         </table>` : ''
-      const misconceptionNote = grid && grid.sureWrong > 0
-        ? `<p style="margin:10px 0 0;font-size:12px;color:#7e22ce;background:#fdf4ff;border-radius:6px;padding:7px 10px">⚠ ${grid.sureWrong} student${grid.sureWrong > 1 ? 's were' : ' was'} confident but wrong — possible misconception</p>` : ''
       return `
         <div style="border:1.5px solid ${cardBorder};border-radius:10px;padding:16px;margin-bottom:12px;background:${cardBg};page-break-inside:avoid;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
@@ -397,10 +384,26 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
           </div>
           ${distributionHtml}
           ${!isNonScored && grid ? gridHtml : ''}
-          ${!isNonScored ? misconceptionNote : ''}
           ${stat.explanation ? `<p style="margin-top:10px;font-size:12px;color:#0F1B3D;background:#F8F9FA;border-radius:6px;padding:8px 10px">💡 ${escapeHtml(stat.explanation)}</p>` : ''}
         </div>`
     }).join('')
+
+    const misconceptionAppendix = misconceptionSummary && misconceptionSummary.answerCount > 0
+      ? `<section style="page-break-before:always;padding-top:8px">
+          <p style="margin:0;font-size:11px;font-weight:800;color:#b63d38;text-transform:uppercase;letter-spacing:0.08em">Confidence detail</p>
+          <h2 style="margin:5px 0 6px;font-size:22px;color:#0F1B3D">Confidently wrong appendix</h2>
+          <p style="margin:0 0 16px;font-size:12px;color:#64748b;line-height:1.5">${misconceptionSummary.learnerCount} affected ${misconceptionSummary.learnerCount === 1 ? 'learner' : 'learners'} · ${misconceptionSummary.answerCount} answers · ${misconceptionSummary.questionCount} ${misconceptionSummary.questionCount === 1 ? 'question' : 'questions'}</p>
+          ${misconceptionSummary.questions.map(question => `
+            <div style="border:1px solid #e2e8f0;border-radius:9px;padding:12px 14px;margin-bottom:10px">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+                <p style="margin:0;font-size:13px;font-weight:700;color:#0F1B3D;line-height:1.45">Q${question.index + 1}. ${escapeHtml(question.label)}</p>
+                <strong style="font-size:12px;color:#b63d38;white-space:nowrap">${question.answerCount} of ${question.respondentCount} respondents (${question.affectedPct}%)</strong>
+              </div>
+              <p style="margin:8px 0 0;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em">Participants</p>
+              <p style="margin:4px 0 0;font-size:12px;color:#334155;line-height:1.55">${question.participants.map(participant => escapeHtml(participant.name)).join(', ')}</p>
+            </div>`).join('')}
+        </section>`
+      : ''
 
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
       <title>${escapeHtml(quizTitle || 'Session Report')} — Quizotic</title>
@@ -457,9 +460,9 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
       <!-- Body -->
       <div style="padding:24px 32px;">
         ${needsReviewBox}
-        ${misconceptionBox}
         <p style="margin:0 0 16px;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.06em">Question-by-Question Breakdown</p>
         ${rows}
+        ${misconceptionAppendix}
       </div>
 
       <!-- Footer -->
