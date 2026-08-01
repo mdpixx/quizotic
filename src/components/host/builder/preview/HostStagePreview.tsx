@@ -205,9 +205,16 @@ function QuestionSpotlight({ question }: { question: Question }) {
     >
       {withImage ? (
         <>
+          {/* height 178 = clamp(120px, 22vh, 220px) resolved at the 810px frame.
+              maxHeight mirrors the live stage, where the panel is bound to the
+              card's own content box because the clamp is viewport-relative
+              while the card cap is a percentage of the stage — without it a
+              projector clipped the panel out of the card. It does not bind at
+              810px, so this changes nothing today; it exists so the two cannot
+              drift, which is the whole point of this component. */}
           <div
             className="flex flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl"
-            style={{ width: 'clamp(150px, 30%, 340px)', height: 178, background: '#F5F6F8', boxShadow: 'inset 0 0 0 1px rgba(15,27,61,0.06)' }}
+            style={{ width: 'clamp(150px, 30%, 340px)', height: 178, maxHeight: '100%', background: '#F5F6F8', boxShadow: 'inset 0 0 0 1px rgba(15,27,61,0.06)' }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={question.imageUrl} alt="" className="max-h-full max-w-full object-contain" />
