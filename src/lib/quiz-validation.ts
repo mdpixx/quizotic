@@ -1,4 +1,5 @@
 import { getOptionText, type Question, type QuestionOption } from './quiz-types'
+import { isValidTimerSeconds, TIMER_MAX, TIMER_MIN_ACTIVE } from './timer'
 
 export type QuizValidationSeverity = 'error' | 'warning'
 
@@ -195,14 +196,14 @@ export function validateQuizQuestions(questions: Question[]): QuizValidationIssu
     }
 
     // Timer/points are TS unions but nothing enforces them at runtime — AI
-    // imports and raw API payloads can carry arbitrary values. The live server
-    // clamps the timer defensively (clampTimerSeconds) but points flow into
-    // scoring unchecked, so reject out-of-range values at save time.
-    if (q.timerSeconds !== undefined && (typeof q.timerSeconds !== 'number' || q.timerSeconds < 5 || q.timerSeconds > 120)) {
+    // imports and raw API payloads can carry arbitrary values. Use the same
+    // timer contract as the builder and live server; reject invalid values at
+    // save time rather than silently persisting a payload that cannot run.
+    if (q.timerSeconds !== undefined && !isValidTimerSeconds(q.timerSeconds)) {
       issues.push({
         questionIndex,
         field: 'timerSeconds',
-        message: 'Timer must be between 5 and 120 seconds.',
+        message: `Timer must be 0 (no timer) or ${TIMER_MIN_ACTIVE}-${TIMER_MAX} seconds.`,
         severity: 'error',
       })
     }

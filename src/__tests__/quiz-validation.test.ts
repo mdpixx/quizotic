@@ -60,6 +60,23 @@ describe('validateQuizQuestions', () => {
       q({ type: 'poll', correctAnswer: undefined }),
     ])).toEqual([])
   })
+
+  it.each([0, 5, 600])('accepts canonical timer value %s', timerSeconds => {
+    expect(validateQuizQuestions([q({ timerSeconds, correctAnswer: '0' })])).toEqual([])
+  })
+
+  it.each([1, 4, 601, 1.5, '20'])('rejects unsupported timer value %j', timerSeconds => {
+    const issues = validateQuizQuestions([
+      q({ timerSeconds: timerSeconds as unknown as number, correctAnswer: '0' }),
+    ])
+
+    expect(issues).toContainEqual({
+      questionIndex: 0,
+      field: 'timerSeconds',
+      message: 'Timer must be 0 (no timer) or 5-600 seconds.',
+      severity: 'error',
+    })
+  })
 })
 
 describe('formatQuizValidationIssues', () => {
