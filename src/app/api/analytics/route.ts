@@ -309,6 +309,8 @@ export async function GET(request: Request) {
     sessionTitle: string
     questions: Array<{ index: number; text: string; correctPct: number; bloomsLevel: string | null }>
   } | null = null
+  let teachingBriefConfidence = emptyConfidenceGrid()
+  let misconceptionQuestionCount = 0
   for (const item of currentSessions) {
     if (item.type !== 'quiz' || !item.results?.questionStats?.length) continue
     const questions = item.results.questionStats
@@ -325,16 +327,20 @@ export async function GET(request: Request) {
       sessionTitle: item.quiz?.title ?? item.results.quizTitle ?? 'Recent quiz',
       questions,
     }
+    teachingBriefConfidence = aggregateConfidence([item])
+    misconceptionQuestionCount = (item.results.questionStats ?? [])
+      .filter(question => (question.confidenceGrid?.sureWrong ?? 0) > 0)
+      .length
     break
   }
 
   const hardQuestions = (recentQuestionDifficulty?.questions ?? []).filter(question => question.correctPct < 50)
   const weakestQuestion = [...(recentQuestionDifficulty?.questions ?? [])]
     .sort((a, b) => a.correctPct - b.correctPct)[0]
-  const confidenceResponseTotal = confidenceGrid.sureCorrect + confidenceGrid.sureWrong
-    + confidenceGrid.unsureCorrect + confidenceGrid.unsureWrong
+  const confidenceResponseTotal = teachingBriefConfidence.sureCorrect + teachingBriefConfidence.sureWrong
+    + teachingBriefConfidence.unsureCorrect + teachingBriefConfidence.unsureWrong
   const confidentlyWrongPct = confidenceResponseTotal > 0
-    ? Math.round((confidenceGrid.sureWrong / confidenceResponseTotal) * 100)
+    ? Math.round((teachingBriefConfidence.sureWrong / confidenceResponseTotal) * 100)
     : null
   const teachingBrief = recentQuestionDifficulty && weakestQuestion
     ? {
@@ -344,6 +350,8 @@ export async function GET(request: Request) {
         tone: hardQuestions.length > 0 ? 'attention' as const : 'positive' as const,
         hardQuestionCount: hardQuestions.length,
         confidentlyWrongPct,
+        confidentlyWrongCount: teachingBriefConfidence.sureWrong,
+        misconceptionQuestionCount,
         supportLearnerCount: supportLearners.length,
         weakestQuestion,
       }

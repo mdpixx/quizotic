@@ -15,6 +15,8 @@ const teachingBrief = {
   tone: 'attention' as const,
   hardQuestionCount: 5,
   confidentlyWrongPct: 38,
+  confidentlyWrongCount: 8,
+  misconceptionQuestionCount: 2,
   supportLearnerCount: 4,
   weakestQuestion: {
     index: 2,

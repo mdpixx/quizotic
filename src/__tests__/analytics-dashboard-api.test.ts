@@ -12,10 +12,11 @@ vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 
 import { GET } from '@/app/api/analytics/route'
 
-function results({ score, questionText, correctPct }: {
+function results({ score, questionText, correctPct, confidenceGrid = { sureCorrect: 6, sureWrong: 2, unsureCorrect: 1, unsureWrong: 1 } }: {
   score: number
   questionText: string
   correctPct: number
+  confidenceGrid?: { sureCorrect: number; sureWrong: number; unsureCorrect: number; unsureWrong: number }
 }) {
   return {
     maxScore: 1000,
@@ -26,7 +27,7 @@ function results({ score, questionText, correctPct }: {
       index: 0,
       text: questionText,
       correctPct,
-      confidenceGrid: { sureCorrect: 6, sureWrong: 2, unsureCorrect: 1, unsureWrong: 1 },
+      confidenceGrid,
       bloomsLevel: 'Understand',
     }],
   }
@@ -66,14 +67,24 @@ describe('GET /api/analytics dashboard contract', () => {
           id: 'current-new', type: 'quiz', quizId: 'quiz-1', presentationId: null,
           createdAt: new Date('2026-07-28T10:00:00Z'), endedAt: new Date('2026-07-28T10:10:00Z'),
           status: 'ended', participantCount: 10,
-          results: results({ score: 450, questionText: 'What does context window mean in an AI model?', correctPct: 20 }),
+          results: results({
+            score: 450,
+            questionText: 'What does context window mean in an AI model?',
+            correctPct: 20,
+            confidenceGrid: { sureCorrect: 7, sureWrong: 1, unsureCorrect: 1, unsureWrong: 1 },
+          }),
           quiz: { id: 'quiz-1', title: 'AI Masterclass' }, presentation: null,
         },
         {
           id: 'current-old', type: 'quiz', quizId: 'quiz-1', presentationId: null,
           createdAt: new Date('2026-07-20T10:00:00Z'), endedAt: new Date('2026-07-20T10:10:00Z'),
           status: 'ended', participantCount: 10,
-          results: results({ score: 700, questionText: 'What is machine learning?', correctPct: 60 }),
+          results: results({
+            score: 700,
+            questionText: 'What is machine learning?',
+            correctPct: 60,
+            confidenceGrid: { sureCorrect: 0, sureWrong: 9, unsureCorrect: 1, unsureWrong: 0 },
+          }),
           quiz: { id: 'quiz-1', title: 'AI Masterclass' }, presentation: null,
         },
         {
@@ -104,9 +115,12 @@ describe('GET /api/analytics dashboard contract', () => {
       sessionId: 'current-new',
       topic: 'Context window',
       hardQuestionCount: 1,
-      confidentlyWrongPct: 20,
+      confidentlyWrongPct: 10,
+      confidentlyWrongCount: 1,
+      misconceptionQuestionCount: 1,
       supportLearnerCount: 1,
     })
+    expect(json.confidenceGrid).toEqual({ sureCorrect: 7, sureWrong: 10, unsureCorrect: 2, unsureWrong: 1 })
     expect(json.supportLearners[0]).toMatchObject({ name: 'Asha', latestScore: 45, change: -25 })
     expect(json.nextScheduled).toMatchObject({ sessionId: 'scheduled-1', phase: 'upcoming' })
     expect(json.scheduleCount).toBe(1)

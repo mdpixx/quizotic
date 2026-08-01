@@ -19,6 +19,8 @@ const brief = {
   tone: 'attention' as const,
   hardQuestionCount: 3,
   confidentlyWrongPct: 38,
+  confidentlyWrongCount: 8,
+  misconceptionQuestionCount: 2,
   supportLearnerCount: 1,
   weakestQuestion: {
     index: 2,
@@ -52,7 +54,7 @@ describe('DashboardHeader', () => {
 })
 
 describe('AttentionQueue', () => {
-  it('translates evidence into actions and prioritises learners needing support', () => {
+  it('uses one evidence drill-down instead of repetitive row actions', () => {
     const markup = renderToStaticMarkup(createElement(AttentionQueue, {
       brief,
       supportLearners: [{
@@ -68,8 +70,30 @@ describe('AttentionQueue', () => {
 
     expect(markup).toContain('Learners to support')
     expect(markup).toContain('Anita Rao')
-    expect(markup).toContain('Review question')
+    expect(markup).toContain('8 confidently wrong answers')
+    expect(markup).toContain('2 questions')
+    expect(markup).toContain('See questions and learners')
+    expect(markup.match(/href="\/host\/reports\/session-1#misconceptions"/g)).toHaveLength(1)
+    expect(markup).not.toContain('Review question')
+    expect(markup).not.toContain('Open confidence report')
+    expect(markup).not.toContain('Review learners')
     expect(markup).not.toContain('Top participants')
+  })
+
+  it('offers a neutral evidence action when confidence was not captured', () => {
+    const markup = renderToStaticMarkup(createElement(AttentionQueue, {
+      brief: {
+        ...brief,
+        confidentlyWrongPct: null,
+        confidentlyWrongCount: 0,
+        misconceptionQuestionCount: 0,
+      },
+      supportLearners: [],
+    }))
+
+    expect(markup).toContain('Review session evidence')
+    expect(markup).toContain('href="/host/reports/session-1"')
+    expect(markup).not.toContain('#misconceptions')
   })
 })
 
@@ -98,7 +122,10 @@ describe('RecentWork', () => {
 
     expect(markup).toContain('Recent work')
     expect(markup).toContain('AI Masterclass')
-    expect(markup).toContain('href="/host/reports/session-1"')
+    expect(markup).toContain('href="/host/reports/session-1">View report</a>')
+    expect(markup).not.toContain('>Open</a>')
+    expect(markup).not.toContain('/host/build?id=')
+    expect(markup).toContain('href="/host/build?edit=quiz-1"')
     expect(markup).toContain('Continue creating')
   })
 })

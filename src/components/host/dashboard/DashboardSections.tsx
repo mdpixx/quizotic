@@ -80,18 +80,20 @@ export function AttentionQueue({
       icon: Icon.alert,
       title: `${brief.topic} is the clearest misconception`,
       copy: <><em>{brief.weakestQuestion.correctPct}% correct</em> on “{brief.weakestQuestion.text}”</>,
-      action: 'Review question',
-      href: `/host/reports/${brief.sessionId}`,
       tone: 'coral',
     },
     {
       icon: Icon.confidence,
-      title: 'Confidence is masking some mistakes',
+      title: brief.confidentlyWrongPct === null
+        ? 'Confidence was not captured in this session'
+        : brief.confidentlyWrongCount > 0
+          ? `${brief.confidentlyWrongCount} confidently wrong answer${brief.confidentlyWrongCount === 1 ? '' : 's'} need a closer look`
+          : 'Confidence is not masking a misconception',
       copy: brief.confidentlyWrongPct === null
         ? <>Confidence data will appear as learners rate more answers.</>
-        : <><em>{brief.confidentlyWrongPct}% of all answers</em> were confidently wrong in this period.</>,
-      action: 'Open confidence report',
-      href: `/host/reports/${brief.sessionId}`,
+        : brief.confidentlyWrongCount > 0
+          ? <><em>{brief.misconceptionQuestionCount} question{brief.misconceptionQuestionCount === 1 ? '' : 's'}</em> account for {brief.confidentlyWrongPct}% of rated answers in this session.</>
+          : <>No rated answer was both confident and incorrect in this session.</>,
       tone: 'blue',
     },
     {
@@ -100,18 +102,19 @@ export function AttentionQueue({
       copy: supportLearners.length === 0
         ? <>Recent scored history is stable across the learner roster.</>
         : <>Prioritised from recent accuracy and direction, <em>not from achievement rank</em>.</>,
-      action: 'Review learners',
-      href: '/host/participants',
       tone: 'blue',
     },
   ] : [{
     icon: Icon.alert,
     title: 'No urgent learning signals yet',
     copy: <>Quizotic will prioritise misconceptions after the next scored session.</>,
-    action: 'Choose a quiz',
-    href: '/host/quizzes',
     tone: 'blue',
   }]
+  const attentionAction = brief
+    ? brief.confidentlyWrongCount > 0
+      ? { label: 'See questions and learners', href: `/host/reports/${brief.sessionId}#misconceptions` }
+      : { label: 'Review session evidence', href: `/host/reports/${brief.sessionId}` }
+    : { label: 'Choose a quiz', href: '/host/quizzes' }
 
   return (
     <div className={styles.attentionGrid} data-dashboard-grid="attention">
@@ -120,9 +123,11 @@ export function AttentionQueue({
           <div className={styles.queueRow} key={signal.title}>
             <span className={styles.signalIcon} data-tone={signal.tone === 'blue' ? 'blue' : undefined}>{signal.icon}</span>
             <div className={styles.signalCopy}><strong>{signal.title}</strong><span>{signal.copy}</span></div>
-            <Link className={`${styles.button} ${styles.smallButton}`} href={signal.href}>{signal.action}</Link>
           </div>
         ))}
+        <div className={styles.queueAction}>
+          <Link className={`${styles.button} ${styles.smallButton}`} href={attentionAction.href}>{attentionAction.label}</Link>
+        </div>
       </article>
       <article className={`${styles.card} ${styles.learners}`}>
         <div className={styles.cardTitle}>
@@ -174,8 +179,7 @@ export function RecentWork({
             <span className={styles.metricStrong} role="cell">{session.participants}</span>
             <span role="cell"><span className={styles.scorePill} data-warning={session.avgScore !== null && session.avgScore < 50}>{session.avgScore === null ? '—' : `${session.avgScore}%`}</span></span>
             <span className={styles.rowActions} role="cell">
-              <Link className={styles.tinyButton} href={`/host/reports/${session.id}`}>Report</Link>
-              {session.contentId && <Link className={styles.tinyButton} href={session.type === 'presentation' ? `/host/present/create?id=${session.contentId}` : `/host/build?id=${session.contentId}`}>Open</Link>}
+              <Link className={styles.tinyButton} href={`/host/reports/${session.id}`}>View report</Link>
             </span>
           </div>
         ))}
@@ -190,7 +194,7 @@ export function RecentWork({
           <Link
             className={styles.asset}
             key={`${item.type}-${item.id}`}
-            href={item.type === 'presentation' ? `/host/present/create?id=${item.id}` : `/host/build?id=${item.id}`}
+            href={item.type === 'presentation' ? `/host/present/create?id=${item.id}` : `/host/build?edit=${item.id}`}
           >
             <span className={styles.assetIcon} data-type={item.type}>{item.type === 'presentation' ? Icon.presentation : Icon.quiz}</span>
             <span className={styles.assetCopy}><strong>{item.title}</strong><span>{item.type === 'presentation' ? 'Presentation' : 'Quiz'} · {relativeDate(item.updatedAt)}</span></span>

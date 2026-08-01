@@ -8,10 +8,12 @@
 
 import { use, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { ConfidentlyWrongPanel } from '@/components/results/ConfidentlyWrongPanel'
 import { ParticipantMatrix } from '@/components/results/ParticipantMatrix'
 import { SessionReport } from '@/components/SessionReport'
 import { downloadFromUrl } from '@/lib/download'
 import type { QuestionStat } from '@/lib/quiz-types'
+import type { SessionMatrixData } from '@/lib/session-matrix'
 
 interface AttendeeRecord {
   joinedAt: string
@@ -195,6 +197,9 @@ export default function SessionReportPage({ params }: { params: Promise<{ id: st
   const [loading, setLoading] = useState(true)
   const [downloading, setDownloading] = useState(false)
   const [downloadError, setDownloadError] = useState<string | null>(null)
+  const [matrixData, setMatrixData] = useState<SessionMatrixData | null>(null)
+  const [matrixError, setMatrixError] = useState<string | null>(null)
+  const [matrixLoading, setMatrixLoading] = useState(true)
 
   async function handleCsvDownload() {
     if (!session) return
@@ -208,6 +213,27 @@ export default function SessionReportPage({ params }: { params: Promise<{ id: st
 
   useEffect(() => {
     let cancelled = false
+    setMatrixData(null)
+    setMatrixError(null)
+    setMatrixLoading(true)
+
+    async function loadMatrix(sessionId: string) {
+      try {
+        const response = await fetch(`/api/sessions/${sessionId}/matrix`)
+        const json = await response.json().catch(() => null)
+        if (!response.ok || !json?.success) {
+          throw new Error(json?.error ?? `Failed to load confidence detail (${response.status})`)
+        }
+        if (!cancelled) setMatrixData(json.data)
+      } catch (matrixLoadError) {
+        if (!cancelled) {
+          setMatrixError(matrixLoadError instanceof Error ? matrixLoadError.message : 'Failed to load confidence detail')
+        }
+      } finally {
+        if (!cancelled) setMatrixLoading(false)
+      }
+    }
+
     // Hosts land here straight from the finale podium, and the end-of-session
     // results are persisted fire-and-forget — the row can lag the click by a
     // few seconds. Retry 404s briefly before declaring the session missing.
@@ -219,6 +245,7 @@ export default function SessionReportPage({ params }: { params: Promise<{ id: st
         if (res?.ok && json?.success) {
           setSession(json.data)
           setLoading(false)
+          void loadMatrix(json.data.id)
           // Attendance summary is secondary — load it after the main payload.
           fetch(`/api/sessions/${json.data.id}/attendees`)
             .then(r => r.json())
@@ -246,6 +273,19 @@ export default function SessionReportPage({ params }: { params: Promise<{ id: st
       .catch(() => {})
     return () => { cancelled = true }
   }, [id])
+
+  useEffect(() => {
+    if (loading || matrixLoading || window.location.hash !== '#misconceptions') return
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.getElementById('misconceptions')
+      target?.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        block: 'start',
+      })
+      target?.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [loading, matrixLoading, session?.id])
 
   const title = session?.results?.quizTitle
     ?? (session?.type === 'presentation' ? 'Presentation session' : `Session ${session?.code ?? ''}`)
@@ -363,6 +403,8 @@ export default function SessionReportPage({ params }: { params: Promise<{ id: st
               </div>
             )}
 
+            <ConfidentlyWrongPanel data={matrixData} loading={matrixLoading} error={matrixError} />
+
             {/* Visual analytics row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-6">
               {confidenceTotals && <AggregateConfidenceGrid grid={confidenceTotals} />}
@@ -398,7 +440,12 @@ export default function SessionReportPage({ params }: { params: Promise<{ id: st
               <p className="text-[12px] mb-4" style={{ color: 'var(--color-text-muted)' }}>
                 Every participant against every question — spot exactly who missed what.
               </p>
-              <ParticipantMatrix sessionId={session.id} />
+              <ParticipantMatrix
+                sessionId={session.id}
+                data={matrixData}
+                loading={matrixLoading}
+                error={matrixError}
+              />
             </div>
           </>
         )}
