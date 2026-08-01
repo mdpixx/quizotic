@@ -30,6 +30,13 @@ model User {
   lastActiveAt     DateTime?
   country          String? // ISO 3166-1 alpha-2 e.g. "IN", "US"
   locale           String? // BCP 47 e.g. "en-IN", "en-US"
+  // Lifecycle mail opt-out. Only ever blocks the 'lifecycle' email channel —
+  // transactional mail (magic links above all) must keep flowing, or
+  // unsubscribing from a nudge would lock someone out of their account.
+  // unsubscribeToken is the unguessable id in the one-click unsubscribe URL;
+  // minted lazily on first lifecycle send, never reused.
+  lifecycleOptOutAt DateTime?
+  unsubscribeToken  String?  @unique
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -51,9 +58,47 @@ model User {
   flagAssignments   FeatureFlagAssignment[]
   testimonialInvites TestimonialInvite[]
   testimonials       Testimonial[]
+  nudges             Nudge[]
 
   @@index([lastActiveAt])
   @@index([country])
+}
+
+// ─── Nudge (lifecycle activation state machine) ─────────────────
+// One row per (user, campaign). The evaluator creates it, the dashboard
+// card advances it, the worker may email it. Design spec:
+// docs/lifecycle-automation-spec.md §3–§4.
+//
+//   pending → shown     (user saw the in-app card)
+//           → acted     (clicked through)  → done, never emailed
+//           → dismissed                    → done, never emailed
+//           → emailed   (unseen for 48h AND user has not been active)
+//           → cancelled (hit Tier 3 — activated, so the sequence closes)
+//           → expired   (past expiresAt without resolution)
+//
+// The @@unique([userId, campaignKey]) is the idempotency guarantee, and it
+// is deliberately structural rather than a code-level check: a campaign can
+// physically never be sent to the same person twice, even if the worker
+// double-fires or two replicas race. Everything else in the send path is a
+// policy that could be misconfigured; this one cannot.
+model Nudge {
+  id          String    @id @default(cuid())
+  userId      String
+  campaignKey String // 'activation.host_first_session' | 'activation.create_first_quiz' | 'activation.last_touch'
+  priority    Int // 1 = highest. The worker spends budget on the lowest number first.
+  state       String    @default("pending") // pending|shown|acted|dismissed|emailed|expired|cancelled
+  createdAt   DateTime  @default(now())
+  shownAt     DateTime?
+  actedAt     DateTime?
+  dismissedAt DateTime?
+  emailedAt   DateTime?
+  expiresAt   DateTime // end of the 30-day sequence window from signup
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, campaignKey])
+  @@index([state, createdAt])
+  @@index([userId])
 }
 
 // ─── NextAuth Account (OAuth providers) ─────────────────────────
