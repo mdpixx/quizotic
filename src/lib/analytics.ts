@@ -77,6 +77,12 @@ export type ProductEvent =
   | 'quiz_share_link_created'
   | 'quiz_share_link_revoked'
   | 'quiz_imported'
+  // Lifecycle activation nudges. These are how spec §9 gets answered: the
+  // question is whether nudged users activate more than unnudged ones, so
+  // the campaignKey prop has to be present on all three.
+  | 'nudge_shown'
+  | 'nudge_acted'
+  | 'nudge_dismissed'
 
 export function track(event: ProductEvent, props?: Record<string, string | number | boolean | null>): void {
   captureRaw(event, props)
