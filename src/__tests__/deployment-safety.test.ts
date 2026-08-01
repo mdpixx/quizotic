@@ -104,4 +104,82 @@ describe('production schema bootstrap', () => {
     const unmirrored = [...declared].filter(t => !baseline.has(t) && !mirrored.has(t)).sort()
     expect(unmirrored, `add these tables to ${SHIM} (CRITICAL_TABLES + CRITICAL_INDEXES)`).toEqual([])
   })
+
+  it('mirrors every migration-added column into the shim', () => {
+    // The table check above catches a whole missing table. A missing *column*
+    // is the quieter version of the same incident and has already happened
+    // here more than once — the feature ships, the shim never learned about
+    // the column, and every write to that table 500s on a database that was
+    // never rebuilt from the migration folder.
+    //
+    // Columns on tables the shim creates outright are already covered by the
+    // CREATE TABLE statement, so they are excluded.
+    const shim = read(SHIM)
+    const mirrored = new Set(
+      [...shim.matchAll(/\{\s*table:\s*'(\w+)',\s*column:\s*'(\w+)'/g)].map(m => `${m[1]}.${m[2]}`),
+    )
+    const shimCreatedTables = new Set(
+      [...shim.matchAll(/CREATE TABLE IF NOT EXISTS "(\w+)"/g)].map(m => m[1]!),
+    )
+
+    const migrationsDir = join(ROOT, 'prisma/migrations')
+    const declared = new Set<string>()
+    for (const dir of readdirSync(migrationsDir, { withFileTypes: true })) {
+      if (!dir.isDirectory()) continue
+      const sqlPath = join(migrationsDir, dir.name, 'migration.sql')
+      if (!existsSync(sqlPath)) continue
+      const sql = readFileSync(sqlPath, 'utf8')
+      for (const m of sql.matchAll(/ALTER TABLE "(\w+)"\s+ADD COLUMN (?:IF NOT EXISTS )?"(\w+)"/gi)) {
+        declared.add(`${m[1]}.${m[2]}`)
+      }
+    }
+
+    const unmirrored = [...declared]
+      .filter(c => !mirrored.has(c) && !shimCreatedTables.has(c.split('.')[0]!))
+      .sort()
+    expect(unmirrored, `add these columns to ${SHIM} (CRITICAL_COLUMNS)`).toEqual([])
+  })
+})
+
+// The unique key on (userId, campaignKey) is what makes "a campaign can never
+// be sent to the same person twice" a property of the database rather than a
+// promise made by the worker. It has to hold in all three places that describe
+// the schema, because production is built from the shim and reviewed from the
+// Prisma schema — a mismatch means the guarantee silently is not there.
+describe('lifecycle nudge schema', () => {
+  const files = {
+    prisma: read('prisma/schema.prisma'),
+    migration: read('prisma/migrations/20260801_lifecycle_nudges/migration.sql'),
+    shim: read('scripts/ensure-critical-columns.mjs'),
+  }
+
+  it('declares the Nudge idempotency key in the Prisma schema', () => {
+    expect(files.prisma).toMatch(/@@unique\(\[userId, campaignKey\]\)/)
+  })
+
+  it('creates the Nudge idempotency key in the migration and the shim', () => {
+    for (const [name, sql] of [['migration', files.migration], ['shim', files.shim]] as const) {
+      expect(
+        sql,
+        `${name} must create a UNIQUE index on Nudge(userId, campaignKey)`,
+      ).toMatch(/CREATE UNIQUE INDEX IF NOT EXISTS "Nudge_userId_campaignKey_key"/)
+    }
+  })
+
+  it('makes the unsubscribe token unique everywhere', () => {
+    // A collision here would hand one user the power to unsubscribe another.
+    expect(files.prisma).toMatch(/unsubscribeToken\s+String\?\s+@unique/)
+    expect(files.migration).toMatch(/CREATE UNIQUE INDEX IF NOT EXISTS "User_unsubscribeToken_key"/)
+    expect(files.shim).toMatch(/CREATE UNIQUE INDEX IF NOT EXISTS "User_unsubscribeToken_key"/)
+  })
+
+  it('cascades nudges when a user is deleted', () => {
+    // Nudges are not an audit trail; they must not outlive the account.
+    expect(files.migration).toMatch(
+      /CONSTRAINT "Nudge_userId_fkey" FOREIGN KEY \("userId"\) REFERENCES "User"\("id"\) ON DELETE CASCADE/,
+    )
+    expect(files.shim).toMatch(
+      /CONSTRAINT "Nudge_userId_fkey" FOREIGN KEY \("userId"\) REFERENCES "User"\("id"\) ON DELETE CASCADE/,
+    )
+  })
 })

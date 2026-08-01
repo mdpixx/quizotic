@@ -43,6 +43,21 @@ const CRITICAL_COLUMNS = [
   // Feedback kind ('general' | 'feature' | 'bug'). /api/feedback writes it on
   // every submission, including the dashboard's Request a feature button.
   { table: 'Feedback', column: 'type', type: `TEXT NOT NULL DEFAULT 'general'` },
+  // Lifecycle mail opt-out. Read on every lifecycle send, and written by the
+  // one-click unsubscribe route — a missing column would mean an unsubscribe
+  // link that 500s, which is exactly the complaint that damages a sending
+  // domain. Never consulted for transactional mail.
+  { table: 'User', column: 'lifecycleOptOutAt', type: 'TIMESTAMP(3)' },
+  { table: 'User', column: 'unsubscribeToken', type: 'TEXT' },
+  // Backfilling three columns that migrations added but nobody mirrored here.
+  // All three are verified present in the live database today, so these are
+  // no-ops on the current production DB — they exist so the shim can rebuild
+  // the schema from scratch, and so the new column-mirroring test in
+  // deployment-safety.test.ts can be unconditional rather than carrying an
+  // allowlist that would quietly grow.
+  { table: 'User', column: 'apiKey', type: 'TEXT' },
+  { table: 'GameSession', column: 'mode', type: `TEXT NOT NULL DEFAULT 'live'` },
+  { table: 'Attendee', column: 'deadlineAt', type: 'TIMESTAMP(3)' },
 ]
 
 // Tables introduced in Sessions 1, 3, 4, 5, 6, 7-8. Each block is a single
@@ -351,6 +366,25 @@ const CRITICAL_TABLES = [
      "updatedAt" TIMESTAMP(3) NOT NULL,
      CONSTRAINT "EmailSuppression_pkey" PRIMARY KEY ("email")
    )`,
+  // Lifecycle activation nudges. The unique index on (userId, campaignKey)
+  // in CRITICAL_INDEXES below is not an optimisation — it is the structural
+  // guarantee that a campaign can never be sent to the same person twice.
+  // If this table is missing, the hourly tick 500s on every run.
+  `CREATE TABLE IF NOT EXISTS "Nudge" (
+     "id" TEXT NOT NULL,
+     "userId" TEXT NOT NULL,
+     "campaignKey" TEXT NOT NULL,
+     "priority" INTEGER NOT NULL,
+     "state" TEXT NOT NULL DEFAULT 'pending',
+     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     "shownAt" TIMESTAMP(3),
+     "actedAt" TIMESTAMP(3),
+     "dismissedAt" TIMESTAMP(3),
+     "emailedAt" TIMESTAMP(3),
+     "expiresAt" TIMESTAMP(3) NOT NULL,
+     CONSTRAINT "Nudge_pkey" PRIMARY KEY ("id"),
+     CONSTRAINT "Nudge_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE
+   )`,
 ]
 
 const CRITICAL_INDEXES = [
@@ -409,6 +443,14 @@ const CRITICAL_INDEXES = [
   `CREATE INDEX IF NOT EXISTS "Testimonial_status_publishedAt_idx" ON "Testimonial" ("status", "publishedAt")`,
   `CREATE INDEX IF NOT EXISTS "Testimonial_createdAt_idx" ON "Testimonial" ("createdAt")`,
   `CREATE INDEX IF NOT EXISTS "Testimonial_userId_idx" ON "Testimonial" ("userId")`,
+  // Lifecycle nudges. The unique index is the idempotency guarantee — without
+  // it a double-firing worker could email the same campaign twice, which is
+  // the one failure the spec calls structurally impossible.
+  `CREATE UNIQUE INDEX IF NOT EXISTS "Nudge_userId_campaignKey_key" ON "Nudge" ("userId", "campaignKey")`,
+  `CREATE INDEX IF NOT EXISTS "Nudge_state_createdAt_idx" ON "Nudge" ("state", "createdAt")`,
+  `CREATE INDEX IF NOT EXISTS "Nudge_userId_idx" ON "Nudge" ("userId")`,
+  // One-click unsubscribe token lookup.
+  `CREATE UNIQUE INDEX IF NOT EXISTS "User_unsubscribeToken_key" ON "User" ("unsubscribeToken")`,
 ]
 
 // Idempotent data backfills. Each one reconciles a typed column with the
