@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
@@ -159,4 +161,57 @@ describe('every question type renders in both panes', () => {
       expect(phone([question]).length).toBeGreaterThan(0)
     })
   }
+})
+
+// ── Question image panel ────────────────────────────────────────────────────
+// The preview is a REPLICA of the live stage, not the live component rendered
+// small — transform: scale() creates no new viewport, so every vw/vh value in
+// the live stylesheet would resolve against the real browser window and the
+// frame would lie. The replica therefore hardcodes what each clamp resolves to
+// at 1440×810.
+//
+// That trade means the two can silently diverge, which is exactly what these
+// assert against: the pinned number has to stay equal to the live clamp
+// evaluated at the frame height, and the live cap has to exist in both.
+describe('question image panel matches the live stage', () => {
+  const withImage = q({ imageUrl: 'https://example.com/diagram.png' })
+
+  const livePage = readFileSync(
+    join(process.cwd(), 'src/app/host/session/page.tsx'),
+    'utf8',
+  )
+  const replica = readFileSync(
+    join(process.cwd(), 'src/components/host/builder/preview/HostStagePreview.tsx'),
+    'utf8',
+  )
+
+  it('renders an image panel when the question has one', () => {
+    const html = stage([withImage])
+    expect(html).toContain('https://example.com/diagram.png')
+    expect(html).toContain('object-contain')
+  })
+
+  it('pins the panel to the live clamp evaluated at the frame height', () => {
+    // Live: clamp(120px, 22vh, 220px). At STAGE_HEIGHT this is the middle term.
+    const expected = Math.round(0.22 * STAGE_HEIGHT)
+    expect(livePage, 'live clamp changed — repin the replica').toContain(
+      'clamp(120px, 22vh, 220px)',
+    )
+    expect(replica, `replica must pin height: ${expected}`).toContain(`height: ${expected}`)
+  })
+
+  it('carries the card-cap guard on both sides', () => {
+    // The live panel is bound to the card's own content box because the clamp
+    // is viewport-relative while the card cap is a percentage of the stage.
+    // Without it a 1024×768 projector clipped the panel out of the card.
+    for (const [name, src] of [['live stage', livePage], ['preview replica', replica]] as const) {
+      expect(src, `${name} must cap the image panel to the card`).toMatch(/maxHeight: '100%'/)
+    }
+  })
+
+  it('keeps the panel inside the preview card at the frame size', () => {
+    // Card cap is 34% of the stage, less 34px padding top and bottom.
+    const cardContentBox = 0.34 * STAGE_HEIGHT - 2 * 34
+    expect(Math.round(0.22 * STAGE_HEIGHT)).toBeLessThan(cardContentBox)
+  })
 })
