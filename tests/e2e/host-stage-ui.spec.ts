@@ -61,7 +61,7 @@ const mixedQuiz = () => ({
 
 type Quiz = ReturnType<typeof mixedQuiz>
 
-async function bootToQuestion(
+async function bootToLobby(
   browser: import('@playwright/test').Browser,
   viewport: { width: number; height: number },
   quiz: Quiz = mixedQuiz(),
@@ -79,6 +79,15 @@ async function bootToQuestion(
   await page.getByRole('button', { name: 'Start lobby' }).click()
   const startQuiz = page.getByRole('button', { name: /Start Quiz/ })
   await expect(startQuiz).toBeEnabled({ timeout: 15_000 })
+  return { context, page, startQuiz }
+}
+
+async function bootToQuestion(
+  browser: import('@playwright/test').Browser,
+  viewport: { width: number; height: number },
+  quiz: Quiz = mixedQuiz(),
+) {
+  const { context, page, startQuiz } = await bootToLobby(browser, viewport, quiz)
   await startQuiz.click()
   await expect(page.locator('.host-question-card')).toBeVisible({ timeout: 15_000 })
   await page.waitForTimeout(400) // let the fit pass settle
@@ -325,6 +334,99 @@ test('join QR overlay opens from the ⋯ menu on a phone', async ({ browser }) =
   const dialog = page.getByRole('dialog', { name: 'Scan to join the game' })
   await expect(dialog).toBeVisible()
   await expect(dialog.locator('svg').first()).toBeVisible()
+
+  await context.close()
+})
+
+// ── 6. Phone remote: visible without scrolling, and its QR lands on screen ──
+// The regression this guards: the trigger used to be a white pill at the bottom
+// of the lobby's PIN card, and its QR opened into an `absolute` popover BELOW
+// that card — inside a `lg:overflow-y-auto` column on an `h-svh overflow-hidden`
+// page. Hosts clicked it, nothing appeared to happen, and the feature went
+// unused. A short viewport is the point: on a tall screen the old layout would
+// pass by luck.
+for (const vp of [
+  { width: 1280, height: 720 },
+  { width: 1440, height: 800 },
+]) {
+  test(`phone remote trigger and QR stay in the viewport @ ${vp.width}x${vp.height}`, async ({ browser }) => {
+    const { context, page } = await bootToLobby(browser, vp)
+
+    const trigger = page.getByRole('button', { name: 'Use your phone as a remote' })
+    await expect(trigger).toBeVisible()
+    // toBeInViewport is the assertion that actually encodes the bug — the old
+    // in-card button could be scrolled out of the column on a short screen.
+    await expect(trigger).toBeInViewport()
+
+    await trigger.click()
+    const dialog = page.getByRole('dialog', { name: 'Use your phone as a remote' })
+    await expect(dialog).toBeVisible()
+    await expect(dialog).toBeInViewport()
+    // react-qr-code renders an SVG.
+    await expect(dialog.locator('svg').first()).toBeInViewport()
+
+    await page.keyboard.press('Escape')
+    await expect(dialog).not.toBeVisible()
+
+    await context.close()
+  })
+}
+
+test('phone remote modal offers a typeable fallback URL and names its audience', async ({ browser }) => {
+  const { context, page } = await bootToLobby(browser, { width: 1280, height: 720 })
+
+  await page.getByRole('button', { name: 'Use your phone as a remote' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Use your phone as a remote' })
+  // react-qr-code paints paths and never exposes its value in the DOM, so the
+  // ?code= deep link is asserted at the source level in phone-remote.test.ts.
+  // What IS observable here is the fallback a host types when a scan fails…
+  await expect(dialog.getByText('quizotic.live/host/remote')).toBeVisible()
+  // …and the label that stops a participant reading the projector from trying.
+  await expect(dialog.getByText('Host only — not for participants')).toBeVisible()
+
+  await context.close()
+})
+
+// ── 7. The phone remote must NOT survive into the live quiz ────────────────
+// Pairing is account-gated server-side (server.mjs host_join_remote), so a
+// participant scanning it cannot take control — but a host-only QR on a
+// projector mid-quiz still invites a whole room to scan their way to a sign-in
+// wall. Both the menu entry and the 'R' shortcut must be inert once started.
+test('phone remote is gone once the quiz starts', async ({ browser }) => {
+  const { context, page } = await bootToQuestion(browser, { width: 1280, height: 720 })
+
+  await page.getByRole('button', { name: 'More options' }).click()
+  await expect(page.getByRole('menuitem', { name: 'Show join QR' })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: 'Phone remote' })).toHaveCount(0)
+  await page.keyboard.press('Escape')
+
+  // The shortcut must not surface it either.
+  await page.keyboard.press('r')
+  await page.waitForTimeout(300)
+  await expect(page.getByRole('dialog', { name: 'Use your phone as a remote' })).toHaveCount(0)
+
+  await context.close()
+})
+
+// ── 8. Lobby columns end level — the layout complaint that moved this panel ──
+test('lobby PIN card and players panel are the same height', async ({ browser }) => {
+  const { context, page } = await bootToLobby(browser, { width: 1440, height: 800 })
+
+  const boxes = await page.evaluate(() => {
+    const grid = document.querySelector('.lg\\:grid-cols-\\[380px_1fr\\]')
+      ?? document.querySelector('[class*="grid-cols"]')
+    const cols = grid ? [...grid.children] : []
+    return cols.slice(0, 2).map(c => {
+      const card = c.querySelector('.rounded-3xl') ?? c
+      const r = card.getBoundingClientRect()
+      return { height: Math.round(r.height), bottom: Math.round(r.bottom) }
+    })
+  })
+
+  expect(boxes.length).toBe(2)
+  // The PIN card used to stop well short of the players panel, leaving dead
+  // white space under the QR. 8px of slack absorbs sub-pixel rounding only.
+  expect(Math.abs(boxes[0].bottom - boxes[1].bottom)).toBeLessThanOrEqual(8)
 
   await context.close()
 })

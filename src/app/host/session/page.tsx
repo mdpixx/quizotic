@@ -27,10 +27,11 @@ import { QuizoticLogo } from '@/components/QuizoticLogo'
 import { BrandWatermark } from '@/components/BrandWatermark'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
 import { JoinPill } from '@/components/host/JoinPill'
-import { PhoneRemoteButton } from '@/components/host/PhoneRemoteButton'
+import { PhoneRemotePanel } from '@/components/host/PhoneRemotePanel'
 import { NavChevron } from '@/components/ui/NavButton'
 import { EndQuizConfirmModal } from '@/components/host/EndQuizConfirmModal'
 import { JoinQrModal } from '@/components/host/JoinQrModal'
+import { PhoneRemoteModal } from '@/components/host/PhoneRemoteModal'
 import { HostWordCloud } from '@/components/host/HostWordCloud'
 import { LiveRosterPanel } from '@/components/host/LiveRosterPanel'
 import { QuestionNavigator } from '@/components/host/QuestionNavigator'
@@ -357,6 +358,7 @@ export default function SessionPage() {
   const [showOverflowMenu, setShowOverflowMenu] = useState(false)
   const [showEndQuizConfirm, setShowEndQuizConfirm] = useState(false)
   const [showJoinQr, setShowJoinQr] = useState(false)
+  const [showPhoneRemote, setShowPhoneRemote] = useState(false)
   const [followups, setFollowups] = useState<{ label: string; code: string }[]>([])
   const [followupLoading, setFollowupLoading] = useState(false)
   const [followupError, setFollowupError] = useState('')
@@ -368,6 +370,9 @@ export default function SessionPage() {
   // effect because localStorage isn't available during SSR render.
   const [soundMuted, setSoundMuted] = useState(false)
   useEffect(() => { setSoundMuted(isMuted()) }, [])
+  // (No coach-mark for the phone remote: the lobby panel is permanently visible
+  // and carries its own heading and explainer, so a one-time popup on top of it
+  // would be redundant chrome in the host's main control column.)
   const [hostTimeLeft, setHostTimeLeft] = useState(0)
   const hostTimerRef = useRef<CountdownHandle | null>(null)
   // Mirror `paused` into a ref so the long-lived countdown interval can freeze
@@ -1429,11 +1434,16 @@ export default function SessionPage() {
       } else if (e.key === 'q' || e.key === 'Q') {
         e.preventDefault()
         setShowJoinQr(s => !s)
+      } else if (e.key === 'r' || e.key === 'R') {
+        // Only surfaces in the lobby — the render site gates on `phase`.
+        e.preventDefault()
+        setShowPhoneRemote(s => !s)
       } else if (e.key === 'Escape') {
         setShowLeaderboardPopup(false)
         setShowImmersiveStats(false)
         setRosterSheetOpen(false)
         setShowJoinQr(false)
+        setShowPhoneRemote(false)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -2100,46 +2110,65 @@ export default function SessionPage() {
                   players panel (which has backdrop-blur) renders on top of it,
                   visibly blurring the QR. Scoping to `lg` keeps the desktop
                   column scroll while letting mobile size to content + scroll. */}
-              <div className="space-y-4 lg:min-h-0 lg:overflow-y-auto pr-1">
-                <div className="rounded-3xl p-7 text-center relative" style={{ background: 'rgba(255,255,255,0.96)', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
-                  <p className="text-xs tracking-[0.4em] font-black uppercase mb-2" style={{ color: '#2D2A66' }}>Game PIN</p>
-                  <p
-                    className="font-display font-black leading-none select-all whitespace-nowrap"
-                    style={{
-                      fontSize: 'clamp(40px, 4.5vw, 64px)',
-                      letterSpacing: '0.04em',
-                      backgroundImage: 'linear-gradient(135deg, #0F1B3D 0%, #2D2A66 100%)',
-                      WebkitBackgroundClip: 'text',
-                      backgroundClip: 'text',
-                      color: 'transparent',
-                      fontFamily: 'var(--font-display)',
-                    }}
-                  >
-                    {gameCode}
-                  </p>
+              <div className="flex flex-col lg:min-h-0 lg:overflow-y-auto pr-1">
+                {/* `lg:flex-1` + `justify-between` stretches this card to the
+                    grid row's full height and pushes the host-remote section to
+                    its foot, so the left column and the players panel beside it
+                    end level instead of leaving dead white space here. */}
+                <div className="rounded-3xl px-6 py-5 text-center relative flex flex-col lg:flex-1 overflow-hidden" style={{ background: 'rgba(255,255,255,0.96)', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+                  <div className="shrink-0">
+                    <p className="text-xs tracking-[0.4em] font-black uppercase mb-1.5" style={{ color: '#2D2A66' }}>Game PIN</p>
+                    <p
+                      className="font-display font-black leading-none select-all whitespace-nowrap"
+                      style={{
+                        fontSize: 'clamp(38px, 4.2vw, 60px)',
+                        letterSpacing: '0.04em',
+                        backgroundImage: 'linear-gradient(135deg, #0F1B3D 0%, #2D2A66 100%)',
+                        WebkitBackgroundClip: 'text',
+                        backgroundClip: 'text',
+                        color: 'transparent',
+                        fontFamily: 'var(--font-display)',
+                      }}
+                    >
+                      {gameCode}
+                    </p>
+                  </div>
 
-                  <div className="flex flex-col items-center gap-3 mt-6">
-                    <div className="p-3 bg-white rounded-2xl border-2" style={{ borderColor: '#2D2A66', boxShadow: '0 6px 0 rgba(15,27,61,0.25)' }}>
+                  {/* PARTICIPANT QR — this is the one thing on the lobby that a
+                      person reads from the back of a room, so it never pays for
+                      anything else on the card. `min-h: min(160px, 23vh)` holds
+                      it at its original 160px on any screen ~700px tall or more
+                      and only relaxes below that, where nothing would fit; the
+                      flex-1 lets it GROW to 300px on a big host display.
+                      aspect-square derives the width from that height, and the
+                      svg scales inside via its viewBox.
+
+                      The chrome around it was slimmed to buy this room: tighter
+                      card padding, and the "enter code 123456" line dropped — it
+                      repeated the PIN rendered at 60px directly above it. */}
+                  <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-2 mt-4">
+                    <div
+                      className="flex-1 min-h-[min(160px,23vh)] max-h-[300px] max-w-full aspect-square p-2.5 bg-white rounded-2xl border-2"
+                      style={{ borderColor: '#2D2A66', boxShadow: '0 6px 0 rgba(15,27,61,0.25)' }}
+                    >
                       <QRCode
                         value={`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')}/join?code=${gameCode}`}
-                        size={160}
+                        size={256}
+                        style={{ width: '100%', height: '100%' }}
                         bgColor="#ffffff"
                         fgColor="#0F1B3D"
                       />
                     </div>
-                    <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#2D2A66' }}>Scan to join</p>
-                    <div className="text-center">
-                      <p className="text-sm font-bold uppercase tracking-wider mb-1" style={{ color: '#2D2A66' }}>Or visit</p>
-                      <p className="text-xl font-black" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>quizotic.live/join</p>
-                      <p className="text-sm mt-0.5" style={{ color: '#64748B' }}>enter code <span className="font-mono font-black" style={{ color: '#0F1B3D' }}>{gameCode}</span></p>
-                    </div>
+                    <p className="shrink-0 text-xs font-bold uppercase tracking-wider" style={{ color: '#2D2A66' }}>Scan to join</p>
+                    <p className="shrink-0 text-lg font-black leading-tight" style={{ color: '#0F1B3D', fontFamily: 'var(--font-heading)' }}>
+                      <span className="text-xs font-bold uppercase tracking-wider block" style={{ color: '#2D2A66' }}>Or visit</span>
+                      quizotic.live/join
+                    </p>
                   </div>
 
-                  {/* Phone-remote affordance — account-based, no PIN. Safe to
-                      show because identity (not a visible code) is the gate. */}
-                  <div className="mt-5 -mb-1 flex justify-center">
-                    <PhoneRemoteButton variant="lobby" />
-                  </div>
+                  {/* Host-only phone remote — fills the dead space at the foot of
+                      this card. Lobby only: see PhoneRemotePanel for why. */}
+                  {gameCode && <PhoneRemotePanel onOpen={() => setShowPhoneRemote(true)} />}
                 </div>
 
               </div>
@@ -4119,6 +4148,11 @@ export default function SessionPage() {
                   boxShadow: '0 12px 28px rgba(15,27,61,0.18)',
                 }}
               >
+                {/* No phone-remote entry here on purpose. Pairing is already
+                    account-gated (server.mjs host_join_remote), but putting a
+                    host-only QR on a projector mid-quiz just invites a room of
+                    participants to scan their way to a sign-in wall. The remote
+                    is offered in the lobby, before anyone is watching. */}
                 <button
                   type="button"
                   role="menuitem"
@@ -4159,6 +4193,14 @@ export default function SessionPage() {
       <JoinQrModal
         open={showJoinQr}
         onClose={() => setShowJoinQr(false)}
+        gameCode={gameCode}
+      />
+
+      {/* Lobby only — the `phase` guard is what actually enforces it, so the
+          'R' shortcut can't surface a host-only QR mid-quiz either. */}
+      <PhoneRemoteModal
+        open={showPhoneRemote && phase === 'lobby'}
+        onClose={() => setShowPhoneRemote(false)}
         gameCode={gameCode}
       />
 
