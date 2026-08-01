@@ -9,6 +9,8 @@
 //
 // Everything here is therefore about picking and linking, never writing.
 
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   audienceFor,
@@ -184,10 +186,7 @@ describe('the gallery honours the deep link', () => {
     // Guarded on the source: there is no DOM environment in this project, and
     // a broken link here sends the reader to an undifferentiated wall of
     // templates — the exact friction the personalisation exists to remove.
-    const page = require('node:fs').readFileSync(
-      require('node:path').join(process.cwd(), 'src/app/host/templates/page.tsx'),
-      'utf8',
-    ) as string
+    const page = readFileSync(join(process.cwd(), 'src/app/host/templates/page.tsx'), 'utf8')
 
     expect(page).toContain("get('start')")
     expect(page).toContain('setPreviewId')
