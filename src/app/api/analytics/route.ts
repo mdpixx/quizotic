@@ -1,44 +1,69 @@
 import { NextResponse } from 'next/server'
+
 import { auth } from '@/lib/auth'
+import {
+  buildLearningPulse,
+  buildSupportLearners,
+  extractTeachingTopic,
+  resolveDashboardRange,
+  selectNextScheduled,
+  summarizeLearningPeriod,
+  type ConfidenceGridLike,
+  type DashboardSessionLike,
+  type DashboardSessionResults,
+} from '@/lib/dashboard-insights'
 import { prisma } from '@/lib/prisma'
-
-interface ConfidenceGrid {
-  sureCorrect: number
-  sureWrong: number
-  unsureCorrect: number
-  unsureWrong: number
-}
-
-interface QuestionStat {
-  index?: number
-  text?: string
-  correctPct?: number
-  confidenceGrid?: ConfidenceGrid
-  bloomsLevel?: string | null
-}
-
-interface LeaderboardEntry {
-  name: string
-  archetype?: string
-  score: number
-}
-
-interface SessionResults {
-  leaderboard?: LeaderboardEntry[]
-  questionStats?: QuestionStat[]
-  duration?: number
-  quizTitle?: string
-  questionCount?: number
-}
 
 const BLOOMS_LEVELS = ['Remember', 'Understand', 'Apply', 'Analyse', 'Evaluate', 'Create']
 
-// IST date key (YYYY-MM-DD in Asia/Kolkata, UTC+5:30). Sessions run in India
-// but the DB stores UTC; bucketing by UTC date causes the heat map to land
-// sessions on the wrong day for anything after 6:30 PM IST.
-function istDateKey(d: Date): string {
-  const ist = new Date(d.getTime() + 5.5 * 60 * 60 * 1000)
-  return ist.toISOString().slice(0, 10)
+interface AnalyticsSession extends DashboardSessionLike {
+  type: string
+  quizId: string | null
+  presentationId: string | null
+  endedAt: Date | null
+  quiz: { id: string; title: string } | null
+  presentation: { id: string; title: string } | null
+}
+
+function asResults(value: unknown): DashboardSessionResults | null {
+  return value && typeof value === 'object' ? value as DashboardSessionResults : null
+}
+
+function emptyConfidenceGrid(): ConfidenceGridLike {
+  return { sureCorrect: 0, sureWrong: 0, unsureCorrect: 0, unsureWrong: 0 }
+}
+
+function aggregateConfidence(sessions: AnalyticsSession[]): ConfidenceGridLike {
+  const total = emptyConfidenceGrid()
+  for (const session of sessions) {
+    for (const question of session.results?.questionStats ?? []) {
+      const grid = question.confidenceGrid
+      if (!grid) continue
+      total.sureCorrect += grid.sureCorrect ?? 0
+      total.sureWrong += grid.sureWrong ?? 0
+      total.unsureCorrect += grid.unsureCorrect ?? 0
+      total.unsureWrong += grid.unsureWrong ?? 0
+    }
+  }
+  return total
+}
+
+// Session buckets use IST because Quizotic's hosts primarily teach in India.
+function istDateKey(date: Date): string {
+  return new Date(date.getTime() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10)
+}
+
+function sessionAccuracy(results: DashboardSessionResults | null): number | null {
+  const questions = (results?.questionStats ?? []).filter(
+    question => typeof question.correctPct === 'number',
+  )
+  if (questions.length === 0) return null
+  return questions.reduce((sum, question) => sum + (question.correctPct ?? 0), 0) / questions.length
+}
+
+function sessionCompletion(session: AnalyticsSession): number | null {
+  if (!session.participantCount || !session.results?.leaderboard) return null
+  return (session.results.leaderboard.length / session.participantCount) * 100
 }
 
 export async function GET(request: Request) {
@@ -48,266 +73,336 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url)
-  const range = parseInt(searchParams.get('range') ?? '90')
-  const since = new Date(Date.now() - range * 24 * 60 * 60 * 1000)
+  const range = resolveDashboardRange(searchParams.get('range'))
+  const now = new Date()
+  const currentSince = new Date(now.getTime() - range * 24 * 60 * 60 * 1000)
+  const previousSince = new Date(now.getTime() - range * 2 * 24 * 60 * 60 * 1000)
   const userId = session.user.id
 
-  const [presentationCount, presentationSessionCount] = await Promise.all([
+  const [historyRows, presentationCount, recentQuizzes, recentPresentations, scheduledRows] = await Promise.all([
+    prisma.gameSession.findMany({
+      where: { userId, createdAt: { gte: previousSince } },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        type: true,
+        quizId: true,
+        presentationId: true,
+        status: true,
+        participantCount: true,
+        results: true,
+        createdAt: true,
+        endedAt: true,
+        quiz: { select: { id: true, title: true } },
+        presentation: { select: { id: true, title: true } },
+      },
+    }),
     prisma.presentation.count({ where: { userId } }),
-    prisma.gameSession.count({
-      where: { userId, presentationId: { not: null }, createdAt: { gte: since } },
+    prisma.quiz.findMany({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
+      take: 2,
+      select: { id: true, title: true, updatedAt: true },
+    }),
+    prisma.presentation.findMany({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
+      take: 2,
+      select: { id: true, title: true, updatedAt: true },
+    }),
+    prisma.gameSession.findMany({
+      where: {
+        userId,
+        mode: 'async',
+        status: 'open',
+        OR: [{ closesAt: null }, { closesAt: { gte: now } }],
+      },
+      orderBy: { opensAt: 'asc' },
+      take: 20,
+      select: {
+        id: true,
+        quizId: true,
+        shareSlug: true,
+        status: true,
+        opensAt: true,
+        closesAt: true,
+        participantCount: true,
+        quizVersion: { select: { title: true, questionCount: true } },
+      },
     }),
   ])
 
-  const sessions = await prisma.gameSession.findMany({
-    where: { userId, createdAt: { gte: since } },
-    orderBy: { createdAt: 'desc' },
-    include: {
-      quiz: { select: { id: true, title: true } },
-      presentation: { select: { id: true, title: true } },
-    },
-  })
+  const allSessions: AnalyticsSession[] = historyRows.map(row => ({
+    ...row,
+    results: asResults(row.results),
+  }))
+  const currentSessions = allSessions.filter(item => item.createdAt >= currentSince)
+  const previousSessions = allSessions.filter(
+    item => item.createdAt >= previousSince && item.createdAt < currentSince,
+  )
 
-  // ── Summary ───────────────────────────────────────────────────────────────────
-  const totalSessions = sessions.length
-  const totalParticipants = sessions.reduce((s, r) => s + (r.participantCount ?? 0), 0)
+  const currentPeriod = summarizeLearningPeriod(currentSessions)
+  const previousPeriod = summarizeLearningPeriod(previousSessions)
+  const learningPulse = buildLearningPulse(currentPeriod, previousPeriod)
+  const confidenceGrid = aggregateConfidence(currentSessions)
+  const supportLearners = buildSupportLearners(currentSessions)
 
-  let scoreSum = 0, scoreCount = 0, completionSum = 0, completionCount = 0
-  const confidenceGrid: ConfidenceGrid = { sureCorrect: 0, sureWrong: 0, unsureCorrect: 0, unsureWrong: 0 }
-
-  for (const s of sessions) {
-    const results = s.results as SessionResults | null
-    if (!results) continue
-    // Use correctPct from questionStats for accuracy-based avgScore (0–100 scale)
-    if (results.questionStats?.length) {
-      const scoredQs = results.questionStats.filter(qs => typeof qs.correctPct === 'number' && qs.correctPct != null)
-      if (scoredQs.length > 0) {
-        const sessionAccuracy = scoredQs.reduce((sum, q) => sum + (q.correctPct ?? 0), 0) / scoredQs.length
-        scoreSum += sessionAccuracy; scoreCount++
-      }
-    }
-    if (s.participantCount && results.leaderboard) {
-      completionSum += (results.leaderboard.length / s.participantCount) * 100
-      completionCount++
-    }
-    if (results.questionStats) {
-      for (const qs of results.questionStats) {
-        if (qs.confidenceGrid) {
-          confidenceGrid.sureCorrect += qs.confidenceGrid.sureCorrect ?? 0
-          confidenceGrid.sureWrong += qs.confidenceGrid.sureWrong ?? 0
-          confidenceGrid.unsureCorrect += qs.confidenceGrid.unsureCorrect ?? 0
-          confidenceGrid.unsureWrong += qs.confidenceGrid.unsureWrong ?? 0
-        }
-      }
-    }
-  }
-
-  const avgScore = scoreCount > 0 ? Math.round(scoreSum / scoreCount) : null
-  const completionRate = completionCount > 0 ? Math.round(completionSum / completionCount) : null
-
-  // ── Performance trend (by day, IST) ───────────────────────────────────────────
-  // Only completed sessions count toward the heat map / trend; bucket by IST
-  // completion date (fall back to createdAt if endedAt is null).
-  const trendMap = new Map<string, { sessions: number; scoreSum: number; scoreCount: number; participants: number }>()
-  for (const s of [...sessions].reverse()) {
-    if (s.status !== 'ended') continue
-    const bucketDate = s.endedAt ?? s.createdAt
-    const day = istDateKey(bucketDate)
-    const e = trendMap.get(day) ?? { sessions: 0, scoreSum: 0, scoreCount: 0, participants: 0 }
-    e.sessions++; e.participants += s.participantCount ?? 0
-    const results = s.results as SessionResults | null
-    if (results?.questionStats?.length) {
-      const scoredQs = results.questionStats.filter(qs => typeof qs.correctPct === 'number' && qs.correctPct != null)
-      if (scoredQs.length > 0) {
-        const accuracy = scoredQs.reduce((sum, q) => sum + (q.correctPct ?? 0), 0) / scoredQs.length
-        e.scoreSum += accuracy; e.scoreCount++
-      }
-    }
-    trendMap.set(day, e)
-  }
-  const trend = Array.from(trendMap.entries()).map(([date, d]) => ({
-    date, sessions: d.sessions, participants: d.participants,
-    avgScore: d.scoreCount > 0 ? Math.round(d.scoreSum / d.scoreCount) : null,
+  const recentSessions = currentSessions.slice(0, 8).map(item => ({
+    id: item.id,
+    contentId: item.quizId ?? item.presentationId,
+    type: item.type,
+    title: item.quiz?.title ?? item.presentation?.title ?? item.results?.quizTitle ?? 'Untitled',
+    date: item.createdAt.toISOString(),
+    participants: item.participantCount ?? 0,
+    avgScore: sessionAccuracy(item.results) === null ? null : Math.round(sessionAccuracy(item.results) ?? 0),
+    completionPct: sessionCompletion(item) === null ? null : Math.round(sessionCompletion(item) ?? 0),
+    duration: item.results?.duration ?? null,
+    status: item.status,
   }))
 
-  // ── Recent sessions ───────────────────────────────────────────────────────────
-  const recentSessions = sessions.slice(0, 8).map((s) => {
-    const results = s.results as SessionResults | null
-    const lboard = results?.leaderboard ?? []
-    const scoredQs = (results?.questionStats ?? []).filter(qs => typeof qs.correctPct === 'number' && qs.correctPct != null)
-    const sessionAvgScore = scoredQs.length > 0
-      ? Math.round(scoredQs.reduce((sum, q) => sum + (q.correctPct ?? 0), 0) / scoredQs.length) : null
-    const completionPct = s.participantCount && lboard.length
-      ? Math.round((lboard.length / s.participantCount) * 100) : null
-    return {
-      id: s.id, type: s.type,
-      title: s.quiz?.title ?? s.presentation?.title ?? results?.quizTitle ?? 'Untitled',
-      date: s.createdAt.toISOString(),
-      participants: s.participantCount ?? 0,
-      avgScore: sessionAvgScore,
-      completionPct,
-      duration: results?.duration ?? null,
-      status: s.status,
+  const trendMap = new Map<string, {
+    sessions: number
+    participants: number
+    accuracyTotal: number
+    accuracyCount: number
+    completionTotal: number
+    completionCount: number
+  }>()
+  for (const item of [...currentSessions].reverse()) {
+    if (item.status !== 'ended') continue
+    const day = istDateKey(item.endedAt ?? item.createdAt)
+    const bucket = trendMap.get(day) ?? {
+      sessions: 0,
+      participants: 0,
+      accuracyTotal: 0,
+      accuracyCount: 0,
+      completionTotal: 0,
+      completionCount: 0,
     }
-  })
+    bucket.sessions++
+    bucket.participants += item.participantCount ?? 0
+    const accuracy = sessionAccuracy(item.results)
+    if (accuracy !== null) {
+      bucket.accuracyTotal += accuracy
+      bucket.accuracyCount++
+    }
+    const completion = sessionCompletion(item)
+    if (completion !== null) {
+      bucket.completionTotal += completion
+      bucket.completionCount++
+    }
+    trendMap.set(day, bucket)
+  }
+  const trend = Array.from(trendMap.entries()).map(([date, bucket]) => ({
+    date,
+    sessions: bucket.sessions,
+    participants: bucket.participants,
+    avgScore: bucket.accuracyCount > 0 ? Math.round(bucket.accuracyTotal / bucket.accuracyCount) : null,
+    completionRate: bucket.completionCount > 0
+      ? Math.round(bucket.completionTotal / bucket.completionCount)
+      : null,
+  }))
 
-  // ── Top quizzes ───────────────────────────────────────────────────────────────
-  const quizMap = new Map<string, { title: string; sessions: number; scoreSum: number; scoreCount: number; participants: number }>()
-  for (const s of sessions) {
-    if (s.type !== 'quiz' || !s.quizId) continue
-    const title = s.quiz?.title ?? 'Untitled'
-    const e = quizMap.get(s.quizId) ?? { title, sessions: 0, scoreSum: 0, scoreCount: 0, participants: 0 }
-    e.sessions++; e.participants += s.participantCount ?? 0
-    const results = s.results as SessionResults | null
-    if (results?.questionStats?.length) {
-      const scoredQs = results.questionStats.filter(qs => typeof qs.correctPct === 'number' && qs.correctPct != null)
-      if (scoredQs.length > 0) {
-        const accuracy = scoredQs.reduce((sum, q) => sum + (q.correctPct ?? 0), 0) / scoredQs.length
-        e.scoreSum += accuracy; e.scoreCount++
-      }
+  const quizMap = new Map<string, {
+    title: string
+    sessions: number
+    scoreTotal: number
+    scoreCount: number
+    participants: number
+  }>()
+  for (const item of currentSessions) {
+    if (item.type !== 'quiz' || !item.quizId) continue
+    const existing = quizMap.get(item.quizId) ?? {
+      title: item.quiz?.title ?? 'Untitled',
+      sessions: 0,
+      scoreTotal: 0,
+      scoreCount: 0,
+      participants: 0,
     }
-    quizMap.set(s.quizId, e)
+    existing.sessions++
+    existing.participants += item.participantCount ?? 0
+    const accuracy = sessionAccuracy(item.results)
+    if (accuracy !== null) {
+      existing.scoreTotal += accuracy
+      existing.scoreCount++
+    }
+    quizMap.set(item.quizId, existing)
   }
   const topQuizzes = Array.from(quizMap.entries())
-    .map(([id, d]) => ({ id, title: d.title, sessions: d.sessions, participants: d.participants,
-      avgScore: d.scoreCount > 0 ? Math.round(d.scoreSum / d.scoreCount) : null }))
-    .sort((a, b) => b.sessions - a.sessions).slice(0, 5)
-
-  // ── Top participants ──────────────────────────────────────────────────────────
-  // Track each participant's scores per session (most recent first)
-  const participantMap = new Map<string, {
-    name: string; archetype?: string; sessionCount: number
-    scores: number[]  // chronological, oldest first
-  }>()
-
-  for (const s of [...sessions].reverse()) {  // oldest first for chronological scores
-    const results = s.results as SessionResults | null
-    if (!results?.leaderboard) continue
-    for (const entry of results.leaderboard) {
-      const key = entry.name.toLowerCase().trim()
-      const e = participantMap.get(key) ?? { name: entry.name, archetype: entry.archetype, sessionCount: 0, scores: [] }
-      e.sessionCount++
-      if (entry.score != null) e.scores.push(entry.score)
-      participantMap.set(key, e)
-    }
-  }
-
-  const topParticipants = Array.from(participantMap.values())
-    .filter(p => p.scores.length > 0)
-    .map(p => {
-      const avgPScore = Math.round(p.scores.reduce((s, v) => s + v, 0) / p.scores.length)
-      const recent = p.scores.slice(-2)
-      const scoreChange = recent.length >= 2 ? recent[1] - recent[0] : null
-      const lastTwo = p.scores.slice(-2)
-      // atRisk: scored below 1000 pts twice in a row (< 1 correct answer equivalent in a standard quiz)
-      const atRisk = lastTwo.length >= 2 && lastTwo.every(s => s < 1000)
-      return {
-        name: p.name, archetype: p.archetype,
-        sessions: p.sessionCount,
-        avgScore: avgPScore,
-        scoreChange,
-        scores: p.scores.slice(-5),  // last 5 for sparkline
-        atRisk,
-      }
-    })
-    .sort((a, b) => b.avgScore - a.avgScore)
+    .map(([id, item]) => ({
+      id,
+      title: item.title,
+      sessions: item.sessions,
+      participants: item.participants,
+      avgScore: item.scoreCount > 0 ? Math.round(item.scoreTotal / item.scoreCount) : null,
+    }))
+    .sort((a, b) => b.sessions - a.sessions)
     .slice(0, 5)
 
-  // ── Bloom's coverage + mastery ────────────────────────────────────────────────
-  // Coverage = how many questions you tag at each level (assessment balance).
-  // Mastery  = how well learners perform at each level (correctPct averaged).
-  // Coverage alone doesn't tell teachers where learners struggle — mastery does.
-  const bloomsMap = new Map<string, number>(BLOOMS_LEVELS.map(l => [l, 0]))
-  const bloomsMastery = new Map<string, { correctSum: number; correctCount: number }>(
-    BLOOMS_LEVELS.map(l => [l, { correctSum: 0, correctCount: 0 }]),
+  // Kept for backwards compatibility with consumers of the original response.
+  const topParticipants = supportLearners.map(item => ({
+    name: item.name,
+    archetype: item.archetype,
+    sessions: item.sessions,
+    avgScore: item.latestScore,
+    scoreChange: item.change,
+    scores: item.scores,
+    atRisk: true,
+  }))
+
+  const bloomsMap = new Map<string, number>(BLOOMS_LEVELS.map(level => [level, 0]))
+  const bloomsMastery = new Map<string, { total: number; count: number }>(
+    BLOOMS_LEVELS.map(level => [level, { total: 0, count: 0 }]),
   )
-  for (const s of sessions) {
-    const results = s.results as SessionResults | null
-    if (!results?.questionStats) continue
-    for (const qs of results.questionStats) {
-      if (!qs.bloomsLevel) continue
-      const level = BLOOMS_LEVELS.find(l => l.toLowerCase() === qs.bloomsLevel!.toLowerCase())
+  for (const item of currentSessions) {
+    for (const question of item.results?.questionStats ?? []) {
+      if (!question.bloomsLevel) continue
+      const level = BLOOMS_LEVELS.find(
+        candidate => candidate.toLowerCase() === question.bloomsLevel?.toLowerCase(),
+      )
       if (!level) continue
       bloomsMap.set(level, (bloomsMap.get(level) ?? 0) + 1)
-      if (typeof qs.correctPct === 'number') {
-        const m = bloomsMastery.get(level)!
-        m.correctSum += qs.correctPct
-        m.correctCount++
+      if (typeof question.correctPct === 'number') {
+        const mastery = bloomsMastery.get(level) ?? { total: 0, count: 0 }
+        mastery.total += question.correctPct
+        mastery.count++
+        bloomsMastery.set(level, mastery)
       }
     }
   }
   const bloomsCoverage = BLOOMS_LEVELS.map(level => ({ level, count: bloomsMap.get(level) ?? 0 }))
-  const bloomsMasteryArr = BLOOMS_LEVELS.map(level => {
-    const m = bloomsMastery.get(level)!
-    const mastery = m.correctCount > 0 ? Math.round(m.correctSum / m.correctCount) : null
-    return { level, mastery, questionCount: m.correctCount }
+  const bloomsMasteryResult = BLOOMS_LEVELS.map(level => {
+    const mastery = bloomsMastery.get(level) ?? { total: 0, count: 0 }
+    return {
+      level,
+      mastery: mastery.count > 0 ? Math.round(mastery.total / mastery.count) : null,
+      questionCount: mastery.count,
+    }
   })
 
-  // ── Engagement trend (per session, last 10 quiz sessions) ─────────────────────
-  const engagementTrend = sessions
-    .filter(s => s.type === 'quiz')
+  const engagementTrend = currentSessions
+    .filter(item => item.type === 'quiz')
     .slice(0, 10)
     .reverse()
-    .map(s => {
-      const results = s.results as SessionResults | null
-      const lboard = results?.leaderboard ?? []
-      const completionPct = s.participantCount && lboard.length
-        ? Math.round((lboard.length / s.participantCount) * 100) : 0
-      // Confidence %: sure responses / total responses
-      let totalResponses = 0, sureResponses = 0
-      if (results?.questionStats) {
-        for (const qs of results.questionStats) {
-          if (qs.confidenceGrid) {
-            const t = (qs.confidenceGrid.sureCorrect + qs.confidenceGrid.sureWrong +
-              qs.confidenceGrid.unsureCorrect + qs.confidenceGrid.unsureWrong)
-            const sure = qs.confidenceGrid.sureCorrect + qs.confidenceGrid.sureWrong
-            totalResponses += t; sureResponses += sure
-          }
-        }
-      }
-      const confidencePct = totalResponses > 0 ? Math.round((sureResponses / totalResponses) * 100) : null
+    .map(item => {
+      const grids = (item.results?.questionStats ?? [])
+        .map(question => question.confidenceGrid)
+        .filter((grid): grid is ConfidenceGridLike => Boolean(grid))
+      const totalResponses = grids.reduce(
+        (sum, grid) => sum + grid.sureCorrect + grid.sureWrong + grid.unsureCorrect + grid.unsureWrong,
+        0,
+      )
+      const sureResponses = grids.reduce((sum, grid) => sum + grid.sureCorrect + grid.sureWrong, 0)
+      const completion = sessionCompletion(item)
       return {
-        date: istDateKey(s.createdAt),
-        label: new Date(s.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' }),
-        completionPct,
-        confidencePct,
+        date: istDateKey(item.createdAt),
+        label: item.createdAt.toLocaleDateString('en-IN', {
+          day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata',
+        }),
+        completionPct: completion === null ? 0 : Math.round(completion),
+        confidencePct: totalResponses > 0 ? Math.round((sureResponses / totalResponses) * 100) : null,
       }
     })
 
-  // ── Question difficulty (most recent quiz session with stats) ─────────────────
   let recentQuestionDifficulty: {
+    sessionId: string
     sessionTitle: string
     questions: Array<{ index: number; text: string; correctPct: number; bloomsLevel: string | null }>
   } | null = null
-
-  for (const s of sessions) {
-    if (s.type !== 'quiz') continue
-    const results = s.results as SessionResults | null
-    if (!results?.questionStats?.length) continue
+  for (const item of currentSessions) {
+    if (item.type !== 'quiz' || !item.results?.questionStats?.length) continue
+    const questions = item.results.questionStats
+      .filter(question => typeof question.correctPct === 'number')
+      .map(question => ({
+        index: question.index ?? 0,
+        text: question.text ?? `Question ${(question.index ?? 0) + 1}`,
+        correctPct: question.correctPct ?? 0,
+        bloomsLevel: question.bloomsLevel ?? null,
+      }))
+    if (questions.length === 0) continue
     recentQuestionDifficulty = {
-      sessionTitle: s.quiz?.title ?? results.quizTitle ?? 'Recent Quiz',
-      questions: results.questionStats
-        .filter(qs => qs.correctPct != null)
-        .map(qs => ({
-          index: qs.index ?? 0,
-          text: qs.text ?? `Question ${(qs.index ?? 0) + 1}`,
-          correctPct: qs.correctPct ?? 0,
-          bloomsLevel: qs.bloomsLevel ?? null,
-        })),
+      sessionId: item.id,
+      sessionTitle: item.quiz?.title ?? item.results.quizTitle ?? 'Recent quiz',
+      questions,
     }
     break
   }
 
+  const hardQuestions = (recentQuestionDifficulty?.questions ?? []).filter(question => question.correctPct < 50)
+  const weakestQuestion = [...(recentQuestionDifficulty?.questions ?? [])]
+    .sort((a, b) => a.correctPct - b.correctPct)[0]
+  const confidenceResponseTotal = confidenceGrid.sureCorrect + confidenceGrid.sureWrong
+    + confidenceGrid.unsureCorrect + confidenceGrid.unsureWrong
+  const confidentlyWrongPct = confidenceResponseTotal > 0
+    ? Math.round((confidenceGrid.sureWrong / confidenceResponseTotal) * 100)
+    : null
+  const teachingBrief = recentQuestionDifficulty && weakestQuestion
+    ? {
+        sessionId: recentQuestionDifficulty.sessionId,
+        sessionTitle: recentQuestionDifficulty.sessionTitle,
+        topic: extractTeachingTopic(weakestQuestion.text, recentQuestionDifficulty.sessionTitle),
+        tone: hardQuestions.length > 0 ? 'attention' as const : 'positive' as const,
+        hardQuestionCount: hardQuestions.length,
+        confidentlyWrongPct,
+        supportLearnerCount: supportLearners.length,
+        weakestQuestion,
+      }
+    : null
+
+  const scheduledCandidates = scheduledRows.map(item => ({
+    sessionId: item.id,
+    quizId: item.quizId,
+    title: item.quizVersion?.title ?? 'Scheduled quiz',
+    questionCount: item.quizVersion?.questionCount ?? 0,
+    shareSlug: item.shareSlug,
+    phase: item.opensAt && item.opensAt > now ? 'upcoming' as const : 'open' as const,
+    opensAt: item.opensAt?.toISOString() ?? null,
+    closesAt: item.closesAt?.toISOString() ?? null,
+    participantCount: item.participantCount ?? 0,
+  }))
+  const nextScheduled = selectNextScheduled(scheduledCandidates, now)
+
+  const recentContent = [
+    ...recentQuizzes.map(item => ({
+      id: item.id,
+      type: 'quiz' as const,
+      title: item.title,
+      updatedAt: item.updatedAt.toISOString(),
+    })),
+    ...recentPresentations.map(item => ({
+      id: item.id,
+      type: 'presentation' as const,
+      title: item.title,
+      updatedAt: item.updatedAt.toISOString(),
+    })),
+  ]
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .slice(0, 2)
+
   return NextResponse.json({
-    summary: { totalSessions, totalParticipants, avgScore, completionRate, presentationCount, presentationSessionCount },
+    range,
+    summary: {
+      totalSessions: currentSessions.length,
+      totalParticipants: currentPeriod.learnerReach,
+      avgScore: currentPeriod.accuracy,
+      completionRate: currentPeriod.completion,
+      presentationCount,
+      presentationSessionCount: currentSessions.filter(item => item.presentationId !== null).length,
+    },
+    learningPulse,
     trend,
     recentSessions,
     confidenceGrid,
     topQuizzes,
     topParticipants,
+    supportLearners,
     bloomsCoverage,
-    bloomsMastery: bloomsMasteryArr,
+    bloomsMastery: bloomsMasteryResult,
     engagementTrend,
     recentQuestionDifficulty,
+    teachingBrief,
+    recentContent,
+    nextScheduled,
+    scheduleCount: scheduledCandidates.length,
   })
 }
