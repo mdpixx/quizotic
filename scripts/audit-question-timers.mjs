@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Audit every Quiz row's questions[].timerSeconds for values outside [5,120].
+// Audit every Quiz row's questions[].timerSeconds against the canonical timer
+// contract: 0 for no timer, or 5-600 seconds for active timers.
 // Reports offenders so they can be cleaned up. Pass --fix to clamp in place.
 //
 // Usage:
@@ -7,18 +8,13 @@
 //   node scripts/audit-question-timers.mjs --fix     # report + write clamped values back
 
 import { PrismaClient } from '@prisma/client'
+import {
+  clampTimer,
+  isValidTimerSeconds,
+} from '../src/lib/timer-contract.mjs'
 
 const prisma = new PrismaClient()
 const FIX = process.argv.includes('--fix')
-const MIN = 5
-const MAX = 120
-const DEFAULT = 20
-
-function clamp(raw) {
-  const n = Number(raw)
-  if (!Number.isFinite(n)) return DEFAULT
-  return Math.max(MIN, Math.min(MAX, n))
-}
 
 async function main() {
   const quizzes = await prisma.quiz.findMany({
@@ -35,11 +31,10 @@ async function main() {
     const bad = []
     const cleaned = questions.map((q, idx) => {
       const raw = q?.timerSeconds
-      const n = Number(raw)
-      const out = !Number.isFinite(n) || n < MIN || n > MAX
+      const out = !isValidTimerSeconds(raw)
       if (out) {
-        bad.push({ idx, id: q?.id ?? '(no-id)', raw, clamped: clamp(raw) })
-        return { ...q, timerSeconds: clamp(raw) }
+        bad.push({ idx, id: q?.id ?? '(no-id)', raw, clamped: clampTimer(raw) })
+        return { ...q, timerSeconds: clampTimer(raw) }
       }
       return q
     })
