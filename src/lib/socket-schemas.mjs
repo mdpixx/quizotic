@@ -3,6 +3,15 @@
 // and was removed — do not recreate it.)
 // Pure ESM JS — imported by server.mjs (cannot import TypeScript).
 import { z } from 'zod'
+import {
+  TIMER_MAX,
+  TIMER_MIN_ACTIVE,
+  isValidTimerSeconds,
+} from './timer-contract.mjs'
+
+const QuestionTimerSecondsSchema = z.number().int().refine(isValidTimerSeconds, {
+  message: `Timer must be 0 (no timer) or ${TIMER_MIN_ACTIVE}-${TIMER_MAX} seconds`,
+})
 
 // ─── Participant payloads ───────────────────────────────────────────────────
 
@@ -63,7 +72,7 @@ export const CreateSessionSchema = z.object({
       type: z.string(),
       text: z.string().max(2000),
       options: z.array(z.union([z.string(), z.object({ text: z.string(), imageUrl: z.string().optional() }).passthrough()])).optional(),
-      timerSeconds: z.number().int().min(5).max(120).optional(),
+      timerSeconds: QuestionTimerSecondsSchema.optional(),
       points: z.number().int().min(0).max(5000).optional(),
       correctAnswer: z.union([z.string(), z.number()]).optional(),
       correctAnswers: z.array(z.string()).optional(),

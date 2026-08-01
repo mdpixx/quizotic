@@ -68,6 +68,13 @@ import {
   loadAllSessions,
 } from './src/lib/session-store.mjs'
 import { allowRate, generateGameCode, sanitizeDisplayText, startRateBucketSweep } from './src/lib/server-guards.mjs'
+import {
+  TIMER_DEFAULT,
+  TIMER_MAX,
+  TIMER_MIN_ACTIVE,
+  TIMER_NONE,
+  clampTimer,
+} from './src/lib/timer-contract.mjs'
 
 // Two-screen host model: a session may have MULTIPLE host sockets at once
 // (projector + phone remote). `hostSocketId` stays as the PRIMARY (projector)
@@ -3675,8 +3682,8 @@ function sanitizeQuestion(q) {
     safe.matchRights = fisherYatesShuffle(_mp.map(p => p.right))
   }
   safe.isScored = isScoredQuestion(q)
-  // Clamp timerSeconds to [5, 120] so a corrupted DB row can't ship a
-  // sub-second timer to clients (host reported red-zone starts in live sessions).
+  // Normalize to the shared 0-or-5..600 contract so corrupt legacy rows cannot
+  // ship sub-second or excessively long timers to clients.
   safe.timerSeconds = clampTimerSeconds(safe.timerSeconds, safe.id ?? '(no-id)')
   return safe
 }
@@ -3687,29 +3694,32 @@ function sanitizeQuestion(q) {
 // 0 is a legal value meaning "no timer" — the host advances manually and
 // scheduleQuestionAutoEnd() skips its timeout. Everything else is pinned to
 // [5, 600]: below 5 the countdown opens in the red zone, and 600 (10 min) is
-// the builder's ceiling. Keep TIMER_MIN_ACTIVE / TIMER_MAX in
-// src/lib/quiz-builder-logic.ts in sync with these bounds.
-const TIMER_MIN_ACTIVE = 5
-const TIMER_MAX = 600
+// the builder's ceiling. Bounds and normalization come from timer-contract.mjs.
 const _clampWarned = new Set()
 function clampTimerSeconds(raw, qid) {
-  const n = Number(raw)
-  if (!Number.isFinite(n)) {
+  const isEmptyValue = raw === null
+    || raw === undefined
+    || typeof raw === 'boolean'
+    || (typeof raw === 'string' && raw.trim() === '')
+  const numericValue = Number(raw)
+  const normalized = clampTimer(raw)
+
+  if (isEmptyValue || !Number.isFinite(numericValue)) {
     if (!_clampWarned.has(qid)) {
       _clampWarned.add(qid)
-      console.warn(`[timer-clamp] question ${qid} has timerSeconds=${raw} — defaulting to 20`)
+      console.warn(`[timer-clamp] question ${qid} has timerSeconds=${raw} — defaulting to ${TIMER_DEFAULT}`)
     }
-    return 20
+    return normalized
   }
-  if (n <= 0) return 0
-  if (n < TIMER_MIN_ACTIVE || n > TIMER_MAX) {
+
+  if (numericValue <= TIMER_NONE) return normalized
+  if (numericValue !== normalized) {
     if (!_clampWarned.has(qid)) {
       _clampWarned.add(qid)
-      console.warn(`[timer-clamp] question ${qid} has timerSeconds=${raw} — clamping to [${TIMER_MIN_ACTIVE},${TIMER_MAX}]`)
+      console.warn(`[timer-clamp] question ${qid} has timerSeconds=${raw} — normalizing to 0 or [${TIMER_MIN_ACTIVE},${TIMER_MAX}]`)
     }
-    return Math.max(TIMER_MIN_ACTIVE, Math.min(TIMER_MAX, n))
   }
-  return n
+  return normalized
 }
 
 // Catch-up emit for late joiners and reconnects. If the session is active and
