@@ -33,6 +33,8 @@ import { renderNudgeEmail } from './templates'
 /** The guard subject plus the display name, which only the template needs. */
 interface NudgeSubject extends GuardSubject {
   name: string | null
+  role: string | null
+  orgType: string | null
 }
 
 /**
@@ -82,6 +84,8 @@ export async function runLifecycleTick(now: Date = new Date()): Promise<TickResu
       id: true,
       email: true,
       name: true,
+      role: true,
+      orgType: true,
       country: true,
       locale: true,
       onboarded: true,
@@ -253,6 +257,8 @@ async function dispatch(
   const { html, text } = renderNudgeEmail(campaign, {
     unsubscribeUrl: unsubscribeUrl(token),
     firstName: firstNameOf(subject.name),
+    role: subject.role,
+    orgType: subject.orgType,
   })
 
   const sent = await sendEmail({

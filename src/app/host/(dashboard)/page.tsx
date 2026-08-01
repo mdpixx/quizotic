@@ -8,6 +8,7 @@ import { motion } from 'framer-motion'
 import { ShareQuizotic } from '@/components/ShareQuizotic'
 import { ModeExplainerCard } from '@/components/host/ModeExplainerCard'
 import { CompleteProfileCard } from '@/components/host/CompleteProfileCard'
+import { NudgeCard } from '@/components/host/NudgeCard'
 import { DataCardList } from '@/components/ui/DataCardList'
 import { QUIZ_TEMPLATES } from '@/lib/quiz-templates'
 import { saveQuiz, setActiveSession } from '@/lib/quiz-storage'
@@ -502,6 +503,16 @@ export default function HostDashboard() {
             {kpi.subtitle && <p className="text-[11px] mt-1" style={{ color: '#94A3B8' }}>{kpi.subtitle}</p>}
           </motion.div>
         ))}
+      </div>
+
+      {/* ── Activation nudge ──────────────────────────────────────────────
+          At most one at a time, and it self-hides (returns null) when there
+          is none. It sits above the growth row because it is the one thing
+          on this page chosen specifically for where this user is stuck.
+          Rendering it is also what suppresses the email version — see
+          docs/lifecycle-automation-spec.md §4. */}
+      <div className="mb-4">
+        <NudgeCard />
       </div>
 
       {/* ── Growth row — profile questions + share banner in one slim band ──

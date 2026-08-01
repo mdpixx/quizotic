@@ -216,7 +216,7 @@ Also outstanding, both trivial and independent:
 
 ---
 
-## Open questions for Mahesh
+## Open questions — both answered (2026-08-01)
 
-1. Reply-to inbox for founder-style nudges — confirmed as `info@quizotic.live`, but it must be genuinely monitored, since the whole point is that people reply.
-2. Should the Tier-1 nudge ship with an AI-generated starter quiz for the user's `role`/`orgType`, or link to a static template gallery in Phase 1?
+1. **Reply-to** — `info@quizotic.live`, confirmed monitored by Mahesh himself. The founder-voice copy stands as written.
+2. **Tier-1 starter quiz** — a named template, not AI generation. Generating a quiz into someone's library would flip them Tier 1 → Tier 2 and corrupt both the exit re-check and the activation metric. Full reasoning in `docs/lifecycle-automation-spec.md` under "Resolved decisions".

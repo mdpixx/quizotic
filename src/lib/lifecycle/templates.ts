@@ -13,10 +13,14 @@
 
 import type { Campaign, CampaignKey } from './campaigns'
 import { appBaseUrl } from './unsubscribe'
+import { pickStarterTemplate, starterTemplateUrl } from './starter-template'
 
 export interface RenderContext {
   unsubscribeUrl: string
   firstName?: string | null
+  /** Role/orgType, used to pick the starter quiz named in the Tier-1 nudge. */
+  role?: string | null
+  orgType?: string | null
 }
 
 interface Body {
@@ -40,14 +44,16 @@ const BODIES: Record<CampaignKey, Body> = {
     signoff: 'Mahesh, Quizotic',
   },
   'activation.create_first_quiz': {
-    heading: 'A quiz in about five minutes',
+    // Overwritten per-recipient in renderNudgeEmail with a named starter
+    // template. This copy is the fallback for a user with no role or orgType.
+    heading: 'A quiz you can run as-is',
     paragraphs: [
-      'You signed up but have not built anything yet, so here is the shortest possible path: pick a topic, let the AI draft the questions, edit the ones you do not like.',
-      'Most people have something they can run with a real group inside five minutes. You do not need to prepare anything first.',
-      'If you are not sure it fits what you teach, reply and tell me what you are running — I will tell you honestly whether this is the right tool.',
+      'You signed up but have not built anything yet. Rather than starting from a blank page, here is a ready-made quiz you can open and host without writing a single question.',
+      'Change whatever you like first, or just run it — the point is to see the room light up once. That is the part no description does justice to.',
+      'If it is not a fit for what you run, reply and tell me what you had in mind. I read these myself.',
     ],
-    ctaLabel: 'Build your first quiz',
-    ctaPath: '/host/build',
+    ctaLabel: 'Open the starter quiz',
+    ctaPath: '/host/templates',
     signoff: 'Mahesh, Quizotic',
   },
   'activation.last_touch': {
@@ -68,13 +74,42 @@ const escapeHtml = (s: string) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
   )
 
+/**
+ * Names a specific starter quiz for the Tier-1 nudge.
+ *
+ * "Build your first quiz" asks for effort from someone who has already declined
+ * to make it once. "Here is a Lesson Recap quiz, open it and press Go Live"
+ * asks for a click. The template is chosen from role/orgType — see
+ * starter-template.ts for why this is a gallery link and not AI generation.
+ */
+function personalise(campaign: Campaign, ctx: RenderContext): { body: Body; ctaUrl: string } {
+  const body = BODIES[campaign.key]
+  const fallback = { body, ctaUrl: `${appBaseUrl()}${body.ctaPath}` }
+
+  if (campaign.key !== 'activation.create_first_quiz') return fallback
+
+  const template = pickStarterTemplate(ctx.role, ctx.orgType)
+  if (!template) return fallback
+
+  return {
+    body: {
+      ...body,
+      heading: `A ready-made ${template.title.toLowerCase()} quiz, waiting for you`,
+      paragraphs: [
+        `You signed up but have not built anything yet. Rather than starting from a blank page, I have picked out "${template.title}" — ${template.questionCount} questions on ${template.subject.toLowerCase()}, ready to host as-is.`,
+        ...body.paragraphs.slice(1),
+      ],
+      ctaLabel: `Open "${template.title}"`,
+    },
+    ctaUrl: starterTemplateUrl(template),
+  }
+}
+
 export function renderNudgeEmail(
   campaign: Campaign,
   ctx: RenderContext,
 ): { html: string; text: string } {
-  const body = BODIES[campaign.key]
-  const base = appBaseUrl()
-  const ctaUrl = `${base}${body.ctaPath}`
+  const { body, ctaUrl } = personalise(campaign, ctx)
   const greeting = ctx.firstName ? `Hi ${ctx.firstName},` : 'Hi,'
 
   return { html: html(body, ctx, greeting, ctaUrl), text: text(body, ctx, greeting, ctaUrl) }
