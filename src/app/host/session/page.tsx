@@ -2518,11 +2518,19 @@ export default function SessionPage() {
             {currentQuestion.imageUrl && currentQuestion.type !== 'wordcloud' ? (
               <>
                 {/* Image panel — fixed-size, LEFT. object-contain fits any aspect
-                    ratio without cropping; the clamped height keeps the image
-                    clearly visible on projectors yet within the card cap. */}
+                    ratio without cropping.
+                    The clamp is viewport-relative but the card's cap is a
+                    percentage of the stage, so on a short projector the two
+                    disagree: at 1024×768 the clamp asked for 22vh = 169px inside
+                    a card whose content box is ~81px, and the card is
+                    overflow-hidden, so ~44px of the question was silently cut
+                    off on the wall while looking fine on the laptop.
+                    max-height:100% binds the panel to the card's own content box
+                    so the image gives way instead of the text — object-contain
+                    below rescales it with no cropping. */}
                 <div
                   className="flex-shrink-0 rounded-2xl overflow-hidden flex items-center justify-center w-[clamp(150px,30%,340px)]"
-                  style={{ height: 'clamp(120px, 22vh, 220px)', background: '#F5F6F8', boxShadow: 'inset 0 0 0 1px rgba(15,27,61,0.06)' }}
+                  style={{ height: 'clamp(120px, 22vh, 220px)', maxHeight: '100%', background: '#F5F6F8', boxShadow: 'inset 0 0 0 1px rgba(15,27,61,0.06)' }}
                 >
                   <img src={currentQuestion.imageUrl} alt={`Image for question ${questionIndex + 1}`} className="max-w-full max-h-full object-contain" loading="eager" />
                 </div>

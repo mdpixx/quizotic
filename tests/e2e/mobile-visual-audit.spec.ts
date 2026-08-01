@@ -118,8 +118,18 @@ test('mobile host flow visual audit', async ({ page, context }) => {
   // (The synthetic e2e host has no User row, so GameSession rows can't persist
   //  for it — FK. Real hosts have real rows; the report content itself is
   //  verified below with route-mocked data.)
-  const reportCta = page.getByRole('link', { name: /View full session report/ })
+  //
+  // Located by destination rather than by its label. This assertion used to
+  // match the prose "View full session report" and silently went stale when
+  // #103 renamed the CTA to "See this session's report" — the link was there
+  // and working the whole time. The contract worth pinning is that the podium
+  // offers a way into the report and that it navigates; the wording is the
+  // copywriter's to change.
+  const reportCta = page.locator('a[href^="/host/reports/"]').first()
   await expect(reportCta).toBeVisible({ timeout: 10_000 })
+  // Guard the accessible name without pinning the words: an icon-only link
+  // here would be a real regression for screen readers.
+  expect((await reportCta.innerText()).trim().length).toBeGreaterThan(0)
   await reportCta.click()
   await page.waitForURL('**/host/reports/**', { timeout: 15_000 })
 

@@ -14,7 +14,7 @@
  * and leaves the rows for scripts/cleanup-e2e-users.mjs to sweep up later.
  */
 
-import nextEnv from '@next/env'
+import * as nextEnv from '@next/env'
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { Pool } from 'pg'
@@ -22,7 +22,22 @@ import { Pool } from 'pg'
 // Playwright runs in its own process, separate from the dev server, so .env has
 // not been read here and DATABASE_URL would be undefined. Load it the way Next
 // does rather than adding a dotenv dependency.
-nextEnv.loadEnvConfig(process.cwd())
+//
+// The import has to tolerate two different interops. @next/env is CJS that sets
+// `__esModule: true` but exports no `default`, so:
+//   - Node's ESM loader (scripts/*.mjs) hands back module.exports as `default`
+//   - Playwright transpiles this file to CJS, where the `__esModule` marker
+//     tells the interop to skip wrapping, so `.default` is undefined
+//
+// A plain `import nextEnv from '@next/env'` therefore works in the .mjs sibling
+// script and throws here, at module scope — which meant globalTeardown was never
+// even registered and the throwaway accounts this file exists to delete were
+// silently accumulating in the production database.
+const loadEnvConfig =
+  (nextEnv as { loadEnvConfig?: typeof import('@next/env').loadEnvConfig }).loadEnvConfig ??
+  (nextEnv as unknown as { default?: typeof import('@next/env') }).default?.loadEnvConfig
+
+loadEnvConfig?.(process.cwd())
 
 const EMAIL_SUFFIX = '@e2e.test'
 
