@@ -116,7 +116,6 @@ export default function HostDashboard() {
         <SectionHeader
           title="Attention queue"
           description="Signals translated into a concrete teaching action"
-          action={<Link className={styles.textLink} href="/host/reports">View all reports →</Link>}
         />
         <AttentionQueue brief={data.teachingBrief} supportLearners={data.supportLearners} />
 

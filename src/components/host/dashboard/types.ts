@@ -37,6 +37,8 @@ export interface DashboardTeachingBrief {
   tone: 'attention' | 'positive'
   hardQuestionCount: number
   confidentlyWrongPct: number | null
+  confidentlyWrongCount: number
+  misconceptionQuestionCount: number
   supportLearnerCount: number
   weakestQuestion: {
     index: number

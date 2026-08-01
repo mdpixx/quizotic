@@ -4,28 +4,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth-helpers'
 import { isScoredQuestion, isLeaderboardSlide, type Question } from '@/lib/quiz-types'
+import {
+  normalizeMatrixConfidence,
+  type MatrixConfidence,
+  type SessionMatrixParticipant,
+  type SessionMatrixQuestion,
+} from '@/lib/session-matrix'
 
 // GET /api/sessions/[id]/matrix — participant × question pivot for reports.
 // Cell codes: 1 = correct, 0 = wrong, 2 = answered (non-scored), null = unattempted.
-export type MatrixCell = 1 | 0 | 2 | null
-
-export interface MatrixQuestion {
-  index: number // original questionIndex in the quiz (answers key off this)
-  label: string
-  type: string
-  isScored: boolean
-}
-
-export interface MatrixParticipant {
-  id: string
-  name: string
-  score: number
-  correct: number
-  answered: number
-  accuracy: number | null // % of scored questions answered correctly (unattempted count as missed)
-  cells: MatrixCell[]
-  points: number[]
-}
+type MatrixQuestion = SessionMatrixQuestion
+type MatrixParticipant = SessionMatrixParticipant
 
 interface QuestionStatLike {
   index: number
@@ -84,7 +73,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       }),
       prisma.answer.findMany({
         where: { sessionId: session.id },
-        select: { attendeeId: true, participantId: true, questionIndex: true, isCorrect: true, points: true },
+        select: { attendeeId: true, participantId: true, questionIndex: true, isCorrect: true, points: true, confidence: true },
       }),
     ])
 
@@ -119,6 +108,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       accuracy: null,
       cells: questions.map(() => null),
       points: questions.map(() => 0),
+      confidences: questions.map((): MatrixConfidence => null),
     })
 
     const rows = new Map<string, MatrixParticipant>()
@@ -142,6 +132,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       const scored = questions[col].isScored
       row.cells[col] = scored ? (a.isCorrect === true ? 1 : 0) : 2
       row.points[col] = a.points
+      row.confidences[col] = normalizeMatrixConfidence(a.confidence)
       row.score += a.points
       row.answered += 1
       if (scored) {

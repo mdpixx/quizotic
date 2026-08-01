@@ -57,7 +57,7 @@ export function TeachingBriefCard({ brief }: { brief: DashboardTeachingBrief | n
           <span className={styles.sourceDot} aria-hidden />
           <b>Teaching brief</b> · {sourceTitle}
         </span>
-        <span className={styles.basedOn}>Based on recent responses</span>
+        <span className={styles.basedOn}>Based on this session&apos;s responses</span>
       </div>
       <h2>{headline}</h2>
       <p className={styles.briefCopy}>
@@ -74,7 +74,7 @@ export function TeachingBriefCard({ brief }: { brief: DashboardTeachingBrief | n
         </div>
         <div className={styles.proof}>
           <strong data-tone={isAttention ? 'attention' : undefined}>{brief?.confidentlyWrongPct == null ? '—' : `${brief.confidentlyWrongPct}%`}</strong>
-          <span>of all answers were confidently wrong</span>
+          <span>of rated answers were confidently wrong in this session</span>
         </div>
         <div className={styles.proof}>
           <strong>{brief?.supportLearnerCount ?? '—'}</strong>

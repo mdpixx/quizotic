@@ -188,6 +188,7 @@ const MOCK_MATRIX = {
     accuracy: Math.round(((3 - (i % 3)) / 3) * 100),
     cells: [1, i % 3 === 0 ? 1 : 0, 2, i % 2],
     points: [900, i % 3 === 0 ? 800 : 0, 0, (i % 2) * 950],
+    confidences: ['sure', i % 3 === 0 ? 'unsure' : 'sure', null, i % 2 === 0 ? 'sure' : 'unsure'],
   })),
   perQuestionAccuracy: [78, 43, null, 91],
 }
@@ -209,7 +210,14 @@ test('report page renders insight visuals (mocked data)', async ({ page, context
   await context.addCookies([{ name: cookie.slice(0, eq), value: cookie.slice(eq + 1), url: baseURL }])
 
   await mockReportApis(page, 'free')
-  await page.goto('/host/reports/mock-session-1')
+  await page.goto('/host/reports/mock-session-1#misconceptions')
+  await expect(page).toHaveURL(/#misconceptions$/)
+  await expect(page.getByRole('heading', { name: 'Confidently wrong' })).toBeVisible({ timeout: 20_000 })
+  const misconceptionPanel = page.locator('#misconceptions')
+  await expect(misconceptionPanel).toBeFocused()
+  await expect(misconceptionPanel.getByRole('heading', { name: 'Which planet is closest to the Sun?' })).toBeVisible()
+  await expect(misconceptionPanel.getByText('Ravi', { exact: true }).first()).toBeVisible()
+  await expect(page.getByTitle('Confidently wrong').first()).toBeVisible()
   await expect(page.getByText('Confidence grid').first()).toBeVisible({ timeout: 20_000 })
   await expect(page.getByText('Misconception', { exact: false }).first()).toBeVisible()
   await expect(page.getByText('Score distribution')).toBeVisible()

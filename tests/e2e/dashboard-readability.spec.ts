@@ -43,6 +43,8 @@ const analytics = {
     tone: 'attention',
     hardQuestionCount: 1,
     confidentlyWrongPct: 17,
+    confidentlyWrongCount: 22,
+    misconceptionQuestionCount: 1,
     supportLearnerCount: 1,
     weakestQuestion: { index: 0, text: 'What does context window mean in an AI model?', correctPct: 24, bloomsLevel: null },
   },
@@ -91,6 +93,15 @@ test('dashboard typography, grids, Create menu, and feature request stay usable'
   await expect(page.getByRole('menuitem').nth(1)).toContainText('Presentation')
   await expect(page.getByText('AI-assisted practice')).toHaveCount(0)
   await page.keyboard.press('Escape')
+
+  const attentionAction = page.getByRole('link', { name: 'See questions and learners' })
+  await expect(attentionAction).toHaveAttribute('href', '/host/reports/session-1#misconceptions')
+  const attentionGrid = page.locator('[data-dashboard-grid="attention"]')
+  await expect(attentionGrid.getByRole('link', { name: 'Review question' })).toHaveCount(0)
+  await expect(attentionGrid.getByRole('link', { name: 'Open confidence report' })).toHaveCount(0)
+  await expect(attentionGrid.getByRole('link', { name: 'Review learners' })).toHaveCount(0)
+  await expect(page.getByRole('row').filter({ hasText: 'AI Masterclass' }).getByRole('link', { name: 'View report' })).toBeVisible()
+  await expect(page.getByRole('row').filter({ hasText: 'AI Masterclass' }).getByRole('link', { name: 'Open', exact: true })).toHaveCount(0)
 
   await page.getByRole('button', { name: 'Request a feature' }).click()
   await expect(page.getByRole('dialog', { name: 'Request a feature' })).toBeVisible()

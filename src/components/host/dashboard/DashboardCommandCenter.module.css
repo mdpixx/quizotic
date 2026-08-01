@@ -162,8 +162,9 @@
 
 .attentionGrid, .recentGrid, .learningGrid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, .68fr); gap: 16px; }
 .queue { overflow: hidden; }
-.queueRow { display: grid; grid-template-columns: 36px minmax(0,1fr) 132px; gap: 14px; align-items: center; padding: 18px 19px; }
+.queueRow { display: grid; grid-template-columns: 36px minmax(0,1fr); gap: 14px; align-items: center; padding: 18px 19px; }
 .queueRow + .queueRow { border-top: 1px solid var(--dash-line-soft); }
+.queueAction { display: flex; justify-content: flex-end; padding: 13px 19px 16px; border-top: 1px solid var(--dash-line-soft); background: #f9fbfd; }
 .signalIcon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: rgba(234,107,102,.1); color: #b43e3a; }
 .signalIcon[data-tone="blue"] { background: rgba(91,108,255,.1); color: var(--dash-blue); }
 .signalIcon svg { width: 15px; height: 15px; }
@@ -187,7 +188,7 @@
 .healthyState span { display: block; margin-top: 4px; color: var(--dash-muted); font-size: var(--dash-font-compact); }
 
 .tableCard { overflow: hidden; }
-.tableHead, .tableRow { display: grid; grid-template-columns: minmax(170px,1.4fr) 90px 80px 82px 94px; column-gap: 10px; align-items: center; }
+.tableHead, .tableRow { display: grid; grid-template-columns: minmax(170px,1.4fr) 90px 80px 82px 102px; column-gap: 10px; align-items: center; }
 .tableHead { min-height: 42px; padding: 0 18px; border-bottom: 1px solid var(--dash-line); background: #f9fbfd; color: var(--dash-muted); font-family: var(--font-dashboard-utility), monospace; font-size: var(--dash-font-compact); font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
 .tableRow { min-height: 64px; padding: 0 18px; border-bottom: 1px solid var(--dash-line-soft); font-size: var(--dash-font-control); color: var(--dash-muted); }
 .tableRow:last-child { border-bottom: 0; }
@@ -297,7 +298,7 @@
   .proof + .proof { border-left: 0; border-top: 1px solid var(--dash-line); }
   .pulseGrid { grid-template-columns: 1fr; }
   .queueRow { grid-template-columns: 33px minmax(0,1fr); }
-  .queueRow .button { grid-column: 2; justify-self: start; }
+  .queueAction { justify-content: flex-start; padding-left: 62px; }
   .tableHead { display: none; }
   .tableRow { grid-template-columns: 1fr auto; gap: 8px; padding: 13px 16px; }
   .tableRow > :nth-child(2), .tableRow > :nth-child(3), .tableRow > :nth-child(4) { display: none; }

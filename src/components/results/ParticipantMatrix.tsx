@@ -6,32 +6,7 @@
 // at-a-glance view of who missed what.
 
 import { useEffect, useMemo, useState } from 'react'
-
-type MatrixCell = 1 | 0 | 2 | null
-
-interface MatrixQuestion {
-  index: number
-  label: string
-  type: string
-  isScored: boolean
-}
-
-interface MatrixParticipant {
-  id: string
-  name: string
-  score: number
-  correct: number
-  answered: number
-  accuracy: number | null
-  cells: MatrixCell[]
-  points: number[]
-}
-
-interface MatrixData {
-  questions: MatrixQuestion[]
-  participants: MatrixParticipant[]
-  perQuestionAccuracy: (number | null)[]
-}
+import type { MatrixCell, MatrixConfidence, SessionMatrixData } from '@/lib/session-matrix'
 
 type SortKey = 'score' | 'accuracy' | 'name'
 
@@ -42,7 +17,7 @@ function chipColors(pct: number | null): { bg: string; fg: string } {
   return { bg: '#FEE2E2', fg: '#B91C1C' }
 }
 
-function CellMark({ cell }: { cell: MatrixCell }) {
+function CellMark({ cell, confidence }: { cell: MatrixCell; confidence: MatrixConfidence }) {
   if (cell === 1) {
     return (
       <svg viewBox="0 0 24 24" fill="none" stroke="#15803D" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 mx-auto" aria-label="Correct">
@@ -51,6 +26,21 @@ function CellMark({ cell }: { cell: MatrixCell }) {
     )
   }
   if (cell === 0) {
+    if (confidence === 'sure') {
+      return (
+        <span
+          className="relative mx-auto grid h-7 w-7 place-items-center rounded-[8px]"
+          style={{ background: '#FEE2E2', border: '1px solid #FCA5A5' }}
+          aria-label="Confidently wrong"
+          title="Confidently wrong"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="#B91C1C" strokeWidth="3" strokeLinecap="round" className="h-3.5 w-3.5" aria-hidden="true">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+          <span className="absolute -right-1 -top-1 grid h-3.5 w-3.5 place-items-center rounded-full text-[9px] font-black text-white" style={{ background: '#B91C1C' }} aria-hidden="true">!</span>
+        </span>
+      )
+    }
     return (
       <svg viewBox="0 0 24 24" fill="none" stroke="#B91C1C" strokeWidth="3" strokeLinecap="round" className="w-4 h-4 mx-auto" aria-label="Wrong">
         <path d="M18 6 6 18M6 6l12 12" />
@@ -63,13 +53,28 @@ function CellMark({ cell }: { cell: MatrixCell }) {
   return <span className="block text-center" style={{ color: '#9CA3AF' }} aria-label="Unattempted">—</span>
 }
 
-export function ParticipantMatrix({ sessionId }: { sessionId: string }) {
-  const [data, setData] = useState<MatrixData | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+export function ParticipantMatrix({
+  sessionId,
+  data: suppliedData,
+  error: suppliedError,
+  loading: suppliedLoading,
+}: {
+  sessionId: string
+  data?: SessionMatrixData | null
+  error?: string | null
+  loading?: boolean
+}) {
+  const externallyManaged = suppliedData !== undefined || suppliedError !== undefined || suppliedLoading !== undefined
+  const [internalData, setInternalData] = useState<SessionMatrixData | null>(null)
+  const [internalError, setInternalError] = useState<string | null>(null)
+  const [internalLoading, setInternalLoading] = useState(true)
   const [sortKey, setSortKey] = useState<SortKey>('score')
+  const data = externallyManaged ? suppliedData ?? null : internalData
+  const error = externallyManaged ? suppliedError ?? null : internalError
+  const loading = externallyManaged ? suppliedLoading ?? false : internalLoading
 
   useEffect(() => {
+    if (externallyManaged) return
     let cancelled = false
     const load = async () => {
       try {
@@ -77,18 +82,18 @@ export function ParticipantMatrix({ sessionId }: { sessionId: string }) {
         const json = await res.json().catch(() => null)
         if (!res.ok || !json?.success) throw new Error(json?.error ?? `Failed to load matrix (${res.status})`)
         if (!cancelled) {
-          setData(json.data)
-          setError(null)
+          setInternalData(json.data)
+          setInternalError(null)
         }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load matrix')
+        if (!cancelled) setInternalError(err instanceof Error ? err.message : 'Failed to load matrix')
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setInternalLoading(false)
       }
     }
     load()
     return () => { cancelled = true }
-  }, [sessionId])
+  }, [externallyManaged, sessionId])
 
   const sorted = useMemo(() => {
     if (!data) return []
@@ -189,7 +194,7 @@ export function ParticipantMatrix({ sessionId }: { sessionId: string }) {
                 </td>
                 {p.cells.map((cell, col) => (
                   <td key={col} className="px-1.5 py-2 text-center">
-                    <CellMark cell={cell} />
+                    <CellMark cell={cell} confidence={p.confidences?.[col] ?? null} />
                   </td>
                 ))}
               </tr>
@@ -208,6 +213,7 @@ export function ParticipantMatrix({ sessionId }: { sessionId: string }) {
           <svg viewBox="0 0 24 24" fill="none" stroke="#B91C1C" strokeWidth="3" strokeLinecap="round" className="w-3 h-3"><path d="M18 6 6 18M6 6l12 12" /></svg>
           Wrong
         </span>
+        <span className="flex items-center gap-1.5"><span className="grid h-4 w-4 place-items-center rounded-[4px] bg-red-100 text-[9px] font-black text-red-700">!</span> Confidently wrong</span>
         <span className="flex items-center gap-1.5"><span style={{ color: '#9CA3AF' }}>—</span> Unattempted</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full inline-block" style={{ background: '#2563EB' }} /> Answered (unscored)</span>
       </div>
