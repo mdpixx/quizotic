@@ -59,6 +59,7 @@ import {
   getAnswerCount,
   getAnswerOptionCounts,
 } from './src/lib/session-state.mjs'
+import { computeSessionAwards } from './src/lib/awards.mjs'
 import {
   initSessionStore,
   isSessionStoreEnabled,
@@ -1316,6 +1317,7 @@ app.prepare().then(async () => {
       const leaderboard = buildLeaderboard(session.participants)
       const teamLeaderboard = buildTeamLeaderboard(session)
       const questionStats = buildQuestionStats(session)
+      const { classAwards, personalBadges } = buildSessionAwards(session)
       session.status = 'ended'
       io.to(`session:${gameCode}`).emit('session_ended', {
         leaderboard,
@@ -1325,7 +1327,9 @@ app.prepare().then(async () => {
         // in the socket path get the fuller payload. The HTTP path sends the
         // same shape to the room and lets each socket's listener decide.
         questionStats,
+        classAwards,
       })
+      emitPersonalBadges(io, session, personalBadges)
       console.log(`[session:${actor}] ended: ${gameCode}`)
 
       if (session.dbId) {
@@ -1940,9 +1944,11 @@ app.prepare().then(async () => {
         const leaderboard = buildLeaderboard(session.participants)
         const teamLeaderboard = buildTeamLeaderboard(session)
         const questionStats = buildQuestionStats(session)
+        const { classAwards, personalBadges } = buildSessionAwards(session)
         session.status = 'ended'
-        socket.emit('session_ended', { leaderboard, teamLeaderboard, sessionMode: session.sessionMode, questionStats })
-        socket.to(`session:${gameCode}`).emit('session_ended', { leaderboard, teamLeaderboard, sessionMode: session.sessionMode })
+        socket.emit('session_ended', { leaderboard, teamLeaderboard, sessionMode: session.sessionMode, questionStats, classAwards })
+        socket.to(`session:${gameCode}`).emit('session_ended', { leaderboard, teamLeaderboard, sessionMode: session.sessionMode, classAwards })
+        emitPersonalBadges(io, session, personalBadges)
         console.log(`[session] ended: ${gameCode}`)
 
         // Persist to DB (with retry)
@@ -2140,11 +2146,13 @@ app.prepare().then(async () => {
       const leaderboard = buildLeaderboard(session.participants)
       const teamLeaderboard = buildTeamLeaderboard(session)
       const questionStats = buildQuestionStats(session)
+      const { classAwards, personalBadges } = buildSessionAwards(session)
       session.status = 'ended'
       // Host gets full data including questionStats
-      socket.emit('session_ended', { leaderboard, teamLeaderboard, sessionMode: session.sessionMode, questionStats })
+      socket.emit('session_ended', { leaderboard, teamLeaderboard, sessionMode: session.sessionMode, questionStats, classAwards })
       // Participants only get leaderboard + sessionMode flag + team leaderboard
-      socket.to(`session:${gameCode}`).emit('session_ended', { leaderboard, teamLeaderboard, sessionMode: session.sessionMode })
+      socket.to(`session:${gameCode}`).emit('session_ended', { leaderboard, teamLeaderboard, sessionMode: session.sessionMode, classAwards })
+      emitPersonalBadges(io, session, personalBadges)
       console.log(`[session] force-ended: ${gameCode}`)
 
       // Finalize Attendee rows for every still-tracked participant.
@@ -3910,6 +3918,7 @@ function emitLeaderboardSlide(io, gameCode, session, index) {
   const slide = session.quizData.questions[index] || {}
   const topN = Number.isFinite(slide.topN) ? Math.max(3, Math.min(10, slide.topN)) : 5
   const newRanks = rankByScore(session.participants)
+  trackWorstRanks(session, newRanks)
   const top = buildLeaderboardSnapshot(session.participants, topN, {
     previousRanks: session.previousRanks || new Map(),
     newRanks,
@@ -3972,6 +3981,34 @@ function buildLeaderboard(participants) {
   return Array.from(participants.values())
     .sort((a, b) => b.score - a.score)
     .map(p => ({ name: p.name, archetype: p.archetype, score: p.score, team: p.team ?? null, isGhost: p.isGhost ?? false }))
+}
+
+// ─── End-of-session awards ───────────────────────────────────────────────────
+// Recognition for the ~97% who don't reach the podium. The engine is pure and
+// unit-tested in src/lib/awards.mjs; these two wrappers own the transport.
+//
+// Split deliberately: `classAwards` is a fixed 6-8 entries regardless of room
+// size, so it rides the existing session_ended broadcast well inside the <1KB
+// event budget. Personal badges CANNOT — a per-participant map in a broadcast
+// would hand every player everyone else's stats and blow that budget at 500+.
+// They go out per-socket instead.
+function buildSessionAwards(session) {
+  const questions = Array.isArray(session?.quizData?.questions) ? session.quizData.questions : []
+  return computeSessionAwards({
+    participants: session.participants,
+    totalQuestions: questions.filter(q => !isLeaderboardSlide(q)).length,
+    anonymousMode: !!session.anonymousMode,
+    sessionMode: session.sessionMode || 'competitive',
+  })
+}
+
+function emitPersonalBadges(io, session, personalBadges) {
+  if (!personalBadges || personalBadges.size === 0) return
+  for (const [sid, p] of session.participants.entries()) {
+    if (typeof sid === 'string' && sid.startsWith('ghost::')) continue
+    const badge = personalBadges.get(p?.participantId)
+    if (badge) io.to(sid).emit('your_award', badge)
+  }
 }
 
 // Count of real (non-ghost) participants
@@ -4218,6 +4255,19 @@ function rankByScore(participants) {
   return ranks
 }
 
+// Remember the lowest position each player has occupied, so the end-of-session
+// "Best Comeback" award can say how far they climbed. session.previousRanks only
+// holds the immediately-preceding round, which would reduce the award to "moved
+// up during the last question". One number per participant, updated wherever
+// ranks are already recalculated — no extra passes over the roster.
+function trackWorstRanks(session, ranks) {
+  for (const [key, rank] of ranks.entries()) {
+    const p = session.participants.get(key)
+    if (!p || typeof rank !== 'number') continue
+    if (!Number.isFinite(p.worstRank) || rank > p.worstRank) p.worstRank = rank
+  }
+}
+
 // Emit question_ended to the whole room (reveal moment — correctAnswer intentionally exposed).
 // Also emits:
 //   - leaderboard_update — top-5 snapshot, total players, question index
@@ -4332,6 +4382,7 @@ function emitQuestionEnded(io, gameCode, session, questionIndex) {
   if (session.sessionMode === 'reflection') return
 
   const newRanks = rankByScore(session.participants)
+  trackWorstRanks(session, newRanks)
   const top = buildLeaderboardSnapshot(session.participants, 5, { previousRanks, newRanks, questionIndex })
   const teamLeaderboard = buildTeamLeaderboard(session)
   const totalPlayers = realParticipantCount(session.participants)
