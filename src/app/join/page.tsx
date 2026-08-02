@@ -754,6 +754,12 @@ function JoinPageInner() {
   // Ended
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
 
+  // Personal end-of-quiz badge. Arrives on its own per-socket event rather than
+  // in the session_ended broadcast: that payload is identical for the whole
+  // room, so a per-participant map in it would hand every player everyone
+  // else's stats. Everyone gets one — the server's ladder ends in a true floor.
+  const [myBadge, setMyBadge] = useState<{ key: string; icon: string; label: string; detail: string } | null>(null)
+
   // Intermediate leaderboard (between questions)
   const [intermediateLeaderboard, setIntermediateLeaderboard] = useState<LeaderboardEntry[]>([])
   const [intermediateRank, setIntermediateRank] = useState<number | null>(null)
@@ -1322,6 +1328,10 @@ function JoinPageInner() {
 
     socket.on('my_rank_update', ({ rank }: { rank: number }) => {
       setIntermediateRank(rank)
+    })
+
+    socket.on('your_award', (badge: { key: string; icon: string; label: string; detail: string }) => {
+      if (badge?.label) setMyBadge(badge)
     })
 
     socket.on('session_ended', ({ leaderboard, teamLeaderboard: tlb, sessionMode: sm }: {
@@ -3254,7 +3264,30 @@ function JoinPageInner() {
             order (team → podium → reflection → CTA) preserved. */}
         <div className="participant-stage-grid-2 max-w-[1200px] mx-auto w-full">
         <div className="max-w-md mx-auto w-full relative">
-        <h2 className="font-display text-3xl sm:text-4xl font-black mb-5 text-center" style={{ color: '#0F1B3D' }}>Quiz Over!</h2>
+        <h2 className="font-display text-3xl sm:text-4xl font-black mb-4 text-center" style={{ color: '#0F1B3D' }}>Quiz Over!</h2>
+
+        {/* Personal badge — deliberately ABOVE the podium. Without it, a player
+            who finished 30th reads "Quiz Over!", then three other people's
+            names, then finds themselves down a list. This lands one true thing
+            about their own quiz before any of that. Everyone gets one. */}
+        {myBadge && (
+          <div
+            className="mb-5 rounded-2xl px-4 py-3.5 flex items-center gap-3 text-left"
+            style={{
+              background: 'linear-gradient(135deg, #FFF8DB 0%, #FFFFFF 100%)',
+              border: '1.5px solid #FBD13B',
+              boxShadow: '0 6px 18px rgba(251,209,59,0.22)',
+            }}
+          >
+            <span className="text-3xl leading-none shrink-0" aria-hidden>{myBadge.icon}</span>
+            <span className="min-w-0">
+              <span className="block font-display text-lg font-black leading-tight" style={{ color: '#0F1B3D' }}>
+                {myBadge.label}
+              </span>
+              <span className="block text-sm" style={{ color: '#64748B' }}>{myBadge.detail}</span>
+            </span>
+          </div>
+        )}
 
         {/* Team leaderboard — in-column on mobile, moves to rail on desktop */}
         <div className="lg:hidden">

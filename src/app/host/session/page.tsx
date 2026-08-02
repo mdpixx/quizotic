@@ -32,6 +32,7 @@ import { NavChevron } from '@/components/ui/NavButton'
 import { EndQuizConfirmModal } from '@/components/host/EndQuizConfirmModal'
 import { JoinQrModal } from '@/components/host/JoinQrModal'
 import { PhoneRemoteModal } from '@/components/host/PhoneRemoteModal'
+import { ClassAwardsOverlay, type ClassAward } from '@/components/host/ClassAwardsOverlay'
 import { HostWordCloud } from '@/components/host/HostWordCloud'
 import { LiveRosterPanel } from '@/components/host/LiveRosterPanel'
 import { QuestionNavigator } from '@/components/host/QuestionNavigator'
@@ -359,6 +360,10 @@ export default function SessionPage() {
   const [showEndQuizConfirm, setShowEndQuizConfirm] = useState(false)
   const [showJoinQr, setShowJoinQr] = useState(false)
   const [showPhoneRemote, setShowPhoneRemote] = useState(false)
+  // Class awards — named recognition for players the podium missed. Held here
+  // rather than derived on render because they arrive once, with session_ended.
+  const [classAwards, setClassAwards] = useState<ClassAward[]>([])
+  const [showClassAwards, setShowClassAwards] = useState(false)
   const [followups, setFollowups] = useState<{ label: string; code: string }[]>([])
   const [followupLoading, setFollowupLoading] = useState(false)
   const [followupError, setFollowupError] = useState('')
@@ -1225,12 +1230,14 @@ export default function SessionPage() {
       }
     })
 
-    socket.on('session_ended', ({ leaderboard: lb, teamLeaderboard: tlb, questionStats: qs, sessionMode: sm }: {
+    socket.on('session_ended', ({ leaderboard: lb, teamLeaderboard: tlb, questionStats: qs, sessionMode: sm, classAwards: ca }: {
       leaderboard: LeaderboardEntry[];
       teamLeaderboard?: { name: string; color: string; score: number; members: number }[] | null;
       questionStats: QuestionStat[];
       sessionMode: SessionMode;
+      classAwards?: ClassAward[];
     }) => {
+      setClassAwards(Array.isArray(ca) ? ca : [])
       // "End it & start fresh" tore down an EARLIER session — this event is
       // its teardown echo, not the end of the game being hosted now. Clean up
       // the handle and stay on the current screen.
@@ -1438,12 +1445,17 @@ export default function SessionPage() {
         // Only surfaces in the lobby — the render site gates on `phase`.
         e.preventDefault()
         setShowPhoneRemote(s => !s)
+      } else if (e.key === 'a' || e.key === 'A') {
+        // Only surfaces at the finale — the render site gates on `phase`.
+        e.preventDefault()
+        setShowClassAwards(s => !s)
       } else if (e.key === 'Escape') {
         setShowLeaderboardPopup(false)
         setShowImmersiveStats(false)
         setRosterSheetOpen(false)
         setShowJoinQr(false)
         setShowPhoneRemote(false)
+        setShowClassAwards(false)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -3738,6 +3750,26 @@ export default function SessionPage() {
           subtitle={leaderboard.length > 0 ? `${leaderboard.length} participant${leaderboard.length === 1 ? '' : 's'} · Session complete` : 'Session complete'}
           onBack={goBackToLibrary}
           dimmed={false}
+          action={classAwards.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setShowClassAwards(true)}
+              title="Show the class awards (A)"
+              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-black transition-all hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-[#FBD13B] focus-visible:ring-offset-2"
+              style={{
+                background: 'linear-gradient(135deg, #FBD13B 0%, #FFB800 100%)',
+                color: '#0F1B3D',
+                boxShadow: '0 2px 0 #E0B528',
+                fontFamily: 'var(--font-heading)',
+              }}
+            >
+              <span aria-hidden>🏅</span>
+              Class Awards
+              <span className="text-[11px] font-bold" style={{ color: 'rgba(15,27,61,0.55)' }}>
+                {classAwards.length}
+              </span>
+            </button>
+          ) : undefined}
         />
         {sessionMode === 'competitive' && leaderboard.length > 0 ? (
           // Viewport-locked hero — fits any projector (720p/768p/1080p) so the
@@ -3790,6 +3822,13 @@ export default function SessionPage() {
                 />
               </div>
             </div>
+
+            {/* (The awards trigger deliberately does NOT live here. This hero is
+                lg:h-[calc(100dvh-56px)] and the podium card takes the remainder
+                as flex-1, so a button in this flow shortened the card by ~70px
+                and clipped the bottom of the podium bars on an 800px-tall
+                screen — measured. It now sits in PostSessionHeader, which is
+                outside that height calculation and always on screen.) */}
           </motion.section>
         ) : null}
 
@@ -4202,6 +4241,15 @@ export default function SessionPage() {
         open={showPhoneRemote && phase === 'lobby'}
         onClose={() => setShowPhoneRemote(false)}
         gameCode={gameCode}
+      />
+
+      {/* Finale only — the awards are a peer moment to the podium, summoned by
+          the host, never forced into the flow. */}
+      <ClassAwardsOverlay
+        open={showClassAwards && phase === 'ended'}
+        onClose={() => setShowClassAwards(false)}
+        awards={classAwards}
+        reduceMotion={!!reduceStageMotion}
       />
 
       <EndQuizConfirmModal

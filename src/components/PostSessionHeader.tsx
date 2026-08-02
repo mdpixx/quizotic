@@ -9,9 +9,18 @@ interface PostSessionHeaderProps {
   subtitle?: string
   onBack: () => void
   dimmed?: boolean
+  /**
+   * Optional right-aligned control. Lives here rather than inside the finale
+   * hero because that section is viewport-locked (lg:h-[calc(100dvh-56px)]) and
+   * the podium card claims the remainder as flex-1 — anything added to that
+   * flow shortens the card and clips the podium bars on a 800px-tall screen.
+   * This bar is already outside that calculation, so it costs the podium
+   * nothing at any viewport height.
+   */
+  action?: React.ReactNode
 }
 
-export function PostSessionHeader({ title, subtitle, onBack, dimmed = false }: PostSessionHeaderProps) {
+export function PostSessionHeader({ title, subtitle, onBack, dimmed = false, action }: PostSessionHeaderProps) {
   return (
     <div
       className="sticky top-0 z-30"
@@ -48,6 +57,7 @@ export function PostSessionHeader({ title, subtitle, onBack, dimmed = false }: P
             )}
           </div>
         )}
+        {action && <div className="shrink-0 ml-auto">{action}</div>}
       </div>
     </div>
   )
