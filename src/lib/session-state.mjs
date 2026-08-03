@@ -139,10 +139,81 @@ export function buildSessionStateSnapshot(session) {
   }
 }
 
+// ─── Disconnect-map keying ───────────────────────────────────────────────────
+// The disconnected map used to be keyed by `name.toLowerCase()`. In a classroom
+// that is not a key — it is a collision waiting to happen. Two students named
+// "Rahul" produced two distinct failures:
+//
+//   1. Overwrite. When both dropped, the second `.set('rahul', …)` silently
+//      evicted the first, so student A could never be recovered.
+//   2. Score transplant. When A dropped and a *different* Rahul joined fresh,
+//      the name lookup matched A's entry and B was restored AS A — inheriting
+//      A's score, answers and attendee row. Silent, and invisible in the report.
+//
+// Participants have carried a durable `participantId` since the localStorage
+// identity work, so key on that and keep the name key only for legacy entries
+// that predate it (or were restored from an older serialized session).
+export function disconnectKeyFor(participant) {
+  const pid = participant?.participantId
+  if (pid) return `pid:${pid}`
+  const name = String(participant?.realName || participant?.name || '').toLowerCase()
+  return name ? `name:${name}` : ''
+}
+
+// Every key form this session may hold for a participant, newest first. Used on
+// reconnect/kick to clear stale entries written before a participantId existed.
+function candidateKeys(participant) {
+  const keys = []
+  const pid = participant?.participantId
+  if (pid) keys.push(`pid:${pid}`)
+  const name = String(participant?.realName || participant?.name || '').toLowerCase()
+  if (name) {
+    keys.push(`name:${name}`)
+    keys.push(name) // pre-namespace legacy key
+  }
+  return keys
+}
+
+// Park a participant in the disconnect grace map under a collision-free key.
+export function rememberDisconnected(session, { participant, socketId, gameCode }) {
+  if (!session) return null
+  if (!(session.disconnectedParticipants instanceof Map)) {
+    session.disconnectedParticipants = new Map()
+  }
+  const key = disconnectKeyFor(participant)
+  if (!key) return null
+  session.disconnectedParticipants.set(key, { socketId, participant, gameCode })
+  return key
+}
+
+// Drop every disconnect-map entry belonging to this participant, across all key
+// forms. Safe to call when the participant was never in the map.
+export function forgetDisconnected(session, participant) {
+  const map = session?.disconnectedParticipants
+  if (!(map instanceof Map)) return
+  for (const key of candidateKeys(participant)) {
+    const entry = map.get(key)
+    if (!entry) continue
+    // A legacy name key may belong to a *different* participant who happens to
+    // share the name — only delete when the identity actually matches.
+    const pid = participant?.participantId
+    const entryPid = entry.participant?.participantId
+    if (pid && entryPid && pid !== entryPid) continue
+    map.delete(key)
+  }
+}
+
 // Returns the matching disconnected entry (and key) from the session's
 // disconnected map, preferring participantId match over name match. Used by
 // both the rejoin path and the answer-rescue path to recover identity even
 // when the display name has drifted.
+//
+// The name fallback is deliberately conservative: it matches ONLY when the name
+// identifies exactly one disconnected participant. If two people joined as
+// "Rahul", a name is not evidence of identity, so we return null and let the
+// caller treat this as a fresh join. Losing a reconnect (participant keeps
+// their score from zero) is recoverable; transplanting one student's score onto
+// another is not.
 export function findDisconnectedEntry(session, { participantId, displayName }) {
   if (!session?.disconnectedParticipants) return null
   if (participantId) {
@@ -151,13 +222,63 @@ export function findDisconnectedEntry(session, { participantId, displayName }) {
         return { key, entry }
       }
     }
+    // The caller presented a durable id and it did not match anything here.
+    // Falling through to a name match would re-open the transplant bug for the
+    // exact population most likely to hit it (same name, different device).
+    return null
   }
   if (displayName) {
-    const key = String(displayName).toLowerCase()
-    const entry = session.disconnectedParticipants.get(key)
-    if (entry) return { key, entry }
+    const wanted = String(displayName).trim().toLowerCase()
+    if (!wanted) return null
+    const matches = []
+    for (const [key, entry] of session.disconnectedParticipants.entries()) {
+      const entryName = String(
+        entry?.participant?.realName || entry?.participant?.name || '',
+      ).trim().toLowerCase()
+      if (entryName && entryName === wanted) matches.push({ key, entry })
+    }
+    if (matches.length === 1) return matches[0]
   }
   return null
+}
+
+// Two students genuinely named "Rahul" must both be able to play, so a name
+// collision is never a hard block. Instead the second one is stored as
+// "Rahul (2)" — enough for the host to tell two rows apart in the report and in
+// the live roster, without adding friction to the 60-second window when a whole
+// classroom is trying to get in.
+//
+// Compares against realName (the typed name) rather than name, because in
+// anonymous mode `name` holds the archetype and every comparison would miss.
+// Returns the original string when there is no collision.
+export function disambiguateName(session, name, { excludeParticipantId } = {}) {
+  const base = String(name ?? '').trim()
+  if (!base) return base
+  const taken = new Set()
+  const collect = participant => {
+    if (!participant) return
+    if (excludeParticipantId && participant.participantId === excludeParticipantId) return
+    const value = String(participant.realName || participant.name || '').trim().toLowerCase()
+    if (value) taken.add(value)
+  }
+  // participantsById is the durable roster (survives disconnect grace expiry),
+  // so it is the right set to check — session.participants misses anyone who
+  // dropped and has not yet returned.
+  if (session?.participantsById instanceof Map) {
+    for (const participant of session.participantsById.values()) collect(participant)
+  }
+  if (session?.participants instanceof Map) {
+    for (const participant of session.participants.values()) collect(participant)
+  }
+
+  if (!taken.has(base.toLowerCase())) return base
+  // Cap at 99 so a scripted flood can't spin here; past that we fall back to
+  // the plain name and accept the duplicate.
+  for (let n = 2; n <= 99; n++) {
+    const candidate = `${base} (${n})`
+    if (!taken.has(candidate.toLowerCase())) return candidate
+  }
+  return base
 }
 
 // Restore a participant from the disconnected map onto the new socket id.

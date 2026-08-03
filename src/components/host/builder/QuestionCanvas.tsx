@@ -32,6 +32,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import type { Question, QuestionType } from '@/lib/quiz-types'
 import { getOptionText, getOptionImage, isScoredQuestion, isSequenceRanking } from '@/lib/quiz-types'
+import { inputHintFor } from '@/lib/openended-input.mjs'
 import {
   ANSWER_COLORS,
   QUESTION_TYPE_GROUPS,
@@ -1172,11 +1173,21 @@ export function QuestionCanvas({
           </div>
         )}
 
-        {/* Open-ended placeholder */}
+        {/* Open-ended placeholder — reflects the Answer Format settings so the
+            host can see the constraint they configured without opening the gear. */}
         {question.type === 'openended' && (
           <div className="py-6 px-4">
             <div className="rounded-xl p-5 text-center" style={{ border: '1px dashed #D3D7DD' }}>
-              <p className="text-sm text-gray-300">Free-text responses appear here during the session</p>
+              <p className="text-sm text-gray-300">
+                {inputHintFor(question)
+                  ? `Responses restricted to: ${inputHintFor(question)}`
+                  : 'Free-text responses appear here during the session'}
+              </p>
+              {question.isNameCapture && (
+                <p className="mt-1.5 text-[11px] font-semibold" style={{ color: '#0D9488' }}>
+                  Identity slide — answers appear under each name in your report
+                </p>
+              )}
             </div>
           </div>
         )}

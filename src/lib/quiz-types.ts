@@ -94,6 +94,9 @@ export function getEffectiveOptions(q: Pick<Question, 'type' | 'options'>): Ques
   return defaultOptionsForType(q.type)
 }
 
+// Answer-shape constraint for 'openended' slides. See openended-input.mjs.
+export type OpenEndedInputMode = 'any' | 'text' | 'number' | 'alphanumeric'
+
 // All six levels of Anderson & Krathwohl's revised Bloom's Taxonomy (2001)
 export type BloomsLevel = 'remember' | 'understand' | 'apply' | 'analyse' | 'evaluate' | 'create'
 
@@ -178,6 +181,20 @@ export interface Question {
   scenarioText?: string     // 'case' type: the situation narrative (up to 500 chars)
   supportingDetail?: string // 'case' type: optional bold callout (stat, quote, data point)
   topN?: number             // 'leaderboard' type: how many top players to show (default 5)
+  // ─── 'openended' input constraints ────────────────────────────────────────
+  // All optional; absent behaves exactly as before. Logic lives in
+  // src/lib/openended-input.mjs so the builder, the participant input and the
+  // server's submit handler all enforce the identical rule.
+  inputMode?: OpenEndedInputMode  // undefined = 'any' (free text, today's behaviour)
+  lengthMode?: 'free' | 'exact'   // 'exact' pins the answer to exactLength chars
+  exactLength?: number            // 1–64; only read when lengthMode === 'exact'
+  transform?: 'none' | 'uppercase' // uppercase collapses "emp123"/"EMP123" into one value
+  // Marks this slide as the host's identity question ("your full name",
+  // "roll number"). The session report promotes its answer to a sub-line under
+  // the participant's leaderboard name so duplicate/mistyped names can be
+  // reconciled. See isNameCaptureQuestion() for the retroactive heuristic that
+  // covers sessions run before this flag existed.
+  isNameCapture?: boolean
 }
 
 export interface Quiz {

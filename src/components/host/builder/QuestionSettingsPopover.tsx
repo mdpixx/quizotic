@@ -11,9 +11,19 @@
  */
 
 import React from 'react'
-import type { Question, BloomsLevel } from '@/lib/quiz-types'
+import type { Question, BloomsLevel, OpenEndedInputMode } from '@/lib/quiz-types'
 import { ImageUpload } from '@/components/ImageUpload'
 import { hasCorrectAnswer, needsCorrectAnswer } from '@/lib/quiz-builder-logic'
+import { normalizeInputMode } from '@/lib/openended-input.mjs'
+
+// Open-ended answer-shape presets. 'any' is the historical behaviour and stays
+// the default, so no existing question changes meaning.
+const INPUT_MODE_OPTIONS: { value: OpenEndedInputMode; label: string; help: string }[] = [
+  { value: 'any', label: 'Anything', help: 'Free text — no restrictions.' },
+  { value: 'text', label: 'Letters only', help: 'Blocks digits and symbols. Good for names.' },
+  { value: 'number', label: 'Numbers only', help: 'Opens the numeric keypad on phones. Good for roll numbers.' },
+  { value: 'alphanumeric', label: 'Letters + numbers', help: 'Blocks symbols. Good for employee codes.' },
+]
 
 const BLOOMS_OPTIONS: { value: BloomsLevel | ''; label: string; color: string }[] = [
   { value: '', label: 'None', color: '#94A3B8' },
@@ -45,6 +55,7 @@ export function QuestionSettingsPopover({ question, onChange, onClose }: Questio
   ]
   const completedCount = checkItems.filter(c => !c.optional && c.ok).length
   const requiredCount = checkItems.filter(c => !c.optional).length
+  const currentInputMode = normalizeInputMode(question.inputMode) as OpenEndedInputMode
 
   return (
     <>
@@ -109,6 +120,106 @@ export function QuestionSettingsPopover({ question, onChange, onClose }: Questio
             ))}
           </div>
         </div>
+
+        {/* Answer format (open-ended only) — lets a host collect roll numbers
+            and employee codes as clean, uniform values instead of spending the
+            evening reconciling "42", "Roll 42" and "no.42" by hand. */}
+        {question.type === 'openended' && (
+          <div className="space-y-3">
+            <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#9CA3AF' }}>Answer Format</p>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-600 mb-1.5">Participants can enter</label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {INPUT_MODE_OPTIONS.map(opt => {
+                  const active = currentInputMode === opt.value
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => onChange({ inputMode: opt.value === 'any' ? undefined : opt.value })}
+                      className="rounded-lg px-2 py-1.5 text-[11px] font-bold transition-colors"
+                      style={{
+                        background: active ? '#0F1B3D' : '#F8FAFC',
+                        color: active ? '#fff' : '#475569',
+                        border: `1px solid ${active ? '#0F1B3D' : '#E2E8F0'}`,
+                      }}
+                      aria-pressed={active}
+                    >
+                      {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="mt-1.5 text-[10px] leading-snug" style={{ color: '#94A3B8' }}>
+                {INPUT_MODE_OPTIONS.find(o => o.value === currentInputMode)?.help}
+              </p>
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2 text-[11px] font-semibold text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={question.lengthMode === 'exact'}
+                  onChange={e => onChange(
+                    e.target.checked
+                      ? { lengthMode: 'exact', exactLength: question.exactLength ?? 6 }
+                      : { lengthMode: undefined, exactLength: undefined },
+                  )}
+                  className="w-3.5 h-3.5 accent-[#0F1B3D]"
+                />
+                Fixed length
+              </label>
+              {question.lengthMode === 'exact' && (
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    max={64}
+                    value={question.exactLength ?? 6}
+                    onChange={e => {
+                      const n = parseInt(e.target.value, 10)
+                      onChange({ exactLength: Number.isFinite(n) ? Math.min(64, Math.max(1, n)) : 6 })
+                    }}
+                    className="w-20 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  />
+                  <span className="text-[11px] text-gray-500">
+                    {currentInputMode === 'number' ? 'digits' : 'characters'} exactly
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {currentInputMode !== 'number' && (
+              <label className="flex items-center gap-2 text-[11px] font-semibold text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={question.transform === 'uppercase'}
+                  onChange={e => onChange({ transform: e.target.checked ? 'uppercase' : undefined })}
+                  className="w-3.5 h-3.5 accent-[#0F1B3D]"
+                />
+                Convert to UPPERCASE
+                <span className="font-normal text-gray-400">— merges emp123 / EMP123</span>
+              </label>
+            )}
+
+            <label className="flex items-start gap-2 text-[11px] font-semibold text-gray-600">
+              <input
+                type="checkbox"
+                checked={question.isNameCapture === true}
+                onChange={e => onChange({ isNameCapture: e.target.checked ? true : undefined })}
+                className="w-3.5 h-3.5 mt-0.5 accent-[#0F1B3D]"
+              />
+              <span>
+                This slide collects identity
+                <span className="block font-normal text-gray-400 leading-snug">
+                  The answer appears under each participant&apos;s name in your report — use it to
+                  match mistyped or duplicate join names to real people.
+                </span>
+              </span>
+            </label>
+          </div>
+        )}
 
         {/* Scenario fields (case type only) */}
         {question.type === 'case' && (

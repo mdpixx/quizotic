@@ -10,6 +10,27 @@ import {
   type SessionMatrixParticipant,
   type SessionMatrixQuestion,
 } from '@/lib/session-matrix'
+import { isNameCaptureQuestion } from '@/lib/openended-input.mjs'
+
+// Free-plan hosts do not get CSV export, so the matrix is the only place they
+// can reconcile a mistyped join name against what the participant actually
+// typed. Full answers are NOT shipped: 100 participants x 60 questions x 2000
+// chars is a multi-MB payload on a connection this product is designed to be
+// gentle with. 80 chars is enough to recognise a name or a roll number, and the
+// per-question results view still holds the complete text.
+const TEXT_CELL_MAX = 80
+
+// Types whose answer is a short string worth showing in a cell. rating/ranking/
+// drawing/poll answers are indices or blobs — the dot stays right for those.
+const TEXT_ANSWER_TYPES = new Set(['openended', 'qa', 'wordcloud', 'fillblank'])
+
+function cellText(raw: unknown): string | null {
+  if (raw == null) return null
+  if (typeof raw !== 'string') return null
+  const trimmed = raw.trim().replace(/\s+/g, ' ')
+  if (!trimmed) return null
+  return trimmed.length > TEXT_CELL_MAX ? `${trimmed.slice(0, TEXT_CELL_MAX)}...` : trimmed
+}
 
 // GET /api/sessions/[id]/matrix — participant × question pivot for reports.
 // Cell codes: 1 = correct, 0 = wrong, 2 = answered (non-scored), null = unattempted.
@@ -34,6 +55,11 @@ function questionsFromSnapshot(snapshot: unknown): MatrixQuestion[] | null {
       label: typeof q.text === 'string' ? q.text.slice(0, 120) : `Question ${index + 1}`,
       type: q.type ?? 'mcq',
       isScored: isScoredQuestion(q),
+      hasText: TEXT_ANSWER_TYPES.has(q.type ?? ''),
+      // Reads the explicit flag when present and falls back to a wording
+      // heuristic on slide 1 — that fallback is what makes every session run
+      // BEFORE this feature shipped benefit from it retroactively.
+      isNameCapture: isNameCaptureQuestion(q, index),
     }))
 }
 
@@ -41,11 +67,13 @@ function questionsFromStats(stats: unknown): MatrixQuestion[] | null {
   if (!Array.isArray(stats)) return null
   return (stats as QuestionStatLike[])
     .filter(s => s && typeof s.index === 'number' && !s.isLeaderboard && s.type !== 'leaderboard')
-    .map(s => ({
+    .map((s, position) => ({
       index: s.index,
       label: s.text ? String(s.text).slice(0, 120) : `Question ${s.index + 1}`,
       type: s.type ?? 'mcq',
       isScored: s.isNonScored !== true,
+      hasText: TEXT_ANSWER_TYPES.has(s.type ?? ''),
+      isNameCapture: isNameCaptureQuestion({ type: s.type, text: s.text }, position),
     }))
 }
 
@@ -73,7 +101,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       }),
       prisma.answer.findMany({
         where: { sessionId: session.id },
-        select: { attendeeId: true, participantId: true, questionIndex: true, isCorrect: true, points: true, confidence: true },
+        select: { attendeeId: true, participantId: true, questionIndex: true, isCorrect: true, points: true, confidence: true, answer: true },
       }),
     ])
 
@@ -91,6 +119,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         label: `Question ${index + 1}`,
         type: 'mcq',
         isScored: true,
+        hasText: false,
+        isNameCapture: false,
       }))
     }
 
@@ -109,6 +139,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       cells: questions.map(() => null),
       points: questions.map(() => 0),
       confidences: questions.map((): MatrixConfidence => null),
+      texts: questions.map(() => null),
+      identity: null,
+      duplicateName: false,
     })
 
     const rows = new Map<string, MatrixParticipant>()
@@ -133,6 +166,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       row.cells[col] = scored ? (a.isCorrect === true ? 1 : 0) : 2
       row.points[col] = a.points
       row.confidences[col] = normalizeMatrixConfidence(a.confidence)
+      // Answer is Json — a plain string for the text types, an index/array/blob
+      // for everything else. cellText() returns null for non-strings, so a
+      // ranking array or drawing data URL can never leak into a cell.
+      if (questions[col].hasText && row.texts) {
+        const text = cellText(a.answer)
+        row.texts[col] = text
+        if (text && questions[col].isNameCapture) row.identity = text
+      }
       row.score += a.points
       row.answered += 1
       if (scored) {
@@ -145,12 +186,24 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       }
     }
 
+    // Flag rows sharing a display name so the report can warn the host rather
+    // than letting two "Rahul" rows silently look like one person's data.
+    const nameCounts = new Map<string, number>()
+    for (const row of rows.values()) {
+      const key = row.name.trim().toLowerCase()
+      if (key) nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1)
+    }
+
     const participants = Array.from(rows.values())
       .map(row => ({
         ...row,
         accuracy: scoredTotal > 0 ? Math.round((row.correct / scoredTotal) * 100) : null,
+        duplicateName: (nameCounts.get(row.name.trim().toLowerCase()) ?? 0) > 1,
       }))
       .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+
+    const duplicateNameCount = Array.from(nameCounts.values()).filter(n => n > 1).length
+    const hasIdentityColumn = questions.some(q => q.isNameCapture)
 
     // Per-question accuracy over those who answered (unattempted excluded).
     const perQuestionAccuracy = questions.map((q, col) => {
@@ -161,7 +214,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
     return NextResponse.json({
       success: true,
-      data: { questions, participants, perQuestionAccuracy },
+      data: { questions, participants, perQuestionAccuracy, duplicateNameCount, hasIdentityColumn },
     })
   } catch {
     return NextResponse.json({ success: false, error: 'Failed to build matrix' }, { status: 500 })

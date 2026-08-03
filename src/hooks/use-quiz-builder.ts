@@ -33,6 +33,7 @@ import {
   hydrateGeneratedQuestions,
 } from '@/lib/quiz-builder-logic'
 import { isScoredType } from '@/lib/quiz-types'
+import { buildNameCaptureQuestion } from '@/lib/openended-input.mjs'
 import type { Question, QuestionType, Quiz } from '@/lib/quiz-types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -74,6 +75,8 @@ export interface UseQuizBuilderReturn {
 
   // CRUD
   addQuestion: (type: QuestionType) => void
+  // Inserts the pre-configured identity slide at position 0 (builder nudge).
+  addNameCaptureQuestion: () => void
   duplicateQuestion: (index: number) => void
   removeQuestion: (index: number) => void
   removeQuestions: (indices: number[]) => void
@@ -348,6 +351,18 @@ export function useQuizBuilder({
     })
   }, [])
 
+  // Insert the host-identity slide at position 0. Backs the builder nudge:
+  // "participants sometimes mistype their name at join — ask them here".
+  // Pre-configured (letters-only, isNameCapture) so the report can promote the
+  // answer to a sub-line under each participant's leaderboard name.
+  const addNameCaptureQuestion = useCallback(() => {
+    setQuestions(prev => {
+      const q = { ...buildNameCaptureQuestion(crypto.randomUUID()), points: 1000 } as Question
+      setActiveIndex(0)
+      return [q, ...prev]
+    })
+  }, [])
+
   const duplicateQuestion = useCallback((index: number) => {
     setQuestions(prev => {
       const src = prev[index]
@@ -589,6 +604,7 @@ export function useQuizBuilder({
     setActiveIndex,
     activeQuestion: questions[activeIndex],
     addQuestion,
+    addNameCaptureQuestion,
     duplicateQuestion,
     removeQuestion,
     removeQuestions,
