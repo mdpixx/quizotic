@@ -42,7 +42,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true, data: candidates })
   } catch (err) {
-    if (err instanceof Error && err.message === 'Authentication required') {
+    // requireAuth() throws Error('Unauthorized'); the old comparison string
+    // never matched, so a signed-out request 500'd instead of 401'ing.
+    if (err instanceof Error && err.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     return NextResponse.json({ error: 'Failed to load sessions' }, { status: 500 })

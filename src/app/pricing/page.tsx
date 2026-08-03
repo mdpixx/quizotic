@@ -43,7 +43,8 @@ export default function PricingPage() {
     { label: 'AI-generated questions / month', free: fmt(f.maxAiQuestions), paid: fmt(p.maxAiQuestions) },
     { label: 'Session reports you can revisit', free: `Last ${f.maxSessionHistory}`, paid: `Last ${p.maxSessionHistory}` },
     { label: 'Image uploads / month', free: fmt(f.maxImageUploads), paid: fmt(p.maxImageUploads) },
-    { label: 'PDF & CSV report export', free: '—', paid: '✓' },
+    { label: 'PDF report export', free: '✓', paid: '✓' },
+    { label: 'Excel workbook export', free: '—', paid: '✓' },
     { label: 'Spaced retrieval of missed questions', free: '—', paid: '✓' },
     { label: 'Remove Quizotic branding', free: '—', paid: '✓' },
   ]

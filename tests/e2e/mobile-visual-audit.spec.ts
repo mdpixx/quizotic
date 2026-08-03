@@ -217,7 +217,7 @@ test('report page renders insight visuals (mocked data)', async ({ page, context
   await expect(misconceptionPanel).toBeFocused()
   await expect(misconceptionPanel.getByRole('heading', { name: 'Which planet is closest to the Sun?' })).toBeVisible()
   await expect(misconceptionPanel.getByText('Ravi', { exact: true })).toHaveCount(0)
-  await expect(misconceptionPanel.getByText('Participant names are included in Download Report')).toBeVisible()
+  await expect(misconceptionPanel.getByText('Participant names are included in the PDF report and the Excel workbook')).toBeVisible()
   await expect(page.getByTitle('Confidently wrong')).toHaveCount(0)
   await expect(page.getByText('Confidence grid').first()).toBeVisible({ timeout: 20_000 })
   await expect(page.getByText('Misconception', { exact: false }).first()).toBeVisible()

@@ -7,6 +7,8 @@ import { getUserPlan } from '@/lib/billing'
 import { RESULTS_RENDERER, getEffectiveOptions, getOptionText, isScoredQuestion, type Question, type QuestionStat } from '@/lib/quiz-types'
 import type { Prisma } from '@prisma/client'
 import { buildTeacherReportInsights } from '@/lib/report-insights'
+import { buildSessionWorkbookData } from '@/lib/report-data'
+import { XLSX_CONTENT_TYPE, buildSessionWorkbook, workbookFilename } from '@/lib/report-workbook'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -39,14 +41,14 @@ type LeaderboardEntry = {
 }
 
 // GET /api/quizzes/[id]/report — teacher report for an async quiz
-// ?format=csv → CSV download (Pro only)
+// ?format=xlsx → Excel workbook download (Pro only)
 export async function GET(req: NextRequest, { params }: Params) {
   try {
     const user = await getCurrentUser()
     if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
 
     const { id } = await params
-    const csv = new URL(req.url).searchParams.get('format') === 'csv'
+    const wantsWorkbook = new URL(req.url).searchParams.get('format') === 'xlsx'
 
     // Get the async session with its quiz version
     const session = await prisma.gameSession.findFirst({
@@ -68,12 +70,26 @@ export async function GET(req: NextRequest, { params }: Params) {
       return NextResponse.json({ success: false, error: 'No async session found for this quiz' }, { status: 404 })
     }
 
-    // Pro gate for CSV export
-    if (csv) {
+    // Workbook download short-circuits the JSON payload below — the shared
+    // builder re-derives everything it needs from the answer rows, so self-paced
+    // quizzes and live sessions produce the identical report.
+    if (wantsWorkbook) {
       const plan = await getUserPlan(user.id)
-      if (plan === 'free') {
-        return NextResponse.json({ success: false, error: 'CSV export is a Pro feature' }, { status: 403 })
+      if (plan !== 'pro') {
+        return NextResponse.json({
+          success: false,
+          error: 'Excel export is not enabled on your account. Email info@quizotic.live if you need it — we review every request.',
+        }, { status: 403 })
       }
+      const data = await buildSessionWorkbookData(session.id, user.id)
+      const workbook = buildSessionWorkbook(data)
+      const buffer = await workbook.xlsx.writeBuffer()
+      return new NextResponse(buffer as ArrayBuffer, {
+        headers: {
+          'Content-Type': XLSX_CONTENT_TYPE,
+          'Content-Disposition': `attachment; filename="${workbookFilename(data.meta)}"`,
+        },
+      })
     }
 
     const questions = (session.quizVersion?.snapshot as Question[] | null) ?? []
@@ -277,60 +293,6 @@ export async function GET(req: NextRequest, { params }: Params) {
       // inner (case) and fallback — treat as bars with the question's options
       return { ...base, options: optLabels, optionDistribution: new Array(optCount).fill(0) } as QuestionStat
     })
-
-    // ── CSV export ───────────────────────────────────────────────────────────────
-
-    if (csv) {
-      // Helper: quote a CSV field — wraps in double-quotes if it contains
-      // commas, double-quotes, or newlines; escapes embedded double-quotes by doubling.
-      function csvField(value: string | number | boolean | null | undefined): string {
-        const s = value === null || value === undefined ? '' : String(value)
-        if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
-          return `"${s.replace(/"/g, '""')}"`
-        }
-        return s
-      }
-
-      // Build an attendeeId → attendee lookup
-      const attendeeById = new Map((attendees as AttendeeRow[]).map(a => [a.id, a]))
-      // questionIndex → resolved correct answer text (reused from the stats above)
-      const correctByIndex = new Map(questionStats.map(s => [s.index, s.correctAnswerText ?? '']))
-
-      // Build per-attendee-question rows: one row per (attendee, question) answer
-      const dataRows: string[] = []
-      for (const a of answers) {
-        if (!a.attendeeId) continue
-        const att = attendeeById.get(a.attendeeId)
-        if (!att) continue
-        const q = questions[a.questionIndex]
-        const questionText = q ? q.text.slice(0, 120) : `Question ${a.questionIndex + 1}`
-        const answerText =
-          typeof a.answer === 'object' && a.answer !== null
-            ? JSON.stringify(a.answer)
-            : String(a.answer ?? '')
-        dataRows.push([
-          csvField(att.nickname),
-          csvField(a.questionIndex + 1),
-          csvField(questionText),
-          csvField(answerText),
-          csvField(correctByIndex.get(a.questionIndex) ?? ''),
-          csvField(a.isCorrect === null ? '' : String(a.isCorrect)),
-          csvField(a.points),
-          csvField(a.timeMs),
-          csvField(a.submittedAt.toISOString()),
-        ].join(','))
-      }
-
-      const headerRow = 'Name,QuestionIndex,QuestionText,Answer,CorrectAnswer,IsCorrect,Points,TimeMs,SubmittedAt'
-      const csvBody = [headerRow, ...dataRows].join('\n')
-
-      return new Response(csvBody, {
-        headers: {
-          'Content-Type': 'text/csv; charset=utf-8',
-          'Content-Disposition': `attachment; filename="quiz-report-${id}.csv"`,
-        },
-      })
-    }
 
     return NextResponse.json({
       success: true,

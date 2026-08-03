@@ -94,7 +94,9 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
     return NextResponse.json({ success: true, url })
   } catch (err) {
-    if (err instanceof Error && err.message === 'Authentication required') {
+    // requireAuth() throws Error('Unauthorized'); the old comparison string
+    // never matched, so a signed-out request 500'd instead of 401'ing.
+    if (err instanceof Error && err.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     return NextResponse.json({ error: 'Export failed', detail: err instanceof Error ? err.message : String(err) }, { status: 500 })
