@@ -104,7 +104,7 @@ export function ConfidentlyWrongPanel({
             </p>
           )}
           <p className="mt-3 text-[12px] leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
-            Participant names are included in Download Report for focused follow-up.
+            Participant names are included in the PDF report and the Excel workbook for focused follow-up.
           </p>
         </>
       )}

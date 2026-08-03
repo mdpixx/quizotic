@@ -261,7 +261,7 @@ export default function AsyncReportPage() {
   const [error, setError] = useState<string | null>(null)
   const [isPro, setIsPro] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
-  const [csvLoading, setCsvLoading] = useState(false)
+  const [exportLoading, setExportLoading] = useState(false)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
@@ -278,16 +278,16 @@ export default function AsyncReportPage() {
     }).catch(() => {})
   }, [id])
 
-  async function downloadCsv() {
-    setCsvLoading(true)
-    const res = await fetch(`/api/quizzes/${id}/report?format=csv`)
-    if (!res.ok) { setCsvLoading(false); return }
+  async function downloadWorkbook() {
+    setExportLoading(true)
+    const res = await fetch(`/api/quizzes/${id}/report?format=xlsx`)
+    if (!res.ok) { setExportLoading(false); return }
     const blob = await res.blob()
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url; a.download = `quiz-report-${id}.csv`; a.click()
+    a.href = url; a.download = `quiz-report-${id}.xlsx`; a.click()
     URL.revokeObjectURL(url)
-    setCsvLoading(false)
+    setExportLoading(false)
   }
 
   if (error) return (
@@ -326,17 +326,17 @@ export default function AsyncReportPage() {
           </button>
           {isPro ? (
             <button
-              onClick={downloadCsv}
-              disabled={csvLoading}
+              onClick={downloadWorkbook}
+              disabled={exportLoading}
               className="btn-golive"
               style={{ fontSize: '13px', padding: '8px 14px' }}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              {csvLoading ? 'Exporting…' : 'Download CSV'}
+              {exportLoading ? 'Exporting…' : 'Download Excel'}
             </button>
           ) : (
             <div className="text-xs text-right" style={{ color: 'var(--color-text-muted)' }}>
-              <span className="font-medium" style={{ color: 'var(--color-info)' }}>Pro</span> feature: CSV export
+              <span className="font-medium" style={{ color: 'var(--color-info)' }}>Pro</span> feature: Excel export
             </div>
           )}
         </div>

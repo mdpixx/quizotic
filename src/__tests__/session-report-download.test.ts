@@ -86,7 +86,7 @@ describe('SessionReport download', () => {
       quizTitle: 'AI Masterclass',
       misconceptionSummary: MISCONCEPTIONS,
     } as Parameters<typeof SessionReport>[0])
-    const download = findButton(tree, 'Download Report')
+    const download = findButton(tree, 'Download PDF report')
 
     expect(download).not.toBeNull()
     download?.props.onClick()

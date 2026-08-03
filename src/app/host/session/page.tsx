@@ -4057,64 +4057,27 @@ export default function SessionPage() {
               Play Again
             </button>
 
-            {/* Export pills — compact row */}
+            {/* Export pills — compact row. The workbook route resolves the room
+                code as well as the session id, so this link works straight off
+                the podium before the host has the session id. */}
             <div className="flex items-center justify-center gap-2 flex-wrap">
               <span className="text-xs font-semibold text-gray-500">Export:</span>
-              {plan !== 'pro' && (
+              {plan === 'pro' && gameCode ? (
+                <a
+                  href={`/api/sessions/${gameCode}/export/xlsx`}
+                  download
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 hover:border-gray-400 transition-all text-gray-700 bg-white"
+                >
+                  Excel
+                </a>
+              ) : (
                 <span
                   className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 text-gray-400 bg-white cursor-not-allowed inline-flex items-center gap-1"
-                  title="CSV export is a Pro feature — email info@quizotic.live to upgrade"
+                  title="Excel export is a Pro feature — email info@quizotic.live to upgrade"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3" aria-hidden><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                  CSV · Pro
+                  Excel · Pro
                 </span>
-              )}
-              {plan === 'pro' && <button
-                onClick={() => {
-                  if (!quiz || leaderboard.length === 0) return
-                  const rows = [['Rank', 'Name', 'Score']]
-                  leaderboard.forEach((entry, i) => {
-                    rows.push([String(i + 1), entry.name, String(entry.score)])
-                  })
-                  if (questionStats.length > 0) {
-                    rows.push([])
-                    rows.push(['Question', 'Correct %', 'Type', 'Text'])
-                    questionStats.filter(s => !s.isLeaderboard).forEach((stat, i) => {
-                      const pctStr = stat.isNonScored || stat.correctPct == null ? 'N/A' : `${stat.correctPct}%`
-                      const typeStr = stat.type || 'mcq'
-                      rows.push([`Q${i + 1}`, pctStr, typeStr, `"${stat.text.replace(/"/g, '""')}"`])
-                    })
-                  }
-                  const csv = rows.map(r => r.join(',')).join('\n')
-                  const blob = new Blob([csv], { type: 'text/csv' })
-                  const url = URL.createObjectURL(blob)
-                  const a = document.createElement('a')
-                  a.href = url
-                  a.download = `${quiz.title.replace(/[^a-zA-Z0-9]/g, '_')}_results.csv`
-                  a.click()
-                  URL.revokeObjectURL(url)
-                }}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 hover:border-gray-400 transition-all text-gray-700 bg-white"
-              >
-                CSV
-              </button>}
-              {plan === 'pro' && gameCode && (
-                <>
-                  <a
-                    href={`/api/sessions/${gameCode}/export/xlsx`}
-                    download
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 hover:border-gray-400 transition-all text-gray-700 bg-white"
-                  >
-                    XLSX
-                  </a>
-                  <a
-                    href={`/api/sessions/${gameCode}/export/pdf`}
-                    download
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 hover:border-gray-400 transition-all text-gray-700 bg-white"
-                  >
-                    PDF
-                  </a>
-                </>
               )}
             </div>
           </div>

@@ -4,7 +4,8 @@
 // learning-insight cards (mastered / re-teach / misconceptions), aggregate
 // confidence grid, score distribution, per-question accuracy scan, the full
 // question-by-question breakdown (SessionReport), and the participant ×
-// question answer matrix. CSV export is Pro-only; free hosts see a locked pill.
+// question answer matrix. The Excel workbook is Pro-only; free hosts see a
+// locked pill and can still print the PDF report from the card below.
 
 import { use, useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -201,12 +202,12 @@ export default function SessionReportPage({ params }: { params: Promise<{ id: st
   const [matrixError, setMatrixError] = useState<string | null>(null)
   const [matrixLoading, setMatrixLoading] = useState(true)
 
-  async function handleCsvDownload() {
+  async function handleWorkbookDownload() {
     if (!session) return
     setDownloading(true)
     setDownloadError(null)
     const cleanTitle = (session.results?.quizTitle ?? `Session-${session.code}`).replace(/[^a-zA-Z0-9-]+/g, '_').slice(0, 40)
-    const result = await downloadFromUrl(`/api/sessions/${session.id}/csv`, `${cleanTitle}-${session.code}.csv`)
+    const result = await downloadFromUrl(`/api/sessions/${session.id}/export/xlsx`, `${cleanTitle}-${session.code}.xlsx`)
     setDownloading(false)
     if (!result.ok) setDownloadError(result.error ?? 'Download failed')
   }
@@ -330,23 +331,23 @@ export default function SessionReportPage({ params }: { params: Promise<{ id: st
               </div>
               {plan === 'pro' ? (
                 <button
-                  onClick={handleCsvDownload}
+                  onClick={handleWorkbookDownload}
                   disabled={downloading}
                   className="btn-secondary"
                   style={{ padding: '8px 14px', fontSize: '12px' }}
-                  title="Download full session data as CSV"
+                  title="Download the full session workbook — leaderboard, question analysis, answer key, confidence and attendance"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
-                  {downloading ? 'Downloading…' : 'CSV'}
+                  {downloading ? 'Downloading…' : 'Excel'}
                 </button>
               ) : (
                 <span
                   className="inline-flex items-center gap-1.5 rounded-[10px] px-3.5 py-2 text-[12px] font-semibold cursor-not-allowed"
                   style={{ border: '1px solid var(--color-line)', color: 'var(--color-text-muted)', background: '#fff' }}
-                  title="CSV export is a Pro feature — email info@quizotic.live to upgrade"
+                  title="Excel export is a Pro feature — email info@quizotic.live to upgrade"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                  CSV · Pro
+                  Excel · Pro
                 </span>
               )}
             </div>
@@ -420,8 +421,8 @@ export default function SessionReportPage({ params }: { params: Promise<{ id: st
 
             {/* Full question-by-question report — per-question confidence grids,
                 Bloom's tags, poll/wordcloud/rating result views, explanations,
-                and the printable report. CSV lives in the page header, so the
-                embedded report only contributes its print/download button. */}
+                and the printable report. Excel lives in the page header, so the
+                embedded report only contributes its PDF button. */}
             {questionStats.length > 0 && (
               <div className="mb-6">
                 <SessionReport

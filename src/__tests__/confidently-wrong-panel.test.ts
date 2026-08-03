@@ -43,7 +43,7 @@ describe('ConfidentlyWrongPanel', () => {
     expect(markup).toContain('Evidence question 1')
     expect(markup).toContain('1 of 1 respondents')
     expect(markup).toContain('100%')
-    expect(markup).toContain('Participant names are included in Download Report')
+    expect(markup).toContain('Participant names are included in the PDF report and the Excel workbook')
     expect(markup).not.toContain('Asha Rao')
   })
 

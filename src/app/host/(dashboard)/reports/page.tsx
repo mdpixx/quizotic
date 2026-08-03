@@ -81,17 +81,17 @@ export default function ReportsPage() {
   const endedSessions = sessions.filter(s => s.status === 'ended')
   const filtered = endedSessions.filter(s => filter === 'all' || s.type === filter)
 
-  async function handleCsvDownload(session: SessionRecord) {
+  async function handleWorkbookDownload(session: SessionRecord) {
     setDownloadingId(session.id)
     setDownloadError(null)
     setDownloadSuccess(null)
     const title = session.results?.quizTitle ?? `Session-${session.code}`
     const cleanTitle = title.replace(/[^a-zA-Z0-9-]+/g, '_').slice(0, 40)
-    const filename = `${cleanTitle}-${session.code}-${fmtDate(session.endedAt ?? session.createdAt).replace(/\s/g, '-')}.csv`
-    const result = await downloadFromUrl(`/api/sessions/${session.id}/csv`, filename)
+    const filename = `${cleanTitle}-${session.code}-${fmtDate(session.endedAt ?? session.createdAt).replace(/\s/g, '-')}.xlsx`
+    const result = await downloadFromUrl(`/api/sessions/${session.id}/export/xlsx`, filename)
     setDownloadingId(null)
     if (result.ok) {
-      setDownloadSuccess(`Downloaded ${cleanTitle}.csv`)
+      setDownloadSuccess(`Downloaded ${cleanTitle}.xlsx`)
       setTimeout(() => setDownloadSuccess(null), 4000)
     } else {
       setDownloadError(result.error ?? 'Download failed')
@@ -143,15 +143,15 @@ export default function ReportsPage() {
         {/* Pro hint */}
         <div className="mb-5 px-4 py-2.5 rounded-[12px] flex items-center gap-3 text-[13px]" style={{ background: '#FEF3C7', border: '1px solid #FDE68A', color: '#92400E' }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 flex-shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-          <span>CSV export is a <strong>Pro</strong> feature — free accounts see session summaries here; Pro accounts can download full data. Email info@quizotic.live to upgrade.</span>
+          <span>The <strong>Excel workbook</strong> is a Pro feature — free accounts see session summaries here and can still print the PDF report. Email info@quizotic.live to upgrade.</span>
         </div>
 
         <div className="mb-5 grid gap-3 md:grid-cols-4">
           {[
             { label: 'What went well', desc: `${totalParticipants} participant${totalParticipants === 1 ? '' : 's'} reached across completed sessions.`, tone: '#16A34A' },
-            { label: 'Who needs help', desc: avgAcrossAll != null && avgAcrossAll < 60 ? 'Average score is below 60%; export marks and follow up.' : 'Use CSV to spot repeat learners and low confidence answers.', tone: '#DC2626' },
+            { label: 'Who needs help', desc: avgAcrossAll != null && avgAcrossAll < 60 ? 'Average score is below 60%; export marks and follow up.' : 'Open the workbook to spot repeat learners and confidently wrong answers.', tone: '#DC2626' },
             { label: 'What to teach next', desc: 'Open a weak topic in the builder and generate a short retrieval quiz.', tone: '#7C3AED', href: '/host/build?start=aitopic' },
-            { label: 'Export marks', desc: 'Download CSV for a session, then push to Sheets/Classroom when integrations land.', tone: '#D97706' },
+            { label: 'Export marks', desc: 'Download the Excel workbook for a session — leaderboard, answer key and attendance in one file.', tone: '#D97706' },
           ].map(item => {
             const body = (
               <div className="dash-card p-4 h-full" style={{ boxShadow: '0 1px 2px rgba(15,27,61,0.04), 0 4px 16px -8px rgba(15,27,61,0.08)' }}>
@@ -302,18 +302,18 @@ export default function ReportsPage() {
                     </Link>
                     {plan === 'pro' ? (
                       <button
-                        onClick={() => handleCsvDownload(session)}
+                        onClick={() => handleWorkbookDownload(session)}
                         disabled={isDownloading}
                         className="btn-secondary"
                         style={{ padding: '7px 12px', fontSize: '12px' }}
-                        title="Download full session data as CSV"
+                        title="Download the full session workbook — leaderboard, question analysis, answer key, confidence and attendance"
                       >
                         {isDownloading ? (
                           <svg className="animate-spin w-3 h-3" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" opacity="0.3"/><path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
                         ) : (
                           <>
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                            CSV
+                            Excel
                           </>
                         )}
                       </button>
@@ -321,10 +321,10 @@ export default function ReportsPage() {
                       <span
                         className="inline-flex items-center gap-1 rounded-[10px] px-3 py-[7px] text-[12px] font-semibold cursor-not-allowed"
                         style={{ border: '1px solid var(--color-line)', color: 'var(--color-text-muted)', background: '#fff' }}
-                        title="CSV export is a Pro feature — email info@quizotic.live to upgrade"
+                        title="Excel export is a Pro feature — email info@quizotic.live to upgrade"
                       >
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                        CSV
+                        Excel
                       </span>
                     )}
                   </div>

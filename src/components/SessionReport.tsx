@@ -534,7 +534,7 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
           {sessionId && (
             plan === 'pro' ? (
               <a
-                href={`/api/sessions/${sessionId}/csv`}
+                href={`/api/sessions/${sessionId}/export/xlsx`}
                 download
                 className="flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-xl border-2 transition-all hover:border-green-400 hover:text-green-600 hover:bg-green-50"
                 style={{ borderColor: '#D1FAE5', color: '#16a34a' }}
@@ -543,15 +543,15 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                   <path d="M14 2v6h6M8 13h8M8 17h8M8 9h2" />
                 </svg>
-                Export CSV
+                Export Excel
               </a>
             ) : (
-              <span className="flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-xl border-2 border-gray-200 text-gray-400 cursor-not-allowed" title="CSV export — email info@quizotic.live if you need it">
+              <span className="flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-xl border-2 border-gray-200 text-gray-400 cursor-not-allowed" title="Excel export — email info@quizotic.live if you need it">
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                   <path d="M14 2v6h6M8 13h8M8 17h8M8 9h2" />
                 </svg>
-                CSV
+                Excel
               </span>
             )
           )}
@@ -563,7 +563,7 @@ export function SessionReport({ questionStats, quizTitle, participantCount, sess
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
             </svg>
-            Download Report
+            Download PDF report
           </button>
         </div>
       </div>
