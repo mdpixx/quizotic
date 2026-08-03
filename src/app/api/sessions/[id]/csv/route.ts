@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-helpers'
 import { getUserPlan } from '@/lib/billing'
+import { isNameCaptureQuestion } from '@/lib/openended-input.mjs'
+import type { Question } from '@/lib/quiz-types'
 
 function escapeCsv(value: string): string {
   if (value.includes(',') || value.includes('"') || value.includes('\n')) {
@@ -25,6 +27,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const { id } = await params
     const session = await prisma.gameSession.findFirst({
       where: { id, userId: user.id },
+      include: { quizVersion: { select: { snapshot: true } } },
     })
 
     if (!session) {
@@ -90,18 +93,47 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       orderBy: { joinedAt: 'asc' },
     })
 
+    // Identity column: what each participant typed on the name-capture slide,
+    // if the quiz had one. This is the column that lets a host reconcile a
+    // mistyped or duplicated join nickname back to a real person, so it sits
+    // right next to Nickname rather than buried in a per-question dump.
+    // Works retroactively — isNameCaptureQuestion falls back to a wording
+    // heuristic for sessions run before the flag existed.
+    const identityByAttendee = new Map<string, string>()
+    const snapshot = session.quizVersion?.snapshot
+    const nameCaptureIndexes = Array.isArray(snapshot)
+      ? (snapshot as unknown as Question[])
+          .map((q, index) => ({ q, index }))
+          .filter(({ q, index }) => isNameCaptureQuestion(q, index))
+          .map(({ index }) => index)
+      : []
+    if (nameCaptureIndexes.length > 0) {
+      const identityAnswers = await prisma.answer.findMany({
+        where: { sessionId: id, questionIndex: { in: nameCaptureIndexes } },
+        select: { attendeeId: true, answer: true },
+      })
+      for (const a of identityAnswers) {
+        if (!a.attendeeId || typeof a.answer !== 'string') continue
+        const trimmed = a.answer.trim()
+        if (trimmed) identityByAttendee.set(a.attendeeId, trimmed)
+      }
+    }
+
     lines.push('')
     lines.push('Attendance')
-    lines.push('Nickname,Email,Joined At,Left At,Duration (sec),Final Score,Team')
+    lines.push('Nickname,Real Name,Email,Joined At,Left At,Duration (sec),Final Score,Team')
     for (const a of attendees) {
       const nickname = escapeCsv(a.nickname ?? '')
+      // Prefer the typed identity; fall back to the stored realName (which
+      // differs from nickname only in anonymous mode).
+      const realName = escapeCsv(identityByAttendee.get(a.id) ?? a.realName ?? '')
       const email = escapeCsv(a.email ?? '')
       const joinedAt = a.joinedAt ? a.joinedAt.toISOString() : ''
       const leftAt = a.leftAt ? a.leftAt.toISOString() : ''
       const duration = a.durationSec ?? ''
       const finalScore = a.finalScore ?? ''
       const team = escapeCsv(a.team ?? '')
-      lines.push(`${nickname},${email},${joinedAt},${leftAt},${duration},${finalScore},${team}`)
+      lines.push(`${nickname},${realName},${email},${joinedAt},${leftAt},${duration},${finalScore},${team}`)
     }
 
     const csv = lines.join('\n')

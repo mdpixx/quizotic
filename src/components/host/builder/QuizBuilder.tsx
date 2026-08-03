@@ -31,6 +31,7 @@ import { isKnownQuestionType } from '@/lib/quiz-builder-logic'
 import { resolveHostBackNavigation } from '@/lib/host-navigation'
 import { QuestionList } from './QuestionList'
 import { QuestionCanvas } from './QuestionCanvas'
+import { NameSlideNudge } from './NameSlideNudge'
 import { AddInteractionPicker } from './AddInteractionPicker'
 import { MobileQuestionStrip } from './MobileQuestionStrip'
 import { MobileQuestionPager } from './MobileQuestionPager'
@@ -467,6 +468,12 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
 
         {/* Center: QuestionCanvas */}
         <div className="flex-1 flex flex-col overflow-hidden p-6">
+          {/* Sits directly above slide 1 — the moment the host is deciding how
+              the session opens is the moment this advice is actionable. */}
+          <NameSlideNudge
+            questions={builder.questions}
+            onAddNameSlide={builder.addNameCaptureQuestion}
+          />
           {builder.activeQuestion ? (
             <QuestionCanvas
               question={builder.activeQuestion}

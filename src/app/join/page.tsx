@@ -33,6 +33,13 @@ import { useWakeLock } from '@/hooks/useWakeLock'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
 import { track } from '@/lib/analytics'
 import { clampTimer } from '@/lib/timer'
+// Unicode-aware name validation shared verbatim with both socket join handlers
+// in server.mjs — the client copy exists only for instant feedback; the server
+// is the authority (a participant can always bypass this file).
+import { validateParticipantName, isValidParticipantName } from '@/lib/participant-name.mjs'
+// Open-ended answer constraints (roll numbers, employee codes). Same module the
+// server's submit handler uses, so the rule can never drift between the two.
+import { filterToMode, validateOpenEndedAnswer, inputHintFor, exactLengthFor, normalizeInputMode } from '@/lib/openended-input.mjs'
 
 function phaseForPresenterSlide(
   slideType: string | undefined,
@@ -105,6 +112,13 @@ interface Question {
   explanation?: string    // available in self-paced (follow-up) mode
   matchLefts?: string[]   // matching — left prompts (ordered)
   matchRights?: string[]  // matching — right options (shuffled)
+  // openended input constraints — sanitizeQuestion() spreads the whole question
+  // object, so these arrive without any extra broadcast plumbing.
+  inputMode?: 'any' | 'text' | 'number' | 'alphanumeric'
+  lengthMode?: 'free' | 'exact'
+  exactLength?: number
+  transform?: 'none' | 'uppercase'
+  isNameCapture?: boolean
 }
 
 interface LeaderboardEntry {
@@ -715,6 +729,9 @@ function JoinPageInner() {
 
   // Text answer (for open-ended, word cloud, Q&A)
   const [textAnswer, setTextAnswer] = useState('')
+  // Inline constraint message for open-ended slides with an inputMode /
+  // fixed-length rule. Null when the current draft is acceptable.
+  const [textAnswerError, setTextAnswerError] = useState<string | null>(null)
 
   // Confidence tap
   const [pendingAnswer, setPendingAnswer] = useState<number | null>(null)
@@ -1003,7 +1020,7 @@ function JoinPageInner() {
     // `unknown_participant` — it means our socket.id is no longer in the
     // server's participant Map (typical after a long lobby idle on mobile).
     // We force a clean re-join, then re-flush the outbox so the answer lands.
-    socket.on('answer_rejected', ({ reason, gameCode: rcvGameCode, questionIndex: rejectedIndex }: { reason: string; gameCode?: string; questionIndex?: number }) => {
+    socket.on('answer_rejected', ({ reason, gameCode: rcvGameCode, questionIndex: rejectedIndex, message: rejectedMessage }: { reason: string; gameCode?: string; questionIndex?: number; message?: string }) => {
       if (process.env.NODE_ENV !== 'production') {
         console.warn('[answer_rejected]', reason, rcvGameCode, rejectedIndex)
       }
@@ -1037,6 +1054,21 @@ function JoinPageInner() {
             flushAnswerOutboxRef.current()
           })
         }
+        return
+      }
+      if (reason === 'invalid_format') {
+        // Open-ended answer failed the host's input rule (digits-only, fixed
+        // length, …). The participant has NOT locked an answer, so unlock the
+        // input and tell them exactly what to change — the whole point of
+        // rejecting rather than silently accepting a value the host can't use.
+        const dropIndex = rejectedIndex ?? question?.index
+        if (dropIndex !== undefined) {
+          for (const [id, item] of outboxRef.current.entries()) {
+            if (item.questionIndex === dropIndex) outboxRef.current.delete(id)
+          }
+        }
+        setSelectedAnswer(null)
+        setTextAnswerError(rejectedMessage ?? 'That answer doesn’t match the required format.')
         return
       }
       if (reason === 'not_active' || reason === 'no_question' || reason === 'question_ended' || reason === 'stale_question') {
@@ -1140,6 +1172,7 @@ function JoinPageInner() {
       setPendingAnswer(null)
       setConfidence(null)
       setTextAnswer('')
+      setTextAnswerError(null)
       setShowRedFlash(false)
       setMultiselectChosen(new Set())
       setPendingRating(0)
@@ -1602,16 +1635,16 @@ function JoinPageInner() {
       setError('Enter your name and session code')
       return
     }
-    if (!trimmedName) {
-      setError('Enter your name')
-      return
-    }
     if (!trimmedCode) {
       setError('Enter a session code')
       return
     }
-    if (trimmedName.length > 30) {
-      setError('Name must be 30 characters or less')
+    // Covers empty, over-length, and the case this whole change exists for:
+    // letter-free names like "12345" that leave the host unable to tell who is
+    // who in the report. Digits inside a real name still pass ("Rahul 42").
+    const nameCheck = validateParticipantName(trimmedName)
+    if (!nameCheck.ok) {
+      setError(nameCheck.error)
       return
     }
     if (!/^\d{6}$/.test(trimmedCode)) {
@@ -1819,11 +1852,28 @@ function JoinPageInner() {
 
   function submitTextAnswer() {
     if (!textAnswer.trim() || selectedAnswer !== null || timeLeft <= 0) return
+    // Open-ended slides can carry an input constraint (roll numbers, employee
+    // codes). Check here too so a stale keystroke can't slip past the input
+    // filter; the server re-checks and is the authority.
+    let value = textAnswer.trim()
+    if (question?.type === 'openended') {
+      // openended-input.mjs is plain JS, so TS widens the discriminated union
+      // to optional fields — coerce at this one boundary rather than adding a
+      // .d.ts for a module both the server and client need to share verbatim.
+      const check = validateOpenEndedAnswer(value, question) as
+        { ok: boolean; error?: string; value?: string }
+      if (!check.ok) {
+        setTextAnswerError(check.error ?? 'That answer doesn’t match the required format.')
+        return
+      }
+      value = check.value ?? value
+    }
+    setTextAnswerError(null)
     setSelectedAnswer('text')
     const timeMs = Math.max(0, Date.now() - answerTimeRef.current)
     enqueueAnswer({
       gameCode: gameCodeRef.current,
-      answer: textAnswer.trim(),
+      answer: value,
       timeMs,
       confidence: null,
     }, question?.index ?? -1)
@@ -1908,7 +1958,14 @@ function JoinPageInner() {
   // the largest control; QR links skip it. The quiz title resolves separately,
   // while the face changes only when both required fields are complete.
   if (phase === 'form' || phase === 'connecting') {
-    const isReady = code.length === 6 && name.trim().length >= 2
+    // The excited-face cue now waits for a *valid* name, not merely two
+    // characters — "12" used to light up the "You're ready to enter!" copy and
+    // then bounce off the join handler.
+    const nameOk = isValidParticipantName(name)
+    const isReady = code.length === 6 && nameOk
+    // Only nag once they have actually typed something worth rejecting; an
+    // empty field is not an error state, it is the starting state.
+    const showNameHint = name.trim().length > 0 && !nameOk
 
     return (
       <div className="join-premium-root min-h-svh w-full overflow-x-hidden">
@@ -1951,6 +2008,9 @@ function JoinPageInner() {
           .jp-code { min-height:60px; padding:9px 12px 7px; color:#0F1B3D; background:#FFF9E5; border:2px solid #26386F; border-radius:13px; text-align:center; font-size:clamp(27px,8vw,30px) !important; font-weight:800; letter-spacing:.16em; font-variant-numeric:tabular-nums; line-height:1; box-shadow:inset 0 2px 4px rgba(15,27,61,.055),0 5px 15px rgba(15,27,61,.06); }
           .jp-code::placeholder { color:#9CA4B3; }
           .jp-code-help { margin:7px 2px 0; color:#596680; font-size:12px; font-weight:600; }
+          /* Amber, not red: this is a correction cue while typing, not a
+             submitted-and-failed error (that stays .jp-error). */
+          .jp-name-help { margin:7px 2px 0; color:#8A5A00; font-size:12px; font-weight:600; }
           .jp-manual-session { margin-top:12px; margin-bottom:0; background:#E9F7EE; border-color:#B6DFC3; }
           .jp-email-toggle { display:inline-flex; align-items:center; gap:7px; margin:14px 0 0; padding:8px 13px; color:#26386F; background:#F2F5FB; border:1px solid #D8E1F2; border-radius:999px; cursor:pointer; font-size:13.5px; font-weight:700; letter-spacing:-.005em; transition:background .15s ease,border-color .15s ease; }
           .jp-email-toggle:hover { background:#E9EFFA; border-color:#C2D0E9; }
@@ -2106,7 +2166,14 @@ function JoinPageInner() {
                   disabled={phase === 'connecting'}
                   className="jp-control"
                   maxLength={24}
+                  aria-invalid={showNameHint || undefined}
+                  aria-describedby={showNameHint ? 'join-name-help' : undefined}
                 />
+                {showNameHint && (
+                  <p className="jp-name-help" id="join-name-help">
+                    Use your name in letters — a roll number alone can&apos;t be matched to you later.
+                  </p>
+                )}
               </div>
 
               {!showEmailInput ? (
@@ -2364,24 +2431,73 @@ function JoinPageInner() {
             // silently cut after submit; word cloud gets a tight cap so one
             // giant "word" can't blow out the host's cloud layout.
             const textMax = question.type === 'fillblank' ? 200 : question.type === 'wordcloud' ? 100 : 2000
+            // Open-ended slides may carry an input constraint set by the host
+            // (roll number = 6 digits, employee code = alphanumeric, …).
+            const constrained = question.type === 'openended'
+            const mode = constrained ? normalizeInputMode(question.inputMode) : 'any'
+            const exact = constrained ? exactLengthFor(question) : null
+            const hint = constrained ? inputHintFor(question) : null
+            // A constrained answer is short by definition — a single-line input
+            // beats a 140px textarea, and for 'number' it pops the phone's
+            // numeric keypad, which is the whole point of the feature.
+            const singleLine = constrained && (mode !== 'any' || exact != null)
+            const effectiveMax = exact ?? textMax
+            const invalid = constrained && textAnswer.trim().length > 0
+              && !validateOpenEndedAnswer(textAnswer, question).ok
+            const commonProps = {
+              placeholder: question.type === 'qa' ? 'Type your question…' : 'Type your answer…',
+              value: textAnswer,
+              maxLength: effectiveMax,
+              disabled: selectedAnswer !== null,
+              'aria-invalid': (invalid || !!textAnswerError) || undefined,
+              'aria-describedby': hint || textAnswerError ? 'answer-input-help' : undefined,
+            }
+            // Filter as they type rather than erroring after the fact — a
+            // rejected keystroke is less confusing than a rejected submission.
+            const onChangeConstrained = (raw: string) => {
+              setTextAnswer(filterToMode(raw, question))
+              setTextAnswerError(null)
+            }
             return (
           <div className="flex flex-col gap-3 flex-1">
-            <textarea
-              className={`w-full rounded-2xl border-2 p-4 text-lg resize-none focus:outline-none transition-colors min-h-[140px] ${
-                selectedAnswer !== null ? 'opacity-60 pointer-events-none border-gray-200 bg-gray-50' : 'border-gray-200 bg-white'
-              }`}
-              placeholder={question.type === 'qa' ? 'Type your question…' : 'Type your answer…'}
-              value={textAnswer}
-              onChange={e => setTextAnswer(e.target.value)}
-              maxLength={textMax}
-              disabled={selectedAnswer !== null}
-            />
-            {textAnswer.length >= textMax * 0.8 && (
+            {singleLine ? (
+              <input
+                {...commonProps}
+                type="text"
+                inputMode={mode === 'number' ? 'numeric' : 'text'}
+                pattern={mode === 'number' ? '[0-9]*' : undefined}
+                autoComplete="off"
+                autoCapitalize={question.transform === 'uppercase' ? 'characters' : 'sentences'}
+                className={`w-full rounded-2xl border-2 p-4 text-lg focus:outline-none transition-colors ${
+                  selectedAnswer !== null ? 'opacity-60 pointer-events-none border-gray-200 bg-gray-50' : 'bg-white'
+                } ${invalid ? 'border-amber-400' : 'border-gray-200'}`}
+                onChange={e => onChangeConstrained(e.target.value)}
+              />
+            ) : (
+              <textarea
+                {...commonProps}
+                className={`w-full rounded-2xl border-2 p-4 text-lg resize-none focus:outline-none transition-colors min-h-[140px] ${
+                  selectedAnswer !== null ? 'opacity-60 pointer-events-none border-gray-200 bg-gray-50' : 'border-gray-200 bg-white'
+                }`}
+                onChange={e => setTextAnswer(constrained ? filterToMode(e.target.value, question) : e.target.value)}
+              />
+            )}
+            {(hint || textAnswerError) && (
+              <p
+                id="answer-input-help"
+                className="text-xs -mt-1"
+                style={{ color: textAnswerError ? '#B42318' : '#6B7280' }}
+                role={textAnswerError ? 'alert' : undefined}
+              >
+                {textAnswerError ?? (exact != null ? `${hint} · ${textAnswer.length}/${exact}` : hint)}
+              </p>
+            )}
+            {!singleLine && textAnswer.length >= textMax * 0.8 && (
               <p className="text-xs text-right text-gray-400 -mt-2">{textAnswer.length}/{textMax}</p>
             )}
             <button
               onClick={submitTextAnswer}
-              disabled={selectedAnswer !== null || !textAnswer.trim()}
+              disabled={selectedAnswer !== null || !textAnswer.trim() || invalid}
               className="w-full py-4 rounded-2xl font-black text-xl transition-all disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[#0F1B3D] focus-visible:ring-offset-2 motion-safe:active:scale-[0.98]"
               style={{ background: selectedAnswer !== null ? '#9ca3af' : '#FBD13B', color: selectedAnswer !== null ? '#fff' : '#0D0D0D', border: selectedAnswer !== null ? 'none' : '2px solid #0D0D0D' }}
             >

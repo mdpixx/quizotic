@@ -6,6 +6,8 @@ export interface SessionMatrixQuestion {
   label: string
   type: string
   isScored: boolean
+  hasText?: boolean       // answers are short strings worth rendering in-cell
+  isNameCapture?: boolean // identity slide — promoted to a sub-line under the name
 }
 
 export interface SessionMatrixParticipant {
@@ -18,12 +20,20 @@ export interface SessionMatrixParticipant {
   cells: MatrixCell[]
   points: number[]
   confidences: MatrixConfidence[]
+  // Identity extras. The matrix route always populates these; they are optional
+  // on the type because the confidence-focused consumers (misconception summary,
+  // its fixtures) have no use for them and should not have to fabricate them.
+  texts?: (string | null)[] // truncated typed answer per column; null when none
+  identity?: string | null  // answer to the name-capture slide, if the quiz had one
+  duplicateName?: boolean   // another row shares this display name
 }
 
 export interface SessionMatrixData {
   questions: SessionMatrixQuestion[]
   participants: SessionMatrixParticipant[]
   perQuestionAccuracy: (number | null)[]
+  duplicateNameCount?: number  // how many display names are shared by >1 row
+  hasIdentityColumn?: boolean  // the quiz had a name-capture slide
 }
 
 export interface MisconceptionQuestion {

@@ -58,8 +58,14 @@ import {
   bumpAnswerCounters,
   getAnswerCount,
   getAnswerOptionCounts,
+  findDisconnectedEntry,
+  rememberDisconnected,
+  forgetDisconnected,
+  disambiguateName,
 } from './src/lib/session-state.mjs'
 import { computeSessionAwards } from './src/lib/awards.mjs'
+import { validateParticipantName } from './src/lib/participant-name.mjs'
+import { validateOpenEndedAnswer } from './src/lib/openended-input.mjs'
 import {
   initSessionStore,
   isSessionStoreEnabled,
@@ -1850,8 +1856,7 @@ app.prepare().then(async () => {
         targetSocket.leave(`session:${gameCode}`)
       }
       // Clear any disconnect-grace entry so the grace timer can't resurrect them.
-      const dKey = String(target.realName || target.name || '').toLowerCase()
-      session.disconnectedParticipants?.delete(dKey)
+      forgetDisconnected(session, target)
       if (target.socketId) session.participants.delete(target.socketId)
       session.participantsById.delete(participantId)
       if (target.attendeeId) {
@@ -2676,8 +2681,7 @@ app.prepare().then(async () => {
           delete existing.disconnectedAt
           delete existing.disconnectedSocketId
           session.participants.set(socket.id, existing)
-          const dKey = (existing.realName || existing.name || '').toLowerCase()
-          if (dKey) session.disconnectedParticipants?.delete(dKey)
+          forgetDisconnected(session, existing)
           socket.join(`session:${gameCode}`)
           const currentSlide = session.presentationData.slides[session.currentSlideIndex]
           callback({
@@ -2710,7 +2714,15 @@ app.prepare().then(async () => {
         return
       }
 
-      const safeName = sanitizeDisplayText(displayName) || 'Anonymous'
+      // Reject letter-free names ("12345", "..."). Client-side validation is a
+      // convenience; this is the authority. Runs AFTER the reconnect paths so a
+      // returning participant is never locked out by a rule added mid-session.
+      const presenterNameCheck = validateParticipantName(sanitizeDisplayText(displayName))
+      if (!presenterNameCheck.ok) {
+        callback({ success: false, error: presenterNameCheck.error })
+        return
+      }
+      const safeName = disambiguateName(session, presenterNameCheck.name)
       const safeEmail = sanitizeEmail(email)
       const archetype = assignArchetype()
       const newPid = incomingPid || randomUUID()
@@ -2888,6 +2900,11 @@ app.prepare().then(async () => {
 
       // Truncate + strip HTML/control chars server-side for safety
       const safeName = sanitizeDisplayText(displayName) || 'Anonymous'
+      // Letter-free names ("12345") leave the host unable to identify anyone in
+      // the report. Checked here but NOT enforced until after both reconnect
+      // paths below — a participant who joined before this rule shipped must
+      // still be able to rejoin their in-flight session.
+      const nameCheck = validateParticipantName(safeName)
 
       // ─── Reconnect path 1 — participantId match (preferred) ──────────────
       // Survives any disconnect length: localStorage in the participant's
@@ -2906,8 +2923,7 @@ app.prepare().then(async () => {
           delete existing.disconnectedSocketId
           session.participants.set(socket.id, existing)
           // Also clear any pending name-based grace entry for this participant.
-          const dKey = (existing.realName || existing.name || safeName).toLowerCase()
-          session.disconnectedParticipants?.delete(dKey)
+          forgetDisconnected(session, existing)
           socket.join(`session:${gameCode}`)
           console.log(`[participant] ${existing.realName || existing.name} reconnected via participantId to ${gameCode}`)
           callback({
@@ -2949,22 +2965,17 @@ app.prepare().then(async () => {
       }
 
       // ─── Reconnect path 2 — legacy name-based grace (fallback) ───────────
-      // Tries name match first; if that fails BUT we have a participantId,
-      // also scan the disconnected map by participantId — handles cases where
-      // the archetype/displayName drifts on rejoin (e.g. anonymous-mode
-      // reassignment) but the localStorage UUID is still intact.
-      const disconnectedKey = safeName.toLowerCase()
-      let disconnectedEntry = session.disconnectedParticipants?.get(disconnectedKey)
-      let matchedKey = disconnectedKey
-      if (!disconnectedEntry && incomingPid && session.disconnectedParticipants) {
-        for (const [key, entry] of session.disconnectedParticipants.entries()) {
-          if (entry?.participant?.participantId === incomingPid) {
-            disconnectedEntry = entry
-            matchedKey = key
-            break
-          }
-        }
-      }
+      // findDisconnectedEntry prefers the durable participantId. Its name
+      // fallback only fires when the joiner presented NO participantId and the
+      // name identifies exactly one disconnected participant — otherwise a
+      // second "Rahul" joining fresh would be restored as the first Rahul and
+      // silently inherit their score. See session-state.mjs for the full note.
+      const found = findDisconnectedEntry(session, {
+        participantId: incomingPid,
+        displayName: safeName,
+      })
+      const disconnectedEntry = found?.entry ?? null
+      const matchedKey = found?.key ?? null
       if (disconnectedEntry) {
         // Restore the participant under the new socket ID
         const oldParticipant = disconnectedEntry.participant
@@ -3008,10 +3019,20 @@ app.prepare().then(async () => {
         return
       }
 
+      // Enforce the name rule only for genuinely NEW participants — both
+      // reconnect paths returned above, so nobody mid-session gets locked out.
+      if (!nameCheck.ok) {
+        callback({ success: false, error: nameCheck.error })
+        return
+      }
+      // Second "Rahul" becomes "Rahul (2)" so the host can tell the report rows
+      // apart. Never a hard block — duplicate names are legitimate.
+      const uniqueName = disambiguateName(session, nameCheck.name)
+
       const archetype = assignArchetype()
       // Display name shown to others: archetype in anonymous mode, else user name.
       // Always store BOTH original `name` and `archetype` on the participant.
-      const displayStoredName = session.anonymousMode ? archetype : safeName
+      const displayStoredName = session.anonymousMode ? archetype : uniqueName
 
       // Team assignment (round-robin)
       let team = null
@@ -3026,7 +3047,7 @@ app.prepare().then(async () => {
         participantId: newPid,
         socketId: socket.id,
         name: displayStoredName,
-        realName: safeName,
+        realName: uniqueName,
         archetype,
         score: 0,
         answers: [],
@@ -3070,7 +3091,7 @@ app.prepare().then(async () => {
           if (dbId) {
             const attendeeId = await insertAttendee(dbId, {
               nickname: displayStoredName,
-              realName: safeName,
+              realName: uniqueName,
               email: safeEmail,
               archetype,
               socketId: socket.id,
@@ -3106,7 +3127,10 @@ app.prepare().then(async () => {
     socket.on('submit_answer', (rawPayload, ackCallback) => {
       const parsed = validateSocketPayload(socket, SubmitAnswerSchema, rawPayload, undefined, 'submit_answer')
       if (!parsed) return
-      const { gameCode, participantId: incomingPid, answer, timeMs: clientReportedTimeMs, confidence, serverSubmittedAt, questionIndex: clientQuestionIndex } = parsed
+      const { gameCode, participantId: incomingPid, answer: rawAnswer, timeMs: clientReportedTimeMs, confidence, serverSubmittedAt, questionIndex: clientQuestionIndex } = parsed
+      // Reassignable: open-ended slides with a `transform` rule normalise the
+      // value (e.g. uppercase employee codes) before it is scored or stored.
+      let answer = rawAnswer
       const receivedAt = Date.now()
       const session = sessions.get(gameCode)
       const ack = typeof ackCallback === 'function' ? ackCallback : null
@@ -3194,6 +3218,20 @@ app.prepare().then(async () => {
       if (isLeaderboardSlide(question)) return reject('not_answerable', { questionIndex: qi })
 
       if (participant.answers[qi] !== undefined) return reject('duplicate', { questionIndex: qi })
+
+      // ─── Open-ended input constraints ───────────────────────────────────
+      // The participant input filters as they type, but that file is theirs to
+      // bypass — this is the authority. Rejecting (rather than accepting and
+      // flagging) is deliberate: the participant has not locked an answer yet,
+      // so a clear error lets them correct it, and the host's report stays
+      // clean instead of arriving full of values they must hand-reconcile.
+      if (question.type === 'openended' && typeof answer === 'string') {
+        const openCheck = validateOpenEndedAnswer(answer, question)
+        if (!openCheck.ok) {
+          return reject('invalid_format', { questionIndex: qi, message: openCheck.error })
+        }
+        answer = openCheck.value
+      }
 
       // ─── SERVER-AUTHORITATIVE TIMING ────────────────────────────────────
       // Prefer the client's NTP-corrected serverSubmittedAt when it falls
@@ -3526,8 +3564,9 @@ app.prepare().then(async () => {
           // a few KB per orphaned participant — negligible.
           participant.disconnectedAt = Date.now()
           participant.disconnectedSocketId = socket.id
-          if (!session.disconnectedParticipants) session.disconnectedParticipants = new Map()
-          session.disconnectedParticipants.set(name.toLowerCase(), { socketId: socket.id, participant, gameCode: code })
+          // Keyed by participantId, not name — a second "Rahul" dropping used
+          // to evict the first one's entry outright, making them unrecoverable.
+          const graceKey = rememberDisconnected(session, { participant, socketId: socket.id, gameCode: code })
           console.log(`[participant] ${name} (pid=${participantId}) disconnected from ${code}, grace period 20min`)
 
           // IMMEDIATE notification — host UI must show the count drop right
@@ -3540,9 +3579,12 @@ app.prepare().then(async () => {
           }
 
           setTimeout(() => {
-            const entry = session.disconnectedParticipants?.get(name.toLowerCase())
+            // Re-read under the same key we wrote. The socketId check still
+            // guards the case where the participant reconnected and dropped
+            // again before this timer fired — that newer entry must survive.
+            const entry = graceKey ? session.disconnectedParticipants?.get(graceKey) : null
             if (entry && entry.socketId === socket.id) {
-              session.disconnectedParticipants.delete(name.toLowerCase())
+              session.disconnectedParticipants.delete(graceKey)
               session.participants.delete(socket.id)
               // Note: deliberately do NOT delete from session.participantsById.
               // If the user reopens the tab any time before session end, their

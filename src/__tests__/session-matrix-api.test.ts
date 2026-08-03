@@ -56,6 +56,51 @@ describe('GET /api/sessions/[id]/matrix', () => {
     })
   })
 
+  it('ships typed answers truncated server-side, never the full text', async () => {
+    // 100 participants x 60 questions x 2000 chars would be a multi-MB payload
+    // on the classroom connections this product is built for. The cap has to
+    // live on the server — a client-side clamp still pays the transfer.
+    const longAnswer = 'x'.repeat(2000)
+    prismaMock.gameSession.findFirst.mockResolvedValue({
+      id: 'session-1',
+      results: { questionStats: [{ index: 0, text: 'Describe it', type: 'openended' }] },
+      quizVersion: { snapshot: null },
+    })
+    prismaMock.answer.findMany.mockResolvedValue([
+      { attendeeId: 'att-1', participantId: 'p-1', questionIndex: 0, isCorrect: null, points: 0, confidence: null, answer: longAnswer },
+    ])
+
+    const response = await GET(new NextRequest('http://localhost/api/sessions/session-1/matrix'), routeContext)
+    const json = await response.json()
+
+    expect(prismaMock.answer.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.objectContaining({ answer: true }),
+    }))
+    const cell = json.data.participants[0].texts[0]
+    expect(cell).toHaveLength(83) // 80 chars + the '...' marker
+    expect(cell.endsWith('...')).toBe(true)
+    expect(cell.length).toBeLessThan(longAnswer.length)
+  })
+
+  it('leaves non-string answers as dots rather than leaking a blob into a cell', async () => {
+    // Answer is Json: a ranking array or a drawing data URL must never render
+    // as text. Only the short-string types get a cell.
+    prismaMock.gameSession.findFirst.mockResolvedValue({
+      id: 'session-1',
+      results: { questionStats: [{ index: 0, text: 'Rank these', type: 'ranking' }] },
+      quizVersion: { snapshot: null },
+    })
+    prismaMock.answer.findMany.mockResolvedValue([
+      { attendeeId: 'att-1', participantId: 'p-1', questionIndex: 0, isCorrect: null, points: 0, confidence: null, answer: [3, 1, 2] },
+    ])
+
+    const response = await GET(new NextRequest('http://localhost/api/sessions/session-1/matrix'), routeContext)
+    const json = await response.json()
+
+    expect(json.data.questions[0].hasText).toBe(false)
+    expect(json.data.participants[0].texts[0]).toBeNull()
+  })
+
   it('does not query another host\'s matrix when unauthenticated', async () => {
     getCurrentUserMock.mockResolvedValue(null)
 
