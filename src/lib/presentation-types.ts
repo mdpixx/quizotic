@@ -174,6 +174,30 @@ export interface MultipleChoiceSlide extends SlideBase {
   options: string[]
   showCorrect: boolean
   correctIndex?: number
+  /**
+   * How many options one participant may pick. Absent or 1 = single-select,
+   * which is how every slide authored before this field existed behaves.
+   *
+   * With more than one, counts sum ABOVE the response total — five people
+   * picking three options each is fifteen counts from five respondents — so
+   * percentages are of respondents, not of picks.
+   */
+  maxSelections?: number
+}
+
+/** Clamped selection limit for a slide: always ≥1 and never above the option count. */
+export function getMaxSelections(slide: {
+  options?: string[]
+  maxSelections?: number
+}): number {
+  const raw = slide.maxSelections
+  if (!Number.isFinite(raw) || (raw as number) < 2) return 1
+  return Math.min(Math.floor(raw as number), Math.max(1, slide.options?.length ?? 1))
+}
+
+/** True when the slide accepts more than one pick per participant. */
+export function isMultiSelect(slide: { options?: string[]; maxSelections?: number }): boolean {
+  return getMaxSelections(slide) > 1
 }
 
 export interface OpenTextSlide extends SlideBase {

@@ -5,10 +5,13 @@ import { useRouter } from 'next/navigation'
 import {
   type Slide, type SlideType, type Presentation,
   SLIDE_TYPE_META, SLIDE_CATEGORIES, makeSlide, getSlideBg,
+  getMaxSelections,
   getBgLuminance, getSlideTextColor,
 } from '@/lib/presentation-types'
 import QRCode from 'react-qr-code'
 import { QuizThemePicker } from '@/components/host/QuizThemePicker'
+import { SlideLayoutPicker } from '@/components/host/builder/SlideLayoutPicker'
+import { DeckSettingsModal } from '@/components/host/builder/DeckSettingsModal'
 import { getQuizTheme, type QuizThemeId } from '@/lib/quiz-themes'
 import { EnhanceWithAI } from '@/components/EnhanceWithAI'
 import { ImageUpload } from '@/components/ImageUpload'
@@ -817,6 +820,45 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (s: Slide) =
             )}
           </div>
           <div className="border-t pt-3 mt-1 space-y-2" style={{ borderColor: '#E2E8F0' }}>
+            <label className={labelClass} style={labelStyle}>Picks per person</label>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {[1, 2, 3, 4, 5].filter(n => n <= slide.options.length).map(n => {
+                const current = getMaxSelections(slide)
+                return (
+                  <button key={n} type="button"
+                    onClick={() => update({
+                      maxSelections: n === 1 ? undefined : n,
+                      // A correct answer only means something when there is one
+                      // pick. Clearing it avoids a slide that promises a right
+                      // answer and then accepts three.
+                      ...(n > 1 ? { correctIndex: undefined, showCorrect: false } : {}),
+                    })}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                    style={{
+                      background: current === n ? '#0F1B3D' : '#F3F4F6',
+                      color: current === n ? '#fff' : '#374151',
+                      border: `1.5px solid ${current === n ? '#0F1B3D' : '#E2E8F0'}`,
+                    }}>
+                    {n}
+                  </button>
+                )
+              })}
+            </div>
+            {getMaxSelections(slide) > 1 && (
+              <p className="text-[10px] leading-snug" style={{ color: '#94A3B8' }}>
+                Participants pick up to {getMaxSelections(slide)} and confirm. Results show
+                the share of people who chose each option, so the bars can total
+                more than 100%.
+              </p>
+            )}
+          </div>
+
+          {/* A correct answer is meaningless once a slide accepts three picks,
+              so the control is withdrawn rather than left to contradict itself. */}
+          <div
+            className="border-t pt-3 mt-1 space-y-2"
+            style={{ borderColor: '#E2E8F0', display: getMaxSelections(slide) > 1 ? 'none' : undefined }}
+          >
             <label className={labelClass} style={labelStyle}>Correct answer (optional)</label>
             <div className="flex items-center gap-2 flex-wrap">
               {slide.options.map((_, i) => (
@@ -1697,6 +1739,7 @@ function PresentCreatePageInner() {
   const [plan, setPlan] = useState<'free' | 'pro'>('free')
   const [recoveredDraft, setRecoveredDraft] = useState<{ savedAt: number } | null>(null)
   const [themePickerOpen, setThemePickerOpen] = useState(false)
+  const [deckSettingsOpen, setDeckSettingsOpen] = useState(false)
   // Tracks the initial load for `?id=xxx` editing — used to show a proper
   // spinner + inline error instead of silently rendering a blank new
   // presentation when server fetch fails (e.g. fresh browser, offline tab).
@@ -2422,6 +2465,16 @@ function PresentCreatePageInner() {
               style={{ borderColor: '#E2E8F0', color: '#64748B' }}>
               <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><path d="M15 7a3 3 0 100-6 3 3 0 000 6zM5 13a3 3 0 100-6 3 3 0 000 6zM15 19a3 3 0 100-6 3 3 0 000 6zM7.59 11.51l4.83 2.98M12.41 5.51L7.59 8.49" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
+            <button onClick={() => setDeckSettingsOpen(true)} title="Logo and hype mode"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 md:px-3 md:py-2 rounded-lg text-xs md:text-sm font-bold border transition-all hover:bg-gray-50 click-bounce"
+              style={{ borderColor: '#E2E8F0', color: '#0F1B3D' }}>
+              <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4" aria-hidden>
+                <circle cx="10" cy="10" r="2.6" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M10 2.4v2.2M10 15.4v2.2M17.6 10h-2.2M4.6 10H2.4M15.4 4.6l-1.6 1.6M6.2 13.8l-1.6 1.6M15.4 15.4l-1.6-1.6M6.2 6.2L4.6 4.6"
+                  stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+              <span className="hidden sm:inline">Deck</span>
+            </button>
             <button onClick={() => setThemePickerOpen(true)} title="Pick a theme"
               className="flex items-center gap-1.5 px-2.5 py-1.5 md:px-3 md:py-2 rounded-lg text-xs md:text-sm font-bold border transition-all hover:bg-gray-50 click-bounce"
               style={{ borderColor: '#E2E8F0', color: '#0F1B3D' }}>
@@ -2699,6 +2752,21 @@ function PresentCreatePageInner() {
                 <SlideEditor slide={activeSlide} onChange={updateSlide} />
 
                 <SlideBgPicker slide={activeSlide} onChange={updateSlide} />
+
+
+                <SlideLayoutPicker
+
+
+                  slide={activeSlide}
+
+
+                  hasMedia={!!activeSlide.contentImageUrl}
+
+
+                  onChange={layout => updateSlide({ ...activeSlide, layout } as Slide)}
+
+
+                />
 
                 {/* ── Show Responses (interactive slides only) ── */}
                 {SLIDE_TYPE_META[activeSlide.type].hasAudienceInput && (
@@ -3036,6 +3104,16 @@ function PresentCreatePageInner() {
             </div>
             <SlideEditor slide={activeSlide} onChange={updateSlide} />
             <SlideBgPicker slide={activeSlide} onChange={updateSlide} />
+
+            <SlideLayoutPicker
+
+              slide={activeSlide}
+
+              hasMedia={!!activeSlide.contentImageUrl}
+
+              onChange={layout => updateSlide({ ...activeSlide, layout } as Slide)}
+
+            />
           </div>
         </div>
       )}
@@ -3156,6 +3234,15 @@ function PresentCreatePageInner() {
           onCancel={() => setEnhanceOpen(false)}
         />
       )}
+
+      {/* ── Deck settings (logo, hype mode) ── */}
+      <DeckSettingsModal
+        open={deckSettingsOpen}
+        onClose={() => setDeckSettingsOpen(false)}
+        logoUrl={presentation.logoUrl}
+        hypeMode={presentation.hypeMode}
+        onChange={patch => setPresentation(prev => ({ ...prev, ...patch }))}
+      />
 
       {/* ── Theme picker ── */}
       <QuizThemePicker

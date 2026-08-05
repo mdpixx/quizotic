@@ -67,7 +67,7 @@ export function ResponseProgress({
   const pct = total > 0 ? Math.min(100, (responded / total) * 100) : 0
 
   return (
-    <div style={{ width: '100%', marginTop: 'auto' }}>
+    <div data-response-progress style={{ width: '100%', marginTop: 'auto' }}>
       <div
         style={{
           fontSize: 'clamp(8px, 1.25cqw, 17px)',

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { io, Socket } from 'socket.io-client'
 import QRCode from 'react-qr-code'
 import type { Slide, Presentation } from '@/lib/presentation-types'
-import { SLIDE_TYPE_META, shouldAutoShowResults, getSlideBg, getSlideTextColor } from '@/lib/presentation-types'
+import { SLIDE_TYPE_META, shouldAutoShowResults, getSlideBg, getSlideTextColor , getMaxSelections } from '@/lib/presentation-types'
 import { getQuizTheme } from '@/lib/quiz-themes'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
 import { SlideImage } from '@/components/SlideImage'
@@ -118,7 +118,8 @@ function PollBar({
       <div className="flex items-center justify-between">
         <span style={{ color: textColor, fontSize: 'clamp(11px, 1.5cqw, 20px)', fontWeight: 500 }}>{label}</span>
         <span className="tabular-nums" style={{ color, fontSize: 'clamp(11px, 1.5cqw, 20px)', fontWeight: 700 }}>
-          {shown} <span className="font-normal opacity-55">({pct}%)</span>
+          <span data-bar-count>{shown}</span>{' '}
+          <span data-bar-pct className="font-normal opacity-55">({pct}%)</span>
         </span>
       </div>
       <div
@@ -537,7 +538,7 @@ function ResultChart({
               {isCorrect ? (
                 <span style={{ color: '#16A34A', fontWeight: 700, fontSize: 'clamp(13px, 1.8cqw, 24px)', lineHeight: 1, marginBottom: 4 }}>✓</span>
               ) : count > 0 ? (
-                <span style={{ color, fontWeight: 700, fontSize: 'clamp(13px, 1.8cqw, 24px)', lineHeight: 1, marginBottom: 4 }}>{primary(i)}</span>
+                <span data-bar-count style={{ color, fontWeight: 700, fontSize: 'clamp(13px, 1.8cqw, 24px)', lineHeight: 1, marginBottom: 4 }}>{primary(i)}</span>
               ) : null}
               {/* Flat fills and no glow. The leading column is still legible as
                   the tallest one; the gradient + coloured drop-shadow added no
@@ -594,7 +595,7 @@ function ResultChart({
                 {opt || `Option ${i + 1}`}
               </div>
               {showResults && total > 0 && (
-                <div style={{ fontSize: 15, color, fontWeight: 700 }}>
+                <div data-bar-pct style={{ fontSize: 15, color, fontWeight: 700 }}>
                   {secondary(i)}
                 </div>
               )}
@@ -721,9 +722,15 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
       const counts = aggregate.counts ?? new Array(options.length).fill(0)
       const typedSlide = slide as { question?: string; showCorrect?: boolean; correctIndex?: number }
 
+      // On a multi-select slide the counts sum ABOVE the respondent total —
+// five people picking three options each is fifteen picks from five people.
+      // Percentages stay per-respondent (that is the useful denominator), so
+      // the bars can add up past 100% and the footnote says why.
+      const maxSelections = getMaxSelections(slide as { options?: string[]; maxSelections?: number })
+
       return (
         <SlideShell slide={slide} headingPlaceholder="Question text...">
-          <div className="h-full min-h-0 flex flex-col justify-end">
+          <div className="h-full min-h-0 flex flex-col justify-end gap-2">
             <ResultChart
               options={options}
               counts={counts}
@@ -734,6 +741,15 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
               variant={chartVariant}
               metric={chartMetric}
             />
+            {maxSelections > 1 && showResults && aggregate.total > 0 ? (
+              <p
+                className="flex-shrink-0 text-center"
+                style={{ color: textColor, opacity: 0.5, fontSize: 'clamp(8px, 1.05cqw, 14px)', fontWeight: 500 }}
+              >
+                Up to {maxSelections} picks each · % of the {aggregate.total}{' '}
+                {aggregate.total === 1 ? 'person' : 'people'} who responded
+              </p>
+            ) : null}
           </div>
         </SlideShell>
       )

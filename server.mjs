@@ -2457,8 +2457,28 @@ app.prepare().then(async () => {
         agg.pins.push({ x: Number(pin.x) || 0, y: Number(pin.y) || 0 })
       } else {
         // Bar-chart types: multiple_choice, word_duel, live_race, image_choice, quick_fire.
-        const idx = Number(response)
-        if (Number.isInteger(idx) && idx >= 0) {
+        //
+        // A multi-select slide sends an ARRAY of chosen indices. Each one bumps
+        // its own bucket, but `agg.total` was already incremented exactly once
+        // above — per respondent, not per pick. That invariant is what the
+        // "N of M responded" counter and the percentage denominator both rely
+        // on, so counts legitimately sum above total here.
+        const picks = Array.isArray(response) ? response : [response]
+        const optionCount = Array.isArray(slide?.options) ? slide.options.length : 0
+        // Cap by the slide's own limit so a tampered client cannot stuff the
+        // ballot by sending every option, or the same option repeatedly.
+        const limit = Math.max(
+          1,
+          Math.min(Number(slide?.maxSelections) || 1, optionCount || Number.MAX_SAFE_INTEGER),
+        )
+        const seen = new Set()
+        for (const raw of picks) {
+          if (seen.size >= limit) break
+          const idx = Number(raw)
+          if (!Number.isInteger(idx) || idx < 0) continue
+          if (optionCount > 0 && idx >= optionCount) continue
+          if (seen.has(idx)) continue
+          seen.add(idx)
           while (agg.counts.length <= idx) agg.counts.push(0)
           agg.counts[idx]++
         }
@@ -2687,6 +2707,7 @@ app.prepare().then(async () => {
           callback({
             success: true,
             presentationTitle: session.presentationData.title,
+            presentationLogoUrl: session.presentationData.logoUrl || null,
             currentSlideIndex: session.currentSlideIndex,
             totalSlides: session.presentationData.slides.length,
             currentSlide,
@@ -2762,6 +2783,7 @@ app.prepare().then(async () => {
       callback({
         success: true,
         presentationTitle: session.presentationData.title,
+        presentationLogoUrl: session.presentationData.logoUrl || null,
         currentSlideIndex: session.currentSlideIndex,
         totalSlides: session.presentationData.slides.length,
         currentSlide,
@@ -2875,6 +2897,23 @@ app.prepare().then(async () => {
           return
         }
         callback({ success: false, error: 'Game not found. Check the code and try again.' })
+        return
+      }
+
+      // Wrong door: this code belongs to a presentation, which lives in
+      // `join_presenter_session`. The client normally routes correctly using
+      // /api/session/lookup, but that lookup is best-effort — on a network
+      // blip it silently falls back to this handler, which then read
+      // `session.quizData.title` on a session that has no quizData and threw
+      // an unhandled rejection. That crashes the whole process, taking every
+      // other live session on the instance with it. Reject instead.
+      if (!session.quizData) {
+        callback({
+          success: false,
+          error: session.presentationData
+            ? 'That code is for a presentation. Reopen the link or scan the QR code again.'
+            : 'Game not found. Check the code and try again.',
+        })
         return
       }
 
