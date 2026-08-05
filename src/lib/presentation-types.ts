@@ -163,6 +163,9 @@ interface SlideBase {
   backgroundImageUrl?: string
   vizTextColor?: string
   showQrCode?: boolean
+  /** Composition variant — see SlideFrame. Absent means `centre`, which is
+   *  how every slide authored before this field existed must keep rendering. */
+  layout?: 'centre' | 'content-left' | 'content-right' | 'image-split'
 }
 
 export interface MultipleChoiceSlide extends SlideBase {
@@ -314,6 +317,12 @@ export interface Presentation {
   slides: Slide[]
   createdAt: string
   updatedAt: string
+  /** Opt-in to the energetic chrome — floating voter emoji, vote-velocity
+   *  waveform, milestone badges, toasts, milestone confetti. Off by default:
+   *  the stage is calm unless the host asks for the noise. */
+  hypeMode?: boolean
+  /** Host's own logo, shown on every slide and on the participant screen. */
+  logoUrl?: string
 }
 
 // ─── Default slide factories ──────────────────────────────────────────────────

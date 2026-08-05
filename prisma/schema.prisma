@@ -291,6 +291,8 @@ model Presentation {
   theme     String? // theme id from QUIZ_THEMES catalog; null = default
   slides    Json // array of Slide objects
   userId    String?
+  hypeMode  Boolean  @default(false) // opt-in energetic chrome; default stage is calm
+  logoUrl   String? // host's own logo, shown on every slide + participant screen
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

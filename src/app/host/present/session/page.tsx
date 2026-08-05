@@ -10,7 +10,7 @@ import { getQuizTheme } from '@/lib/quiz-themes'
 import { QuizoticLogo } from '@/components/QuizoticLogo'
 import { SlideImage } from '@/components/SlideImage'
 import { SlideImageFrame } from '@/components/SlideImageFrame'
-import { ANSWER_COLORS } from '@/lib/answer-colors'
+import { ANSWER_COLORS, RESULT_COLORS } from '@/lib/answer-colors'
 import { PRESENTATION_SEQUENCE } from '@/lib/sequence-theme'
 import { track } from '@/lib/analytics'
 import { getVideoEmbedUrl } from '@/lib/video'
@@ -19,12 +19,20 @@ import { PresentationSummary } from '@/components/PresentationSummary'
 import { SpinWheel } from '@/components/presentation/SpinWheel'
 import { PinMap, pinColor } from '@/components/presentation/PinMap'
 import { SlideShell } from '@/components/presentation/SlideShell'
+import { SlideFrame, getSlideLayout } from '@/components/presentation/SlideFrame'
+import { JoinRail } from '@/components/presentation/JoinRail'
 import { useConfetti } from '@/hooks/useConfetti'
+import { useCountUp } from '@/hooks/useCountUp'
+import { cssTransition, staggerDelay, STAGGER } from '@/lib/motion'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 
 // Canonical Kahoot palette for answer/option rendering — shared with quiz
 // host view and participant phone so colors match across every surface.
 const OPTION_HEX = ANSWER_COLORS.map(c => c.hex)
+
+// Calm result palette — see RESULT_COLORS in answer-colors.ts for why results
+// and tiles deliberately use different saturations.
+const CALM_HEX: string[] = [...RESULT_COLORS]
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -92,33 +100,44 @@ function playMilestoneSound(ctx: AudioContext) {
 
 // ─── Live poll bar ────────────────────────────────────────────────────────────
 
-function PollBar({ label, count, total, color }: { label: string; count: number; total: number; color: string }) {
+function PollBar({
+  label, count, total, color, index = 0, textColor = '#0F1B3D',
+}: {
+  label: string; count: number; total: number; color: string; index?: number; textColor?: string
+}) {
+  // Snapshot the count for this render. `total` and `count` arrive from a live
+  // aggregate; deriving the percentage from anything other than the value the
+  // number shows lets the two disagree on screen ("0" beside a two-thirds-full
+  // bar) whenever a slide resets mid-transition.
   const pct = total > 0 ? Math.round((count / total) * 100) : 0
+  const shown = useCountUp(count)
 
   return (
     <div className="space-y-1.5 relative overflow-visible">
       <div className="flex items-center justify-between">
-        <span className="text-xl font-semibold" style={{ color: '#0F1B3D' }}>{label}</span>
-        <span className="text-xl font-bold tabular-nums" style={{ color }}>{count} <span className="text-base font-normal opacity-60">({pct}%)</span></span>
+        <span style={{ color: textColor, fontSize: 'clamp(11px, 1.5cqw, 20px)', fontWeight: 500 }}>{label}</span>
+        <span className="tabular-nums" style={{ color, fontSize: 'clamp(11px, 1.5cqw, 20px)', fontWeight: 700 }}>
+          {shown} <span className="font-normal opacity-55">({pct}%)</span>
+        </span>
       </div>
-      <div className="h-10 rounded-full overflow-hidden relative" style={{ background: 'rgba(0,0,0,0.06)' }}>
+      <div
+        className="rounded-full overflow-hidden relative"
+        style={{ height: 'clamp(10px, 2.6cqw, 40px)', background: `${textColor}0F` }}
+      >
+        {/* Flat fill, not a gradient. The gradients read as the loudest element
+            on a projected slide and carried no information. The old ripple
+            flash on every vote went with them — once counts are climbing it is
+            noise, and the count-up already signals the change. */}
         <div
-          className="h-full rounded-full transition-all"
+          className="h-full rounded-full"
           style={{
             width: `${pct}%`,
-            background: `linear-gradient(90deg, ${color}, ${color}cc)`,
-            transition: 'width 0.6s cubic-bezier(0.34,1.56,0.64,1)',
+            background: color,
+            transition: cssTransition('width', 'slow', 'spring'),
+            transitionDelay: `${staggerDelay(index, STAGGER.base, 350)}ms`,
           }}
         />
-        {/* key={count} remounts the overlay on every new vote so the fade-out
-            animation replays — a stateless replacement for the old
-            setState + setTimeout ripple. */}
-        {count > 0 && (
-          <div key={count} className="absolute inset-0 rounded-full"
-            style={{ background: `${color}33`, animation: 'poll-ripple 0.6s ease-out both' }} />
-        )}
       </div>
-      <style>{`@keyframes poll-ripple { 0% { opacity: 1 } 100% { opacity: 0 } }`}</style>
     </div>
   )
 }
@@ -341,24 +360,25 @@ function ResultChart({
             {/* Bar area: metric label sits directly above the bar */}
             <div style={{ flex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end' }}>
               {isCorrect ? (
-                <span style={{ color: '#16A34A', fontWeight: 900, fontSize: 22, lineHeight: 1, marginBottom: 4 }}>✓</span>
+                <span style={{ color: '#16A34A', fontWeight: 700, fontSize: 'clamp(13px, 1.8cqw, 24px)', lineHeight: 1, marginBottom: 4 }}>✓</span>
               ) : count > 0 ? (
-                <span style={{ color, fontWeight: 800, fontSize: 22, lineHeight: 1, marginBottom: 4 }}>{primary(i)}</span>
+                <span style={{ color, fontWeight: 700, fontSize: 'clamp(13px, 1.8cqw, 24px)', lineHeight: 1, marginBottom: 4 }}>{primary(i)}</span>
               ) : null}
+              {/* Flat fills and no glow. The leading column is still legible as
+                  the tallest one; the gradient + coloured drop-shadow added no
+                  information and were the loudest thing on the frame. The
+                  correct answer keeps a solid green and a border, which is the
+                  one case where emphasis carries meaning. */}
               <div
                 style={{
                   width: '100%',
                   height: `${heightPct}%`,
                   minHeight: count > 0 ? 6 : 0,
                   borderRadius: '10px 10px 4px 4px',
-                  background: isCorrect
-                    ? `linear-gradient(180deg, #16A34A 0%, #15803D 100%)`
-                    : isLeading
-                    ? `linear-gradient(180deg, ${color} 0%, ${color}cc 100%)`
-                    : `linear-gradient(180deg, ${color}77 0%, ${color}44 100%)`,
-                  boxShadow: isCorrect ? '0 0 20px #16A34A55' : isLeading ? `0 0 20px ${color}55, 0 -2px 10px ${color}33` : 'none',
-                  border: isCorrect ? '2px solid #16A34A' : 'none',
-                  transition: 'height 0.65s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                  background: isCorrect ? '#16A34A' : isLeading ? color : `${color}66`,
+                  border: isCorrect ? '2px solid #15803D' : 'none',
+                  transition: cssTransition('height', 'slow', 'spring'),
+                  transitionDelay: `${staggerDelay(i, STAGGER.base, 350)}ms`,
                 }}
               />
             </div>
@@ -521,8 +541,8 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
         ? [slide.optionA, slide.optionB]
         : (slide as { options: string[] }).options
       const barColors = slide.type === 'word_duel'
-        ? [OPTION_HEX[1], OPTION_HEX[0]] // duel: blue vs red (Kahoot B & A)
-        : OPTION_HEX
+        ? [CALM_HEX[1], CALM_HEX[0]] // duel: blue vs red, keeping the A/B pairing
+        : CALM_HEX
       const counts = aggregate.counts ?? new Array(options.length).fill(0)
       const typedSlide = slide as { question?: string; showCorrect?: boolean; correctIndex?: number }
 
@@ -701,7 +721,9 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
                     label={`#${displayPos + 1} · ${item.label}`}
                     count={item.score}
                     total={maxScore}
-                    color="#4F46E5"
+                    color={CALM_HEX[1]}
+                    index={displayPos}
+                    textColor={textColor}
                   />
                 ))}
                 <p className="text-sm opacity-60 text-center pt-2">
@@ -1052,6 +1074,9 @@ export default function PresentSessionPage() {
   const [waveformData, setWaveformData] = useState<number[]>(Array(20).fill(0))
   const [milestoneLabel, setMilestoneLabel] = useState<string | null>(null)
   const fireConfetti = useConfetti()
+  // Read inside socket callbacks, which are registered once and must not be
+  // torn down and re-registered just because a presentation setting loaded.
+  const hypeModeRef = useRef(false)
   const [socketConnected, setSocketConnected] = useState(false)
   const [showWave, setShowWave] = useState(false)
   const [showQR, setShowQR] = useState(false)
@@ -1074,7 +1099,9 @@ export default function PresentSessionPage() {
     const raw = localStorage.getItem('quizotic_active_presentation')
     if (!raw) { setPhase('error'); return }
     try {
-      setPresentation(JSON.parse(raw))
+      const parsed: Presentation = JSON.parse(raw)
+      setPresentation(parsed)
+      hypeModeRef.current = parsed.hypeMode ?? false
       setPhase('idle')
     } catch { setPhase('error') }
     setSkipIntro(localStorage.getItem('quizotic_skip_intro') === 'true')
@@ -1226,6 +1253,23 @@ export default function PresentSessionPage() {
   }, [presentation])
 
   const triggerVoteEffects = useCallback((total: number) => {
+    // Everything below is Hype-mode chrome. Returning early rather than only
+    // hiding it in the render keeps a calm session from queueing hundreds of
+    // setTimeouts and state writes per slide for effects nobody will see.
+    // The waveform data is still collected — the host controls can surface it
+    // without the projected slide showing it.
+    if (!hypeModeRef.current) {
+      const t = Math.floor(Date.now() / 1000)
+      if (t !== lastVoteSecRef.current) {
+        lastVoteSecRef.current = t
+        voteHistoryRef.current = [...voteHistoryRef.current.slice(1), 1]
+      } else {
+        voteHistoryRef.current[voteHistoryRef.current.length - 1]++
+      }
+      setWaveformData([...voteHistoryRef.current])
+      return
+    }
+
     // Bubble sound
     if (soundOn) {
       if (!audioCtxRef.current) audioCtxRef.current = createAudioContext()
@@ -1551,6 +1595,50 @@ export default function PresentSessionPage() {
       }
   const slideTransition = reduceMotion ? { duration: 0.15 } : { duration: 0.34, ease: [0.22, 1, 0.36, 1] as const }
 
+  // Energetic chrome is opt-in per presentation. `hypeMode` is absent on every
+  // presentation authored before this field existed, so `?? false` is what
+  // makes the stage calm by default rather than only for new decks.
+  const hypeMode = presentation?.hypeMode ?? false
+  const slideTextColor = getSlideTextColor(currentSlide)
+  const slideLayout = getSlideLayout(currentSlide)
+  // The rail is only worth its column where there is something to join in on.
+  const showRail = meta.hasAudienceInput
+  // On any layout but `centre` the content image moves out of SlideShell and
+  // into the frame's own media column.
+  const layoutMedia =
+    slideLayout !== 'centre' && currentSlide.contentImageUrl ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={currentSlide.contentImageUrl}
+        alt=""
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: slideLayout === 'image-split' ? 'cover' : 'contain',
+          borderRadius: slideLayout === 'image-split' ? 0 : '0.8cqw',
+          display: 'block',
+        }}
+      />
+    ) : undefined
+  const slideEyebrow = (
+    <div className="flex items-center gap-2">
+      <div className="flex gap-1">
+        {Array.from({ length: totalSlides }).map((_, i) => (
+          <div key={i} className="rounded-full"
+            style={{
+              width: !showIntro && i === slideIndex ? 20 : 6,
+              height: 6,
+              background: !showIntro && i === slideIndex ? slideTextColor : `${slideTextColor}33`,
+              transition: cssTransition('width', 'base', 'out'),
+            }} />
+        ))}
+      </div>
+      <span className="text-xs font-medium ml-1" style={{ color: slideTextColor, opacity: 0.5 }}>
+        {showIntro ? `Intro · 0 / ${totalSlides}` : `${slideIndex + 1} / ${totalSlides}`}
+      </span>
+    </div>
+  )
+
   return (
     <div
       className="min-h-svh md:h-screen flex flex-col md:overflow-hidden overflow-y-auto"
@@ -1565,8 +1653,8 @@ export default function PresentSessionPage() {
       {/* Confetti is fired via useConfetti('milestone') in the milestone
           handler — see fireConfetti call near reachedMilestonesRef. */}
 
-      {/* ── Milestone badge ──────────────────────────────────────────────────── */}
-      {milestoneLabel && (
+      {/* ── Milestone badge (Hype mode only) ────────────────────────────────── */}
+      {hypeMode && milestoneLabel && (
         <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 pointer-events-none">
           <div className="rounded-3xl px-8 py-5 text-center shadow-2xl"
             style={{ background: '#0F1B3D', color: '#fff' }}>
@@ -1578,8 +1666,8 @@ export default function PresentSessionPage() {
         </div>
       )}
 
-      {/* ── Audience Wave overlay ─────────────────────────────────────────── */}
-      {showWave && (
+      {/* ── Audience Wave overlay (Hype mode only) ─────────────────────────── */}
+      {hypeMode && showWave && (
         <div className="fixed inset-0 pointer-events-none z-40 overflow-hidden">
           <div className="absolute inset-0" style={{
             background: 'linear-gradient(90deg, transparent, rgba(67,97,238,0.15), rgba(124,58,237,0.15), transparent)',
@@ -1603,18 +1691,16 @@ export default function PresentSessionPage() {
           on the projector. See getSlideBg() for the per-type fallback. */}
       <div className="flex-1 relative overflow-hidden" style={{ minHeight: 0, background: getSlideBg(currentSlide) }}>
 
-        {/* Floating top-right bar: votes + participants + always-visible join pill */}
+        {/* Corner join pill. On interactive slides the rail inside <SlideFrame>
+            now carries the QR, code and response progress at a size that is
+            actually scannable from the back of a room, so this collapses to a
+            participant count. Content slides have no rail, so it keeps the QR. */}
         <div className="absolute top-4 right-4 flex items-center gap-2 z-30">
-          {meta.hasAudienceInput && (
-            <div className="flex items-center gap-1.5 rounded-full px-3 py-1.5" style={{ background: 'rgba(15,27,61,0.85)' }}>
-              <span className="text-sm font-black text-white">{aggregate.total}</span>
-              <span className="text-xs text-white/60">votes</span>
-            </div>
-          )}
           <div className="flex items-center gap-1.5 rounded-full px-3 py-1.5" style={{ background: 'rgba(15,27,61,0.85)' }}>
             <span className="text-sm font-bold text-white">{participantCount}</span>
             <span className="text-xs text-white/60">joined</span>
           </div>
+          {!showRail && (
           <button
             onClick={() => setShowQR(true)}
             className="flex items-center gap-2 bg-white/95 backdrop-blur-sm rounded-2xl border border-gray-200 shadow-md px-2.5 py-1.5 transition-all hover:scale-[1.02]"
@@ -1636,6 +1722,7 @@ export default function PresentSessionPage() {
               </span>
             </div>
           </button>
+          )}
         </div>
 
         {/* QR Focus mode — full-screen scannable from the back of the room */}
@@ -1673,53 +1760,46 @@ export default function PresentSessionPage() {
         )}
 
         {/* Full-width slide content */}
-        <div className="h-full p-8 flex flex-col relative">
+        <div className="h-full flex flex-col relative">
 
-          {/* Floating voter avatars — no overflow clip, so emojis rise freely */}
-          <div className="absolute bottom-16 left-0 right-0 pointer-events-none" style={{ height: 0 }}>
-            {floatingVoters.map(v => (
-              <div key={v.id} className="absolute bottom-0"
-                style={{
-                  left: `${v.x}%`,
-                  fontSize: '3rem',
-                  filter: `drop-shadow(0 0 8px ${v.color})`,
-                  animation: 'voterFloat 4s ease-out forwards',
-                }}>
-                {v.emoji}
+          {/* ── Hype-mode chrome ───────────────────────────────────────────────
+              Floating voters, toasts, the vote-velocity waveform, milestone
+              badges and milestone confetti all render only when the host has
+              switched Hype mode on. Off is the default: on a projected slide in
+              a training room this chrome competes with the result the audience
+              is trying to read. */}
+          {hypeMode && (
+            <>
+              {/* Floating voter avatars — no overflow clip, so emojis rise freely */}
+              <div className="absolute bottom-16 left-0 right-0 pointer-events-none z-20" style={{ height: 0 }}>
+                {floatingVoters.map(v => (
+                  <div key={v.id} className="absolute bottom-0"
+                    style={{
+                      left: `${v.x}%`,
+                      fontSize: '3rem',
+                      filter: `drop-shadow(0 0 8px ${v.color})`,
+                      animation: 'voterFloat 4s ease-out forwards',
+                    }}>
+                    {v.emoji}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          {/* Toast notifications */}
-          <div className="absolute top-16 right-4 flex flex-col gap-2 z-20">
-            {toasts.map(t => (
-              <div key={t.id} className="rounded-xl px-4 py-2 text-sm font-bold shadow-lg text-white"
-                style={{ background: '#0F1B3D' }}>
-                {t.message}
+              {/* Toast notifications */}
+              <div className="absolute top-16 right-4 flex flex-col gap-2 z-20">
+                {toasts.map(t => (
+                  <div key={t.id} className="rounded-xl px-4 py-2 text-sm font-bold shadow-lg text-white"
+                    style={{ background: '#0F1B3D' }}>
+                    {t.message}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-
-          {/* Slide number */}
-          <div className="flex items-center gap-2 mb-5 flex-shrink-0">
-            <div className="flex gap-1">
-              {Array.from({ length: totalSlides }).map((_, i) => (
-                <div key={i} className="rounded-full transition-all"
-                  style={{
-                    width: !showIntro && i === slideIndex ? 20 : 6,
-                    height: 6,
-                    background: !showIntro && i === slideIndex ? meta.color : `${meta.color}33`,
-                  }} />
-              ))}
-            </div>
-            <span className="text-xs font-semibold ml-1" style={{ color: '#9CA3AF' }}>
-              {showIntro ? `Intro · 0 / ${totalSlides}` : `${slideIndex + 1} / ${totalSlides}`}
-            </span>
-          </div>
+            </>
+          )}
 
           {/* Slide content */}
           <div className="flex-1 flex flex-col w-full mx-auto relative min-h-0"
-            style={{ maxWidth: 'min(1600px, 92vw)', containerType: 'inline-size' }}>
+            style={{ maxWidth: 'min(1600px, 100%)', containerType: 'inline-size' }}>
             <AnimatePresence mode="wait" initial={false} custom={slideDir}>
               <motion.div
                 key={showIntro ? 'intro' : `slide-${slideIndex}`}
@@ -1734,16 +1814,33 @@ export default function PresentSessionPage() {
                 {showIntro ? (
                   <IntroSlide title={presentation?.title || 'Presentation'} gameCode={gameCode} />
                 ) : (
-                  <SlideContent slide={currentSlide} aggregate={aggregate} showResults={showResults} correctRevealed={correctRevealed} chartVariant={chartVariant} chartMetric={chartMetric}
-                    wheelResult={currentSlide?.type === 'wheel' ? wheelResult : null}
-                    wheelSpinning={currentSlide?.type === 'wheel' ? wheelSpinning : false}
-                    onWheelSpin={() => {
-                      if (!gameCode || wheelSpinning) return
-                      // Reset winner while the wheel spins.
-                      setWheelSpinning(true)
-                      socketRef.current?.emit('presenter_spin_wheel', { gameCode, slideIndex, durationMs: 5200 })
-                    }}
-                  />
+                  <SlideFrame
+                    slide={currentSlide}
+                    logoUrl={presentation?.logoUrl}
+                    media={layoutMedia}
+                    eyebrow={slideEyebrow}
+                    rail={showRail ? (
+                      <JoinRail
+                        gameCode={gameCode}
+                        responded={aggregate.total}
+                        total={participantCount}
+                        textColor={slideTextColor}
+                        accent={PRESENTATION_SEQUENCE.accent}
+                        onQrClick={() => setShowQR(true)}
+                      />
+                    ) : undefined}
+                  >
+                    <SlideContent slide={currentSlide} aggregate={aggregate} showResults={showResults} correctRevealed={correctRevealed} chartVariant={chartVariant} chartMetric={chartMetric}
+                      wheelResult={currentSlide?.type === 'wheel' ? wheelResult : null}
+                      wheelSpinning={currentSlide?.type === 'wheel' ? wheelSpinning : false}
+                      onWheelSpin={() => {
+                        if (!gameCode || wheelSpinning) return
+                        // Reset winner while the wheel spins.
+                        setWheelSpinning(true)
+                        socketRef.current?.emit('presenter_spin_wheel', { gameCode, slideIndex, durationMs: 5200 })
+                      }}
+                    />
+                  </SlideFrame>
                 )}
               </motion.div>
             </AnimatePresence>
@@ -1755,8 +1852,8 @@ export default function PresentSessionPage() {
           </div>
 
           {/* Speed waveform — pinned at bottom, tight under bars */}
-          {!showIntro && meta.hasAudienceInput && (
-            <div className="flex-shrink-0 mt-2">
+          {hypeMode && !showIntro && meta.hasAudienceInput && (
+            <div className="flex-shrink-0 mt-2 px-8 pb-4">
               <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#C4B5FD' }}>
                 Vote velocity
               </p>

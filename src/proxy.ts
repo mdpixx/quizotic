@@ -90,13 +90,16 @@ export function proxy(request: NextRequest) {
   }
 
   // Local-only design preview: lets us inspect the host runtime UI / quiz
-  // builder without going through OAuth. Never enabled in production.
-  if (
-    process.env.NODE_ENV !== 'production' &&
-    ((pathname === '/host/session' && request.nextUrl.searchParams.get('preview') === 'host-stage') ||
-     (pathname === '/host/build' && request.nextUrl.searchParams.get('preview') === 'builder'))
-  ) {
-    return NextResponse.next()
+  // builder / presentation builder without going through OAuth. Never enabled
+  // in production — the NODE_ENV guard is the whole safety story here, so it
+  // stays the first condition rather than one of several.
+  if (process.env.NODE_ENV !== 'production') {
+    const preview = request.nextUrl.searchParams.get('preview')
+    const isDesignPreview =
+      (pathname === '/host/session' && preview === 'host-stage') ||
+      (pathname === '/host/build' && preview === 'builder') ||
+      (pathname === '/host/present/create' && preview === 'builder')
+    if (isDesignPreview) return NextResponse.next()
   }
 
   // Protected routes — check for session token cookie

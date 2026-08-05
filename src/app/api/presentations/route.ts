@@ -7,6 +7,22 @@ import { getUserPlan } from '@/lib/billing'
 import { PLAN_LIMITS } from '@/lib/limits'
 import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 
+/**
+ * The logo is rendered on the projected stage AND on every participant's
+ * phone, so it is the one field here that makes third parties fetch a URL the
+ * author chose. `ImageUpload` only ever emits an R2 public URL, so accepting
+ * exactly that shape (plus a same-origin path) costs nothing and keeps the
+ * field from becoming an arbitrary outbound-request primitive.
+ */
+function isSafeLogoUrl(value: unknown): value is string {
+  if (typeof value !== 'string') return false
+  const url = value.trim()
+  if (!url) return false
+  if (url.startsWith('/')) return true // same-origin path
+  const base = process.env.R2_PUBLIC_URL
+  return !!base && url.startsWith(`${base.replace(/\/$/, '')}/`)
+}
+
 // GET /api/presentations — list presentations for current user
 export async function GET() {
   try {
@@ -44,7 +60,7 @@ export async function POST(req: NextRequest) {
     if (!rl.ok) return rateLimitResponse(rl)
 
     const body = await req.json()
-    const { id, title, theme, slides } = body
+    const { id, title, theme, slides, hypeMode, logoUrl } = body
     incomingId = typeof id === 'string' ? id : undefined
 
     if (!id || typeof id !== 'string') {
@@ -58,6 +74,13 @@ export async function POST(req: NextRequest) {
     }
 
     const cleanTheme = typeof theme === 'string' && theme.trim() ? theme.trim() : null
+    // Coerced rather than passed through: the column is NOT NULL, so an
+    // undefined from an older client must land as false, not blow up the save.
+    const cleanHypeMode = hypeMode === true
+    // Only same-origin/R2 URLs — a logo is rendered on the projected stage and
+    // on every participant's phone, so an arbitrary remote URL is a request
+    // this app makes on their behalf to a host the author chose.
+    const cleanLogoUrl = isSafeLogoUrl(logoUrl) ? logoUrl.trim() : null
 
     // Enforce slide count limit
     const plan = await getUserPlan(user.id)
@@ -90,14 +113,17 @@ export async function POST(req: NextRequest) {
       }
 
       const presentation = await prisma.presentation.create({
-        data: { id, title, theme: cleanTheme, slides, userId: user.id },
+        data: {
+          id, title, theme: cleanTheme, slides, userId: user.id,
+          hypeMode: cleanHypeMode, logoUrl: cleanLogoUrl,
+        },
       })
       return NextResponse.json({ success: true, data: presentation })
     }
 
     const presentation = await prisma.presentation.update({
       where: { id: existing.id },
-      data: { title, theme: cleanTheme, slides },
+      data: { title, theme: cleanTheme, slides, hypeMode: cleanHypeMode, logoUrl: cleanLogoUrl },
     })
 
     return NextResponse.json({ success: true, data: presentation })
