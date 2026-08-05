@@ -174,8 +174,9 @@ test('grid dots de-overlap a clustered room and animate in', async ({ page }) =>
     // flex-shrink (square became a strip), then the plot overflowed its column
     // and slid underneath the y-axis labels.
     const geom = await page.evaluate(() => {
-      const plot = document.querySelector('.qz-pin-in')?.closest('div[style*="aspect-ratio"]')
-        ?? document.querySelector('div[style*="aspect-ratio"]')
+      // Explicit hook: the dot wrappers carry `aspect-ratio` too, so matching
+      // on style selects a single dot instead of the plot.
+      const plot = document.querySelector('[data-pin-plot]')
       if (!plot) return null
       const p = plot.getBoundingClientRect()
       // 'High' and 'Low' each appear twice — once on each axis — so collect

@@ -100,10 +100,114 @@ interface PinMapProps {
   style?: React.CSSProperties
 }
 
-const DOT_PX: Record<NonNullable<PinMapProps['size']>, number> = {
-  sm: 8,
-  md: 11,
-  lg: 14,
+// Dot size is a PERCENTAGE OF THE PLOT, not a pixel literal.
+//
+// A fixed 14px dot reads fine on a 700px builder preview and disappears
+// entirely when the same slide is thrown three metres wide in a hall — which
+// is where these sessions actually run. Sizing against the plot means the dot
+// occupies the same share of the projected image at any scale.
+//
+// The px floor only matters on a participant phone, where the plot is small
+// enough that the percentage alone would round down to a speck.
+//
+// `spacing` is the relaxation target passed to relaxPins: slightly wider than
+// the dot itself, so a clustered room settles into touching-but-countable
+// rather than overlapping.
+//
+// `travel` is the cap on how far any one dot may move. It has to scale with
+// the dot too, and the two are not independent: ten dots capped at 3% can only
+// reach a ring of radius 3%, where adjacent spacing is 2·3·sin(π/10) ≈ 1.9% —
+// so raising `spacing` alone made a cluster TIGHTER, not looser, by crowding
+// every dot onto the cap circle. Sizing travel from the dot keeps the two
+// coherent, and stays honest: a dot 4.4% wide is already about as precise as a
+// finger on a phone, so moving it ~1.4 dot-widths cannot change which quadrant
+// it reads as unless the tap was on the axis to begin with.
+const DOT_SIZE: Record<NonNullable<PinMapProps['size']>, {
+  pct: number
+  floorPx: number
+  borderPx: number
+  spacing: number
+  travel: number
+}> = {
+  sm: { pct: 3.4, floorPx: 9, borderPx: 1.5, spacing: 3.9, travel: 4.6 },
+  md: { pct: 3.8, floorPx: 11, borderPx: 2, spacing: 4.4, travel: 5.3 },
+  lg: { pct: 4.4, floorPx: 14, borderPx: 2.5, spacing: 5.1, travel: 6.2 },
+}
+
+/**
+ * The dot layer on its own, absolutely positioned inside any `position:
+ * relative` plot.
+ *
+ * Exported because the host stage's `pinpoint` slide composes its own image
+ * frame rather than using <PinMap>. It previously drew its own 12px dots with
+ * no relaxation and no entry animation — two implementations of the same
+ * thing, and only one of them got fixed each time. Now there is one.
+ */
+export function PinDots({
+  pins,
+  size = 'lg',
+}: {
+  pins: Pin[]
+  size?: NonNullable<PinMapProps['size']>
+}) {
+  const dot = DOT_SIZE[size]
+  // Laid out through relaxPins so a clustered room stays countable — without
+  // it six taps in one spot render as two dots. Colour and drift both key off
+  // the ORIGINAL coordinate, so a dot keeps its identity as more responses
+  // arrive and shift the layout around it.
+  const laidOut = React.useMemo(
+    () =>
+      relaxPins(pins, { minDistance: dot.spacing, maxDisplacement: dot.travel })
+        .map((placed, i) => ({ pin: pins[i], placed })),
+    [pins, dot.spacing, dot.travel],
+  )
+
+  return (
+    <>
+      <style>{PIN_MOTION_CSS}</style>
+      {laidOut.map(({ pin, placed }, i) => {
+        const drift = driftFor(pin)
+        return (
+          <div
+            key={`${pin.x}-${pin.y}-${i}`}
+            className="absolute -translate-x-1/2 -translate-y-1/2"
+            style={{
+              left: `${placed.x}%`,
+              top: `${placed.y}%`,
+              // Percentage resolves against the plot; aspect-ratio keeps it
+              // circular without a second percentage against the other axis.
+              width: `max(${dot.floorPx}px, ${dot.pct}%)`,
+              aspectRatio: '1',
+            }}
+          >
+            <div
+              className="qz-pin-drift"
+              style={{
+                width: '100%',
+                height: '100%',
+                ['--qz-dx' as string]: `${drift.dx}px`,
+                ['--qz-dy' as string]: `${drift.dy}px`,
+                ['--qz-dur' as string]: `${drift.duration}s`,
+                ['--qz-delay' as string]: `${drift.delay}s`,
+              }}
+            >
+              <div
+                className="qz-pin-in rounded-full"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  background: pinColor(pin),
+                  border: `${dot.borderPx}px solid rgba(255,255,255,0.85)`,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
+                  ['--qz-in-delay' as string]: `${staggerDelay(i)}ms`,
+                }}
+              />
+            </div>
+          </div>
+        )
+      })}
+    </>
+  )
 }
 
 export function PinMap({
@@ -123,20 +227,12 @@ export function PinMap({
   className = '',
   style,
 }: PinMapProps) {
-  const dot = DOT_PX[size]
   const isGrid = variant === 'grid'
   const fitHeight = isGrid && fit === 'height'
 
-  // Relaxation is O(n² × passes), so memoise on the pin array rather than
-  // recomputing on every parent render (the host stage re-renders on each
-  // incoming vote).
-  const laidOut = React.useMemo(
-    () => relaxPins(pins).map((placed, i) => ({ pin: pins[i], placed })),
-    [pins],
-  )
-
   const plot = (
     <div
+      data-pin-plot
       className="relative rounded-xl overflow-hidden"
       style={{
         aspectRatio: isGrid ? '1' : '4 / 3',
@@ -175,45 +271,7 @@ export function PinMap({
         </div>
       )}
 
-      {/* Pins. Laid out through relaxPins so a clustered room stays countable —
-          without it six taps in one spot render as two dots. Colour and drift
-          both key off the ORIGINAL coordinate, so a dot keeps its identity as
-          more responses arrive and shift the layout around it. */}
-      <style>{PIN_MOTION_CSS}</style>
-      {laidOut.map(({ pin, placed }, i) => {
-        const drift = driftFor(pin)
-        return (
-          <div
-            key={`${pin.x}-${pin.y}-${i}`}
-            className="absolute -translate-x-1/2 -translate-y-1/2"
-            style={{ left: `${placed.x}%`, top: `${placed.y}%`, width: dot, height: dot }}
-          >
-            <div
-              className="qz-pin-drift"
-              style={{
-                width: '100%',
-                height: '100%',
-                ['--qz-dx' as string]: `${drift.dx}px`,
-                ['--qz-dy' as string]: `${drift.dy}px`,
-                ['--qz-dur' as string]: `${drift.duration}s`,
-                ['--qz-delay' as string]: `${drift.delay}s`,
-              }}
-            >
-              <div
-                className="qz-pin-in rounded-full"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  background: pinColor(pin),
-                  border: `${Math.max(1, Math.round(dot / 6))}px solid rgba(255,255,255,0.85)`,
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
-                  ['--qz-in-delay' as string]: `${staggerDelay(i)}ms`,
-                }}
-              />
-            </div>
-          </div>
-        )
-      })}
+      <PinDots pins={pins} size={size} />
     </div>
   )
 

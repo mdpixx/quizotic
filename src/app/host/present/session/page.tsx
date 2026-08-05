@@ -17,7 +17,7 @@ import { getVideoEmbedUrl } from '@/lib/video'
 import { PostSessionHeader } from '@/components/PostSessionHeader'
 import { PresentationSummary } from '@/components/PresentationSummary'
 import { SpinWheel } from '@/components/presentation/SpinWheel'
-import { PinMap, pinColor } from '@/components/presentation/PinMap'
+import { PinMap, PinDots } from '@/components/presentation/PinMap'
 import { SlideShell } from '@/components/presentation/SlideShell'
 import { SlideFrame, getSlideLayout } from '@/components/presentation/SlideFrame'
 import { DensityRidge } from '@/components/presentation/DensityRidge'
@@ -1035,10 +1035,10 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
                 <p className="text-sm font-semibold" style={{ color: '#64748B' }}>No background image — edit the slide to upload one</p>
               </div>
             )}
-            {showResults && pins.map((pin, i) => (
-              <div key={i} className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/60 transition-all"
-                style={{ left: `${pin.x}%`, top: `${pin.y}%`, background: pinColor(pin), opacity: 0.85 }} />
-            ))}
+            {/* Same treatment as the 2×2 grid — relaxed so a clustered spot
+                stays countable, and sized as a share of the image rather than
+                a 12px literal that vanishes on a projector. */}
+            {showResults && <PinDots pins={pins} />}
           </div>
           <div className="flex-shrink-0 text-center">
             {showResults ? (
