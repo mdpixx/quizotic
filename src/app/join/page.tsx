@@ -19,7 +19,7 @@ import { startClockSync, getServerNow, resyncClock } from '@/lib/clock-sync'
 import { startBoundaryCountdown, currentSecondsLeft, type CountdownHandle } from '@/lib/countdown'
 import { PRESENTATION_SEQUENCE } from '@/lib/sequence-theme'
 import { useI18n } from '@/lib/use-i18n'
-import { isContentSlideType, isInteractiveSlideType } from '@/lib/presentation-types'
+import { isContentSlideType, isInteractiveSlideType, getMaxSelections } from '@/lib/presentation-types'
 import { isScoredType, getEffectiveOptions } from '@/lib/quiz-types'
 import { buildDisplayOrder, invertDisplayOrder, toOriginalIndex, toDisplaySlot } from '@/lib/option-shuffle'
 import type { Question as QuizQuestion, QuestionType } from '@/lib/quiz-types'
@@ -649,11 +649,16 @@ function JoinPageInner() {
 
   // Presenter mode state
   const [presenterTitle, setPresenterTitle] = useState('')
+  const [presenterLogoUrl, setPresenterLogoUrl] = useState('')
   const [presenterSlideIndex, setPresenterSlideIndex] = useState(0)
   const [presenterTotalSlides, setPresenterTotalSlides] = useState(0)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [presenterCurrentSlide, setPresenterCurrentSlide] = useState<any>(null)
   const presenterVotedRef = useRef(false)
+  // Multi-select staging. Single-select submits on tap; a multi-select slide
+  // has to hold the picks until the participant confirms, so they can change
+  // their mind before spending their one submission.
+  const [presenterPicks, setPresenterPicks] = useState<Set<number>>(new Set())
   const [presenterResponseMode, setPresenterResponseMode] = useState<'instant' | 'on_click' | 'private'>('instant')
   const presenterResponseModeRef = useRef<'instant' | 'on_click' | 'private'>('instant')
   // When the host has "Mirror to participants" OFF (default), content slides
@@ -1490,6 +1495,8 @@ function JoinPageInner() {
       setPresenterTotalSlides(total)
       if (slide !== undefined) setPresenterCurrentSlide(slide)
       presenterVotedRef.current = false
+
+      setPresenterPicks(new Set())
       setPresenterAggregate({ total: 0 })
       setUpvotedIdeas(new Set())
       // Clear any prior wheel result when the slide changes.
@@ -1672,6 +1679,8 @@ function JoinPageInner() {
       }, (res: {
         success: boolean; error?: string;
         presentationTitle?: string;
+
+        presentationLogoUrl?: string | null;
         currentSlideIndex?: number;
         totalSlides?: number;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1684,10 +1693,14 @@ function JoinPageInner() {
           return
         }
         setPresenterTitle(res.presentationTitle ?? '')
+
+        setPresenterLogoUrl(res.presentationLogoUrl ?? '')
         setPresenterSlideIndex(res.currentSlideIndex ?? 0)
         setPresenterTotalSlides(res.totalSlides ?? 0)
         setPresenterCurrentSlide(res.currentSlide ?? null)
         presenterVotedRef.current = false
+
+        setPresenterPicks(new Set())
         setPresenterAggregate({ total: 0 })
         setPresenterResponseMode((res.responseMode as 'instant' | 'on_click' | 'private') || 'instant')
         const slideType = res.currentSlide?.type
@@ -1726,7 +1739,7 @@ function JoinPageInner() {
       displayName: trimmedName,
       email: email.trim() || undefined,
       participantId: participantIdRef.current || undefined,
-    }, (res: { success: boolean; error?: string; status?: string; quizTitle?: string; archetype?: string; sessionMode?: 'competitive' | 'reflection' | 'accuracy'; anonymousMode?: boolean; team?: { index: number; name: string; color: string } | null; presentationTitle?: string; currentSlideIndex?: number; totalSlides?: number; currentSlide?: unknown; responseMode?: string; participantId?: string; displayMode?: 'full-device' | 'shared-screen' }) => {
+    }, (res: { success: boolean; error?: string; status?: string; quizTitle?: string; archetype?: string; sessionMode?: 'competitive' | 'reflection' | 'accuracy'; anonymousMode?: boolean; team?: { index: number; name: string; color: string } | null; presentationTitle?: string; presentationLogoUrl?: string | null; currentSlideIndex?: number; totalSlides?: number; currentSlide?: unknown; responseMode?: string; participantId?: string; displayMode?: 'full-device' | 'shared-screen' }) => {
       if (settled) return
       settled = true
       clearTimeout(timeoutId)
@@ -1755,11 +1768,15 @@ function JoinPageInner() {
 
       if (joinEvent === 'join_presenter_session') {
         setPresenterTitle(res.presentationTitle ?? '')
+
+        setPresenterLogoUrl(res.presentationLogoUrl ?? '')
         setPresenterSlideIndex(res.currentSlideIndex ?? 0)
         setPresenterTotalSlides(res.totalSlides ?? 0)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setPresenterCurrentSlide((res.currentSlide as any) ?? null)
         presenterVotedRef.current = false
+
+        setPresenterPicks(new Set())
         setPresenterAggregate({ total: 0 })
         setPresenterResponseMode((res.responseMode as 'instant' | 'on_click' | 'private') || 'instant')
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -3755,6 +3772,19 @@ function JoinPageInner() {
       })
     }
 
+    // Shared with the host renderer so the cap the participant sees is the cap
+    // the server enforces — clamped to the option count either way.
+    const presenterMaxSelections = getMaxSelections(slide as { options?: string[]; maxSelections?: number })
+
+    function togglePresenterPick(index: number) {
+      setPresenterPicks(prev => {
+        const next = new Set(prev)
+        if (next.has(index)) next.delete(index)
+        else if (next.size < presenterMaxSelections) next.add(index)
+        return next
+      })
+    }
+
     const OPTION_COLORS_P = ['#2D3A8C','#FF8A47','#5BC0EB','#E07A5F','#0F1B3D']
 
     return (
@@ -3763,6 +3793,18 @@ function JoinPageInner() {
         <div className="text-[11px] font-semibold opacity-50 tracking-[0.15em] uppercase" style={{ color: textLight }}>
           Slide {presenterSlideIndex + 1} / {presenterTotalSlides}
         </div>
+
+        {/* Host's logo. A plain <img> on purpose: the participant page has a
+            <100KB budget and this is decoration, so it must cost no JS. */}
+        {presenterLogoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={presenterLogoUrl}
+            alt=""
+            className="object-contain object-left"
+            style={{ height: 30, maxWidth: '60%' }}
+          />
+        ) : null}
 
         {/* Question */}
         <h2 className="font-display text-2xl md:text-3xl font-black leading-snug" style={{ color: textLight }}>
@@ -3806,18 +3848,54 @@ function JoinPageInner() {
                   </div>
                 </div>
               )}
-              {(slide.options as string[]).map((opt: string, i: number) => (
-                <button key={i} onClick={() => submitVote(i)}
-                  disabled={slide.type === 'quick_fire' && quickFireLeft === 0}
-                  className="w-full py-5 rounded-2xl text-left px-6 text-xl font-bold transition-all active:scale-[0.98]"
-                  style={{ background: OPTION_COLORS_P[i % OPTION_COLORS_P.length], color: '#fff', opacity: slide.type === 'quick_fire' && quickFireLeft === 0 ? 0.5 : 1 }}>
-                  <span className="w-9 h-9 rounded-lg inline-flex items-center justify-center text-lg mr-3 font-black"
-                    style={{ background: 'rgba(255,255,255,0.2)' }}>
-                    {ANSWER_LETTERS[i % ANSWER_LETTERS.length]}
-                  </span>
-                  {opt || `Option ${i+1}`}
+              {presenterMaxSelections > 1 && (
+                <p className="text-sm font-semibold -mt-1 mb-1" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                  {presenterPicks.size === 0
+                    ? `Choose up to ${presenterMaxSelections}`
+                    : `${presenterMaxSelections - presenterPicks.size} ${presenterMaxSelections - presenterPicks.size === 1 ? 'choice' : 'choices'} left`}
+                </p>
+              )}
+              {(slide.options as string[]).map((opt: string, i: number) => {
+                const multi = presenterMaxSelections > 1
+                const picked = presenterPicks.has(i)
+                // At the limit, unpicked options stop responding — the cap is
+                // easier to understand as "that one is unavailable" than as a
+                // tap that silently does nothing.
+                const atLimit = multi && !picked && presenterPicks.size >= presenterMaxSelections
+                const disabled = (slide.type === 'quick_fire' && quickFireLeft === 0) || atLimit
+                return (
+                  <button key={i}
+                    onClick={() => (multi ? togglePresenterPick(i) : submitVote(i))}
+                    disabled={disabled}
+                    aria-pressed={multi ? picked : undefined}
+                    className="w-full py-5 rounded-2xl text-left px-6 text-xl font-bold transition-all active:scale-[0.98]"
+                    style={{
+                      background: OPTION_COLORS_P[i % OPTION_COLORS_P.length],
+                      color: '#fff',
+                      opacity: disabled ? 0.4 : 1,
+                      outline: picked ? '3px solid #FBD13B' : 'none',
+                      outlineOffset: picked ? '2px' : 0,
+                    }}>
+                    <span className="w-9 h-9 rounded-lg inline-flex items-center justify-center text-lg mr-3 font-black"
+                      style={{ background: picked ? '#FBD13B' : 'rgba(255,255,255,0.2)', color: picked ? '#0D0D0D' : '#fff' }}>
+                      {picked ? '✓' : ANSWER_LETTERS[i % ANSWER_LETTERS.length]}
+                    </span>
+                    {opt || `Option ${i+1}`}
+                  </button>
+                )
+              })}
+              {presenterMaxSelections > 1 && (
+                <button
+                  onClick={() => submitVote([...presenterPicks])}
+                  disabled={presenterPicks.size === 0}
+                  className="w-full py-4 rounded-2xl text-lg font-black transition-all active:scale-[0.98] mt-1"
+                  style={{
+                    background: presenterPicks.size === 0 ? 'rgba(255,255,255,0.12)' : '#FBD13B',
+                    color: presenterPicks.size === 0 ? 'rgba(255,255,255,0.4)' : '#0D0D0D',
+                  }}>
+                  Submit
                 </button>
-              ))}
+              )}
             </>
           )}
 
@@ -4295,6 +4373,18 @@ function JoinPageInner() {
         <div className="text-[11px] font-semibold opacity-50 tracking-[0.15em] uppercase" style={{ color: textLight }}>
           Slide {presenterSlideIndex + 1} / {presenterTotalSlides}
         </div>
+
+        {/* Host's logo. A plain <img> on purpose: the participant page has a
+            <100KB budget and this is decoration, so it must cost no JS. */}
+        {presenterLogoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={presenterLogoUrl}
+            alt=""
+            className="object-contain object-left"
+            style={{ height: 30, maxWidth: '60%' }}
+          />
+        ) : null}
 
         {/* Question */}
         <h2 className="text-xl md:text-2xl font-black leading-snug" style={{ color: textLight }}>

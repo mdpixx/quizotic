@@ -112,6 +112,7 @@ export function SlideFrame({
     )
     inner = (
       <div
+        data-slide-layout={layout}
         style={{
           display: 'grid',
           gridTemplateColumns: GRID_BY_LAYOUT[layout],
@@ -143,6 +144,7 @@ export function SlideFrame({
               allowlist entry per storage host. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
+            data-deck-logo
             src={logoUrl}
             alt=""
             style={{
