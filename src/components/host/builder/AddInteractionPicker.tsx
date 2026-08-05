@@ -31,6 +31,9 @@ export function AddInteractionPicker({ onAdd, onGenerateAI, onClose }: AddIntera
       {/* Panel — wider to fit the larger illustrated cards */}
       <div
         className="fixed z-50 rounded-[20px] border bg-white overflow-y-auto"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-interaction-title"
         style={{
           top: '50%',
           left: '50%',
@@ -45,11 +48,12 @@ export function AddInteractionPicker({ onAdd, onGenerateAI, onClose }: AddIntera
         <div className="sticky top-0 bg-white z-10 flex items-center justify-between px-5 pt-5 pb-4 border-b" style={{ borderColor: '#F3F4F6' }}>
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.16em]" style={{ color: '#7C3AED' }}>Add interaction</p>
-            <h2 className="text-lg font-black mt-0.5" style={{ color: '#0F1B3D' }}>What type do you want?</h2>
+            <h2 id="add-interaction-title" className="text-lg font-black mt-0.5" style={{ color: '#0F1B3D' }}>What type do you want?</h2>
           </div>
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close interaction picker"
             className="w-8 h-8 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors text-xl leading-none"
           >
             &times;
@@ -94,10 +98,21 @@ export function AddInteractionPicker({ onAdd, onGenerateAI, onClose }: AddIntera
                     >
                       {/* Illustration */}
                       <div
+                        data-slot="interaction-preview"
                         className="w-full flex items-center justify-center overflow-hidden"
-                        style={{ background: p.bg, height: 108 }}
+                        style={{ background: p.bg, height: 108, padding: '12px 14px' }}
                       >
-                        {getTypeIllustration(type)}
+                        <div
+                          data-slot="interaction-preview-surface"
+                          className="w-full h-full rounded-[10px] overflow-hidden p-2 [&>svg]:w-full [&>svg]:h-full"
+                          style={{
+                            background: 'rgba(255,255,255,0.78)',
+                            border: '1px solid rgba(203,211,225,0.78)',
+                            boxShadow: '0 3px 10px rgba(15,27,61,0.045)',
+                          }}
+                        >
+                          {getTypeIllustration(type)}
+                        </div>
                       </div>
                       {/* Label + description — neutral title; the accent lives in
                           the icon and illustration */}
