@@ -58,6 +58,10 @@ const CRITICAL_COLUMNS = [
   { table: 'User', column: 'apiKey', type: 'TEXT' },
   { table: 'GameSession', column: 'mode', type: `TEXT NOT NULL DEFAULT 'live'` },
   { table: 'Attendee', column: 'deadlineAt', type: 'TIMESTAMP(3)' },
+  // Calm presentation stage. The builder's save path writes both on every
+  // presentation save, so a missing column 500s the whole save flow.
+  { table: 'Presentation', column: 'hypeMode', type: 'BOOLEAN NOT NULL DEFAULT false' },
+  { table: 'Presentation', column: 'logoUrl', type: 'TEXT' },
 ]
 
 // Tables introduced in Sessions 1, 3, 4, 5, 6, 7-8. Each block is a single

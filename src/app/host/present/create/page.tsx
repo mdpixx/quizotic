@@ -15,6 +15,7 @@ import { ImageUpload } from '@/components/ImageUpload'
 import { SlideBgPicker } from '@/components/SlideBgPicker'
 import { SlideImage } from '@/components/SlideImage'
 import { SpinWheel } from '@/components/presentation/SpinWheel'
+import { RESULT_COLORS as CALM_HEX } from '@/lib/answer-colors'
 import { draftKey, readDraft, writeDraft, clearDraft, formatDraftAge } from '@/lib/draft-storage'
 import { useAutosave } from '@/lib/use-autosave'
 import { resolveHostBackNavigation } from '@/lib/host-navigation'
@@ -222,7 +223,9 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
       case 'multiple_choice':
       case 'quick_fire': {
         const opts = (slide as { options: string[] }).options
-        const barColors = ['#3B82F6', '#F59E0B', '#EF4444', '#10B981', '#8B5CF6', '#EC4899']
+        // Same calm result palette the projected stage uses — the preview was
+        // running a third palette that matched neither.
+        const barColors = CALM_HEX
         return (
           <div className="w-full flex flex-col gap-1 h-full">
             <div className="w-full flex items-end gap-2 flex-1 min-h-0">
@@ -618,7 +621,7 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
     : { background: gradient, containerType: 'inline-size' }
 
   return (
-    <div className={cardClassName} style={cardStyle}>
+    <div className={cardClassName} style={cardStyle} data-slide-preview data-slide-type={slide.type}>
 
       {/* Full-bleed image path — renders at the image's natural aspect so
           portrait PPTX pages (multi-paragraph FAQ layouts) never crop. The
@@ -627,14 +630,58 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
         <img src={fullBleedSrc} alt={(slide as { caption?: string }).caption || ''}
           className="block w-full h-auto max-h-[82vh] object-contain" loading="eager" />
       )}
+      {/* Reserved join rail. The live stage gives interactive slides a right
+          column for the QR, code and response progress, so the content area is
+          ~25% narrower than the frame. Without mirroring that here an author
+          lays a slide out against a width the room never sees. Static on
+          purpose — there is no session yet, so a real code would be a lie. */}
+      {!fullBleedSrc && meta.hasAudienceInput && slide.type !== 'title' && (
+        <div
+          data-preview-rail
+          className="absolute top-0 bottom-0 flex flex-col gap-[1.1cqw] justify-start pointer-events-none"
+          style={{
+            right: 0,
+            width: 'clamp(48px, 25cqw, 190px)',
+            paddingRight: '1.5cqw',
+            paddingTop: '3.4cqw',
+            paddingBottom: '3cqw',
+            paddingLeft: '1.6cqw',
+            borderLeft: `1px solid ${textColor}1F`,
+          }}
+        >
+          <div style={{ width: '100%', aspectRatio: '1', background: '#fff', borderRadius: '0.6cqw', padding: '0.4cqw' }}>
+            <QRCode value="https://quizotic.live/join" size={128} level="L" style={{ width: '100%', height: '100%' }} />
+          </div>
+          <div style={{ color: textColor, opacity: 0.6, fontSize: 'clamp(5px, 1.25cqw, 11px)', fontWeight: 500 }}>
+            quizotic.live/join
+          </div>
+          <div style={{
+            color: textColor, fontSize: 'clamp(9px, 3.4cqw, 30px)', fontWeight: 700,
+            fontVariantNumeric: 'tabular-nums', letterSpacing: '0.06em', lineHeight: 1,
+          }}>
+            — — —
+          </div>
+        </div>
+      )}
+
       {!fullBleedSrc && (
-        <div className={`absolute inset-0 flex flex-col px-6${slide.type === 'title' ? ' justify-center items-center text-center gap-3' : ' py-5'}`}>
+        <div
+          className={`absolute inset-0 flex flex-col px-6${slide.type === 'title' ? ' justify-center items-center text-center gap-3' : ' py-5'}`}
+          style={meta.hasAudienceInput && slide.type !== 'title'
+            ? { paddingRight: 'calc(clamp(48px, 25cqw, 190px) + 1.5cqw)' }
+            : undefined}
+        >
           {slide.type !== 'quote' && (
             <p
-              className={`font-bold flex-shrink-0 break-words w-full${slide.type === 'title' ? ' text-center' : ' text-left pr-24'}`}
+              className={`flex-shrink-0 break-words w-full${slide.type === 'title' ? ' text-center' : ' text-left'}`}
               style={{
                 color: textColor,
                 fontFamily: 'var(--font-heading)',
+                // Matches the projected stage's calm scale (SlideShell) rather
+                // than the old weight-700 preview treatment — an author should
+                // be looking at the weight the room will see.
+                fontWeight: slide.type === 'title' ? 600 : 500,
+                letterSpacing: '-0.015em',
                 fontSize: slide.type === 'title'
                   ? 'clamp(20px, 5cqw, 44px)'
                   : 'clamp(16px, 3.4cqw, 26px)',
@@ -693,8 +740,15 @@ function SlidePreview({ slide, plan }: { slide: Slide; plan?: 'free' | 'pro' }) 
       {/* Type badge — hidden on full-bleed image slides so it doesn't cover
           the page header/logo that the PPTX rendered into the image. */}
       {!fullBleedSrc && (
-        <div className="absolute top-3 right-3 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider"
-          style={{ background: meta.bg, color: meta.color }}>
+        <div className="absolute top-3 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider"
+          style={{
+            background: meta.bg,
+            color: meta.color,
+            // Sits clear of the reserved rail rather than on top of its QR.
+            right: meta.hasAudienceInput && slide.type !== 'title'
+              ? 'calc(clamp(48px, 25cqw, 190px) + 0.75rem)'
+              : '0.75rem',
+          }}>
           {meta.label}
         </div>
       )}

@@ -44,6 +44,28 @@ export function colorForIndex(i: number): AnswerColor {
   return ANSWER_COLORS[i % ANSWER_COLORS.length]
 }
 
+// Calm result palette — the same six hues as ANSWER_COLORS at roughly 65%
+// saturation.
+//
+// The distinction is deliberate: an answer TILE has to be matched by eye
+// between a phone and a projector, so those stay saturated. A result BAR is
+// the largest block of colour on a projected slide, and at tile saturation it
+// is the single loudest thing in the room. Presentation result visuals use
+// this set; never use it for a tile, and never use ANSWER_COLORS for a
+// presentation result.
+export const RESULT_COLORS = [
+  '#DD6B7B', // A — dusty rose
+  '#5B8FE0', // B — soft blue
+  '#D99B4E', // C — warm ochre
+  '#4FA97E', // D — sage
+  '#9080D6', // E — muted violet
+  '#C77BC4', // F — orchid
+] as const
+
+export function resultColorForIndex(i: number): string {
+  return RESULT_COLORS[i % RESULT_COLORS.length]
+}
+
 /**
  * Inline style for a "glowy" answer tile: a vibrant gradient fill plus a soft
  * colored outer glow and a faint top sheen. Use everywhere we render A/B/C/D/E

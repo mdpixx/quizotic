@@ -17,6 +17,7 @@ import React from 'react'
 import type { Slide } from '@/lib/presentation-types'
 import { getSlideTextColor } from '@/lib/presentation-types'
 import { SlideImageFrame } from '@/components/SlideImageFrame'
+import { getSlideLayout } from '@/components/presentation/SlideFrame'
 
 interface SlideShellProps {
   /** The slide being rendered. Used only to resolve text color + content image. */
@@ -55,13 +56,24 @@ export function SlideShell({
   className = '',
 }: SlideShellProps) {
   const textColor = getSlideTextColor(slide)
+  // Calm scale: weight 500, not 900. The heavy weight was the single loudest
+  // thing on the stage — a projected question does not need to shout to be
+  // read, and at 900 it competed with the result underneath it. The 28ch
+  // measure makes a long question wrap to two lines instead of running the
+  // full width of a 16:9 frame, which is what actually hurts legibility.
   const headingStyle: React.CSSProperties = {
     fontFamily: 'var(--font-heading)',
     color: textColor,
-    fontWeight: 900,
+    fontWeight: 500,
+    letterSpacing: '-0.015em',
+    lineHeight: 1.15,
+    maxWidth: '28ch',
   }
   const text = heading ?? resolveHeading(slide)
-  const contentImageUrl = !hideContentImage
+  // On any layout but `centre`, SlideFrame renders the image in its own column;
+  // rendering it here too would show it twice.
+  const layoutOwnsImage = getSlideLayout(slide as Slide & { layout?: never }) !== 'centre'
+  const contentImageUrl = !hideContentImage && !layoutOwnsImage
     ? (slide as Slide & { contentImageUrl?: string }).contentImageUrl
     : undefined
 
@@ -69,8 +81,8 @@ export function SlideShell({
     <div className={`flex flex-col h-full min-h-0 gap-4 ${className}`}>
       {text || headingPlaceholder ? (
         <h2
-          className="leading-tight flex-shrink-0 break-words"
-          style={{ ...headingStyle, fontSize: 'clamp(20px, 3cqw, 40px)' }}
+          className="flex-shrink-0 break-words"
+          style={{ ...headingStyle, fontSize: 'clamp(18px, 3.4cqw, 46px)' }}
         >
           {text || <span className="opacity-30">{headingPlaceholder}</span>}
         </h2>

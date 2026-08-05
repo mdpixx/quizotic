@@ -1,0 +1,1202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Quizotic · Calm Presentation Stage (Phase 0 mockup)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOTION TOKENS — this block ports verbatim to src/lib/motion.ts
+   Rule: entrances use --ease-out · value changes use --ease-spring
+         exits use --ease-calm at 60% duration
+   ═════════════════════════════════════════════════════════════════════════ */
+:root {
+  --dur-instant: 120ms;  --dur-quick: 200ms;  --dur-base: 320ms;
+  --dur-slow: 520ms;     --dur-entrance: 680ms;
+  --ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-calm:   cubic-bezier(0.40, 0, 0.20, 1);
+  --ease-inout:  cubic-bezier(0.65, 0, 0.35, 1);
+  --stagger-tight: 40ms; --stagger-base: 70ms; --stagger-loose: 110ms;
+
+  /* Brand */
+  --ink: #0F1B3D;  --muted: #6B7794;  --hair: rgba(15,27,61,.10);
+  --paper: #FAF8F2; --accent: #FBD13B;
+
+  /* CALM result palette — same hue identity as ANSWER_COLORS, ~65% saturation.
+     The saturated jewel tones are what make the current stage feel loud. */
+  --c-a: #DD6B7B;  --c-b: #5B8FE0;  --c-c: #D99B4E;
+  --c-d: #4FA97E;  --c-e: #9080D6;  --c-f: #C77BC4;
+
+  /* LOUD palette — today's ANSWER_COLORS, for the A/B comparisons */
+  --l-a: #F23A5C;  --l-b: #2D7FF9;  --l-c: #D9760F;
+  --l-d: #119B57;  --l-e: #8B5CF6;  --l-f: #C026D3;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: Poppins, system-ui, sans-serif;
+  background: #EEEBE3; color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  padding: 32px 24px 120px;
+}
+.wrap { max-width: 1240px; margin: 0 auto; }
+
+/* ── Page chrome ─────────────────────────────────────────────────────────── */
+header.page { margin-bottom: 36px; }
+header.page h1 { font-size: 30px; font-weight: 600; letter-spacing: -.02em; }
+header.page p { color: var(--muted); font-size: 15px; margin-top: 8px; max-width: 78ch; line-height: 1.55; }
+.eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+
+section { margin-bottom: 56px; }
+section > h2 { font-size: 20px; font-weight: 600; letter-spacing: -.01em; margin: 6px 0 4px; }
+section > .note { color: var(--muted); font-size: 14px; line-height: 1.6; max-width: 82ch; margin-bottom: 18px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.grid2x2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 980px) { .grid2, .grid2x2 { grid-template-columns: 1fr; } }
+
+.caption { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.tag { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; }
+.tag.now  { background: #FDE8EC; color: #B01539; }
+.tag.calm { background: #E3F0EA; color: #0A6E3D; }
+
+.controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+button.ctl {
+  font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  padding: 8px 15px; border-radius: 9px; border: 1px solid var(--hair);
+  background: #fff; color: var(--ink);
+  transition: background var(--dur-quick) var(--ease-calm), border-color var(--dur-quick) var(--ease-calm);
+}
+button.ctl:hover { background: #F6F4EE; }
+button.ctl[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+.hint { font-size: 12px; color: var(--muted); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE STAGE — 16:9, container-query sized.
+
+   IMPORTANT PORTABILITY NOTE (discovered while building this mockup):
+   the real stage uses `container-type: inline-size`, under which `cqh` does
+   NOT resolve. So every vertical size below is expressed in `cqw` as well.
+   Conversion on a 16:9 frame: 1cqh = 0.5625cqw.
+   ═════════════════════════════════════════════════════════════════════════ */
+.stage {
+  container-type: inline-size;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  background: #fff;
+  border: 1px solid var(--hair);
+  box-shadow: 0 12px 34px rgba(15,27,61,.09);
+}
+
+/* Inner padding — calm gets real breathing room, loud keeps today's flat p-8 */
+.pad-calm { padding: 3.4cqw 7cqw 3cqw; height: 100%; display: flex; flex-direction: column; }
+.pad-loud { padding: 2.2cqw; height: 100%; display: flex; flex-direction: column; }
+
+/* ── Typography ──────────────────────────────────────────────────────────── */
+.q-calm {
+  font-size: clamp(18px, 3.4cqw, 46px);
+  font-weight: 500; letter-spacing: -.015em; line-height: 1.15;
+  max-width: 28ch; color: var(--ink);
+}
+.q-loud {
+  font-size: clamp(16px, 3cqw, 40px);
+  font-weight: 900; letter-spacing: 0; line-height: 1.1; color: var(--ink);
+}
+.lbl-calm { font-size: clamp(10px, 1.5cqw, 20px); font-weight: 500; color: var(--ink); }
+.lbl-loud { font-size: clamp(10px, 1.5cqw, 20px); font-weight: 600; color: var(--ink); }
+.num { font-weight: 700; font-variant-numeric: tabular-nums; }
+.num-loud { font-weight: 900; font-variant-numeric: tabular-nums; }
+
+.body { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
+
+/* ── Join rail ───────────────────────────────────────────────────────────── */
+/* Rail is wider and the QR fills its full width — a rail that reserves space
+   and then leaves it blank is worse than no rail. Identity (QR + code) sits at
+   the top; response progress is pinned to the bottom so the column reads as
+   "how to join" over "how many have", with no dead middle. */
+.railed { display: grid; grid-template-columns: minmax(0,1fr) clamp(140px, 25cqw, 360px); gap: 3.4cqw; height: 100%; }
+.rail {
+  border-left: 1px solid var(--hair);
+  padding-left: 2.2cqw;
+  display: flex; flex-direction: column; align-items: stretch; gap: 1.1cqw;
+  height: 100%;
+}
+.rail .qr { width: 100%; aspect-ratio: 1; }
+.rail .qr svg { width: 100%; height: 100%; display: block; }
+.rail .url { font-size: clamp(8px, 1.25cqw, 17px); font-weight: 500; color: var(--muted); }
+.rail .code {
+  font-size: clamp(16px, 3.4cqw, 52px); font-weight: 700;
+  font-variant-numeric: tabular-nums; letter-spacing: .06em; line-height: 1;
+}
+
+/* Response progress — pinned to the bottom of the rail */
+.prog { width: 100%; margin-top: auto; }
+.prog .lab { font-size: clamp(8px, 1.15cqw, 15px); font-weight: 500; color: var(--muted); margin-bottom: .7cqw; }
+.prog .lab strong { font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.prog .track { height: 3px; border-radius: 999px; background: rgba(15,27,61,.09); overflow: hidden; }
+.prog .fill {
+  height: 100%; border-radius: 999px; background: var(--ink); width: 0%;
+  transition: width var(--dur-base) var(--ease-out), background-color var(--dur-slow) var(--ease-calm);
+}
+.prog.done .fill { background: var(--accent); }
+.prog.done .lab strong { color: var(--ink); }
+
+/* Today's corner pills, for the A/B */
+.pills { position: absolute; top: 1.4cqw; right: 1.4cqw; display: flex; gap: .7cqw; align-items: center; z-index: 5; }
+.pill { background: rgba(15,27,61,.85); color: #fff; border-radius: 999px; padding: .5cqw 1.1cqw; font-size: clamp(7px,1.05cqw,13px); font-weight: 800; display: flex; gap: .4cqw; align-items: center; }
+.pill span { font-weight: 400; opacity: .6; }
+.pill-qr { background: #fff; border: 1px solid #E5E7EB; border-radius: 10px; padding: .5cqw; display: flex; gap: .6cqw; align-items: center; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+.pill-qr .mini { width: clamp(22px, 3.2cqw, 44px); aspect-ratio: 1; }
+.pill-qr .mini svg { width: 100%; height: 100%; display: block; }
+.pill-qr .txt { line-height: 1.05; }
+.pill-qr .k { font-size: clamp(5px,.75cqw,9px); font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #9CA3AF; }
+.pill-qr .v { font-size: clamp(9px,1.3cqw,17px); font-weight: 900; letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+
+/* ── Bars ────────────────────────────────────────────────────────────────── */
+.bars { display: flex; flex-direction: column; gap: 1.5cqw; width: 100%; }
+.bar-row .head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: .6cqw; }
+.bar-track { height: 2.6cqw; min-height: 8px; border-radius: 999px; background: rgba(15,27,61,.055); overflow: hidden; position: relative; }
+.bar-fill { height: 100%; border-radius: 999px; width: 0%; transition: width var(--dur-slow) var(--ease-spring); }
+.bar-fill.loud { background-image: linear-gradient(90deg, var(--bc), color-mix(in srgb, var(--bc) 80%, transparent)); }
+.bar-fill.calm { background: var(--bc); }
+/* today's ripple flash — dropped in the calm direction */
+@keyframes poll-ripple { from { opacity: 1 } to { opacity: 0 } }
+.ripple { position: absolute; inset: 0; border-radius: 999px; animation: poll-ripple .6s ease-out both; }
+.pct { font-size: clamp(8px,1.1cqw,14px); font-weight: 400; opacity: .55; }
+
+/* ── Dot view ────────────────────────────────────────────────────────────── */
+.dotcols { display: grid; gap: 2cqw; width: 100%; height: 100%; align-items: end; }
+.dotcol { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 1cqw; height: 100%; }
+/* Pack claims the full column height so dots stack into real space instead of
+   floating in a short band with a void above them. */
+.dotpack { position: relative; width: 100%; flex: 1; min-height: 46px; }
+.dotpack i {
+  position: absolute; display: block; border-radius: 50%;
+  width: 1.5cqw; height: 1.5cqw; min-width: 5px; min-height: 5px;
+  transform: scale(0); opacity: 0;
+  animation: dot-in var(--dur-quick) var(--ease-out) forwards;
+}
+@keyframes dot-in { to { transform: scale(1); opacity: .92 } }
+.dotcol .cap { font-size: clamp(8px,1.35cqw,18px); font-weight: 500; text-align: center; line-height: 1.2; }
+.dotcol .cnt { font-size: clamp(10px,1.9cqw,26px); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ── Alive dots (PinMap) ─────────────────────────────────────────────────── */
+.pinmap { position: relative; aspect-ratio: 1; height: 100%; margin: 0 auto; border-radius: 10px; overflow: hidden; border: 1.5px solid rgba(15,27,61,.14); background: rgba(255,255,255,.6); }
+/* Axis labels — they cost real space, so the layout has to be judged with them */
+.axwrap { display: flex; height: 100%; gap: .8cqw; justify-content: center; }
+.ylab { display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: .3cqw 0 2.4cqw; }
+.ylab span, .xlab span { font-size: clamp(7px, 1.05cqw, 14px); font-weight: 600; color: var(--muted); }
+.ylab .rot { writing-mode: vertical-rl; transform: rotate(180deg); }
+.xlab { display: flex; justify-content: space-between; margin-top: .6cqw; }
+.pinmap .quads { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.pinmap .quads div:nth-child(1) { background: rgba(91,143,224,.055) }
+.pinmap .quads div:nth-child(2) { background: rgba(221,107,123,.055) }
+.pinmap .quads div:nth-child(3) { background: rgba(79,169,126,.055) }
+.pinmap .quads div:nth-child(4) { background: rgba(217,155,78,.055) }
+.pinmap .ax { position: absolute; background: rgba(15,27,61,.16); }
+.pinmap .ax.v { left: 50%; top: 0; bottom: 0; width: 1.5px; transform: translateX(-50%); }
+.pinmap .ax.h { top: 50%; left: 0; right: 0; height: 1.5px; transform: translateY(-50%); }
+
+/* three nested layers so position / drift / entry never fight over transform */
+.pin      { position: absolute; transform: translate(-50%, -50%); }
+.pin-drift{ animation: drift var(--dd, 3s) var(--ease-inout) var(--ddly, 0s) infinite; }
+.pin-in   { display: block; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.9);
+            box-shadow: 0 1px 3px rgba(0,0,0,.18); opacity: 0; transform: scale(0);
+            animation: pin-in var(--dur-base) var(--ease-spring) var(--pdly, 0s) forwards; }
+@keyframes pin-in { 0% { opacity:0; transform: scale(0) } 60% { opacity:1; transform: scale(1.15) } 100% { opacity:.92; transform: scale(1) } }
+@keyframes drift {
+  0%   { transform: translate(0,0) }
+  25%  { transform: translate(var(--dx), var(--dy)) }
+  50%  { transform: translate(calc(var(--dx) * -0.6), calc(var(--dy) * 0.8)) }
+  75%  { transform: translate(calc(var(--dx) * 0.4), calc(var(--dy) * -0.7)) }
+  100% { transform: translate(0,0) }
+}
+.static-mode .pin-drift { animation: none; }
+.static-mode .pin-in { animation: none; opacity: .92; transform: scale(1); }
+
+/* ── Word cloud ──────────────────────────────────────────────────────────── */
+.cloud { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0 3cqw; row-gap: .8cqw; width: 100%; height: 100%; align-content: center; }
+.cloud b {
+  font-weight: 800; line-height: 1; display: inline-block;
+  transition: font-size var(--dur-slow) var(--ease-calm), color var(--dur-slow) var(--ease-calm);
+  will-change: transform;
+}
+.cloud b.enter { animation: word-in var(--dur-base) var(--ease-out) both; }
+@keyframes word-in { from { opacity: 0; transform: scale(.7) } to { opacity: 1; transform: scale(1) } }
+
+/* ── Density ridge ───────────────────────────────────────────────────────── */
+.ridge { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; gap: 1.2cqw; }
+/* The curve takes the height it is given rather than sitting in a fixed band.
+   preserveAspectRatio="none" stretches the path to fill — which is what we
+   want for the ridge, but it also deforms anything else drawn in the same
+   viewBox. The mean handle therefore lives OUTSIDE the svg as an HTML pill,
+   so it stays a circle at any frame height. */
+.ridge-plot { position: relative; flex: 1; min-height: 0; }
+.ridge-plot svg { width: 100%; height: 100%; display: block; }
+.ridge .ends { display: flex; justify-content: space-between; }
+.ridge .ends span { font-size: clamp(8px,1.35cqw,18px); font-weight: 500; color: var(--muted); }
+.ridge .meta { text-align: center; font-size: clamp(8px,1.15cqw,15px); color: var(--muted); font-weight: 500; }
+.mean-pill {
+  position: absolute; bottom: 0; left: 0;
+  transform: translate(-50%, 50%);
+  display: flex; align-items: center; justify-content: center;
+  width: clamp(24px, 3.4cqw, 46px); aspect-ratio: 1; border-radius: 50%;
+  background: #5B8FE0; color: #fff; font-weight: 700;
+  font-size: clamp(9px, 1.3cqw, 17px); font-variant-numeric: tabular-nums;
+  transition: left var(--dur-slow) var(--ease-spring), opacity var(--dur-base) var(--ease-calm);
+  opacity: 0; pointer-events: none;
+}
+
+/* ── Hype-mode chrome (all of this is OFF by default in the calm direction) ─ */
+.hype-only { display: none; }
+.hype .hype-only { display: block; }
+@keyframes voterFloat { 0% { transform: translateY(0) scale(.6); opacity: 0 } 15% { opacity: 1; transform: translateY(-10%) scale(1) } 100% { transform: translateY(-260%) scale(1.1); opacity: 0 } }
+.voter { position: absolute; bottom: 12%; font-size: 3.4cqw; animation: voterFloat 4s ease-out forwards; pointer-events: none; }
+.wave { display: flex; align-items: flex-end; gap: 1.5px; height: 3cqw; margin-top: 1cqw; }
+.wave i { flex: 1; border-radius: 2px; background: rgba(124,58,237,.55); transition: height var(--dur-base) var(--ease-calm); }
+.wave-lab { font-size: clamp(6px,.9cqw,11px); font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #A78BFA; margin-top: .6cqw; }
+.toast { position: absolute; top: 8cqw; right: 1.4cqw; background: var(--ink); color: #fff; border-radius: 8px; padding: .7cqw 1.2cqw; font-size: clamp(7px,1cqw,13px); font-weight: 700; z-index: 6; }
+.milestone { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 7; pointer-events: none; }
+.milestone div { background: var(--ink); color: #fff; border-radius: 18px; padding: 2cqw 3.5cqw; font-size: 3.2cqw; font-weight: 900; }
+
+/* progress dots (slide position) */
+.dotsnav { display: flex; gap: 3px; align-items: center; margin-bottom: 2cqw; }
+.dotsnav i { height: 4px; border-radius: 999px; background: rgba(15,27,61,.16); width: 4px; transition: width var(--dur-base) var(--ease-out); }
+.dotsnav i.on { width: 16px; background: var(--ink); }
+.dotsnav em { font-style: normal; font-size: clamp(6px,.85cqw,11px); font-weight: 600; color: #9CA3AF; margin-left: 6px; }
+
+/* logo lockup */
+.logo-lock { display: flex; align-items: center; gap: .8cqw; margin-bottom: 1.6cqw; }
+.logo-lock .mark { height: clamp(14px, 2.6cqw, 40px); display: block; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pin-drift, .pin-in, .dotpack i, .cloud b.enter, .voter { animation: none !important; }
+  .pin-in { opacity: .92; transform: scale(1); }
+  .dotpack i { opacity: .92; transform: scale(1); }
+  * { transition-duration: 120ms !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="page">
+  <p class="eyebrow">Phase 0 · design gate</p>
+  <h1>Calm presentation stage</h1>
+  <p>Every stage below is a real 16:9 frame using container-query sizing, so the numbers here port straight into <code>SlideShell</code>. Data ticks on timers — judge the motion in flight, not frozen. Nothing in <code>src/</code> has been touched.</p>
+</header>
+
+<!-- ═══ 0 · HERO — true projector proportion ═════════════════════════════ -->
+<section>
+  <p class="eyebrow">00</p>
+  <h2>The room&rsquo;s view</h2>
+  <p class="note">Full width, so proportions match a projector rather than a thumbnail. Everything below is the same design at smaller scale.</p>
+  <div class="stage" id="stage-hero">
+    <div class="pad-calm">
+      <div class="logo-lock"><img class="mark" alt="" src="data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' width='150' height='34'&gt;&lt;rect width='150' height='34' rx='5' fill='%230F1B3D'/&gt;&lt;text x='75' y='22' font-family='Poppins,sans-serif' font-size='13' font-weight='700' fill='%23FBD13B' text-anchor='middle'&gt;HOST LOGO&lt;/text&gt;&lt;/svg&gt;" /></div>
+      <div class="railed">
+        <div style="display:flex;flex-direction:column;min-height:0">
+          <h2 class="q-calm">What is the biggest adoption barrier in your office?</h2>
+          <div class="body"><div class="cloud" id="hero-cloud"></div></div>
+        </div>
+        <div class="rail" data-rail></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 1 · TYPOGRAPHY ═══════════════════════════════════════════════════ -->
+<section>
+  <p class="eyebrow">01</p>
+  <h2>Typography &amp; weight</h2>
+  <p class="note">The single biggest driver of "loud". Today's stage sets questions at weight&nbsp;900 with gradient bar fills and a flash overlay on every vote. The calm side drops to weight&nbsp;500, opens the padding to 3.4cqw&nbsp;/&nbsp;7cqw, caps the question at 28ch so it wraps to two lines instead of running wide, and flattens the bar fills.</p>
+  <div class="grid2">
+    <div>
+      <div class="caption"><span class="tag now">Today</span> weight 900 · gradient fills · ripple flash · corner pills</div>
+      <div class="stage" id="stage-loud">
+        <div class="pills">
+          <div class="pill"><b>18</b><span>votes</span></div>
+          <div class="pill"><b>27</b><span>joined</span></div>
+          <div class="pill-qr"><div class="mini"></div><div class="txt"><div class="k">Join</div><div class="v">418 302</div></div></div>
+        </div>
+        <div class="pad-loud">
+          <div class="dotsnav"><i></i><i class="on"></i><i></i><i></i><i></i><em>2 / 5</em></div>
+          <h2 class="q-loud">Which communication channel works best locally?</h2>
+          <div class="body"><div class="bars" data-bars="loud"></div></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="caption"><span class="tag calm">Calm</span> weight 500 · flat fills · no flash · rail</div>
+      <div class="stage" id="stage-calm">
+        <div class="pad-calm">
+          <div class="dotsnav"><i></i><i class="on"></i><i></i><i></i><i></i><em>2 / 5</em></div>
+          <div class="railed">
+            <div style="display:flex;flex-direction:column;min-height:0">
+              <h2 class="q-calm">Which communication channel works best locally?</h2>
+              <div class="body"><div class="bars" data-bars="calm"></div></div>
+            </div>
+            <div class="rail" data-rail></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 2 · RAIL + PROGRESS ══════════════════════════════════════════════ -->
+<section>
+  <p class="eyebrow">02</p>
+  <h2>Join rail &amp; response progress</h2>
+  <p class="note">The QR goes from 44px to <code>clamp(120px, 14cqw, 190px)</code> — scannable from the back of a hall rather than row three. Underneath it, the two disconnected pills (<em>N votes</em>, <em>N joined</em>) become one line with a denominator. When it completes, the fill settles to brand yellow and the label flips to <strong>All responded</strong> — the presenter's cue to advance.</p>
+  <div class="controls">
+    <button class="ctl" id="prog-run">Run 0 → 27</button>
+    <button class="ctl" id="prog-reset">Reset</button>
+    <span class="hint">Watch the count climb, not snap.</span>
+  </div>
+  <div class="grid2">
+    <div>
+      <div class="caption"><span class="tag calm">Calm</span> rail on an interactive slide</div>
+      <div class="stage" id="stage-rail">
+        <div class="pad-calm">
+          <div class="railed">
+            <div style="display:flex;flex-direction:column;min-height:0">
+              <h2 class="q-calm">What is the biggest adoption barrier in your office?</h2>
+              <div class="body"><div class="cloud" id="rail-cloud"></div></div>
+            </div>
+            <div class="rail" data-rail></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="caption">Rail detail at 1:1</div>
+      <div style="background:#fff;border:1px solid var(--hair);border-radius:14px;padding:28px 30px;box-shadow:0 12px 34px rgba(15,27,61,.09)">
+        <div style="display:flex;flex-direction:column;gap:16px;align-items:flex-start;border-left:1px solid var(--hair);padding-left:22px">
+          <div style="width:172px;aspect-ratio:1" id="rail-detail-qr"></div>
+          <div style="font-size:14px;font-weight:500;color:var(--muted)">quizotic.live/join</div>
+          <div style="font-size:40px;font-weight:700;letter-spacing:.08em;font-variant-numeric:tabular-nums;line-height:1">418 302</div>
+          <div class="prog" style="margin-top:6px" id="rail-detail-prog">
+            <div class="lab"><strong>0</strong> of 27 responded</div>
+            <div class="track"><div class="fill"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 3 · LAYOUTS ══════════════════════════════════════════════════════ -->
+<section>
+  <p class="eyebrow">03</p>
+  <h2>Four layouts</h2>
+  <p class="note">Same slide, same data, four compositions. <code>layout</code> defaults to <code>centre</code>, so every presentation that exists today renders exactly as it does now. The rail composes outside the layout grid, so all four work with and without it.</p>
+  <div class="grid2x2" id="layouts"></div>
+</section>
+
+<!-- ═══ 4 · DENSITY RIDGE ════════════════════════════════════════════════ -->
+<section>
+  <p class="eyebrow">04</p>
+  <h2>Density ridge — rating scale &amp; 100-point scale</h2>
+  <p class="note">Today both types render a single large average number and throw the distribution away. A Gaussian KDE (Silverman bandwidth with a floor, so n=1 is a soft bump not a spike) sampled at a fixed 64 points means the path interpolates rather than redraws — that's what makes it morph. The mean handle rides the track, spring-eased.</p>
+  <div class="controls">
+    <button class="ctl" id="ridge-run">Stream 24 responses</button>
+    <button class="ctl" id="ridge-bimodal">Stream a split room</button>
+    <button class="ctl" id="ridge-reset">Reset</button>
+  </div>
+  <div class="grid2">
+    <div>
+      <div class="caption"><span class="tag now">Today</span> average only</div>
+      <div class="stage">
+        <div class="pad-calm">
+          <h2 class="q-calm">How confident are you in explaining SwadhyayaNxt?</h2>
+          <div class="body" style="align-items:center;justify-content:center;text-align:center">
+            <div>
+              <div style="font-size:9cqw;font-weight:900;line-height:1" id="old-avg">—</div>
+              <div style="font-size:clamp(8px,1.5cqw,20px);color:var(--muted);margin-top:1cqw">average rating · <span id="old-n">0</span> responses</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="caption"><span class="tag calm">Calm</span> density ridge + mean handle</div>
+      <div class="stage">
+        <div class="pad-calm">
+          <div class="railed">
+            <div style="display:flex;flex-direction:column;min-height:0">
+              <h2 class="q-calm">How confident are you in explaining SwadhyayaNxt?</h2>
+              <div class="body">
+                <div class="ridge">
+                  <div class="ridge-plot">
+                    <svg viewBox="0 0 400 120" preserveAspectRatio="none" id="ridge-svg"></svg>
+                    <div class="mean-pill" id="ridge-mean">0</div>
+                  </div>
+                  <div class="ends"><span>Not confident</span><span>Very confident</span></div>
+                  <div class="meta"><span id="ridge-n">0</span> responses</div>
+                </div>
+              </div>
+            </div>
+            <div class="rail" data-rail></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 5 · DOT VIEW ═════════════════════════════════════════════════════ -->
+<section>
+  <p class="eyebrow">05</p>
+  <h2>Dot view for choice slides</h2>
+  <p class="note">The screenshot that shows <em>3 of 27 responded</em> is the case that matters: at n=3 a bar chart looks broken, where one dot per person looks deliberate. Dots enter on a spring at a deterministic ±6px jitter so the cluster reads organic rather than gridded. Above 40 responses it collapses to a bar — past that, dots stop being readable and start being fog.</p>
+  <div class="controls">
+    <button class="ctl" id="dots-run">Stream to 12</button>
+    <button class="ctl" id="dots-many">Stream past 40 (auto-collapse)</button>
+    <button class="ctl" id="dots-reset">Reset</button>
+  </div>
+  <div class="stage" style="max-width:760px">
+    <div class="pad-calm">
+      <div class="railed">
+        <div style="display:flex;flex-direction:column;min-height:0">
+          <h2 class="q-calm">Which metric is better for fair comparison?</h2>
+          <div class="body"><div id="dotview" style="height:100%"></div></div>
+        </div>
+        <div class="rail" data-rail></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 6 · ALIVE DOTS ═══════════════════════════════════════════════════ -->
+<section>
+  <p class="eyebrow">06</p>
+  <h2>Alive dots — the 2×2 grid</h2>
+  <p class="note">Three independent layers. <strong>Entry</strong>: spring scale 0→1.15→1, staggered 40ms per dot, total delay capped at 400ms. <strong>Idle drift</strong>: 1.5–3px amplitude on a 2.5–4s loop, phase derived from each dot's coordinate hash so no two sync — pure CSS keyframes with per-dot delay, never rAF (200 dots on a JS loop drops frames on a projector laptop). <strong>De-overlap</strong>: eight damped relaxation iterations, with a hard cap of 3% of the plot on each dot&rsquo;s <em>total</em> displacement — measured here, that lifts the closest pair from 1.2% to 2.7% apart while no dot moves more than 3%. Units are percent-of-plot, not px, so the spread scales with the projector. <span style="color:#B01539">Corrected from the plan&rsquo;s original &ldquo;one pass, ≤4px&rdquo;</span> — the before/after panels show a single 4px pass leaves a clump untouched.</p>
+  <div class="controls">
+    <button class="ctl" id="pin-add">Add 8 responses</button>
+    <button class="ctl" id="pin-cluster">Add a tight cluster (tests de-overlap)</button>
+    <button class="ctl" id="pin-reset">Reset</button>
+    <button class="ctl" id="pin-mode" aria-pressed="false">Show today's static dots</button>
+  </div>
+  <div class="grid2">
+    <div>
+      <div class="caption">Live grid — <span id="pin-count">0</span> responses</div>
+      <div class="stage">
+        <div class="pad-calm">
+          <div class="railed">
+            <div style="display:flex;flex-direction:column;min-height:0">
+              <h2 class="q-calm">Where does your unit sit today?</h2>
+              <div class="body" style="align-items:center">
+                <div class="axwrap">
+                  <div class="ylab"><span>High</span><span class="rot">Capability</span><span>Low</span></div>
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;height:100%">
+                    <div class="pinmap" id="pinmap">
+                      <div class="quads"><div></div><div></div><div></div><div></div></div>
+                      <div class="ax v"></div><div class="ax h"></div>
+                    </div>
+                    <div class="xlab"><span>Low</span><span>Adoption</span><span>High</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="rail" data-rail></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="caption">De-overlap, before &amp; after (same 14 pins)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div>
+          <div class="hint" style="margin-bottom:6px">Raw — 6 dots hidden underneath</div>
+          <div class="pinmap static-mode" id="overlap-before" style="height:auto"><div class="quads"><div></div><div></div><div></div><div></div></div><div class="ax v"></div><div class="ax h"></div></div>
+        </div>
+        <div>
+          <div class="hint" style="margin-bottom:6px">Relaxed — all 14 readable</div>
+          <div class="pinmap static-mode" id="overlap-after" style="height:auto"><div class="quads"><div></div><div></div><div></div><div></div></div><div class="ax v"></div><div class="ax h"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 7 · WORD CLOUD ═══════════════════════════════════════════════════ -->
+<section>
+  <p class="eyebrow">07</p>
+  <h2>Word cloud — FLIP re-layout</h2>
+  <p class="note">Today the cloud is a flex-wrap with a font-size transition: new words appear with no animation, and any re-rank makes every word jump to a new position. FLIP measures before and after, applies the inverse transform, then releases — so words glide to their new home while growing.</p>
+  <div class="controls">
+    <button class="ctl" id="cloud-run">Stream words</button>
+    <button class="ctl" id="cloud-reset">Reset</button>
+    <button class="ctl" id="cloud-mode" aria-pressed="false">Show today's jump</button>
+  </div>
+  <div class="stage" style="max-width:840px">
+    <div class="pad-calm">
+      <div class="railed">
+        <div style="display:flex;flex-direction:column;min-height:0">
+          <h2 class="q-calm">What is the biggest adoption barrier in your office?</h2>
+          <div class="body"><div class="cloud" id="cloud"></div></div>
+        </div>
+        <div class="rail" data-rail></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 8 · HYPE MODE ════════════════════════════════════════════════════ -->
+<section>
+  <p class="eyebrow">08</p>
+  <h2>Hype mode</h2>
+  <p class="note">Everything loud lives behind one presentation-level switch, off by default: floating voter emoji, the vote-velocity waveform, milestone badges, toasts, milestone confetti, and the loud treatment of the Energy slide types. <strong>Note:</strong> existing presentations become calm on deploy — that's the decision taken, but it is a visible change for current users and belongs in the changelog.</p>
+  <div class="controls">
+    <button class="ctl" id="hype-toggle" aria-pressed="false">Hype mode: OFF</button>
+    <span class="hint">Same slide, same votes arriving.</span>
+  </div>
+  <div class="stage" style="max-width:760px" id="stage-hype">
+    <div class="pad-calm">
+      <div class="railed">
+        <div style="display:flex;flex-direction:column;min-height:0">
+          <h2 class="q-calm">Which do you think is the most completed module?</h2>
+          <div class="body"><div class="bars" data-bars="calm" id="hype-bars"></div></div>
+          <div class="hype-only">
+            <div class="wave-lab">Vote velocity</div>
+            <div class="wave" id="hype-wave"></div>
+          </div>
+        </div>
+        <div class="rail" data-rail></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   Shared helpers — each of these is the reference implementation for the
+   corresponding module named in the plan.
+   ═════════════════════════════════════════════════════════════════════════ */
+const CALM = ['var(--c-a)','var(--c-b)','var(--c-c)','var(--c-d)','var(--c-e)','var(--c-f)'];
+const LOUD = ['var(--l-a)','var(--l-b)','var(--l-c)','var(--l-d)','var(--l-e)','var(--l-f)'];
+const CALM_HEX = ['#DD6B7B','#5B8FE0','#D99B4E','#4FA97E','#9080D6','#C77BC4'];
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ── useCountUp (→ src/lib/motion.ts) ───────────────────────────────────────
+   Interruption-safe: cancels any in-flight count on the same element and
+   always lands exactly on the target. Votes arrive faster than 320ms in a
+   live room, so overlapping calls are the normal case, not the edge case —
+   without the cancel, two rAF loops fight and the stale one wins the last
+   write. Background tabs also throttle rAF, so the final value is written
+   unconditionally rather than relying on the loop reaching p === 1. */
+const countTimers = new WeakMap();
+function countUp(el, to, dur = 320) {
+  const prev = countTimers.get(el);
+  if (prev) cancelAnimationFrame(prev);
+  const from = parseInt(el.textContent, 10) || 0;
+  if (reduce || from === to) { el.textContent = to; countTimers.delete(el); return; }
+  const t0 = performance.now();
+  (function tick(t) {
+    const p = Math.min(1, (t - t0) / dur);
+    const e = 1 - Math.pow(1 - p, 3);              // expo-out, matches EASE.out
+    if (p >= 1) { el.textContent = to; countTimers.delete(el); return; }
+    el.textContent = Math.round(from + (to - from) * e);
+    countTimers.set(el, requestAnimationFrame(tick));
+  })(t0);
+}
+
+/* ── QR placeholder — deterministic pattern, layout-honest only ─────────── */
+function qrSVG(seed) {
+  const N = 25; let s = seed, r = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  let cells = '';
+  const finder = (ox, oy) => {
+    let o = '';
+    for (let y = 0; y < 7; y++) for (let x = 0; x < 7; x++) {
+      const edge = x === 0 || y === 0 || x === 6 || y === 6, core = x > 1 && x < 5 && y > 1 && y < 5;
+      if (edge || core) o += `<rect x="${ox + x}" y="${oy + y}" width="1" height="1"/>`;
+    }
+    return o;
+  };
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const inF = (x < 8 && y < 8) || (x > N - 9 && y < 8) || (x < 8 && y > N - 9);
+    if (!inF && r() > 0.52) cells += `<rect x="${x}" y="${y}" width="1" height="1"/>`;
+  }
+  return `<svg viewBox="0 0 ${N} ${N}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+    <rect width="${N}" height="${N}" fill="#fff"/><g fill="#0F1B3D">${cells}${finder(0,0)}${finder(N-7,0)}${finder(0,N-7)}</g></svg>`;
+}
+
+/* ── Rail (→ SlideFrame) ────────────────────────────────────────────────── */
+function buildRail(el) {
+  el.innerHTML = `
+    <div class="qr">${qrSVG(7)}</div>
+    <div class="url">quizotic.live/join</div>
+    <div class="code">418 302</div>
+    <div class="prog"><div class="lab"><strong>0</strong> of 27 responded</div><div class="track"><div class="fill"></div></div></div>`;
+}
+document.querySelectorAll('[data-rail]').forEach(buildRail);
+document.querySelectorAll('.pill-qr .mini').forEach(el => el.innerHTML = qrSVG(7));
+document.getElementById('rail-detail-qr').innerHTML = qrSVG(7);
+
+function setProgress(root, n, total) {
+  root.querySelectorAll('.prog').forEach(p => {
+    const strong = p.querySelector('strong'), fill = p.querySelector('.fill'), lab = p.querySelector('.lab');
+    countUp(strong, n);
+    fill.style.width = (total ? (n / total) * 100 : 0) + '%';
+    const done = n >= total && total > 0;
+    p.classList.toggle('done', done);
+    if (done) lab.innerHTML = 'All responded';
+    else lab.innerHTML = `<strong>${n}</strong> of ${total} responded`;
+  });
+}
+
+/* ── Bars ───────────────────────────────────────────────────────────────── */
+const BAR_DATA = [
+  { label: 'Word of mouth', v: 9 }, { label: 'Through HOD', v: 6 },
+  { label: 'Reminder mails', v: 4 }, { label: 'Broadcast', v: 2 },
+];
+function buildBars(el, tone) {
+  const palette = tone === 'loud' ? LOUD : CALM;
+  const lbl = tone === 'loud' ? 'lbl-loud' : 'lbl-calm';
+  const num = tone === 'loud' ? 'num-loud' : 'num';
+  el.innerHTML = BAR_DATA.map((d, i) => `
+    <div class="bar-row" style="--bc:${palette[i]}">
+      <div class="head">
+        <span class="${lbl}">${d.label}</span>
+        <span class="${num}" style="color:${palette[i]};font-size:clamp(9px,1.5cqw,20px)"><b data-n>0</b> <span class="pct">(0%)</span></span>
+      </div>
+      <div class="bar-track"><div class="bar-fill ${tone}"></div></div>
+    </div>`).join('');
+}
+function fillBars(el, counts, tone) {
+  const total = counts.reduce((a, b) => a + b, 0) || 1;
+  [...el.querySelectorAll('.bar-row')].forEach((row, i) => {
+    // Snapshot the count HERE, not inside the deferred callback. `counts` is a
+    // live array the caller mutates (and replaces on reset); reading it after
+    // the stagger delay lets the number describe a different tally than the
+    // percentage computed synchronously beside it — on screen that reads as
+    // "0 (67%)" next to a two-thirds-full bar.
+    const c = counts[i];
+    const pct = Math.round((c / total) * 100);
+    // stagger: calm staggers entry, today's stage fires all bars at once
+    const delay = tone === 'loud' ? 0 : i * 70;
+    setTimeout(() => {
+      row.querySelector('.bar-fill').style.width = pct + '%';
+      countUp(row.querySelector('[data-n]'), c);
+      row.querySelector('.pct').textContent = `(${pct}%)`;
+      if (tone === 'loud' && c > 0) {   // today's flash overlay
+        const rip = document.createElement('div');
+        rip.className = 'ripple';
+        rip.style.background = getComputedStyle(row).getPropertyValue('--bc') + '33';
+        row.querySelector('.bar-track').appendChild(rip);
+        setTimeout(() => rip.remove(), 600);
+      }
+    }, delay);
+  });
+}
+document.querySelectorAll('[data-bars]').forEach(el => buildBars(el, el.dataset.bars));
+
+/* Section 1 — both stages run the same vote stream so the comparison is fair */
+(function typographyDemo() {
+  const loud = document.querySelector('#stage-loud [data-bars]');
+  const calm = document.querySelector('#stage-calm [data-bars]');
+  let counts = [0, 0, 0, 0], n = 0;
+  setInterval(() => {
+    if (n >= 21) { counts = [0, 0, 0, 0]; n = 0; }
+    const i = Math.random() < .45 ? 0 : Math.floor(Math.random() * 4);
+    counts[i]++; n++;
+    fillBars(loud, counts, 'loud');
+    fillBars(calm, counts, 'calm');
+    setProgress(document.getElementById('stage-calm'), n, 27);
+    const p = document.querySelector('#stage-loud .pill b'); if (p) p.textContent = n;
+  }, 1100);
+})();
+
+/* ═══ 0 · HERO — same stream, full projector proportion ════════════════ */
+(function heroDemo() {
+  const cloud = document.getElementById('hero-cloud');
+  const stage = document.getElementById('stage-hero');
+  const WORDS = ['time','login issue','time','mental block','time','not in MOU','long modules','time','navigation','motivation','time','link to performance','mental barrier','time','login issue','time'];
+  let i = 0;
+  setInterval(() => {
+    if (i >= WORDS.length) { cloud.innerHTML = ''; cloud._counts = {}; i = 0; }
+    addWord(cloud, WORDS[i++]);
+    setProgress(stage, i, 27);
+  }, 900);
+})();
+
+/* ═══ 2 · progress run ══════════════════════════════════════════════════ */
+(function progressDemo() {
+  const cloudEl = document.getElementById('rail-cloud');
+  const stage = document.getElementById('stage-rail');
+  const detail = document.getElementById('rail-detail-prog');
+  const WORDS = ['time','login issue','mental block','not in MOU','long modules','time','motivation','time','navigation'];
+  let timer = null, n = 0;
+  function setDetail(v) {
+    const strong = detail.querySelector('strong'), fill = detail.querySelector('.fill'), lab = detail.querySelector('.lab');
+    fill.style.width = (v / 27) * 100 + '%';
+    detail.classList.toggle('done', v >= 27);
+    if (v >= 27) lab.innerHTML = 'All responded';
+    else { lab.innerHTML = `<strong>${v}</strong> of 27 responded`; countUp(lab.querySelector('strong'), v); }
+  }
+  function reset() {
+    clearInterval(timer); n = 0; cloudEl.innerHTML = '';
+    setProgress(stage, 0, 27); setDetail(0);
+  }
+  document.getElementById('prog-reset').onclick = reset;
+  document.getElementById('prog-run').onclick = () => {
+    reset();
+    timer = setInterval(() => {
+      n++;
+      const w = WORDS[(n - 1) % WORDS.length];
+      addWord(cloudEl, w);
+      setProgress(stage, n, 27); setDetail(n);
+      if (n >= 27) clearInterval(timer);
+    }, 260);
+  };
+  reset();
+})();
+
+/* ── Word helper shared by the rail demo ────────────────────────────────── */
+function addWord(container, word) {
+  const counts = container._counts || (container._counts = {});
+  counts[word] = (counts[word] || 0) + 1;
+  let el = container.querySelector(`[data-w="${CSS.escape(word)}"]`);
+  if (!el) {
+    el = document.createElement('b');
+    el.dataset.w = word; el.textContent = word;
+    el.classList.add('enter');
+    container.appendChild(el);
+  }
+  const max = Math.max(...Object.values(counts));
+  [...container.children].forEach(c => {
+    const ratio = counts[c.dataset.w] / max;
+    c.style.fontSize = `clamp(10px, ${1.7 + ratio * 5.4}cqw, ${26 + ratio * 70}px)`;
+    c.style.color = CALM_HEX[[...container.children].indexOf(c) % CALM_HEX.length];
+  });
+}
+
+/* ═══ 3 · LAYOUTS ══════════════════════════════════════════════════════ */
+(function layouts() {
+  const wrap = document.getElementById('layouts');
+  const SPECS = [
+    ['centre',        'Centre',        'Today&rsquo;s stack. The default — every existing slide is unchanged.'],
+    ['content-left',  'Content left',  'Question + result in the left 58%, media or whitespace right.'],
+    ['content-right', 'Content right', 'Mirrored. Useful when the eye should land on the image first.'],
+    ['image-split',   'Image split',   '50/50 — media fills its half with object-cover.'],
+  ];
+  const bars = i => `<div class="bars" data-b="${i}"></div>`;
+  const photo = `<div style="height:100%;border-radius:10px;background:
+      linear-gradient(135deg,#DDE6F5,#EFE3EA 55%,#E6EFE8);
+      display:flex;align-items:center;justify-content:center;
+      font-size:clamp(8px,1.1cqw,14px);font-weight:600;color:#8894AE">contentImageUrl</div>`;
+
+  wrap.innerHTML = SPECS.map(([id, name, desc], i) => {
+    let inner;
+    if (id === 'centre') {
+      inner = `<h2 class="q-calm">Which metric is better for fair comparison?</h2><div class="body">${bars(i)}</div>`;
+    } else if (id === 'content-left') {
+      inner = `<div style="display:grid;grid-template-columns:58fr 42fr;gap:3cqw;height:100%">
+                 <div style="display:flex;flex-direction:column;min-height:0"><h2 class="q-calm">Which metric is better for fair comparison?</h2><div class="body">${bars(i)}</div></div>
+                 <div style="padding:1cqw 0">${photo}</div></div>`;
+    } else if (id === 'content-right') {
+      inner = `<div style="display:grid;grid-template-columns:42fr 58fr;gap:3cqw;height:100%">
+                 <div style="padding:1cqw 0">${photo}</div>
+                 <div style="display:flex;flex-direction:column;min-height:0"><h2 class="q-calm">Which metric is better for fair comparison?</h2><div class="body">${bars(i)}</div></div></div>`;
+    } else {
+      inner = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:3cqw;height:100%">
+                 <div style="display:flex;flex-direction:column;min-height:0"><h2 class="q-calm">Which metric is better?</h2><div class="body">${bars(i)}</div></div>
+                 <div style="margin:-3.4cqw -7cqw -3cqw 0">${photo.replace('border-radius:10px','border-radius:0')}</div></div>`;
+    }
+    return `<div>
+      <div class="caption"><span class="tag calm">${name}</span> <span style="font-weight:400">${desc}</span></div>
+      <div class="stage"><div class="pad-calm"><div class="railed">
+        <div style="min-height:0;display:flex;flex-direction:column">${inner}</div>
+        <div class="rail" data-rail></div>
+      </div></div></div></div>`;
+  }).join('');
+
+  wrap.querySelectorAll('[data-rail]').forEach(buildRail);
+  wrap.querySelectorAll('[data-b]').forEach(el => buildBars(el, 'calm'));
+  const counts = [7, 11, 3, 5];
+  setTimeout(() => {
+    wrap.querySelectorAll('[data-b]').forEach(el => fillBars(el, counts, 'calm'));
+    wrap.querySelectorAll('.stage').forEach(s => setProgress(s, 26, 27));
+  }, 400);
+})();
+
+/* ═══ 4 · DENSITY RIDGE (→ src/lib/density.ts) ═════════════════════════ */
+function kde(samples, lo, hi, points = 64) {
+  const out = new Array(points).fill(0);
+  if (!samples.length) return out;
+  const n = samples.length;
+  const mean = samples.reduce((a, b) => a + b, 0) / n;
+  const sd = Math.sqrt(samples.reduce((a, b) => a + (b - mean) ** 2, 0) / Math.max(1, n - 1)) || 0;
+  // Silverman, with a floor so n=1 renders a soft bump instead of a spike
+  const h = Math.max(1.06 * sd * Math.pow(n, -1 / 5), (hi - lo) / 14);
+  for (let i = 0; i < points; i++) {
+    const x = lo + (hi - lo) * (i / (points - 1));
+    let s = 0;
+    for (const v of samples) { const u = (x - v) / h; s += Math.exp(-0.5 * u * u); }
+    out[i] = s / (n * h * Math.SQRT2 * Math.sqrt(Math.PI));
+  }
+  return out;
+}
+function smoothPath(ys, w, h) {
+  const max = Math.max(...ys, 1e-9), n = ys.length;
+  const px = i => (i / (n - 1)) * w;
+  const py = i => h - (ys[i] / max) * h;
+  let d = `M 0 ${h} L ${px(0)} ${py(0)}`;
+  for (let i = 0; i < n - 1; i++) {
+    const mx = (px(i) + px(i + 1)) / 2, my = (py(i) + py(i + 1)) / 2;
+    d += ` Q ${px(i)} ${py(i)} ${mx} ${my}`;
+  }
+  d += ` L ${px(n - 1)} ${py(n - 1)} L ${w} ${h} Z`;
+  return d;
+}
+(function ridgeDemo() {
+  const svg = document.getElementById('ridge-svg');
+  const W = 400, H = 120, LO = 1, HI = 5;
+  svg.innerHTML = `
+    <defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5B8FE0" stop-opacity=".30"/>
+      <stop offset="1" stop-color="#5B8FE0" stop-opacity=".06"/>
+    </linearGradient></defs>
+    <path id="ridge-fill" fill="url(#rg)" d=""/>
+    <path id="ridge-line" fill="none" stroke="#5B8FE0" stroke-width="2" vector-effect="non-scaling-stroke" d=""/>
+    <line x1="0" y1="${H}" x2="${W}" y2="${H}" stroke="rgba(15,27,61,.12)" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
+  const fill = svg.querySelector('#ridge-fill'), line = svg.querySelector('#ridge-line');
+  const mean = document.getElementById('ridge-mean');
+  let samples = [], cur = new Array(64).fill(0), target = new Array(64).fill(0), raf = null, timer = null;
+
+  function render() {                       // lerp toward target — the morph
+    let moved = false;
+    for (let i = 0; i < cur.length; i++) {
+      const d = target[i] - cur[i];
+      if (Math.abs(d) > 1e-6) { cur[i] += d * 0.18; moved = true; }
+    }
+    const d = smoothPath(cur, W, H);
+    fill.setAttribute('d', d);
+    line.setAttribute('d', d.replace(/^M 0 \d+ L /, 'M ').replace(/ L \d+ \d+ Z$/, ''));
+    raf = moved ? requestAnimationFrame(render) : null;
+  }
+  function update() {
+    target = kde(samples, LO, HI);
+    if (!raf) raf = requestAnimationFrame(render);
+    const n = samples.length;
+    document.getElementById('ridge-n').textContent = n;
+    document.getElementById('old-n').textContent = n;
+    setProgress(svg.closest('.stage'), n, 27);
+    if (n) {
+      const m = samples.reduce((a, b) => a + b, 0) / n;
+      document.getElementById('old-avg').textContent = m.toFixed(1);
+      mean.style.opacity = '1';
+      mean.style.left = ((m - LO) / (HI - LO)) * 100 + '%';
+      mean.textContent = m.toFixed(1);
+    } else {
+      document.getElementById('old-avg').textContent = '—';
+      mean.style.opacity = '0';
+    }
+  }
+  function stream(gen, count) {
+    clearInterval(timer); samples = []; update();
+    let i = 0;
+    timer = setInterval(() => { samples.push(gen()); update(); if (++i >= count) clearInterval(timer); }, 240);
+  }
+  const gauss = (mu, s) => { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random();
+    return Math.min(5, Math.max(1, mu + s * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v))); };
+  document.getElementById('ridge-run').onclick = () => stream(() => gauss(3.1, .8), 24);
+  document.getElementById('ridge-bimodal').onclick = () => stream(() => gauss(Math.random() < .5 ? 1.8 : 4.4, .45), 26);
+  document.getElementById('ridge-reset').onclick = () => { clearInterval(timer); samples = []; update(); };
+  update();
+})();
+
+/* ═══ 5 · DOT VIEW ═════════════════════════════════════════════════════ */
+(function dotDemo() {
+  const host = document.getElementById('dotview');
+  const OPTS = ['Total completions', 'Active learners', 'Adoption rate', 'Avg learning hours'];
+  const DOT_TO_BAR = 40;
+  let counts = [0, 0, 0, 0], timer = null;
+
+  function paint() {
+    const total = counts.reduce((a, b) => a + b, 0);
+    if (total > DOT_TO_BAR) {                       // collapse to bars
+      if (!host._bars) {
+        host.innerHTML = '<div class="bars" data-x></div>';
+        buildBars(host.querySelector('[data-x]'), 'calm');
+        host._bars = true;
+      }
+      // relabel to this slide's options
+      [...host.querySelectorAll('.bar-row')].forEach((r, i) => r.querySelector('span').textContent = OPTS[i]);
+      fillBars(host.querySelector('[data-x]'), counts, 'calm');
+      return;
+    }
+    host._bars = false;
+    host.innerHTML = `<div class="dotcols" style="grid-template-columns:repeat(${OPTS.length},1fr)">
+      ${OPTS.map((o, i) => `<div class="dotcol">
+        <div class="dotpack" data-p="${i}"></div>
+        <div class="cnt" style="color:${CALM_HEX[i]}">${counts[i]}</div>
+        <div class="cap">${o}</div></div>`).join('')}</div>`;
+    OPTS.forEach((_, i) => {
+      const pack = host.querySelector(`[data-p="${i}"]`);
+      // Pitch is measured from the column, not a px literal — otherwise the
+      // pack keeps its laptop spacing on a projector and the cluster shrinks
+      // into a dot. React reads the same value off the ref.
+      const perRow = 4;
+      const pitch = Math.max(9, (pack.getBoundingClientRect().width || 120) / (perRow + 1.4));
+      for (let k = 0; k < counts[i]; k++) {
+        const row = Math.floor(k / perRow), col = k % perRow;
+        // deterministic jitter — organic cluster, stable across renders
+        const j = ((k * 2654435761) % 1000) / 1000, j2 = ((k * 40503) % 1000) / 1000;
+        const jit = pitch * 0.26;
+        const d = document.createElement('i');
+        d.style.left = `calc(50% + ${(col - (perRow - 1) / 2) * pitch + (row % 2 ? pitch / 2 : 0) + (j - .5) * jit}px)`;
+        d.style.bottom = `${row * pitch * 0.82 + (j2 - .5) * jit}px`;
+        d.style.background = CALM_HEX[i];
+        d.style.animationDelay = Math.min(k * 40, 400) + 'ms';
+        pack.appendChild(d);
+      }
+    });
+  }
+  function run(target) {
+    clearInterval(timer); counts = [0, 0, 0, 0]; paint();
+    let n = 0;
+    timer = setInterval(() => {
+      counts[Math.random() < .4 ? 1 : Math.floor(Math.random() * 4)]++;
+      paint();
+      setProgress(host.closest('.stage'), ++n, Math.max(27, target));
+      if (n >= target) clearInterval(timer);
+    }, 320);
+  }
+  document.getElementById('dots-run').onclick = () => run(12);
+  document.getElementById('dots-many').onclick = () => run(52);
+  document.getElementById('dots-reset').onclick = () => { clearInterval(timer); counts = [0,0,0,0]; paint(); setProgress(host.closest('.stage'), 0, 27); };
+  paint();
+})();
+
+/* ═══ 6 · ALIVE DOTS ═══════════════════════════════════════════════════ */
+/* → src/lib/pin-layout.ts — pure, deterministic, bounded displacement.
+   Units are PERCENT OF PLOT, not px, so the spread scales with the projector
+   instead of collapsing on a big screen.
+
+   A single pass capped at ~4px does essentially nothing to a real clump —
+   14 taps inside a 5% box stay a blob. Eight damped iterations converge to a
+   readable spread while a hard cap on TOTAL displacement (3% of the plot)
+   guarantees no dot drifts far enough to misrepresent where someone tapped.
+   Full separation is not the goal — Mentimeter's clusters overlap too; the
+   goal is that density stays legible. */
+function relaxPins(pins, opts = {}) {
+  const minDist = opts.minDist ?? 3.4;   // % of plot — target spacing
+  const maxPush = opts.maxPush ?? 3.0;   // % of plot — cap on TOTAL displacement
+  const iters   = opts.iters   ?? 8;
+  const damp    = 0.6;
+  const orig = pins.map(p => ({ x: p.x, y: p.y }));
+  const out  = pins.map(p => ({ x: p.x, y: p.y }));
+  for (let it = 0; it < iters; it++) {
+    for (let i = 0; i < out.length; i++) {
+      for (let j = i + 1; j < out.length; j++) {
+        let dx = out[j].x - out[i].x, dy = out[j].y - out[i].y;
+        let d = Math.hypot(dx, dy);
+        if (d <= 1e-4) {                    // exact overlap — golden-angle nudge
+          const a = (i * 7 + j) * 2.399963;
+          dx = Math.cos(a); dy = Math.sin(a); d = 1;
+        }
+        if (d < minDist) {
+          const push = ((minDist - d) / 2) * damp, ux = dx / d, uy = dy / d;
+          out[i].x -= ux * push; out[i].y -= uy * push;
+          out[j].x += ux * push; out[j].y += uy * push;
+        }
+      }
+    }
+  }
+  return out.map((p, i) => {
+    let dx = p.x - orig[i].x, dy = p.y - orig[i].y;
+    const m = Math.hypot(dx, dy);
+    if (m > maxPush) { dx = (dx / m) * maxPush; dy = (dy / m) * maxPush; }
+    return { x: Math.max(2, Math.min(98, orig[i].x + dx)), y: Math.max(2, Math.min(98, orig[i].y + dy)) };
+  });
+}
+/* deterministic hash — same shape as pinColor() in PinMap.tsx, different salt */
+function pinHash(p, salt) {
+  const bx = Math.round(p.x / 2), by = Math.round(p.y / 2);
+  return Math.abs((bx * 73856093) ^ (by * 19349663) ^ salt);
+}
+function renderPins(map, pins, opts = {}) {
+  map.querySelectorAll('.pin').forEach(n => n.remove());
+  const laid = opts.raw ? pins : relaxPins(pins);
+  laid.forEach((p, i) => {
+    const h = pinHash(pins[i], 0x9E37);
+    const size = opts.size || 13;
+    const dur = 2.5 + (h % 150) / 100;                    // 2.5–4.0s
+    const amp = 1.5 + (pinHash(pins[i], 0x51ED) % 150) / 100; // 1.5–3.0px
+    const ang = (pinHash(pins[i], 0x2545) % 628) / 100;
+    const wrap = document.createElement('div');
+    wrap.className = 'pin';
+    wrap.style.left = p.x + '%'; wrap.style.top = p.y + '%';
+    const drift = document.createElement('div');
+    drift.className = 'pin-drift';
+    drift.style.setProperty('--dx', (Math.cos(ang) * amp).toFixed(2) + 'px');
+    drift.style.setProperty('--dy', (Math.sin(ang) * amp).toFixed(2) + 'px');
+    drift.style.setProperty('--dd', dur.toFixed(2) + 's');
+    drift.style.setProperty('--ddly', (-(h % 400) / 100).toFixed(2) + 's');
+    const dot = document.createElement('span');
+    dot.className = 'pin-in';
+    dot.style.width = size + 'px'; dot.style.height = size + 'px';
+    dot.style.background = CALM_HEX[h % CALM_HEX.length];
+    dot.style.setProperty('--pdly', Math.min(i * 40, 400) + 'ms');
+    drift.appendChild(dot); wrap.appendChild(drift); map.appendChild(wrap);
+  });
+}
+(function pinDemo() {
+  const map = document.getElementById('pinmap');
+  let pins = [];
+  const draw = () => {
+    renderPins(map, pins);
+    document.getElementById('pin-count').textContent = pins.length;
+    setProgress(map.closest('.stage'), pins.length, 27);
+  };
+  document.getElementById('pin-add').onclick = () => {
+    for (let i = 0; i < 8; i++) pins.push({ x: 18 + Math.random() * 64, y: 18 + Math.random() * 64 });
+    draw();
+  };
+  document.getElementById('pin-cluster').onclick = () => {
+    for (let i = 0; i < 10; i++) pins.push({ x: 66 + Math.random() * 5, y: 30 + Math.random() * 5 });
+    draw();
+  };
+  document.getElementById('pin-reset').onclick = () => { pins = []; draw(); };
+  const modeBtn = document.getElementById('pin-mode');
+  modeBtn.onclick = () => {
+    const on = modeBtn.getAttribute('aria-pressed') === 'true';
+    modeBtn.setAttribute('aria-pressed', String(!on));
+    modeBtn.textContent = !on ? 'Show alive dots' : "Show today's static dots";
+    map.classList.toggle('static-mode', !on);
+  };
+  document.getElementById('pin-add').click();
+
+  // before / after de-overlap, same input
+  const clustered = [];
+  for (let i = 0; i < 14; i++) clustered.push({ x: 44 + (i % 4) * 1.4 + Math.random() * .6, y: 42 + Math.floor(i / 4) * 1.2 + Math.random() * .6 });
+  renderPins(document.getElementById('overlap-before'), clustered, { raw: true, size: 15 });
+  renderPins(document.getElementById('overlap-after'), clustered, { size: 15 });
+})();
+
+/* ═══ 7 · WORD CLOUD FLIP ══════════════════════════════════════════════ */
+(function cloudDemo() {
+  const el = document.getElementById('cloud');
+  const btn = document.getElementById('cloud-mode');
+  const STREAM = ['time','login issue','time','mental block','time','not in MOU','long modules','time','navigation','motivation','time','login issue','mental block','time','long modules','time'];
+  let counts = {}, timer = null, flip = true;
+
+  function paint(newWord) {
+    // FLIP: measure → mutate → invert → release
+    const before = new Map();
+    if (flip) [...el.children].forEach(c => before.set(c.dataset.w, c.getBoundingClientRect()));
+
+    counts[newWord] = (counts[newWord] || 0) + 1;
+    const ranked = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    const max = ranked[0][1];
+    // interleave so the heaviest words land near the middle of the wrap flow
+    const arranged = [];
+    const mid = Math.floor(ranked.length / 2);
+    ranked.forEach((item, i) => { arranged[mid + (i % 2 === 0 ? i / 2 : -Math.ceil(i / 2))] = item; });
+
+    el.innerHTML = '';
+    arranged.filter(Boolean).forEach(([w, c], rank) => {
+      const b = document.createElement('b');
+      b.dataset.w = w; b.textContent = w;
+      const ratio = c / max;
+      b.style.fontSize = `clamp(10px, ${1.7 + ratio * 5.4}cqw, ${26 + ratio * 70}px)`;
+      b.style.color = CALM_HEX[rank % CALM_HEX.length];
+      el.appendChild(b);
+      if (!before.has(w)) b.classList.add('enter');
+    });
+
+    if (!flip || reduce) return;
+    [...el.children].forEach(c => {
+      const prev = before.get(c.dataset.w);
+      if (!prev) return;
+      const now = c.getBoundingClientRect();
+      const dx = prev.left - now.left, dy = prev.top - now.top;
+      if (!dx && !dy) return;
+      c.animate(
+        [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'translate(0,0)' }],
+        { duration: 320, easing: 'cubic-bezier(0.22,1,0.36,1)' }
+      );
+    });
+  }
+  function reset() { clearInterval(timer); counts = {}; el.innerHTML = ''; }
+  document.getElementById('cloud-reset').onclick = reset;
+  document.getElementById('cloud-run').onclick = () => {
+    reset(); let i = 0;
+    timer = setInterval(() => { paint(STREAM[i % STREAM.length]); if (++i >= STREAM.length) clearInterval(timer); }, 460);
+  };
+  btn.onclick = () => {
+    flip = !flip;
+    btn.setAttribute('aria-pressed', String(!flip));
+    btn.textContent = flip ? "Show today's jump" : 'Show FLIP re-layout';
+  };
+  document.getElementById('cloud-run').click();
+})();
+
+/* ═══ 8 · HYPE MODE ════════════════════════════════════════════════════ */
+(function hypeDemo() {
+  const stage = document.getElementById('stage-hype');
+  const bars = document.getElementById('hype-bars');
+  const wave = document.getElementById('hype-wave');
+  const btn = document.getElementById('hype-toggle');
+  const EMOJI = ['🎉','🔥','⚡','💡','🙌','✨'];
+  wave.innerHTML = Array.from({ length: 20 }, () => '<i style="height:3px"></i>').join('');
+  [...bars.querySelectorAll('.bar-row')].forEach((r, i) => {
+    r.querySelector('.lbl-calm').textContent = ['Vigilance','Safety','Process safety','Retail excellence'][i];
+  });
+
+  let counts = [0, 0, 0, 0], n = 0, hype = false;
+  btn.onclick = () => {
+    hype = !hype;
+    btn.setAttribute('aria-pressed', String(hype));
+    btn.textContent = 'Hype mode: ' + (hype ? 'ON' : 'OFF');
+    stage.classList.toggle('hype', hype);
+  };
+  setInterval(() => {
+    if (n >= 24) { counts = [0, 0, 0, 0]; n = 0; }
+    counts[Math.random() < .42 ? 1 : Math.floor(Math.random() * 4)]++; n++;
+    fillBars(bars, counts, 'calm');
+    setProgress(stage, n, 27);
+
+    if (!hype) return;
+    // floating voter
+    const v = document.createElement('div');
+    v.className = 'voter hype-only'; v.style.display = 'block';
+    v.style.left = (10 + Math.random() * 60) + '%';
+    v.textContent = EMOJI[Math.floor(Math.random() * EMOJI.length)];
+    stage.querySelector('.pad-calm').appendChild(v);
+    setTimeout(() => v.remove(), 4000);
+    // waveform
+    const bs = [...wave.children];
+    bs.shift(); const nb = document.createElement('i');
+    nb.style.height = (3 + Math.random() * 22) + 'px';
+    wave.appendChild(nb); if (wave.children.length > 20) wave.firstChild.remove();
+    // milestone
+    if (n === 20) {
+      const m = document.createElement('div');
+      m.className = 'milestone hype-only'; m.style.display = 'flex';
+      m.innerHTML = '<div>20 responses! 🎉</div>';
+      stage.appendChild(m); setTimeout(() => m.remove(), 1600);
+    }
+    // toast
+    if (n % 7 === 0) {
+      const t = document.createElement('div');
+      t.className = 'toast hype-only'; t.style.display = 'block';
+      t.textContent = 'Priya just joined';
+      stage.appendChild(t); setTimeout(() => t.remove(), 2200);
+    }
+  }, 900);
+})();
+</script>
+</body>
+</html>

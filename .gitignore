@@ -79,3 +79,7 @@ remotion/.cache
 *.traineddata
 tessdata/
 
+
+# Playwright output — regenerated on every run
+test-results/
+playwright-report/
