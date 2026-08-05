@@ -17,13 +17,14 @@ import { getVideoEmbedUrl } from '@/lib/video'
 import { PostSessionHeader } from '@/components/PostSessionHeader'
 import { PresentationSummary } from '@/components/PresentationSummary'
 import { SpinWheel } from '@/components/presentation/SpinWheel'
-import { PinMap, pinColor } from '@/components/presentation/PinMap'
+import { PinMap, PinDots } from '@/components/presentation/PinMap'
 import { SlideShell } from '@/components/presentation/SlideShell'
 import { SlideFrame, getSlideLayout } from '@/components/presentation/SlideFrame'
+import { DensityRidge } from '@/components/presentation/DensityRidge'
 import { JoinRail } from '@/components/presentation/JoinRail'
 import { useConfetti } from '@/hooks/useConfetti'
 import { useCountUp } from '@/hooks/useCountUp'
-import { cssTransition, staggerDelay, STAGGER } from '@/lib/motion'
+import { cssTransition, staggerDelay, STAGGER, DUR, EASE, sec } from '@/lib/motion'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 
 // Canonical Kahoot palette for answer/option rendering — shared with quiz
@@ -165,10 +166,21 @@ function WordCloud({ words }: { words: Record<string, number> }) {
         const ratio = count / max
         const size = 24 + Math.round(ratio * 106) // 24px → 130px range for stronger hierarchy
         return (
-          <span key={word} className="font-black leading-none transition-all duration-500"
-            style={{ fontSize: size, color: colors[rank % colors.length], fontFamily: 'var(--font-heading)' }}>
+          // `layout` is Framer's FLIP: every new word reflows the wrap, and
+          // without it the whole cloud teleports to its new arrangement on
+          // each vote. Keyed by the word so React tracks identity across
+          // re-ranks rather than re-mounting (which would replay the entry
+          // animation on a word that has been on screen for a minute).
+          <motion.span
+            key={word}
+            layout
+            initial={{ opacity: 0, scale: 0.7 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: sec(DUR.base), ease: EASE.out }}
+            className="font-extrabold leading-none"
+            style={{ fontSize: size, color: colors[rank % colors.length], fontFamily: 'var(--font-heading)', transition: cssTransition('font-size', 'slow', 'calm') }}>
             {word}
-          </span>
+          </motion.span>
         )
       })}
     </div>
@@ -206,8 +218,156 @@ function pieSlicePath(cx: number, cy: number, r: number, startDeg: number, endDe
   return `M ${cx} ${cy} L ${s.x} ${s.y} A ${r} ${r} 0 ${large} 1 ${e.x} ${e.y} Z`
 }
 
-type ChartVariant = 'bar' | 'donut' | 'pie'
+type ChartVariant = 'bar' | 'dots' | 'donut' | 'pie'
 type ChartMetric = 'count' | 'percent'
+
+/**
+ * Above this many responses the dot view collapses to bars.
+ *
+ * One dot per person is what makes a small room read as deliberate rather
+ * than broken — at three responses a bar chart looks like a rendering bug.
+ * Past roughly forty the dots stop being countable and start being fog, and a
+ * bar is simply the better chart.
+ */
+const DOT_VIEW_MAX = 40
+
+/**
+ * One dot per response, packed above its option.
+ *
+ * Positions are deterministic per (option, index): a dot must not jump when
+ * the next person answers. The jitter is derived from the index rather than
+ * Math.random for the same reason.
+ */
+const DOTS_PER_ROW = 4
+
+/** Geometry shared by every column so their baselines and pitch agree. */
+function dotGeometry(packWidth: number, maxCount: number) {
+  // Pitch comes from the measured column, not a px literal — a literal keeps
+  // its laptop spacing on a projector and the cluster shrinks to a speck.
+  const pitch = Math.max(9, packWidth / (DOTS_PER_ROW + 1.4))
+  const rows = Math.max(1, Math.ceil(maxCount / DOTS_PER_ROW))
+  return {
+    pitch,
+    jitter: pitch * 0.26,
+    dotSize: Math.max(6, pitch * 0.5),
+    // Exactly the height the tallest stack needs. Using flex:1 instead pinned
+    // every column to the bottom of the frame, so three responses rendered as
+    // a thin strip along the floor with the slide empty above it.
+    packHeight: (rows - 1) * pitch * 0.82 + Math.max(6, pitch * 0.5) + pitch * 0.3,
+  }
+}
+
+function DotColumn({
+  count, color, geometry,
+}: {
+  count: number
+  color: string
+  geometry: ReturnType<typeof dotGeometry>
+}) {
+  const { pitch, jitter, dotSize, packHeight } = geometry
+  const perRow = DOTS_PER_ROW
+
+  return (
+    <div style={{ position: 'relative', width: '100%', height: packHeight, flex: 'none' }}>
+      {Array.from({ length: count }).map((_, k) => {
+        const row = Math.floor(k / perRow)
+        const col = k % perRow
+        const j1 = ((k * 2654435761) % 1000) / 1000
+        const j2 = ((k * 40503) % 1000) / 1000
+        const x = (col - (perRow - 1) / 2) * pitch + (row % 2 ? pitch / 2 : 0) + (j1 - 0.5) * jitter
+        const y = row * pitch * 0.82 + (j2 - 0.5) * jitter
+        return (
+          <motion.span
+            key={k}
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 0.92 }}
+            transition={{ duration: sec(DUR.quick), ease: EASE.out, delay: sec(staggerDelay(k)) }}
+            style={{
+              position: 'absolute',
+              left: `calc(50% + ${x}px)`,
+              bottom: y,
+              width: dotSize,
+              height: dotSize,
+              borderRadius: '50%',
+              background: color,
+              display: 'block',
+            }}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
+/** Dot-view chart: option columns of individual response dots. */
+function DotChart({
+  options, counts, colors, segColor, dimOpacity, primary, total,
+}: {
+  options: string[]
+  counts: number[]
+  colors: string[]
+  segColor: (i: number) => string
+  dimOpacity: (i: number) => number
+  primary: (i: number) => string
+  total: number
+}) {
+  // The pack needs its rendered width to derive dot pitch; measuring beats
+  // guessing because the same slide renders at 1600px on a projector and
+  // ~880px in the builder preview.
+  const ref = React.useRef<HTMLDivElement>(null)
+  const [packWidth, setPackWidth] = React.useState(120)
+
+  React.useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const measure = () => {
+      const w = el.getBoundingClientRect().width / Math.max(1, options.length)
+      if (w > 0) setPackWidth(w)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [options.length])
+
+  const geometry = dotGeometry(packWidth, Math.max(...counts, 1))
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${Math.max(options.length, 1)}, minmax(0,1fr))`,
+        gap: '2cqw',
+        width: '100%',
+        height: '100%',
+        // Centred as a block: the dots read as the subject of the slide rather
+        // than as a footnote pinned to the bottom edge.
+        alignContent: 'center',
+        alignItems: 'end',
+      }}
+    >
+      {options.map((opt, i) => (
+        <div
+          key={i}
+          style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'flex-end', gap: '1cqw',
+            opacity: dimOpacity(i), transition: cssTransition('opacity', 'base', 'calm'),
+          }}
+        >
+          <DotColumn count={counts[i] ?? 0} color={segColor(i)} geometry={geometry} />
+          <span style={{ fontSize: 'clamp(10px, 1.9cqw, 26px)', fontWeight: 700, color: colors[i % colors.length], fontVariantNumeric: 'tabular-nums' }}>
+            {total > 0 ? primary(i) : '0'}
+          </span>
+          <span style={{ fontSize: 'clamp(8px, 1.35cqw, 18px)', fontWeight: 500, textAlign: 'center', lineHeight: 1.2 }}>
+            {opt || `Option ${i + 1}`}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 function ResultChart({
   options, counts, total, colors, showResults, correctIndex,
@@ -231,6 +391,21 @@ function ResultChart({
   // spotlight lands on the right answer (the AhaSlides/Mentimeter reveal beat).
   const dimOpacity = (i: number) => (correctActive && correctIndex !== i ? 0.4 : 1)
   const segColor = (i: number) => (correctActive && correctIndex === i ? '#16A34A' : colors[i % colors.length])
+
+  // ─ Dots: one per response, for the small-N case a bar chart misrepresents ─
+  if (variant === 'dots' && total <= DOT_VIEW_MAX) {
+    return (
+      <DotChart
+        options={options}
+        counts={counts}
+        colors={colors}
+        segColor={segColor}
+        dimOpacity={dimOpacity}
+        primary={primary}
+        total={total}
+      />
+    )
+  }
 
   // ─ Donut / pie: proportional ring (or slices) + legend ────────────────────
   if (variant === 'donut' || variant === 'pie') {
@@ -649,23 +824,28 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
       )
 
     case 'rating_scale':
+      // A single average cannot distinguish a room that all answered 3 from
+      // one that split 1/5 — and only the second is worth discussing. The
+      // ridge shows the shape; the handle still carries the mean.
       return (
         <SlideShell slide={slide} headingPlaceholder="Question text...">
-          <div className="h-full flex flex-col gap-3">
-            <div className="flex items-center justify-between text-xl font-semibold flex-shrink-0" style={{ color: textColor, opacity: 0.6 }}>
-              <span>{slide.minLabel}</span>
-              <span>{slide.maxLabel}</span>
-            </div>
-            <div className="flex-1 flex items-center justify-center">
-              {showResults && aggregate.scores && aggregate.scores.length > 0 && (
-                <div className="text-center">
-                  <p className="text-7xl font-black" style={{ color: textColor, fontFamily: 'var(--font-heading)' }}>
-                    {(aggregate.scores.reduce((a, b) => a + b, 0) / aggregate.scores.length).toFixed(1)}
-                  </p>
-                  <p className="text-xl mt-2" style={{ color: textColor, opacity: 0.6 }}>average rating · {aggregate.total} responses</p>
-                </div>
-              )}
-            </div>
+          <div className="h-full min-h-0">
+            {showResults ? (
+              <DensityRidge
+                values={aggregate.scores ?? []}
+                domain={[1, slide.maxRating]}
+                minLabel={slide.minLabel}
+                maxLabel={slide.maxLabel}
+                textColor={textColor}
+                accent={CALM_HEX[1]}
+                precision={1}
+              />
+            ) : (
+              <div className="flex items-center justify-between text-xl font-medium h-full" style={{ color: textColor, opacity: 0.6 }}>
+                <span>{slide.minLabel}</span>
+                <span>{slide.maxLabel}</span>
+              </div>
+            )}
           </div>
         </SlideShell>
       )
@@ -741,21 +921,23 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
     case 'scale_100':
       return (
         <SlideShell slide={slide} headingPlaceholder="Question text...">
-          <div className="h-full flex flex-col gap-3">
-            <div className="flex items-center justify-between text-xl font-semibold flex-shrink-0" style={{ color: textColor, opacity: 0.6 }}>
-              <span>0 · {slide.minLabel}</span>
-              <span>{slide.maxLabel} · 100</span>
-            </div>
-            <div className="flex-1 flex items-center justify-center">
-              {showResults && aggregate.scores && aggregate.scores.length > 0 && (
-                <div className="text-center">
-                  <p className="text-7xl font-black" style={{ color: textColor, fontFamily: 'var(--font-heading)' }}>
-                    {Math.round(aggregate.scores.reduce((a, b) => a + b, 0) / aggregate.scores.length)}
-                  </p>
-                  <p className="text-xl mt-2" style={{ color: textColor, opacity: 0.6 }}>average · {aggregate.total} responses</p>
-                </div>
-              )}
-            </div>
+          <div className="h-full min-h-0">
+            {showResults ? (
+              <DensityRidge
+                values={aggregate.scores ?? []}
+                domain={[0, 100]}
+                minLabel={`0 · ${slide.minLabel}`}
+                maxLabel={`${slide.maxLabel} · 100`}
+                textColor={textColor}
+                accent={CALM_HEX[1]}
+                precision={0}
+              />
+            ) : (
+              <div className="flex items-center justify-between text-xl font-medium h-full" style={{ color: textColor, opacity: 0.6 }}>
+                <span>0 · {slide.minLabel}</span>
+                <span>{slide.maxLabel} · 100</span>
+              </div>
+            )}
           </div>
         </SlideShell>
       )
@@ -853,10 +1035,10 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
                 <p className="text-sm font-semibold" style={{ color: '#64748B' }}>No background image — edit the slide to upload one</p>
               </div>
             )}
-            {showResults && pins.map((pin, i) => (
-              <div key={i} className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/60 transition-all"
-                style={{ left: `${pin.x}%`, top: `${pin.y}%`, background: pinColor(pin), opacity: 0.85 }} />
-            ))}
+            {/* Same treatment as the 2×2 grid — relaxed so a clustered spot
+                stays countable, and sized as a share of the image rather than
+                a 12px literal that vanishes on a projector. */}
+            {showResults && <PinDots pins={pins} />}
           </div>
           <div className="flex-shrink-0 text-center">
             {showResults ? (
@@ -883,10 +1065,14 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
               : 'Participants are placing themselves on the grid…'
           }
         >
-          <div className="h-full flex items-center justify-center">
-            {/* Cap width so the square grid stays large but never overflows the
-                16:9 frame on wide projector screens. */}
-            <div style={{ width: '100%', maxWidth: 'min(100%, 56cqh)' }}>
+          <div className="h-full min-h-0 flex items-center justify-center">
+            {/* The grid is square, so its size is bounded by the SHORTER axis —
+                the frame height. `height: 100%` + PinMap's own aspect-ratio
+                does that with no magic numbers. The previous cap used `56cqh`,
+                which silently does not resolve under `container-type:
+                inline-size` (what the stage sets), leaving the whole `min()`
+                invalid and the cap inert. */}
+            <div style={{ height: '100%', maxWidth: '100%', display: 'flex' }}>
               <PinMap
                 pins={pins}
                 variant="grid"
@@ -898,6 +1084,7 @@ function SlideContent({ slide, aggregate, showResults, correctRevealed, chartVar
                 yMax={slide.yMax}
                 labelColor={textColor}
                 size="lg"
+                fit="height"
               />
             </div>
           </div>
@@ -1896,7 +2083,7 @@ export default function PresentSessionPage() {
           </button>
           {isChartSlide && (
             <div className="flex items-center gap-1 rounded-xl p-1" style={{ background: '#fff', border: '1.5px solid #E5E7EB' }}>
-              {([['bar', 'Bars'], ['donut', 'Donut'], ['pie', 'Pie']] as const).map(([v, label]) => (
+              {([['bar', 'Bars'], ['dots', 'Dots'], ['donut', 'Donut'], ['pie', 'Pie']] as const).map(([v, label]) => (
                 <button key={v} onClick={() => setChartVariant(v)}
                   className="px-3 py-2 rounded-lg text-xs font-bold transition-all hover:opacity-80"
                   style={{ background: chartVariant === v ? '#0F1B3D' : 'transparent', color: chartVariant === v ? '#fff' : '#6B7280' }}>
