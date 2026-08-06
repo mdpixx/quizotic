@@ -134,6 +134,22 @@ export default function ScheduledPreviewPage() {
           <div className="rounded-2xl p-6 space-y-3" style={{ background: '#fff', maxWidth: 512 }}>
             <div>
               <label className="text-xs font-bold block mb-1.5" style={{ color: '#0F1B3D' }}>Opens</label>
+              {/* Mirrors the Assign modal's preset row so the gap above the
+                  dial can be eyeballed here — it used to be zero. */}
+              <div className="grid grid-cols-4 gap-2 mb-2.5">
+                {['In 1 hour', 'Tom 9 AM', 'Sat 9 AM', 'Custom…'].map((label, i) => (
+                  <button
+                    key={label}
+                    type="button"
+                    className="py-2 px-2 rounded-lg text-xs font-bold border transition-colors"
+                    style={i === 3
+                      ? { background: '#0F1B3D', color: '#FBD13B', borderColor: '#0F1B3D' }
+                      : { background: '#fff', color: '#0F1B3D', borderColor: '#E2E8F0' }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
               <DialDateTimeField ariaLabel="Quiz opens at" value={opens} onChange={setOpens} />
             </div>
             <div>

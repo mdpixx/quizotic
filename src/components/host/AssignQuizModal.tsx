@@ -93,6 +93,20 @@ function ToggleRow({
 
 type Tab = 'now' | 'schedule'
 
+// One token for every preset chip in this modal. The four groups each carried
+// their own copy and had drifted: py-1.5 with gap-1.5 left the labels touching
+// their own borders and the Opens row sitting flush against the dial below it.
+const CHIP_CLASS = 'py-2 px-2 rounded-lg text-xs font-bold border transition-colors'
+const CHIP_GRID_GAP = 'gap-2'
+
+function chipStyle(active: boolean): React.CSSProperties {
+  return {
+    background: active ? '#0F1B3D' : '#fff',
+    color: active ? '#FBD13B' : '#0F1B3D',
+    borderColor: active ? '#0F1B3D' : '#E2E8F0',
+  }
+}
+
 // Eight entries so the 4-column grid fills two clean rows — the previous seven
 // left a ragged last row. 15 min is genuinely useful for a short quiz anyway.
 const TIME_LIMITS: Array<{ label: string; value: number | null }> = [
@@ -742,8 +756,8 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, hasLeader
                               key={opt.label}
                               onClick={() => handleSetExpiry(closeAtFor(opt.value))}
                               aria-pressed={active}
-                              className="py-2 rounded-lg text-xs font-bold border transition-colors"
-                              style={{ background: active ? '#0F1B3D' : '#fff', color: active ? '#FBD13B' : '#0F1B3D', borderColor: active ? '#0F1B3D' : '#E2E8F0' }}
+                              className={CHIP_CLASS}
+                              style={chipStyle(active)}
                             >
                               {opt.label}
                             </button>
@@ -776,15 +790,15 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, hasLeader
                     {/* Time limit */}
                     <div className="mb-5 pb-4 border-b" style={{ borderColor: '#E2E8F0' }}>
                       <p className="text-xs font-bold mb-2" style={{ color: '#0F1B3D' }}>Time limit per attempt</p>
-                      <div className="grid grid-cols-4 gap-1.5">
+                      <div className={`grid grid-cols-4 ${CHIP_GRID_GAP}`}>
                         {TIME_LIMITS.map(opt => {
                           const active = data?.timeLimitMinutes === opt.value
                           return (
                             <button
                               key={opt.label}
                               onClick={() => handleSetTimeLimit(opt.value)}
-                              className="py-1.5 rounded-lg text-xs font-bold border transition-colors"
-                              style={{ background: active ? '#0F1B3D' : '#fff', color: active ? '#FBD13B' : '#0F1B3D', borderColor: active ? '#0F1B3D' : '#E2E8F0' }}
+                              className={CHIP_CLASS}
+                              style={chipStyle(active)}
                             >
                               {opt.label}
                             </button>
@@ -832,9 +846,9 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, hasLeader
             {tab === 'schedule' && (
               <div>
                 {/* Opens — one-tap presets, with a custom datetime escape hatch */}
-                <div className="mb-3">
+                <div className="mb-4">
                   <label className="text-xs font-bold block mb-1.5" style={{ color: '#0F1B3D' }}>Opens</label>
-                  <div className="grid grid-cols-4 gap-1.5">
+                  <div className={`grid grid-cols-4 ${CHIP_GRID_GAP} mb-2.5`}>
                     {[
                       { key: 'hour', label: 'In 1 hour', date: presetInOneHour() },
                       { key: 'tom9', label: 'Tom 9 AM', date: presetTomorrowAt(9) },
@@ -848,8 +862,8 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, hasLeader
                           type="button"
                           onClick={() => selectOpensPreset(opt.key, opt.date)}
                           aria-pressed={active}
-                          className="py-1.5 rounded-lg text-xs font-bold border transition-colors"
-                          style={{ background: active ? '#0F1B3D' : '#fff', color: active ? '#FBD13B' : '#0F1B3D', borderColor: active ? '#0F1B3D' : '#E2E8F0' }}
+                          className={CHIP_CLASS}
+                          style={chipStyle(active)}
                         >
                           {opt.label}
                         </button>
@@ -870,9 +884,9 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, hasLeader
                 </div>
 
                 {/* Closes — absolute date/time, with relative quick-fills */}
-                <div className="mb-3">
+                <div className="mb-4">
                   <label className="text-xs font-bold block mb-1.5" style={{ color: '#0F1B3D' }}>Closes</label>
-                  <div className="grid grid-cols-3 gap-1.5 mb-2">
+                  <div className={`grid grid-cols-3 ${CHIP_GRID_GAP} mb-2.5`}>
                     {[
                       { label: '+1 day', days: 1 },
                       { label: '+3 days', days: 3 },
@@ -887,8 +901,8 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, hasLeader
                           disabled={!opensInput}
                           onClick={() => setClosesInput(target)}
                           aria-pressed={active}
-                          className="py-1.5 rounded-lg text-xs font-bold border transition-colors disabled:opacity-40"
-                          style={{ background: active ? '#0F1B3D' : '#fff', color: active ? '#FBD13B' : '#0F1B3D', borderColor: active ? '#0F1B3D' : '#E2E8F0' }}
+                          className={`${CHIP_CLASS} disabled:opacity-40`}
+                          style={chipStyle(active)}
                         >
                           {opt.label}
                         </button>
@@ -941,15 +955,15 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, hasLeader
                 {/* Time limit */}
                 <div className="mb-5 pb-4 border-b" style={{ borderColor: '#E2E8F0' }}>
                   <p className="text-xs font-bold mb-2" style={{ color: '#0F1B3D' }}>Time limit per attempt</p>
-                  <div className="grid grid-cols-4 gap-1.5">
+                  <div className={`grid grid-cols-4 ${CHIP_GRID_GAP}`}>
                     {TIME_LIMITS.map(opt => {
                       const active = scheduleTimeLimit === opt.value
                       return (
                         <button
                           key={opt.label}
                           onClick={() => setScheduleTimeLimit(opt.value)}
-                          className="py-1.5 rounded-lg text-xs font-bold border transition-colors"
-                          style={{ background: active ? '#0F1B3D' : '#fff', color: active ? '#FBD13B' : '#0F1B3D', borderColor: active ? '#0F1B3D' : '#E2E8F0' }}
+                          className={CHIP_CLASS}
+                          style={chipStyle(active)}
                         >
                           {opt.label}
                         </button>
