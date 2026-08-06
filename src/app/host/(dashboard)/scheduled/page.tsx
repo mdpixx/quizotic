@@ -303,7 +303,10 @@ export default function ScheduledPage() {
                       <div key={s.sessionId} className="rounded-2xl border p-4 bg-white" style={{ borderColor: 'var(--color-line)' }}>
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <h3 className="text-[15px] font-black leading-snug" style={{ color: 'var(--color-ink)' }}>{s.title}</h3>
-                          <span className="chip flex-shrink-0" style={{ background: '#ECFDF5', color: '#047857', border: '1px solid #BBF7D0' }}>Live</span>
+                          {/* "Live" read as a live-session badge on a page that
+                              is entirely about scheduled quizzes. It means the
+                              window is currently open. */}
+                          <span className="chip flex-shrink-0" style={{ background: '#ECFDF5', color: '#047857', border: '1px solid #BBF7D0' }}>Open</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 mb-3">
                           <div className="rounded-xl px-3 py-2" style={{ background: 'var(--color-paper-2)' }}>
@@ -336,9 +339,10 @@ export default function ScheduledPage() {
                               href={`/host/quizzes/${s.quizId}/report`}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors hover:bg-gray-50"
                               style={{ color: 'var(--color-ink)', borderColor: 'var(--color-line)', textDecoration: 'none' }}
+                              title="Live progress while the window is open. The full report is generated when it closes."
                             >
                               {ICON.report}
-                              View live report
+                              View progress
                             </Link>
                           )}
                         </div>
@@ -381,8 +385,12 @@ export default function ScheduledPage() {
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
                             Schedule again
                           </button>
+                          {/* Closed runs go to the full session report — the
+                              same template a live session gets. The per-quiz
+                              route only ever resolves the MOST RECENT async
+                              session, so older cohorts were unreachable. */}
                           <Link
-                            href={`/host/quizzes/${s.quizId}/report`}
+                            href={`/host/reports/${s.sessionId}`}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors hover:bg-gray-50"
                             style={{ color: 'var(--color-ink)', borderColor: 'var(--color-line)', textDecoration: 'none' }}
                           >

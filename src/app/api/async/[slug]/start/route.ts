@@ -5,7 +5,8 @@ import { randomUUID } from 'node:crypto'
 import { prisma } from '@/lib/prisma'
 import { getUserPlan } from '@/lib/billing'
 import { PLAN_LIMITS } from '@/lib/limits'
-import { answerableCount, nextAnswerableIndex, toServedQuestion, type Question } from '@/lib/scoring'
+import { answerableCount, toServedQuestion, type Question } from '@/lib/scoring'
+import { buildServeOrder } from '@/lib/async-order'
 import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 import { nudgeAsyncSweep } from '@/lib/sweep-nudge'
 
@@ -87,9 +88,17 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     const participantId = randomUUID()
     const questions = (session.quizVersion?.snapshot as Question[] | null) ?? []
-    // First ANSWERABLE question — leaderboard flow slides are never served
-    // async (the player has no renderer for them; serving one wedges the attempt).
-    const firstIdx = nextAnswerableIndex(questions, 0)
+    // This participant's serve order. buildServeOrder drops leaderboard flow
+    // slides (never served async — the player has no renderer and serving one
+    // wedges the attempt) and, when the session is shuffled, permutes the rest
+    // while pinning a name-capture slide to the front.
+    const serveOrder = buildServeOrder({
+      questions,
+      participantId,
+      sessionId: session.id,
+      enabled: session.shuffleQuestions,
+    })
+    const firstIdx = serveOrder[0] ?? -1
 
     return NextResponse.json({
       success: true,
@@ -98,7 +107,8 @@ export async function POST(req: NextRequest, { params }: Params) {
         participantId,
         total: answerableCount(questions),
         deadlineAt,
-        question: firstIdx >= 0 ? toServedQuestion(questions, firstIdx) : null,
+        shuffleOptions: session.shuffleOptions,
+        question: firstIdx >= 0 ? toServedQuestion(questions, firstIdx, serveOrder) : null,
       },
     })
   } catch (err) {

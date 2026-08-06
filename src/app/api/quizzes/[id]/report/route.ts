@@ -4,7 +4,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth-helpers'
 import { getUserPlan } from '@/lib/billing'
-import { RESULTS_RENDERER, getEffectiveOptions, getOptionText, isScoredQuestion, type Question, type QuestionStat } from '@/lib/quiz-types'
+import { RESULTS_RENDERER, getEffectiveOptions, getOptionText, isLeaderboardSlide, isScoredQuestion, type Question, type QuestionStat } from '@/lib/quiz-types'
 import type { Prisma } from '@prisma/client'
 import { buildTeacherReportInsights } from '@/lib/report-insights'
 import { buildSessionWorkbookData } from '@/lib/report-data'
@@ -293,6 +293,14 @@ export async function GET(req: NextRequest, { params }: Params) {
       // inner (case) and fallback — treat as bars with the question's options
       return { ...base, options: optLabels, optionDistribution: new Array(optCount).fill(0) } as QuestionStat
     })
+      // Leaderboard slides are never served in a self-paced attempt (see
+      // nextAnswerableIndex in lib/scoring.ts), so they can only ever appear
+      // here as a phantom question with zero responses. The live report paths
+      // already filter them (report-data.ts, sessions/[id]/matrix); this one
+      // did not, which is exactly the kind of gap that makes a scheduled report
+      // look different from a live one. Filtered AFTER the map so `index` keeps
+      // pointing at the raw snapshot position that Answer rows key on.
+      .filter(stat => !isLeaderboardSlide(questions[stat.index]))
 
     return NextResponse.json({
       success: true,

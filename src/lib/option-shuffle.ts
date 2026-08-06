@@ -83,6 +83,26 @@ function mulberry32(seed: number): () => number {
 }
 
 /**
+ * A deterministic 0..1 generator seeded from a string. Exported so the
+ * self-paced question-order shuffle (lib/async-order.ts) draws from the same
+ * PRNG as this module rather than growing a second copy — the determinism
+ * contract above applies verbatim to it.
+ */
+export function createSeededRng(seed: string): () => number {
+  return mulberry32(fnv1a(seed))
+}
+
+/** In-place-safe Fisher-Yates using a supplied generator. Returns a new array. */
+export function seededShuffle<T>(items: readonly T[], rand: () => number): T[] {
+  const out = [...items]
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1))
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
+}
+
+/**
  * Builds the display order for one participant on one question.
  *
  * Returns an array indexed by DISPLAY slot whose values are ORIGINAL option
@@ -115,16 +135,8 @@ export function buildDisplayOrder(opts: {
   // the jumble look suspiciously like a fixed re-ordering across a quiz).
   // questionIndex is a fallback discriminator for legacy questions with a
   // missing or duplicated id.
-  const seed = fnv1a(`${participantId}::${questionId ?? 'noid'}::${questionIndex}`)
-  const rand = mulberry32(seed)
-
-  // Fisher-Yates over the identity array.
-  const order = [...identity]
-  for (let i = order.length - 1; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1))
-    ;[order[i], order[j]] = [order[j], order[i]]
-  }
-  return order
+  const rand = createSeededRng(`${participantId}::${questionId ?? 'noid'}::${questionIndex}`)
+  return seededShuffle(identity, rand)
 }
 
 /**

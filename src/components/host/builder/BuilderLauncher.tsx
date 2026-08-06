@@ -16,7 +16,7 @@
 import { useState, useCallback } from 'react'
 import type { Question } from '@/lib/quiz-types'
 import { QUIZ_TEMPLATES, type TemplateAudience } from '@/lib/quiz-templates'
-import { parseCsvToQuestions, SAMPLE_CSV } from '@/lib/csv-import'
+import { parseCsvToQuestions, SAMPLE_CSV, VALID_POINTS, VALID_TIMERS } from '@/lib/csv-import'
 import { AIGenerateForm, type AIGenerateMode } from './AIGenerateForm'
 import { SparkleIcon } from './SparkleIcon'
 
@@ -197,11 +197,22 @@ function TemplatesPanel({ onApply }: { onApply: BuilderLauncherProps['onApply'] 
 
 // ── CSV panel ──────────────────────────────────────────────────────────────────
 
+// Applying questions closes this modal, so anything worth telling the host has
+// to be said BEFORE the handoff. A clean file imports straight through as it
+// always did; only a file with coerced values pauses for a confirm.
+interface PendingImport {
+  questions: Partial<Question>[]
+  title: string
+  warnings: string[]
+}
+
 function CsvPanel({ onApply }: { onApply: BuilderLauncherProps['onApply'] }) {
   const [error, setError] = useState('')
   const [dragging, setDragging] = useState(false)
   const [fileName, setFileName] = useState('')
   const [importing, setImporting] = useState(false)
+  const [pending, setPending] = useState<PendingImport | null>(null)
+  const [columnsOpen, setColumnsOpen] = useState(false)
 
   function processFile(file: File) {
     if (!file.name.match(/\.csv$/i)) {
@@ -210,6 +221,7 @@ function CsvPanel({ onApply }: { onApply: BuilderLauncherProps['onApply'] }) {
     }
     setFileName(file.name)
     setImporting(true)
+    setPending(null)
     const reader = new FileReader()
     reader.onload = e => {
       const text = e.target?.result as string
@@ -220,7 +232,12 @@ function CsvPanel({ onApply }: { onApply: BuilderLauncherProps['onApply'] }) {
         return
       }
       setError('')
-      onApply(result.questions, { title: file.name.replace(/\.csv$/i, '') })
+      const title = file.name.replace(/\.csv$/i, '')
+      if (result.warnings?.length) {
+        setPending({ questions: result.questions, title, warnings: result.warnings })
+        return
+      }
+      onApply(result.questions, { title })
     }
     reader.readAsText(file)
   }
@@ -295,10 +312,83 @@ function CsvPanel({ onApply }: { onApply: BuilderLauncherProps['onApply'] }) {
         <input type="file" accept=".csv,.CSV" className="hidden" onChange={handleFileChange} />
       </label>
 
+      {/* Collapsed by default — the one-line column list above is enough for
+          anyone using the template, and this is where the details live for the
+          host hand-rolling a file or wondering why their timer changed. */}
+      <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #E2E8F0' }}>
+        <button
+          type="button"
+          onClick={() => setColumnsOpen(o => !o)}
+          aria-expanded={columnsOpen}
+          className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-bold transition-colors hover:bg-gray-50"
+          style={{ color: '#0F1B3D' }}
+        >
+          <span className="flex-1">What the columns mean</span>
+          <svg
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden
+            className="w-3 h-3 shrink-0 transition-transform"
+            style={{ transform: columnsOpen ? 'rotate(180deg)' : 'none', color: '#94A3B8' }}
+          >
+            <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        {columnsOpen && (
+          <dl className="px-3 pb-3 space-y-1.5 text-[11px] leading-snug" style={{ color: '#64748B' }}>
+            {[
+              ['question', 'Required. The question text.'],
+              ['optionA–optionD', 'Answer choices. Leave all four blank for an open-ended question.'],
+              ['correctAnswer', 'The letter of the right option — A, B, C or D.'],
+              ['timer', `Seconds to answer. One of ${VALID_TIMERS.join(', ')}. Anything else becomes 20.`],
+              ['points', `Points for a correct answer. One of ${VALID_POINTS.join(', ')}. Anything else becomes 1000.`],
+            ].map(([name, desc]) => (
+              <div key={name} className="flex gap-2">
+                <dt className="font-mono font-semibold shrink-0" style={{ color: '#0F1B3D' }}>{name}</dt>
+                <dd className="min-w-0">{desc}</dd>
+              </div>
+            ))}
+            <p className="pt-1.5 mt-1.5" style={{ borderTop: '1px solid #F1F5F9', color: '#3B5BDB' }}>
+              <strong>timer</strong> applies to live sessions only. A scheduled quiz is timed by its
+              open/close window and the optional time limit per attempt, so per-question timers are ignored there.
+            </p>
+          </dl>
+        )}
+      </div>
+
       {error && (
         <p className="text-xs font-medium rounded-lg px-3 py-2" style={{ background: '#FEE2E2', color: '#991B1B' }}>
           {error}
         </p>
+      )}
+
+      {pending && (
+        <div className="rounded-xl px-3 py-3 space-y-2" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
+          <p className="text-xs font-bold" style={{ color: '#92400E' }}>
+            {pending.questions.length} question{pending.questions.length === 1 ? '' : 's'} ready — with {pending.warnings.length === 1 ? 'one adjustment' : 'some adjustments'}
+          </p>
+          <ul className="space-y-1 text-[11px] leading-snug" style={{ color: '#92400E' }}>
+            {pending.warnings.map(w => (
+              <li key={w} className="flex gap-1.5"><span aria-hidden>•</span><span>{w}</span></li>
+            ))}
+          </ul>
+          <div className="flex gap-2 pt-0.5">
+            <button
+              type="button"
+              onClick={() => onApply(pending.questions, { title: pending.title })}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold transition-opacity hover:opacity-90"
+              style={{ background: '#0F1B3D', color: '#FBD13B' }}
+            >
+              Import anyway
+            </button>
+            <button
+              type="button"
+              onClick={() => { setPending(null); setFileName('') }}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors hover:bg-white"
+              style={{ color: '#92400E', border: '1px solid #FDE68A' }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )

@@ -307,7 +307,7 @@ function TypeSegment({ type, onChange, divider }: { type: QuestionType; onChange
  * and a Custom field below removes the ceiling entirely for the cases presets
  * can't anticipate (a 4-minute numerical, a 7-minute passage).
  */
-function TimerSegment({ value, onChange, divider }: { value: number; onChange: (v: number) => void; divider?: boolean }) {
+function TimerSegment({ value, onChange, divider, selfPaced }: { value: number; onChange: (v: number) => void; divider?: boolean; selfPaced?: boolean }) {
   const [open, setOpen] = useState(false)
   const [custom, setCustom] = useState('')
 
@@ -326,12 +326,22 @@ function TimerSegment({ value, onChange, divider }: { value: number; onChange: (
       icon={<span className="text-[12px] leading-none">&#9201;</span>}
       label={formatTimer(value)}
       divider={divider}
-      title="Time to answer"
+      title={selfPaced
+        ? 'Time to answer — applies to live sessions only. Self-paced quizzes are timed by their schedule window.'
+        : 'Time to answer'}
     >
       <div
         className="absolute top-full left-0 mt-1.5 z-50 rounded-xl border bg-white p-2"
         style={{ width: 232, borderColor: '#E8EAED', boxShadow: POPOVER_SHADOW }}
       >
+        {/* The setting stays editable — the same quiz is often run live later —
+            but a host who has turned self-paced on deserves to know the number
+            they're picking will be ignored on that path. */}
+        {selfPaced && (
+          <p className="mb-2 rounded-lg px-2 py-1.5 text-[10px] leading-snug" style={{ background: '#F0F5FF', color: '#3B5BDB' }}>
+            Applies to <strong>live sessions only</strong>. Self-paced quizzes are timed by their open/close window.
+          </p>
+        )}
         <div className="grid grid-cols-3 gap-1">
           {TIMER_OPTIONS.map(opt => (
             <button
@@ -533,6 +543,12 @@ export interface QuestionCanvasProps {
   index: number
   total: number
   plan: 'free' | 'pro'
+  /**
+   * The quiz is set up for self-paced play. Per-question timers are ignored on
+   * that path (the attempt is bounded by the schedule window), so the timer
+   * control says so instead of quietly lying.
+   */
+  selfPaced?: boolean
   onChange: (partial: Partial<Question>) => void
   onTypeChange: (type: QuestionType) => void
   onDuplicate: () => void
@@ -544,6 +560,7 @@ export function QuestionCanvas({
   index,
   total,
   plan,
+  selfPaced,
   onChange,
   onTypeChange,
   onDuplicate,
@@ -805,6 +822,7 @@ export function QuestionCanvas({
             onChange={v => onChange({ timerSeconds: v })}
             /* Timer is the last segment on unscored types — drop its divider */
             divider={scored}
+            selfPaced={selfPaced}
           />
           {/* Points — scored types only, so it is also the last segment when present */}
           {scored && (

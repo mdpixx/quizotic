@@ -1,19 +1,28 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useIsMobile } from '@/hooks/useIsMobile'
 
-// iOS-style spinning-wheel date + time picker for the quiz scheduler.
+// Compact date + time picker for the quiz scheduler, styled after the iOS wheel.
 //
-// Six scroll-snap drums — Day · Month · Year · Hour · Minute · AM/PM — that you
-// flick with trackpad/mouse wheel (and arrow keys). Mobile keeps the native
+// Four scroll-snap drums — Date · Hour · Minute · AM/PM — that you flick with a
+// trackpad/mouse wheel (or arrow keys). Mobile keeps the native
 // <input type="datetime-local"> because the OS wheel is already excellent on
-// touch and stays featherweight (Quizotic participant/host modals stay light).
+// touch and stays featherweight.
 //
-// The value contract is identical to the old native input: a local
+// Two deliberate choices keep this small enough that the Schedule tab fits on a
+// laptop without the modal scrolling:
+//   • ONE date drum ("Sat 28 Jun") instead of separate day/month/year drums.
+//     Six columns became four, so each is roughly twice as wide and legible.
+//   • Minutes in 5-minute steps. Nobody schedules a quiz for 9:37, and a 60-row
+//     drum is the single most tedious thing to scroll. An off-step value that
+//     arrives from elsewhere is spliced into the list rather than silently
+//     rounded — rescheduling must never move a window the host didn't touch.
+//
+// The value contract is unchanged from the native input: a local
 // `YYYY-MM-DDTHH:mm` string (empty string when unset), so every piece of
 // scheduling logic upstream — preset chips, validation, the UTC-ISO submit — is
-// unchanged. Pure CSS scroll-snap, no new dependency.
+// untouched. Pure CSS scroll-snap, no new dependency.
 
 // useLayoutEffect avoids the wheels flashing at item 0 before snapping to the
 // selected value on mount. No-op on the server.
@@ -25,11 +34,21 @@ interface DialDateTimeFieldProps {
   ariaLabel?: string
 }
 
-const ITEM_H = 40 // px — every drum row is exactly this tall
-const VISIBLE = 5 // rows visible at once; the middle row is the selection
+const ITEM_H = 34 // px — every drum row is exactly this tall
+const VISIBLE = 3 // rows visible at once; the middle row is the selection
 const PAD = ITEM_H * Math.floor(VISIBLE / 2) // lets the first/last row reach the center
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const MINUTE_STEP = 5
+const DAYS_AHEAD = 366 // how far the date drum runs past today
+
+// Apple-ish neutrals. Slim hairlines, no colour — the selection reads from the
+// grey band plus the ink/grey text contrast, not from a saturated border.
+const INK = '#1D1D1F'
+const MUTED = '#AEAEB2'
+const HAIRLINE = '#E5E5EA'
+const BAND = '#F2F2F7'
+const SYSTEM_FONT =
+  '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'
 
 const pad = (n: number): string => String(n).padStart(2, '0')
 
@@ -65,10 +84,51 @@ export function compose(p: Parts): string {
   return `${p.year}-${pad(p.month + 1)}-${pad(p.day)}T${pad(p.hour)}:${pad(p.minute)}`
 }
 
-function formatDisplay(p: Parts): string {
-  return new Date(p.year, p.month, p.day, p.hour, p.minute).toLocaleString('en-IN', {
-    weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true,
+/** Midnight of the given date, in local time. */
+function startOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate())
+}
+
+/** Whole days between two local midnights. */
+function daysBetween(from: Date, to: Date): number {
+  return Math.round((to.getTime() - from.getTime()) / 86400000)
+}
+
+/**
+ * The rows of the date drum: one entry per day, from today (or the selected
+ * day, whichever is earlier — an already-saved schedule must stay reachable)
+ * out to a year ahead.
+ */
+export function buildDateItems(today: Date, selected: Date): { label: string; date: Date }[] {
+  const first = startOfDay(selected < today ? selected : today)
+  const lastByRange = new Date(startOfDay(today).getTime() + DAYS_AHEAD * 86400000)
+  const last = startOfDay(selected) > lastByRange ? startOfDay(selected) : lastByRange
+  const count = daysBetween(first, last) + 1
+  const todayIndex = daysBetween(first, startOfDay(today))
+
+  return Array.from({ length: count }, (_, i) => {
+    const date = new Date(first.getFullYear(), first.getMonth(), first.getDate() + i)
+    let label: string
+    if (i === todayIndex) label = 'Today'
+    else if (i === todayIndex + 1) label = 'Tomorrow'
+    else {
+      label = date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })
+      // Only spell out the year once the drum crosses into a new one — showing
+      // it on every row is noise for the 99% of scheduling that is weeks away.
+      if (date.getFullYear() !== today.getFullYear()) label += ` ${date.getFullYear()}`
+    }
+    return { label, date }
   })
+}
+
+/**
+ * Minute rows: 0, 5, 10 … 55, plus `current` itself when it is off-step so an
+ * existing schedule is never rounded behind the host's back.
+ */
+export function buildMinuteItems(current: number): number[] {
+  const stepped = Array.from({ length: 60 / MINUTE_STEP }, (_, i) => i * MINUTE_STEP)
+  if (stepped.includes(current)) return stepped
+  return [...stepped, current].sort((a, b) => a - b)
 }
 
 interface WheelProps {
@@ -76,16 +136,18 @@ interface WheelProps {
   index: number
   onIndex: (i: number) => void
   label: string
+  /** Flex weight — the date column needs more room than AM/PM. */
+  grow: number
 }
 
 // A single scroll-snap drum. Scroll (or arrow keys) moves the selection; the
 // center row is the chosen value.
-function Wheel({ items, index, onIndex, label }: WheelProps) {
+function Wheel({ items, index, onIndex, label, grow }: WheelProps) {
   const ref = useRef<HTMLDivElement>(null)
   const last = useRef(index)
 
   // Keep the scroll position in sync when the index changes from outside
-  // (initial mount, preset chips, clamping after a month/year change).
+  // (initial mount, preset chips, clamping after a date change).
   useIsoLayoutEffect(() => {
     const el = ref.current
     if (!el) return
@@ -116,19 +178,15 @@ function Wheel({ items, index, onIndex, label }: WheelProps) {
 
   return (
     <div
-      className="dial-wheel relative flex-1 min-w-0 focus-within:outline-none"
+      className="dial-wheel relative min-w-0 focus-within:outline-none"
+      style={{ flex: `${grow} 1 0%` }}
       role="group"
       aria-label={label}
     >
-      {/* Center selection band */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 rounded-md"
-        style={{ top: PAD, height: ITEM_H, background: 'rgba(251,209,59,0.20)', borderTop: '2px solid #FBD13B', borderBottom: '2px solid #FBD13B' }}
-      />
-      {/* Edge fades so rows dissolve as they leave the center */}
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-12 z-10" style={{ background: 'linear-gradient(#fff 10%, rgba(255,255,255,0))' }} />
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-12 z-10" style={{ background: 'linear-gradient(rgba(255,255,255,0), #fff 90%)' }} />
+      {/* Edge fades so rows dissolve as they leave the center. The colour comes
+          from --dial-surface so the field isn't locked to a white background. */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 z-10" style={{ height: ITEM_H, background: 'linear-gradient(var(--dial-surface) 25%, transparent)' }} />
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-10" style={{ height: ITEM_H, background: 'linear-gradient(transparent, var(--dial-surface) 75%)' }} />
       <div
         ref={ref}
         tabIndex={0}
@@ -143,12 +201,16 @@ function Wheel({ items, index, onIndex, label }: WheelProps) {
           {items.map((it, i) => (
             <div
               key={it}
-              className="flex items-center justify-center"
+              className="flex items-center justify-center px-1"
               style={{ height: ITEM_H, scrollSnapAlign: 'center' }}
             >
               <span
-                className="text-sm font-bold transition-colors"
-                style={{ color: i === index ? '#0F1B3D' : '#94A3B8' }}
+                className="truncate text-[13px] transition-colors tabular-nums"
+                style={{
+                  color: i === index ? INK : MUTED,
+                  fontWeight: i === index ? 600 : 400,
+                  letterSpacing: '-0.01em',
+                }}
               >
                 {it}
               </span>
@@ -163,6 +225,15 @@ function Wheel({ items, index, onIndex, label }: WheelProps) {
 export function DialDateTimeField({ value, onChange, ariaLabel }: DialDateTimeFieldProps) {
   const isMobile = useIsMobile()
 
+  const parts = parseValue(value)
+  // Recomputed only when the calendar day changes, not on every keystroke —
+  // this builds ~370 rows.
+  const today = useMemo(() => startOfDay(new Date()), [])
+  const dateItems = useMemo(
+    () => (isMobile ? [] : buildDateItems(today, new Date(parts.year, parts.month, parts.day))),
+    [isMobile, today, parts.year, parts.month, parts.day],
+  )
+
   // Mobile: the OS wheel is already a great, lightweight dial — keep it.
   if (isMobile) {
     return (
@@ -172,34 +243,31 @@ export function DialDateTimeField({ value, onChange, ariaLabel }: DialDateTimeFi
         aria-label={ariaLabel}
         onChange={e => onChange(e.target.value)}
         className="w-full h-10 px-3 text-sm rounded-lg outline-none focus:ring-2 focus:ring-yellow-200"
-        style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#0F1B3D' }}
+        style={{ background: '#F8FAFC', border: `1px solid ${HAIRLINE}`, color: INK }}
       />
     )
   }
 
-  const parts = parseValue(value)
   const displayHour12 = (parts.hour % 12) || 12
   const period = parts.hour < 12 ? 'AM' : 'PM'
 
-  const nowYear = new Date().getFullYear()
-  const years = Array.from({ length: 6 }, (_, i) => nowYear + i) // current → +5
-  const days = Array.from({ length: daysInMonth(parts.year, parts.month) }, (_, i) => String(i + 1))
+  const dateIndex = Math.max(
+    0,
+    dateItems.findIndex(d =>
+      d.date.getFullYear() === parts.year && d.date.getMonth() === parts.month && d.date.getDate() === parts.day,
+    ),
+  )
   const hours12 = Array.from({ length: 12 }, (_, i) => String(i + 1))
-  const minutes = Array.from({ length: 60 }, (_, i) => pad(i))
+  const minuteItems = buildMinuteItems(parts.minute)
   const periods = ['AM', 'PM']
 
   function setPart(patch: Partial<Parts>): void {
     onChange(compose({ ...parts, ...patch }))
   }
-  // Switching month/year can shorten the month — clamp the day so we never emit
-  // an impossible date (e.g. Mar 31 → Feb 28).
-  function setMonth(month: number): void {
-    const dim = daysInMonth(parts.year, month)
-    setPart({ month, day: Math.min(parts.day, dim) })
-  }
-  function setYear(year: number): void {
-    const dim = daysInMonth(year, parts.month)
-    setPart({ year, day: Math.min(parts.day, dim) })
+  function setDate(i: number): void {
+    const d = dateItems[i]?.date
+    if (!d) return
+    setPart({ year: d.getFullYear(), month: d.getMonth(), day: d.getDate() })
   }
   function setHour12(h12: number): void {
     let h = h12 % 12
@@ -213,20 +281,32 @@ export function DialDateTimeField({ value, onChange, ariaLabel }: DialDateTimeFi
   }
 
   return (
-    <div className="rounded-xl p-3" style={{ background: '#fff', border: '1px solid #E2E8F0' }}>
+    <div
+      className="rounded-xl p-2"
+      style={{
+        background: '#fff',
+        border: `1px solid ${HAIRLINE}`,
+        fontFamily: SYSTEM_FONT,
+        '--dial-surface': '#fff',
+      } as React.CSSProperties}
+    >
       {/* Hide scrollbars on the drums (Firefox via inline style; Webkit here) */}
       <style>{`.dial-wheel::-webkit-scrollbar{display:none}`}</style>
-      <div className="flex items-stretch gap-1" style={{ height: ITEM_H * VISIBLE }}>
-        <Wheel label="Day" items={days} index={parts.day - 1} onIndex={i => setPart({ day: i + 1 })} />
-        <Wheel label="Month" items={MONTHS} index={parts.month} onIndex={setMonth} />
-        <Wheel label="Year" items={years.map(String)} index={Math.max(0, years.indexOf(parts.year))} onIndex={i => setYear(years[i])} />
-        <div aria-hidden className="w-px self-stretch mx-1" style={{ background: '#E2E8F0' }} />
-        <Wheel label="Hour" items={hours12} index={displayHour12 - 1} onIndex={i => setHour12(i + 1)} />
-        <Wheel label="Minute" items={minutes} index={parts.minute} onIndex={i => setPart({ minute: i })} />
-        <Wheel label="AM or PM" items={periods} index={period === 'PM' ? 1 : 0} onIndex={i => setPeriod(periods[i])} />
-      </div>
-      <div className="mt-2 text-center text-xs font-semibold" style={{ color: '#0F1B3D' }}>
-        → {formatDisplay(parts)}
+      <div className="relative" style={{ height: ITEM_H * VISIBLE }}>
+        {/* Center selection band — one rounded grey rect spanning all four
+            drums, the way the iOS picker does it. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 rounded-lg"
+          style={{ top: PAD, height: ITEM_H, background: BAND }}
+        />
+        <div className="relative flex items-stretch h-full">
+          <Wheel grow={5} label="Date" items={dateItems.map(d => d.label)} index={dateIndex} onIndex={setDate} />
+          <div aria-hidden className="w-px self-center mx-1" style={{ height: ITEM_H, background: HAIRLINE }} />
+          <Wheel grow={2} label="Hour" items={hours12} index={displayHour12 - 1} onIndex={i => setHour12(i + 1)} />
+          <Wheel grow={2} label="Minute" items={minuteItems.map(pad)} index={Math.max(0, minuteItems.indexOf(parts.minute))} onIndex={i => setPart({ minute: minuteItems[i] })} />
+          <Wheel grow={2} label="AM or PM" items={periods} index={period === 'PM' ? 1 : 0} onIndex={i => setPeriod(periods[i])} />
+        </div>
       </div>
     </div>
   )

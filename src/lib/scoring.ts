@@ -133,9 +133,17 @@ export function answerableCount(questions: Question[]): number {
 
 export type ServedQuestion = PublicQuestion & { index: number; ordinal: number; total: number }
 
-export function toServedQuestion(questions: Question[], index: number): ServedQuestion {
-  const ordinal = answerableCount(questions.slice(0, index)) + 1
-  return { ...toPublicQuestion(questions[index]!), index, ordinal, total: answerableCount(questions) }
+/**
+ * `order` is the participant's serve order as raw snapshot indices (see
+ * lib/async-order.ts). When supplied, ordinal/total describe the participant's
+ * OWN sequence — with questions shuffled, "3 of 10" has to mean the third
+ * question this person sees, not the third slide the host authored. Omit it and
+ * numbering falls back to authored order.
+ */
+export function toServedQuestion(questions: Question[], index: number, order?: number[]): ServedQuestion {
+  const ordinal = order ? Math.max(1, order.indexOf(index) + 1) : answerableCount(questions.slice(0, index)) + 1
+  const total = order ? order.length : answerableCount(questions)
+  return { ...toPublicQuestion(questions[index]!), index, ordinal, total }
 }
 
 // Returns the effective options array for a question, with type-appropriate defaults.

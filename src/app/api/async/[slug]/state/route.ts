@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { type NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { answerableCount, toServedQuestion, type Question } from '@/lib/scoring'
-import { isLeaderboardSlide } from '@/lib/quiz-types'
+import { buildServeOrder, nextIndexInOrder } from '@/lib/async-order'
 
 type Params = { params: Promise<{ slug: string }> }
 
@@ -49,6 +49,8 @@ export async function POST(req: NextRequest, { params }: Params) {
         mode: true,
         status: true,
         closesAt: true,
+        shuffleQuestions: true,
+        shuffleOptions: true,
         quizVersion: { select: { snapshot: true, questionCount: true } },
       },
     })
@@ -118,7 +120,16 @@ export async function POST(req: NextRequest, { params }: Params) {
       select: { questionIndex: true, points: true, isCorrect: true },
     })
     const answeredIndices = new Set(answers.map(a => a.questionIndex))
-    const nextIndex = questions.findIndex((q, i) => !answeredIndices.has(i) && !isLeaderboardSlide(q))
+    // The participant's own serve order — derived, never stored, so a refresh
+    // or a resume days later replays the identical sequence. Leaderboard slides
+    // are excluded by buildServeOrder, so this also covers the old skip.
+    const serveOrder = buildServeOrder({
+      questions,
+      participantId,
+      sessionId: session.id,
+      enabled: session.shuffleQuestions,
+    })
+    const nextIndex = nextIndexInOrder(serveOrder, answeredIndices)
 
     // Every answerable question answered (only slides remain, e.g. a trailing
     // auto-leaderboard): finalize here. Returning in_progress with a null
@@ -139,7 +150,8 @@ export async function POST(req: NextRequest, { params }: Params) {
         deadlineAt: attendee.deadlineAt,
         answeredCount: answeredIndices.size,
         total: questionCount,
-        nextQuestion: toServedQuestion(questions, nextIndex),
+        shuffleOptions: session.shuffleOptions,
+        nextQuestion: toServedQuestion(questions, nextIndex, serveOrder),
         result: null,
       },
     })

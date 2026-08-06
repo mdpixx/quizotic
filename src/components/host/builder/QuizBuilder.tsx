@@ -480,6 +480,7 @@ export function QuizBuilder({ editId }: QuizBuilderProps) {
               index={builder.activeIndex}
               total={builder.questions.length}
               plan={builder.plan}
+              selfPaced={builder.selfPaced}
               onChange={partial => builder.updateQuestion(builder.activeIndex, partial)}
               onTypeChange={type => builder.changeQuestionType(builder.activeIndex, type)}
               onDuplicate={() => builder.duplicateQuestion(builder.activeIndex)}

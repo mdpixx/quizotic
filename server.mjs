@@ -289,6 +289,11 @@ async function buildAsyncResults(sessionId) {
     if (!byIndex.has(an.questionIndex)) byIndex.set(an.questionIndex, [])
     byIndex.get(an.questionIndex).push(an)
   }
+  // Leaderboard flow slides are never served in a self-paced attempt, so they
+  // can only ever land here as phantom zero-response questions. The live report
+  // builders already exclude them (report-data.ts, sessions/[id]/matrix) — this
+  // keeps a scheduled report structurally identical to a live one. `index` is
+  // preserved as the raw snapshot position because Answer rows key on it.
   const questionStats = questions.map((q, i) => {
     const qAnswers = byIndex.get(i) ?? []
     const total = qAnswers.length
@@ -321,7 +326,7 @@ async function buildAsyncResults(sessionId) {
       bloomsLevel: q.bloomsLevel ?? null, explanation: q.explanation ?? null,
       isNonScored: false, totalResponses: total, optionDistribution: null,
     }
-  })
+  }).filter((_stat, i) => !isLeaderboardSlide(questions[i]))
 
   const maxScore = questions.reduce((sum, q) => (
     isScoredQuestion(q) ? sum + (q.points || 1000) : sum
@@ -334,7 +339,10 @@ async function buildAsyncResults(sessionId) {
     teamLeaderboard: null,
     questionStats,
     quizTitle: sess.title || 'Quiz',
-    questionCount: questions.length,
+    // Answerable questions only — the participant never sees the leaderboard
+    // slides, so counting them would make the report claim more questions than
+    // the quiz actually asked.
+    questionCount: questions.filter(q => !isLeaderboardSlide(q)).length,
     maxScore,
     duration: Math.max(0, Math.round((endMs - startMs) / 1000)),
   }

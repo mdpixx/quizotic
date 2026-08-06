@@ -20,6 +20,9 @@ export async function GET() {
         id: true,
         code: true,
         type: true,
+        // 'live' | 'async'. Ended self-paced sessions land in the same reports
+        // list as live ones; without this the UI cannot tell them apart.
+        mode: true,
         status: true,
         participantCount: true,
         results: true,

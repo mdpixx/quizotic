@@ -52,20 +52,125 @@ interface PublishData {
   publishedAt: string | null
   needsRepublish: boolean
   timeLimitMinutes: number | null
+  shuffleQuestions: boolean
+  shuffleOptions: boolean
   hasLeaderboardSlides: boolean
+}
+
+// Row with a label, a sub-hint and a switch. Extracted because the retakes and
+// the two shuffle settings are the same shape, and three hand-rolled copies of
+// a 20-line toggle is how they drift apart.
+function ToggleRow({
+  label, hint, on, onToggle, divider = true,
+}: {
+  label: string
+  hint: string
+  on: boolean
+  onToggle: () => void
+  divider?: boolean
+}) {
+  return (
+    <div
+      className="flex items-center justify-between gap-3 py-3"
+      style={divider ? { borderTop: '1px solid #E2E8F0' } : undefined}
+    >
+      <div className="min-w-0">
+        <p className="text-sm font-semibold" style={{ color: '#0F1B3D' }}>{label}</p>
+        <p className="text-xs" style={{ color: '#94A3B8' }}>{hint}</p>
+      </div>
+      <button
+        onClick={onToggle}
+        className="w-11 h-6 rounded-full relative transition-colors flex-shrink-0"
+        style={{ background: on ? '#16A34A' : '#CBD5E1' }}
+        aria-label={label}
+        aria-pressed={on}
+      >
+        <span className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform" style={{ left: on ? '22px' : '4px' }} />
+      </button>
+    </div>
+  )
 }
 
 type Tab = 'now' | 'schedule'
 
+// Eight entries so the 4-column grid fills two clean rows — the previous seven
+// left a ragged last row. 15 min is genuinely useful for a short quiz anyway.
 const TIME_LIMITS: Array<{ label: string; value: number | null }> = [
   { label: 'None', value: null },
   { label: '10 min', value: 10 },
+  { label: '15 min', value: 15 },
   { label: '20 min', value: 20 },
   { label: '30 min', value: 30 },
   { label: '45 min', value: 45 },
   { label: '60 min', value: 60 },
   { label: '90 min', value: 90 },
 ]
+
+// The three ways a self-paced run genuinely differs from a live session. A host
+// can schedule any quiz — `selfPaced` in the builder is only a preference — so
+// this modal is the one surface that knows for certain the quiz is going out
+// self-paced, and therefore the honest place to say all three.
+//
+// Collapsed by default so it doesn't interrupt someone who just wants a link;
+// opened automatically when the quiz actually contains a leaderboard slide,
+// which is when the first line stops being trivia and starts being a warning.
+function SelfPacedNotes({ defaultOpen }: { defaultOpen: boolean }) {
+  // `defaultOpen` arrives asynchronously (hasLeaderboardSlides comes back with
+  // the publish/fetch response), so the open state is DERIVED from it rather
+  // than seeded into state — seeding would need an effect that re-opens the
+  // panel on arrival, and syncing state from props in an effect causes a
+  // cascading render. `override` records a deliberate toggle, which always wins.
+  const [override, setOverride] = useState<boolean | null>(null)
+  const open = override ?? defaultOpen
+
+  return (
+    <div className="mb-4 rounded-xl overflow-hidden" style={{ background: '#F0F5FF', border: '1px solid #DBE4FF' }}>
+      <button
+        type="button"
+        onClick={() => setOverride(!open)}
+        aria-expanded={open}
+        className="w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-[#E8EFFF]"
+        style={{ color: '#3B5BDB' }}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5 shrink-0" aria-hidden>
+          <circle cx="12" cy="12" r="9" /><path d="M12 16v-4M12 8h.01" strokeLinecap="round" />
+        </svg>
+        <span className="flex-1 text-xs font-bold">How self-paced quizzes work</span>
+        <svg
+          viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden
+          className="w-3 h-3 shrink-0 transition-transform"
+          style={{ transform: open ? 'rotate(180deg)' : 'none' }}
+        >
+          <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <ul className="px-3 pb-3 pt-0.5 space-y-1.5 text-xs leading-snug" style={{ color: '#3B5BDB' }}>
+          <li className="flex gap-2">
+            <span aria-hidden>•</span>
+            <span><strong>Leaderboard slides are skipped</strong> during the attempt — participants go straight to the next question. Final scores still appear in your report.</span>
+          </li>
+          <li className="flex gap-2">
+            <span aria-hidden>•</span>
+            <span><strong>Per-question timers don&apos;t apply.</strong> The quiz is bounded by your open and close window, plus the optional time limit per attempt.</span>
+          </li>
+          <li className="flex gap-2">
+            <span aria-hidden>•</span>
+            <span><strong>No speed bonus</strong> — every correct answer scores its full points.</span>
+          </li>
+          <li className="flex gap-2">
+            <span aria-hidden>•</span>
+            <span>
+              <strong>Questions and options are shuffled</strong> per participant by default, since
+              everyone takes this alone and at a different time. Turn either off below if your
+              questions build on each other. A name question placed first always stays first.
+            </span>
+          </li>
+        </ul>
+      )}
+    </div>
+  )
+}
 
 function formatDateTime(iso: string | null): string {
   if (!iso) return 'Not set'
@@ -180,6 +285,9 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, hasLeader
   const [closesInput, setClosesInput] = useState<string>(() => plusOneDay(defaultOpensValue()))
   const [scheduleRetries, setScheduleRetries] = useState(false)
   const [scheduleTimeLimit, setScheduleTimeLimit] = useState<number | null>(null)
+  // Shuffling is the default for a self-paced quiz — see the publish route.
+  const [scheduleShuffleQuestions, setScheduleShuffleQuestions] = useState(true)
+  const [scheduleShuffleOptions, setScheduleShuffleOptions] = useState(true)
   // Which "Opens" preset chip is active ('custom' shows the raw datetime field).
   const [opensPreset, setOpensPreset] = useState<string>('custom')
 
@@ -248,6 +356,8 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, hasLeader
         if (next.opensAt) setTab('schedule')
         setScheduleRetries(next.allowRetries)
         setScheduleTimeLimit(next.timeLimitMinutes)
+        setScheduleShuffleQuestions(next.shuffleQuestions)
+        setScheduleShuffleOptions(next.shuffleOptions)
         if (next.opensAt) { setOpensInput(toLocalInputValue(new Date(next.opensAt))); setOpensPreset('custom') }
         if (next.closesAt) setClosesInput(toLocalInputValue(new Date(next.closesAt)))
         pushPatch(next)
@@ -280,6 +390,8 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, hasLeader
       setData(next)
       setScheduleRetries(next.allowRetries)
       setScheduleTimeLimit(next.timeLimitMinutes)
+      setScheduleShuffleQuestions(next.shuffleQuestions)
+      setScheduleShuffleOptions(next.shuffleOptions)
       pushPatch(next)
     } catch {
       setError('Could not create the share link. Please try again.')
@@ -299,6 +411,11 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, hasLeader
       publishedAt: (raw.publishedAt as string | null) ?? null,
       needsRepublish: !!raw.needsRepublish,
       timeLimitMinutes: (raw.timeLimitMinutes as number | null) ?? null,
+      // Default TRUE when the field is absent: a response from before these
+      // columns shipped should read the way a freshly scheduled quiz does,
+      // not silently show both switches off.
+      shuffleQuestions: raw.shuffleQuestions === undefined ? true : !!raw.shuffleQuestions,
+      shuffleOptions: raw.shuffleOptions === undefined ? true : !!raw.shuffleOptions,
       hasLeaderboardSlides: !!raw.hasLeaderboardSlides,
     }
   }
@@ -363,7 +480,11 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, hasLeader
     const closesISO = new Date(closesInput).toISOString()
     setSaving(true)
     try {
-      const body = { opensAt: opensISO, closesAt: closesISO, allowRetries: scheduleRetries, timeLimitMinutes: scheduleTimeLimit }
+      const body = {
+        opensAt: opensISO, closesAt: closesISO,
+        allowRetries: scheduleRetries, timeLimitMinutes: scheduleTimeLimit,
+        shuffleQuestions: scheduleShuffleQuestions, shuffleOptions: scheduleShuffleOptions,
+      }
       // POST if no session yet, PATCH to reschedule an existing one.
       const method = data?.shareSlug ? 'PATCH' : 'POST'
       const res = await fetch(`/api/quizzes/${quizId}/publish`, {
@@ -389,6 +510,8 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, hasLeader
               opensAt: json.data.opensAt ?? opensISO,
               closesAt: json.data.closesAt ?? closesISO,
               timeLimitMinutes: 'timeLimitMinutes' in json.data ? (json.data.timeLimitMinutes ?? null) : scheduleTimeLimit,
+              shuffleQuestions: typeof json.data.shuffleQuestions === 'boolean' ? json.data.shuffleQuestions : scheduleShuffleQuestions,
+              shuffleOptions: typeof json.data.shuffleOptions === 'boolean' ? json.data.shuffleOptions : scheduleShuffleOptions,
             }
         pushPatch(merged)
         return merged
@@ -489,7 +612,7 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, hasLeader
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
-        className="rounded-2xl p-6 max-w-md w-full shadow-xl max-h-[90vh] overflow-y-auto"
+        className="rounded-2xl p-6 max-w-md sm:max-w-lg w-full shadow-xl max-h-[90vh] overflow-y-auto"
         style={{ background: '#fff' }}
         onClick={e => e.stopPropagation()}
       >
@@ -545,11 +668,7 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, hasLeader
               </div>
             )}
 
-            {(hasLeaderboardSlides || data?.hasLeaderboardSlides) && (
-              <div className="mb-4 px-3 py-2.5 rounded-xl text-xs font-medium" style={{ background: '#F0F5FF', color: '#3B5BDB', border: '1px solid #DBE4FF' }}>
-                Leaderboard slides don&apos;t apply to self-paced quizzes — participants skip past them.
-              </div>
-            )}
+            <SelfPacedNotes defaultOpen={hasLeaderboardSlides || !!data?.hasLeaderboardSlides} />
 
             {/* Result block — shown once a session exists, on both tabs */}
             {hasSession && (
@@ -633,21 +752,25 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, hasLeader
                       </div>
                     </div>
 
-                    {/* Allow retries */}
-                    <div className="flex items-center justify-between mb-4 py-3 border-t" style={{ borderColor: '#E2E8F0' }}>
-                      <div>
-                        <p className="text-sm font-semibold" style={{ color: '#0F1B3D' }}>Allow retakes</p>
-                        <p className="text-xs" style={{ color: '#94A3B8' }}>Let players take the quiz more than once</p>
-                      </div>
-                      <button
-                        onClick={() => handleToggleRetries(!data?.allowRetries)}
-                        className="w-11 h-6 rounded-full relative transition-colors flex-shrink-0"
-                        style={{ background: data?.allowRetries ? '#16A34A' : '#CBD5E1' }}
-                        aria-label="Toggle retakes"
-                        aria-pressed={!!data?.allowRetries}
-                      >
-                        <span className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform" style={{ left: data?.allowRetries ? '22px' : '4px' }} />
-                      </button>
+                    <div className="mb-4">
+                      <ToggleRow
+                        label="Allow retakes"
+                        hint="Let players take the quiz more than once"
+                        on={!!data?.allowRetries}
+                        onToggle={() => handleToggleRetries(!data?.allowRetries)}
+                      />
+                      <ToggleRow
+                        label="Shuffle questions"
+                        hint="Each participant gets a different question sequence"
+                        on={!!data?.shuffleQuestions}
+                        onToggle={() => patchSession({ shuffleQuestions: !data?.shuffleQuestions })}
+                      />
+                      <ToggleRow
+                        label="Shuffle answer options"
+                        hint="Each participant sees A/B/C/D in a different order"
+                        on={!!data?.shuffleOptions}
+                        onToggle={() => patchSession({ shuffleOptions: !data?.shuffleOptions })}
+                      />
                     </div>
 
                     {/* Time limit */}
@@ -794,21 +917,25 @@ export function AssignQuizModal({ quizId, quizTitle, hasExistingShare, hasLeader
                   )}
                 </div>
 
-                {/* Allow retries */}
-                <div className="flex items-center justify-between mb-4 py-3 border-t" style={{ borderColor: '#E2E8F0' }}>
-                  <div>
-                    <p className="text-sm font-semibold" style={{ color: '#0F1B3D' }}>Allow retakes</p>
-                    <p className="text-xs" style={{ color: '#94A3B8' }}>Let players take the quiz more than once</p>
-                  </div>
-                  <button
-                    onClick={() => setScheduleRetries(r => !r)}
-                    className="w-11 h-6 rounded-full relative transition-colors flex-shrink-0"
-                    style={{ background: scheduleRetries ? '#16A34A' : '#CBD5E1' }}
-                    aria-label="Toggle retakes"
-                    aria-pressed={scheduleRetries}
-                  >
-                    <span className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform" style={{ left: scheduleRetries ? '22px' : '4px' }} />
-                  </button>
+                <div className="mb-4">
+                  <ToggleRow
+                    label="Allow retakes"
+                    hint="Let players take the quiz more than once"
+                    on={scheduleRetries}
+                    onToggle={() => setScheduleRetries(r => !r)}
+                  />
+                  <ToggleRow
+                    label="Shuffle questions"
+                    hint="Each participant gets a different question sequence"
+                    on={scheduleShuffleQuestions}
+                    onToggle={() => setScheduleShuffleQuestions(v => !v)}
+                  />
+                  <ToggleRow
+                    label="Shuffle answer options"
+                    hint="Each participant sees A/B/C/D in a different order"
+                    on={scheduleShuffleOptions}
+                    onToggle={() => setScheduleShuffleOptions(v => !v)}
+                  />
                 </div>
 
                 {/* Time limit */}

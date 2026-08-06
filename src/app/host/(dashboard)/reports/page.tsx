@@ -4,10 +4,38 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { downloadFromUrl } from '@/lib/download'
 
+// Filters span two independent axes — what the session was (quiz vs
+// presentation) and how it ran (live vs scheduled) — so they can't be one enum.
+type ReportFilter = 'all' | 'quiz' | 'presentation' | 'live' | 'scheduled'
+
+const FILTER_LABELS: Record<ReportFilter, string> = {
+  all: 'All reports',
+  quiz: 'Quizzes',
+  presentation: 'Presentations',
+  live: 'Live',
+  scheduled: 'Scheduled',
+}
+
+// Amber — the same swatch /host/quizzes and /host/scheduled already use for
+// scheduled chips, so the badge is recognisable across the dashboard.
+const SCHEDULED_CHIP_STYLE = { background: '#FFFBEB', color: '#92400E', border: '1px solid #FDE68A' }
+
+function matchesFilter(session: SessionRecord, filter: ReportFilter): boolean {
+  switch (filter) {
+    case 'all': return true
+    case 'quiz':
+    case 'presentation': return session.type === filter
+    case 'scheduled': return session.mode === 'async'
+    case 'live': return session.mode !== 'async'
+  }
+}
+
 interface SessionRecord {
   id: string
   code: string
   type: 'quiz' | 'presentation'
+  /** 'live' | 'async'. Older rows predate the column — treat missing as live. */
+  mode?: string | null
   status: string
   participantCount: number | null
   results: {
@@ -47,7 +75,7 @@ function getAvgScore(results: SessionRecord['results']): number | null {
 export default function ReportsPage() {
   const [sessions, setSessions] = useState<SessionRecord[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'all' | 'quiz' | 'presentation'>('all')
+  const [filter, setFilter] = useState<ReportFilter>('all')
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [downloadError, setDownloadError] = useState<string | null>(null)
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null)
@@ -79,7 +107,7 @@ export default function ReportsPage() {
 
   // Only ENDED sessions make sense for reports
   const endedSessions = sessions.filter(s => s.status === 'ended')
-  const filtered = endedSessions.filter(s => filter === 'all' || s.type === filter)
+  const filtered = endedSessions.filter(s => matchesFilter(s, filter))
 
   async function handleWorkbookDownload(session: SessionRecord) {
     setDownloadingId(session.id)
@@ -169,10 +197,11 @@ export default function ReportsPage() {
 
         {/* Filter bar */}
         <div className="mb-5 flex items-center gap-2 flex-wrap">
-          {(['all', 'quiz', 'presentation'] as const).map(f => (
+          {(['all', 'quiz', 'presentation', 'live', 'scheduled'] as const).map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
+              aria-pressed={filter === f}
               className="chip"
               style={{
                 background: filter === f ? 'var(--color-ink)' : '#fff',
@@ -181,7 +210,7 @@ export default function ReportsPage() {
                 border: filter === f ? 'none' : '1px solid var(--color-line)',
               }}
             >
-              {f === 'all' ? 'All reports' : f === 'quiz' ? 'Quizzes' : 'Presentations'}
+              {FILTER_LABELS[f]}
             </button>
           ))}
         </div>
@@ -214,7 +243,7 @@ export default function ReportsPage() {
               {endedSessions.length === 0 ? 'No reports yet.' : 'No reports match that filter.'}
             </p>
             <p className="text-sm max-w-[40ch]" style={{ color: 'var(--color-text-muted)' }}>
-              {endedSessions.length === 0 ? 'Reports are generated automatically when you complete a live session.' : 'Try a different filter.'}
+              {endedSessions.length === 0 ? 'Reports are generated automatically when a live session ends or a scheduled quiz closes.' : 'Try a different filter.'}
             </p>
           </div>
         ) : (
@@ -254,6 +283,11 @@ export default function ReportsPage() {
                         <span className="chip" style={{ background: session.type === 'quiz' ? '#EFF6FF' : '#E0F2FE', color: session.type === 'quiz' ? '#1D4ED8' : '#0369A1' }}>
                           {session.type === 'quiz' ? 'Quiz' : 'Presentation'}
                         </span>
+                        {session.mode === 'async' && (
+                          <span className="chip" style={SCHEDULED_CHIP_STYLE} title="Participants took this at their own pace within a scheduled window">
+                            Scheduled
+                          </span>
+                        )}
                         {session.results?.duration != null && (
                           <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
                             {fmtDuration(session.results.duration)}

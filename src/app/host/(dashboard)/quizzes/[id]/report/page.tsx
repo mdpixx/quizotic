@@ -269,6 +269,14 @@ export default function AsyncReportPage() {
       .then(r => r.json())
       .then(json => {
         if (!json.success) { setError(json.error ?? 'Failed to load report'); return }
+        // Once the window has closed there is a persisted `results` row, so the
+        // full session report renders — the same template a live session gets,
+        // with confidence, misconceptions and the participant matrix. This page
+        // exists only for the in-progress case, where `results` is still null.
+        if (json.data?.status === 'ended' && json.data?.sessionId) {
+          router.replace(`/host/reports/${json.data.sessionId}`)
+          return
+        }
         setData(json.data)
       })
       .catch(() => setError('Failed to load report'))
@@ -276,7 +284,7 @@ export default function AsyncReportPage() {
     fetch('/api/billing/status').then(r => r.json()).then(json => {
       if (json?.plan && json.plan !== 'free') setIsPro(true)
     }).catch(() => {})
-  }, [id])
+  }, [id, router])
 
   async function downloadWorkbook() {
     setExportLoading(true)
@@ -312,7 +320,16 @@ export default function AsyncReportPage() {
             ← Back
           </button>
           <h1 className="text-[26px] font-black font-display leading-tight" style={{ color: 'var(--color-ink)' }}>{title}</h1>
-          {subject && <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>{subject}</p>}
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            <span className="chip" style={{ background: '#FFFBEB', color: '#92400E', border: '1px solid #FDE68A' }}>
+              Scheduled · in progress
+            </span>
+            {subject && <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>{subject}</span>}
+          </div>
+          <p className="text-xs mt-1.5" style={{ color: 'var(--color-text-muted)' }}>
+            Live progress while the window is open. The full report — confidence, misconceptions and the
+            participant matrix — is generated when the quiz closes.
+          </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button

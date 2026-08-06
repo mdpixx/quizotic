@@ -209,3 +209,61 @@ describe('isShuffleableType', () => {
     expect(isShuffleableType(null)).toBe(false)
   })
 })
+
+// ─── Multi-select submission contract ────────────────────────────────────────
+// The self-paced multi-select grid holds DISPLAY slots in state and converts on
+// submit. The order of those two steps is the whole ballgame: mapping and then
+// sorting yields authored indices; sorting slots and then mapping yields a
+// different set per participant, which checkAnswer would mark wrong.
+
+describe('multi-select: map slots to authored indices, then sort', () => {
+  const order = buildDisplayOrder({
+    optionCount: 4,
+    enabled: true,
+    questionType: 'multiselect',
+    participantId: 'p-1',
+    questionId: 'q-1',
+    questionIndex: 0,
+  })
+
+  /** What MultiSelectGrid does. */
+  function submit(slots: number[]): string[] {
+    return slots.map(s => toOriginalIndex(order, s)).sort((a, b) => a - b).map(String)
+  }
+
+  it('produces authored indices, ascending', () => {
+    const chosen = [3, 0, 2]
+    const out = submit(chosen)
+    expect(out).toEqual([...out].sort((a, b) => Number(a) - Number(b)))
+    expect(out.map(Number)).toEqual(chosen.map(s => toOriginalIndex(order, s)).sort((a, b) => a - b))
+  })
+
+  it('is order-insensitive: tapping the same tiles in any sequence submits the same set', () => {
+    expect(submit([0, 2, 3])).toEqual(submit([3, 2, 0]))
+    expect(submit([2, 3, 0])).toEqual(submit([0, 3, 2]))
+  })
+
+  it('selecting every tile submits every authored index exactly once', () => {
+    expect(submit([0, 1, 2, 3])).toEqual(['0', '1', '2', '3'])
+  })
+
+  // Two participants with different permutations who pick the SAME answers must
+  // submit the same authored set — otherwise one of them is silently marked wrong.
+  it('agrees across participants who chose the same options', () => {
+    const other = buildDisplayOrder({
+      optionCount: 4,
+      enabled: true,
+      questionType: 'multiselect',
+      participantId: 'p-2',
+      questionId: 'q-1',
+      questionIndex: 0,
+    })
+    const authored = [1, 2]
+    const slotsFor = (o: number[]) => authored.map(a => o.indexOf(a))
+    const submitWith = (o: number[], slots: number[]) =>
+      slots.map(s => toOriginalIndex(o, s)).sort((a, b) => a - b).map(String)
+
+    expect(submitWith(order, slotsFor(order))).toEqual(['1', '2'])
+    expect(submitWith(other, slotsFor(other))).toEqual(['1', '2'])
+  })
+})
