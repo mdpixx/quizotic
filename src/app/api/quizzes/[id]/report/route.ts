@@ -34,7 +34,10 @@ type LeaderboardEntry = {
   name: string
   score: number
   correctCount: number
+  /** Everything they answered, scored or not. Informational only. */
   answeredCount: number
+  /** Scored questions in the quiz — the denominator behind `accuracy`. */
+  scoredCount: number
   accuracy: number | null
   status: 'finished' | 'in_progress'
   timeSec: number | null
@@ -111,6 +114,15 @@ export async function GET(req: NextRequest, { params }: Params) {
 
     // ── Leaderboard ─────────────────────────────────────────────────────────────
 
+    // Accuracy is correct ÷ SCORED questions in the quiz — never ÷ everything
+    // the participant answered. A poll or word cloud can be answered but can
+    // never be `isCorrect`, so counting it in the denominator silently drags
+    // the percentage down: a quiz with 9 scored questions and 2 polls turned
+    // 4 correct into 4/11 = 36% for the host while the participant's own
+    // result screen said 4/9 = 44%. Same definition as report-data.ts (the
+    // Excel workbook) and sessions/[id]/matrix, which were both already right.
+    const scoredCount = questions.filter(q => !isLeaderboardSlide(q) && isScoredQuestion(q)).length
+
     // Group answers by attendeeId to compute live score per attendee
     const scoreByAttendee = new Map<string, { score: number; correct: number; answered: number }>()
     for (const a of answers) {
@@ -129,8 +141,8 @@ export async function GET(req: NextRequest, { params }: Params) {
         const timeSec = att.leftAt
           ? Math.round((att.leftAt.getTime() - att.joinedAt.getTime()) / 1000)
           : null
-        const accuracy = stats.answered > 0 ? Math.round((stats.correct / stats.answered) * 100) : null
-        return { name: att.nickname, score: stats.score, correctCount: stats.correct, answeredCount: stats.answered, accuracy, status, timeSec }
+        const accuracy = scoredCount > 0 ? Math.round((stats.correct / scoredCount) * 100) : null
+        return { name: att.nickname, score: stats.score, correctCount: stats.correct, answeredCount: stats.answered, scoredCount, accuracy, status, timeSec }
       })
       .sort((a, b) => b.score - a.score)
 

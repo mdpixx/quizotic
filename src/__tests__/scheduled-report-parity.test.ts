@@ -91,3 +91,111 @@ describe('scheduled quiz report — leaderboard slides', () => {
     expect(unanswered).toHaveLength(0)
   })
 })
+
+// ─── Accuracy denominator ────────────────────────────────────────────────────
+// Reported from a real test run: the participant's own result screen said
+// 4/9 = 44% while the host's report said 4/11 = 36% for the same attempt. The
+// host route divided correct by EVERY answer, including two polls that can
+// never be `isCorrect`. Accuracy must be correct ÷ scored questions — the
+// definition report-data.ts (Excel) and sessions/[id]/matrix already used.
+
+// 9 scored (mcq/truefalse) + 2 non-scored (poll/wordcloud) = 11 answerable.
+const MIXED_SNAPSHOT = [
+  ...Array.from({ length: 9 }, (_, i) => ({
+    id: `q${i}`, type: 'mcq', text: `Q${i}`, options: ['a', 'b'], correctAnswer: '0', timerSeconds: 20, points: 1000,
+  })),
+  { id: 'poll', type: 'poll', text: 'Which did you enjoy?', options: ['x', 'y'], timerSeconds: 20, points: 0 },
+  { id: 'cloud', type: 'wordcloud', text: 'One word?', timerSeconds: 20, points: 0 },
+]
+
+describe('scheduled quiz report — accuracy is over scored questions', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    prismaMock.gameSession.findFirst.mockResolvedValue({
+      id: 'session-1',
+      shareSlug: 'abc12345',
+      status: 'ended',
+      allowRetries: false,
+      closesAt: null,
+      participantCount: 1,
+      createdAt: new Date('2026-08-06T10:00:00Z'),
+      quizVersion: { title: 'AI Masterclass', subject: null, questionCount: 11, snapshot: MIXED_SNAPSHOT },
+    })
+    prismaMock.attendee.findMany.mockResolvedValue([
+      { id: 'att-1', nickname: 'Mahesh', joinedAt: new Date('2026-08-06T10:01:00Z'), leftAt: new Date('2026-08-06T10:09:00Z'), finalScore: 4000 },
+    ])
+    // Answered all 11: 4 scored correct, 5 scored wrong, 2 non-scored.
+    prismaMock.answer.findMany.mockResolvedValue([
+      ...Array.from({ length: 4 }, (_, i) => ({
+        questionIndex: i, isCorrect: true, points: 1000, attendeeId: 'att-1', answer: 0,
+        submittedAt: new Date('2026-08-06T10:02:00Z'), timeMs: 0,
+      })),
+      ...Array.from({ length: 5 }, (_, i) => ({
+        questionIndex: 4 + i, isCorrect: false, points: 0, attendeeId: 'att-1', answer: 1,
+        submittedAt: new Date('2026-08-06T10:03:00Z'), timeMs: 0,
+      })),
+      { questionIndex: 9, isCorrect: null, points: 0, attendeeId: 'att-1', answer: 0, submittedAt: new Date('2026-08-06T10:04:00Z'), timeMs: 0 },
+      { questionIndex: 10, isCorrect: null, points: 0, attendeeId: 'att-1', answer: 'hello', submittedAt: new Date('2026-08-06T10:05:00Z'), timeMs: 0 },
+    ])
+  })
+
+  async function report() {
+    const res = await reportGet(new NextRequest('http://localhost/api/quizzes/quiz-1/report'), params('quiz-1'))
+    return (await res.json()).data
+  }
+
+  it('reports 44%, matching the participant — not 36%', async () => {
+    const entry = (await report()).leaderboard[0]
+    expect(entry.accuracy).toBe(44)
+    expect(entry.accuracy).not.toBe(36)
+  })
+
+  it('exposes the scored denominator so the table can render 4/9', async () => {
+    const entry = (await report()).leaderboard[0]
+    expect(entry.correctCount).toBe(4)
+    expect(entry.scoredCount).toBe(9)
+  })
+
+  it('still reports everything answered, separately from the denominator', async () => {
+    const entry = (await report()).leaderboard[0]
+    expect(entry.answeredCount).toBe(11)
+  })
+
+  it('carries the same denominator into the summary average', async () => {
+    expect((await report()).summary.avgAccuracy).toBe(44)
+  })
+
+  // Leaderboard slides are not questions and must not dilute accuracy either.
+  it('excludes leaderboard slides from the denominator', async () => {
+    prismaMock.gameSession.findFirst.mockResolvedValue({
+      id: 'session-1', shareSlug: 'abc12345', status: 'ended', allowRetries: false, closesAt: null,
+      participantCount: 1, createdAt: new Date('2026-08-06T10:00:00Z'),
+      quizVersion: {
+        title: 'AI Masterclass', subject: null, questionCount: 12,
+        snapshot: [...MIXED_SNAPSHOT, { id: 'lb', type: 'leaderboard', text: '', timerSeconds: 20, points: 1000, topN: 5 }],
+      },
+    })
+    const entry = (await report()).leaderboard[0]
+    expect(entry.scoredCount).toBe(9)
+    expect(entry.accuracy).toBe(44)
+  })
+
+  it('reports null accuracy rather than 0 when a quiz has no scored questions', async () => {
+    prismaMock.gameSession.findFirst.mockResolvedValue({
+      id: 'session-1', shareSlug: 'abc12345', status: 'ended', allowRetries: false, closesAt: null,
+      participantCount: 1, createdAt: new Date('2026-08-06T10:00:00Z'),
+      quizVersion: {
+        title: 'Survey', subject: null, questionCount: 2,
+        snapshot: [
+          { id: 'poll', type: 'poll', text: 'A?', options: ['x', 'y'], timerSeconds: 20, points: 0 },
+          { id: 'cloud', type: 'wordcloud', text: 'B?', timerSeconds: 20, points: 0 },
+        ],
+      },
+    })
+    prismaMock.answer.findMany.mockResolvedValue([
+      { questionIndex: 0, isCorrect: null, points: 0, attendeeId: 'att-1', answer: 0, submittedAt: new Date(), timeMs: 0 },
+    ])
+    const entry = (await report()).leaderboard[0]
+    expect(entry.accuracy).toBeNull()
+  })
+})

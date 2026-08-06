@@ -12,6 +12,7 @@ type LeaderboardEntry = {
   score: number
   correctCount: number
   answeredCount: number
+  scoredCount: number
   accuracy: number | null
   status: 'finished' | 'in_progress'
   timeSec: number | null
@@ -389,7 +390,7 @@ export default function AsyncReportPage() {
                   <th className="py-2.5 pr-4 pl-3 font-semibold font-display">#</th>
                   <th className="py-2.5 pr-4 font-semibold font-display">Name</th>
                   <th className="py-2.5 pr-4 font-semibold text-right font-display">Score</th>
-                  <th className="py-2.5 pr-4 font-semibold text-right hidden sm:table-cell font-display">Correct</th>
+                  <th className="py-2.5 pr-4 font-semibold text-right hidden sm:table-cell font-display" title="Correct answers out of the quiz's scored questions. Polls, word clouds and other unscored slides are excluded.">Correct</th>
                   <th className="py-2.5 pr-4 font-semibold text-right hidden sm:table-cell font-display">Accuracy</th>
                   <th className="py-2.5 pr-4 font-semibold text-right hidden md:table-cell font-display">Time</th>
                   <th className="py-2.5 pr-3 font-semibold font-display">Status</th>
@@ -401,7 +402,7 @@ export default function AsyncReportPage() {
                     <td className="py-2.5 pl-3 pr-4 font-display" style={{ color: 'var(--color-text-muted)' }}>{i + 1}</td>
                     <td className="py-2.5 pr-4 font-semibold" style={{ color: 'var(--color-ink)' }}>{entry.name}</td>
                     <td className="py-2.5 pr-4 text-right font-bold font-display" style={{ color: 'var(--color-info)' }}>{entry.score}</td>
-                    <td className="py-2.5 pr-4 text-right hidden sm:table-cell" style={{ color: 'var(--color-text-muted)' }}>{entry.correctCount}/{entry.answeredCount}</td>
+                    <td className="py-2.5 pr-4 text-right hidden sm:table-cell" style={{ color: 'var(--color-text-muted)' }}>{entry.correctCount}/{entry.scoredCount}</td>
                     <td className="py-2.5 pr-4 text-right hidden sm:table-cell font-display" style={{ color: 'var(--color-text-muted)' }}>{entry.accuracy !== null ? `${entry.accuracy}%` : '—'}</td>
                     <td className="py-2.5 pr-4 text-right hidden md:table-cell" style={{ color: 'var(--color-text-muted)' }}>{fmt(entry.timeSec)}</td>
                     <td className="py-2.5 pr-3">
