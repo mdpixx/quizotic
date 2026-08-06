@@ -148,6 +148,8 @@ export async function POST(req: NextRequest, { params }: Params) {
         createdAt: true,
         participantCount: true,
         timeLimitMinutes: true,
+        shuffleQuestions: true,
+        shuffleOptions: true,
         quizVersionId: true,
         quizVersion: { select: { questionCount: true, createdAt: true } },
       },
@@ -184,6 +186,8 @@ export async function POST(req: NextRequest, { params }: Params) {
             needsRepublish: false,
             republished: true,
             timeLimitMinutes: existing.timeLimitMinutes ?? null,
+            shuffleQuestions: existing.shuffleQuestions,
+            shuffleOptions: existing.shuffleOptions,
             hasLeaderboardSlides,
           },
         })
@@ -202,6 +206,8 @@ export async function POST(req: NextRequest, { params }: Params) {
           needsRepublish: false,
           republished: false,
           timeLimitMinutes: existing.timeLimitMinutes ?? null,
+          shuffleQuestions: existing.shuffleQuestions,
+          shuffleOptions: existing.shuffleOptions,
           hasLeaderboardSlides,
         },
       })
@@ -248,6 +254,15 @@ export async function POST(req: NextRequest, { params }: Params) {
         timeLimitMinutes,
         opensAt: schedule.opensAt ?? null,
         closesAt: schedule.closesAt ?? null,
+        // Shuffled BY DEFAULT for self-paced. Unlike a live session — where
+        // everyone answers the same question at the same moment under a timer —
+        // a self-paced attempt is taken alone, over hours or days, next to
+        // someone who may already have finished. Jumbling both the question
+        // order and the options is the baseline that makes that fair. The host
+        // can turn either off in the Assign modal (question order matters for
+        // quizzes whose questions build on each other).
+        shuffleQuestions: true,
+        shuffleOptions: true,
       },
     })
     nudgeAsyncSweep()
@@ -262,6 +277,8 @@ export async function POST(req: NextRequest, { params }: Params) {
         opensAt: session.opensAt,
         closesAt: session.closesAt,
         timeLimitMinutes,
+        shuffleQuestions: session.shuffleQuestions,
+        shuffleOptions: session.shuffleOptions,
         responseCount: 0,
         publishedAt: version.createdAt,
         needsRepublish: false,
@@ -292,8 +309,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       return NextResponse.json({ success: false, error: schedule.error }, { status: 400 })
     }
 
-    const update: { allowRetries?: boolean; opensAt?: Date | null; closesAt?: Date | null; timeLimitMinutes?: number | null } = {}
+    const update: { allowRetries?: boolean; opensAt?: Date | null; closesAt?: Date | null; timeLimitMinutes?: number | null; shuffleQuestions?: boolean; shuffleOptions?: boolean } = {}
     if (typeof body.allowRetries === 'boolean') update.allowRetries = body.allowRetries
+    // Changing these mid-flight only affects attempts started afterwards: the
+    // order is derived per attempt from (sessionId, participantId), so anyone
+    // already part-way through keeps the sequence they began with.
+    if (typeof body.shuffleQuestions === 'boolean') update.shuffleQuestions = body.shuffleQuestions
+    if (typeof body.shuffleOptions === 'boolean') update.shuffleOptions = body.shuffleOptions
     if ('opensAt' in body) update.opensAt = schedule.opensAt ?? null
     if ('closesAt' in body) update.closesAt = schedule.closesAt ?? null
     if ('timeLimitMinutes' in body) {
@@ -306,7 +328,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     return NextResponse.json({
       success: true,
-      data: { sessionId: updated.id, shareSlug: updated.shareSlug, allowRetries: updated.allowRetries, opensAt: updated.opensAt, closesAt: updated.closesAt, timeLimitMinutes: updated.timeLimitMinutes },
+      data: { sessionId: updated.id, shareSlug: updated.shareSlug, allowRetries: updated.allowRetries, opensAt: updated.opensAt, closesAt: updated.closesAt, timeLimitMinutes: updated.timeLimitMinutes, shuffleQuestions: updated.shuffleQuestions, shuffleOptions: updated.shuffleOptions },
     })
   } catch {
     return NextResponse.json({ success: false, error: 'Failed to update' }, { status: 500 })

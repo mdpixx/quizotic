@@ -40,6 +40,11 @@ const CRITICAL_COLUMNS = [
   // this on every quiz save, so a missing column 500s the entire save flow —
   // exactly the failure mode this script exists to prevent.
   { table: 'Quiz', column: 'shuffleOptions', type: 'BOOLEAN NOT NULL DEFAULT false' },
+  // Per-participant jumbling for scheduled (self-paced) quizzes. The publish
+  // route writes both on every async session create, so a missing column would
+  // 500 the entire "share / schedule this quiz" flow.
+  { table: 'GameSession', column: 'shuffleQuestions', type: 'BOOLEAN NOT NULL DEFAULT false' },
+  { table: 'GameSession', column: 'shuffleOptions', type: 'BOOLEAN NOT NULL DEFAULT false' },
   // Feedback kind ('general' | 'feature' | 'bug'). /api/feedback writes it on
   // every submission, including the dashboard's Request a feature button.
   { table: 'Feedback', column: 'type', type: `TEXT NOT NULL DEFAULT 'general'` },

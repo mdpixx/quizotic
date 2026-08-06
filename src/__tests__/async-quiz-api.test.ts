@@ -175,6 +175,47 @@ describe('async answer API', () => {
       }),
     })
   })
+
+  // Self-paced play has no per-question timer, so there is no speed bonus and a
+  // correct answer is worth its full points — that is what the Assign modal
+  // promises the host. This used to fall out of calcPoints() only because the
+  // client always posted timeMs: 0; a client that reported a real elapsed time
+  // would have started docking points with no code change anywhere.
+  it('awards full points for a correct answer regardless of elapsed time', async () => {
+    const scores: number[] = []
+    for (const timeMs of [0, 5000, 19_000, 60_000]) {
+      prismaMock.answer.create.mockClear()
+      const res = await answerPost(req('http://localhost/api/async/abc/answer', {
+        participantId: 'pid-1',
+        attendeeId: 'att-1',
+        questionIndex: 1,
+        answer: '0',
+        timeMs,
+      }), params({ slug: 'abc' }))
+      const json = await res.json()
+      expect(json.data.isCorrect).toBe(true)
+      scores.push(json.data.points)
+      expect(prismaMock.answer.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ isCorrect: true, basePoints: 1000, timeMs }),
+      })
+    }
+    expect(new Set(scores).size).toBe(1)
+    expect(scores[0]).toBe(1000)
+  })
+
+  it('still awards zero for a wrong answer', async () => {
+    const res = await answerPost(req('http://localhost/api/async/abc/answer', {
+      participantId: 'pid-1',
+      attendeeId: 'att-1',
+      questionIndex: 1,
+      answer: '1',
+      timeMs: 1000,
+    }), params({ slug: 'abc' }))
+    const json = await res.json()
+
+    expect(json.data.isCorrect).toBe(false)
+    expect(json.data.points).toBe(0)
+  })
 })
 
 describe('async finish API', () => {
@@ -295,6 +336,12 @@ describe('async answer API — leaderboard slides', () => {
   })
 
   it('ends the quiz over a trailing slide (nextQuestion null)', async () => {
+    // "Next" means the next UNANSWERED question in this participant's serve
+    // order, not the next one by snapshot position — that distinction is what
+    // makes shuffled serving work. So reaching the last answerable question
+    // (index 3) requires the earlier one (index 1) to already be on record.
+    prismaMock.answer.findMany.mockResolvedValue([{ questionIndex: 1, isCorrect: true }])
+
     const json = await (await submit(3, '1')).json()
 
     expect(json.data.nextQuestion).toBeNull()
@@ -387,5 +434,126 @@ describe('async finish API — leaderboard slides', () => {
     expect(json.data.questionCount).toBe(2)
     expect(json.data.scoredQuestionCount).toBe(1)
     expect(json.data.participationAnsweredCount).toBe(1)
+  })
+})
+
+// ─── Shuffling ───────────────────────────────────────────────────────────────
+// Scheduled quizzes shuffle question order per participant by default. The
+// serve order is DERIVED from (sessionId, participantId) rather than stored, so
+// the properties worth pinning at the API boundary are: it is honoured, it is
+// stable across a resume, a name-capture slide stays first, and turning it off
+// restores authored order.
+
+const SHUFFLE_SNAPSHOT = [
+  { id: 'n0', type: 'openended', text: 'Enter your full name (as per records)', isNameCapture: true, timerSeconds: 30, points: 1000 },
+  { id: 'q1', type: 'mcq', text: 'Q1', options: ['a', 'b'], correctAnswer: '0', timerSeconds: 20, points: 1000 },
+  { id: 'q2', type: 'mcq', text: 'Q2', options: ['a', 'b'], correctAnswer: '0', timerSeconds: 20, points: 1000 },
+  { id: 'q3', type: 'mcq', text: 'Q3', options: ['a', 'b'], correctAnswer: '0', timerSeconds: 20, points: 1000 },
+  { id: 'q4', type: 'mcq', text: 'Q4', options: ['a', 'b'], correctAnswer: '0', timerSeconds: 20, points: 1000 },
+  { id: 'q5', type: 'mcq', text: 'Q5', options: ['a', 'b'], correctAnswer: '0', timerSeconds: 20, points: 1000 },
+]
+
+function shuffleSession(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'session-1',
+    mode: 'async',
+    status: 'open',
+    userId: null,
+    allowRetries: false,
+    opensAt: null,
+    closesAt: null,
+    timeLimitMinutes: null,
+    shuffleQuestions: true,
+    shuffleOptions: true,
+    quizVersion: { snapshot: SHUFFLE_SNAPSHOT, questionCount: 6 },
+    ...overrides,
+  }
+}
+
+describe('async serving — shuffled question order', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    prismaMock.attendee.create.mockResolvedValue({ id: 'att-9' })
+    prismaMock.answer.count.mockResolvedValue(0)
+  })
+
+  async function firstServedFor(participantId: string, session = shuffleSession()) {
+    prismaMock.gameSession.findUnique.mockResolvedValue(session)
+    prismaMock.attendee.findFirst.mockResolvedValue({ id: 'att-1', leftAt: null, deadlineAt: null, finalScore: 0 })
+    prismaMock.answer.findMany.mockResolvedValue([])
+    const res = await statePost(
+      req('http://localhost/api/async/abc/state', { participantId, attendeeId: 'att-1' }),
+      params({ slug: 'abc' }),
+    )
+    return (await res.json()).data
+  }
+
+  it('pins the name-capture slide first for every participant', async () => {
+    for (const p of ['p1', 'p2', 'p3', 'p4', 'p5', 'p6']) {
+      const data = await firstServedFor(p)
+      expect(data.nextQuestion.index).toBe(0)
+      expect(data.nextQuestion.ordinal).toBe(1)
+    }
+  })
+
+  it('serves a different second question to different participants', async () => {
+    const seconds = new Set<number>()
+    for (let i = 0; i < 12; i++) {
+      prismaMock.gameSession.findUnique.mockResolvedValue(shuffleSession())
+      prismaMock.attendee.findFirst.mockResolvedValue({ id: 'att-1', leftAt: null, deadlineAt: null, finalScore: 0 })
+      // Name slide already answered — next is the first shuffled question.
+      prismaMock.answer.findMany.mockResolvedValue([{ questionIndex: 0, points: 0, isCorrect: null }])
+      const res = await statePost(
+        req('http://localhost/api/async/abc/state', { participantId: `pid-${i}`, attendeeId: 'att-1' }),
+        params({ slug: 'abc' }),
+      )
+      seconds.add((await res.json()).data.nextQuestion.index)
+    }
+    expect(seconds.size).toBeGreaterThan(1)
+  })
+
+  it('replays the identical sequence on resume', async () => {
+    const a = await firstServedFor('stable-pid')
+    const b = await firstServedFor('stable-pid')
+    expect(a.nextQuestion.index).toBe(b.nextQuestion.index)
+  })
+
+  it('numbers ordinals by the participant sequence, not the snapshot', async () => {
+    prismaMock.gameSession.findUnique.mockResolvedValue(shuffleSession())
+    prismaMock.attendee.findFirst.mockResolvedValue({ id: 'att-1', leftAt: null, deadlineAt: null, finalScore: 0 })
+    prismaMock.answer.findMany.mockResolvedValue([
+      { questionIndex: 0, points: 0, isCorrect: null },
+      { questionIndex: 4, points: 1000, isCorrect: true },
+    ])
+    const res = await statePost(
+      req('http://localhost/api/async/abc/state', { participantId: 'pid-x', attendeeId: 'att-1' }),
+      params({ slug: 'abc' }),
+    )
+    const q = (await res.json()).data.nextQuestion
+    expect(q.total).toBe(6)
+    expect(q.ordinal).toBeGreaterThanOrEqual(1)
+    expect(q.ordinal).toBeLessThanOrEqual(6)
+  })
+
+  it('serves authored order when the host turns shuffling off', async () => {
+    for (const p of ['p1', 'p2', 'p3']) {
+      const data = await firstServedFor(p, shuffleSession({ shuffleQuestions: false }))
+      expect(data.nextQuestion.index).toBe(0)
+    }
+    prismaMock.gameSession.findUnique.mockResolvedValue(shuffleSession({ shuffleQuestions: false }))
+    prismaMock.attendee.findFirst.mockResolvedValue({ id: 'att-1', leftAt: null, deadlineAt: null, finalScore: 0 })
+    prismaMock.answer.findMany.mockResolvedValue([{ questionIndex: 0, points: 0, isCorrect: null }])
+    const res = await statePost(
+      req('http://localhost/api/async/abc/state', { participantId: 'pid-1', attendeeId: 'att-1' }),
+      params({ slug: 'abc' }),
+    )
+    expect((await res.json()).data.nextQuestion.index).toBe(1)
+  })
+
+  it('echoes shuffleOptions so the player can jumble its tiles', async () => {
+    const on = await firstServedFor('pid-1')
+    expect(on.shuffleOptions).toBe(true)
+    const off = await firstServedFor('pid-1', shuffleSession({ shuffleOptions: false }))
+    expect(off.shuffleOptions).toBe(false)
   })
 })

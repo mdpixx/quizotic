@@ -2,7 +2,8 @@ export const dynamic = 'force-dynamic'
 
 import { type NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { checkAnswer, calcPoints, computeStreakBonus, isAsyncScoredQuestion, nextAnswerableIndex, scoreRanking, toServedQuestion, validateAnswer, type Question } from '@/lib/scoring'
+import { checkAnswer, computeStreakBonus, isAsyncScoredQuestion, scoreRanking, toServedQuestion, validateAnswer, type Question } from '@/lib/scoring'
+import { buildServeOrder, nextIndexInOrder } from '@/lib/async-order'
 import { rateLimitRequest, rateLimitResponse } from '@/lib/rate-limit'
 import type { Prisma } from '@prisma/client'
 
@@ -72,11 +73,31 @@ export async function POST(req: NextRequest, { params }: Params) {
       return NextResponse.json({ success: false, error: 'Time is up for this attempt.', code: 'time_up' }, { status: 410 })
     }
 
+    // Everything already answered on this attempt, in the order it was actually
+    // submitted. Serves two purposes below: picking the next question, and the
+    // streak. Ordering by submittedAt rather than questionIndex matters once
+    // questions are shuffled — snapshot order is no longer the order this
+    // participant saw them in. With shuffling off the two are identical.
+    const priorAnswers = await prisma.answer.findMany({
+      where: { sessionId: session.id, participantId },
+      orderBy: { submittedAt: 'asc' },
+      select: { questionIndex: true, isCorrect: true },
+    })
+    const answeredIndices = new Set(priorAnswers.map(a => a.questionIndex))
+    answeredIndices.add(questionIndex)
+
     // Next question to serve — computed once so the cached-idempotent branch
-    // and the main branch can't diverge. Skips leaderboard flow slides (the
-    // async player has no renderer for them; serving one wedges the attempt).
-    const nextIdx = nextAnswerableIndex(questions, questionIndex + 1)
-    const nextQ = nextIdx >= 0 ? toServedQuestion(questions, nextIdx) : null
+    // and the main branch can't diverge. buildServeOrder excludes leaderboard
+    // flow slides (the async player has no renderer for them; serving one
+    // wedges the attempt) and applies this participant's shuffle.
+    const serveOrder = buildServeOrder({
+      questions,
+      participantId,
+      sessionId: session.id,
+      enabled: session.shuffleQuestions,
+    })
+    const nextIdx = nextIndexInOrder(serveOrder, answeredIndices)
+    const nextQ = nextIdx >= 0 ? toServedQuestion(questions, nextIdx, serveOrder) : null
 
     // Idempotency: if answer already recorded, return cached result
     const existing = await prisma.answer.findFirst({
@@ -101,29 +122,34 @@ export async function POST(req: NextRequest, { params }: Params) {
       })
     }
 
-    // Server-side grading
+    // Server-side grading.
+    //
+    // Self-paced play has NO per-question timer — the attempt is bounded by the
+    // session's open/close window and the optional whole-attempt time limit — so
+    // there is no speed bonus and a correct answer is worth its full points.
+    // That is also what the Assign modal promises the host.
+    //
+    // This used to fall out of `calcPoints(points, timeMs, timerSeconds)` with
+    // the client always posting `timeMs: 0`: speedRatio landed on 1 and the
+    // multiplier on 1.0. Correct by accident. A client that started reporting a
+    // real elapsed time — or a future per-question timer — would silently begin
+    // docking points. Stated explicitly here instead.
     const isScored = isAsyncScoredQuestion(question)
     const isRankingScored = isScored && question.type === 'ranking'
+    const SELF_PACED_SPEED_MULTIPLIER = 1
     let isCorrect: boolean | null = null
     let basePoints = 0
     if (isRankingScored) {
-      const maxMs = question.timerSeconds * 1000
-      const speedRatio = Math.max(0, 1 - timeMs / maxMs)
-      const speedMultiplier = 0.5 + 0.5 * speedRatio  // classic formula
-      const result = scoreRanking(question, validated.value, speedMultiplier)
+      const result = scoreRanking(question, validated.value, SELF_PACED_SPEED_MULTIPLIER)
       isCorrect = result.isCorrect
       basePoints = result.basePoints
     } else if (isScored) {
       isCorrect = checkAnswer(question, body.answer)
-      basePoints = isCorrect ? calcPoints(question.points, timeMs, question.timerSeconds) : 0
+      basePoints = isCorrect ? (question.points || 1000) : 0
     }
 
-    // Streak: query prior answers in order (ranking never contributes to streak)
-    const priorAnswers = await prisma.answer.findMany({
-      where: { sessionId: session.id, participantId },
-      orderBy: { questionIndex: 'asc' },
-      select: { isCorrect: true },
-    })
+    // Streak: reuses the prior-answer list fetched above, already in submission
+    // order (ranking never contributes to streak).
     const priorCorrect = priorAnswers
       .filter(a => typeof a.isCorrect === 'boolean')
       .map(a => a.isCorrect ?? false)

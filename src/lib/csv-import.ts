@@ -17,11 +17,18 @@ export const SAMPLE_CSV = `question,optionA,optionB,optionC,optionD,correctAnswe
 "Is the Earth round?",True,False,,,A,15,500
 "Describe the water cycle.",,,,,,30,1000`
 
-const VALID_TIMERS = [10, 15, 20, 30, 60] as const
-const VALID_POINTS = [500, 1000, 2000] as const
+export const VALID_TIMERS = [10, 15, 20, 30, 60] as const
+export const VALID_POINTS = [500, 1000, 2000] as const
+
+const DEFAULT_TIMER = 20
+const DEFAULT_POINTS = 1000
 
 type ValidTimer = typeof VALID_TIMERS[number]
 type ValidPoints = typeof VALID_POINTS[number]
+
+// How many distinct coercions to name before summarising. Long imports can
+// produce the same warning on 200 rows; the host only needs to see it once.
+const MAX_WARNINGS = 4
 
 function parseCSVLine(line: string): string[] {
   const result: string[] = []
@@ -40,6 +47,12 @@ function parseCSVLine(line: string): string[] {
 export interface CsvParseResult {
   questions: Partial<Question>[]
   error?: string
+  /**
+   * Non-blocking notices about values that were silently changed on the way in
+   * (an off-list `timer` or `points`). The import still succeeds — but a host
+   * who typed 25 should not have to discover on quiz night that it became 20.
+   */
+  warnings?: string[]
 }
 
 export function parseCsvToQuestions(text: string): CsvParseResult {
@@ -68,6 +81,9 @@ export function parseCsvToQuestions(text: string): CsvParseResult {
   const pointsIdx = headers.findIndex(h => h === 'points')
 
   const questions: Partial<Question>[] = []
+  // Keyed by the coerced-from value so 200 identical rows warn once.
+  const timerCoercions = new Set<string>()
+  const pointsCoercions = new Set<string>()
 
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCSVLine(lines[i])
@@ -86,15 +102,23 @@ export function parseCsvToQuestions(text: string): CsvParseResult {
     const correctIndex =
       rawIdx !== undefined && options.length > parseInt(rawIdx) ? rawIdx : undefined
 
-    const rawTimer = timerIdx >= 0 ? parseInt(cols[timerIdx]) : 20
-    const timerSeconds: ValidTimer = (VALID_TIMERS as readonly number[]).includes(rawTimer)
-      ? (rawTimer as ValidTimer)
-      : 20
+    const rawTimerCell = timerIdx >= 0 ? cols[timerIdx] : ''
+    const rawTimer = timerIdx >= 0 ? parseInt(rawTimerCell) : DEFAULT_TIMER
+    let timerSeconds: ValidTimer = DEFAULT_TIMER
+    if ((VALID_TIMERS as readonly number[]).includes(rawTimer)) {
+      timerSeconds = rawTimer as ValidTimer
+    } else if (rawTimerCell.trim() !== '') {
+      timerCoercions.add(rawTimerCell.trim())
+    }
 
-    const rawPts = pointsIdx >= 0 ? parseInt(cols[pointsIdx]) : 1000
-    const points: ValidPoints = (VALID_POINTS as readonly number[]).includes(rawPts)
-      ? (rawPts as ValidPoints)
-      : 1000
+    const rawPointsCell = pointsIdx >= 0 ? cols[pointsIdx] : ''
+    const rawPts = pointsIdx >= 0 ? parseInt(rawPointsCell) : DEFAULT_POINTS
+    let points: ValidPoints = DEFAULT_POINTS
+    if ((VALID_POINTS as readonly number[]).includes(rawPts)) {
+      points = rawPts as ValidPoints
+    } else if (rawPointsCell.trim() !== '') {
+      pointsCoercions.add(rawPointsCell.trim())
+    }
 
     questions.push({
       type: options.length > 0 ? 'mcq' : 'openended',
@@ -110,5 +134,24 @@ export function parseCsvToQuestions(text: string): CsvParseResult {
     return { questions: [], error: 'No valid questions found in the CSV. Check the format and try again.' }
   }
 
-  return { questions }
+  const warnings: string[] = []
+  if (timerCoercions.size > 0) {
+    warnings.push(
+      `${describeValues(timerCoercions)} isn't a supported timer — set to ${DEFAULT_TIMER}s. Use ${VALID_TIMERS.join(', ')}.`,
+    )
+  }
+  if (pointsCoercions.size > 0) {
+    warnings.push(
+      `${describeValues(pointsCoercions)} isn't a supported points value — set to ${DEFAULT_POINTS}. Use ${VALID_POINTS.join(', ')}.`,
+    )
+  }
+
+  return warnings.length > 0 ? { questions, warnings } : { questions }
+}
+
+function describeValues(values: Set<string>): string {
+  const list = [...values]
+  const shown = list.slice(0, MAX_WARNINGS).map(v => `"${v}"`).join(', ')
+  const rest = list.length - MAX_WARNINGS
+  return rest > 0 ? `${shown} and ${rest} other value${rest === 1 ? '' : 's'}` : shown
 }

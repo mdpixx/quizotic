@@ -1,6 +1,9 @@
 import { MetadataRoute } from 'next'
 
-const DISALLOW = ['/host/', '/api/', '/auth/']
+// `/dev/` holds component preview harnesses (slide-preview, scheduled-preview).
+// They render real components with static sample data and have no product
+// value to a searcher — keep them out of the index.
+const DISALLOW = ['/host/', '/api/', '/auth/', '/dev/']
 
 const AI_CRAWLERS = [
   'GPTBot',

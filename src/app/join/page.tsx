@@ -135,12 +135,18 @@ interface LeaderboardEntry {
 // Kahoot-style vibrant answer colors — source: src/lib/answer-colors.ts.
 // Shadow Tailwind classes kept local because they need arbitrary-value
 // rgba() tuples and are read by class name at runtime.
+//
+// This array MUST stay the same length as ANSWER_COLORS: it is indexed by
+// option position, and a missing entry renders `class="undefined …"` — the
+// tile silently loses its shadow. That is what happened to F (fuchsia) while
+// this list had only five entries.
 const OPTION_GRADIENTS = [
   'shadow-[0_4px_14px_rgba(226,27,60,0.35)]',
   'shadow-[0_4px_14px_rgba(19,104,206,0.35)]',
   'shadow-[0_4px_14px_rgba(216,158,0,0.35)]',
   'shadow-[0_4px_14px_rgba(38,137,12,0.35)]',
   'shadow-[0_4px_14px_rgba(124,58,237,0.35)]',
+  'shadow-[0_4px_14px_rgba(192,38,211,0.35)]',
 ]
 const OPTION_COLORS = ANSWER_COLORS.map(c => c.hex)
 const OPTION_LABELS = ANSWER_LETTERS

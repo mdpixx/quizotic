@@ -22,6 +22,16 @@ export interface AsyncInputProps {
   question: QuizQuestion
   disabled: boolean
   onSubmit: (answer: AnswerValue) => void
+  /**
+   * Per-participant answer-option jumbling, on by default for scheduled
+   * quizzes. Display-only: tiles render in a permuted order and the tapped
+   * slot is mapped back before `onSubmit`, so everything the server sees —
+   * grading, the report, the workbook — stays in authored-option space.
+   * See lib/option-shuffle.ts.
+   */
+  shuffleOptions?: boolean
+  /** Seeds the permutation. Stable per attempt, so a refresh re-renders the same order. */
+  participantId?: string | null
 }
 
 export function optText(o: unknown): string {

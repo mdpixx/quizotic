@@ -322,8 +322,17 @@ export default function SessionReportPage({ params }: { params: Promise<{ id: st
               <div>
                 <h1 className="font-display text-[26px] font-black leading-tight" style={{ color: 'var(--color-ink)' }}>{title}</h1>
                 <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                  <span className="chip" style={{ background: '#EFF6FF', color: '#1D4ED8' }}>
-                    {session.mode === 'async' ? 'Self-paced' : 'Live'} {session.type}
+                  {/* Amber for scheduled, blue for live — the old chip used one
+                      blue for both, so it read as a label rather than a badge.
+                      Amber matches the scheduled chips on /host/quizzes,
+                      /host/scheduled and the reports list. */}
+                  <span
+                    className="chip"
+                    style={session.mode === 'async'
+                      ? { background: '#FFFBEB', color: '#92400E', border: '1px solid #FDE68A' }
+                      : { background: '#EFF6FF', color: '#1D4ED8' }}
+                  >
+                    {session.mode === 'async' ? 'Scheduled' : 'Live'} {session.type}
                   </span>
                   <span className="font-mono text-[12px] font-semibold" style={{ color: 'var(--color-text-muted)' }}>Code {session.code}</span>
                   <span className="text-[12px]" style={{ color: 'var(--color-text-muted)' }}>{fmtDate(session.endedAt ?? session.createdAt)}</span>

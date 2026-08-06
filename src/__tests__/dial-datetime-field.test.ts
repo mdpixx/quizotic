@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compose, daysInMonth, parseValue } from '@/components/host/DialDateTimeField'
+import { buildDateItems, buildMinuteItems, compose, daysInMonth, parseValue } from '@/components/host/DialDateTimeField'
 
 // The scheduler dial must honour the same value contract as the old native
 // datetime-local input: a local `YYYY-MM-DDTHH:mm` string. The host pipeline
@@ -50,5 +50,75 @@ describe('DialDateTimeField value contract', () => {
     expect(parts.day).toBeLessThanOrEqual(daysInMonth(parts.year, parts.month))
     // Still composes cleanly — never throws.
     expect(compose(parts)).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
+  })
+})
+
+// The six day/month/year drums collapsed into one date drum, and minutes moved
+// to 5-minute steps, to make the Schedule tab fit on a laptop. Both changes can
+// silently move a host's schedule if they get the edges wrong.
+
+describe('buildDateItems (single date drum)', () => {
+  const today = new Date(2026, 5, 27) // Sat 27 Jun 2026
+
+  it('starts at today and labels the first two rows in plain language', () => {
+    const items = buildDateItems(today, today)
+    expect(items[0].label).toBe('Today')
+    expect(items[1].label).toBe('Tomorrow')
+    expect(items[0].date.getDate()).toBe(27)
+  })
+
+  it('labels later rows with weekday, day and month', () => {
+    const items = buildDateItems(today, today)
+    expect(items[2].label).toMatch(/Jun/)
+    expect(items[2].date.getDate()).toBe(29)
+  })
+
+  it('spells out the year only once the drum crosses into a new one', () => {
+    const items = buildDateItems(today, today)
+    const sameYear = items.find(i => i.date.getFullYear() === 2026 && i.label !== 'Today' && i.label !== 'Tomorrow')
+    const nextYear = items.find(i => i.date.getFullYear() === 2027)
+    expect(sameYear?.label).not.toMatch(/2026/)
+    expect(nextYear?.label).toMatch(/2027/)
+  })
+
+  // A saved schedule must stay reachable even after its open date has passed —
+  // otherwise reopening the modal would snap the value to today.
+  it('extends backwards to include an already-past selection', () => {
+    const past = new Date(2026, 5, 20)
+    const items = buildDateItems(today, past)
+    expect(items[0].date.getTime()).toBe(past.getTime())
+    expect(items.some(i => i.label === 'Today')).toBe(true)
+  })
+
+  it('extends forwards to include a selection beyond the default range', () => {
+    const far = new Date(2028, 0, 15)
+    const items = buildDateItems(today, far)
+    expect(items[items.length - 1].date.getTime()).toBe(far.getTime())
+  })
+
+  it('produces one row per day with no gaps or repeats', () => {
+    const items = buildDateItems(today, today)
+    for (let i = 1; i < items.length; i++) {
+      const gap = items[i].date.getTime() - items[i - 1].date.getTime()
+      expect(gap).toBe(86400000)
+    }
+  })
+})
+
+describe('buildMinuteItems (5-minute steps)', () => {
+  it('offers twelve rows for an on-step value', () => {
+    expect(buildMinuteItems(30)).toEqual([0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55])
+  })
+
+  it('splices an off-step value in rather than rounding it away', () => {
+    const items = buildMinuteItems(37)
+    expect(items).toContain(37)
+    expect(items.indexOf(37)).toBe(items.indexOf(35) + 1)
+    expect(items).toHaveLength(13)
+  })
+
+  it('keeps the list sorted so the drum reads in order', () => {
+    const items = buildMinuteItems(1)
+    expect([...items].sort((a, b) => a - b)).toEqual(items)
   })
 })

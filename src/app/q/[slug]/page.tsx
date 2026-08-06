@@ -107,6 +107,9 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
   const [myAnswer, setMyAnswer] = useState<AnswerValue | null>(null)
   const [totalScore, setTotalScore] = useState(0)
   const [deadlineAt, setDeadlineAt] = useState<number | null>(null)
+  // Session setting, echoed by /start and /state. Display-only jumbling of the
+  // answer tiles — see lib/option-shuffle.ts.
+  const [shuffleOptions, setShuffleOptions] = useState(false)
   const [result, setResult] = useState<Result | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const pendingAnswerRef = useRef<AnswerValue | null>(null)
@@ -183,9 +186,10 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
       const json = await res.json()
       if (!res.ok || !json.success) { setPhase('entry'); return }
 
-      const { status, deadlineAt: dl, nextQuestion, result: r } = json.data
+      const { status, deadlineAt: dl, nextQuestion, result: r, shuffleOptions: shuffleOn } = json.data
       attendeeIdRef.current = attendeeId
       participantIdRef.current = participantId
+      setShuffleOptions(!!shuffleOn)
 
       if (status === 'finished') {
         setResult(r)
@@ -251,9 +255,10 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
         return
       }
 
-      const { attendeeId, participantId, question, deadlineAt: dl } = json.data
+      const { attendeeId, participantId, question, deadlineAt: dl, shuffleOptions: shuffleOn } = json.data
       attendeeIdRef.current = attendeeId
       participantIdRef.current = participantId
+      setShuffleOptions(!!shuffleOn)
       saveSession(slug, participantId, attendeeId)
 
       if (dl) setDeadlineAt(dl)
@@ -593,6 +598,8 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
               question={q}
               disabled={isDisabled || submittingRef.current}
               onSubmit={submitAnswer}
+              shuffleOptions={shuffleOptions}
+              participantId={participantIdRef.current}
             />
           )}
           </div>
