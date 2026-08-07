@@ -557,3 +557,80 @@ describe('async serving — shuffled question order', () => {
     expect(off.shuffleOptions).toBe(false)
   })
 })
+
+// ─── Time-limit countdown ────────────────────────────────────────────────────
+// CountdownPill does `deadlineAt - Date.now()` and so needs epoch MILLISECONDS.
+// A Prisma Date here JSON-serializes to an ISO string, which is truthy (so the
+// pill renders) but makes that subtraction NaN — the participant sees "NaNs"
+// and the clock never moves or expires. Pin the wire type as a number.
+
+const TIMED_SNAPSHOT = [
+  { id: 'q1', type: 'mcq', text: 'Q1', options: ['a', 'b'], correctAnswer: '0', timerSeconds: 20, points: 1000 },
+  { id: 'q2', type: 'mcq', text: 'Q2', options: ['a', 'b'], correctAnswer: '0', timerSeconds: 20, points: 1000 },
+]
+
+function timedSession(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'session-1',
+    mode: 'async',
+    status: 'open',
+    userId: null,
+    allowRetries: false,
+    opensAt: null,
+    closesAt: null,
+    timeLimitMinutes: 15,
+    shuffleQuestions: false,
+    shuffleOptions: false,
+    quizVersion: { snapshot: TIMED_SNAPSHOT, questionCount: 2 },
+    ...overrides,
+  }
+}
+
+describe('async time limit — deadlineAt wire format', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    prismaMock.answer.count.mockResolvedValue(0)
+    prismaMock.answer.findMany.mockResolvedValue([])
+  })
+
+  it('start returns deadlineAt as epoch ms, not an ISO string', async () => {
+    prismaMock.gameSession.findUnique.mockResolvedValue(timedSession())
+    prismaMock.attendee.create.mockResolvedValue({ id: 'att-9' })
+
+    const before = Date.now()
+    const json = await (await startPost(
+      req('http://localhost/api/async/abc/start', { name: 'Asha' }),
+      params({ slug: 'abc' }),
+    )).json()
+
+    expect(typeof json.data.deadlineAt).toBe('number')
+    expect(json.data.deadlineAt).toBeGreaterThanOrEqual(before + 15 * 60_000)
+    expect(Number.isNaN(json.data.deadlineAt - Date.now())).toBe(false)
+  })
+
+  it('start returns null deadlineAt for an untimed quiz', async () => {
+    prismaMock.gameSession.findUnique.mockResolvedValue(timedSession({ timeLimitMinutes: null }))
+    prismaMock.attendee.create.mockResolvedValue({ id: 'att-9' })
+
+    const json = await (await startPost(
+      req('http://localhost/api/async/abc/start', { name: 'Asha' }),
+      params({ slug: 'abc' }),
+    )).json()
+
+    expect(json.data.deadlineAt).toBeNull()
+  })
+
+  it('state returns deadlineAt as epoch ms on resume', async () => {
+    const deadline = new Date(Date.now() + 9 * 60_000)
+    prismaMock.gameSession.findUnique.mockResolvedValue(timedSession())
+    prismaMock.attendee.findFirst.mockResolvedValue({ id: 'att-1', leftAt: null, finalScore: null, deadlineAt: deadline })
+
+    const json = await (await statePost(
+      req('http://localhost/api/async/abc/state', { participantId: 'pid-1', attendeeId: 'att-1' }),
+      params({ slug: 'abc' }),
+    )).json()
+
+    expect(json.data.status).toBe('in_progress')
+    expect(json.data.deadlineAt).toBe(deadline.getTime())
+  })
+})

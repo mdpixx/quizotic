@@ -80,6 +80,18 @@ function clearSession(slug: string) {
   try { localStorage.removeItem(storageKey(slug)) } catch { /* */ }
 }
 
+// The countdown does `deadlineAt - Date.now()`, so it needs epoch ms. The APIs
+// send a number; accept an ISO string too rather than let a shape change render
+// a silent "NaNs" clock that never ticks and never expires.
+function toEpochMs(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  if (typeof value === 'string') {
+    const ms = new Date(value).getTime()
+    return Number.isNaN(ms) ? null : ms
+  }
+  return null
+}
+
 function formatCloseDate(iso: string | null): string | null {
   if (!iso) return null
   return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
@@ -202,7 +214,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
         setPhase('closed')
       } else if (status === 'in_progress' && nextQuestion) {
         setCurrentQ(nextQuestion)
-        if (dl) setDeadlineAt(dl)
+        setDeadlineAt(toEpochMs(dl))
         setPhase('question')
       } else {
         setPhase('entry')
@@ -261,7 +273,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
       setShuffleOptions(!!shuffleOn)
       saveSession(slug, participantId, attendeeId)
 
-      if (dl) setDeadlineAt(dl)
+      setDeadlineAt(toEpochMs(dl))
       setCurrentQ(question)
       setPhase('question')
       track('selfpaced_started', { slug })
