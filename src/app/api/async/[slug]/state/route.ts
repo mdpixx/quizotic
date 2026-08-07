@@ -149,6 +149,8 @@ export async function POST(req: NextRequest, { params }: Params) {
         status: 'in_progress',
         // Epoch ms, matching /start — see the note there on the NaN countdown.
         deadlineAt: attendee.deadlineAt ? attendee.deadlineAt.getTime() : null,
+        // Refreshes the player's clock offset on every resume — see /start.
+        serverNow: new Date().toISOString(),
         answeredCount: answeredIndices.size,
         total: questionCount,
         shuffleOptions: session.shuffleOptions,

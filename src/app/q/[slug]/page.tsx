@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { use } from 'react'
-import { CountdownPill } from '@/components/async/CountdownPill'
+import { AsyncTopBar } from '@/components/async/AsyncTopBar'
 import { ErrorOverlay } from '@/components/async/ErrorOverlay'
 import { QuestionInput } from '@/components/async/QuestionInput'
 import { optText, type AnswerValue, type QuizQuestion } from '@/components/async/types'
@@ -80,6 +80,15 @@ function clearSession(slug: string) {
   try { localStorage.removeItem(storageKey(slug)) } catch { /* */ }
 }
 
+// Client→server clock offset from an API `serverNow`: add it to Date.now() to
+// get server time. Returns null when the field is missing or unparseable, so
+// the caller keeps whatever offset it already had rather than zeroing it.
+function offsetFrom(serverNow: unknown): number | null {
+  if (typeof serverNow !== 'string' && typeof serverNow !== 'number') return null
+  const ms = new Date(serverNow).getTime()
+  return Number.isNaN(ms) ? null : ms - Date.now()
+}
+
 // The countdown does `deadlineAt - Date.now()`, so it needs epoch ms. The APIs
 // send a number; accept an ISO string too rather than let a shape change render
 // a silent "NaNs" clock that never ticks and never expires.
@@ -113,6 +122,10 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
 
   const attendeeIdRef = useRef<string | null>(null)
   const participantIdRef = useRef<string | null>(null)
+  // serverNow - Date.now(), refreshed by every API response that carries it.
+  // `deadlineAt` is server time, so without this a phone with a skewed clock
+  // reads a wrong countdown from its first second.
+  const serverOffsetRef = useRef(0)
 
   const [currentQ, setCurrentQ] = useState<QuizQuestion | null>(null)
   const [feedback, setFeedback] = useState<AnswerFeedback | null>(null)
@@ -144,11 +157,14 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
       }
 
       const data = json.data
+      const offsetNow = offsetFrom(data.serverNow)
+      if (offsetNow !== null) serverOffsetRef.current = offsetNow
 
       if (data.state === 'scheduled') {
-        // Capture the server-clock offset at fetch time so the countdown does
-        // not drift with a wrong client clock.
-        const offset = new Date(data.serverNow).getTime() - Date.now()
+        // Reuse the offset captured above so the countdown does not drift with
+        // a wrong client clock — and so a missing serverNow falls back to 0
+        // rather than poisoning the countdown with NaN.
+        const offset = serverOffsetRef.current
         setScheduledInfo({
           title: data.title ?? 'Quiz',
           subject: data.subject ?? null,
@@ -199,6 +215,8 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
       if (!res.ok || !json.success) { setPhase('entry'); return }
 
       const { status, deadlineAt: dl, nextQuestion, result: r, shuffleOptions: shuffleOn } = json.data
+      const offsetNow = offsetFrom(json.data.serverNow)
+      if (offsetNow !== null) serverOffsetRef.current = offsetNow
       attendeeIdRef.current = attendeeId
       participantIdRef.current = participantId
       setShuffleOptions(!!shuffleOn)
@@ -247,7 +265,7 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
       // the quiz actually opened. Fall back to the countdown screen instead of
       // showing an error, using the server-authoritative opensAt/serverNow.
       if (res.status === 403 && json.code === 'not_open_yet' && json.opensAt) {
-        const offset = json.serverNow ? new Date(json.serverNow).getTime() - Date.now() : 0
+        const offset = offsetFrom(json.serverNow) ?? serverOffsetRef.current
         setScheduledInfo({
           title: quizInfo?.title ?? closedTitle ?? 'Quiz',
           subject: quizInfo?.subject ?? null,
@@ -268,6 +286,10 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
       }
 
       const { attendeeId, participantId, question, deadlineAt: dl, shuffleOptions: shuffleOn } = json.data
+      // The deadline was minted by this response — refresh the offset from the
+      // same response so the countdown starts from the server's own clock.
+      const offsetNow = offsetFrom(json.data.serverNow)
+      if (offsetNow !== null) serverOffsetRef.current = offsetNow
       attendeeIdRef.current = attendeeId
       participantIdRef.current = participantId
       setShuffleOptions(!!shuffleOn)
@@ -545,32 +567,19 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
     // ordinal numbers among answerable questions (leaderboard slides are
     // skipped server-side); index+1 fallback covers pre-ordinal payloads.
     const qNum = q.ordinal ?? q.index + 1
-    const progressPct = (qNum / q.total) * 100
 
     const fb = feedback
 
     return (
       <div className="min-h-svh flex flex-col" style={{ background: '#0F1B3D' }}>
-        {/* Sticky header */}
-        <div className="sticky top-0 z-10 px-4 pb-2 flex items-center gap-3"
-          style={{ background: '#0F1B3D', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
-          <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
-            <div
-              className="h-full rounded-full transition-all duration-500"
-              style={{ width: `${progressPct}%`, background: '#FBD13B' }}
-            />
-          </div>
-          <span className="text-xs font-bold tabular-nums" style={{ color: '#94A3B8' }}>
-            {qNum}/{q.total}
-          </span>
-          <span className="text-xs font-bold px-2.5 py-1 rounded-full tabular-nums"
-            style={{ background: 'rgba(251,209,59,0.15)', color: '#FBD13B' }}>
-            {totalScore} pts
-          </span>
-          {deadlineAt && (
-            <CountdownPill deadlineAt={deadlineAt} onExpire={handleExpire} />
-          )}
-        </div>
+        <AsyncTopBar
+          qNum={qNum}
+          total={q.total}
+          totalScore={totalScore}
+          deadlineAt={deadlineAt}
+          nowOffsetMs={serverOffsetRef.current}
+          onExpire={handleExpire}
+        />
 
         <div className="flex-1 px-4 sm:px-6 lg:px-10 pb-8 pt-5 max-w-7xl mx-auto w-full">
           {/* Question stage */}

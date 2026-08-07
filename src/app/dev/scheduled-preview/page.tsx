@@ -14,6 +14,7 @@
  */
 
 import { useState } from 'react'
+import { AsyncTopBar } from '@/components/async/AsyncTopBar'
 import { CountdownPill } from '@/components/async/CountdownPill'
 import { OptionGrid } from '@/components/async/OptionGrid'
 import { MultiSelectGrid } from '@/components/async/MultiSelectGrid'
@@ -79,6 +80,11 @@ export default function ScheduledPreviewPage() {
   const [pid, setPid] = useState('participant-one')
   // Fixed at mount so the pill counts from a stable point across re-renders.
   const [deadlineMs] = useState(() => Date.now() + 12 * 60_000)
+  // Frozen "now" for the pinned width samples — they must not tick, so the
+  // three widths can be compared against each other.
+  const [pinnedFrom] = useState(() => Date.now())
+  const [score, setScore] = useState(0)
+  const [qNum, setQNum] = useState(4)
 
   return (
     <div className="min-h-svh" style={{ background: '#0F1B3D' }}>
@@ -133,23 +139,46 @@ export default function ScheduledPreviewPage() {
           <OptionGrid question={FOUR_OPTION} disabled onSubmit={() => {}} />
         </Panel>
 
-        {/* The pill needs epoch ms. It used to be handed the API's serialized
-            Date (an ISO string), which is truthy but makes the subtraction NaN
-            — the participant saw a frozen "NaNs". Both shapes render here so a
-            regression is visible rather than silent. */}
-        <Panel label="Time-limit countdown — epoch ms vs. an ISO string">
-          <div className="flex flex-wrap items-center gap-6">
-            <div className="flex items-center gap-2">
-              <CountdownPill deadlineAt={deadlineMs} onExpire={() => {}} />
-              <span className="text-xs" style={{ color: '#94A3B8' }}>epoch ms — must tick down</span>
+        {/* The live top bar. Its progress track is `flex-1`, so any chip that
+            changes width shifts the whole row — and the countdown used to do
+            that every second. Watch the track's right edge against the ruler
+            below while the timer runs: it must not move. */}
+        <Panel label="Player top bar — the track edge must not move as the timer ticks">
+          <div data-testid="topbar-harness" className="relative rounded-xl overflow-hidden" style={{ background: '#0F1B3D' }}>
+            <AsyncTopBar
+              qNum={qNum}
+              total={12}
+              totalScore={score}
+              deadlineAt={deadlineMs}
+              onExpire={() => {}}
+            />
+            <div className="px-4 py-3 flex flex-wrap gap-2">
+              <button type="button" onClick={() => setScore(s => s + 837)}
+                className="rounded-lg px-3 py-1.5 text-xs font-bold" style={{ background: '#FBD13B', color: '#0D0D0D' }}>
+                Add score
+              </button>
+              <button type="button" onClick={() => setQNum(n => (n % 12) + 1)}
+                className="rounded-lg px-3 py-1.5 text-xs font-bold" style={{ background: 'rgba(255,255,255,0.12)', color: '#fff' }}>
+                Next question
+              </button>
+              <span className="text-xs self-center" style={{ color: '#94A3B8' }}>
+                Neither button — nor the ticking timer — may move the track edge.
+              </span>
             </div>
-            <div className="flex items-center gap-2">
-              <CountdownPill
-                deadlineAt={new Date(deadlineMs).toISOString() as unknown as number}
-                onExpire={() => {}}
-              />
-              <span className="text-xs" style={{ color: '#94A3B8' }}>ISO string — the old bug, shows NaNs</span>
-            </div>
+          </div>
+        </Panel>
+
+        {/* Three pills pinned at the widths that used to differ: two-digit
+            minutes, one-digit minutes, and under a minute (which used to render
+            "47s"). Constant MM:SS means all three are the same width. */}
+        <Panel label="Countdown pill — every value renders at the same width">
+          <div className="flex flex-wrap items-center gap-6" data-testid="pill-widths">
+            {[899, 599, 47].map(sec => (
+              <div key={sec} className="flex items-center gap-2">
+                <CountdownPill deadlineAt={pinnedFrom + sec * 1000} onExpire={() => {}} />
+                <span className="text-xs" style={{ color: '#94A3B8' }}>{sec}s left</span>
+              </div>
+            ))}
           </div>
         </Panel>
 
