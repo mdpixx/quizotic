@@ -48,6 +48,11 @@ export interface CountdownOptions {
   // transition lands exactly on startAt, aligning with the live timer's
   // onStart gate (no ~500ms blank gap before the overlay clears).
   round?: 'round' | 'ceil'
+  // Clock to schedule against, in the same time base as `endAt`. Defaults to
+  // the socket-synced getServerNow(). The self-paced player has no socket, so
+  // it injects `() => Date.now() + offset` using the offset it derived from the
+  // API's `serverNow` — same boundary-scheduling behaviour, its own clock.
+  now?: () => number
 }
 
 // Remaining whole seconds until `endAt` in SERVER time. Shared by the live
@@ -86,6 +91,7 @@ export function startBoundaryCountdown(
   let stopped = false
   let startFired = false
 
+  const clockNow = opts.now ?? getServerNow
   const clamp = (n: number): number =>
     typeof opts.max === 'number' ? Math.min(opts.max, n) : n
   // Shared rounding: every internal site and the initial paint must agree, so a
@@ -104,7 +110,7 @@ export function startBoundaryCountdown(
 
   function scheduleNext(): void {
     if (stopped) return
-    const now = getServerNow()
+    const now = clockNow()
     // Pre-start gate: wake exactly at startAt (offset corrections that land
     // meanwhile just re-derive the wait on the next hop).
     if (opts.startAt !== undefined && now < opts.startAt) {
@@ -126,7 +132,7 @@ export function startBoundaryCountdown(
 
   function tick(): void {
     if (stopped) return
-    const now = getServerNow()
+    const now = clockNow()
     // Woke before startAt (clock offset shifted backward mid-wait) — re-gate.
     if (opts.startAt !== undefined && now < opts.startAt) {
       scheduleNext()
@@ -147,7 +153,7 @@ export function startBoundaryCountdown(
 
   // Initial paint: emit immediately unless we're still in the get-ready gate
   // (the caller owns the "Get Ready" UI until onStart fires).
-  const now0 = getServerNow()
+  const now0 = clockNow()
   if (!(opts.startAt !== undefined && now0 < opts.startAt)) {
     startFired = true
     opts.onStart?.()

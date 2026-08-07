@@ -633,4 +633,29 @@ describe('async time limit — deadlineAt wire format', () => {
     expect(json.data.status).toBe('in_progress')
     expect(json.data.deadlineAt).toBe(deadline.getTime())
   })
+
+  // deadlineAt is SERVER time. The player has no socket here, so without a
+  // serverNow to derive an offset from it would compare that deadline against
+  // the device's own clock — a phone minutes out of sync reads a wrong limit.
+  it('start and state both carry a parseable serverNow for the clock offset', async () => {
+    prismaMock.gameSession.findUnique.mockResolvedValue(timedSession())
+    prismaMock.attendee.create.mockResolvedValue({ id: 'att-9' })
+    const started = await (await startPost(
+      req('http://localhost/api/async/abc/start', { name: 'Asha' }),
+      params({ slug: 'abc' }),
+    )).json()
+
+    prismaMock.attendee.findFirst.mockResolvedValue({
+      id: 'att-1', leftAt: null, finalScore: null, deadlineAt: new Date(Date.now() + 60_000),
+    })
+    const resumed = await (await statePost(
+      req('http://localhost/api/async/abc/state', { participantId: 'pid-1', attendeeId: 'att-1' }),
+      params({ slug: 'abc' }),
+    )).json()
+
+    for (const serverNow of [started.data.serverNow, resumed.data.serverNow]) {
+      expect(typeof serverNow).toBe('string')
+      expect(Number.isNaN(new Date(serverNow).getTime())).toBe(false)
+    }
+  })
 })

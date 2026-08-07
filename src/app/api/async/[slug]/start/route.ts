@@ -110,6 +110,9 @@ export async function POST(req: NextRequest, { params }: Params) {
         // serializes to an ISO string, which is truthy but makes that
         // subtraction NaN, so the countdown renders "NaNs" and never expires.
         deadlineAt: deadlineAt ? deadlineAt.getTime() : null,
+        // Lets the player derive its clock offset from the same response that
+        // minted the deadline, so a skewed device clock cannot shift the timer.
+        serverNow: new Date().toISOString(),
         shuffleOptions: session.shuffleOptions,
         question: firstIdx >= 0 ? toServedQuestion(questions, firstIdx, serveOrder) : null,
       },

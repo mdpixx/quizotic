@@ -155,4 +155,41 @@ describe('startBoundaryCountdown', () => {
       expect(host.map(s => s.v)).toEqual([3, 2, 1, 0])
     })
   })
+
+  // The self-paced player (/q/[slug]) has no socket, so clock-sync's offset is
+  // permanently 0 there and getServerNow() is just the device clock. It derives
+  // its own offset from the API's `serverNow` and injects it here, which is what
+  // keeps a phone with a skewed clock from reading a wrong time limit.
+  describe('injected clock (opts.now)', () => {
+    it('schedules against the injected clock, not getServerNow', () => {
+      // Device clock runs 90s BEHIND the server. endAt is server time, so a
+      // 20s-remaining deadline sits at device-time 20_000 - 90_000.
+      const OFFSET = 90_000
+      const values: number[] = []
+      startBoundaryCountdown(END, v => values.push(v), { now: () => Date.now() + OFFSET })
+
+      // Without the offset the device would read 20s remaining and count from
+      // there. With it, the deadline is already 70s in the past → 0.
+      expect(values).toEqual([0])
+    })
+
+    it('produces the same cadence as the default clock once the offset is applied', () => {
+      const withOffset: number[] = []
+      const plain: number[] = []
+      // Deadline pushed out by the same offset the injected clock adds, so the
+      // two runs describe the same real interval.
+      startBoundaryCountdown(END + 5_000, v => withOffset.push(v), { now: () => Date.now() + 5_000 })
+      startBoundaryCountdown(END, v => plain.push(v))
+      vi.advanceTimersByTime(END + 200)
+      expect(withOffset).toEqual(plain)
+    })
+
+    it('falls back to getServerNow when no clock is injected', () => {
+      __test.ingestSample(4_000, 30) // offset = +4s → getServerNow() runs ahead
+      const values: number[] = []
+      startBoundaryCountdown(END, v => values.push(v))
+      // Server time is 4s ahead of the device, so 4 fewer seconds remain.
+      expect(values).toEqual([16])
+    })
+  })
 })
