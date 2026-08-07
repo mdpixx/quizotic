@@ -14,6 +14,7 @@
  */
 
 import { useState } from 'react'
+import { CountdownPill } from '@/components/async/CountdownPill'
 import { OptionGrid } from '@/components/async/OptionGrid'
 import { MultiSelectGrid } from '@/components/async/MultiSelectGrid'
 import { DialDateTimeField } from '@/components/host/DialDateTimeField'
@@ -76,6 +77,8 @@ export default function ScheduledPreviewPage() {
   // side by side, and a switch to prove the identity path still works.
   const [shuffle, setShuffle] = useState(true)
   const [pid, setPid] = useState('participant-one')
+  // Fixed at mount so the pill counts from a stable point across re-renders.
+  const [deadlineMs] = useState(() => Date.now() + 12 * 60_000)
 
   return (
     <div className="min-h-svh" style={{ background: '#0F1B3D' }}>
@@ -128,6 +131,26 @@ export default function ScheduledPreviewPage() {
 
         <Panel label="Locked state (feedback showing)">
           <OptionGrid question={FOUR_OPTION} disabled onSubmit={() => {}} />
+        </Panel>
+
+        {/* The pill needs epoch ms. It used to be handed the API's serialized
+            Date (an ISO string), which is truthy but makes the subtraction NaN
+            — the participant saw a frozen "NaNs". Both shapes render here so a
+            regression is visible rather than silent. */}
+        <Panel label="Time-limit countdown — epoch ms vs. an ISO string">
+          <div className="flex flex-wrap items-center gap-6">
+            <div className="flex items-center gap-2">
+              <CountdownPill deadlineAt={deadlineMs} onExpire={() => {}} />
+              <span className="text-xs" style={{ color: '#94A3B8' }}>epoch ms — must tick down</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CountdownPill
+                deadlineAt={new Date(deadlineMs).toISOString() as unknown as number}
+                onExpire={() => {}}
+              />
+              <span className="text-xs" style={{ color: '#94A3B8' }}>ISO string — the old bug, shows NaNs</span>
+            </div>
+          </div>
         </Panel>
 
         <Panel label="Scheduling dial — on the host's white modal surface">

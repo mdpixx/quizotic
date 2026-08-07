@@ -106,7 +106,10 @@ export async function POST(req: NextRequest, { params }: Params) {
         attendeeId: attendee.id,
         participantId,
         total: answerableCount(questions),
-        deadlineAt,
+        // Epoch ms — the player does `deadlineAt - Date.now()`. A Date here
+        // serializes to an ISO string, which is truthy but makes that
+        // subtraction NaN, so the countdown renders "NaNs" and never expires.
+        deadlineAt: deadlineAt ? deadlineAt.getTime() : null,
         shuffleOptions: session.shuffleOptions,
         question: firstIdx >= 0 ? toServedQuestion(questions, firstIdx, serveOrder) : null,
       },

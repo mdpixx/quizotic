@@ -147,7 +147,8 @@ export async function POST(req: NextRequest, { params }: Params) {
       success: true,
       data: {
         status: 'in_progress',
-        deadlineAt: attendee.deadlineAt,
+        // Epoch ms, matching /start — see the note there on the NaN countdown.
+        deadlineAt: attendee.deadlineAt ? attendee.deadlineAt.getTime() : null,
         answeredCount: answeredIndices.size,
         total: questionCount,
         shuffleOptions: session.shuffleOptions,
