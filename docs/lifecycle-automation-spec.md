@@ -107,6 +107,28 @@ Every one of these is a blocking check in the send path. Order matters.
    dispatching. Default ON until we have watched a full week of output.
 10. **Allowlist** — `LIFECYCLE_TEST_EMAILS` restricts real sends during rollout.
 
+### 5a. Global send ceiling
+
+Guards 1–10 are all **per-user**: they bound what one person receives and say
+nothing about what the system emits in total. That is a gap on the first live
+tick, because a backlog accumulated while the system ran dark passes every
+per-user guard at the same moment — a bulk send, which is precisely what this
+system exists to avoid, aimed at a sending domain with no reputation yet.
+
+Two ceilings in `worker.ts`, applied per run rather than per user:
+
+- `LIFECYCLE_DAILY_CAP` (default **80**) — rolling 24h across all users,
+  counted from `EmailLog`, leaving headroom under the Resend plan's 100/day.
+- `LIFECYCLE_TICK_CAP` (default **20**) — per hourly run, so the daily
+  allowance spreads across the day instead of emptying on the first tick
+  after quiet hours open.
+
+Nothing is dropped when a ceiling binds. The nudge stays `pending` and the
+next tick picks it up, which is the same recompute-from-scratch property that
+makes a missed run harmless. Users are scanned oldest-signup-first, so the
+backlog drains FIFO. An explicit `0` on either variable pauses sending without
+touching the kill switch. Blocked candidates are reported as `send-cap`.
+
 ---
 
 ## 6. Where it runs

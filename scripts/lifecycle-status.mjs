@@ -34,6 +34,14 @@ function isDryRun(raw) {
   return raw.toLowerCase() !== 'false' && raw !== '0'
 }
 
+/** Mirrors campaigns.ts — unset means the default, an explicit 0 means paused. */
+function readCap(raw, fallback) {
+  if (raw === undefined || raw.trim() === '') return fallback
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n < 0) return fallback
+  return Math.floor(n)
+}
+
 async function main() {
   if (!process.env.DATABASE_URL) {
     console.error('DATABASE_URL is not set. Run this through `railway run` or with the env loaded.')
@@ -67,6 +75,15 @@ async function main() {
   )
   console.log(`  ${'EMAIL_FROM_LIFECYCLE'.padEnd(24)} ${process.env.EMAIL_FROM_LIFECYCLE ?? dim('<unset, using default>')}`)
   console.log(`  ${'NEXT_PUBLIC_APP_URL'.padEnd(24)} ${process.env.NEXT_PUBLIC_APP_URL ?? dim('<unset>')}`)
+
+  const dailyCap = readCap(process.env.LIFECYCLE_DAILY_CAP, 80)
+  const tickCap = readCap(process.env.LIFECYCLE_TICK_CAP, 20)
+  console.log(
+    `  ${'LIFECYCLE_DAILY_CAP'.padEnd(24)} ${dailyCap === 0 ? warn('0 — sending paused') : ok(`${dailyCap}/24h`)} ${dim('(all users)')}`,
+  )
+  console.log(
+    `  ${'LIFECYCLE_TICK_CAP'.padEnd(24)} ${tickCap === 0 ? warn('0 — sending paused') : ok(`${tickCap}/tick`)}`,
+  )
 
   // ---- 2. Kill switch -----------------------------------------------------
   heading('Kill switch (guard 1)')
@@ -114,9 +131,18 @@ async function main() {
       WHERE state = 'pending' AND "shownAt" IS NULL AND "createdAt" <= $1`,
     [dueCutoff],
   )
+  const backlog = due.rows[0].n
   console.log(
-    `  ${'past the 48h grace'.padEnd(12)} ${due.rows[0].n} ${dim('(pending, card never seen — these are the email candidates)')}`,
+    `  ${'past the 48h grace'.padEnd(12)} ${backlog} ${dim('(pending, card never seen — these are the email candidates)')}`,
   )
+  if (backlog > 0 && dailyCap > 0) {
+    // Not every candidate survives the per-user guards, so this is the upper
+    // bound on how long the backlog takes to drain, not a forecast.
+    const days = Math.ceil(backlog / dailyCap)
+    console.log(
+      dim(`    at ${tickCap}/tick and ${dailyCap}/day this drains over at most ~${days} day(s) — no bulk burst`),
+    )
+  }
 
   const byCampaign = await pool.query(
     'SELECT "campaignKey", state, count(*)::int AS n FROM "Nudge" GROUP BY 1, 2 ORDER BY 1, 2',

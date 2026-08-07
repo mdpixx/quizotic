@@ -18,7 +18,7 @@ const prismaMock = vi.hoisted(() => ({
   gameSession: { count: vi.fn() },
   nudge: { findMany: vi.fn(), findUnique: vi.fn(), count: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
   emailSuppression: { findUnique: vi.fn() },
-  emailLog: { findMany: vi.fn() },
+  emailLog: { findMany: vi.fn(), count: vi.fn() },
 }))
 const emailMock = vi.hoisted(() => ({ sendEmail: vi.fn() }))
 const flagMock = vi.hoisted(() => ({ isFeatureEnabled: vi.fn() }))
@@ -92,6 +92,9 @@ beforeEach(() => {
   emailMock.sendEmail.mockResolvedValue({ ok: true, id: 'resend-1' })
   prismaMock.emailSuppression.findUnique.mockResolvedValue(null)
   prismaMock.emailLog.findMany.mockResolvedValue([])
+  prismaMock.emailLog.count.mockResolvedValue(0)
+  delete process.env.LIFECYCLE_DAILY_CAP
+  delete process.env.LIFECYCLE_TICK_CAP
   prismaMock.nudge.findMany.mockResolvedValue([])
   prismaMock.nudge.findUnique.mockResolvedValue(null)
   prismaMock.nudge.count.mockResolvedValue(0)
@@ -287,6 +290,115 @@ describe('email is the fallback, never the first touch', () => {
 
     await runLifecycleTick(NOW)
     expect(emailMock.sendEmail).toHaveBeenCalledTimes(1)
+  })
+})
+
+/**
+ * The per-user guards bound what one person receives. These bound what the
+ * whole system emits, which is the difference between a nudge and a bulk send
+ * on the first tick after a backlog has built up.
+ */
+describe('global send ceiling', () => {
+  /** N users who would each, on their own, receive exactly one email. */
+  function stageManyDue(n: number) {
+    const rows = Array.from({ length: n }, (_, i) => ({
+      id: `user-${i}`,
+      email: `teacher${i}@example.com`,
+      name: 'Priya Sharma',
+      country: 'IN',
+      locale: 'en-IN',
+      onboarded: true,
+      createdAt: SIGNUP,
+      lastActiveAt: SIGNUP,
+      lifecycleOptOutAt: null,
+    }))
+    prismaMock.user.findMany.mockResolvedValue(rows)
+    prismaMock.user.findUnique.mockResolvedValue(rows[0])
+    prismaMock.quiz.count.mockResolvedValue(1)
+    prismaMock.gameSession.count.mockResolvedValue(0)
+    prismaMock.nudge.findMany.mockResolvedValue([dueNudge()])
+    prismaMock.nudge.count.mockResolvedValue(1) // already has an open nudge
+  }
+
+  it('sends up to the per-tick cap and no further', async () => {
+    process.env.LIFECYCLE_TICK_CAP = '3'
+    stageManyDue(10)
+
+    const result = await runLifecycleTick(NOW)
+
+    expect(result.sent).toBe(3)
+    expect(emailMock.sendEmail).toHaveBeenCalledTimes(3)
+    expect(result.blocked['send-cap']).toBe(7)
+  })
+
+  it('subtracts what already went out in the rolling 24h', async () => {
+    process.env.LIFECYCLE_DAILY_CAP = '5'
+    process.env.LIFECYCLE_TICK_CAP = '20'
+    prismaMock.emailLog.count.mockResolvedValue(4) // 4 sent today, 1 slot left
+    stageManyDue(10)
+
+    const result = await runLifecycleTick(NOW)
+
+    expect(result.sendAllowance).toBe(1)
+    expect(result.sent).toBe(1)
+
+    const where = prismaMock.emailLog.count.mock.calls[0]![0].where
+    expect(where.category).toBe('lifecycle')
+    expect(where.status).toBe('sent')
+    expect(where.createdAt.gte.getTime()).toBe(NOW.getTime() - DAY)
+  })
+
+  it('sends nothing once the daily cap is spent', async () => {
+    process.env.LIFECYCLE_DAILY_CAP = '5'
+    prismaMock.emailLog.count.mockResolvedValue(5)
+    stageManyDue(3)
+
+    const result = await runLifecycleTick(NOW)
+
+    expect(result.sent).toBe(0)
+    expect(emailMock.sendEmail).not.toHaveBeenCalled()
+    expect(result.blocked['send-cap']).toBe(3)
+  })
+
+  it('leaves a capped nudge pending rather than consuming it', async () => {
+    process.env.LIFECYCLE_TICK_CAP = '0'
+    stageManyDue(3)
+
+    await runLifecycleTick(NOW)
+
+    // Never marked emailed — the next tick picks it up untouched.
+    expect(prismaMock.nudge.update).not.toHaveBeenCalled()
+  })
+
+  it('treats an explicit zero as a pause, not as a missing value', async () => {
+    process.env.LIFECYCLE_TICK_CAP = '0'
+    stageManyDue(1)
+
+    const result = await runLifecycleTick(NOW)
+
+    expect(result.sendAllowance).toBe(0)
+    expect(emailMock.sendEmail).not.toHaveBeenCalled()
+  })
+
+  it('ignores a garbled cap rather than disabling the ceiling', async () => {
+    process.env.LIFECYCLE_TICK_CAP = 'twenty'
+    stageManyDue(25)
+
+    const result = await runLifecycleTick(NOW)
+
+    expect(result.sent).toBe(20) // the default, not unbounded
+  })
+
+  it('spends a slot on the attempt, so a run of failures cannot loop', async () => {
+    process.env.LIFECYCLE_TICK_CAP = '2'
+    emailMock.sendEmail.mockResolvedValue({ ok: false, error: 'rate limited' })
+    stageManyDue(10)
+
+    const result = await runLifecycleTick(NOW)
+
+    expect(emailMock.sendEmail).toHaveBeenCalledTimes(2)
+    expect(result.sent).toBe(0)
+    expect(result.errors).toBe(2)
   })
 })
 

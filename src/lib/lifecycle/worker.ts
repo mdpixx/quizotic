@@ -19,10 +19,13 @@ import { prisma } from '@/lib/prisma'
 import { sendEmail } from '@/lib/email'
 import {
   CAMPAIGNS,
+  DAILY_CAP_WINDOW_MS,
   IN_APP_GRACE_MS,
   SEQUENCE_WINDOW_MS,
   campaignFor,
   campaignsForTier,
+  dailySendCap,
+  tickSendCap,
   type Campaign,
 } from './campaigns'
 import { computeTier, hasActivated, loadTierSignals, TIER, type Tier } from './tiers'
@@ -55,6 +58,8 @@ export interface TickResult {
   dryRun: number
   blocked: Record<string, number>
   errors: number
+  /** Email slots this run started with, after the rolling daily cap. */
+  sendAllowance: number
 }
 
 const emptyResult = (): TickResult => ({
@@ -65,7 +70,36 @@ const emptyResult = (): TickResult => ({
   dryRun: 0,
   blocked: {},
   errors: 0,
+  sendAllowance: 0,
 })
+
+/** Mutable so one allowance is shared across every user in the run. */
+interface SendAllowance {
+  remaining: number
+}
+
+/**
+ * How many emails this run may send.
+ *
+ * EmailLog is the source of truth rather than Nudge.emailedAt, for the same
+ * reason the per-user budget uses it: it records what the transport actually
+ * did, and it survives a nudge row being rewritten.
+ */
+async function sendAllowanceFor(now: Date): Promise<number> {
+  const daily = dailySendCap()
+  const perTick = tickSendCap()
+  if (daily === 0 || perTick === 0) return 0
+
+  const alreadySent = await prisma.emailLog.count({
+    where: {
+      category: 'lifecycle',
+      status: 'sent',
+      createdAt: { gte: new Date(now.getTime() - DAILY_CAP_WINDOW_MS) },
+    },
+  })
+
+  return Math.max(0, Math.min(perTick, daily - alreadySent))
+}
 
 const countBlock = (result: TickResult, reason: BlockReason | string) => {
   result.blocked[reason] = (result.blocked[reason] ?? 0) + 1
@@ -77,6 +111,12 @@ const SCAN_LIMIT = 2_000
 export async function runLifecycleTick(now: Date = new Date()): Promise<TickResult> {
   const result = emptyResult()
   const windowStart = new Date(now.getTime() - SEQUENCE_WINDOW_MS)
+
+  // Computed once per run. Users are scanned oldest-signup-first, so when the
+  // ceiling binds it always drains the backlog in a stable FIFO order rather
+  // than mailing whoever happens to sort first this hour.
+  const allowance: SendAllowance = { remaining: await sendAllowanceFor(now) }
+  result.sendAllowance = allowance.remaining
 
   const users = await prisma.user.findMany({
     where: { createdAt: { gte: windowStart } },
@@ -116,7 +156,7 @@ export async function runLifecycleTick(now: Date = new Date()): Promise<TickResu
       if (await enqueueNext(user.id, tier, now)) result.enqueued++
 
       // 3. Email anything whose in-app card was ignored long enough.
-      await sendDueEmails(subject, now, result)
+      await sendDueEmails(subject, now, result, allowance)
     } catch (err) {
       result.errors++
       console.warn(
@@ -200,7 +240,20 @@ async function enqueueNext(userId: string, tier: Tier, now: Date): Promise<boole
  * chose to ignore the card, mailing them the same message is exactly the
  * irritation this system exists to avoid.
  */
-async function sendDueEmails(subject: NudgeSubject, now: Date, result: TickResult): Promise<void> {
+async function sendDueEmails(
+  subject: NudgeSubject,
+  now: Date,
+  result: TickResult,
+  allowance: SendAllowance,
+): Promise<void> {
+  // Checked before the per-user queries, not just before dispatch. Once the
+  // ceiling is spent there is nothing to learn from evaluating guards for the
+  // remaining users, and the backlog can be thousands of rows.
+  if (allowance.remaining <= 0) {
+    countBlock(result, 'send-cap')
+    return
+  }
+
   const due = await prisma.nudge.findMany({
     where: {
       userId: subject.userId,
@@ -237,6 +290,10 @@ async function sendDueEmails(subject: NudgeSubject, now: Date, result: TickResul
       )
       continue
     }
+
+    // A slot is spent on the attempt, not on the outcome. A run where every
+    // send fails must not keep hammering the transport for free.
+    allowance.remaining--
 
     const ok = await dispatch(subject, campaign, nudge.id)
     if (ok) result.sent++

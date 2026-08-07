@@ -77,6 +77,60 @@ export const IN_APP_GRACE_MS = 48 * HOURS
 
 export const KILL_SWITCH_FLAG = 'lifecycle_emails_enabled'
 
+/**
+ * Global send ceilings.
+ *
+ * Every guard in `guards.ts` is per-user: they bound what one person receives
+ * and say nothing about what the system emits in total. That is a real gap on
+ * the first live tick, because six days of dark running leaves a backlog of
+ * nudges that all pass their per-user guards at the same moment. Without a
+ * ceiling the first run is a bulk send — exactly the thing this system exists
+ * to avoid — and it lands on a sending domain with no reputation yet.
+ *
+ * Two limits, because they do different jobs:
+ *
+ *   - the daily cap keeps total volume under the Resend plan's 100/day, with
+ *     headroom for transactional overflow;
+ *   - the per-tick cap spreads that allowance across the day instead of
+ *     dumping it all on the first tick after quiet hours open.
+ *
+ * Nothing is dropped when a cap binds. Nudges stay pending and the next tick
+ * picks them up, which is the same recompute-from-scratch property that makes
+ * a missed run harmless.
+ */
+export const DEFAULT_DAILY_SEND_CAP = 80
+export const DEFAULT_TICK_SEND_CAP = 20
+
+/** The window the daily cap is measured over. Rolling, not calendar-aligned. */
+export const DAILY_CAP_WINDOW_MS = 24 * HOURS
+
+interface CapEnv {
+  LIFECYCLE_DAILY_CAP?: string
+  LIFECYCLE_TICK_CAP?: string
+  [key: string]: string | undefined
+}
+
+/**
+ * Reads a cap override. Unset or empty means the default; an explicit 0 means
+ * zero, which is a legitimate way to pause sending without touching the flag.
+ * Garbage falls back to the default rather than to Number('abc') === NaN, which
+ * would compare false against everything and silently disable the ceiling.
+ */
+function readCap(raw: string | undefined, fallback: number): number {
+  if (raw === undefined || raw.trim() === '') return fallback
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n < 0) return fallback
+  return Math.floor(n)
+}
+
+export function dailySendCap(env: CapEnv = process.env): number {
+  return readCap(env.LIFECYCLE_DAILY_CAP, DEFAULT_DAILY_SEND_CAP)
+}
+
+export function tickSendCap(env: CapEnv = process.env): number {
+  return readCap(env.LIFECYCLE_TICK_CAP, DEFAULT_TICK_SEND_CAP)
+}
+
 export function campaignFor(key: string): Campaign | undefined {
   return CAMPAIGNS.find(c => c.key === key)
 }
