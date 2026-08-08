@@ -242,17 +242,39 @@ export function convertQuestionType(question: Question, type: QuestionType): Que
  * the full question always fits inside the fixed-height canvas band without
  * scrolling. Tuned for QUESTION_CHAR_LIMIT (160); the >200 bucket only guards
  * legacy/imported content.
+ *
+ * Long-text slides go past every bucket here — the band lets them scroll rather
+ * than shrinking to nothing (see the >400 step, which is the floor).
  */
 export function questionTextSizeClass(text: string): string {
   const len = text.length
+  if (len > 400) return 'text-sm md:text-base'
   if (len > 200) return 'text-base md:text-lg lg:text-xl'
   if (len > 120) return 'text-lg md:text-xl lg:text-2xl'
   if (len > 70) return 'text-xl md:text-2xl lg:text-3xl'
   return 'text-2xl md:text-3xl lg:text-4xl'
 }
 
-export const QUESTION_CHAR_LIMIT = 160
-export const OPTION_CHAR_LIMIT = 100
+// ── Character limits ──────────────────────────────────────────────────────────
+//
+// Defined in ./quiz-types (dependency-free) so quiz-validation can read the same
+// numbers without importing this module — that would be a cycle, since this file
+// re-exports the validator. Re-exported here because the builder components
+// already import their constants from quiz-builder-logic.
+export {
+  QUESTION_CHAR_LIMIT,
+  OPTION_CHAR_LIMIT,
+  SCENARIO_CHAR_LIMIT,
+  SUPPORTING_DETAIL_CHAR_LIMIT,
+  QUESTION_CHAR_LIMIT_LONG,
+  OPTION_CHAR_LIMIT_LONG,
+  SCENARIO_CHAR_LIMIT_LONG,
+  SUPPORTING_DETAIL_CHAR_LIMIT_LONG,
+  questionCharLimit,
+  optionCharLimit,
+  scenarioCharLimit,
+  supportingDetailCharLimit,
+} from './quiz-types'
 
 // ── Audience presets (cascades timer/points/difficulty) ───────────────────────
 

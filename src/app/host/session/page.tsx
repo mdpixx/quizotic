@@ -169,6 +169,19 @@ function ShareLinks({
   )
 }
 
+// Filler prose for the long-text fixtures below. Real sentences, not a
+// character run: `overflow-wrap: anywhere` makes one giant "word" wrap at every
+// column, which is exactly the case that never fails. Prose wraps on spaces and
+// is the shape that actually stresses the fit.
+function stressProse(chars: number): string {
+  const sentence = 'The regulatory framework requires every listed entity to disclose material events '
+    + 'to the exchange within twenty-four hours of board approval, and the compliance officer '
+    + 'is personally accountable for meeting that deadline. '
+  let out = ''
+  while (out.length < chars) out += sentence
+  return out.slice(0, chars).trim()
+}
+
 function buildHostStagePreviewQuiz(): Quiz {
   return {
     id: 'preview-host-stage',
@@ -195,6 +208,43 @@ function buildHostStagePreviewQuiz(): Quiz {
         points: 1000,
         explanation: 'SEBI is the statutory regulator of the Indian securities market.',
         bloomsLevel: 'remember',
+      },
+      {
+        // Long-text fixtures — one per branch of getStageSplit(), so
+        // ?preview=host-stage exercises all three height splits and both
+        // column counts. These are the slides that would clip if the
+        // `.host-stage-long-*` rules or the 13/15px fit floors regressed.
+        id: 'q-long-question',
+        type: 'mcq',
+        longText: true,
+        text: stressProse(1600),
+        options: ['Within 24 hours', 'Within 7 days', 'Within 30 days', 'No fixed timeline'],
+        correctAnswer: '0',
+        timerSeconds: 120,
+        points: 1000,
+        bloomsLevel: 'understand',
+      },
+      {
+        id: 'q-long-options',
+        type: 'mcq',
+        longText: true,
+        text: 'Which of the following statements is correct?',
+        options: [0, 1, 2, 3].map(i => `${'ABCD'[i]}. ${stressProse(980)}`),
+        correctAnswer: '0',
+        timerSeconds: 180,
+        points: 1000,
+        bloomsLevel: 'analyse',
+      },
+      {
+        id: 'q-long-both',
+        type: 'mcq',
+        longText: true,
+        text: stressProse(1600),
+        options: [0, 1, 2, 3].map(i => `${'ABCD'[i]}. ${stressProse(980)}`),
+        correctAnswer: '0',
+        timerSeconds: 300,
+        points: 1000,
+        bloomsLevel: 'evaluate',
       },
       {
         id: 'q1',
@@ -562,6 +612,7 @@ export default function SessionPage() {
         questionText: currentQuestion.text,
         optionTexts: (getEffectiveOptions(currentQuestion) ?? []).map(getOptionText),
         hasExplanation: Boolean(currentQuestion.explanation),
+        longText: currentQuestion.longText === true,
       })
     : null
 
@@ -571,12 +622,20 @@ export default function SessionPage() {
   // overflow:hidden then CLIPS the question. Measuring the real card and
   // shrinking until it fits guarantees the full question is visible at any
   // resolution. Fitted once per question and held through the reveal.
+  // A longText slide drops the floor by one point — 15px, not lower. Below that
+  // a projected wall stops being readable from the back of a room, and the card
+  // scrolling (globals.css `.host-stage-long-*`) is the honest fallback: a
+  // scrollbar the host can see beats text silently cut off.
   const questionCardRef = useRef<HTMLDivElement>(null)
   const questionTextRef = useRef<HTMLParagraphElement>(null)
   useFitText(questionCardRef, questionTextRef, {
-    min: 16,
-    max: 46,
-    deps: [currentQuestion?.text, currentQuestion?.imageUrl, phase],
+    min: currentQuestion?.longText ? 15 : 16,
+    // Cap the ceiling too on a long slide. The card is content-sized under its
+    // percentage cap, so a SHORT question on a long-answers slide would grow to
+    // 46px and take ~180px of stage that the 1000-character answers below it
+    // needed far more. 32px still reads across a room for a one-line stem.
+    max: currentQuestion?.longText ? 32 : 46,
+    deps: [currentQuestion?.text, currentQuestion?.imageUrl, currentQuestion?.longText, phase],
   })
 
   // Answer tiles now fit THEMSELVES: each HostOptionTile runs its own
@@ -2546,7 +2605,7 @@ export default function SessionPage() {
               the options. */}
           <div
             ref={questionCardRef}
-            className={`host-question-card ${hostQuestionFit?.questionClass ?? 'host-question-fit-large'} w-full flex ${currentQuestion.imageUrl && currentQuestion.type !== 'wordcloud' ? 'flex-row items-center gap-[clamp(20px,3vw,44px)]' : 'flex-col'} rounded-[26px] border ${currentQuestion.type === 'wordcloud' ? 'host-question-card-compact' : ''} ${currentQuestion.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
+            className={`host-question-card ${hostQuestionFit?.questionClass ?? 'host-question-fit-large'} ${hostQuestionFit?.stageClass ?? 'host-stage-standard'} w-full flex ${currentQuestion.imageUrl && currentQuestion.type !== 'wordcloud' ? 'flex-row items-center gap-[clamp(20px,3vw,44px)]' : 'flex-col'} rounded-[26px] border ${currentQuestion.type === 'wordcloud' ? 'host-question-card-compact' : ''} ${currentQuestion.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
             style={{
               background: 'rgba(255,255,255,0.97)',
               boxShadow: '0 30px 90px -20px rgba(0,0,0,0.5)',
@@ -2956,7 +3015,7 @@ export default function SessionPage() {
              the card, long ones shrink — left-aligned, never hyphenated, with
              the vote count + correct check as a corner badge that reserves no
              width while the question is live. */
-          <div className={`host-answer-stage host-options-stage ${hostQuestionFit?.optionClass ?? 'host-option-fit-large'}`}>
+          <div className={`host-answer-stage host-options-stage ${hostQuestionFit?.optionClass ?? 'host-option-fit-large'} ${currentQuestion.longText ? 'host-options-long' : ''} ${hostQuestionFit?.optionColumns === 1 ? 'host-options-single-col' : ''}`}>
             {getEffectiveOptions(currentQuestion)?.map((opt, i) => {
               const votes = optionCounts[i] ?? 0
               const pct = connectedCount > 0 ? (votes / connectedCount) * 100 : 0
@@ -2979,6 +3038,7 @@ export default function SessionPage() {
                   votePct={pct}
                   showVotes={correctRevealed}
                   highlightCorrect={highlightCorrect}
+                  longText={currentQuestion.longText === true}
                 />
               )
             })}

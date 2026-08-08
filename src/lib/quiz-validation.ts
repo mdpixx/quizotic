@@ -1,4 +1,13 @@
-import { getOptionText, type Question, type QuestionOption } from './quiz-types'
+import {
+  getOptionText,
+  OPTION_CHAR_LIMIT_LONG,
+  QUESTION_CHAR_LIMIT,
+  QUESTION_CHAR_LIMIT_LONG,
+  SCENARIO_CHAR_LIMIT_LONG,
+  SUPPORTING_DETAIL_CHAR_LIMIT_LONG,
+  type Question,
+  type QuestionOption,
+} from './quiz-types'
 import { isValidTimerSeconds, TIMER_MAX, TIMER_MIN_ACTIVE } from './timer'
 
 export type QuizValidationSeverity = 'error' | 'warning'
@@ -216,13 +225,75 @@ export function validateQuizQuestions(questions: Question[]): QuizValidationIssu
       })
     }
 
-    if ((type === 'mcq' || type === 'multiselect' || type === 'poll' || type === 'case') && q.options?.some(opt => getOptionText(opt).length > 150)) {
+    // ── Text length ───────────────────────────────────────────────────────────
+    // Two different jobs here, so two different severities.
+    //
+    // The ERRORS are absolute ceilings, applied whether or not the slide is
+    // marked longText. Their job is to stop a pathological API/AI/import payload
+    // — a 50KB "question" that no layout can absorb and that bloats every
+    // socket broadcast for the whole session. They are deliberately set at the
+    // long-text caps rather than the default ones: quizzes created through the
+    // REST API and CSV import have never been length-checked, so tightening to
+    // 160/100 here would start rejecting content that already exists and runs.
+    //
+    // The WARNINGS are the authoring nudge, and only fire on standard slides —
+    // on a longText slide the whole point is that the text is long.
+    const optionTypeWithText = type === 'mcq' || type === 'multiselect' || type === 'poll' || type === 'case'
+
+    if ((q.text?.length ?? 0) > QUESTION_CHAR_LIMIT_LONG) {
+      issues.push({
+        questionIndex,
+        field: 'text',
+        message: `Question text must be ${QUESTION_CHAR_LIMIT_LONG} characters or fewer.`,
+        severity: 'error',
+      })
+    }
+
+    if (optionTypeWithText && q.options?.some(opt => getOptionText(opt).length > OPTION_CHAR_LIMIT_LONG)) {
       issues.push({
         questionIndex,
         field: 'options',
-        message: 'Answer options should be 150 characters or fewer.',
-        severity: 'warning',
+        message: `Answer options must be ${OPTION_CHAR_LIMIT_LONG} characters or fewer.`,
+        severity: 'error',
       })
+    }
+
+    if ((q.scenarioText?.length ?? 0) > SCENARIO_CHAR_LIMIT_LONG) {
+      issues.push({
+        questionIndex,
+        field: 'scenarioText',
+        message: `Scenario narrative must be ${SCENARIO_CHAR_LIMIT_LONG} characters or fewer.`,
+        severity: 'error',
+      })
+    }
+
+    if ((q.supportingDetail?.length ?? 0) > SUPPORTING_DETAIL_CHAR_LIMIT_LONG) {
+      issues.push({
+        questionIndex,
+        field: 'supportingDetail',
+        message: `Supporting detail must be ${SUPPORTING_DETAIL_CHAR_LIMIT_LONG} characters or fewer.`,
+        severity: 'error',
+      })
+    }
+
+    if (!q.longText) {
+      if (optionTypeWithText && q.options?.some(opt => getOptionText(opt).length > 150)) {
+        issues.push({
+          questionIndex,
+          field: 'options',
+          message: 'Answer options should be 150 characters or fewer. Turn on Long text for this slide to lay out longer answers properly.',
+          severity: 'warning',
+        })
+      }
+
+      if ((q.text?.length ?? 0) > QUESTION_CHAR_LIMIT) {
+        issues.push({
+          questionIndex,
+          field: 'text',
+          message: `Question text is over ${QUESTION_CHAR_LIMIT} characters. Turn on Long text for this slide to lay it out properly.`,
+          severity: 'warning',
+        })
+      }
     }
   })
 

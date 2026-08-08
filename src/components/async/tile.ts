@@ -22,7 +22,10 @@ import { tileStyle, type AnswerColor } from '@/lib/answer-colors'
  * tile still gets ~310px. Below that, two columns would squeeze longer answers
  * into three-line blocks. Lists of five or more stay vertical either way.
  */
-export function tileGridClass(optionCount: number): string {
+export function tileGridClass(optionCount: number, longText = false): string {
+  // A long answer never goes two-up: half a column would wrap it into a
+  // ten-line block. Full width is the same reflow the host stage makes.
+  if (longText) return 'flex flex-col gap-2.5 lg:gap-3'
   const quadrant = optionCount > 2 && optionCount <= 4
   return quadrant
     ? 'grid grid-cols-1 gap-2.5 xl:grid-cols-2 xl:gap-3'
@@ -34,13 +37,18 @@ interface TileClassOptions {
   selected: boolean
   /** Input is locked (submitted, feedback showing, deadline passed). */
   disabled: boolean
+  /** Long-text slide — bound the tile and scroll inside it. */
+  longText?: boolean
 }
 
 /** Classes for one answer tile. Pair with `tileStyle(color)` for the fill. */
-export function tileClass({ selected, disabled }: TileClassOptions): string {
+export function tileClass({ selected, disabled, longText = false }: TileClassOptions): string {
   return [
-    'relative flex items-center gap-3 w-full text-left rounded-xl',
+    'relative flex gap-3 w-full text-left rounded-xl',
     'px-4 py-3.5 lg:px-5 lg:py-4 min-h-[60px] lg:min-h-[68px]',
+    // Top-aligned when scrollable: centered content overflows upward too, and
+    // that half is unreachable.
+    longText ? 'items-start max-h-[30svh] overflow-y-auto overscroll-contain' : 'items-center',
     'transition-all duration-150 disabled:cursor-default',
     'focus-visible:outline focus-visible:outline-4 focus-visible:outline-white',
     selected
@@ -60,6 +68,14 @@ export const TILE_BADGE_CLASS =
  */
 export const TILE_TEXT_CLASS =
   'flex-1 min-w-0 break-words text-white font-semibold text-[15px] sm:text-base lg:text-lg leading-snug'
+
+/**
+ * Answer text on a long-text slide. Holds the 15px floor at every breakpoint
+ * instead of scaling up — the tile is already bounded, and a larger font there
+ * only means more scrolling.
+ */
+export const TILE_TEXT_CLASS_LONG =
+  'flex-1 min-w-0 break-words text-white font-semibold text-[15px] sm:text-base leading-relaxed'
 
 /** Optional per-option image thumbnail. */
 export const TILE_IMAGE_CLASS =

@@ -9,6 +9,7 @@ import {
   TILE_BADGE_CLASS,
   TILE_IMAGE_CLASS,
   TILE_TEXT_CLASS,
+  TILE_TEXT_CLASS_LONG,
   tileClass,
   tileGridClass,
   tileStyle,
@@ -38,8 +39,10 @@ export function OptionGrid({ question, disabled, onSubmit, shuffleOptions, parti
     onSubmit(toOriginalIndex(order, slot))
   }
 
+  const longText = question.longText === true
+
   return (
-    <div className={tileGridClass(opts.length)}>
+    <div className={tileGridClass(opts.length, longText)}>
       {order.map((originalIdx, slot) => {
         const opt = opts[originalIdx]
         if (opt === undefined) return null
@@ -55,12 +58,12 @@ export function OptionGrid({ question, disabled, onSubmit, shuffleOptions, parti
             disabled={disabled}
             aria-label={`Option ${color.letter}: ${optText(opt)}`}
             aria-pressed={isSelected}
-            className={tileClass({ selected: isSelected, disabled })}
+            className={tileClass({ selected: isSelected, disabled, longText })}
             style={tileStyle(color)}
           >
             {img && <img src={img} alt="" className={TILE_IMAGE_CLASS} />}
             <span className={TILE_BADGE_CLASS}>{color.letter}</span>
-            <span className={TILE_TEXT_CLASS} style={{ overflowWrap: 'anywhere' }}>
+            <span className={longText ? TILE_TEXT_CLASS_LONG : TILE_TEXT_CLASS} style={{ overflowWrap: 'anywhere' }}>
               {optText(opt)}
             </span>
           </button>

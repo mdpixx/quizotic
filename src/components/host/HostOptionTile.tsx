@@ -24,6 +24,12 @@ export interface HostOptionTileProps {
   highlightCorrect: boolean
   /** Zero-based option index — used to look up the canonical jewel hue. */
   index?: number
+  /**
+   * Question.longText — this slide opted into 10x character caps. Drops the fit
+   * floor by one point and lets the tile scroll at that floor instead of
+   * overflowing, since an answer here can run to 1000 characters.
+   */
+  longText?: boolean
 }
 
 // One answer tile on the host stage.
@@ -50,12 +56,16 @@ export const HostOptionTile = memo(function HostOptionTile({
   showVotes,
   highlightCorrect,
   index = 0,
+  longText = false,
 }: HostOptionTileProps) {
   const contentRef = useRef<HTMLDivElement | null>(null)
   const textRef = useRef<HTMLSpanElement | null>(null)
 
   useFitText(contentRef, textRef, {
-    min: 14,
+    // 13px is the legibility floor for a projected tile. The fit stops there and
+    // the tile scrolls (see .host-option-tile-long in globals.css) rather than
+    // shrinking into unreadability or clipping the answer.
+    min: longText ? 13 : 14,
     // 30px cap (was 38): short answers no longer balloon far past their
     // siblings, which kept re-shaping the grid question-to-question.
     max: 30,
@@ -71,7 +81,7 @@ export const HostOptionTile = memo(function HostOptionTile({
       const b = c.getBoundingClientRect()
       return s.top >= b.top - 1 && s.bottom <= b.bottom + 1 && s.right <= b.right + 1
     },
-    deps: [text, imageUrl],
+    deps: [text, imageUrl, longText],
   })
 
   // Canonical jewel palette for this option index.
@@ -79,7 +89,7 @@ export const HostOptionTile = memo(function HostOptionTile({
 
   return (
     <div
-      className={`host-option-tile relative overflow-hidden transition-all duration-500`}
+      className={`host-option-tile ${longText ? 'host-option-tile-long' : ''} relative overflow-hidden transition-all duration-500`}
       style={{
         // Correct on reveal → emerald bloom + green edge glow + ring.
         // Wrong on reveal → desaturate so it recedes.
@@ -112,13 +122,24 @@ export const HostOptionTile = memo(function HostOptionTile({
       )}
       <div
         ref={contentRef}
-        className="relative z-10 flex flex-1 min-h-0 items-center"
+        /* Long answers scroll inside the tile once the fit bottoms out at 13px.
+           That needs flex-start: centered content overflows in BOTH directions
+           and the upward half is unreachable by scrolling. */
+        className={`relative z-10 flex flex-1 min-h-0 ${longText ? 'items-start overflow-y-auto' : 'items-center'}`}
         style={{
           // Atrium mockup .tile padding (line 118): generous horizontal padding
           // is what makes tiles read as cards rather than strips, and a wide
           // glyph↔label gap keeps the letter badge cleanly anchored.
+          //
+          // Long-text slides tighten the VERTICAL padding. On those the answer
+          // grid gets a smaller share of the stage, and the fixed chrome
+          // (padding + glyph) was overrunning the tile's content box on its
+          // own — which pinned useFitText at its floor for every answer,
+          // however short, because the box could never "clear".
           gap: 'clamp(12px, 1.6vw, 18px)',
-          padding: 'clamp(16px, 2.4vh, 26px) clamp(18px, 2.6vw, 32px)',
+          padding: longText
+            ? 'clamp(8px, 1.1vh, 13px) clamp(14px, 2vw, 24px)'
+            : 'clamp(16px, 2.4vh, 26px) clamp(18px, 2.6vw, 32px)',
         }}
       >
         <span
@@ -126,10 +147,13 @@ export const HostOptionTile = memo(function HostOptionTile({
           style={{
             // Atrium mockup .tile .glyph (lines 120-122): viewport-scaled square
             // with a 13px radius and a dark translucent fill + top sheen.
-            width: 'clamp(40px, 4.6vw, 54px)',
-            height: 'clamp(40px, 4.6vw, 54px)',
-            borderRadius: 13,
-            fontSize: 'clamp(21px, 2.4vw, 28px)',
+            // Long-text slides use a smaller square for the same reason the
+            // padding tightens above — the glyph is fixed-size, so on a short
+            // tile it, not the answer text, is what overflows.
+            width: longText ? 'clamp(30px, 3.2vw, 38px)' : 'clamp(40px, 4.6vw, 54px)',
+            height: longText ? 'clamp(30px, 3.2vw, 38px)' : 'clamp(40px, 4.6vw, 54px)',
+            borderRadius: longText ? 10 : 13,
+            fontSize: longText ? 'clamp(15px, 1.7vw, 20px)' : 'clamp(21px, 2.4vw, 28px)',
             background: 'rgba(0,0,0,0.18)',
             border: '1px solid rgba(255,255,255,0.24)',
             boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.3)',

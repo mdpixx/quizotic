@@ -119,6 +119,11 @@ interface Question {
   exactLength?: number
   transform?: 'none' | 'uppercase'
   isNameCapture?: boolean
+  // Long-text slide (Question.longText). Arrives free — sanitizeQuestion()
+  // spreads the whole question object. Bounds the question card and each answer
+  // tile to their own scroll region so the options stay on screen instead of
+  // being pushed below a wall of text.
+  longText?: boolean
 }
 
 interface LeaderboardEntry {
@@ -2387,7 +2392,10 @@ function JoinPageInner() {
         )}
 
         {/* Question card. In shared-screen mode for MCQ-like types we replace
-            the full question card with a compact "look up" prompt. */}
+            the full question card with a compact "look up" prompt.
+            A long-text question is bounded to 45svh and scrolls inside itself:
+            letting it run full height would push the answer options below the
+            fold, which reads as "there are no options" on a phone. */}
         {sharedScreenSimple ? (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 mb-4 text-center">
             <p className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: '#9CA3AF' }}>
@@ -2397,7 +2405,7 @@ function JoinPageInner() {
             <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Tap the colour matching your answer</p>
           </div>
         ) : (
-        <div className={`participant-question-card font-display bg-white rounded-2xl shadow-sm border p-4 sm:p-6 mb-4 ${question.type === 'case' ? 'border-t-4' : 'border-gray-200 border-t-4'}`} style={{ borderTopColor: question.type === 'case' ? '#2D3A8C' : '#FBD13B' }}>
+        <div className={`participant-question-card font-display bg-white rounded-2xl shadow-sm border p-4 sm:p-6 mb-4 ${question.longText ? 'max-h-[45svh] overflow-y-auto overscroll-contain' : ''} ${question.type === 'case' ? 'border-t-4' : 'border-gray-200 border-t-4'}`} style={{ borderTopColor: question.type === 'case' ? '#2D3A8C' : '#FBD13B' }}>
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm text-gray-400 font-bold tracking-wide">Q{answerableNumber} / {answerableTotal}</span>
             {(question.isScored || isScoredType(question.type as QuestionType)) && (
@@ -2420,6 +2428,7 @@ function JoinPageInner() {
             className="participant-question-text font-medium break-words text-justify [hyphens:auto]"
             data-len={(() => {
               const len = question.text.length
+              if (len > 400) return 'xxl'
               if (len > 200) return 'xl'
               if (len > 140) return 'lg'
               return 'default'
@@ -2741,7 +2750,11 @@ function JoinPageInner() {
                   className={`${OPTION_GRADIENTS[idx]} rounded-xl text-white text-left transition-all focus-visible:outline focus-visible:outline-4 focus-visible:outline-white
                     ${sharedScreenSimple
                       ? `p-3.5 ${isTwoOption ? 'flex items-center gap-4 py-4' : 'min-h-[116px] h-auto flex flex-col items-center justify-center'}`
-                      : 'flex items-center gap-3 px-4 py-3 min-h-[60px]'}
+                      /* Long answers get their own bounded scroll region so all
+                         four tiles stay on one screen — otherwise option D sits
+                         a full page below option A. Top-aligned because centered
+                         content overflows upward, where scrolling cannot reach. */
+                      : `flex gap-3 px-4 py-3 min-h-[60px] ${question.longText ? 'items-start max-h-[30svh] overflow-y-auto overscroll-contain' : 'items-center'}`}
                     ${isSelected ? 'ring-4 ring-white scale-[0.97]' : 'motion-safe:hover:scale-[1.02] motion-safe:hover:brightness-110 motion-safe:active:scale-95'}
                     ${isDisabled && !isSelected ? 'opacity-50 pointer-events-none' : ''}
                   `}
@@ -2785,7 +2798,7 @@ function JoinPageInner() {
                     </span>
                   )}
                   {!sharedScreenSimple && (
-                    <span className="flex-1 min-w-0 break-words text-base sm:text-lg font-medium leading-snug [hyphens:auto]" style={{ overflowWrap: 'anywhere' }}>{optText}</span>
+                    <span className={`flex-1 min-w-0 break-words font-medium leading-snug [hyphens:auto] ${question.longText ? 'text-[15px] sm:text-base' : 'text-base sm:text-lg'}`} style={{ overflowWrap: 'anywhere' }}>{optText}</span>
                   )}
                 </button>
               )

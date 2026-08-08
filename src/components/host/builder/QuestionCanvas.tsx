@@ -43,7 +43,8 @@ import {
   clampTimer,
   formatTimer,
   QUESTION_CHAR_LIMIT,
-  OPTION_CHAR_LIMIT,
+  questionCharLimit,
+  optionCharLimit,
   hasCorrectAnswer,
   needsCorrectAnswer,
   questionTextSizeClass,
@@ -889,12 +890,15 @@ export function QuestionCanvas({
       {/* ── Question text ─────────────────────────────────────────────────── */}
       {/* Fixed-height band: the question sits in the same place on every slide
           regardless of type or text length. The font scales down with length
-          (questionTextSizeClass) so the full text fits without scrolling. */}
+          (questionTextSizeClass) so the full text fits without scrolling.
+          A longText slide can out-run even the smallest bucket, so there the
+          band keeps its height and the textarea scrolls inside it — the band
+          must not grow, or the answer tiles below would move slide to slide. */}
       <div
         className="flex-shrink-0 relative px-3 md:px-6 py-4 flex items-stretch gap-3 md:gap-5 min-w-0 max-w-full"
         style={{ background: '#FAFAF8', borderBottom: '1px solid #EDE8E0', height: 'clamp(132px, 24vh, 208px)' }}
       >
-        <CharCount value={question.text} limit={QUESTION_CHAR_LIMIT} />
+        <CharCount value={question.text} limit={questionCharLimit(question)} />
 
         {/* Inline image — left third of the band. The band keeps its fixed
             height, so attaching an image never pushes the answers down. */}
@@ -943,8 +947,8 @@ export function QuestionCanvas({
             onChange={e => onChange({ text: e.target.value })}
             placeholder="What would you like to ask?"
             minRows={1}
-            maxLength={160}
-            wrapperClassName="w-full max-h-full overflow-hidden"
+            maxLength={questionCharLimit(question)}
+            wrapperClassName={`w-full max-h-full ${question.longText ? 'overflow-y-auto' : 'overflow-hidden'}`}
             className={`w-full font-bold text-center bg-transparent outline-none resize-none border border-transparent hover:border-blue-200 hover:bg-blue-50/40 focus:border-transparent focus:ring-2 focus:ring-blue-100 rounded-lg transition-all leading-snug cursor-text ${questionTextSizeClass(question.text)}`}
             style={{ color: '#0F1B3D' }}
           />
@@ -1039,7 +1043,9 @@ export function QuestionCanvas({
                 </span>
               </div>
             )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {/* Long answers get the full width — same reflow the host stage
+                makes, so the builder shows the shape the room will see. */}
+            <div className={`grid gap-2.5 ${question.longText ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
               {opts.map((opt, i) => {
                 const c = ANSWER_COLORS[i] ?? ANSWER_COLORS[0]!
                 const optText = getOptionText(opt)
@@ -1058,7 +1064,7 @@ export function QuestionCanvas({
                       transition: 'box-shadow .18s ease',
                     }}
                   >
-                    <CharCount value={optText} limit={OPTION_CHAR_LIMIT} />
+                    <CharCount value={optText} limit={optionCharLimit(question)} />
                     <div className="flex items-stretch gap-3 px-3 py-2 w-full">
                       {/* Correct-answer toggle — poll/case have no correct
                           answer, so they get a plain letter chip instead of a
@@ -1098,8 +1104,11 @@ export function QuestionCanvas({
                           onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
                           placeholder={`Option ${c.letter}`}
                           disabled={question.type === 'truefalse'}
-                          maxLength={100}
-                          wrapperClassName="w-full min-w-0"
+                          maxLength={optionCharLimit(question)}
+                          /* A 1000-char answer would otherwise grow one tile
+                             taller than the whole canvas. Cap it and scroll
+                             inside — the tile stays a tile. */
+                          wrapperClassName={`w-full min-w-0 ${question.longText ? 'max-h-[220px] overflow-y-auto' : ''}`}
                           className="w-full text-sm font-bold bg-transparent outline-none border-0 text-white placeholder:text-white/60 disabled:opacity-70 resize-none leading-snug cursor-text"
                           style={{ textShadow: '0 1px 2px rgba(0,0,0,0.15)' }}
                         />

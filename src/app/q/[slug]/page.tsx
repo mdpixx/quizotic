@@ -589,11 +589,22 @@ export default function AsyncQuizPage({ params }: { params: Promise<{ slug: stri
             <p className="text-xs font-black uppercase tracking-[0.22em] mb-4" style={{ color: '#FBD13B' }}>
               Question {qNum} of {q.total}
             </p>
-            <p className="font-black leading-tight" style={{
-              color: '#fff',
-              fontFamily: 'var(--font-heading)',
-              fontSize: q.text.length > 180 ? 'clamp(1.45rem, 2.4vw, 2.4rem)' : 'clamp(1.8rem, 3.2vw, 3.7rem)',
-            }}>{q.text}</p>
+            {/* Long-text slides get a third step with a 15px floor, and the
+                paragraph scrolls inside the card rather than stretching the
+                two-column stage until the answer side floats off-screen. */}
+            <p
+              className={`font-black leading-tight ${q.longText ? 'max-h-[52svh] overflow-y-auto overscroll-contain pr-1' : ''}`}
+              style={{
+                color: '#fff',
+                fontFamily: 'var(--font-heading)',
+                fontSize: q.text.length > 400
+                  ? 'clamp(0.9375rem, 1.4vw, 1.4rem)'
+                  : q.text.length > 180
+                    ? 'clamp(1.45rem, 2.4vw, 2.4rem)'
+                    : 'clamp(1.8rem, 3.2vw, 3.7rem)',
+                lineHeight: q.text.length > 400 ? 1.5 : undefined,
+              }}
+            >{q.text}</p>
             {q.imageUrl && (
               <img src={q.imageUrl} alt="" className="mt-6 rounded-2xl max-h-[42vh] w-full object-contain" loading="lazy" />
             )}

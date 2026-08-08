@@ -967,6 +967,99 @@ body {
 .participant-question-text[data-len="xl"] {
   font-size: clamp(0.95rem, 0.88rem + 0.4vw, 1.25rem);
 }
+/* Long-text slides only. 0.9375rem = 15px is the floor and it is deliberate:
+   the card scrolls (max-h-[45svh] on the card itself) rather than shrinking
+   below the point where a phone in a classroom stops being readable. */
+.participant-question-text[data-len="xxl"] {
+  font-size: clamp(0.9375rem, 0.9rem + 0.25vw, 1.05rem);
+  line-height: 1.4;
+}
+
+/* ── Long-text slides (Question.longText) ────────────────────────────────
+   Everything below is gated on a class that ONLY a longText slide carries, so
+   a standard slide cannot match any of it — that gating, not CSS layering, is
+   what guarantees the default layout is untouched.
+
+   These rules are deliberately UNLAYERED and more specific than the base rules
+   they override. The base `.host-question-stage .host-question-card` block
+   (max-height: 34%) is itself unlayered, so a layered override would LOSE to
+   it regardless of specificity. Adding the stage class takes each selector to
+   0,3,0 against the base 0,2,0.
+
+   The strategy is fit → reflow → scroll. The measured font fit in
+   use-fit-text.ts does the shrinking; these rules do the reflow (hand the
+   height to whichever side is long, drop long answers to full width) and make
+   the last resort a scrollbar instead of `overflow: hidden` silently eating
+   the tail of a question. */
+
+.host-question-stage .host-question-card.host-stage-long-question,
+.host-question-stage .host-question-card.host-stage-long-balanced,
+.host-question-stage .host-question-card.host-stage-long-options {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* The card is `flex items-center` when it carries an image. Centered content
+     overflows in both directions and the upward half cannot be scrolled to, so
+     long slides anchor to the top instead. */
+  align-items: flex-start;
+  scrollbar-width: thin;
+}
+
+/* Question dominates: give it well over half the stage. */
+.host-question-stage .host-question-card.host-stage-long-question { max-height: 58%; }
+/* Both sides long: split near the middle. */
+.host-question-stage .host-question-card.host-stage-long-balanced { max-height: 46%; }
+/* Answers dominate: pull the question back below its own default so the tiles
+   get the room, since that is where the reading actually happens. */
+.host-question-stage .host-question-card.host-stage-long-options  { max-height: 32%; }
+
+/* A definite block size is what makes `grid-auto-rows: 1fr` divide the leftover
+   stage height instead of resolving to max-content. Without this the grid grows
+   past the bottom of the screen on a long slide; with it, each tile gets an
+   equal share and scrolls its own overflow (see HostOptionTile).
+   `overflow-y: auto`, never `hidden`: the tiles carry a min-height floor
+   (`.host-options-stage > div`, ~10.5vh) that wins over 1fr shrinking, so on a
+   short stage the rows genuinely cannot all fit. Hidden silently cut the last
+   two answers off the bottom of the projector — a scrollbar is the honest
+   outcome, and it is what keeps the no-clipping guarantee true. */
+.host-question-stage .host-options-stage.host-options-long {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+/* Drop the per-tile min-height floor on long slides. `.host-options-stage > div`
+   floors every tile at ~10.5vh, which beats `grid-auto-rows: 1fr` shrinking —
+   so four full-width tiles demanded ~432px from a grid that only had ~300px,
+   and the last two ended up below the fold on the projector. With the floor
+   removed the rows divide the available height evenly, each tile's own
+   useFitText shrinks its text to suit, and a tile that still cannot fit at the
+   13px floor scrolls internally. The tile's compact chrome (see the longText
+   branch in HostOptionTile) is the real floor now. */
+.host-options-stage.host-options-long > div {
+  min-height: 0;
+}
+
+/* A full-width tile fits roughly twice the characters per line — worth more
+   than any further font reduction once answers run this long. */
+.host-options-stage.host-options-single-col {
+  grid-template-columns: 1fr;
+}
+
+/* Thin, low-contrast scrollbars: on a projected wall a default chrome scrollbar
+   is a bright vertical stripe next to the question. */
+.host-question-stage .host-question-card[class*="host-stage-long-"]::-webkit-scrollbar,
+.host-option-tile-long ::-webkit-scrollbar {
+  width: 6px;
+}
+.host-question-stage .host-question-card[class*="host-stage-long-"]::-webkit-scrollbar-thumb {
+  background: rgba(15, 27, 61, 0.22);
+  border-radius: 3px;
+}
+.host-option-tile-long ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
 
 /* ── Heading font utility ──────────────────────────────────────────── */
 h1, h2, h3, h4, h5, h6 {

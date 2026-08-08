@@ -25,8 +25,24 @@ import { HostWordCloud } from '@/components/host/HostWordCloud'
 import { ANSWER_COLORS, ANSWER_LETTERS, colorForIndex } from '@/lib/answer-colors'
 import type { Question } from '@/lib/quiz-types'
 import { getEffectiveOptions, getOptionText, isLeaderboardSlide } from '@/lib/quiz-types'
+import { getHostQuestionFit } from '@/lib/host-stage'
 
 const GOLD = '#FBD13B'
+
+/**
+ * The live stage's height-split and column decision for a long-text slide.
+ * Same pure function the real stage calls, so the preview cannot drift from it
+ * — which is the only reason a host can trust it before presenting.
+ */
+function longTextFit(question: Question) {
+  return getHostQuestionFit({
+    stage: 'live',
+    questionText: question.text,
+    optionTexts: (getEffectiveOptions(question) ?? []).map(getOptionText),
+    hasExplanation: Boolean(question.explanation),
+    longText: true,
+  })
+}
 
 export interface HostStagePreviewProps {
   questions: Question[]
@@ -192,9 +208,14 @@ function RoomGauge({ question }: { question: Question }) {
 
 function QuestionSpotlight({ question }: { question: Question }) {
   const withImage = !!question.imageUrl && question.type !== 'wordcloud'
+  // Standard slides keep the hardcoded `fit-large` guess they have always used
+  // — HostOptionTile and the question fit both re-measure at runtime anyway.
+  // Long-text slides additionally need the stage class, because the height
+  // split is the whole reason the preview would otherwise lie about clipping.
+  const stageClass = question.longText ? longTextFit(question).stageClass : 'host-stage-standard'
   return (
     <div
-      className={`host-question-card w-full host-question-fit-large flex rounded-[26px] border ${withImage ? 'flex-row items-center' : 'flex-col'} ${question.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
+      className={`host-question-card w-full host-question-fit-large ${stageClass} flex rounded-[26px] border ${withImage ? 'flex-row items-center' : 'flex-col'} ${question.type === 'case' ? 'border-blue-300' : 'border-white/20'}`}
       style={{
         background: 'rgba(255,255,255,0.97)',
         boxShadow: '0 30px 90px -20px rgba(0,0,0,0.5)',
@@ -247,8 +268,11 @@ function AnswerStage({ question }: { question: Question }) {
   const options = getEffectiveOptions(question) ?? []
   if (options.length === 0) return <CollectedStage isQa={false} />
 
+  const longText = question.longText === true
+  const singleCol = longText && longTextFit(question).optionColumns === 1
+
   return (
-    <div className="host-answer-stage host-options-stage host-option-fit-large">
+    <div className={`host-answer-stage host-options-stage host-option-fit-large ${longText ? 'host-options-long' : ''} ${singleCol ? 'host-options-single-col' : ''}`}>
       {options.map((opt, i) => (
         <HostOptionTile
           key={i}
@@ -260,6 +284,7 @@ function AnswerStage({ question }: { question: Question }) {
           votePct={0}
           showVotes={false}
           highlightCorrect={false}
+          longText={longText}
         />
       ))}
     </div>

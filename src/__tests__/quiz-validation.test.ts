@@ -79,6 +79,71 @@ describe('validateQuizQuestions', () => {
   })
 })
 
+describe('validateQuizQuestions — text length', () => {
+  const ok = { correctAnswer: '0' as const }
+
+  it('warns about a long option on a standard slide and points at the fix', () => {
+    const issues = validateQuizQuestions([
+      q({ ...ok, options: ['x'.repeat(900), 'B', 'C', 'D'] }),
+    ])
+    expect(issues).toHaveLength(1)
+    expect(issues[0]).toMatchObject({ field: 'options', severity: 'warning' })
+    expect(issues[0]!.message).toContain('Long text')
+  })
+
+  it('accepts the same long option once the slide opts in', () => {
+    expect(validateQuizQuestions([
+      q({ ...ok, longText: true, options: ['x'.repeat(900), 'B', 'C', 'D'] }),
+    ])).toEqual([])
+  })
+
+  it('warns about a question over the standard cap and points at the fix', () => {
+    const issues = validateQuizQuestions([q({ ...ok, text: 'x'.repeat(400) })])
+    expect(issues).toHaveLength(1)
+    expect(issues[0]).toMatchObject({ field: 'text', severity: 'warning' })
+  })
+
+  it('stays silent about a long question once the slide opts in', () => {
+    expect(validateQuizQuestions([
+      q({ ...ok, longText: true, text: 'x'.repeat(1500) }),
+    ])).toEqual([])
+  })
+
+  // The ceilings are absolute — they stop a pathological API/import payload
+  // regardless of the flag, which is the only length guard the server has.
+  it('errors past the option ceiling even on a long-text slide', () => {
+    const issues = validateQuizQuestions([
+      q({ ...ok, longText: true, options: ['x'.repeat(1001), 'B', 'C', 'D'] }),
+    ])
+    expect(issues).toContainEqual(expect.objectContaining({ field: 'options', severity: 'error' }))
+  })
+
+  it('errors past the question ceiling even on a long-text slide', () => {
+    const issues = validateQuizQuestions([
+      q({ ...ok, longText: true, text: 'x'.repeat(1601) }),
+    ])
+    expect(issues).toContainEqual(expect.objectContaining({ field: 'text', severity: 'error' }))
+  })
+
+  it('errors past the scenario and supporting-detail ceilings', () => {
+    const issues = validateQuizQuestions([
+      q({
+        ...ok,
+        type: 'case',
+        longText: true,
+        scenarioText: 'x'.repeat(3001),
+        supportingDetail: 'y'.repeat(601),
+      }),
+    ])
+    expect(issues).toContainEqual(expect.objectContaining({ field: 'scenarioText', severity: 'error' }))
+    expect(issues).toContainEqual(expect.objectContaining({ field: 'supportingDetail', severity: 'error' }))
+  })
+
+  it('leaves an ordinary slide with ordinary text completely clean', () => {
+    expect(validateQuizQuestions([q(ok)])).toEqual([])
+  })
+})
+
 describe('formatQuizValidationIssues', () => {
   it('adds question numbers for creator and API messages', () => {
     expect(formatQuizValidationIssues(validateQuizQuestions([

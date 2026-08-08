@@ -152,6 +152,8 @@ describe('getHostQuestionFit', () => {
       questionClass: 'host-question-fit-large',
       optionClass: 'host-option-fit-large',
       explanationClass: 'host-explanation-fit-roomy',
+      stageClass: 'host-stage-standard',
+      optionColumns: 2,
     })
   })
 
@@ -172,6 +174,8 @@ describe('getHostQuestionFit', () => {
       questionClass: 'host-question-fit-tight',
       optionClass: 'host-option-fit-tight',
       explanationClass: 'host-explanation-fit-compact',
+      stageClass: 'host-stage-standard',
+      optionColumns: 2,
     })
   })
 
@@ -190,6 +194,8 @@ describe('getHostQuestionFit', () => {
       questionClass: 'host-question-fit-reveal',
       optionClass: 'host-option-fit-tight',
       explanationClass: 'host-explanation-fit-compact',
+      stageClass: 'host-stage-standard',
+      optionColumns: 2,
     })
   })
 
@@ -203,6 +209,8 @@ describe('getHostQuestionFit', () => {
       questionClass: 'host-question-fit-large',
       optionClass: 'host-option-fit-large',
       explanationClass: 'host-explanation-fit-roomy',
+      stageClass: 'host-stage-standard',
+      optionColumns: 2,
     })
   })
 
@@ -221,6 +229,71 @@ describe('getHostQuestionFit', () => {
       questionClass: 'host-question-fit-large',
       optionClass: 'host-option-fit-tight',
       explanationClass: 'host-explanation-fit-compact',
+      stageClass: 'host-stage-standard',
+      optionColumns: 2,
     })
+  })
+})
+
+describe('getHostQuestionFit — long-text slides', () => {
+  const shortOptions = ['Mercury', 'Venus', 'Earth', 'Mars']
+  const passage = 'x'.repeat(900)
+
+  it('leaves the stage split untouched when the slide has not opted in', () => {
+    // Same 900-character question, no longText flag: the stage must behave
+    // exactly as it did before this feature existed.
+    const fit = getHostQuestionFit({
+      questionText: passage,
+      optionTexts: shortOptions,
+      hasExplanation: false,
+    })
+    expect(fit.stageClass).toBe('host-stage-standard')
+    expect(fit.optionColumns).toBe(2)
+  })
+
+  it('hands the height to the question when only the question is long', () => {
+    const fit = getHostQuestionFit({
+      questionText: passage,
+      optionTexts: shortOptions,
+      hasExplanation: false,
+      longText: true,
+    })
+    expect(fit.stageClass).toBe('host-stage-long-question')
+    // Short answers still read best two-up.
+    expect(fit.optionColumns).toBe(2)
+  })
+
+  it('hands the height to the answers and goes full width when answers are long', () => {
+    const fit = getHostQuestionFit({
+      questionText: 'Which of the following statements is correct?',
+      optionTexts: Array.from({ length: 4 }, () => 'y'.repeat(600)),
+      hasExplanation: false,
+      longText: true,
+    })
+    expect(fit.stageClass).toBe('host-stage-long-options')
+    expect(fit.optionColumns).toBe(1)
+  })
+
+  it('splits near the middle when both sides are long', () => {
+    const fit = getHostQuestionFit({
+      questionText: passage,
+      optionTexts: Array.from({ length: 4 }, () => 'y'.repeat(200)),
+      hasExplanation: true,
+      longText: true,
+    })
+    expect(fit.stageClass).toBe('host-stage-long-balanced')
+    // 200 chars clears the 160 full-width threshold.
+    expect(fit.optionColumns).toBe(1)
+  })
+
+  it('carries the split through to the reveal stage', () => {
+    const fit = getHostQuestionFit({
+      stage: 'reveal',
+      questionText: passage,
+      optionTexts: shortOptions,
+      hasExplanation: true,
+      longText: true,
+    })
+    expect(fit.stageClass).toBe('host-stage-long-question')
   })
 })
