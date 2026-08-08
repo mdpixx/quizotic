@@ -7,7 +7,9 @@ export function CaseCard({ question, disabled, onSubmit }: AsyncInputProps) {
   return (
     <div className="space-y-4">
       {(question.scenarioText || question.supportingDetail) && (
-        <div className="rounded-xl p-4 space-y-2" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+        /* A long-text scenario can run to 3000 characters. Bounded here so the
+           answer tiles below it stay reachable without a long scroll. */
+        <div className={`rounded-xl p-4 space-y-2 ${question.longText ? 'max-h-[38svh] overflow-y-auto overscroll-contain' : ''}`} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
           {question.scenarioText && (
             <p className="text-sm font-semibold leading-relaxed" style={{ color: '#E2E8F0' }}>
               {question.scenarioText}

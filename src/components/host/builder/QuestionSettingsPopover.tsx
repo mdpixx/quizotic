@@ -13,7 +13,14 @@
 import React from 'react'
 import type { Question, BloomsLevel, OpenEndedInputMode } from '@/lib/quiz-types'
 import { ImageUpload } from '@/components/ImageUpload'
-import { hasCorrectAnswer, needsCorrectAnswer } from '@/lib/quiz-builder-logic'
+import {
+  hasCorrectAnswer,
+  needsCorrectAnswer,
+  optionCharLimit,
+  questionCharLimit,
+  scenarioCharLimit,
+  supportingDetailCharLimit,
+} from '@/lib/quiz-builder-logic'
 import { normalizeInputMode } from '@/lib/openended-input.mjs'
 
 // Open-ended answer-shape presets. 'any' is the historical behaviour and stays
@@ -119,6 +126,38 @@ export function QuestionSettingsPopover({ question, onChange, onClose }: Questio
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Long text — the opt-in that raises every character cap on this slide
+            10x. Off by default and never set automatically, so an existing quiz
+            is untouched. The disclaimer is not boilerplate: at the top of the
+            range the projector genuinely does render small, and a host should
+            know that before they present rather than discover it in the room. */}
+        <div className="rounded-xl p-3" style={{ background: question.longText ? '#F5F3FF' : '#F8FAFC', border: `1px solid ${question.longText ? '#DDD6FE' : '#E2E8F0'}` }}>
+          <label className="flex items-start gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={question.longText === true}
+              onChange={e => onChange({ longText: e.target.checked ? true : undefined })}
+              className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 cursor-pointer accent-[#7C3AED]"
+            />
+            <span className="min-w-0">
+              <span className="block text-[11px] font-black uppercase tracking-wider" style={{ color: question.longText ? '#6D28D9' : '#475569' }}>
+                Long text
+              </span>
+              <span className="mt-1 block text-[11px] font-normal leading-snug text-gray-500">
+                Raises this question to {questionCharLimit({ longText: true }).toLocaleString()} characters
+                and each answer to {optionCharLimit({ longText: true }).toLocaleString()}.
+              </span>
+            </span>
+          </label>
+          {question.longText && (
+            <p className="mt-2 pl-6 text-[11px] leading-snug" style={{ color: '#7C5BC7' }}>
+              Text auto-shrinks to fit, and the cards scroll once it reaches a readable minimum
+              rather than cutting anything off. Best for quizzes people read on their own phones —
+              very long text is small on a projector. Check <strong className="font-bold">Preview</strong> before you present.
+            </p>
+          )}
         </div>
 
         {/* Answer format (open-ended only) — lets a host collect roll numbers
@@ -232,7 +271,7 @@ export function QuestionSettingsPopover({ question, onChange, onClose }: Questio
                 onChange={e => onChange({ scenarioText: e.target.value || undefined })}
                 placeholder="Describe the situation the participant faces..."
                 rows={3}
-                maxLength={600}
+                maxLength={scenarioCharLimit(question)}
                 className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none"
               />
             </div>
@@ -243,7 +282,7 @@ export function QuestionSettingsPopover({ question, onChange, onClose }: Questio
                 value={question.supportingDetail ?? ''}
                 onChange={e => onChange({ supportingDetail: e.target.value || undefined })}
                 placeholder="e.g., '72% of employees face this...'"
-                maxLength={200}
+                maxLength={supportingDetailCharLimit(question)}
                 className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </div>

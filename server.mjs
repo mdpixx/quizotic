@@ -1411,6 +1411,10 @@ app.prepare().then(async () => {
         imageUrl: sanitized.imageUrl ?? null,
         timerSeconds: sanitized.timerSeconds ?? 20,
         points: sanitized.points ?? 1000,
+        // Long-text slides render with a different layout; an observer/embed
+        // view that dropped this flag would lay the question out as if it were
+        // 160 characters and clip it.
+        longText: sanitized.longText === true,
         options: Array.isArray(sanitized.options)
           ? sanitized.options.map((o) => ({
               text: typeof o === 'string' ? o : (o?.text ?? ''),
@@ -1507,6 +1511,10 @@ app.prepare().then(async () => {
         imageUrl: sanitized.imageUrl ?? null,
         timerSeconds: sanitized.timerSeconds ?? 20,
         points: sanitized.points ?? 1000,
+        // Long-text slides render with a different layout; an observer/embed
+        // view that dropped this flag would lay the question out as if it were
+        // 160 characters and clip it.
+        longText: sanitized.longText === true,
         options: Array.isArray(sanitized.options)
           ? sanitized.options.map((o) => ({
               text: typeof o === 'string' ? o : (o?.text ?? ''),

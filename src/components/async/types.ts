@@ -11,6 +11,12 @@ export type QuizQuestion = {
   supportingDetail?: string
   matchLefts?: string[]   // matching — left prompts (ordered)
   matchRights?: string[]  // matching — right options (shuffled)
+  /**
+   * Long-text slide (Question.longText). Arrives free — toPublicQuestion()
+   * spreads the whole question. Drops answers to one column and gives each tile
+   * its own bounded scroll region so a 1000-character answer stays a tile.
+   */
+  longText?: boolean
   index: number   // raw snapshot index — the answer-submission key
   ordinal?: number // 1-based display position among answerable questions
   total: number

@@ -67,7 +67,10 @@ Prod: Railway runs `node server.mjs`
 - Never hardcode API keys or secrets — use .env (symlinked to secrets vault)
 - JavaScript only — no Python
 - Minimal dependencies — don't add packages for one-time operations
-- All WebSocket events must be < 1KB payload
+- All WebSocket events must be < 1KB payload — **one exception**: a slide with
+  `Question.longText` set raises every text cap 10x, so its `question_show`
+  broadcast can reach ~6KB (1,600-char question + 4x1,000-char options). That is
+  intentional and opt-in per slide; do not "fix" it by truncating the payload.
 - Test real-time features with at least 2 browser tabs (host + participant)
 - **Read AGENTS.md before writing Next.js code** — this is Next.js 16, not 14
 

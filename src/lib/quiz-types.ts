@@ -180,6 +180,19 @@ export interface Question {
   bloomsLevel?: BloomsLevel // optional tag for session report Bloom's distribution
   scenarioText?: string     // 'case' type: the situation narrative (up to 500 chars)
   supportingDetail?: string // 'case' type: optional bold callout (stat, quote, data point)
+  /**
+   * Opt-in long-text slide. Absent — the default, and what every existing quiz
+   * carries — means today's 160/100 character caps and today's layout,
+   * byte-for-byte. When true the builder raises every text cap 10x and the
+   * render surfaces switch to fit → reflow → scroll (see the `.qz-longtext`
+   * block in globals.css): the font shrinks within the same box down to a
+   * legibility floor, the host answer grid drops to one column, and past the
+   * floor the card scrolls instead of clipping.
+   *
+   * Never set by AI generation or CSV import — the host turns it on
+   * deliberately, per slide, from the question settings popover.
+   */
+  longText?: boolean
   topN?: number             // 'leaderboard' type: how many top players to show (default 5)
   // ─── 'openended' input constraints ────────────────────────────────────────
   // All optional; absent behaves exactly as before. Logic lives in
@@ -195,6 +208,50 @@ export interface Question {
   // reconciled. See isNameCaptureQuestion() for the retroactive heuristic that
   // covers sessions run before this flag existed.
   isNameCapture?: boolean
+}
+
+// ─── Character limits ─────────────────────────────────────────────────────────
+//
+// The defaults are what every slide gets, and they exist because a projector and
+// a phone are both space-constrained. A slide can opt into `longText` to raise
+// each cap 10x; that same flag switches the render surfaces into their
+// fit → reflow → scroll layout, so the extra text is absorbed by a smaller font
+// in the same box rather than by moving the page around.
+//
+// These live here — in the dependency-free types module — rather than in
+// quiz-builder-logic, so quiz-validation can enforce the same numbers the
+// builder offers without an import cycle (quiz-builder-logic re-exports the
+// validator). quiz-builder-logic re-exports all of them for builder callers.
+//
+// Always read a limit through the accessors: hardcoding a number is how the
+// builder's maxLength and the validator's ceiling drift apart.
+
+export const QUESTION_CHAR_LIMIT = 160
+export const OPTION_CHAR_LIMIT = 100
+export const SCENARIO_CHAR_LIMIT = 600
+export const SUPPORTING_DETAIL_CHAR_LIMIT = 200
+
+export const QUESTION_CHAR_LIMIT_LONG = 1600
+export const OPTION_CHAR_LIMIT_LONG = 1000
+export const SCENARIO_CHAR_LIMIT_LONG = 3000
+export const SUPPORTING_DETAIL_CHAR_LIMIT_LONG = 600
+
+type LongTextFlag = Pick<Question, 'longText'>
+
+export function questionCharLimit(q: LongTextFlag): number {
+  return q.longText ? QUESTION_CHAR_LIMIT_LONG : QUESTION_CHAR_LIMIT
+}
+
+export function optionCharLimit(q: LongTextFlag): number {
+  return q.longText ? OPTION_CHAR_LIMIT_LONG : OPTION_CHAR_LIMIT
+}
+
+export function scenarioCharLimit(q: LongTextFlag): number {
+  return q.longText ? SCENARIO_CHAR_LIMIT_LONG : SCENARIO_CHAR_LIMIT
+}
+
+export function supportingDetailCharLimit(q: LongTextFlag): number {
+  return q.longText ? SUPPORTING_DETAIL_CHAR_LIMIT_LONG : SUPPORTING_DETAIL_CHAR_LIMIT
 }
 
 export interface Quiz {

@@ -8,6 +8,7 @@ import { optText, optImage } from './types'
 import {
   TILE_IMAGE_CLASS,
   TILE_TEXT_CLASS,
+  TILE_TEXT_CLASS_LONG,
   tileClass,
   tileGridClass,
   tileStyle,
@@ -19,6 +20,7 @@ export function MultiSelectGrid({ question, disabled, onSubmit, shuffleOptions, 
   const [submitted, setSubmitted] = useState(false)
   const opts = question.options ?? []
   const locked = disabled || submitted
+  const longText = question.longText === true
 
   const order = useMemo(() => buildDisplayOrder({
     optionCount: opts.length,
@@ -69,7 +71,7 @@ export function MultiSelectGrid({ question, disabled, onSubmit, shuffleOptions, 
         </div>
       )}
 
-      <div className={tileGridClass(opts.length)}>
+      <div className={tileGridClass(opts.length, longText)}>
         {order.map((originalIdx, slot) => {
           const opt = opts[originalIdx]
           if (opt === undefined) return null
@@ -84,7 +86,7 @@ export function MultiSelectGrid({ question, disabled, onSubmit, shuffleOptions, 
               disabled={locked}
               aria-label={`Option ${color.letter}: ${optText(opt)}`}
               aria-pressed={isChosen}
-              className={tileClass({ selected: isChosen, disabled: locked })}
+              className={tileClass({ selected: isChosen, disabled: locked, longText })}
               style={tileStyle(color)}
             >
               {img && <img src={img} alt="" className={TILE_IMAGE_CLASS} />}
@@ -107,7 +109,7 @@ export function MultiSelectGrid({ question, disabled, onSubmit, shuffleOptions, 
                   </svg>
                 )}
               </span>
-              <span className={TILE_TEXT_CLASS} style={{ overflowWrap: 'anywhere' }}>
+              <span className={longText ? TILE_TEXT_CLASS_LONG : TILE_TEXT_CLASS} style={{ overflowWrap: 'anywhere' }}>
                 {optText(opt)}
               </span>
             </button>

@@ -30,6 +30,9 @@ export function normalizeQuestion(raw: unknown, index: number): Question {
   if (q.bloomsLevel) base.bloomsLevel = q.bloomsLevel
   if (q.scenarioText) base.scenarioText = q.scenarioText
   if (q.supportingDetail) base.supportingDetail = q.supportingDetail
+  // Only ever true — writing `false` would persist a field on every question
+  // that the builder treats as absent.
+  if (q.longText === true) base.longText = true
   return base
 }
 

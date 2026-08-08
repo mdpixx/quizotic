@@ -84,7 +84,14 @@ export function ParticipantPreview({ questions, index }: ParticipantPreviewProps
       )}
 
       {question.type === 'case' && question.scenarioText && (
-        <div className="mb-3 rounded-2xl border p-5" style={{ background: NAVY, borderColor: '#2D3A8C' }}>
+        <div
+          className="mb-3 rounded-2xl border p-5"
+          style={{
+            background: NAVY,
+            borderColor: '#2D3A8C',
+            ...(question.longText ? { maxHeight: LONG_SCENARIO_MAX_PX, overflowY: 'auto' as const } : {}),
+          }}
+        >
           <p className="mb-2 text-base font-bold uppercase tracking-widest" style={{ color: GOLD }}>Scenario</p>
           <p className="text-lg leading-relaxed" style={{ color: '#E0E7FF' }}>{question.scenarioText}</p>
           {question.supportingDetail && (
@@ -96,7 +103,10 @@ export function ParticipantPreview({ questions, index }: ParticipantPreviewProps
       {/* ── Question card ───────────────────────────────────────────────── */}
       <div
         className="participant-question-card font-display mb-4 rounded-2xl border border-t-4 border-gray-200 bg-white p-4 shadow-sm"
-        style={{ borderTopColor: question.type === 'case' ? '#2D3A8C' : GOLD }}
+        style={{
+          borderTopColor: question.type === 'case' ? '#2D3A8C' : GOLD,
+          ...(question.longText ? { maxHeight: LONG_QUESTION_MAX_PX, overflowY: 'auto' as const } : {}),
+        }}
       >
         <div className="mb-3 flex items-center justify-between">
           <span className="text-sm font-bold tracking-wide text-gray-400">Q{answerableNumber} / {answerableTotal}</span>
@@ -137,10 +147,20 @@ export function ParticipantPreview({ questions, index }: ParticipantPreviewProps
  * same three buckets resolved at a 390px viewport.
  */
 function questionTextSize(len: number): { fontSize: number; lineHeight: number } {
+  // 15px is the long-text floor (the [data-len="xxl"] clamp floor). Below this
+  // the card scrolls instead of shrinking further.
+  if (len > 400) return { fontSize: 15, lineHeight: 1.4 }
   if (len > 200) return { fontSize: 15.6, lineHeight: 1.3 }
   if (len > 140) return { fontSize: 17.6, lineHeight: 1.3 }
   return { fontSize: 20, lineHeight: 1.3 }
 }
+
+// The live page bounds a long-text question card at 45svh and each answer tile
+// at 30svh. svh inside <ScaledDevice> resolves against the browser window, not
+// the 844px frame, so both are written here as the px a 390x844 phone gets.
+const LONG_QUESTION_MAX_PX = 380
+const LONG_OPTION_MAX_PX = 253
+const LONG_SCENARIO_MAX_PX = 320
 
 // ── Answer area ──────────────────────────────────────────────────────────────
 
@@ -153,6 +173,7 @@ function AnswerArea({ question }: { question: Question }) {
 
   const options = getEffectiveOptions(question) ?? []
   const isMultiselect = question.type === 'multiselect'
+  const longText = question.longText === true
 
   return (
     <>
@@ -169,8 +190,11 @@ function AnswerArea({ question }: { question: Question }) {
           return (
             <div
               key={i}
-              className="flex min-h-[60px] items-center gap-3 rounded-xl px-4 py-3 text-left text-white"
-              style={{ background: colorForIndex(i).hex }}
+              className={`flex min-h-[60px] gap-3 rounded-xl px-4 py-3 text-left text-white ${longText ? 'items-start' : 'items-center'}`}
+              style={{
+                background: colorForIndex(i).hex,
+                ...(longText ? { maxHeight: LONG_OPTION_MAX_PX, overflowY: 'auto' as const } : {}),
+              }}
             >
               {optImage && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -187,7 +211,10 @@ function AnswerArea({ question }: { question: Question }) {
                   {ANSWER_LETTERS[i] ?? String(i + 1)}
                 </span>
               )}
-              <span className="min-w-0 flex-1 break-words text-base font-medium leading-snug [hyphens:auto]" style={{ overflowWrap: 'anywhere' }}>
+              <span
+                className="min-w-0 flex-1 break-words font-medium leading-snug [hyphens:auto]"
+                style={{ overflowWrap: 'anywhere', fontSize: longText ? 15 : 16 }}
+              >
                 {getOptionText(opt)}
               </span>
             </div>
